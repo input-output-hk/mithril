@@ -8,8 +8,8 @@ use mithril_common::{
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-        CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
-        ImmutableFileObserver, ImmutableFileSystemObserver,
+        CardanoImmutableDigester, DumbImmutableDigester, DumbImmutableFileObserver,
+        ImmutableDigester, ImmutableFileObserver, ImmutableFileSystemObserver,
     },
     entities::{CertificatePending, Epoch},
     era::{
@@ -548,17 +548,14 @@ impl DependenciesBuilder {
 
     // TODO: cache management which should not be ASYNC
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
-        let immutable_digester_cache = match self.configuration.environment {
-            ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
-            _ => None,
-        };
-        let digester = CardanoImmutableDigester::new(
-            self.configuration.db_directory.clone(),
-            immutable_digester_cache,
-            self.get_logger().await?,
-        );
-
-        Ok(Arc::new(digester))
+        match self.configuration.environment {
+            ExecutionEnvironment::Production => Ok(Arc::new(CardanoImmutableDigester::new(
+                self.configuration.db_directory.clone(),
+                Some(self.get_immutable_cache_provider().await?),
+                self.get_logger().await?,
+            ))),
+            _ => Ok(Arc::new(DumbImmutableDigester::default())),
+        }
     }
 
     /// Immutable digester.

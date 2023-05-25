@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::SignedEntityType;
+use mithril_common::era::SupportedEra;
 use mithril_common::store::StakeStorer;
 use slog_scope::{debug, info, warn};
 
@@ -217,17 +218,35 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
     ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: get_current_non_certified_open_message");
-        let signed_entity_types = vec![
-            SignedEntityType::MithrilStakeDistribution(
-                self.dependencies.ticker_service.get_current_epoch().await?,
-            ),
-            SignedEntityType::CardanoImmutableFilesFull(
-                self.dependencies
-                    .ticker_service
-                    .get_current_immutable_beacon()
-                    .await?,
-            ),
-        ];
+        let current_era = self
+            .dependencies
+            .era_reader
+            .read_era_epoch_token(self.dependencies.ticker_service.get_current_epoch().await?)
+            .await?
+            .get_current_supported_era()?;
+        let signed_entity_types = match current_era {
+            SupportedEra::Thales => {
+                vec![SignedEntityType::CardanoImmutableFilesFull(
+                    self.dependencies
+                        .ticker_service
+                        .get_current_immutable_beacon()
+                        .await?,
+                )]
+            }
+            SupportedEra::Pythagoras => {
+                vec![
+                    SignedEntityType::MithrilStakeDistribution(
+                        self.dependencies.ticker_service.get_current_epoch().await?,
+                    ),
+                    SignedEntityType::CardanoImmutableFilesFull(
+                        self.dependencies
+                            .ticker_service
+                            .get_current_immutable_beacon()
+                            .await?,
+                    ),
+                ]
+            }
+        };
 
         for signed_entity_type in signed_entity_types {
             if let Some(open_message) = self
@@ -576,10 +595,12 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use mithril_common::chain_observer::FakeObserver;
-    use mithril_common::digesters::DumbImmutableFileObserver;
+    use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::entities::{
         Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
     };
+    use mithril_common::era::adapters::EraReaderDummyAdapter;
+    use mithril_common::era::{EraMarker, EraReader, SupportedEra};
     use mithril_common::signable_builder::SignableBuilderService;
     use mithril_common::store::StakeStorer;
     use mithril_common::test_utils::fake_data;
@@ -620,6 +641,12 @@ pub mod tests {
         runner.update_beacon(&beacon).await.unwrap();
 
         runner
+    }
+
+    fn init_dummy_era_reader(era: SupportedEra) -> EraReader {
+        EraReader::new(Arc::new(EraReaderDummyAdapter::from_markers(vec![
+            EraMarker::new(&era.to_string(), Some(Epoch(0))),
+        ])))
     }
 
     #[tokio::test]
@@ -921,7 +948,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists(
+    async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists_pythagoras_era(
     ) {
         let open_message_expected = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(
@@ -944,6 +971,41 @@ pub mod tests {
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.era_reader = Arc::new(init_dummy_era_reader(SupportedEra::Pythagoras));
+
+        let runner = init_runner_from_dependencies(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message()
+            .await
+            .unwrap();
+        assert_eq!(Some(open_message_expected.clone()), open_message_returned);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_cardano_immutables_if_none_exists_thales_era(
+    ) {
+        let open_message_expected = OpenMessage {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            is_certified: false,
+            ..OpenMessage::dummy()
+        };
+        let open_message_clone = open_message_expected.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(None))
+            .times(1);
+        mock_certifier_service
+            .expect_create_open_message()
+            .return_once(|_, _| Ok(open_message_clone))
+            .times(1);
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.digester = Arc::new(DumbImmutableDigester::default());
+        deps.era_reader = Arc::new(init_dummy_era_reader(SupportedEra::Thales));
 
         let runner = init_runner_from_dependencies(deps).await;
 
@@ -986,7 +1048,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified(
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified_pythagoras_era(
     ) {
         let open_message_already_certified = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(
@@ -1015,6 +1077,7 @@ pub mod tests {
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.era_reader = Arc::new(init_dummy_era_reader(SupportedEra::Pythagoras));
 
         let runner = init_runner_from_dependencies(deps).await;
 
@@ -1026,7 +1089,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified(
+    async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified_pythagoras_era(
     ) {
         let open_message_already_certified = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(
@@ -1067,6 +1130,7 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
         deps.signable_builder_service = Arc::new(mock_signable_builder_service);
+        deps.era_reader = Arc::new(init_dummy_era_reader(SupportedEra::Pythagoras));
 
         let runner = init_runner_from_dependencies(deps).await;
 
@@ -1078,7 +1142,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
+    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified_pythagoras_era(
     ) {
         let open_message_already_certified_mithril_stake_distribution = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(
@@ -1110,6 +1174,7 @@ pub mod tests {
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.era_reader = Arc::new(init_dummy_era_reader(SupportedEra::Pythagoras));
 
         let runner = init_runner_from_dependencies(deps).await;
 
