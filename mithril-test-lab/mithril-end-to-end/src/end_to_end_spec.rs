@@ -3,6 +3,7 @@ use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastru
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, Epoch, EpochSettings, ProtocolParameters, Snapshot};
+use mithril_common::era::SupportedEra;
 use mithril_common::messages::{
     MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
 };
@@ -73,20 +74,26 @@ impl Spec {
         )
         .await?;
 
-        // Verify that mithril stake distribution artifacts are produced and signed correctly
-        let hash = assert_node_producing_mithril_stake_distribution(&aggregator_endpoint).await?;
-        let certificate_hash = assert_signer_is_signing_mithril_stake_distribution(
-            &aggregator_endpoint,
-            &hash,
-            target_epoch - 2,
-        )
-        .await?;
-        assert_is_creating_certificate_with_enough_signers(
-            &aggregator_endpoint,
-            &certificate_hash,
-            self.infrastructure.signers().len(),
-        )
-        .await?;
+        // Verify that mithril stake distribution artifacts are produced and signed correctly (Pythagoras only)
+        match self.infrastructure.mithril_era() {
+            SupportedEra::Thales => {}
+            SupportedEra::Pythagoras => {
+                let hash =
+                    assert_node_producing_mithril_stake_distribution(&aggregator_endpoint).await?;
+                let certificate_hash = assert_signer_is_signing_mithril_stake_distribution(
+                    &aggregator_endpoint,
+                    &hash,
+                    target_epoch - 2,
+                )
+                .await?;
+                assert_is_creating_certificate_with_enough_signers(
+                    &aggregator_endpoint,
+                    &certificate_hash,
+                    self.infrastructure.signers().len(),
+                )
+                .await?;
+            }
+        }
 
         // Verify that snapshot artifacts are produced and signed correctly
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;

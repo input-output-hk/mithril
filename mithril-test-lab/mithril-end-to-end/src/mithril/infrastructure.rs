@@ -1,15 +1,18 @@
 use crate::{Aggregator, Client, Devnet, Signer, DEVNET_MAGIC_ID};
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::entities::ProtocolParameters;
+use mithril_common::era::SupportedEra;
 use mithril_common::CardanoNetwork;
 use std::borrow::BorrowMut;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::Arc;
 
 pub struct MithrilInfrastructure {
     work_dir: PathBuf,
     bin_dir: PathBuf,
     devnet: Devnet,
+    mithril_era: SupportedEra,
     aggregator: Aggregator,
     signers: Vec<Signer>,
     cardano_chain_observer: Arc<CardanoCliChainObserver>,
@@ -74,10 +77,14 @@ impl MithrilInfrastructure {
             ),
         )));
 
+        let mithril_era = SupportedEra::from_str(mithril_era)
+            .map_err(|e| format!("Could not parse era {mithril_era}: {e}"))?;
+
         Ok(Self {
             work_dir: work_dir.to_path_buf(),
             bin_dir: bin_dir.to_path_buf(),
             devnet,
+            mithril_era,
             aggregator,
             signers,
             cardano_chain_observer,
@@ -86,6 +93,10 @@ impl MithrilInfrastructure {
 
     pub fn devnet(&self) -> &Devnet {
         &self.devnet
+    }
+
+    pub fn mithril_era(&self) -> &SupportedEra {
+        &self.mithril_era
     }
 
     pub fn aggregator(&self) -> &Aggregator {

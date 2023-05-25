@@ -47,7 +47,7 @@ pub struct Args {
     cardano_epoch_length: f64,
 
     /// Mithril era to run
-    #[clap(long, default_value = "thales")]
+    #[clap(long, default_value = "pythagoras")]
     mithril_era: String,
 }
 
