@@ -8,7 +8,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use blake2::{Blake2b, digest::consts::U32};
 //! use mithril_stm::key_reg::KeyReg; // Import key registration functionality
-//! use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+//! use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSignerAvk};
 //! use mithril_stm::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
@@ -68,8 +68,8 @@
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-//!     .collect::<Vec<StmSigner<D>>>();
+//!     .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
+//!     .collect::<Vec<StmSignerAvk<D>>>();
 //!
 //! /////////////////////
 //! // operation phase //
@@ -171,12 +171,20 @@ pub struct StmInitializer {
 /// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 /// This ensures that a `MerkleTree` root is not computed before all participants have registered.
 #[derive(Debug, Clone)]
-pub struct StmSigner<D: Digest> {
+pub struct StmSigner {
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
     sk: SigningKey,
     vk: StmVerificationKey,
+}
+
+/// Participant in the protocol can sign messages.
+/// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
+/// This ensures that a `MerkleTree` root is not computed before all participants have registered.
+#[derive(Debug, Clone)]
+pub struct StmSignerAvk<D: Digest> {
+    stm_signer: StmSigner,
     closed_reg: ClosedKeyReg<D>,
 }
 
@@ -224,14 +232,6 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<(StmSig, RegParty)>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: BatchPath<D>,
-}
-
-/// Full node signature
-pub struct FullNodeSignature {
-    /// The signature from the underlying MSP scheme.
-    pub sigma: Signature,
-    /// The index(es) for which the signature is valid
-    pub indexes: Vec<Index>,
 }
 
 /// Full node verifier
@@ -329,8 +329,8 @@ impl StmInitializer {
     pub fn new_signer<D: Digest + Clone>(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, RegisterError> {
-        let my_index = self.check_initializer(closed_reg.clone())?;
+    ) -> Result<StmSigner, RegisterError> {
+        let my_index = self.check_initializer(closed_reg)?;
 
         Ok(StmSigner {
             mt_index: my_index.unwrap(),
@@ -338,6 +338,29 @@ impl StmInitializer {
             params: self.params,
             sk: self.sk,
             vk: self.pk.vk,
+        })
+    }
+
+    /// Build the `avk` for the given list of parties.
+    ///
+    /// Note that if this StmInitializer was modified *between* the last call to `register`,
+    /// then the resulting `StmSigner` may not be able to produce valid signatures.
+    ///
+    /// Returns an `StmSigner` specialized to
+    /// * this `StmSigner`'s ID and current stake
+    /// * this `StmSigner`'s parameter valuation
+    /// * the `avk` as built from the current registered parties (according to the registration service)
+    /// * the current total stake (according to the registration service)
+    /// # Error
+    /// This function fails if the initializer is not registered.
+    pub fn new_signer_avk<D: Digest + Clone>(
+        self,
+        closed_reg: ClosedKeyReg<D>,
+    ) -> Result<StmSignerAvk<D>, RegisterError> {
+        let stm_signer = self.new_signer(closed_reg.clone())?;
+
+        Ok(StmSignerAvk {
+            stm_signer,
             closed_reg,
         })
     }
@@ -377,7 +400,47 @@ impl StmInitializer {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
+impl StmSigner {
+    /// This function produces a signature following the description of Section 2.4.
+    /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
+    /// wins the lottery by evaluating the dense mapping.
+    /// It records all the winning indexes in `Self.indexes`.
+    /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
+    /// will be handled by the aggregator.
+    pub fn sign(&self, msg: &[u8], total_stake: Stake) -> Option<StmSig> {
+        let sigma = self.sk.sign(msg);
+
+        let indexes = self.check_lottery(msg, &sigma, total_stake);
+
+        if !indexes.is_empty() {
+            Some(StmSig {
+                sigma,
+                indexes,
+                signer_index: self.mt_index,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// Checks whether the indices won the lottery.
+    pub fn check_lottery(&self, msg: &[u8], sigma: &Signature, total_stake: Stake) -> Vec<u64> {
+        let mut indexes = Vec::new();
+        for index in 0..self.params.m {
+            if ev_lt_phi(
+                self.params.phi_f,
+                sigma.eval(msg, index),
+                self.stake,
+                total_stake,
+            ) {
+                indexes.push(index);
+            }
+        }
+        indexes
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> StmSignerAvk<D> {
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -390,19 +453,16 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             .merkle_tree
             .to_commitment_batch_compat()
             .concat_with_msg(msg);
-        let sigma = self.sk.sign(&msgp);
+        let sigma = self.stm_signer.sk.sign(&msgp);
 
-        let indexes = self.check_lottery(
-            &self.params,
-            &msgp,
-            &sigma,
-        );
+        let indexes =
+            StmSigner::check_lottery(&self.stm_signer, &msgp, &sigma, self.closed_reg.total_stake);
 
         if !indexes.is_empty() {
             Some(StmSig {
                 sigma,
                 indexes,
-                signer_index: self.mt_index,
+                signer_index: self.stm_signer.mt_index,
             })
         } else {
             None
@@ -422,45 +482,12 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
 
     /// Extract the verification key.
     pub fn verification_key(&self) -> StmVerificationKey {
-        self.vk
+        self.stm_signer.vk
     }
 
     /// Extract stake from the signer.
     pub fn get_stake(&self) -> Stake {
-        self.stake
-    }
-
-    /// Checks whether the indices won the lottery.
-    pub fn check_lottery(
-        &self,
-        params: &StmParameters,
-        msg: &[u8],
-        sigma: &Signature,
-    ) -> Vec<u64> {
-        let mut indexes = Vec::new();
-        for index in 0..params.m {
-            if ev_lt_phi(params.phi_f, sigma.eval(msg, index), self.stake, self.closed_reg.total_stake) {
-                indexes.push(index);
-            }
-        }
-        indexes
-    }
-
-    /// Generates a full node signature
-    pub fn generate_full_node_sig(&self, msg: &[u8]) -> Option<FullNodeSignature> {
-        let sigma = self.sk.sign(msg);
-
-        let indexes = self.check_lottery(
-            &self.params,
-            &msg,
-            &sigma,
-        );
-
-        if !indexes.is_empty() {
-            Some(FullNodeSignature { sigma, indexes })
-        } else {
-            None
-        }
+        self.stm_signer.stake
     }
 }
 
@@ -474,9 +501,9 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     }
 
     /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &StmSigner<D>) -> Self {
+    pub fn from_signer(signer: &StmSignerAvk<D>) -> Self {
         Self {
-            params: signer.params,
+            params: signer.stm_signer.params,
             closed_reg: signer.closed_reg.clone(),
         }
     }
@@ -540,7 +567,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         for (sig, reg_party) in sigs.iter().zip(reg_parties.iter()) {
             if sig
-                .verify(&self.params, &reg_party.0, &reg_party.1, &avk, msg)
+                .verify_avk(&self.params, &reg_party.0, &reg_party.1, &avk, msg)
                 .is_err()
             {
                 continue;
@@ -622,7 +649,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 impl StmSig {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify<D: Clone + Digest + FixedOutput>(
+    pub fn verify_avk<D: Clone + Digest + FixedOutput>(
         &self,
         params: &StmParameters,
         pk: &StmVerificationKey,
@@ -631,28 +658,26 @@ impl StmSig {
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
-        self.sigma.verify(&msgp, pk)?;
-        let full_node_sig = FullNodeSignature::from_stm_sig(self);
-        FullNodeSignature::check_indices(&full_node_sig, params, stake, &msgp, &avk.total_stake)?;
+        self.verify(params, pk, stake, &msgp, &avk.total_stake)?;
         Ok(())
     }
 
     /// Verify that all indices of a signature are valid.
-    pub(crate) fn check_indices<D: Clone + Digest + FixedOutput>(
+    pub(crate) fn check_indices(
         &self,
         params: &StmParameters,
         stake: &Stake,
-        msgp: &[u8],
-        avk: &StmAggrVerificationKey<D>,
+        msg: &[u8],
+        total_stake: &Stake,
     ) -> Result<(), StmSignatureError> {
         for &index in &self.indexes {
             if index > params.m {
                 return Err(StmSignatureError::IndexBoundFailed(index, params.m));
             }
 
-            let ev = self.sigma.eval(msgp, index);
+            let ev = self.sigma.eval(msg, index);
 
-            if !ev_lt_phi(params.phi_f, ev, *stake, avk.total_stake) {
+            if !ev_lt_phi(params.phi_f, ev, *stake, *total_stake) {
                 return Err(StmSignatureError::LotteryLost);
             }
         }
@@ -715,10 +740,8 @@ impl StmSig {
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
         self.signer_index.cmp(&other.signer_index)
     }
-}
 
-impl FullNodeSignature {
-    /// Verification of a full node signature
+    /// Verify full node signature
     pub fn verify(
         &self,
         params: &StmParameters,
@@ -731,37 +754,6 @@ impl FullNodeSignature {
         self.check_indices(params, stake, msg, total_stake)?;
 
         Ok(())
-    }
-
-    /// Verify that all indices of a signature are valid.
-    pub(crate) fn check_indices(
-        &self,
-        params: &StmParameters,
-        stake: &Stake,
-        msg: &[u8],
-        total_stake: &Stake,
-    ) -> Result<(), StmSignatureError> {
-        for &index in &self.indexes {
-            if index > params.m {
-                return Err(StmSignatureError::IndexBoundFailed(index, params.m));
-            }
-
-            let ev = self.sigma.eval(msg, index);
-
-            if !ev_lt_phi(params.phi_f, ev, *stake, *total_stake) {
-                return Err(StmSignatureError::LotteryLost);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Get FullNodeSignature from StmSig.
-    pub fn from_stm_sig(stm_sig: &StmSig) -> Self {
-        Self {
-            sigma: stm_sig.sigma,
-            indexes: stm_sig.indexes.clone(),
-        }
     }
 }
 
@@ -814,7 +806,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         for (sig, reg_party) in &self.signatures {
             let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &reg_party.1, &msgp, avk)?;
+            sig.check_indices(parameters, &reg_party.1, &msgp, &avk.total_stake)?;
 
             for &index in &sig.indexes {
                 unique_indices.insert(index);
@@ -981,76 +973,79 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
-    /// Collect the registered parties that have a signature.
-    pub fn collect_reg_parties(&self, signatures: &[(FullNodeSignature, Index)]) -> Vec<RegParty> {
-        let indices = signatures.iter().map(|sig| sig.1).collect::<Vec<Index>>();
-        let signed_parties = self
-            .eligible_parties
-            .iter()
-            .filter_map(|(party, ind)| {
-                if indices.contains(ind) {
-                    Some(*party)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        signed_parties
-    }
-
-    /// Check unique indices and quorum
-    pub fn preliminary_verify(
-        &self,
-        msg: &[u8],
-        signed_parties: Vec<RegParty>,
-        parameters: &StmParameters,
-        signatures: &[(FullNodeSignature, Index)],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
-        let mut nr_indices = 0;
-        let mut unique_indices = HashSet::new();
-
-        for (i, sig) in signatures.iter().enumerate() {
-            sig.0
-                .check_indices(parameters, &signed_parties[i].1, msg, &self.total_stake)?;
-            for &index in &sig.0.indexes {
-                unique_indices.insert(index);
-                nr_indices += 1;
-            }
-        }
-
-        if nr_indices != unique_indices.len() {
-            return Err(StmAggregateSignatureError::IndexNotUnique);
-        }
-
-        if (nr_indices as u64) < parameters.k {
-            return Err(StmAggregateSignatureError::NoQuorum);
-        }
-
-        Ok(())
-    }
-
-    /// Verify full node signature
-    pub fn verify_full_node_signature(
-        &self, signatures: &[(FullNodeSignature, Index)],  parameters: &StmParameters, msg: &[u8]
-    ) -> Result<(), StmAggregateSignatureError<D>> {
-        let signed_parties = &self.collect_reg_parties(signatures);
-
-        self.preliminary_verify(msg, signed_parties.clone(), parameters, signatures)?;
-
-        let signatures = signatures
-            .iter()
-            .map(|(sig, _)| sig.sigma)
-            .collect::<Vec<Signature>>();
-        let vks = signed_parties
-            .iter()
-            .map(|reg_party| reg_party.0)
-            .collect::<Vec<VerificationKey>>();
-
-        Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &signatures)?;
-        Ok(())
-    }
-}
+// impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
+//     /// Collect the registered parties that have a signature.
+//     pub fn collect_reg_parties(&self, signatures: &[(FullNodeSignature, Index)]) -> Vec<RegParty> {
+//         let indices = signatures.iter().map(|sig| sig.1).collect::<Vec<Index>>();
+//         let signed_parties = self
+//             .eligible_parties
+//             .iter()
+//             .filter_map(|(party, ind)| {
+//                 if indices.contains(ind) {
+//                     Some(*party)
+//                 } else {
+//                     None
+//                 }
+//             })
+//             .collect();
+//         signed_parties
+//     }
+//
+//     /// Check unique indices and quorum
+//     pub fn preliminary_verify(
+//         &self,
+//         msg: &[u8],
+//         signed_parties: Vec<RegParty>,
+//         parameters: &StmParameters,
+//         signatures: &[(FullNodeSignature, Index)],
+//     ) -> Result<(), StmAggregateSignatureError<D>> {
+//         let mut nr_indices = 0;
+//         let mut unique_indices = HashSet::new();
+//
+//         for (i, sig) in signatures.iter().enumerate() {
+//             sig.0
+//                 .check_indices(parameters, &signed_parties[i].1, msg, &self.total_stake)?;
+//             for &index in &sig.0.indexes {
+//                 unique_indices.insert(index);
+//                 nr_indices += 1;
+//             }
+//         }
+//
+//         if nr_indices != unique_indices.len() {
+//             return Err(StmAggregateSignatureError::IndexNotUnique);
+//         }
+//
+//         if (nr_indices as u64) < parameters.k {
+//             return Err(StmAggregateSignatureError::NoQuorum);
+//         }
+//
+//         Ok(())
+//     }
+//
+//     /// Verify full node signature
+//     pub fn verify_full_node_signature(
+//         &self,
+//         signatures: &[(FullNodeSignature, Index)],
+//         parameters: &StmParameters,
+//         msg: &[u8],
+//     ) -> Result<(), StmAggregateSignatureError<D>> {
+//         let signed_parties = &self.collect_reg_parties(signatures);
+//
+//         self.preliminary_verify(msg, signed_parties.clone(), parameters, signatures)?;
+//
+//         let signatures = signatures
+//             .iter()
+//             .map(|(sig, _)| sig.sigma)
+//             .collect::<Vec<Signature>>();
+//         let vks = signed_parties
+//             .iter()
+//             .map(|reg_party| reg_party.0)
+//             .collect::<Vec<VerificationKey>>();
+//
+//         Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &signatures)?;
+//         Ok(())
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
@@ -1070,12 +1065,12 @@ mod tests {
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSignerAvk<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
+    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSignerAvk<D>> {
         let mut kr = KeyReg::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
@@ -1091,7 +1086,7 @@ mod tests {
             .collect::<Vec<_>>();
         let closed_reg = kr.close();
         ps.into_iter()
-            .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+            .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
             .collect()
     }
 
@@ -1155,7 +1150,7 @@ mod tests {
         )
     }
 
-    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig> {
+    fn find_signatures(msg: &[u8], ps: &[StmSignerAvk<D>], is: &[usize]) -> Vec<StmSig> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -1190,7 +1185,7 @@ mod tests {
             let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
             assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
             for passed_sigs in dedup_result.unwrap() {
-                let verify_result = passed_sigs.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg);
+                let verify_result = passed_sigs.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg);
                 assert!(verify_result.is_ok(), "verify {verify_result:?}");
             }
         }
@@ -1291,7 +1286,7 @@ mod tests {
             let avk = clerk.compute_avk();
 
             if let Some(sig) = ps[0].sign(&msg) {
-                assert!(sig.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
+                assert!(sig.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
             }
         }
     }
@@ -1331,11 +1326,11 @@ mod tests {
             if let Some(sig) = ps[0].sign(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = StmSig::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
+                assert!(sig_deser.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
 
                 let encoded = bincode::serialize(&sig).unwrap();
                 let decoded: StmSig = bincode::deserialize(&encoded).unwrap();
-                assert!(decoded.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
+                assert!(decoded.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
             }
         }
 

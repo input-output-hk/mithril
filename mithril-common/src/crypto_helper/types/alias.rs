@@ -5,7 +5,7 @@ use crate::crypto_helper::cardano::{
 
 use mithril_stm::{
     key_reg::ClosedKeyReg,
-    stm::{Index, Stake, StmAggrVerificationKey, StmClerk, StmParameters, StmSigner},
+    stm::{Index, Stake, StmAggrVerificationKey, StmClerk, StmParameters, StmSignerAvk},
     AggregationError,
 };
 
@@ -34,8 +34,8 @@ pub type ProtocolParameters = StmParameters;
 /// Alias of [MithrilStm::Index](type@mithril_stm::stm::Index).
 pub type ProtocolLotteryIndex = Index;
 
-/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::stm::StmSigner).
-pub type ProtocolSigner = StmSigner<D>;
+/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::stm::StmSignerAvk).
+pub type ProtocolSigner = StmSignerAvk<D>;
 
 /// Alias of a wrapper of [MithrilStm:StmInitializer](struct@mithril_stm::stm::StmInitializer).
 pub type ProtocolInitializer = StmInitializerWrapper;

@@ -70,7 +70,7 @@ impl MultiSigner {
             })?;
 
         protocol_signature
-            .verify(
+            .verify_avk(
                 &self.protocol_parameters,
                 &vk,
                 &stake,

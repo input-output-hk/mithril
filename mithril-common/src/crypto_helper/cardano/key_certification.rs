@@ -12,7 +12,7 @@ use crate::crypto_helper::{
 };
 
 use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
-use mithril_stm::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerificationKeyPoP};
+use mithril_stm::stm::{Stake, StmInitializer, StmParameters, StmSignerAvk, StmVerificationKeyPoP};
 use mithril_stm::RegisterError;
 
 use crate::crypto_helper::cardano::Sum6KesBytes;
@@ -190,8 +190,8 @@ impl StmInitializerWrapper {
     pub fn new_signer(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
-        Ok(self.stm_initializer.new_signer(closed_reg)?)
+    ) -> Result<StmSignerAvk<D>, ProtocolRegistrationErrorWrapper> {
+        Ok(self.stm_initializer.new_signer_avk(closed_reg)?)
     }
 
     /// Convert to bytes

@@ -465,6 +465,7 @@ impl MultiSigner for MultiSignerImpl {
         protocol_multi_signer
             .verify_single_signature(message, single_signature)
             .map_err(|error| ProtocolError::Core(error.to_string()))
+
     }
 
     /// Creates a multi signature from single signatures

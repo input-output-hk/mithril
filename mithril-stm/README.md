@@ -56,7 +56,7 @@ The following is a simple example of the STM implementation:
 
 ```rust
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSignerAvk};
 use mithril_stm::AggregationError;
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -100,8 +100,8 @@ fn main() {
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSigner<H>>>();
+        .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
+        .collect::<Vec<StmSignerAvk<H>>>();
 
     /////////////////////
     // operation phase //
@@ -117,7 +117,8 @@ fn main() {
 
     // Check all parties can verify every sig
     for (s, p) in sigs.iter().zip(ps.iter()) {
-        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification failed");
+        assert!(s.verify_avk(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification 
+        failed");
     }
 
     // Aggregate with random parties
