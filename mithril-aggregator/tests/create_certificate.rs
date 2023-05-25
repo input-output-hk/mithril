@@ -4,7 +4,8 @@ use std::collections::BTreeSet;
 
 use mithril_aggregator::Configuration;
 use mithril_common::{
-    entities::{ProtocolMessagePartKey, ProtocolParameters},
+    entities::{Epoch, ProtocolMessagePartKey, ProtocolParameters},
+    era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{utilities::get_test_dir, RuntimeTester, SignedEntityTypeDiscriminants};
@@ -23,6 +24,14 @@ async fn create_certificate() {
     };
     let mut tester = RuntimeTester::build(configuration).await;
     let observer = tester.observer.clone();
+
+    comment!("use Pythagoras era");
+    tester
+        .set_era_markers(vec![EraMarker::new(
+            &SupportedEra::Pythagoras.to_string(),
+            Some(Epoch(0)),
+        )])
+        .await;
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()

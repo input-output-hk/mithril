@@ -28,6 +28,9 @@ impl UnsupportedEraError {
 pub enum SupportedEra {
     /// Thales era
     Thales,
+
+    /// Pythagoras era
+    Pythagoras,
 }
 
 impl SupportedEra {
