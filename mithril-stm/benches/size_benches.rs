@@ -39,7 +39,7 @@ where
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSignerAvk<H>>>();
 
     let sigs = ps

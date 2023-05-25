@@ -973,79 +973,68 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 }
 
-// impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
-//     /// Collect the registered parties that have a signature.
-//     pub fn collect_reg_parties(&self, signatures: &[(FullNodeSignature, Index)]) -> Vec<RegParty> {
-//         let indices = signatures.iter().map(|sig| sig.1).collect::<Vec<Index>>();
-//         let signed_parties = self
-//             .eligible_parties
-//             .iter()
-//             .filter_map(|(party, ind)| {
-//                 if indices.contains(ind) {
-//                     Some(*party)
-//                 } else {
-//                     None
-//                 }
-//             })
-//             .collect();
-//         signed_parties
-//     }
-//
-//     /// Check unique indices and quorum
-//     pub fn preliminary_verify(
-//         &self,
-//         msg: &[u8],
-//         signed_parties: Vec<RegParty>,
-//         parameters: &StmParameters,
-//         signatures: &[(FullNodeSignature, Index)],
-//     ) -> Result<(), StmAggregateSignatureError<D>> {
-//         let mut nr_indices = 0;
-//         let mut unique_indices = HashSet::new();
-//
-//         for (i, sig) in signatures.iter().enumerate() {
-//             sig.0
-//                 .check_indices(parameters, &signed_parties[i].1, msg, &self.total_stake)?;
-//             for &index in &sig.0.indexes {
-//                 unique_indices.insert(index);
-//                 nr_indices += 1;
-//             }
-//         }
-//
-//         if nr_indices != unique_indices.len() {
-//             return Err(StmAggregateSignatureError::IndexNotUnique);
-//         }
-//
-//         if (nr_indices as u64) < parameters.k {
-//             return Err(StmAggregateSignatureError::NoQuorum);
-//         }
-//
-//         Ok(())
-//     }
-//
-//     /// Verify full node signature
-//     pub fn verify_full_node_signature(
-//         &self,
-//         signatures: &[(FullNodeSignature, Index)],
-//         parameters: &StmParameters,
-//         msg: &[u8],
-//     ) -> Result<(), StmAggregateSignatureError<D>> {
-//         let signed_parties = &self.collect_reg_parties(signatures);
-//
-//         self.preliminary_verify(msg, signed_parties.clone(), parameters, signatures)?;
-//
-//         let signatures = signatures
-//             .iter()
-//             .map(|(sig, _)| sig.sigma)
-//             .collect::<Vec<Signature>>();
-//         let vks = signed_parties
-//             .iter()
-//             .map(|reg_party| reg_party.0)
-//             .collect::<Vec<VerificationKey>>();
-//
-//         Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &signatures)?;
-//         Ok(())
-//     }
-// }
+impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
+    /// Verification for a full node verifier
+    pub fn verify(
+        &self,
+        signatures: &[StmSig],
+        parameters: &StmParameters,
+        msg: &[u8],
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        let signed_parties = self.collect_signed_parties(signatures);
+        let mut nr_indices = 0;
+        let mut unique_indices = HashSet::new();
+
+        for (i, sig) in signatures.iter().enumerate() {
+            sig.check_indices(parameters, &signed_parties[i].1, msg, &self.total_stake)?;
+            for &index in &sig.indexes {
+                unique_indices.insert(index);
+                nr_indices += 1;
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            return Err(StmAggregateSignatureError::IndexNotUnique);
+        }
+
+        if (nr_indices as u64) < parameters.k {
+            return Err(StmAggregateSignatureError::NoQuorum);
+        }
+
+        let signatures = signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>();
+        let vks = signed_parties
+            .iter()
+            .map(|reg_party| reg_party.0)
+            .collect::<Vec<VerificationKey>>();
+
+        Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &signatures)?;
+
+        Ok(())
+    }
+
+    /// Collect signed parties
+    pub fn collect_signed_parties(&self, signatures: &[StmSig]) -> Vec<RegParty> {
+        let indices = signatures
+            .iter()
+            .map(|sig| sig.signer_index)
+            .collect::<Vec<Index>>();
+        let signed_parties = self
+            .eligible_parties
+            .iter()
+            .filter_map(|(party, ind)| {
+                if indices.contains(ind) {
+                    Some(*party)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        signed_parties
+    }
+}
 
 #[cfg(test)]
 mod tests {

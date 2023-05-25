@@ -51,7 +51,7 @@ where
 
     let signers = initializers
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSignerAvk<H>>>();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
@@ -120,7 +120,7 @@ fn batch_benches<H>(
 
             let signers = initializers
                 .into_par_iter()
-                .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+                .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
                 .collect::<Vec<StmSignerAvk<H>>>();
 
             let sigs = signers
