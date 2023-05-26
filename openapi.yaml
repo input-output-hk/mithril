@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.5
+  version: 0.1.6
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -71,6 +71,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /certificates:
+    get:
+      summary: Get most recent certificates
+      description: |
+        Returns the list of the most recent certificates
+      responses:
+        "200":
+          description: certificates found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificateListMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: certificates retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /certificate/{certificate_hash}:
     get:
       summary: Get certificate by hash
@@ -109,7 +129,7 @@ paths:
         Returns the list of the most recent snapshots
       responses:
         "200":
-          description: snapshot found
+          description: snapshots found
           content:
             application/json:
               schema:
@@ -117,7 +137,7 @@ paths:
         "412":
           description: API version mismatch
         default:
-          description: snapshot retrieval error
+          description: snapshots retrieval error
           content:
             application/json:
               schema:
@@ -590,6 +610,61 @@ components:
                 "stake": "2345",
               },
             ],
+        }
+
+    CertificateListMessage:
+      description: CertificateListMessage represents a list of Mithril certificates
+      type: array
+      items:
+        $ref: "#/components/schemas/CertificateListItemMessage"
+
+    CertificateListItemMessage:
+      description: CertificateListItemMessage represents an item of a list of Mithril certificates
+      type: object
+      additionalProperties: false
+      required:
+        - hash
+        - previous_hash
+        - beacon
+        - signed_message
+        - initiated_at
+        - sealed_at
+      properties:
+        hash:
+          description: Hash of the current certificate
+          type: string
+          format: bytes
+        previous_hash:
+          description: Hash of the previous certificate
+          type: string
+          format: bytes
+        beacon:
+          $ref: "#/components/schemas/Beacon"
+        signed_message:
+          description: Hash of the protocol message that is signed by the signer participants
+          type: string
+          format: bytes
+        initiated_at:
+          description: Date and time at which the certificate was initialized and ready to accept single signatures from signers
+          type: string
+          format: date-time
+        sealed_at:
+          description: Date and time at which the certificate was sealed (when the quorum of single signatures was reached so that a multi signature could be aggregated from them)
+          type: string
+          format: date-time
+      example:
+        {
+          "hash": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo",
+          "previous_hash": "wKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ",
+          "beacon":
+            {
+              "network": "mainnet",
+              "epoch": 329,
+              "immutable_file_number": 7060000,
+            },
+          "signed_message": "24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo",
+          "initiated_at": "2022-07-17T18:51:23.192811338Z",
+          "sealed_at": "2022-07-17T18:51:35.830832580Z",
         }
 
     CertificateMessage:
