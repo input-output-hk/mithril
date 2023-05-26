@@ -366,11 +366,7 @@ impl Runner for SignerRunner {
             .await?;
 
         // 2 set the next signers keys and stakes in the message
-        let epoch = match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(epoch) => epoch,
-            SignedEntityType::CardanoImmutableFilesFull(beacon) => &beacon.epoch,
-            SignedEntityType::CardanoStakeDistribution(epoch) => epoch,
-        };
+        let epoch = signed_entity_type.get_epoch();
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
         let next_protocol_initializer = self
             .services
