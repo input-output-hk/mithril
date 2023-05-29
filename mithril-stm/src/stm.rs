@@ -168,8 +168,7 @@ pub struct StmInitializer {
 }
 
 /// Participant in the protocol can sign messages.
-/// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
-/// This ensures that a `MerkleTree` root is not computed before all participants have registered.
+/// This instance can only be generated out of an `StmInitializer`.
 #[derive(Debug, Clone)]
 pub struct StmSigner {
     mt_index: u64,
