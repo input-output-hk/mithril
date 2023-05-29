@@ -64,7 +64,7 @@ fn operation_phase(
     // Check all parties can verify every sig
     for (s, (vk, stake)) in sigs.iter().zip(reg_parties.iter()) {
         assert!(
-            s.verify_avk(&params, vk, stake, &avk, &msg).is_ok(),
+            s.verify(&params, vk, stake, &avk, &msg).is_ok(),
             "Verification failed"
         );
     }

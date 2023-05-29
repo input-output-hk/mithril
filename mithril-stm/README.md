@@ -117,7 +117,7 @@ fn main() {
 
     // Check all parties can verify every sig
     for (s, p) in sigs.iter().zip(ps.iter()) {
-        assert!(s.verify_avk(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification 
+        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification 
         failed");
     }
 

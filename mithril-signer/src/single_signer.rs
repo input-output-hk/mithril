@@ -188,7 +188,7 @@ mod tests {
         let decoded_sig = sign_result.to_protocol_signature();
         assert!(
             decoded_sig
-                .verify_avk(
+                .verify(
                     &fixture.protocol_parameters().into(),
                     &current_signer.protocol_signer.verification_key(),
                     &current_signer.protocol_signer.get_stake(),

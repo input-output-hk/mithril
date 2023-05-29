@@ -559,7 +559,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         for (sig, reg_party) in sigs.iter().zip(reg_parties.iter()) {
             if sig
-                .verify_avk(&self.params, &reg_party.0, &reg_party.1, &avk, msg)
+                .verify(&self.params, &reg_party.0, &reg_party.1, &avk, msg)
                 .is_err()
             {
                 continue;
@@ -641,7 +641,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 impl StmSig {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify_avk<D: Clone + Digest + FixedOutput>(
+    pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
         params: &StmParameters,
         pk: &StmVerificationKey,
@@ -650,7 +650,7 @@ impl StmSig {
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
-        self.verify(params, pk, stake, &msgp, &avk.total_stake)?;
+        self.verify_core(params, pk, stake, &msgp, &avk.total_stake)?;
         Ok(())
     }
 
@@ -734,7 +734,7 @@ impl StmSig {
     }
 
     /// Verify full node signature
-    pub fn verify(
+    pub fn verify_core(
         &self,
         params: &StmParameters,
         pk: &StmVerificationKey,
@@ -1186,7 +1186,7 @@ mod tests {
             let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
             assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
             for passed_sigs in dedup_result.unwrap() {
-                let verify_result = passed_sigs.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg);
+                let verify_result = passed_sigs.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg);
                 assert!(verify_result.is_ok(), "verify {verify_result:?}");
             }
         }
@@ -1287,7 +1287,7 @@ mod tests {
             let avk = clerk.compute_avk();
 
             if let Some(sig) = ps[0].sign(&msg) {
-                assert!(sig.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
+                assert!(sig.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
             }
         }
     }
@@ -1327,11 +1327,11 @@ mod tests {
             if let Some(sig) = ps[0].sign(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = StmSig::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
 
                 let encoded = bincode::serialize(&sig).unwrap();
                 let decoded: StmSig = bincode::deserialize(&encoded).unwrap();
-                assert!(decoded.verify_avk(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
+                assert!(decoded.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
             }
         }
 
