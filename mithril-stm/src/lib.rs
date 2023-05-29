@@ -2,6 +2,8 @@
 #![doc = include_str!("../README.md")]
 //! Implementation of Stake-based Threshold Multisignatures
 
+extern crate core;
+
 mod eligibility_check;
 mod error;
 pub mod key_reg;

@@ -791,35 +791,35 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
         parameters: &StmParameters,
-    ) -> Result<(), StmAggregateSignatureError<D>> {
-        let mut nr_indices = 0;
-        let mut unique_indices = HashSet::new();
-        let mut leaves = Vec::new();
+    ) -> Result<(Vec<Signature>, Vec<VerificationKey>), StmAggregateSignatureError<D>> {
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
 
-        for (sig, reg_party) in &self.signatures {
-            let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &reg_party.1, &msgp, &avk.total_stake)?;
+        let leaves = self
+            .signatures
+            .iter()
+            .map(|r| r.1)
+            .collect::<Vec<RegParty>>();
 
-            for &index in &sig.indexes {
-                unique_indices.insert(index);
-                nr_indices += 1;
-            }
+        let signatures = self
+            .signatures
+            .iter()
+            .map(|r| r.0.clone())
+            .collect::<Vec<StmSig>>();
 
-            leaves.push(*reg_party);
-        }
-
-        if nr_indices != unique_indices.len() {
-            return Err(StmAggregateSignatureError::IndexNotUnique);
-        }
-
-        if (nr_indices as u64) < parameters.k {
-            return Err(StmAggregateSignatureError::NoQuorum);
-        }
+        FullNodeVerifier::pre_verify(
+            &avk.total_stake,
+            signatures.as_slice(),
+            parameters,
+            msgp.as_slice(),
+            leaves.clone(),
+        )?;
 
         let proof = &self.batch_proof;
+
         avk.mt_commitment.check(&leaves, &proof.clone())?;
 
-        Ok(())
+        let (sigs, vks) = FullNodeVerifier::<D>::collect_ver_data(signatures.as_slice(), &leaves);
+        Ok((sigs, vks))
     }
 
     /// Verify aggregate signature, by checking that
@@ -834,21 +834,10 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         avk: &StmAggrVerificationKey<D>,
         parameters: &StmParameters,
     ) -> Result<(), StmAggregateSignatureError<D>> {
-        self.preliminary_verify(msg, avk, parameters)?;
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+        let (sigs, vks) = self.preliminary_verify(msg, avk, parameters)?;
 
-        let msg = avk.mt_commitment.concat_with_msg(msg);
-        let signatures = self
-            .signatures
-            .iter()
-            .map(|(sig, _)| sig.sigma)
-            .collect::<Vec<Signature>>();
-        let vks = self
-            .signatures
-            .iter()
-            .map(|(_, reg_party)| reg_party.0)
-            .collect::<Vec<VerificationKey>>();
-
-        Signature::verify_aggregate(msg.as_slice(), &vks, &signatures)?;
+        Signature::verify_aggregate(msgp.as_slice(), &vks, &sigs)?;
         Ok(())
     }
 
@@ -968,7 +957,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
     /// Verification for a full node verifier
     pub fn pre_verify(
-        &self,
+        total_stake: &Stake,
         signatures: &[StmSig],
         parameters: &StmParameters,
         msg: &[u8],
@@ -978,7 +967,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         let mut unique_indices = HashSet::new();
 
         for (i, sig) in signatures.iter().enumerate() {
-            sig.check_indices(parameters, &signed_parties[i].1, msg, &self.total_stake)?;
+            sig.check_indices(parameters, &signed_parties[i].1, msg, total_stake)?;
             for &index in &sig.indexes {
                 unique_indices.insert(index);
                 nr_indices += 1;
@@ -996,6 +985,23 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Ok(())
     }
 
+    /// Collect signatures and verification keys
+    pub fn collect_ver_data(
+        signatures: &[StmSig],
+        signed_parties: &[RegParty],
+    ) -> (Vec<Signature>, Vec<VerificationKey>) {
+        let sigs = signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>();
+        let vks = signed_parties
+            .iter()
+            .map(|reg_party| reg_party.0)
+            .collect::<Vec<VerificationKey>>();
+
+        (sigs, vks)
+    }
+
     /// Verify
     pub fn verify(
         &self,
@@ -1005,16 +1011,15 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let signed_parties = self.collect_signed_parties(signatures);
 
-        self.pre_verify(signatures, parameters, msg, signed_parties.clone())?;
+        Self::pre_verify(
+            &self.total_stake,
+            signatures,
+            parameters,
+            msg,
+            signed_parties.clone(),
+        )?;
 
-        let sigs = signatures
-            .iter()
-            .map(|sig| sig.sigma)
-            .collect::<Vec<Signature>>();
-        let vks = signed_parties
-            .iter()
-            .map(|reg_party| reg_party.0)
-            .collect::<Vec<VerificationKey>>();
+        let (sigs, vks) = Self::collect_ver_data(signatures, &signed_parties);
 
         Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
 
