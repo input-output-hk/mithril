@@ -233,7 +233,7 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub batch_proof: BatchPath<D>,
 }
 
-/// Full node verifier
+/// Full node verifier including the ordered list of eligible signers and the total stake of the system.
 pub struct FullNodeVerifier<D: Digest> {
     /// Ordered list of registered parties.
     pub eligible_parties: Vec<RegParty>,
@@ -296,6 +296,7 @@ impl StmInitializer {
     }
 
     /// Function that checks whether the initializer is registered.
+    /// Returns the merkle tree index of the party if registered.
     pub fn check_initializer<D: Digest + Clone>(
         &self,
         closed_reg: ClosedKeyReg<D>,
@@ -313,18 +314,7 @@ impl StmInitializer {
         Ok(my_index)
     }
 
-    /// Build the `avk` for the given list of parties.
-    ///
-    /// Note that if this StmInitializer was modified *between* the last call to `register`,
-    /// then the resulting `StmSigner` may not be able to produce valid signatures.
-    ///
-    /// Returns an `StmSigner` specialized to
-    /// * this `StmSigner`'s ID and current stake
-    /// * this `StmSigner`'s parameter valuation
-    /// * the `avk` as built from the current registered parties (according to the registration service)
-    /// * the current total stake (according to the registration service)
-    /// # Error
-    /// This function fails if the initializer is not registered.
+    /// Returns the StmSigner of the initializer for given index.
     pub fn new_signer(self, index: Index) -> StmSigner {
         StmSigner {
             mt_index: index,
@@ -395,12 +385,9 @@ impl StmInitializer {
 }
 
 impl StmSigner {
-    /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
-    /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8], total_stake: Stake) -> Option<StmSig> {
         let sigma = self.sk.sign(msg);
 
@@ -418,6 +405,7 @@ impl StmSigner {
     }
 
     /// Checks whether the indices won the lottery.
+    /// Collects and returns the winning indices.
     pub fn check_lottery(&self, msg: &[u8], sigma: &Signature, total_stake: Stake) -> Vec<u64> {
         let mut indexes = Vec::new();
         for index in 0..self.params.m {
@@ -732,7 +720,8 @@ impl StmSig {
         self.signer_index.cmp(&other.signer_index)
     }
 
-    /// Verify full node signature
+    /// Verify an stm signature by checking that the lottery was won,
+    /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify_core(
         &self,
         params: &StmParameters,
@@ -954,7 +943,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 }
 
 impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
-    /// Verification for a full node verifier
+    /// Verify all signatures whether they all won the lottery, if the indices are unique and the quorum is achieved.
     pub fn pre_verify(
         total_stake: &Stake,
         signatures: &[StmSig],
@@ -984,24 +973,11 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Ok(())
     }
 
-    /// Collect signatures and verification keys
-    pub fn collect_ver_data(
-        signatures: &[StmSig],
-        signed_parties: &[RegParty],
-    ) -> (Vec<Signature>, Vec<VerificationKey>) {
-        let sigs = signatures
-            .iter()
-            .map(|sig| sig.sigma)
-            .collect::<Vec<Signature>>();
-        let vks = signed_parties
-            .iter()
-            .map(|reg_party| reg_party.0)
-            .collect::<Vec<VerificationKey>>();
-
-        (sigs, vks)
-    }
-
-    /// Verify
+    /// Verify the signatures:
+    ///     - Collect signed parties
+    ///     - Run `pre_verify`
+    ///     - Collect verification data: signatures and verification keys
+    ///     - Verify aggregate
     pub fn verify(
         &self,
         signatures: &[StmSig],
@@ -1025,7 +1001,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Ok(())
     }
 
-    /// Collect signed parties
+    /// Collect the registered parties that have submitted signatures.
     pub fn collect_signed_parties(&self, signatures: &[StmSig]) -> Vec<RegParty> {
         let indices = signatures
             .iter()
@@ -1044,6 +1020,23 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
             })
             .collect();
         signed_parties
+    }
+
+    /// Collect and return the signatures and verification keys for given lists of `StmSig` and `RegParty`, respectively.
+    pub fn collect_ver_data(
+        signatures: &[StmSig],
+        signed_parties: &[RegParty],
+    ) -> (Vec<Signature>, Vec<VerificationKey>) {
+        let sigs = signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>();
+        let vks = signed_parties
+            .iter()
+            .map(|reg_party| reg_party.0)
+            .collect::<Vec<VerificationKey>>();
+
+        (sigs, vks)
     }
 }
 
