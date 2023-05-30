@@ -12,7 +12,7 @@ const config = {
   baseUrl: '/doc/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/logo.svg',
   organizationName: 'Input Output Global',
   projectName: 'Mithril',
 
@@ -112,7 +112,7 @@ const config = {
         title: 'Mithril',
         logo: {
           alt: 'Mithril. A complete guide.',
-          src: 'img/logo.png',
+          src: 'img/logo.svg',
         },
         items: [
           {
