@@ -3,20 +3,13 @@ use crate::event_store::{EventMessage, TransmitterService};
 use crate::signed_entity_service::SignedEntityService;
 use crate::ticker_service::TickerService;
 use crate::{
-    dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
-    DependencyManager, ProtocolParametersStore, SignerRegisterer,
+    dependency::MultiSignerWrapper, CertificatePendingStore, Configuration, DependencyManager,
+    ProtocolParametersStore, SignerRegisterer,
 };
 use mithril_common::BeaconProvider;
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
-
-/// With certificate store middleware
-pub fn with_certificate_store(
-    dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = (Arc<CertificateStore>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.certificate_store.clone())
-}
 
 /// With certificate pending store
 pub(crate) fn with_certificate_pending_store(

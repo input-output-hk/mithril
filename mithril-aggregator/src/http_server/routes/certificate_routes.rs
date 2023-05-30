@@ -29,7 +29,7 @@ fn certificate_certificates(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificates")
         .and(warp::get())
-        .and(middlewares::with_certificate_store(dependency_manager))
+        .and(middlewares::with_certifier_service(dependency_manager))
         .and_then(handlers::certificate_certificates)
 }
 
@@ -39,14 +39,15 @@ fn certificate_certificate_hash(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
-        .and(middlewares::with_certificate_store(dependency_manager))
+        .and(middlewares::with_certifier_service(dependency_manager))
         .and_then(handlers::certificate_certificate_hash)
 }
 
 mod handlers {
+    use crate::certifier_service::CertifierService;
     use crate::http_server::routes::reply;
     use crate::message_adapters::{ToCertificateListMessageAdapter, ToCertificateMessageAdapter};
-    use crate::{CertificatePendingStore, CertificateStore, ToCertificatePendingMessageAdapter};
+    use crate::{CertificatePendingStore, ToCertificatePendingMessageAdapter};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -75,11 +76,14 @@ mod handlers {
 
     /// List all Certificates
     pub async fn certificate_certificates(
-        certificate_store: Arc<CertificateStore>,
+        certifier_service: Arc<dyn CertifierService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_certificates",);
 
-        match certificate_store.get_list(LIST_MAX_ITEMS).await {
+        match certifier_service
+            .get_latest_certificates(LIST_MAX_ITEMS)
+            .await
+        {
             Ok(certificates) => Ok(reply::json(
                 &ToCertificateListMessageAdapter::adapt(certificates),
                 StatusCode::OK,
@@ -94,14 +98,17 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        certificate_store: Arc<CertificateStore>,
+        certifier_service: Arc<dyn CertifierService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: certificate_certificate_hash/{}",
             certificate_hash
         );
 
-        match certificate_store.get_from_hash(&certificate_hash).await {
+        match certifier_service
+            .get_certificate_by_hash(&certificate_hash)
+            .await
+        {
             Ok(Some(certificate)) => Ok(reply::json(
                 &ToCertificateMessageAdapter::adapt(certificate),
                 StatusCode::OK,

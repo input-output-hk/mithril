@@ -480,6 +480,15 @@ impl CertificateRepository {
         Ok(cursor.next().map(|v| v.into()))
     }
 
+    /// Return the latest certificates.
+    pub async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>> {
+        let lock = self.connection.lock().await;
+        let provider = CertificateRecordProvider::new(&lock);
+        let cursor = provider.get_all()?;
+
+        Ok(cursor.take(last_n).map(|v| v.into()).collect())
+    }
+
     /// Return the first certificate signed per epoch as the reference
     /// certificate for this Epoch. This will be the parent certificate for all
     /// other certificates issued within this Epoch.
@@ -926,6 +935,29 @@ mod tests {
             .expect("The certificate exist and should be returned.");
 
         assert_eq!(expected_hash, certificate.hash);
+    }
+
+    #[tokio::test]
+    async fn repository_get_latest_certificates() {
+        let (certificates, _) = setup_certificate_chain(5, 2);
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        {
+            let lock = connection.lock().await;
+            let provider = InsertCertificateRecordProvider::new(&lock);
+
+            for certificate in certificates.iter().rev() {
+                provider.persist(certificate.to_owned().into()).unwrap();
+            }
+        }
+
+        let repository = CertificateRepository::new(connection);
+        let latest_certificates = repository
+            .get_latest_certificates(certificates.len())
+            .await
+            .unwrap();
+
+        assert_eq!(certificates, latest_certificates);
     }
 
     async fn insert_certificate_records(
