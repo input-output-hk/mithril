@@ -13,7 +13,9 @@ mod snapshot;
 mod snapshot_list;
 
 pub use certificate::CertificateMessage;
-pub use certificate_list::{CertificateListItemMessage, CertificateListMessage};
+pub use certificate_list::{
+    CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
+};
 pub use certificate_pending::{CertificatePendingMessage, SignerMessage};
 pub use epoch_settings::EpochSettingsMessage;
 pub use interface::MessageAdapter;

@@ -1,5 +1,7 @@
 use mithril_common::entities::Certificate;
-use mithril_common::messages::{CertificateListItemMessage, CertificateListMessage};
+use mithril_common::messages::{
+    CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
+};
 
 /// Adapter to convert a list of [Certificate] to [CertificateListMessage] instances
 pub struct ToCertificateListMessageAdapter;
@@ -13,9 +15,16 @@ impl ToCertificateListMessageAdapter {
                 hash: certificate.hash,
                 previous_hash: certificate.previous_hash,
                 beacon: certificate.beacon,
+                metadata: CertificateListItemMessageMetadata {
+                    protocol_version: certificate.metadata.protocol_version,
+                    protocol_parameters: certificate.metadata.protocol_parameters,
+                    initiated_at: certificate.metadata.initiated_at,
+                    sealed_at: certificate.metadata.sealed_at,
+                    total_signers: certificate.metadata.signers.len(),
+                },
+                protocol_message: certificate.protocol_message,
                 signed_message: certificate.signed_message,
-                initiated_at: certificate.metadata.initiated_at,
-                sealed_at: certificate.metadata.sealed_at,
+                aggregate_verification_key: certificate.aggregate_verification_key,
             })
             .collect()
     }
@@ -37,9 +46,16 @@ mod tests {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
             beacon: certificate.beacon,
+            metadata: CertificateListItemMessageMetadata {
+                protocol_version: certificate.metadata.protocol_version,
+                protocol_parameters: certificate.metadata.protocol_parameters,
+                initiated_at: certificate.metadata.initiated_at,
+                sealed_at: certificate.metadata.sealed_at,
+                total_signers: certificate.metadata.signers.len(),
+            },
+            protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
-            initiated_at: certificate.metadata.initiated_at,
-            sealed_at: certificate.metadata.sealed_at,
+            aggregate_verification_key: certificate.aggregate_verification_key,
         }];
 
         assert_eq!(certificate_list_message_expected, certificate_list_message);
