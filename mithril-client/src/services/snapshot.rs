@@ -9,11 +9,10 @@ use flate2::read::GzDecoder;
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
-    digesters::{CardanoImmutableDigester, ImmutableDigester},
+    digesters::ImmutableDigester,
     entities::{ProtocolMessagePartKey, Snapshot},
     StdError, StdResult,
 };
-use serde::{Deserialize, Serialize};
 use tar::Archive;
 use thiserror::Error;
 
@@ -38,6 +37,16 @@ pub enum SnapshotServiceError {
     /// The given certificate could not be found, contains the certificate hash
     #[error("Could not find certificate '{0}'.")]
     CouldNotFindCertificate(String),
+
+    /// The configuration has invalid or missing parameters
+    #[error("Missing or invalid parameters: {context}. Error: {error}")]
+    InvalidParameters {
+        /// Error context
+        context: String,
+
+        /// Eventual nested error
+        error: StdError,
+    },
 }
 
 /// ## SnapshotService
@@ -60,16 +69,6 @@ pub trait SnapshotService: Sync + Send {
     ) -> StdResult<PathBuf>;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-/// Configuration related to the [SnapshotService].
-pub struct SnapshotConfig {
-    /// Aggregator URL
-    pub aggregator_endpoint: String,
-
-    /// Genesis verification key
-    pub genesis_verification_key: String,
-}
-
 /// Service used by the Command to perform business oriented tasks.
 pub struct MithrilClientSnapshotService {
     /// Snapshot HTTP client
@@ -80,6 +79,9 @@ pub struct MithrilClientSnapshotService {
 
     /// Certificate verifier
     certificate_verifier: Arc<dyn CertificateVerifier>,
+
+    /// Imutable digester
+    immutable_digester: Arc<dyn ImmutableDigester>,
 }
 
 impl MithrilClientSnapshotService {
@@ -88,11 +90,13 @@ impl MithrilClientSnapshotService {
         snapshot_client: Arc<SnapshotClient>,
         certificate_client: Arc<CertificateClient>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
+        immutable_digester: Arc<dyn ImmutableDigester>,
     ) -> Self {
         Self {
             snapshot_client,
             certificate_client,
             certificate_verifier,
+            immutable_digester,
         }
     }
 
@@ -137,17 +141,16 @@ impl SnapshotService for MithrilClientSnapshotService {
         pathdir: &Path,
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
-        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())?;
+        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
+            .map_err(|e| SnapshotServiceError::InvalidParameters {
+                context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
+                error: e.into(),
+            })?;
         let snapshot = self.snapshot_client.show(digest).await?;
         let filepath = self.snapshot_client.download(&snapshot, pathdir).await?;
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
         let unpacked_path = self.unpack_snapshot(&filepath).await?;
-        let digester = Box::new(CardanoImmutableDigester::new(
-            Path::new(&unpacked_path).into(),
-            None,
-            slog_scope::logger(),
-        ));
         let certificate = self
             .certificate_client
             .get(&snapshot.certificate_hash)
@@ -155,7 +158,10 @@ impl SnapshotService for MithrilClientSnapshotService {
             .ok_or_else(|| {
                 SnapshotServiceError::CouldNotFindCertificate(snapshot.certificate_hash.clone())
             })?;
-        let unpacked_snapshot_digest = digester.compute_digest(&certificate.beacon).await?;
+        let unpacked_snapshot_digest = self
+            .immutable_digester
+            .compute_digest(&certificate.beacon)
+            .await?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -182,7 +188,17 @@ impl SnapshotService for MithrilClientSnapshotService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::messages::{SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage};
+    use std::fs::create_dir_all;
+    use std::io::Write;
+
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use mithril_common::crypto_helper::key_encode_hex;
+    use mithril_common::crypto_helper::tests_setup::setup_genesis;
+    use mithril_common::digesters::DumbImmutableDigester;
+    use mithril_common::messages::{
+        CertificateMessage, SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage,
+    };
     use mithril_common::test_utils::fake_data;
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
@@ -190,6 +206,23 @@ mod tests {
     use super::super::mock::*;
 
     use super::*;
+
+    /// see [`archive_file_path`] to see where the dummy will be created
+    fn build_dummy_snapshot(digest: &str, data_expected: &str, test_name: &str) {
+        let archive_file_path = PathBuf::new().join(format!("./snapshot-{digest}"));
+        let dir = std::env::temp_dir().join(test_name);
+        let data_file_path = dir.join(Path::new("test_data.txt"));
+        create_dir_all(data_file_path.parent().unwrap()).unwrap();
+        let mut source_file = File::create(&data_file_path).unwrap();
+        write!(source_file, "{data_expected}").unwrap();
+        let archive_file = File::create(&archive_file_path).unwrap();
+        let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
+        let mut archive_builder = tar::Builder::new(archive_encoder);
+        archive_builder
+            .append_dir_all(".", data_file_path.parent().unwrap())
+            .unwrap();
+        archive_builder.into_inner().unwrap().finish().unwrap();
+    }
 
     fn get_snapshot_list_message() -> SnapshotListMessage {
         let item1 = SnapshotListItemMessage {
@@ -216,7 +249,7 @@ mod tests {
         SnapshotMessage {
             digest: "digest-10".to_string(),
             beacon: fake_data::beacon(),
-            certificate_hash: "certificate-hash-10".to_string(),
+            certificate_hash: "snapshot-digest-123".to_string(),
             size: 1024,
             created_at: "whatever".to_string(),
             locations: vec!["location-10.1".to_string(), "location-10.2".to_string()],
@@ -233,10 +266,12 @@ mod tests {
         let snapshot_client = SnapshotClient::new(http_client.clone());
         let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
+        let immutable_digester = DumbImmutableDigester::new("digest", true);
         let snapshot_service = MithrilClientSnapshotService::new(
             Arc::new(snapshot_client),
             Arc::new(certificate_client),
             Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
         );
 
         let list = snapshot_service.list().await.unwrap();
@@ -259,10 +294,12 @@ mod tests {
         let snapshot_client = SnapshotClient::new(http_client.clone());
         let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
+        let immutable_digester = DumbImmutableDigester::new("digest", true);
         let snapshot_service = MithrilClientSnapshotService::new(
             Arc::new(snapshot_client),
             Arc::new(certificate_client),
             Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
         );
 
         snapshot_service.list().await.unwrap_err();
@@ -279,10 +316,12 @@ mod tests {
         let snapshot_client = SnapshotClient::new(http_client.clone());
         let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
+        let immutable_digester = DumbImmutableDigester::new("digest", true);
         let snapshot_service = MithrilClientSnapshotService::new(
             Arc::new(snapshot_client),
             Arc::new(certificate_client),
             Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
         );
 
         assert_eq!(
@@ -306,10 +345,12 @@ mod tests {
         let snapshot_client = SnapshotClient::new(http_client.clone());
         let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
+        let immutable_digester = DumbImmutableDigester::new("digest", true);
         let snapshot_service = MithrilClientSnapshotService::new(
             Arc::new(snapshot_client),
             Arc::new(certificate_client),
             Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
         );
 
         snapshot_service.show("digest-10").await.unwrap_err();
@@ -330,10 +371,12 @@ mod tests {
         let snapshot_client = SnapshotClient::new(http_client.clone());
         let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
+        let immutable_digester = DumbImmutableDigester::new("digest", true);
         let snapshot_service = MithrilClientSnapshotService::new(
             Arc::new(snapshot_client),
             Arc::new(certificate_client),
             Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
         );
 
         snapshot_service.show("digest-10").await.unwrap_err();
@@ -344,20 +387,51 @@ mod tests {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
             .expect_download()
-            .return_once(move |_, _| Ok(()))
+            .returning(move |_, _| Ok(()))
             .times(1);
+        http_client
+            .expect_get_content()
+            .returning(|_| {
+                let message = serde_json::to_string(&get_snapshot_message()).unwrap();
+
+                Ok(message)
+            })
+            .times(1);
+        http_client.expect_get_content().returning(|_| {
+            let mut message = CertificateMessage::dummy();
+            message.signed_message = message.protocol_message.compute_hash();
+            let message = serde_json::to_string(&message).unwrap();
+
+            Ok(message)
+        });
         let http_client = Arc::new(http_client);
         let snapshot_client = SnapshotClient::new(http_client.clone());
         let certificate_client = CertificateClient::new(http_client);
-        let certificate_verifier = MockCertificateVerifierImpl::new();
+        let mut certificate_verifier = MockCertificateVerifierImpl::new();
+        certificate_verifier
+            .expect_verify_certificate_chain()
+            .returning(|_, _, _| Ok(()))
+            .times(1);
+        let immutable_digester = DumbImmutableDigester::new("snapshot-digest-123", true);
         let snapshot_service = MithrilClientSnapshotService::new(
             Arc::new(snapshot_client),
             Arc::new(certificate_client),
             Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
         );
-
+        let (_, verifier) = setup_genesis();
+        let genesis_verification_key = verifier.to_verification_key();
+        build_dummy_snapshot(
+            "digest-10",
+            &"1234567890".repeat(124).to_string(),
+            "test_download_snapshot",
+        );
         snapshot_service
-            .download("digest", Path::new("pathdir"), "")
+            .download(
+                "digest-10",
+                Path::new("."),
+                &key_encode_hex(genesis_verification_key).unwrap(),
+            )
             .await
             .unwrap();
     }

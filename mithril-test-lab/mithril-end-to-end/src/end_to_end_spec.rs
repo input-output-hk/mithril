@@ -1,5 +1,7 @@
 use crate::utils::AttemptResult;
-use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure};
+use crate::{
+    attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure, SnapshotCommand,
+};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, Epoch, EpochSettings, ProtocolParameters, Snapshot};
@@ -453,18 +455,11 @@ async fn assert_client_can_verify_snapshot(
     digest: &str,
 ) -> Result<(), String> {
     client
-        .run(ClientCommand::Download {
+        .run(ClientCommand::Snapshot(SnapshotCommand::Download {
             digest: digest.to_string(),
-        })
+        }))
         .await?;
-    info!("Client downloaded the snapshot"; "digest" => &digest);
-
-    client
-        .run(ClientCommand::Restore {
-            digest: digest.to_string(),
-        })
-        .await?;
-    info!("Client restored the snapshot"; "digest" => &digest);
+    info!("Client downloaded & restored the snapshot"; "digest" => &digest);
 
     Ok(())
 }

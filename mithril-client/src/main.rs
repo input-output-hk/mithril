@@ -15,7 +15,7 @@ use mithril_client::commands::snapshot::*;
 #[derive(Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
-    about = "This program downloads, checks and restores certified blockchain snapshots.",
+    about = "This program shows, downloads and verifies certified blockchain artifacts.",
     long_about = None
 )]
 #[command(version)]
@@ -44,15 +44,10 @@ pub struct Args {
 impl Args {
     pub async fn execute(&self) -> Result<(), StdError> {
         debug!("Run Mode: {}", self.run_mode);
+        let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
+        debug!("Reading configuration file '{}'.", filename);
         let config: ConfigBuilder<DefaultState> = config::Config::builder()
-            .add_source(
-                config::File::with_name(&format!(
-                    "{}/{}.json",
-                    self.config_directory.display(),
-                    self.run_mode
-                ))
-                .required(false),
-            )
+            .add_source(config::File::with_name(&filename).required(false))
             .add_source(config::Environment::default())
             .add_source(self.clone());
 
@@ -151,5 +146,5 @@ async fn main() -> Result<(), String> {
 
     args.execute()
         .await
-        .map_err(|e| format!("An error occured: {e:?}"))
+        .map_err(|e| format!("An error occured: {e}"))
 }

@@ -1,17 +1,17 @@
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
     api_version::APIVersionProvider, certificate_chain::MithrilCertificateVerifier,
-    entities::Snapshot, StdError,
+    digesters::CardanoImmutableDigester, entities::Snapshot, StdError,
 };
 
 use crate::{
     aggregator_client::{AggregatorHTTPClient, CertificateClient, SnapshotClient},
-    services::{MithrilClientSnapshotService, SnapshotConfig, SnapshotService},
-    SnapshotFieldItem,
+    services::{MithrilClientSnapshotService, SnapshotService},
+    Config, SnapshotFieldItem,
 };
 
 /// Clap command to show a given snapshot
@@ -31,7 +31,7 @@ impl SnapshotShowCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), StdError> {
-        let config: SnapshotConfig = config_builder
+        let config: Config = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
@@ -46,6 +46,11 @@ impl SnapshotShowCommand {
                 Arc::new(SnapshotClient::new(http_client.clone())),
                 Arc::new(CertificateClient::new(http_client)),
                 Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+                Arc::new(CardanoImmutableDigester::new(
+                    &Path::new(""),
+                    None,
+                    slog_scope::logger(),
+                )),
             )
         };
         let snapshot = snapshot_service.show(&self.digest).await?;
