@@ -1510,8 +1510,7 @@ mod tests {
             .enumerate()
             .map(|(ind, stake)| {
                 let p = StmInitializer::setup(params, stake, &mut rng);
-                let s = p.new_signer(ind as Index);
-                s
+                p.new_signer(ind as Index)
             })
             .collect::<Vec<_>>();
         ps
@@ -1536,4 +1535,40 @@ mod tests {
             hasher: Default::default(),
         }
     }
+
+    fn find_fnv_signatures(msg: &[u8], ps: &[StmSigner], total_stake: Stake) -> Vec<StmSig> {
+        let mut sigs = Vec::new();
+        for s in ps {
+            if let Some(sig) = s.sign(msg, total_stake) {
+                sigs.push(sig);
+            }
+        }
+        sigs
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        /// Test that when a quorum is found, the aggregate signature can be verified by anyone with
+        /// access to the avk and the parameters.
+        fn test_full_node_verifier(nparties in 2_usize..30,
+                              m in 10_u64..20,
+                              k in 1_u64..5,
+                              msg in any::<[u8;16]>()) {
+            let params = StmParameters { m, k, phi_f: 0.2 };
+            let signers = setup_equal_fnv_parties(params, nparties);
+            // let all_ps: Vec<usize> = (0..nparties).collect();
+
+            let fnv = setup_full_node_verifier(signers.clone());
+
+            let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake);
+
+            let verify_result = FullNodeVerifier::verify(&fnv, &signatures, &params, &msg);
+            assert!(verify_result.is_ok(), "verify {verify_result:?}");
+
+            // assert!(FullNodeVerifier::verify(&fnv, &signatures, &params, &msg).is_ok());
+        }
+    }
+
 }
