@@ -26,12 +26,14 @@ export default function Explorer() {
       <Head>
         <title>Mithril Explorer</title>
         <meta name="description" content="Explore a Mithril Network"/>
-        <link rel="icon" href="/explorer/favicon.ico"/>
+        <link rel="icon" href="/explorer/logo.svg?v=1" type="image/svg+xml"/>
       </Head>
 
       <div className={styles.container}>
         <main className={styles.main}>
-          <h1 className={styles.title}>Mithril Explorer</h1>
+          <h1 className={styles.title}>
+            <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55}/> Mithril Explorer
+          </h1>
           <Stack gap={3}>
             <Form>
               <Row xs={1} sm={2}>

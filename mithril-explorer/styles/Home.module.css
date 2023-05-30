@@ -39,6 +39,10 @@
     text-decoration: underline;
 }
 
+.title img {
+    vertical-align: bottom;
+}
+
 .title {
     margin-bottom: 2rem;
     line-height: 1.15;
