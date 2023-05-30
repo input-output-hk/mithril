@@ -1492,4 +1492,48 @@ mod tests {
             })
         }
     }
+
+    //------------------------------------------------//
+    //-------------- Full Node Verifier --------------//
+    //------------------------------------------------//
+    fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
+        let stake = vec![1; nparties];
+        setup_fnv_parties(params, stake)
+    }
+
+    fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner> {
+        let mut trng = TestRng::deterministic_rng(ChaCha);
+        let mut rng = ChaCha20Rng::from_seed(trng.gen());
+        #[allow(clippy::needless_collect)]
+        let ps = stake
+            .into_iter()
+            .enumerate()
+            .map(|(ind, stake)| {
+                let p = StmInitializer::setup(params, stake, &mut rng);
+                let s = p.new_signer(ind as Index);
+                s
+            })
+            .collect::<Vec<_>>();
+        ps
+    }
+
+    fn setup_full_node_verifier(signers: Vec<StmSigner>) -> FullNodeVerifier<D> {
+        let mut total_stake: Stake = 0;
+        let eligible_parties = signers
+            .iter()
+            .map(|signer| {
+                let (res, overflow) = total_stake.overflowing_add(signer.stake);
+                if overflow {
+                    panic!("Total stake overflow");
+                }
+                total_stake = res;
+                MTLeaf(signer.vk, signer.stake)
+            })
+            .collect::<Vec<RegParty>>();
+        FullNodeVerifier {
+            eligible_parties,
+            total_stake,
+            hasher: Default::default(),
+        }
+    }
 }
