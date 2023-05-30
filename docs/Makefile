@@ -20,7 +20,7 @@ clean:
 	rm yarn.lock || true
 
 upgrade: clean install
-	yarn upgrade @docusaurus/core@latest @docusaurus/preset-classic@latest redocusaurus@latest
+	yarn upgrade @docusaurus/core@latest @docusaurus/preset-classic@latest redocusaurus@latest @docusaurus/theme-mermaid
 
 update-current:
 	# Use docusaurus command to create a new version using a temporary name
