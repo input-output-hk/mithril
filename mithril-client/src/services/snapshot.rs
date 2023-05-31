@@ -26,10 +26,11 @@ pub enum SnapshotServiceError {
     SnapshotNotFound(String),
 
     /// Error raised when the certificate verification failed for the downloaded archive.
-    #[error("Certificate verification failed for snapshot '{digest}'. The archive has been downloaded as '{path}'.")]
+    #[error("Certificate verification failed (snapshot digest = '{digest}'). The archive has been downloaded in '{path}'.")]
     CouldNotVerifySnapshot {
-        /// The identifier of the snapshot
+        /// snapshot digest
         digest: String,
+
         /// The path of the downloaded archive
         path: PathBuf,
     },
@@ -169,8 +170,8 @@ impl SnapshotService for MithrilClientSnapshotService {
         );
         if protocol_message.compute_hash() != certificate.signed_message {
             return Err(SnapshotServiceError::CouldNotVerifySnapshot {
-                digest: snapshot.certificate_hash.clone(),
-                path: unpacked_path.clone(),
+                digest: snapshot.digest.clone(),
+                path: unpacked_path.canonicalize().unwrap(),
             }
             .into());
         }

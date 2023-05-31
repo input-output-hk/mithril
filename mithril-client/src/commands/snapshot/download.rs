@@ -49,7 +49,7 @@ impl SnapshotDownloadCommand {
                 Arc::new(CertificateClient::new(http_client)),
                 Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
                 Arc::new(CardanoImmutableDigester::new(
-                    &self.download_dir,
+                    &self.download_dir.join("db"),
                     None,
                     slog_scope::logger(),
                 )),

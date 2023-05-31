@@ -26,7 +26,7 @@ impl CertificateClient {
 
     /// Get a single certificate full information from the aggregator.
     pub async fn get(&self, certificate_hash: &str) -> StdResult<Option<Certificate>> {
-        let url = format!("/certificate/{certificate_hash}");
+        let url = format!("certificate/{certificate_hash}");
         let response = self.http_client.get_content(&url).await;
 
         match response {

@@ -68,7 +68,7 @@ impl SnapshotClient {
             .join(download_dir)
             .join(format!("snapshot-{}", snapshot.digest));
 
-        while let Some(url) = snapshot.locations.first() {
+        for url in snapshot.locations.as_slice() {
             match self.http_client.download(url, &filepath).await {
                 Ok(()) => return Ok(filepath),
                 Err(e) => {

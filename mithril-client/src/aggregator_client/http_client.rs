@@ -97,13 +97,14 @@ impl AggregatorHTTPClient {
     /// Perform a HTTP GET request on the Aggregator and return the given JSON
     #[async_recursion]
     async fn get(&self, url: &str) -> Result<Response, AggregatorHTTPClientError> {
+        debug!("GET url='{url}'.");
         let request_builder = Client::new().get(url.to_owned());
         let current_api_version = self
             .compute_current_api_version()
             .await
             .unwrap()
             .to_string();
-        debug!("Prepare request with version: {}", current_api_version);
+        debug!("Prepare request with version: {current_api_version}");
         let request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
         let response = request_builder.send().await.map_err(|e| {
@@ -170,7 +171,6 @@ impl AggregatorClient for AggregatorHTTPClient {
     }
 
     async fn download(&self, url: &str, filepath: &Path) -> Result<(), AggregatorHTTPClientError> {
-        let url = format!("{}/{}", self.aggregator_endpoint, url);
         let response = self.get(&url).await?;
         let mut local_file = fs::File::create(filepath).await.map_err(|e| {
             AggregatorHTTPClientError::SubsystemError {
