@@ -110,6 +110,12 @@ pub trait CertifierService: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>>;
+
+    /// Returns a certificate from its hash.
+    async fn get_certificate_by_hash(&self, hash: &str) -> StdResult<Option<Certificate>>;
+
+    /// Returns the list of the latest created certificates.
+    async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>>;
 }
 
 /// Mithril CertifierService implementation
@@ -350,6 +356,16 @@ impl CertifierService for MithrilCertifierService {
             .await?;
 
         Ok(Some(certificate))
+    }
+
+    async fn get_certificate_by_hash(&self, hash: &str) -> StdResult<Option<Certificate>> {
+        self.certificate_repository.get_certificate(hash).await
+    }
+
+    async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>> {
+        self.certificate_repository
+            .get_latest_certificates(last_n)
+            .await
     }
 }
 
@@ -632,6 +648,16 @@ mod tests {
             .unwrap()
             .unwrap();
         assert!(open_message.is_certified);
+
+        let certificate_retrieved = certifier_service
+            .get_certificate_by_hash(&certificate_created.hash)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(certificate_created, certificate_retrieved);
+
+        let latest_certificates = certifier_service.get_latest_certificates(10).await.unwrap();
+        assert!(!latest_certificates.is_empty());
     }
 
     #[tokio::test]

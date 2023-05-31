@@ -7,6 +7,7 @@ pub fn routes(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     certificate_pending(dependency_manager.clone())
+        .or(certificate_certificates(dependency_manager.clone()))
         .or(certificate_certificate_hash(dependency_manager))
 }
 
@@ -22,24 +23,37 @@ fn certificate_pending(
         .and_then(handlers::certificate_pending)
 }
 
+/// GET /certificates
+fn certificate_certificates(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("certificates")
+        .and(warp::get())
+        .and(middlewares::with_certifier_service(dependency_manager))
+        .and_then(handlers::certificate_certificates)
+}
+
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
-        .and(middlewares::with_certificate_store(dependency_manager))
+        .and(middlewares::with_certifier_service(dependency_manager))
         .and_then(handlers::certificate_certificate_hash)
 }
 
 mod handlers {
+    use crate::certifier_service::CertifierService;
     use crate::http_server::routes::reply;
-    use crate::message_adapters::ToCertificateMessageAdapter;
-    use crate::{CertificatePendingStore, CertificateStore, ToCertificatePendingMessageAdapter};
+    use crate::message_adapters::{ToCertificateListMessageAdapter, ToCertificateMessageAdapter};
+    use crate::{CertificatePendingStore, ToCertificatePendingMessageAdapter};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
+
+    pub const LIST_MAX_ITEMS: usize = 20;
 
     /// Certificate Pending
     pub async fn certificate_pending(
@@ -60,17 +74,41 @@ mod handlers {
         }
     }
 
+    /// List all Certificates
+    pub async fn certificate_certificates(
+        certifier_service: Arc<dyn CertifierService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: certificate_certificates",);
+
+        match certifier_service
+            .get_latest_certificates(LIST_MAX_ITEMS)
+            .await
+        {
+            Ok(certificates) => Ok(reply::json(
+                &ToCertificateListMessageAdapter::adapt(certificates),
+                StatusCode::OK,
+            )),
+            Err(err) => {
+                warn!("certificate_certificates::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
+
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        certificate_store: Arc<CertificateStore>,
+        certifier_service: Arc<dyn CertifierService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: certificate_certificate_hash/{}",
             certificate_hash
         );
 
-        match certificate_store.get_from_hash(&certificate_hash).await {
+        match certifier_service
+            .get_certificate_by_hash(&certificate_hash)
+            .await
+        {
             Ok(Some(certificate)) => Ok(reply::json(
                 &ToCertificateMessageAdapter::adapt(certificate),
                 StatusCode::OK,
@@ -161,6 +199,64 @@ mod tests {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
         let dependency_manager = initialize_dependencies().await;
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_certificate_certificates_get_ok() {
+        let dependency_manager = initialize_dependencies().await;
+        dependency_manager
+            .certificate_store
+            .save(fake_data::genesis_certificate(
+                "{certificate_hash}".to_string(),
+            ))
+            .await
+            .expect("certificate store save should have succeeded");
+
+        let method = Method::GET.as_str();
+        let path = "/certificates";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_certificate_certificates_get_ko() {
+        let mut dependency_manager = initialize_dependencies().await;
+        let certificate_store = CertificateStore::new(Box::new(FailStoreAdapter::<
+            String,
+            entities::Certificate,
+        >::new()));
+        dependency_manager.certificate_store = Arc::new(certificate_store);
+
+        let method = Method::GET.as_str();
+        let path = "/certificates";
 
         let response = request()
             .method(method)

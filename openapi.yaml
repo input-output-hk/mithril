@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.5
+  version: 0.1.6
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -71,6 +71,26 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /certificates:
+    get:
+      summary: Get most recent certificates
+      description: |
+        Returns the list of the most recent certificates
+      responses:
+        "200":
+          description: certificates found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CertificateListMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: certificates retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /certificate/{certificate_hash}:
     get:
       summary: Get certificate by hash
@@ -109,7 +129,7 @@ paths:
         Returns the list of the most recent snapshots
       responses:
         "200":
-          description: snapshot found
+          description: snapshots found
           content:
             application/json:
               schema:
@@ -117,7 +137,7 @@ paths:
         "412":
           description: API version mismatch
         default:
-          description: snapshot retrieval error
+          description: snapshots retrieval error
           content:
             application/json:
               schema:
@@ -539,6 +559,116 @@ components:
         {
           "snapshot_digest": "XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCwKgWw4mr5kRZL+I",
           "next_aggregate_verification_key": "NQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ+IvVzKLgmaLiyb+xyV6Npbxvu+KhLuxU7R7q3JUmOkESHoro6N",
+        }
+
+    CertificateListItemMessageMetadata:
+      description: CertificateListItemMessageMetadata represents the metadata associated to a CertificateListItemMessage
+      type: object
+      additionalProperties: false
+      required:
+        - version
+        - parameters
+        - initiated_at
+        - sealed_at
+        - total_signers
+      properties:
+        version:
+          description: Version of the protocol
+          type: string
+          format: bytes
+        parameters:
+          $ref: "#/components/schemas/ProtocolParameters"
+        initiated_at:
+          description: Date and time at which the certificate was initialized and ready to accept single signatures from signers
+          type: string
+          format: date-time
+        sealed_at:
+          description: Date and time at which the certificate was sealed (when the quorum of single signatures was reached so that a multi signature could be aggregated from them)
+          type: string
+          format: date-time
+        total_signers:
+          description: The number of the signers with their stakes and verification keys
+          type: integer
+          format: int64
+      example:
+        {
+          "version": "0.1.0",
+          "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
+          "initiated_at": "2022-07-17T18:51:23.192811338Z",
+          "sealed_at": "2022-07-17T18:51:35.830832580Z",
+          "total_signers": 3,
+        }
+
+    CertificateListMessage:
+      description: CertificateListMessage represents a list of Mithril certificates
+      type: array
+      items:
+        $ref: "#/components/schemas/CertificateListItemMessage"
+
+    CertificateListItemMessage:
+      description: CertificateListItemMessage represents an item of a list of Mithril certificates
+      type: object
+      additionalProperties: false
+      required:
+        - hash
+        - previous_hash
+        - beacon
+        - metadata
+        - protocol_message
+        - signed_message
+        - aggregate_verification_key
+      properties:
+        hash:
+          description: Hash of the current certificate
+          type: string
+          format: bytes
+        previous_hash:
+          description: Hash of the previous certificate
+          type: string
+          format: bytes
+        beacon:
+          $ref: "#/components/schemas/Beacon"
+        metadata:
+          $ref: "#/components/schemas/CertificateListItemMessageMetadata"
+        protocol_message:
+          description: Protocol message
+          $ref: "#/components/schemas/ProtocolMessage"
+        signed_message:
+          description: Hash of the protocol message that is signed by the signer participants
+          type: string
+          format: bytes
+        aggregate_verification_key:
+          description: Aggregate verification key used to verify the multi signature
+          type: string
+          format: bytes
+      example:
+        {
+          "hash": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo",
+          "previous_hash": "wKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ",
+          "beacon":
+            {
+              "network": "mainnet",
+              "epoch": 329,
+              "immutable_file_number": 7060000,
+            },
+          "metadata":
+            {
+              "version": "0.1.0",
+              "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
+              "initiated_at": "2022-07-17T18:51:23.192811338Z",
+              "sealed_at": "2022-07-17T18:51:35.830832580Z",
+              "signers": 3
+            },
+          "protocol_message":
+            {
+              "message_parts":
+                {
+                  "snapshot_digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+                  "next_aggregate_verification_key": "NQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ",
+                },
+            },
+          "signed_message": "24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo",
+          "aggregate_verification_key": "NQVhBc9P24tdCwKgWw4mr5kRZL+IUSRem3MmHoKboAsB0vSvijo8FIfrG/FwBoAsB0vSvijo8FA9XXu7RiCHSRem3MmHoKbqQwKgWw4mr5kRZL+IUA9XXu7RiCHIfrG/FwBtdCNQVhBc9P24qQ"
         }
 
     CertificateMetadata:
