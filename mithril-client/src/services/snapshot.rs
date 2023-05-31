@@ -13,6 +13,7 @@ use mithril_common::{
     entities::{ProtocolMessagePartKey, Snapshot},
     StdError, StdResult,
 };
+use slog_scope::{debug, warn};
 use tar::Archive;
 use thiserror::Error;
 
@@ -62,6 +63,7 @@ pub trait SnapshotService: Sync + Send {
     async fn show(&self, digest: &str) -> StdResult<Snapshot>;
 
     /// Download and verify the snapshot identified by the given digest.
+    /// The returned path is the location where the archive has been unpacked.
     async fn download(
         &self,
         digest: &str,
@@ -115,10 +117,13 @@ impl MithrilClientSnapshotService {
 #[async_trait]
 impl SnapshotService for MithrilClientSnapshotService {
     async fn list(&self) -> StdResult<Vec<Snapshot>> {
+        debug!("Snapshot service: list.");
+
         self.snapshot_client.list().await
     }
 
     async fn show(&self, digest: &str) -> StdResult<Snapshot> {
+        debug!("Snapshot service: show.");
         let snapshot =
             self.snapshot_client
                 .show(digest)
@@ -142,16 +147,18 @@ impl SnapshotService for MithrilClientSnapshotService {
         pathdir: &Path,
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
+        debug!("Snapshot service: download.");
+        // 1 - Instanciate a genesis key verifier
         let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
             .map_err(|e| SnapshotServiceError::InvalidParameters {
                 context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
                 error: e.into(),
             })?;
-        let snapshot = self.snapshot_client.show(digest).await?;
-        let filepath = self.snapshot_client.download(&snapshot, pathdir).await?;
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
-        let unpacked_path = self.unpack_snapshot(&filepath).await?;
+
+        // 2 - Get snapshot and certificate information using the given snapshot digest
+        let snapshot = self.snapshot_client.show(digest).await?;
         let certificate = self
             .certificate_client
             .get(&snapshot.certificate_hash)
@@ -159,29 +166,43 @@ impl SnapshotService for MithrilClientSnapshotService {
             .ok_or_else(|| {
                 SnapshotServiceError::CouldNotFindCertificate(snapshot.certificate_hash.clone())
             })?;
+
+        // 3 - Check the certificate chain
+        self.certificate_verifier
+            .verify_certificate_chain(
+                certificate.clone(),
+                self.certificate_client.clone(),
+                &genesis_verifier,
+            )
+            .await?;
+
+        // 4 - Launch download and unpack the file on disk
+        let filepath = self.snapshot_client.download(&snapshot, pathdir).await?;
+        let unpacked_path = self.unpack_snapshot(&filepath).await?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&certificate.beacon)
             .await?;
+
+        // 5 - Compute protocol message and compare hash sums
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
             unpacked_snapshot_digest.clone(),
         );
         if protocol_message.compute_hash() != certificate.signed_message {
+            debug!("Digest verification failed, removing unpacked files & directory.");
+
+            if let Err(e) = std::fs::remove_dir_all(&unpacked_path) {
+                warn!("Error while removing unpacked files & directory: {e}.");
+            }
+
             return Err(SnapshotServiceError::CouldNotVerifySnapshot {
                 digest: snapshot.digest.clone(),
-                path: unpacked_path.canonicalize().unwrap(),
+                path: filepath.canonicalize().unwrap(),
             }
             .into());
         }
-        self.certificate_verifier
-            .verify_certificate_chain(
-                certificate,
-                self.certificate_client.clone(),
-                &genesis_verifier,
-            )
-            .await?;
 
         Ok(unpacked_path)
     }
@@ -209,10 +230,9 @@ mod tests {
     use super::*;
 
     /// see [`archive_file_path`] to see where the dummy will be created
-    fn build_dummy_snapshot(digest: &str, data_expected: &str, test_name: &str) {
-        let archive_file_path = PathBuf::new().join(format!("./snapshot-{digest}"));
-        let dir = std::env::temp_dir().join(test_name);
-        let data_file_path = dir.join(Path::new("test_data.txt"));
+    fn build_dummy_snapshot(digest: &str, data_expected: &str, test_dir: &Path) {
+        let archive_file_path = test_dir.join(format!("snapshot-{digest}"));
+        let data_file_path = test_dir.join(Path::new("db/test_data.txt"));
         create_dir_all(data_file_path.parent().unwrap()).unwrap();
         let mut source_file = File::create(&data_file_path).unwrap();
         write!(source_file, "{data_expected}").unwrap();
@@ -384,7 +404,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_download_snapshot() {
+    async fn test_download_snapshot_ok() {
+        let test_path = std::env::temp_dir().join("test_download_snapshot_ok");
+        let _ = std::fs::remove_dir_all(&test_path);
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
             .expect_download()
@@ -425,15 +447,98 @@ mod tests {
         build_dummy_snapshot(
             "digest-10",
             &"1234567890".repeat(124).to_string(),
-            "test_download_snapshot",
+            &test_path,
         );
-        snapshot_service
+        let filepath = snapshot_service
             .download(
                 "digest-10",
-                Path::new("."),
+                &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
             )
             .await
-            .unwrap();
+            .expect("Snapshot download should succeed.");
+        assert!(filepath.exists());
+        let unpack_dir = filepath
+            .parent()
+            .expect("Test downloaded file must be in a directory.")
+            .join("db");
+        assert!(unpack_dir.is_dir());
+    }
+
+    #[tokio::test]
+    async fn test_download_snapshot_invalid_digest() {
+        let test_path = std::env::temp_dir().join("test_download_snapshot_ok");
+        let _ = std::fs::remove_dir_all(&test_path);
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_download()
+            .returning(move |_, _| Ok(()))
+            .times(1);
+        http_client
+            .expect_get_content()
+            .returning(|_| {
+                let message = serde_json::to_string(&get_snapshot_message()).unwrap();
+
+                Ok(message)
+            })
+            .times(1);
+        http_client.expect_get_content().returning(|_| {
+            let mut message = CertificateMessage::dummy();
+            message.signed_message = message.protocol_message.compute_hash();
+            let message = serde_json::to_string(&message).unwrap();
+
+            Ok(message)
+        });
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
+        let mut certificate_verifier = MockCertificateVerifierImpl::new();
+        certificate_verifier
+            .expect_verify_certificate_chain()
+            .returning(|_, _, _| Ok(()))
+            .times(1);
+        let immutable_digester = DumbImmutableDigester::new("snapshot-digest-KO", true);
+        let snapshot_service = MithrilClientSnapshotService::new(
+            Arc::new(snapshot_client),
+            Arc::new(certificate_client),
+            Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
+        );
+        let (_, verifier) = setup_genesis();
+        let genesis_verification_key = verifier.to_verification_key();
+        build_dummy_snapshot(
+            "digest-10",
+            &"1234567890".repeat(124).to_string(),
+            &test_path,
+        );
+        let err = snapshot_service
+            .download(
+                "digest-10",
+                &test_path,
+                &key_encode_hex(genesis_verification_key).unwrap(),
+            )
+            .await
+            .expect_err("Snapshot digest comparison should fail.");
+
+        if let Some(e) = err.downcast_ref::<SnapshotServiceError>() {
+            match e {
+                SnapshotServiceError::CouldNotVerifySnapshot {
+                    digest,
+                    path: _path,
+                } => {
+                    assert_eq!("digest-10", digest.as_str());
+                }
+                _ => panic!("Wrong error type when snapshot could not be verified."),
+            }
+        } else {
+            panic!("Expected a SnapshotServiceError when snapshot can not be verified. {err}");
+        }
+        let filepath = test_path.join("snapshot-digest-10");
+        assert!(filepath.exists());
+        let unpack_dir = filepath
+            .parent()
+            .expect("Test downloaded file must be in a directory.")
+            .join("db");
+        assert!(!unpack_dir.exists());
     }
 }
