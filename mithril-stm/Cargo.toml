@@ -1,6 +1,6 @@
 [package]
 name    = "mithril-stm"
-version = "0.2.13"
+version = "0.2.14"
 edition = { workspace = true }
 authors = { workspace = true }
 documentation = { workspace = true }

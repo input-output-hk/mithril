@@ -212,7 +212,7 @@ export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
-export SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
 ```
 
 ### Step 2: Select A Snapshot
