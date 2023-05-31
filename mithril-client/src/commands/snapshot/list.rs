@@ -44,7 +44,7 @@ impl SnapshotListCommand {
                 Arc::new(CertificateClient::new(http_client)),
                 Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
                 Arc::new(CardanoImmutableDigester::new(
-                    &Path::new(""),
+                    Path::new(""),
                     None,
                     slog_scope::logger(),
                 )),

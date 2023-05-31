@@ -49,6 +49,12 @@ pub enum SnapshotServiceError {
         /// Eventual nested error
         error: StdError,
     },
+
+    /// The directory where the files from snapshot are expanded already exists.
+    /// An error is raised because it lets the user a chance to preserve a
+    /// previous work.
+    #[error("Unpack directory '{0}' already exists, please move or delete it.")]
+    UnpackDirectoryAlreadyExists(PathBuf),
 }
 
 /// ## SnapshotService
@@ -103,14 +109,13 @@ impl MithrilClientSnapshotService {
         }
     }
 
-    async fn unpack_snapshot(&self, filepath: &Path) -> StdResult<PathBuf> {
+    async fn unpack_snapshot(&self, filepath: &Path, unpack_dir: &Path) -> StdResult<()> {
         let snapshot_file_tar_gz = File::open(filepath)?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let unpack_dir_path = filepath.parent().unwrap().join(Path::new("db"));
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
-        snapshot_archive.unpack(&unpack_dir_path)?;
+        snapshot_archive.unpack(&unpack_dir)?;
 
-        Ok(unpack_dir_path)
+        Ok(())
     }
 }
 
@@ -148,6 +153,12 @@ impl SnapshotService for MithrilClientSnapshotService {
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
         debug!("Snapshot service: download.");
+        // 0 - Check prerequisistes are met
+        let unpack_dir = pathdir.join("db");
+
+        if unpack_dir.exists() {
+            return Err(SnapshotServiceError::UnpackDirectoryAlreadyExists(unpack_dir).into());
+        }
         // 1 - Instanciate a genesis key verifier
         let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
             .map_err(|e| SnapshotServiceError::InvalidParameters {
@@ -178,7 +189,7 @@ impl SnapshotService for MithrilClientSnapshotService {
 
         // 4 - Launch download and unpack the file on disk
         let filepath = self.snapshot_client.download(&snapshot, pathdir).await?;
-        let unpacked_path = self.unpack_snapshot(&filepath).await?;
+        self.unpack_snapshot(&filepath, &unpack_dir).await?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&certificate.beacon)
@@ -188,12 +199,12 @@ impl SnapshotService for MithrilClientSnapshotService {
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
-            unpacked_snapshot_digest.clone(),
+            unpacked_snapshot_digest,
         );
         if protocol_message.compute_hash() != certificate.signed_message {
             debug!("Digest verification failed, removing unpacked files & directory.");
 
-            if let Err(e) = std::fs::remove_dir_all(&unpacked_path) {
+            if let Err(e) = std::fs::remove_dir_all(&unpack_dir) {
                 warn!("Error while removing unpacked files & directory: {e}.");
             }
 
@@ -204,7 +215,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             .into());
         }
 
-        Ok(unpacked_path)
+        Ok(unpack_dir)
     }
 }
 
@@ -234,9 +245,9 @@ mod tests {
         let archive_file_path = test_dir.join(format!("snapshot-{digest}"));
         let data_file_path = test_dir.join(Path::new("db/test_data.txt"));
         create_dir_all(data_file_path.parent().unwrap()).unwrap();
-        let mut source_file = File::create(&data_file_path).unwrap();
+        let mut source_file = File::create(data_file_path.as_path()).unwrap();
         write!(source_file, "{data_expected}").unwrap();
-        let archive_file = File::create(&archive_file_path).unwrap();
+        let archive_file = File::create(archive_file_path).unwrap();
         let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
         let mut archive_builder = tar::Builder::new(archive_encoder);
         archive_builder
@@ -444,11 +455,7 @@ mod tests {
         );
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
-        build_dummy_snapshot(
-            "digest-10",
-            &"1234567890".repeat(124).to_string(),
-            &test_path,
-        );
+        build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
         let filepath = snapshot_service
             .download(
                 "digest-10",
@@ -467,7 +474,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_snapshot_invalid_digest() {
-        let test_path = std::env::temp_dir().join("test_download_snapshot_ok");
+        let test_path = std::env::temp_dir().join("test_download_snapshot_invalid_digest");
         let _ = std::fs::remove_dir_all(&test_path);
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
@@ -506,11 +513,7 @@ mod tests {
         );
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
-        build_dummy_snapshot(
-            "digest-10",
-            &"1234567890".repeat(124).to_string(),
-            &test_path,
-        );
+        build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
         let err = snapshot_service
             .download(
                 "digest-10",
@@ -540,5 +543,45 @@ mod tests {
             .expect("Test downloaded file must be in a directory.")
             .join("db");
         assert!(!unpack_dir.exists());
+    }
+
+    #[tokio::test]
+    async fn test_download_snapshot_dir_already_exists() {
+        let test_path = std::env::temp_dir().join("test_download_snapshot_dir_already_exists");
+        let _ = std::fs::remove_dir_all(&test_path);
+        std::fs::create_dir_all(test_path.join("db")).unwrap();
+        let http_client = MockAggregatorHTTPClient::new();
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
+        let certificate_verifier = MockCertificateVerifierImpl::new();
+        let immutable_digester = DumbImmutableDigester::new("snapshot-digest-123", true);
+        let snapshot_service = MithrilClientSnapshotService::new(
+            Arc::new(snapshot_client),
+            Arc::new(certificate_client),
+            Arc::new(certificate_verifier),
+            Arc::new(immutable_digester),
+        );
+        let (_, verifier) = setup_genesis();
+        let genesis_verification_key = verifier.to_verification_key();
+        let err = snapshot_service
+            .download(
+                "digest-10",
+                &test_path,
+                &key_encode_hex(genesis_verification_key).unwrap(),
+            )
+            .await
+            .expect_err("Snapshot download should fail.");
+
+        if let Some(e) = err.downcast_ref::<SnapshotServiceError>() {
+            match e {
+                SnapshotServiceError::UnpackDirectoryAlreadyExists(path) => {
+                    assert_eq!(&test_path.join("db"), path);
+                }
+                _ => panic!("Wrong error type when unpack dir already exists."),
+            }
+        } else {
+            panic!("Expected a SnapshotServiceError when unpack dir already exists. {err}");
+        }
     }
 }

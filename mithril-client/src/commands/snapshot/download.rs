@@ -66,7 +66,20 @@ impl SnapshotDownloadCommand {
         if self.json {
             println!(r#"{{"file": "{}"}}"#, filepath.display());
         } else {
-            println!("Download snapshot: '{}'.", filepath.display());
+            println!(
+                r###"Unpack success snapshot '{}'
+into {}
+
+Restore a Cardano Node with:
+
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:8.0.0
+
+"###,
+                &self.digest,
+                filepath.display(),
+                filepath.display(),
+                config.network.clone()
+            );
         }
 
         Ok(())

@@ -171,7 +171,7 @@ impl AggregatorClient for AggregatorHTTPClient {
     }
 
     async fn download(&self, url: &str, filepath: &Path) -> Result<(), AggregatorHTTPClientError> {
-        let response = self.get(&url).await?;
+        let response = self.get(url).await?;
         let mut local_file = fs::File::create(filepath).await.map_err(|e| {
             AggregatorHTTPClientError::SubsystemError {
                 message: format!(
