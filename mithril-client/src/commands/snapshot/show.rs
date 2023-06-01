@@ -47,6 +47,7 @@ impl SnapshotShowCommand {
                 Arc::new(CertificateClient::new(http_client)),
                 Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
                 Arc::new(CardanoImmutableDigester::new(
+                    // the digester needs a path so we pass an empty path since we do not need the digester here
                     Path::new(""),
                     None,
                     slog_scope::logger(),
@@ -72,6 +73,10 @@ fn convert_to_field_items(snapshot: &Snapshot) -> Vec<SnapshotFieldItem> {
         SnapshotFieldItem::new(
             "Immutable File Number".to_string(),
             format!("{}", snapshot.beacon.immutable_file_number),
+        ),
+        SnapshotFieldItem::new(
+            "Network".to_string(),
+            format!("{}", snapshot.beacon.network),
         ),
         SnapshotFieldItem::new("Digest".to_string(), snapshot.digest.to_string()),
         SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot.size)),

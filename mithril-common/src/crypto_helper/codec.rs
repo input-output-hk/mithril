@@ -20,7 +20,7 @@ where
     T: DeserializeOwned,
 {
     let from_vec = Vec::from_hex(from).map_err(|e| {
-        format!("Key decode hex: can not turn hexadecimal '{from}' into bytes, error: {e}")
+        format!("Key decode hex: can not turn hexadecimal value into bytes, error: {e}")
     })?;
     serde_json::from_slice(from_vec.as_slice()).map_err(|e| {
         format!(

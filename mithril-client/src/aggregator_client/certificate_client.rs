@@ -68,7 +68,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_show_ok() {
+    async fn test_show_ok_some() {
         let mut http_client = MockAggregatorHTTPClient::new();
         let certificate_hash = "cert-hash-123".to_string();
         let certificate = fake_data::certificate(certificate_hash.clone());
@@ -100,5 +100,42 @@ mod tests {
             .expect("The certificate should be found");
 
         assert_eq!(expected_certificate, cert);
+    }
+
+    #[tokio::test]
+    async fn test_show_ok_none() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| {
+                Err(AggregatorHTTPClientError::RemoteServerLogical(String::new()))
+            })
+            .times(1);
+
+        let certificate_client = CertificateClient::new(Arc::new(http_client));
+        assert!(certificate_client
+            .get("cert-hash-123")
+            .await
+            .unwrap()
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn test_show_ko() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| {
+                Err(AggregatorHTTPClientError::RemoteServerTechnical(
+                    String::new(),
+                ))
+            })
+            .times(1);
+
+        let certificate_client = CertificateClient::new(Arc::new(http_client));
+        certificate_client
+            .get("cert-hash-123")
+            .await
+            .expect_err("The certificate client should fail here.");
     }
 }

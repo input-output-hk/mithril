@@ -109,34 +109,6 @@ impl ArtifactCommands {
         }
     }
 }
-/// Snapshot management
-#[derive(Subcommand, Debug, Clone)]
-enum SnapshotCommands {
-    /// List available snapshots
-    #[clap(arg_required_else_help = false)]
-    List(SnapshotListCommand),
-
-    /// Show detailed informations about a snapshot
-    #[clap(arg_required_else_help = false)]
-    Show(SnapshotShowCommand),
-
-    /// Download the snapshot and verify the certificate
-    #[clap(arg_required_else_help = true)]
-    Download(SnapshotDownloadCommand),
-}
-
-impl SnapshotCommands {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), StdError> {
-        match self {
-            Self::List(cmd) => cmd.execute(config_builder).await,
-            Self::Download(cmd) => cmd.execute(config_builder).await,
-            Self::Show(cmd) => cmd.execute(config_builder).await,
-        }
-    }
-}
 
 #[tokio::main]
 async fn main() -> Result<(), String> {

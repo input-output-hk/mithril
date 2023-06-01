@@ -1,8 +1,13 @@
-use std::{path::Path, sync::Arc};
+use std::{
+    io::{stdout, Write},
+    path::Path,
+    sync::Arc,
+};
 
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use futures::StreamExt;
+use human_bytes::human_bytes;
 use reqwest::{Client, Response, StatusCode};
 use semver::Version;
 use slog_scope::debug;
@@ -181,12 +186,14 @@ impl AggregatorClient for AggregatorHTTPClient {
                 error: e.into(),
             }
         })?;
-        let _bytes_total = response.content_length().ok_or_else(|| {
+        let bytes_total = response.content_length().ok_or_else(|| {
             AggregatorHTTPClientError::RemoteServerTechnical(
                 "Download: cannot get response content length".to_string(),
             )
         })?;
+        let mut downloaded_bytes: u64 = 0;
         let mut remote_stream = response.bytes_stream();
+        let mut cursor = 0;
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.map_err(|e| {
@@ -204,6 +211,20 @@ impl AggregatorClient for AggregatorHTTPClient {
                     error: e.into(),
                 }
             })?;
+            downloaded_bytes += chunk.len() as u64;
+            cursor = (cursor + 1) % 4;
+            print!(
+                "{} downloading {} ({:02}%)          \r",
+                match cursor {
+                    0 => '/',
+                    1 => '|',
+                    2 => '\\',
+                    _ => '-',
+                },
+                human_bytes(bytes_total as f64),
+                (100 * downloaded_bytes) / bytes_total
+            );
+            stdout().flush().unwrap();
         }
 
         Ok(())
