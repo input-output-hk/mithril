@@ -212,13 +212,13 @@ impl AggregatorClient for AggregatorHTTPClient {
                 }
             })?;
             downloaded_bytes += chunk.len() as u64;
-            cursor = (cursor + 1) % 4;
+            cursor = (cursor + 1) % 40;
             print!(
                 "{} downloading {} ({:02}%)          \r",
                 match cursor {
-                    0 => '/',
-                    1 => '|',
-                    2 => '\\',
+                    0..=9 => '/',
+                    10..=19 => '|',
+                    20..=29 => '\\',
                     _ => '-',
                 },
                 human_bytes(bytes_total as f64),

@@ -74,10 +74,7 @@ fn convert_to_field_items(snapshot: &Snapshot) -> Vec<SnapshotFieldItem> {
             "Immutable File Number".to_string(),
             format!("{}", snapshot.beacon.immutable_file_number),
         ),
-        SnapshotFieldItem::new(
-            "Network".to_string(),
-            format!("{}", snapshot.beacon.network),
-        ),
+        SnapshotFieldItem::new("Network".to_string(), snapshot.beacon.network.to_owned()),
         SnapshotFieldItem::new("Digest".to_string(), snapshot.digest.to_string()),
         SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot.size)),
     ];
