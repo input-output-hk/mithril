@@ -546,14 +546,13 @@ impl DependenciesBuilder {
         self.create_logger().await
     }
 
-    // TODO: cache management which should not be ASYNC
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
         let immutable_digester_cache = match self.configuration.environment {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
         let digester = CardanoImmutableDigester::new(
-            self.configuration.db_directory.clone(),
+            &self.configuration.db_directory,
             immutable_digester_cache,
             self.get_logger().await?,
         );

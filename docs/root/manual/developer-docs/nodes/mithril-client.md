@@ -119,15 +119,12 @@ Display the help menu
 You should see
 
 ```bash
-This program downloads, checks and restores certified blockchain snapshots.
+This program shows, downloads and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  list      List available snapshots
-  show      Show detailed informations about a snapshot
-  download  Download a snapshot
-  restore   Restore a snapshot
+  snapshot  Snapshot commands
   help      Print this message or the help of the given subcommand(s)
 
 Options:
@@ -140,9 +137,10 @@ Options:
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
           Override configuration Aggregator endpoint URL
   -h, --help
-          Print help information
+          Print help
   -V, --version
-          Print version information
+          Print version
+
 
 ```
 
@@ -255,12 +253,13 @@ make docker-run
 
 Here are the subcommands available:
 
+### snapshot
+
 | Subcommand | Performed action |
 |------------|------------------|
-| **download** | Download a snapshot|
+| **download** | Download and restore a snapshot|
 | **help** | Print this message or the help of the given subcommand(s)|
 | **list** | List available snapshots|
-| **restore** | Restore a snapshot|
 | **show** | Informations about a snapshot|
 
 ## Configuration parameters

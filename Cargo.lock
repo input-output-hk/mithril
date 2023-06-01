@@ -1578,6 +1578,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "human_bytes"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "27e2b089f28ad15597b48d8c0a8fe94eeb1c1cb26ca99b6f66ac9582ae10c5e6"
+dependencies = [
+ "ryu",
+]
+
+[[package]]
 name = "hyper"
 version = "0.14.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2057,7 +2066,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.2.23"
+version = "0.3.0"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2069,6 +2078,7 @@ dependencies = [
  "futures",
  "hex",
  "httpmock",
+ "human_bytes",
  "mithril-common",
  "mockall",
  "reqwest",
@@ -2086,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.57"
+version = "0.2.58"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2132,7 +2142,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "async-trait",
  "clap 4.3.0",

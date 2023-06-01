@@ -165,7 +165,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let single_signer = Arc::new(MithrilSingleSigner::new(self.compute_protocol_party_id()?));
         let digester = Arc::new(CardanoImmutableDigester::new(
-            self.config.db_directory.clone(),
+            &self.config.db_directory,
             self.build_digester_cache_provider().await?,
             slog_scope::logger(),
         ));

@@ -100,6 +100,7 @@ pub trait CertificateVerifier: Send + Sync {
     ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
+    /// TODO: see if we can borrow the certificate instead.
     async fn verify_certificate_chain(
         &self,
         certificate: Certificate,
