@@ -19,7 +19,7 @@ use thiserror::Error;
 
 use crate::aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient};
 
-/// [AggregatorHandler] related errors.
+/// [SnapshotService] related errors.
 #[derive(Error, Debug)]
 pub enum SnapshotServiceError {
     /// The given identifier does not link to an existing snapshot.
@@ -113,7 +113,7 @@ impl MithrilClientSnapshotService {
         let snapshot_file_tar_gz = File::open(filepath)?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
-        snapshot_archive.unpack(&unpack_dir)?;
+        snapshot_archive.unpack(unpack_dir)?;
 
         Ok(())
     }
@@ -254,6 +254,7 @@ mod tests {
             .append_dir_all(".", data_file_path.parent().unwrap())
             .unwrap();
         archive_builder.into_inner().unwrap().finish().unwrap();
+        let _ = std::fs::remove_dir_all(data_file_path.parent().unwrap());
     }
 
     fn get_snapshot_list_message() -> SnapshotListMessage {

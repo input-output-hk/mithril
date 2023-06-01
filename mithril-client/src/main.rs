@@ -109,7 +109,7 @@ impl ArtifactCommands {
         }
     }
 }
-/// CLI command list
+/// Snapshot management
 #[derive(Subcommand, Debug, Clone)]
 enum SnapshotCommands {
     /// List available snapshots
