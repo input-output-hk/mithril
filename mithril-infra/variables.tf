@@ -79,7 +79,6 @@ variable "google_compute_instance_boot_disk_snapshot_start_time" {
   default     = "04:00"
 }
 
-
 variable "google_compute_instance_data_disk_size" {
   type        = number
   description = "Size of the data disk in GB"
@@ -153,6 +152,12 @@ variable "mithril_api_domain" {
 variable "mithril_image_id" {
   type        = string
   description = "The Mithril image tag of service to deploy"
+}
+
+variable "mithril_container_logging_driver" {
+  type        = string
+  description = "The logging driver used by Mithril containers"
+  default     = "json-file"
 }
 
 variable "mithril_genesis_verification_key_url" {

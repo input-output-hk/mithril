@@ -17,10 +17,7 @@ services:
       - cardano
       - all
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
     volumes:
       - ./cardano-configurations/network/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/relay:/db
@@ -59,10 +56,7 @@ services:
       - cardano
       - all
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
     volumes:
       - ./cardano-configurations/network/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/db
@@ -127,10 +121,7 @@ services:
       cardano-node-signer-relay:
         condition: service_started
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
 
   mithril-signer-www:
     image: nginx:latest
@@ -144,10 +135,7 @@ services:
     ports:
       - "${SIGNER_WWW_PORT}:8080"
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)'

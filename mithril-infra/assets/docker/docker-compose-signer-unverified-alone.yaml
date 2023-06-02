@@ -29,10 +29,7 @@ services:
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/mithril-aggregator/cardano/db
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
 
 networks:
   default:
