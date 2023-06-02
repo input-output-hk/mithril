@@ -61,6 +61,61 @@ variable "google_compute_instance_boot_disk_snapshot" {
   default     = ""
 }
 
+variable "google_compute_instance_boot_disk_snapshot_max_retention_days" {
+  type        = number
+  description = "Number of days after a boot disk snapshot is dropped"
+  default     = 30
+}
+
+variable "google_compute_instance_boot_disk_snapshot_pace_days" {
+  type        = number
+  description = "Pace of the boot disk snapshot in days"
+  default     = 1
+}
+
+variable "google_compute_instance_boot_disk_snapshot_start_time" {
+  type        = string
+  description = "Start time of the boot disk snapshot"
+  default     = "04:00"
+}
+
+
+variable "google_compute_instance_data_disk_size" {
+  type        = number
+  description = "Size of the data disk in GB"
+  default     = 250
+}
+
+variable "google_compute_instance_data_disk_type" {
+  type        = string
+  description = "Type of disk"
+  default     = "pd-standard"
+}
+
+variable "google_compute_instance_data_disk_snapshot" {
+  type        = string
+  description = "Snapshot used to restore the data disk"
+  default     = ""
+}
+
+variable "google_compute_instance_data_disk_snapshot_max_retention_days" {
+  type        = number
+  description = "Number of days after a data disk snapshot is dropped"
+  default     = 30
+}
+
+variable "google_compute_instance_data_disk_snapshot_pace_days" {
+  type        = number
+  description = "Pace of the data disk snapshot in days"
+  default     = 1
+}
+
+variable "google_compute_instance_data_disk_snapshot_start_time" {
+  type        = string
+  description = "Start time of the data disk snapshot"
+  default     = "03:00"
+}
+
 variable "google_service_credentials_json_file" {
   type        = string
   description = "The credentials of the GCP service account"
@@ -70,12 +125,6 @@ variable "google_storage_bucket_max_age" {
   type        = number
   description = "Number of days after which an object in the storage bucket expires"
   default     = 14
-}
-
-variable "google_snapshot_max_retention_days" {
-  type        = number
-  description = "Number of days after a disk snapshot is dropped"
-  default     = 30
 }
 
 locals {

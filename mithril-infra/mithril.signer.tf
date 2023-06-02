@@ -12,7 +12,8 @@ resource "null_resource" "mithril_signer" {
   ]
 
   triggers = {
-    image_id = var.mithril_image_id
+    image_id    = var.mithril_image_id,
+    vm_instance = google_compute_instance.vm_instance.id
   }
 
   connection {

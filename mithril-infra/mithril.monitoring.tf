@@ -4,6 +4,10 @@ resource "null_resource" "mithril_monitoring" {
     null_resource.mithril_reverse_proxy
   ]
 
+  triggers = {
+    vm_instance = google_compute_instance.vm_instance.id
+  }
+
   connection {
     type        = "ssh"
     user        = "curry"

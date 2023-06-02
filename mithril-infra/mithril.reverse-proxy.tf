@@ -1,10 +1,12 @@
 resource "null_resource" "mithril_reverse_proxy" {
   depends_on = [
-    null_resource.mithril_bootstrap
+    null_resource.mithril_bootstrap,
+    null_resource.mithril_mount_data_disk
   ]
 
   triggers = {
-    image_id = var.mithril_image_id
+    image_id    = var.mithril_image_id,
+    vm_instance = google_compute_instance.vm_instance.id
   }
 
   connection {
