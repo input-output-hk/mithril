@@ -16,6 +16,11 @@ resource "null_resource" "mithril_bootstrap" {
   }
 
   provisioner "file" {
+    source      = "assets/infra.version"
+    destination = "/home/curry/infra.version"
+  }
+
+  provisioner "file" {
     source      = "assets/docker"
     destination = "/home/curry"
   }
@@ -36,12 +41,7 @@ done
 echo "Startup script complete!"
 EOT
       ,
-      "find /home/curry/tools -name '*.sh' -type f | xargs chmod u+x",
-      <<-EOT
-if [[ ! -f '/home/curry/docker/cardano-configurations' ]] ; then
-  git clone https://github.com/input-output-hk/cardano-configurations.git /home/curry/docker/cardano-configurations
-fi
-EOT
+      "find /home/curry/tools -name '*.sh' -type f | xargs chmod u+x"
     ]
   }
 }
