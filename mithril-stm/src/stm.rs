@@ -408,7 +408,6 @@ impl SignerCore {
         }
     }
 
-    /// Checks whether the indices won the lottery.
     /// Collects and returns the winning indices.
     pub fn check_lottery(&self, msg: &[u8], sigma: &Signature, total_stake: Stake) -> Vec<u64> {
         let mut indexes = Vec::new();
@@ -800,9 +799,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         FullNodeVerifier::pre_verify(
             &avk.total_stake,
-            signatures.as_slice(),
+            &signatures,
             parameters,
-            msgp.as_slice(),
+            &msgp,
             leaves.clone(),
         )?;
 
@@ -810,7 +809,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         avk.mt_commitment.check(&leaves, &proof.clone())?;
 
-        let (sigs, vks) = FullNodeVerifier::<D>::collect_ver_data(signatures.as_slice(), &leaves);
+        let (sigs, vks) = FullNodeVerifier::<D>::collect_ver_data(&signatures, &leaves);
         Ok((sigs, vks))
     }
 
@@ -953,7 +952,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         signatures: &[StmSig],
         parameters: &StmParameters,
         msg: &[u8],
-        signed_parties: Vec<RegParty>,
+        signed_parties: &[RegParty],
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
