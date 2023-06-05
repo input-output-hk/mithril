@@ -1,7 +1,7 @@
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{
     Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters, StmSig,
-    StmSignerAvk, StmVerificationKey,
+    StmSigner, StmVerificationKey,
 };
 use mithril_stm::AggregationError;
 
@@ -16,7 +16,7 @@ fn initialization_phase(
     nparties: u64,
     mut rng: ChaCha20Rng,
     params: StmParameters,
-) -> (Vec<StmSignerAvk<H>>, Vec<(StmVerificationKey, Stake)>) {
+) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
     let parties = (0..nparties)
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
@@ -38,15 +38,15 @@ fn initialization_phase(
 
     let signers = initializers
         .into_par_iter()
-        .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSignerAvk<H>>>();
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .collect::<Vec<StmSigner<H>>>();
 
     (signers, reg_parties)
 }
 
 fn operation_phase(
     params: StmParameters,
-    signers: Vec<StmSignerAvk<H>>,
+    signers: Vec<StmSigner<H>>,
     reg_parties: Vec<(StmVerificationKey, Stake)>,
     msg: [u8; 32],
 ) -> (

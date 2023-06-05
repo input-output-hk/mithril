@@ -8,7 +8,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use blake2::{Blake2b, digest::consts::U32};
 //! use mithril_stm::key_reg::KeyReg; // Import key registration functionality
-//! use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSignerAvk};
+//! use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 //! use mithril_stm::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
@@ -68,8 +68,8 @@
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
-//!     .collect::<Vec<StmSignerAvk<D>>>();
+//!     .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+//!     .collect::<Vec<StmSigner<D>>>();
 //!
 //! /////////////////////
 //! // operation phase //
@@ -170,7 +170,7 @@ pub struct StmInitializer {
 /// Participant in the protocol can sign messages.
 /// This instance can only be generated out of an `StmInitializer`.
 #[derive(Debug, Clone)]
-pub struct StmSigner {
+pub struct SignerCore {
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
@@ -182,8 +182,8 @@ pub struct StmSigner {
 /// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 /// This ensures that a `MerkleTree` root is not computed before all participants have registered.
 #[derive(Debug, Clone)]
-pub struct StmSignerAvk<D: Digest> {
-    stm_signer: StmSigner,
+pub struct StmSigner<D: Digest> {
+    signer_core: SignerCore,
     closed_reg: ClosedKeyReg<D>,
 }
 
@@ -314,9 +314,9 @@ impl StmInitializer {
         Ok(my_index)
     }
 
-    /// Returns the StmSigner of the initializer for given index.
-    pub fn new_signer(self, index: Index) -> StmSigner {
-        StmSigner {
+    /// Returns the SignerCore of the initializer for given index.
+    pub fn new_signer_core(self, index: Index) -> SignerCore {
+        SignerCore {
             mt_index: index,
             stake: self.stake,
             params: self.params,
@@ -337,14 +337,14 @@ impl StmInitializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer_avk<D: Digest + Clone>(
+    pub fn new_signer<D: Digest + Clone>(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSignerAvk<D>, RegisterError> {
+    ) -> Result<StmSigner<D>, RegisterError> {
         let my_index = self.check_initializer(closed_reg.clone())?;
-        let stm_signer = self.new_signer(my_index.unwrap());
-        Ok(StmSignerAvk {
-            stm_signer,
+        let signer_core = self.new_signer_core(my_index.unwrap());
+        Ok(StmSigner {
+            signer_core,
             closed_reg,
         })
     }
@@ -384,7 +384,7 @@ impl StmInitializer {
     }
 }
 
-impl StmSigner {
+impl SignerCore {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
@@ -422,7 +422,7 @@ impl StmSigner {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSignerAvk<D> {
+impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -435,13 +435,13 @@ impl<D: Clone + Digest + FixedOutput> StmSignerAvk<D> {
             .merkle_tree
             .to_commitment_batch_compat()
             .concat_with_msg(msg);
-        let signature = StmSigner::sign(&self.stm_signer, &msgp, self.closed_reg.total_stake)?;
+        let signature = SignerCore::sign(&self.signer_core, &msgp, self.closed_reg.total_stake)?;
 
         if !signature.indexes.is_empty() {
             Some(StmSig {
                 sigma: signature.sigma,
                 indexes: signature.indexes,
-                signer_index: self.stm_signer.mt_index,
+                signer_index: self.signer_core.mt_index,
             })
         } else {
             None
@@ -461,12 +461,12 @@ impl<D: Clone + Digest + FixedOutput> StmSignerAvk<D> {
 
     /// Extract the verification key.
     pub fn verification_key(&self) -> StmVerificationKey {
-        self.stm_signer.vk
+        self.signer_core.vk
     }
 
     /// Extract stake from the signer.
     pub fn get_stake(&self) -> Stake {
-        self.stm_signer.stake
+        self.signer_core.stake
     }
 }
 
@@ -480,9 +480,9 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     }
 
     /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &StmSignerAvk<D>) -> Self {
+    pub fn from_signer(signer: &StmSigner<D>) -> Self {
         Self {
-            params: signer.stm_signer.params,
+            params: signer.signer_core.params,
             closed_reg: signer.closed_reg.clone(),
         }
     }
@@ -1058,12 +1058,12 @@ mod tests {
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSignerAvk<D>> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSignerAvk<D>> {
+    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
         let mut kr = KeyReg::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
@@ -1079,7 +1079,7 @@ mod tests {
             .collect::<Vec<_>>();
         let closed_reg = kr.close();
         ps.into_iter()
-            .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
+            .map(|p| p.new_signer(closed_reg.clone()).unwrap())
             .collect()
     }
 
@@ -1143,7 +1143,7 @@ mod tests {
         )
     }
 
-    fn find_signatures(msg: &[u8], ps: &[StmSignerAvk<D>], is: &[usize]) -> Vec<StmSig> {
+    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -1178,7 +1178,7 @@ mod tests {
             let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
             assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
             for passed_sigs in dedup_result.unwrap() {
-                let verify_result = passed_sigs.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg);
+                let verify_result = passed_sigs.verify(&params, &ps[0].signer_core.vk, &ps[0].signer_core.stake, &avk, &msg);
                 assert!(verify_result.is_ok(), "verify {verify_result:?}");
             }
         }
@@ -1279,7 +1279,7 @@ mod tests {
             let avk = clerk.compute_avk();
 
             if let Some(sig) = ps[0].sign(&msg) {
-                assert!(sig.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
+                assert!(sig.verify(&params, &ps[0].signer_core.vk, &ps[0].signer_core.stake, &avk, &msg).is_ok());
             }
         }
     }
@@ -1319,11 +1319,11 @@ mod tests {
             if let Some(sig) = ps[0].sign(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = StmSig::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].signer_core.vk, &ps[0].signer_core.stake, &avk, &msg).is_ok());
 
                 let encoded = bincode::serialize(&sig).unwrap();
                 let decoded: StmSig = bincode::deserialize(&encoded).unwrap();
-                assert!(decoded.verify(&params, &ps[0].stm_signer.vk, &ps[0].stm_signer.stake, &avk, &msg).is_ok());
+                assert!(decoded.verify(&params, &ps[0].signer_core.vk, &ps[0].signer_core.stake, &avk, &msg).is_ok());
             }
         }
 
@@ -1496,12 +1496,12 @@ mod tests {
     //------------------------------------------------//
     //-------------- Full Node Verifier --------------//
     //------------------------------------------------//
-    fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
+    fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<SignerCore> {
         let stake = vec![1; nparties];
         setup_fnv_parties(params, stake)
     }
 
-    fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner> {
+    fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<SignerCore> {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
         #[allow(clippy::needless_collect)]
@@ -1510,13 +1510,13 @@ mod tests {
             .enumerate()
             .map(|(ind, stake)| {
                 let p = StmInitializer::setup(params, stake, &mut rng);
-                p.new_signer(ind as Index)
+                p.new_signer_core(ind as Index)
             })
             .collect::<Vec<_>>();
         ps
     }
 
-    fn setup_full_node_verifier(signers: Vec<StmSigner>) -> FullNodeVerifier<D> {
+    fn setup_full_node_verifier(signers: Vec<SignerCore>) -> FullNodeVerifier<D> {
         let mut total_stake: Stake = 0;
         let eligible_parties = signers
             .iter()
@@ -1536,7 +1536,7 @@ mod tests {
         }
     }
 
-    fn find_fnv_signatures(msg: &[u8], ps: &[StmSigner], total_stake: Stake) -> Vec<StmSig> {
+    fn find_fnv_signatures(msg: &[u8], ps: &[SignerCore], total_stake: Stake) -> Vec<StmSig> {
         let mut sigs = Vec::new();
         for s in ps {
             if let Some(sig) = s.sign(msg, total_stake) {

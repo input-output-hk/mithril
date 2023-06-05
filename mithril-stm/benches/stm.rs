@@ -2,7 +2,7 @@ use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSignerAvk};
+use mithril_stm::stm::{StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
@@ -51,8 +51,8 @@ where
 
     let signers = initializers
         .into_par_iter()
-        .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSignerAvk<H>>>();
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .collect::<Vec<StmSigner<H>>>();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
@@ -120,8 +120,8 @@ fn batch_benches<H>(
 
             let signers = initializers
                 .into_par_iter()
-                .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
-                .collect::<Vec<StmSignerAvk<H>>>();
+                .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+                .collect::<Vec<StmSigner<H>>>();
 
             let sigs = signers
                 .par_iter()

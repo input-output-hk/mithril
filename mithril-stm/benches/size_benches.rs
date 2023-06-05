@@ -4,7 +4,7 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSignerAvk};
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
@@ -39,8 +39,8 @@ where
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer_avk(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSignerAvk<H>>>();
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .collect::<Vec<StmSigner<H>>>();
 
     let sigs = ps
         .par_iter()

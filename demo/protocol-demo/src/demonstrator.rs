@@ -112,7 +112,7 @@ impl Party {
             .initializer
             .clone()
             .unwrap()
-            .new_signer_avk(closed_reg)
+            .new_signer(closed_reg)
             .unwrap();
         self.signer = Some(signer);
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));

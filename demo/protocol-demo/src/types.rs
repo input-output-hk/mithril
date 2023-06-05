@@ -1,6 +1,6 @@
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{
-    Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSignerAvk,
+    Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
     StmVerificationKeyPoP,
 };
 
@@ -18,8 +18,8 @@ pub type ProtocolStake = Stake;
 /// Alias of [MithrilStm::StmParameters](struct@mithril_stm::stm::StmParameters).
 pub type ProtocolParameters = StmParameters;
 
-/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::stm::StmSignerAvk).
-pub type ProtocolSigner = StmSignerAvk<D>;
+/// Alias of [MithrilStm:StmSigner](struct@mithril_stm::stm::StmSigner).
+pub type ProtocolSigner = StmSigner<D>;
 
 /// Alias of [MithrilStm:StmClerk](struct@mithril_stm::stm::StmClerk).
 pub type ProtocolClerk = StmClerk<D>;
