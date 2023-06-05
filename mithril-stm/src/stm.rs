@@ -303,7 +303,7 @@ impl StmInitializer {
     /// Returns the merkle tree index of the party if registered.
     pub fn check_initializer<D: Digest + Clone>(
         &self,
-        closed_reg: ClosedKeyReg<D>,
+        closed_reg: &ClosedKeyReg<D>,
     ) -> Result<Option<u64>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
@@ -345,7 +345,7 @@ impl StmInitializer {
         self,
         closed_reg: ClosedKeyReg<D>,
     ) -> Result<StmSigner<D>, RegisterError> {
-        let my_index = self.check_initializer(closed_reg.clone())?;
+        let my_index = self.check_initializer(&closed_reg)?;
         let signer_core = self.new_signer_core(my_index.unwrap());
         Ok(StmSigner {
             signer_core,
