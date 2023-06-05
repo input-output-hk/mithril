@@ -61,6 +61,7 @@ pub(crate) fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Sta
 /// Therefore, a good integral bound is the maximum value that `|ln(1.0 - phi_f)|` can take with
 /// `phi_f \in [0, 0.95]` (if we expect to have `phi_f > 0.95` this bound should be extended),
 /// which is `3`. Hence, we set `M = 3`.
+#[allow(clippy::redundant_clone)]
 fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool {
     let mut new_x = x.clone();
     let mut phi: Ratio<BigInt> = One::one();

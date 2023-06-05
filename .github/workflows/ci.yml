@@ -128,9 +128,11 @@ jobs:
         shell: bash
         run: |
           set -o pipefail && \
-          cargo test --no-fail-fast ${{ matrix.test-args }} \
-              -- -Z unstable-options --format json --report-time \
-              | tee >(cargo2junit > test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml)
+          cargo test --no-fail-fast ${{ matrix.test-args }}
+          # TODO: Previous command that uses unstable options which are not supported anymore in stable toolchain
+          #cargo test --no-fail-fast ${{ matrix.test-args }} \
+          #    -- -Z unstable-options --format json --report-time \
+          #    | tee >(cargo2junit > test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml)
 
       - name: Upload Tests Results
         uses: actions/upload-artifact@v3
@@ -230,7 +232,9 @@ jobs:
           if-no-files-found: error
   
   publish-tests-results:
-    if: success() || failure()
+    # TODO: reactivate when cargo test errors export to json works in stable version
+    #if: success() || failure()
+    if: false
     runs-on: ubuntu-22.04
     needs: 
       - test

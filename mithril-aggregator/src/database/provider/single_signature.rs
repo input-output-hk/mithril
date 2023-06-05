@@ -311,15 +311,14 @@ mod tests {
     fn test_convert_single_signatures() {
         let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
         let open_message_id = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
-        let single_signature_expected = single_signature.clone();
 
         let single_signature_record = SingleSignatureRecord::from_single_signatures(
             &single_signature,
             &open_message_id,
             Epoch(1),
         );
-        let single_signature = single_signature_record.into();
-        assert_eq!(single_signature_expected, single_signature);
+        let single_signature_returned = single_signature_record.into();
+        assert_eq!(single_signature, single_signature_returned);
     }
 
     #[test]
@@ -411,14 +410,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_single_signature_records() {
-        let single_signature_records = setup_single_signature_records(2, 3, 4);
+        let single_signature_records_src = setup_single_signature_records(2, 3, 4);
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, single_signature_records.clone()).unwrap();
+        setup_single_signature_db(&connection, single_signature_records_src.clone()).unwrap();
 
         let provider = SingleSignatureRecordProvider::new(&connection);
 
-        let open_message_id_test = single_signature_records[0].open_message_id.to_owned();
+        let open_message_id_test = single_signature_records_src[0].open_message_id.to_owned();
         let single_signature_records: Vec<SingleSignatureRecord> = provider
             .get_by_open_message_id(&open_message_id_test)
             .unwrap()
@@ -467,11 +466,17 @@ mod tests {
             .collect();
         assert!(single_signature_records.is_empty());
 
-        let single_signature_records: Vec<SingleSignatureRecord> =
-            provider.get_all().unwrap().collect();
-        let expected_single_signature_records: Vec<SingleSignatureRecord> =
-            single_signature_records.clone();
-        assert_eq!(expected_single_signature_records, single_signature_records);
+        let single_signature_records_returned: Vec<SingleSignatureRecord> = provider
+            .get_all()
+            .unwrap()
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        assert_eq!(
+            single_signature_records_src,
+            single_signature_records_returned
+        );
     }
 
     #[test]
