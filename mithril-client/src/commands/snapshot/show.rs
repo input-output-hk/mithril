@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
-use config::{builder::DefaultState, ConfigBuilder};
+use config::{builder::DefaultState, Config, ConfigBuilder};
 use mithril_common::{
     api_version::APIVersionProvider, certificate_chain::MithrilCertificateVerifier,
     digesters::CardanoImmutableDigester, entities::Snapshot, StdError,
@@ -11,7 +11,7 @@ use mithril_common::{
 use crate::{
     aggregator_client::{AggregatorHTTPClient, CertificateClient, SnapshotClient},
     services::{MithrilClientSnapshotService, SnapshotService},
-    Config, SnapshotFieldItem,
+    SnapshotFieldItem,
 };
 
 /// Clap command to show a given snapshot
@@ -33,12 +33,10 @@ impl SnapshotShowCommand {
     ) -> Result<(), StdError> {
         let config: Config = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .map_err(|e| format!("configuration build error: {e}"))?;
         let snapshot_service = {
             let http_client = Arc::new(AggregatorHTTPClient::new(
-                &config.aggregator_endpoint,
+                &config.get_string("aggregator_endpoint")?,
                 APIVersionProvider::compute_all_versions_sorted()?,
             ));
 

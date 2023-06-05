@@ -8,6 +8,7 @@
 
 pub mod aggregator_client;
 pub mod commands;
+pub mod dependencies;
 mod entities;
 mod message_adapters;
 pub mod services;

@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
+use config::{builder::DefaultState, Config, ConfigBuilder};
 use mithril_common::{
     api_version::APIVersionProvider, certificate_chain::MithrilCertificateVerifier,
     digesters::CardanoImmutableDigester, StdResult,
@@ -10,7 +10,6 @@ use mithril_common::{
 use crate::{
     aggregator_client::{AggregatorHTTPClient, CertificateClient, SnapshotClient},
     services::{MithrilClientSnapshotService, SnapshotService},
-    Config,
 };
 
 /// Clap command to download the snapshot and verify the certificate.
@@ -35,12 +34,10 @@ impl SnapshotDownloadCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Config = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .map_err(|e| format!("configuration build error: {e}"))?;
         let snapshot_service = {
             let http_client = Arc::new(AggregatorHTTPClient::new(
-                &config.aggregator_endpoint,
+                &config.get_string("aggregator_endpoint")?,
                 APIVersionProvider::compute_all_versions_sorted()?,
             ));
 
@@ -59,7 +56,7 @@ impl SnapshotDownloadCommand {
             .download(
                 &self.digest,
                 &self.download_dir,
-                &config.genesis_verification_key,
+                &config.get_string("genesis_verification_key")?,
             )
             .await?;
 
@@ -78,7 +75,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
                 &self.digest,
                 filepath.display(),
                 filepath.display(),
-                config.network.clone()
+                config.get_string("network")?
             );
         }
 

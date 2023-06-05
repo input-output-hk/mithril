@@ -2,7 +2,7 @@ use std::{path::Path, sync::Arc};
 
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
-use config::{builder::DefaultState, ConfigBuilder};
+use config::{builder::DefaultState, Config, ConfigBuilder};
 use slog_scope::debug;
 
 use mithril_common::{
@@ -13,7 +13,7 @@ use mithril_common::{
 use crate::{
     aggregator_client::{AggregatorHTTPClient, CertificateClient, SnapshotClient},
     services::{MithrilClientSnapshotService, SnapshotService},
-    Config, SnapshotListItem,
+    SnapshotListItem,
 };
 
 /// Clap command to list existing snapshots
@@ -29,13 +29,11 @@ impl SnapshotListCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Config = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .map_err(|e| format!("configuration build error: {e}"))?;
         debug!("{:?}", config);
         let snapshot_service = {
             let http_client = Arc::new(AggregatorHTTPClient::new(
-                &config.aggregator_endpoint,
+                &config.get_string("aggregator_endpoint")?,
                 APIVersionProvider::compute_all_versions_sorted()?,
             ));
 

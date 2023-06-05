@@ -1,21 +1,6 @@
 use cli_table::{format::Justify, Table};
-use mithril_common::entities::{Epoch, HexEncodedGenesisVerificationKey, Snapshot};
-use serde::{Deserialize, Serialize};
-
-/// Client configuration
-#[derive(Table, Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
-    /// Cardano network
-    #[table(title = "Network")]
-    pub network: String,
-
-    /// Aggregator endpoint
-    #[table(title = "Aggregator Endpoint")]
-    pub aggregator_endpoint: String,
-
-    /// Genesis verification key
-    pub genesis_verification_key: HexEncodedGenesisVerificationKey,
-}
+use mithril_common::entities::{Epoch, Snapshot};
+use serde::Serialize;
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
 /// for the purpose of tabular display
