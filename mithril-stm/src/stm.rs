@@ -438,17 +438,13 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             .merkle_tree
             .to_commitment_batch_compat()
             .concat_with_msg(msg);
-        let signature = SignerCore::sign(&self.signer_core, &msgp, self.closed_reg.total_stake)?;
+        let signature = &self.signer_core.sign(&msgp, self.closed_reg.total_stake)?;
 
-        if !signature.indexes.is_empty() {
-            Some(StmSig {
-                sigma: signature.sigma,
-                indexes: signature.indexes,
-                signer_index: self.signer_core.mt_index,
-            })
-        } else {
-            None
-        }
+        Some(StmSig {
+            sigma: signature.sigma,
+            indexes: signature.indexes.clone(),
+            signer_index: self.signer_core.mt_index,
+        })
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
@@ -797,13 +793,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             .map(|r| r.0.clone())
             .collect::<Vec<StmSig>>();
 
-        FullNodeVerifier::pre_verify(
-            &avk.total_stake,
-            &signatures,
-            parameters,
-            &msgp,
-            leaves.clone(),
-        )?;
+        FullNodeVerifier::pre_verify(&avk.total_stake, &signatures, parameters, &msgp, &leaves)?;
 
         let proof = &self.batch_proof;
 
@@ -994,7 +984,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
             signatures,
             parameters,
             msg,
-            signed_parties.clone(),
+            &signed_parties,
         )?;
 
         let (sigs, vks) = Self::collect_ver_data(signatures, &signed_parties);
