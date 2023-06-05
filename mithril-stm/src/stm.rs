@@ -773,6 +773,11 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
 
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
+    ///
+    /// Indices and quorum are checked by `FullNodeVerifier::pre_verify`. So,
+    /// it collects the registered parties as leaves and the `StmSig`s in vectors and calls `pre_verify`
+    /// with `msgp`. After batch proof is checked, it collects and returns the signatures and
+    /// verification keys to be used by aggregate verification.
     fn preliminary_verify(
         &self,
         msg: &[u8],
