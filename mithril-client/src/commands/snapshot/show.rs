@@ -4,7 +4,6 @@ use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
 use mithril_common::{entities::Snapshot, StdError};
-use slog_scope::debug;
 
 use crate::{dependencies::DependenciesBuilder, SnapshotFieldItem};
 
@@ -26,7 +25,6 @@ impl SnapshotShowCommand {
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), StdError> {
         let config: Config = config_builder.build()?;
-        debug!("{:?}", config);
         let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
         let snapshot = snapshot_service.show(&self.digest).await?;
