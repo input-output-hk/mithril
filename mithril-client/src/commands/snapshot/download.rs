@@ -26,6 +26,7 @@ pub struct SnapshotDownloadCommand {
 impl SnapshotDownloadCommand {
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+        let config_builder = config_builder.set_default("genesis_verification_key", "")?;
         let config: Config = config_builder.build()?;
         let config = Arc::new(config);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());

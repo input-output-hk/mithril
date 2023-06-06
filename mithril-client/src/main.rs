@@ -49,7 +49,8 @@ impl Args {
         let config: ConfigBuilder<DefaultState> = config::Config::builder()
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(config::Environment::default())
-            .add_source(self.clone());
+            .add_source(self.clone())
+            .set_default("download_dir", "")?;
 
         self.command.execute(config).await
     }

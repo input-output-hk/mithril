@@ -74,7 +74,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(client))
     }
 
-    /// Get a clone of the [SnapshotClient] dependency
+    /// Get a clone of the [AggregatorClient] dependency
     pub async fn get_aggregator_client(&mut self) -> StdResult<Arc<dyn AggregatorClient>> {
         if self.aggregator_client.is_none() {
             self.aggregator_client = Some(self.build_aggregator_client().await?);
@@ -119,7 +119,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(verifier))
     }
 
-    /// Get a clone of the [CertificateClient] dependency
+    /// Get a clone of the [CertificateVerifier] dependency
     pub async fn get_certificate_verifier(&mut self) -> StdResult<Arc<dyn CertificateVerifier>> {
         if self.certificate_verifier.is_none() {
             self.certificate_verifier = Some(self.build_certificate_verifier().await?);
@@ -138,7 +138,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(digester))
     }
 
-    /// Get a clone of the [CertificateClient] dependency
+    /// Get a clone of the [ImmutableDigester] dependency
     pub async fn get_immutable_digester(&mut self) -> StdResult<Arc<dyn ImmutableDigester>> {
         if self.immutable_digester.is_none() {
             self.immutable_digester = Some(self.build_immutable_digester().await?);
@@ -158,7 +158,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(snapshot_service))
     }
 
-    /// Get a clone of the [CertificateClient] dependency
+    /// Get a clone of the [SnapshotService] dependency
     pub async fn get_snapshot_service(&mut self) -> StdResult<Arc<dyn SnapshotService>> {
         if self.snapshot_service.is_none() {
             self.snapshot_service = Some(self.build_snapshot_service().await?);
