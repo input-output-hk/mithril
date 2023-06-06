@@ -13,7 +13,7 @@ services:
       - all
     environment:
       - RUST_BACKTRACE=1
-      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
       - NETWORK=${NETWORK}
       - PARTY_ID=${PARTY_ID}
       - RUN_INTERVAL=120000

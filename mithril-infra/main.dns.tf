@@ -25,7 +25,7 @@ resource "google_dns_record_set" "mithril-signer-endpoint" {
 
 locals {
   mithril_aggregator_host         = trimsuffix(google_dns_record_set.mithril-aggregator-endpoint.name, ".")
-  mithril_aggregator_endpoint_url = format("https://%s/aggregator", local.mithril_aggregator_host)
+  mithril_aggregator_endpoint_url = format("https://%s%s/aggregator", local.mithril_aggregator_credentials, local.mithril_aggregator_host)
   mithril_signers_host = {
     for key, signer in var.mithril_signers :
     key => "mithril-signer-${key}.${trimsuffix(google_dns_managed_zone.mithril-api-zone.dns_name, ".")}"

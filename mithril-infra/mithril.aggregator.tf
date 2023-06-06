@@ -5,8 +5,10 @@ resource "null_resource" "mithril_aggregator" {
   ]
 
   triggers = {
-    image_id    = var.mithril_image_id,
-    vm_instance = google_compute_instance.vm_instance.id
+    image_id                         = var.mithril_image_id,
+    vm_instance                      = google_compute_instance.vm_instance.id,
+    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
+    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password
   }
 
   connection {
@@ -43,9 +45,10 @@ resource "null_resource" "mithril_aggregator" {
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
+      "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker-compose -f /home/curry/docker/docker-compose-aggregator.yaml --profile all up -d",
+      "docker-compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}.yaml --profile all up -d",
     ]
   }
 }

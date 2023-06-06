@@ -12,8 +12,10 @@ resource "null_resource" "mithril_signer" {
   ]
 
   triggers = {
-    image_id    = var.mithril_image_id,
-    vm_instance = google_compute_instance.vm_instance.id
+    image_id                         = var.mithril_image_id,
+    vm_instance                      = google_compute_instance.vm_instance.id,
+    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
+    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password
   }
 
   connection {
@@ -60,6 +62,7 @@ EOT
       "export NETWORK=${var.cardano_network}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
+      "export AGGREGATOR_CREDENTIALS=${local.mithril_aggregator_credentials}",
       "export SIGNER_HOST=${local.mithril_signers_host[each.key]}",
       "export SIGNER_WWW_PORT=${local.mithril_signers_www_port[each.key]}",
       "export SIGNER_CARDANO_RELAY_ADDR=0.0.0.0",

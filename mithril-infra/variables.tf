@@ -160,6 +160,23 @@ variable "mithril_container_logging_driver" {
   default     = "json-file"
 }
 
+variable "mithril_aggregator_auth_username" {
+  type        = string
+  description = "The username for authentication on the mithril aggregator"
+  default     = ""
+}
+
+variable "mithril_aggregator_auth_password" {
+  type        = string
+  description = "The password for authentication on the mithril aggregator"
+  default     = ""
+}
+
+locals {
+  mithril_aggregator_type        = var.mithril_aggregator_auth_username == "" ? "noauth" : "auth"
+  mithril_aggregator_credentials = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
+}
+
 variable "mithril_genesis_verification_key_url" {
   type        = string
   description = "The url of the Mithril genesis verification key used by to verify a genesis certificate"
