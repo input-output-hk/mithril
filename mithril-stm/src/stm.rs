@@ -223,6 +223,15 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     total_stake: Stake,
 }
 
+/// Signature with its registered party.
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
+pub struct StmSigRegParty {
+    /// Stm signature
+    pub sig: StmSig,
+    /// Registered party
+    pub reg_party: RegParty,
+}
+
 /// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
 /// BatchPath is also a part of the aggregate signature which covers path for all signatures.
@@ -393,7 +402,13 @@ impl StmInitializer {
 }
 #[allow(dead_code)] // REMOVE!!!!!!!!!!!
 impl SignerCore {
-    fn setup(params: StmParameters, stake: Stake, sk: SigningKey, vk: VerificationKey, parties: &[RegParty]) -> Self {
+    fn setup(
+        params: StmParameters,
+        stake: Stake,
+        sk: SigningKey,
+        vk: VerificationKey,
+        parties: &[RegParty],
+    ) -> Self {
         let mut my_index = 0_u64;
         for (i, rp) in parties.iter().enumerate() {
             if rp.0 == vk {
@@ -961,6 +976,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 }
 
+#[allow(dead_code)] // REMOVE !!!!!!!!!!!!!!!
 impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
     /// Verify all signatures whether they all won the lottery, if the indices are unique and the quorum is achieved.
     pub fn pre_verify(
@@ -976,6 +992,36 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         for (i, sig) in signatures.iter().enumerate() {
             sig.check_indices(parameters, &signed_parties[i].1, msg, total_stake)?;
             for &index in &sig.indexes {
+                unique_indices.insert(index);
+                nr_indices += 1;
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            return Err(StmAggregateSignatureError::IndexNotUnique);
+        }
+
+        if (nr_indices as u64) < parameters.k {
+            return Err(StmAggregateSignatureError::NoQuorum);
+        }
+
+        Ok(())
+    }
+
+    fn preliminary_verify(
+        total_stake: &Stake,
+        signatures: &[StmSigRegParty],
+        parameters: &StmParameters,
+        msg: &[u8],
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        let mut nr_indices = 0;
+        let mut unique_indices = HashSet::new();
+
+        for sig_reg in signatures {
+            sig_reg
+                .sig
+                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)?;
+            for &index in &sig_reg.sig.indexes {
                 unique_indices.insert(index);
                 nr_indices += 1;
             }
@@ -1039,6 +1085,100 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
             })
             .collect();
         signed_parties
+    }
+
+    fn map_sig_party(&self, signatures: &[StmSig]) -> Vec<StmSigRegParty> {
+        signatures
+            .iter()
+            .map(|sig| StmSigRegParty {
+                sig: sig.clone(),
+                reg_party: self.eligible_parties[sig.signer_index as usize],
+            })
+            .collect()
+    }
+
+    fn dedup_sigs_for_indices(
+        total_stake: &Stake,
+        params: &StmParameters,
+        msg: &[u8],
+        sigs: &[StmSigRegParty],
+    ) -> Result<Vec<StmSigRegParty>, AggregationError> {
+        let mut sig_by_index: BTreeMap<Index, &StmSigRegParty> = BTreeMap::new();
+        let mut removal_idx_by_vk: HashMap<&StmSigRegParty, Vec<Index>> = HashMap::new();
+
+        for sig_reg in sigs.iter() {
+            if sig_reg
+                .sig
+                .verify_core(
+                    params,
+                    &sig_reg.reg_party.0,
+                    &sig_reg.reg_party.1,
+                    msg,
+                    total_stake,
+                )
+                .is_err()
+            {
+                continue;
+            }
+
+            for index in sig_reg.sig.indexes.iter() {
+                let mut insert_this_sig = false;
+                if let Some(&previous_sig) = sig_by_index.get(index) {
+                    let sig_to_remove_index = if sig_reg.sig.sigma < previous_sig.sig.sigma {
+                        insert_this_sig = true;
+                        previous_sig
+                    } else {
+                        sig_reg
+                    };
+
+                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
+                        indexes.push(*index);
+                    } else {
+                        removal_idx_by_vk.insert(sig_to_remove_index, vec![*index]);
+                    }
+                } else {
+                    insert_this_sig = true;
+                }
+
+                if insert_this_sig {
+                    sig_by_index.insert(*index, sig_reg);
+                }
+            }
+        }
+
+        let mut dedup_sigs: HashSet<StmSigRegParty> = HashSet::new();
+        let mut count: u64 = 0;
+
+        for (_, &sig_reg) in sig_by_index.iter() {
+            if dedup_sigs.contains(sig_reg) {
+                continue;
+            }
+            let mut deduped_sig = sig_reg.clone();
+            if let Some(indexes) = removal_idx_by_vk.get(sig_reg) {
+                deduped_sig.sig.indexes = deduped_sig
+                    .sig
+                    .indexes
+                    .clone()
+                    .into_iter()
+                    .filter(|i| !indexes.contains(i))
+                    .collect();
+            }
+
+            let size: Result<u64, _> = deduped_sig.sig.indexes.len().try_into();
+            if let Ok(size) = size {
+                if dedup_sigs.contains(&deduped_sig) {
+                    panic!("Should not reach!");
+                }
+                dedup_sigs.insert(deduped_sig);
+                count += size;
+
+                if count >= params.k {
+                    return Ok(dedup_sigs.into_iter().collect());
+                }
+            }
+        }
+
+        Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
     /// Collect and return the signatures and verification keys for given lists of `StmSig` and `RegParty`, respectively.
