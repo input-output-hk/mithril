@@ -393,22 +393,20 @@ impl StmInitializer {
 }
 #[allow(dead_code)] // REMOVE!!!!!!!!!!!
 impl SignerCore {
-    fn setup(params: StmParameters, stake: Stake, sk: SigningKey, vk: VerificationKey) -> Self {
+    fn setup(params: StmParameters, stake: Stake, sk: SigningKey, vk: VerificationKey, parties: &[RegParty]) -> Self {
+        let mut my_index = 0_u64;
+        for (i, rp) in parties.iter().enumerate() {
+            if rp.0 == vk {
+                my_index = i as u64;
+                break;
+            }
+        }
         Self {
-            signer_index: 0_u64,
+            signer_index: my_index,
             stake,
             params,
             sk,
             vk,
-        }
-    }
-
-    fn assign_index(&mut self, parties: &[RegParty]) {
-        for (i, rp) in parties.iter().enumerate() {
-            if rp.0 == self.vk {
-                self.signer_index = i as u64;
-                break;
-            }
         }
     }
 
