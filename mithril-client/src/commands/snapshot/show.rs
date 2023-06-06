@@ -1,18 +1,12 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
-use mithril_common::{
-    api_version::APIVersionProvider, certificate_chain::MithrilCertificateVerifier,
-    digesters::CardanoImmutableDigester, entities::Snapshot, StdError,
-};
+use mithril_common::{entities::Snapshot, StdError};
+use slog_scope::debug;
 
-use crate::{
-    aggregator_client::{AggregatorHTTPClient, CertificateClient, SnapshotClient},
-    services::{MithrilClientSnapshotService, SnapshotService},
-    SnapshotFieldItem,
-};
+use crate::{dependencies::DependenciesBuilder, SnapshotFieldItem};
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]
@@ -31,27 +25,10 @@ impl SnapshotShowCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), StdError> {
-        let config: Config = config_builder
-            .build()
-            .map_err(|e| format!("configuration build error: {e}"))?;
-        let snapshot_service = {
-            let http_client = Arc::new(AggregatorHTTPClient::new(
-                &config.get_string("aggregator_endpoint")?,
-                APIVersionProvider::compute_all_versions_sorted()?,
-            ));
-
-            MithrilClientSnapshotService::new(
-                Arc::new(SnapshotClient::new(http_client.clone())),
-                Arc::new(CertificateClient::new(http_client)),
-                Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
-                Arc::new(CardanoImmutableDigester::new(
-                    // the digester needs a path so we pass an empty path since we do not need the digester here
-                    Path::new(""),
-                    None,
-                    slog_scope::logger(),
-                )),
-            )
-        };
+        let config: Config = config_builder.build()?;
+        debug!("{:?}", config);
+        let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
+        let snapshot_service = dependencies_builder.get_snapshot_service().await?;
         let snapshot = snapshot_service.show(&self.digest).await?;
 
         if self.json {

@@ -10,8 +10,11 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::aggregator_client::{
-    AggregatorClient, AggregatorHTTPClient, CertificateClient, SnapshotClient,
+use crate::{
+    aggregator_client::{
+        AggregatorClient, AggregatorHTTPClient, CertificateClient, SnapshotClient,
+    },
+    services::{MithrilClientSnapshotService, SnapshotService},
 };
 
 /// Dependencies builder
@@ -33,6 +36,9 @@ pub struct DependenciesBuilder {
 
     /// ImmutableDigester
     pub immutable_digester: Option<Arc<dyn ImmutableDigester>>,
+
+    /// [SnapshotService]
+    pub snapshot_service: Option<Arc<dyn SnapshotService>>,
 }
 
 impl DependenciesBuilder {
@@ -45,6 +51,7 @@ impl DependenciesBuilder {
             certificate_client: None,
             certificate_verifier: None,
             immutable_digester: None,
+            snapshot_service: None,
         }
     }
 
@@ -138,5 +145,25 @@ impl DependenciesBuilder {
         }
 
         Ok(self.immutable_digester.as_ref().cloned().unwrap())
+    }
+
+    async fn build_snapshot_service(&mut self) -> StdResult<Arc<dyn SnapshotService>> {
+        let snapshot_service = MithrilClientSnapshotService::new(
+            self.get_snapshot_client().await?,
+            self.get_certificate_client().await?,
+            self.get_certificate_verifier().await?,
+            self.get_immutable_digester().await?,
+        );
+
+        Ok(Arc::new(snapshot_service))
+    }
+
+    /// Get a clone of the [CertificateClient] dependency
+    pub async fn get_snapshot_service(&mut self) -> StdResult<Arc<dyn SnapshotService>> {
+        if self.snapshot_service.is_none() {
+            self.snapshot_service = Some(self.build_snapshot_service().await?);
+        }
+
+        Ok(self.snapshot_service.as_ref().cloned().unwrap())
     }
 }
