@@ -208,6 +208,7 @@ jobs:
           google_region: europe-west1
           google_zone: europe-west1-b
           google_machine_type: e2-highmem-2
+          google_compute_instance_data_disk_size: 250
           
     runs-on: ubuntu-22.04
 
@@ -250,6 +251,7 @@ jobs:
           google_region                           = "${{ matrix.google_region }}"
           google_zone                             = "${{ matrix.google_zone }}"
           google_machine_type                     = "${{ matrix.google_machine_type }}"
+          google_compute_instance_data_disk_size  = "${{ matrix.google_compute_instance_data_disk_size }}"
           google_service_credentials_json_file    = "./google-application-credentials.json"
           mithril_api_domain                      = "${{ matrix.mithril_api_domain }}"
           mithril_image_id                        = "${{ env.DOCKER_IMAGE_ID }}"
