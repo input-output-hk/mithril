@@ -1,17 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::{
-    api_version::APIVersionProvider, certificate_chain::MithrilCertificateVerifier,
-    digesters::CardanoImmutableDigester, StdResult,
-};
+use config::{builder::DefaultState, Config, ConfigBuilder};
+use mithril_common::StdResult;
 
-use crate::{
-    aggregator_client::{AggregatorHTTPClient, CertificateClient, SnapshotClient},
-    services::{MithrilClientSnapshotService, SnapshotService},
-    Config,
-};
+use crate::dependencies::DependenciesBuilder;
 
 /// Clap command to download the snapshot and verify the certificate.
 #[derive(Parser, Debug, Clone)]
@@ -33,33 +26,16 @@ pub struct SnapshotDownloadCommand {
 impl SnapshotDownloadCommand {
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config: Config = config_builder
-            .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
-        let snapshot_service = {
-            let http_client = Arc::new(AggregatorHTTPClient::new(
-                &config.aggregator_endpoint,
-                APIVersionProvider::compute_all_versions_sorted()?,
-            ));
-
-            MithrilClientSnapshotService::new(
-                Arc::new(SnapshotClient::new(http_client.clone())),
-                Arc::new(CertificateClient::new(http_client)),
-                Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
-                Arc::new(CardanoImmutableDigester::new(
-                    &self.download_dir.join("db"),
-                    None,
-                    slog_scope::logger(),
-                )),
-            )
-        };
+        let config_builder = config_builder.set_default("genesis_verification_key", "")?;
+        let config: Config = config_builder.build()?;
+        let config = Arc::new(config);
+        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let snapshot_service = dependencies_builder.get_snapshot_service().await?;
         let filepath = snapshot_service
             .download(
                 &self.digest,
                 &self.download_dir,
-                &config.genesis_verification_key,
+                &config.get_string("genesis_verification_key")?,
             )
             .await?;
 
@@ -78,7 +54,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
                 &self.digest,
                 filepath.display(),
                 filepath.display(),
-                config.network.clone()
+                config.get_string("network")?
             );
         }
 
