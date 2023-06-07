@@ -86,22 +86,29 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --version
       
-      - name: List and get last snapshot digest
+      - name: Snapshot / list and get last digest
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} list
-          echo "SNAPSHOT_DIGEST=$(./mithril-client list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot list
+          echo "SNAPSHOT_DIGEST=$(./mithril-client snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
       
-      - name: Download Latest Snapshot
+      - name: Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} download $SNAPSHOT_DIGEST
-        
-      - name: Restore Latest Snapshot
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot download $SNAPSHOT_DIGEST
+
+      - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} restore $SNAPSHOT_DIGEST 
+        run: |
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution list
+          echo "MITHRIL_STAKE_DISTRIBUTION_HASH=$(./mithril-client mithril-stake-distribution list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+      
+      - name: Mithril Stake Distribution / download & restore latest
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH
 
   test-docker:
     strategy:
@@ -110,10 +117,6 @@ jobs:
         os: [ ubuntu-22.04 ]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Setup Docker
-        uses: docker-practice/actions-setup-docker@master
-        timeout-minutes: 10
-
       - name: Prepare environment variables
         id: prepare
         shell: bash
@@ -131,23 +134,28 @@ jobs:
         id: command
         shell: bash
         run: |
-          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v ~:/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
 
       - name: Show client version
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --version
       
-      - name: List and get last snapshot digest
+      - name: Snapshot / list and get last digest
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} list
-          echo "SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} snapshot list
+          echo "SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
       
-      - name: Download Latest Snapshot
+      - name: Snapshot / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} download $SNAPSHOT_DIGEST
-        
-      # We use the `--disable-digests-cache` option because the client is not able to create the /home/appuser/.cache directory otherwise
-      - name: Restore Latest Snapshot
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} snapshot download $SNAPSHOT_DIGEST --download-dir /app
+
+      - name: Mithril Stake Distribution / list and get last hash
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} restore --disable-digests-cache $SNAPSHOT_DIGEST 
+        run: |
+          ${{ steps.command.outputs.mithril_client }} mithril-stake-distribution list
+          echo "MITHRIL_STAKE_DISTRIBUTION_HASH=$(${{ steps.command.outputs.mithril_client }} mithril-stake-distribution list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+      
+      - name: Mithril Stake Distribution / download & restore latest
+        shell: bash
+        run:  ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
