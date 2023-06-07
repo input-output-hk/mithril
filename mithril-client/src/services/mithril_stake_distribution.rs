@@ -54,7 +54,7 @@ pub enum MithrilStakeDistributionServiceError {
 }
 /// Definition of the service responsible of [MithrilStakeDistribution].
 #[async_trait]
-pub trait StakeDistributionService {
+pub trait MithrilStakeDistributionService {
     /// Return a list of the certified Mithril stake distributions
     async fn list(&self) -> StdResult<Vec<MithrilStakeDistributionListItemMessage>>;
 
@@ -68,14 +68,14 @@ pub trait StakeDistributionService {
 }
 
 /// Service responsible of the MithrilStakeDistribution operations.
-pub struct MithrilStakeDistributionService {
+pub struct AppMithrilStakeDistributionService {
     /// Aggreggator client for MithrilStakeDistribution
     stake_distribution_client: Arc<MithrilStakeDistributionClient>,
     certificate_client: Arc<CertificateClient>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
 }
 
-impl MithrilStakeDistributionService {
+impl AppMithrilStakeDistributionService {
     /// Constructor
     pub fn new(
         stake_distribution_client: Arc<MithrilStakeDistributionClient>,
@@ -140,7 +140,7 @@ impl MithrilStakeDistributionService {
 }
 
 #[async_trait]
-impl StakeDistributionService for MithrilStakeDistributionService {
+impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
     async fn list(&self) -> StdResult<Vec<MithrilStakeDistributionListItemMessage>> {
         self.stake_distribution_client.list().await
     }
@@ -285,7 +285,7 @@ mod tests {
             Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
         });
         let http_client = Arc::new(http_client);
-        let service = MithrilStakeDistributionService::new(
+        let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
             Arc::new(CertificateClient::new(http_client.clone())),
             Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
@@ -327,7 +327,7 @@ mod tests {
             .expect_verify_protocol_message()
             .returning(|_, _| true)
             .times(1);
-        let service = MithrilStakeDistributionService::new(
+        let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
             Arc::new(CertificateClient::new(http_client.clone())),
             Arc::new(certificate_verifier),
@@ -344,5 +344,7 @@ mod tests {
             )
             .await
             .unwrap();
+
+        assert!(filepath.exists());
     }
 }

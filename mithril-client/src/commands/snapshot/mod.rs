@@ -12,6 +12,8 @@ pub use download::*;
 pub use list::*;
 pub use show::*;
 
+use super::mithril_stake_distribution::MithrilStakeDistributionListCommand;
+
 /// Snapshot management
 #[derive(Subcommand, Debug, Clone)]
 pub enum SnapshotCommands {
@@ -38,6 +40,26 @@ impl SnapshotCommands {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,
+        }
+    }
+}
+
+/// Mithril Stake Distribution management
+#[derive(Subcommand, Debug, Clone)]
+pub enum MithrilStakeDistributionCommands {
+    /// List available snapshots
+    #[clap(arg_required_else_help = false)]
+    List(MithrilStakeDistributionListCommand),
+}
+
+impl MithrilStakeDistributionCommands {
+    /// Execute snapshot command
+    pub async fn execute(
+        &self,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), StdError> {
+        match self {
+            Self::List(cmd) => cmd.execute(config_builder).await,
         }
     }
 }

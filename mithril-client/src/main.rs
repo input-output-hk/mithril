@@ -98,6 +98,9 @@ impl Source for Args {
 enum ArtifactCommands {
     #[clap(subcommand)]
     Snapshot(SnapshotCommands),
+
+    #[clap(subcommand)]
+    MithrilStakeDistribution(MithrilStakeDistributionCommands),
 }
 
 impl ArtifactCommands {
@@ -107,6 +110,7 @@ impl ArtifactCommands {
     ) -> Result<(), StdError> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
+            Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
         }
     }
 }

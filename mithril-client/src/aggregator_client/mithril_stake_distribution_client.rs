@@ -24,7 +24,7 @@ impl MithrilStakeDistributionClient {
 
     /// Fetch a list of signed MithrilStakeDistribution
     pub async fn list(&self) -> StdResult<Vec<MithrilStakeDistributionListItemMessage>> {
-        let url = "artifact/mithril_stake_distribution";
+        let url = "artifact/mithril-stake-distributions";
         let response = self.http_client.get_content(url).await?;
         let items = serde_json::from_str::<MithrilStakeDistributionListMessage>(&response)?;
 
@@ -33,7 +33,7 @@ impl MithrilStakeDistributionClient {
 
     /// Download the given stake distribution. If it cannot be found, a None is returned.
     pub async fn get(&self, hash: &str) -> StdResult<Option<MithrilStakeDistribution>> {
-        let url = format!("artifact/mithril_stake_distribution/{hash}");
+        let url = format!("artifact/mithril-stake-distribution/{hash}");
 
         match self.http_client.get_content(&url).await {
             Ok(content) => {
