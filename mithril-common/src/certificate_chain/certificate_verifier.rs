@@ -11,7 +11,7 @@ use crate::crypto_helper::{
     key_decode_hex, ProtocolGenesisError, ProtocolGenesisSignature, ProtocolGenesisVerifier,
     ProtocolMultiSignature,
 };
-use crate::entities::{Certificate, ProtocolMessagePartKey, ProtocolParameters};
+use crate::entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters};
 
 #[cfg(test)]
 use mockall::automock;
@@ -119,6 +119,16 @@ pub trait CertificateVerifier: Send + Sync {
             certificate = previous_certificate;
         }
         Ok(())
+    }
+
+    /// still a dirty hack to mock the protocol message
+    /// verify that the protocol message is equal to the signed message of the certificate.
+    fn verify_protocol_message(
+        &self,
+        protocol_message: &ProtocolMessage,
+        certificate: &Certificate,
+    ) -> bool {
+        protocol_message.compute_hash() == certificate.signed_message
     }
 }
 

@@ -4,6 +4,8 @@ use std::{
 };
 
 use async_trait::async_trait;
+use thiserror::Error;
+
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{
@@ -14,7 +16,6 @@ use mithril_common::{
     messages::MithrilStakeDistributionListItemMessage,
     StdError, StdResult,
 };
-use thiserror::Error;
 
 use crate::aggregator_client::{CertificateClient, MithrilStakeDistributionClient};
 
@@ -150,6 +151,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
         dirpath: &Path,
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
+        // 1 - retrieve stake distribution
         let stake_distribution =
             self.stake_distribution_client
                 .get(hash)
@@ -159,6 +161,8 @@ impl StakeDistributionService for MithrilStakeDistributionService {
                         hash.to_owned(),
                     )
                 })?;
+
+        // 2 retrieve certificate
         let certificate = self
             .certificate_client
             .get(&stake_distribution.certificate_hash)
@@ -168,6 +172,8 @@ impl StakeDistributionService for MithrilStakeDistributionService {
                     stake_distribution.certificate_hash.clone(),
                 )
             })?;
+
+        // 3 get and check genesis verification key
         let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
             .map_err(
                 |e| MithrilStakeDistributionServiceError::InvalidParameters {
@@ -177,19 +183,19 @@ impl StakeDistributionService for MithrilStakeDistributionService {
                     error: e.into(),
                 },
             )?;
-        let genesis_verifier =
-            ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
         self.certificate_verifier
             .verify_certificate_chain(
                 certificate.clone(),
                 self.certificate_client.clone(),
-                &genesis_verifier,
+                &ProtocolGenesisVerifier::from_verification_key(genesis_verification_key),
             )
             .await?;
+
+        // 4 Compute and check protocol message
         let clerk = self
             .create_clerk(
                 &stake_distribution.signers_with_stake,
-                &certificate.metadata.protocol_parameters.into(),
+                &certificate.metadata.protocol_parameters.clone().into(),
             )
             .await?
             .ok_or_else(|| {
@@ -204,7 +210,10 @@ impl StakeDistributionService for MithrilStakeDistributionService {
         protocol_message
             .set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
-        if protocol_message.compute_hash() != certificate.signed_message {
+        if !self
+            .certificate_verifier
+            .verify_protocol_message(&protocol_message, &certificate)
+        {
             return Err(
                 MithrilStakeDistributionServiceError::CouldNotVerifyStakeDistribution {
                     hash: hash.to_owned(),
@@ -214,11 +223,126 @@ impl StakeDistributionService for MithrilStakeDistributionService {
                 .into(),
             );
         }
+
+        // 5 save the JSON file
+        if !dirpath.is_dir() {
+            std::fs::create_dir_all(dirpath)?;
+        }
         let filepath = PathBuf::new()
             .join(dirpath)
             .join("mithril_stake_distribution-{hash}.json");
         std::fs::write(&filepath, serde_json::to_string(&stake_distribution)?)?;
 
         Ok(filepath)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_common::{
+        certificate_chain::MithrilCertificateVerifier,
+        crypto_helper::ProtocolGenesisSigner,
+        entities::Epoch,
+        messages::{
+            CertificateMessage, MithrilStakeDistributionListMessage,
+            MithrilStakeDistributionMessage,
+        },
+        test_utils::MithrilFixtureBuilder,
+    };
+
+    use crate::{
+        aggregator_client::MockAggregatorHTTPClient, services::MockCertificateVerifierImpl,
+    };
+
+    use super::*;
+
+    fn get_stake_distribution_list_message() -> MithrilStakeDistributionListMessage {
+        vec![MithrilStakeDistributionListItemMessage::dummy()]
+    }
+
+    fn get_stake_distribution_message(
+        signers_with_stake: &[SignerWithStake],
+    ) -> MithrilStakeDistributionMessage {
+        MithrilStakeDistributionMessage {
+            epoch: Epoch(1),
+            signers_with_stake: signers_with_stake.to_owned(),
+            hash: "hash-123".to_string(),
+            certificate_hash: "certificate-hash-123".to_string(),
+        }
+    }
+
+    /// Instantiate a Genesis Signer and its associated Verifier
+    pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let genesis_verifier = genesis_signer.create_genesis_verifier();
+        (genesis_signer, genesis_verifier)
+    }
+
+    #[tokio::test]
+    async fn list_ok() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_get_content().returning(|_| {
+            Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
+        });
+        let http_client = Arc::new(http_client);
+        let service = MithrilStakeDistributionService::new(
+            Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
+            Arc::new(CertificateClient::new(http_client.clone())),
+            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+        );
+        let list = service.list().await.unwrap();
+
+        assert_eq!(1, list.len());
+    }
+
+    #[tokio::test]
+    async fn verify_ok() {
+        let signers_with_stake = MithrilFixtureBuilder::default()
+            .with_signers(2)
+            .build()
+            .signers_with_stake();
+        let stake_distribution_message = get_stake_distribution_message(&signers_with_stake);
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .returning(move |_| Ok(serde_json::to_string(&stake_distribution_message).unwrap()))
+            .times(1);
+        http_client
+            .expect_get_content()
+            .returning(|_| {
+                let mut message = CertificateMessage::dummy();
+                message.signed_message = message.protocol_message.compute_hash();
+                let message = serde_json::to_string(&message).unwrap();
+
+                Ok(message)
+            })
+            .times(1);
+        let http_client = Arc::new(http_client);
+        let mut certificate_verifier = MockCertificateVerifierImpl::new();
+        certificate_verifier
+            .expect_verify_certificate_chain()
+            .returning(|_, _, _| Ok(()))
+            .times(1);
+        certificate_verifier
+            .expect_verify_protocol_message()
+            .returning(|_, _| true)
+            .times(1);
+        let service = MithrilStakeDistributionService::new(
+            Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
+            Arc::new(CertificateClient::new(http_client.clone())),
+            Arc::new(certificate_verifier),
+        );
+
+        let dirpath = std::env::temp_dir().join("test_verify_ok");
+        let (_, genesis_verifier) = setup_genesis();
+        let genesis_verification_key = genesis_verifier.to_verification_key();
+        let filepath = service
+            .verify(
+                "hash-123",
+                &dirpath,
+                &key_encode_hex(genesis_verification_key).unwrap(),
+            )
+            .await
+            .unwrap();
     }
 }
