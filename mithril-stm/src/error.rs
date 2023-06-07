@@ -1,12 +1,12 @@
 //! Crate specific errors
 
 use crate::merkle_tree::{BatchPath, Path};
+use crate::AggregationError::NotEnoughSignatures;
 use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
-use crate::AggregationError::NotEnoughSignatures;
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
@@ -183,7 +183,6 @@ impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureE
         StmAggregateSignatureError::IndividualSignatureInvalid(e)
     }
 }
-
 
 // TO BE REMOVED WHEN NEW ERROR ENUM FOR FNV IMPLEMENTED !!!!!!!!!!!!!!!!!!!!
 impl<D: Digest + FixedOutput> From<AggregationError> for StmAggregateSignatureError<D> {

@@ -1198,9 +1198,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
-    fn collect_sigs_vks(
-        sig_reg_list: &[StmSigRegParty],
-    ) -> (Vec<Signature>, Vec<VerificationKey>) {
+    fn collect_sigs_vks(sig_reg_list: &[StmSigRegParty]) -> (Vec<Signature>, Vec<VerificationKey>) {
         let sigs = sig_reg_list
             .iter()
             .map(|sig_reg| sig_reg.sig.sigma)
@@ -1218,11 +1216,11 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         signatures: &[StmSig],
         parameters: &StmParameters,
         msg: &[u8],
-    ) -> Result<(), StmAggregateSignatureError<D>>{
-
+    ) -> Result<(), StmAggregateSignatureError<D>> {
         let sig_reg_list = self.map_sig_party(signatures);
 
-        let unique_sigs = Self::dedup_sigs_for_indices(&self.total_stake, parameters, msg, &sig_reg_list)?;
+        let unique_sigs =
+            Self::dedup_sigs_for_indices(&self.total_stake, parameters, msg, &sig_reg_list)?;
 
         Self::preliminary_verify(&self.total_stake, &unique_sigs, parameters, msg)?;
 
