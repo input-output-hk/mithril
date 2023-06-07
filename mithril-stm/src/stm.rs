@@ -224,7 +224,7 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
 }
 
 /// Signature with its registered party.
-#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Hash, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StmSigRegParty {
     /// Stm signature
     pub sig: StmSig,
@@ -533,21 +533,30 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         sigs: &[StmSig],
         msg: &[u8],
     ) -> Result<StmAggrSig<D>, AggregationError> {
-        let mut unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
+        let sig_reg_list = FullNodeVerifier::<D>::map_sig_party(&self.closed_reg.reg_parties, sigs);
+        let avk = StmAggrVerificationKey::from(&self.closed_reg);
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+        let mut unique_sigs = FullNodeVerifier::<D>::dedup_sigs_for_indices(
+            &self.closed_reg.total_stake,
+            &self.params,
+            &msgp,
+            &sig_reg_list,
+        )?;
+        // let mut unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
         unique_sigs.sort_unstable();
         let signatures = unique_sigs
             .iter()
-            .map(|sig| {
+            .map(|sig_reg| {
                 (
-                    sig.clone(),
-                    self.closed_reg.reg_parties[sig.signer_index as usize],
+                    sig_reg.sig.clone(),
+                    self.closed_reg.reg_parties[sig_reg.sig.signer_index as usize],
                 )
             })
             .collect(); // todo: look into this conversion
 
         let mt_index_list = unique_sigs
             .iter()
-            .map(|sig| sig.signer_index as usize)
+            .map(|sig_reg| sig_reg.sig.signer_index as usize)
             .collect::<Vec<usize>>();
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
@@ -1104,12 +1113,12 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Ok(())
     }
 
-    fn map_sig_party(&self, signatures: &[StmSig]) -> Vec<StmSigRegParty> {
+    fn map_sig_party(parties: &[RegParty], signatures: &[StmSig]) -> Vec<StmSigRegParty> {
         signatures
             .iter()
             .map(|sig| StmSigRegParty {
                 sig: sig.clone(),
-                reg_party: self.eligible_parties[sig.signer_index as usize],
+                reg_party: parties[sig.signer_index as usize],
             })
             .collect()
     }
@@ -1217,7 +1226,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         parameters: &StmParameters,
         msg: &[u8],
     ) -> Result<(), StmAggregateSignatureError<D>> {
-        let sig_reg_list = self.map_sig_party(signatures);
+        let sig_reg_list = Self::map_sig_party(&self.eligible_parties, signatures);
 
         let unique_sigs =
             Self::dedup_sigs_for_indices(&self.total_stake, parameters, msg, &sig_reg_list)?;
