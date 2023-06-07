@@ -2,6 +2,7 @@
 
 use crate::merkle_tree::{BatchPath, Path};
 use crate::AggregationError::NotEnoughSignatures;
+use crate::RegisterError::SerializationError;
 use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
@@ -96,6 +97,14 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     BatchInvalid,
 }
 
+/// Errors which can be output by StmSigRegParty .
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum StmSigRegPartyError {
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
+}
+
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum AggregationError {
@@ -184,6 +193,30 @@ impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureE
     }
 }
 
+impl From<StmSignatureError> for StmSigRegPartyError {
+    fn from(_e: StmSignatureError) -> Self {
+        StmSigRegPartyError::SerializationError
+    }
+}
+
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSigRegPartyError {
+    fn from(_e: MerkleTreeError<D>) -> Self {
+        StmSigRegPartyError::SerializationError
+    }
+}
+
+impl<D: Digest + FixedOutput> From<StmAggregateSignatureError<D>> for StmSigRegPartyError {
+    fn from(_e: StmAggregateSignatureError<D>) -> Self {
+        StmSigRegPartyError::SerializationError
+    }
+}
+
+impl<D: Digest + FixedOutput> From<StmSigRegPartyError> for StmAggregateSignatureError<D> {
+    fn from(_e: StmSigRegPartyError) -> Self {
+        StmAggregateSignatureError::SerializationError
+    }
+}
+
 // TO BE REMOVED WHEN NEW ERROR ENUM FOR FNV IMPLEMENTED !!!!!!!!!!!!!!!!!!!!
 impl<D: Digest + FixedOutput> From<AggregationError> for StmAggregateSignatureError<D> {
     fn from(e: AggregationError) -> Self {
@@ -197,7 +230,7 @@ impl<D: Digest + FixedOutput> From<AggregationError> for StmAggregateSignatureEr
 impl From<MultiSignatureError> for RegisterError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
+            MultiSignatureError::SerializationError => SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
             MultiSignatureError::SignatureInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
