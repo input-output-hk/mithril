@@ -1008,42 +1008,12 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Ok(())
     }
 
-    fn preliminary_verify(
-        total_stake: &Stake,
-        signatures: &[StmSigRegParty],
-        parameters: &StmParameters,
-        msg: &[u8],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
-        let mut nr_indices = 0;
-        let mut unique_indices = HashSet::new();
-
-        for sig_reg in signatures {
-            sig_reg
-                .sig
-                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)?;
-            for &index in &sig_reg.sig.indexes {
-                unique_indices.insert(index);
-                nr_indices += 1;
-            }
-        }
-
-        if nr_indices != unique_indices.len() {
-            return Err(StmAggregateSignatureError::IndexNotUnique);
-        }
-
-        if (nr_indices as u64) < parameters.k {
-            return Err(StmAggregateSignatureError::NoQuorum);
-        }
-
-        Ok(())
-    }
-
     /// Verify the signatures:
     ///     - Collect signed parties
     ///     - Run `pre_verify`
     ///     - Collect verification data: signatures and verification keys
     ///     - Verify aggregate
-    pub fn verify(
+    pub fn verify_expired(
         &self,
         signatures: &[StmSig],
         parameters: &StmParameters,
@@ -1085,6 +1055,53 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
             })
             .collect();
         signed_parties
+    }
+
+    /// Collect and return the signatures and verification keys for given lists of `StmSig` and `RegParty`, respectively.
+    pub fn collect_ver_data(
+        signatures: &[StmSig],
+        signed_parties: &[RegParty],
+    ) -> (Vec<Signature>, Vec<VerificationKey>) {
+        let sigs = signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>();
+        let vks = signed_parties
+            .iter()
+            .map(|reg_party| reg_party.0)
+            .collect::<Vec<VerificationKey>>();
+
+        (sigs, vks)
+    }
+
+    fn preliminary_verify(
+        total_stake: &Stake,
+        signatures: &[StmSigRegParty],
+        parameters: &StmParameters,
+        msg: &[u8],
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        let mut nr_indices = 0;
+        let mut unique_indices = HashSet::new();
+
+        for sig_reg in signatures {
+            sig_reg
+                .sig
+                .check_indices(parameters, &sig_reg.reg_party.1, msg, total_stake)?;
+            for &index in &sig_reg.sig.indexes {
+                unique_indices.insert(index);
+                nr_indices += 1;
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            return Err(StmAggregateSignatureError::IndexNotUnique);
+        }
+
+        if (nr_indices as u64) < parameters.k {
+            return Err(StmAggregateSignatureError::NoQuorum);
+        }
+
+        Ok(())
     }
 
     fn map_sig_party(&self, signatures: &[StmSig]) -> Vec<StmSigRegParty> {
@@ -1181,21 +1198,39 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
-    /// Collect and return the signatures and verification keys for given lists of `StmSig` and `RegParty`, respectively.
-    pub fn collect_ver_data(
-        signatures: &[StmSig],
-        signed_parties: &[RegParty],
+    fn collect_sigs_vks(
+        sig_reg_list: &[StmSigRegParty],
     ) -> (Vec<Signature>, Vec<VerificationKey>) {
-        let sigs = signatures
+        let sigs = sig_reg_list
             .iter()
-            .map(|sig| sig.sigma)
+            .map(|sig_reg| sig_reg.sig.sigma)
             .collect::<Vec<Signature>>();
-        let vks = signed_parties
+        let vks = sig_reg_list
             .iter()
-            .map(|reg_party| reg_party.0)
+            .map(|sig_reg| sig_reg.reg_party.0)
             .collect::<Vec<VerificationKey>>();
 
         (sigs, vks)
+    }
+
+    fn verify(
+        &self,
+        signatures: &[StmSig],
+        parameters: &StmParameters,
+        msg: &[u8],
+    ) -> Result<(), StmAggregateSignatureError<D>>{
+
+        let sig_reg_list = self.map_sig_party(signatures);
+
+        let unique_sigs = Self::dedup_sigs_for_indices(&self.total_stake, parameters, msg, &sig_reg_list)?;
+
+        Self::preliminary_verify(&self.total_stake, &unique_sigs, parameters, msg)?;
+
+        let (sigs, vks) = Self::collect_sigs_vks(&unique_sigs);
+
+        Signature::verify_aggregate(msg.to_vec().as_slice(), &vks, &sigs)?;
+
+        Ok(())
     }
 }
 

@@ -6,6 +6,7 @@ use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
+use crate::AggregationError::NotEnoughSignatures;
 
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
@@ -180,6 +181,17 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
 impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
     fn from(e: StmSignatureError) -> Self {
         StmAggregateSignatureError::IndividualSignatureInvalid(e)
+    }
+}
+
+
+// TO BE REMOVED WHEN NEW ERROR ENUM FOR FNV IMPLEMENTED !!!!!!!!!!!!!!!!!!!!
+impl<D: Digest + FixedOutput> From<AggregationError> for StmAggregateSignatureError<D> {
+    fn from(e: AggregationError) -> Self {
+        match e {
+            NotEnoughSignatures(_, _) => unreachable!(),
+            AggregationError::UsizeConversionInvalid => unreachable!(),
+        }
     }
 }
 
