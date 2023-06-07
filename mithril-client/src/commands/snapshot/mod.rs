@@ -12,7 +12,9 @@ pub use download::*;
 pub use list::*;
 pub use show::*;
 
-use super::mithril_stake_distribution::MithrilStakeDistributionListCommand;
+use super::mithril_stake_distribution::{
+    MithrilStakeDistributionListCommand, MithrilStakeDistributionVerifyCommand,
+};
 
 /// Snapshot management
 #[derive(Subcommand, Debug, Clone)]
@@ -50,6 +52,10 @@ pub enum MithrilStakeDistributionCommands {
     /// List available snapshots
     #[clap(arg_required_else_help = false)]
     List(MithrilStakeDistributionListCommand),
+
+    /// Download and verify the given Mithril Stake Distribution
+    #[clap(arg_required_else_help = false)]
+    Verify(MithrilStakeDistributionVerifyCommand),
 }
 
 impl MithrilStakeDistributionCommands {
@@ -60,6 +66,7 @@ impl MithrilStakeDistributionCommands {
     ) -> Result<(), StdError> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
+            Self::Verify(cmd) => cmd.execute(config_builder).await,
         }
     }
 }

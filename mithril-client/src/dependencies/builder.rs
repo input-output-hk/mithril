@@ -215,7 +215,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(service))
     }
 
-    /// Get a clone of the [SnapshotService] dependency
+    /// Get a clone of the [MithrilStakeDistributionService] dependency
     pub async fn get_mithril_stake_distribution_service(
         &mut self,
     ) -> StdResult<Arc<dyn MithrilStakeDistributionService>> {

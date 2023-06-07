@@ -123,6 +123,7 @@ pub trait CertificateVerifier: Send + Sync {
 
     /// still a dirty hack to mock the protocol message
     /// verify that the protocol message is equal to the signed message of the certificate.
+    /// TODO: Remove this method.
     fn verify_protocol_message(
         &self,
         protocol_message: &ProtocolMessage,
