@@ -312,7 +312,7 @@ impl<'client> DeleteOpenMessageProvider<'client> {
 
     fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
         WhereCondition::new(
-            "epoch_setting_id <= ?*",
+            "epoch_setting_id < ?*",
             vec![Value::Integer(epoch.0 as i64)],
         )
     }
@@ -547,7 +547,7 @@ impl OpenMessageRepository {
             .ok_or_else(|| panic!("Updating an open_message should not return nothing."))
     }
 
-    /// Remove all the [OpenMessageRecord] for the given Epoch in the database.
+    /// Remove all the [OpenMessageRecord] for the strictly previous epochs of the given epoch in the database.
     /// It returns the number of messages removed.
     pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
         let lock = self.connection.lock().await;
@@ -712,7 +712,7 @@ mod tests {
         let provider = DeleteOpenMessageProvider::new(&connection);
         let (expr, params) = provider.get_epoch_condition(Epoch(12)).expand();
 
-        assert_eq!("epoch_setting_id <= ?1".to_string(), expr);
+        assert_eq!("epoch_setting_id < ?1".to_string(), expr);
         assert_eq!(vec![Value::Integer(12)], params,);
     }
 
