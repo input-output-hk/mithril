@@ -80,10 +80,6 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     #[error("Aggregate signature is invalid")]
     AggregateSignatureInvalid,
 
-    /// One of the aggregated signatures is invalid
-    #[error("Individual signature is invalid: {0}")]
-    IndividualSignatureInvalid(StmSignatureError),
-
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
@@ -95,6 +91,30 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]
     BatchInvalid,
+
+    /// One of the aggregated signatures is invalid
+    #[error("Individual signature is invalid: {0}")]
+    IndividualSignatureInvalid(StmSignatureError),
+}
+
+/// Errors which can be output by Mithril aggregate verification.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum CoreVerifierError {
+    /// No quorum was found
+    #[error("No Quorum was found.")]
+    NoQuorum,
+
+    /// There is a duplicate index
+    #[error("Indices are not unique.")]
+    IndexNotUnique,
+
+    /// The aggregated signature is invalid
+    #[error("Aggregate signature is invalid")]
+    AggregateSignatureInvalid,
+
+    /// One of the aggregated signatures is invalid
+    #[error("Individual signature is invalid: {0}")]
+    IndividualSignatureInvalid(StmSignatureError),
 }
 
 /// Errors which can be output by StmSigRegParty .
@@ -187,9 +207,38 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
     }
 }
 
+impl From<MultiSignatureError> for CoreVerifierError {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::BatchInvalid => unreachable!(),
+            MultiSignatureError::SerializationError => unreachable!(),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
+            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureError<D> {
+    fn from(e: CoreVerifierError) -> Self {
+        match e {
+            CoreVerifierError::IndexNotUnique => Self::IndexNotUnique,
+            CoreVerifierError::NoQuorum => Self::NoQuorum,
+            CoreVerifierError::IndividualSignatureInvalid(e) => Self::IndividualSignatureInvalid(e),
+            CoreVerifierError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+        }
+    }
+}
+
 impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
     fn from(e: StmSignatureError) -> Self {
         StmAggregateSignatureError::IndividualSignatureInvalid(e)
+    }
+}
+
+impl From<StmSignatureError> for CoreVerifierError {
+    fn from(e: StmSignatureError) -> Self {
+        CoreVerifierError::IndividualSignatureInvalid(e)
     }
 }
 
@@ -211,11 +260,10 @@ impl<D: Digest + FixedOutput> From<StmSigRegPartyError> for StmAggregateSignatur
     }
 }
 
-// TO BE REMOVED WHEN NEW ERROR ENUM FOR FNV IMPLEMENTED !!!!!!!!!!!!!!!!!!!!
-impl<D: Digest + FixedOutput> From<AggregationError> for StmAggregateSignatureError<D> {
+impl From<AggregationError> for CoreVerifierError {
     fn from(e: AggregationError) -> Self {
         match e {
-            NotEnoughSignatures(_, _) => unreachable!(),
+            NotEnoughSignatures(_, _) => Self::NoQuorum,
             AggregationError::UsizeConversionInvalid => unreachable!(),
         }
     }

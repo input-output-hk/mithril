@@ -108,8 +108,8 @@
 
 use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
-    AggregationError, RegisterError, StmAggregateSignatureError, StmSigRegPartyError,
-    StmSignatureError,
+    AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
+    StmSigRegPartyError, StmSignatureError,
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
@@ -121,7 +121,6 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
-use std::marker::PhantomData;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -248,12 +247,11 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
 }
 
 /// Full node verifier including the ordered list of eligible signers and the total stake of the system.
-pub struct CoreVerifier<D: Digest> {
+pub struct CoreVerifier {
     /// Ordered list of registered parties.
     pub eligible_parties: Vec<RegParty>,
     /// Total stake of registered parties.
     pub total_stake: Stake,
-    hasher: PhantomData<D>,
 }
 
 impl StmParameters {
@@ -535,10 +533,10 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         sigs: &[StmSig],
         msg: &[u8],
     ) -> Result<StmAggrSig<D>, AggregationError> {
-        let sig_reg_list = CoreVerifier::<D>::map_sig_party(&self.closed_reg.reg_parties, sigs);
+        let sig_reg_list = CoreVerifier::map_sig_party(&self.closed_reg.reg_parties, sigs);
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
         let msgp = avk.mt_commitment.concat_with_msg(msg);
-        let mut unique_sigs = CoreVerifier::<D>::dedup_sigs_for_indices(
+        let mut unique_sigs = CoreVerifier::dedup_sigs_for_indices(
             &self.closed_reg.total_stake,
             &self.params,
             &msgp,
@@ -882,7 +880,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         avk.mt_commitment.check(&leaves, &proof.clone())?;
 
-        let (sigs, vks) = CoreVerifier::<D>::collect_sigs_vks(&self.signatures);
+        let (sigs, vks) = CoreVerifier::collect_sigs_vks(&self.signatures);
         Ok((sigs, vks))
     }
 
@@ -1012,13 +1010,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> CoreVerifier<D> {
+impl CoreVerifier {
     fn preliminary_verify(
         total_stake: &Stake,
         signatures: &[StmSigRegParty],
         parameters: &StmParameters,
         msg: &[u8],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> Result<(), CoreVerifierError> {
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
 
@@ -1033,11 +1031,11 @@ impl<D: Digest + FixedOutput> CoreVerifier<D> {
         }
 
         if nr_indices != unique_indices.len() {
-            return Err(StmAggregateSignatureError::IndexNotUnique);
+            return Err(CoreVerifierError::IndexNotUnique);
         }
 
         if (nr_indices as u64) < parameters.k {
-            return Err(StmAggregateSignatureError::NoQuorum);
+            return Err(CoreVerifierError::NoQuorum);
         }
 
         Ok(())
@@ -1156,7 +1154,7 @@ impl<D: Digest + FixedOutput> CoreVerifier<D> {
         signatures: &[StmSig],
         parameters: &StmParameters,
         msg: &[u8],
-    ) -> Result<(), StmAggregateSignatureError<D>> {
+    ) -> Result<(), CoreVerifierError> {
         let sig_reg_list = Self::map_sig_party(&self.eligible_parties, signatures);
 
         let unique_sigs =
@@ -1661,7 +1659,7 @@ mod tests {
     }
 
     #[allow(dead_code)] // REMOVE!!!!!!!!!!!
-    fn setup_full_node_verifier(signers: Vec<SignerCore>) -> CoreVerifier<D> {
+    fn setup_full_node_verifier(signers: Vec<SignerCore>) -> CoreVerifier {
         let mut total_stake: Stake = 0;
         let eligible_parties = signers
             .iter()
@@ -1677,7 +1675,6 @@ mod tests {
         CoreVerifier {
             eligible_parties,
             total_stake,
-            hasher: Default::default(),
         }
     }
     #[allow(dead_code)] // REMOVE!!!!!!!!!!!
