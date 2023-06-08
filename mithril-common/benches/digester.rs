@@ -59,9 +59,12 @@ async fn compute_digest(
     cache_provider: Option<Arc<dyn ImmutableFileDigestCacheProvider>>,
     number_of_immutables: ImmutableFileNumber,
 ) {
-    let digester = CardanoImmutableDigester::new(&db_dir(), cache_provider, create_logger());
+    let digester = CardanoImmutableDigester::new(cache_provider, create_logger());
     digester
-        .compute_digest(&Beacon::new("devnet".to_string(), 1, number_of_immutables))
+        .compute_digest(
+            &db_dir(),
+            &Beacon::new("devnet".to_string(), 1, number_of_immutables),
+        )
         .await
         .expect("digest computation should not fail");
 }

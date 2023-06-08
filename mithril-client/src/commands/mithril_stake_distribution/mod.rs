@@ -1,6 +1,35 @@
 //! Commands for the Mithril Stake Distribution artifact
+mod download;
 mod list;
-mod verify;
 
+use clap::Subcommand;
+use config::{builder::DefaultState, ConfigBuilder};
+
+pub use download::*;
 pub use list::*;
-pub use verify::*;
+use mithril_common::StdError;
+
+/// Mithril Stake Distribution management (alias: msd)
+#[derive(Subcommand, Debug, Clone)]
+pub enum MithrilStakeDistributionCommands {
+    /// List available snapshots
+    #[clap(arg_required_else_help = false)]
+    List(MithrilStakeDistributionListCommand),
+
+    /// Download and verify the given Mithril Stake Distribution
+    #[clap(arg_required_else_help = false)]
+    Download(MithrilStakeDistributionDownloadCommand),
+}
+
+impl MithrilStakeDistributionCommands {
+    /// Execute snapshot command
+    pub async fn execute(
+        &self,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), StdError> {
+        match self {
+            Self::List(cmd) => cmd.execute(config_builder).await,
+            Self::Download(cmd) => cmd.execute(config_builder).await,
+        }
+    }
+}

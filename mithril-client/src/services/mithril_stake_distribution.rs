@@ -59,7 +59,7 @@ pub trait MithrilStakeDistributionService {
     async fn list(&self) -> StdResult<Vec<MithrilStakeDistributionListItemMessage>>;
 
     /// Download and verify the specified stake distribution
-    async fn verify(
+    async fn download(
         &self,
         hash: &str,
         dirpath: &Path,
@@ -146,7 +146,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         self.stake_distribution_client.list().await
     }
 
-    async fn verify(
+    async fn download(
         &self,
         hash: &str,
         dirpath: &Path,
@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_ok() {
+    async fn download_ok() {
         let signers_with_stake = MithrilFixtureBuilder::default()
             .with_signers(2)
             .build()
@@ -334,11 +334,11 @@ mod tests {
             Arc::new(certificate_verifier),
         );
 
-        let dirpath = std::env::temp_dir().join("test_verify_ok");
+        let dirpath = std::env::temp_dir().join("test_download_ok");
         let (_, genesis_verifier) = setup_genesis();
         let genesis_verification_key = genesis_verifier.to_verification_key();
         let filepath = service
-            .verify(
+            .download(
                 "hash-123",
                 &dirpath,
                 &key_encode_hex(genesis_verification_key).unwrap(),
@@ -350,7 +350,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_ko() {
+    async fn download_ko() {
         let signers_with_stake = MithrilFixtureBuilder::default()
             .with_signers(2)
             .build()
@@ -387,11 +387,11 @@ mod tests {
             Arc::new(certificate_verifier),
         );
 
-        let dirpath = std::env::temp_dir().join("test_verify_ko");
+        let dirpath = std::env::temp_dir().join("test_download_ko");
         let (_, genesis_verifier) = setup_genesis();
         let genesis_verification_key = genesis_verifier.to_verification_key();
         let _error = service
-            .verify(
+            .download(
                 "hash-123",
                 &dirpath,
                 &key_encode_hex(genesis_verification_key).unwrap(),

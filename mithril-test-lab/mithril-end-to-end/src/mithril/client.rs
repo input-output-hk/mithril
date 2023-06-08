@@ -17,7 +17,7 @@ pub enum SnapshotCommand {
 #[derive(Debug)]
 pub enum MithrilStakeDistributionCommand {
     List,
-    Verify { hash: String },
+    Download { hash: String },
 }
 
 #[derive(Debug)]
@@ -58,9 +58,9 @@ impl Client {
                 MithrilStakeDistributionCommand::List => {
                     vec!["mithril-stake-distribution".to_string(), "list".to_string()]
                 }
-                MithrilStakeDistributionCommand::Verify { hash } => vec![
+                MithrilStakeDistributionCommand::Download { hash } => vec![
                     "mithril-stake-distribution".to_string(),
-                    "verify".to_string(),
+                    "download".to_string(),
                     hash,
                 ],
             },

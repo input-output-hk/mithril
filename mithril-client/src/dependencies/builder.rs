@@ -1,4 +1,4 @@
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 
 use config::Config;
 use slog::Logger;
@@ -165,11 +165,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_immutable_digester(&mut self) -> StdResult<Arc<dyn ImmutableDigester>> {
-        let digester = CardanoImmutableDigester::new(
-            &Path::new(&self.config.get_string("download_dir")?).join("db"),
-            None,
-            self.get_logger().await?,
-        );
+        let digester = CardanoImmutableDigester::new(None, self.get_logger().await?);
 
         Ok(Arc::new(digester))
     }
@@ -185,6 +181,7 @@ impl DependenciesBuilder {
 
     async fn build_snapshot_service(&mut self) -> StdResult<Arc<dyn SnapshotService>> {
         let snapshot_service = MithrilClientSnapshotService::new(
+            self.config.clone(),
             self.get_snapshot_client().await?,
             self.get_certificate_client().await?,
             self.get_certificate_verifier().await?,

@@ -476,7 +476,7 @@ async fn assert_client_can_verify_mithril_stake_distribution(
 ) -> Result<(), Box<dyn Error>> {
     client
         .run(ClientCommand::MithrilStakeDistribution(
-            MithrilStakeDistributionCommand::Verify {
+            MithrilStakeDistributionCommand::Download {
                 hash: hash.to_owned(),
             },
         ))

@@ -3,6 +3,7 @@
 use clap::{Parser, Subcommand};
 use config::builder::DefaultState;
 use config::{ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_client::commands::mithril_stake_distribution::MithrilStakeDistributionCommands;
 use mithril_common::StdError;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
