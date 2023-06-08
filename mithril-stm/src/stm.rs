@@ -1626,13 +1626,11 @@ mod tests {
     //------------------------------------------------//
     //-------------- Full Node Verifier --------------//
     //------------------------------------------------//
-    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
     fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<SignerCore> {
         let stake = vec![1; nparties];
         setup_fnv_parties(params, stake)
     }
 
-    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
     fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<SignerCore> {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
@@ -1658,7 +1656,6 @@ mod tests {
             .collect()
     }
 
-    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
     fn setup_full_node_verifier(signers: Vec<SignerCore>) -> CoreVerifier {
         let mut total_stake: Stake = 0;
         let eligible_parties = signers
@@ -1677,7 +1674,7 @@ mod tests {
             total_stake,
         }
     }
-    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
+
     fn find_fnv_signatures(msg: &[u8], ps: &[SignerCore], total_stake: Stake) -> Vec<StmSig> {
         let mut sigs = Vec::new();
         for s in ps {
@@ -1688,25 +1685,25 @@ mod tests {
         sigs
     }
 
-    // proptest! {
-    //     #![proptest_config(ProptestConfig::with_cases(50))]
-    //
-    //     #[test]
-    //     fn test_full_node_verifier(nparties in 2_usize..30,
-    //                           m in 10_u64..20,
-    //                           k in 1_u64..5,
-    //                           msg in any::<[u8;16]>()) {
-    //         let params = StmParameters { m, k, phi_f: 0.2 };
-    //         let signers = setup_equal_fnv_parties(params, nparties);
-    //         // let all_ps: Vec<usize> = (0..nparties).collect();
-    //
-    //         let fnv = setup_full_node_verifier(signers.clone());
-    //
-    //         let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake);
-    //
-    //         let verify_result = FullNodeVerifier::verify(&fnv, &signatures, &params, &msg);
-    //         assert!(verify_result.is_ok(), "verify {verify_result:?}");
-    //
-    //     }
-    // }
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        fn test_full_node_verifier(nparties in 2_usize..30,
+                              m in 10_u64..20,
+                              k in 1_u64..5,
+                              msg in any::<[u8;16]>()) {
+            let params = StmParameters { m, k, phi_f: 0.2 };
+            let signers = setup_equal_fnv_parties(params, nparties);
+            // let all_ps: Vec<usize> = (0..nparties).collect();
+
+            let fnv = setup_full_node_verifier(signers.clone());
+
+            let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake);
+
+            let verify_result = CoreVerifier::verify(&fnv, &signatures, &params, &msg);
+            assert!(verify_result.is_ok(), "verify {verify_result:?}");
+
+        }
+    }
 }
