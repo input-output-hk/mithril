@@ -6,7 +6,7 @@ use mithril_common::certificate_chain::{
 };
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-use mithril_common::entities::{Beacon, Certificate, ProtocolParameters};
+use mithril_common::entities::{Beacon, Certificate, ProtocolMessage, ProtocolParameters};
 use mockall::mock;
 
 mock! {
@@ -59,5 +59,11 @@ mock! {
             certificate_retriever: Arc<dyn CertificateRetriever>,
             genesis_verifier: &ProtocolGenesisVerifier,
         ) -> Result<(), CertificateVerifierError>;
+
+        fn verify_protocol_message(
+            &self,
+            protocol_message: &ProtocolMessage,
+            certificate: &Certificate,
+        ) -> bool;
     }
 }

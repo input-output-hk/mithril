@@ -12,9 +12,13 @@ use mithril_common::{
 
 use crate::{
     aggregator_client::{
-        AggregatorClient, AggregatorHTTPClient, CertificateClient, SnapshotClient,
+        AggregatorClient, AggregatorHTTPClient, CertificateClient, MithrilStakeDistributionClient,
+        SnapshotClient,
     },
-    services::{MithrilClientSnapshotService, SnapshotService},
+    services::{
+        AppMithrilStakeDistributionService, MithrilClientSnapshotService,
+        MithrilStakeDistributionService, SnapshotService,
+    },
 };
 
 /// Dependencies builder
@@ -28,6 +32,9 @@ pub struct DependenciesBuilder {
     /// SnapshotClient
     pub snapshot_client: Option<Arc<SnapshotClient>>,
 
+    /// MithrilStakeDistributionClient
+    pub mithril_stake_distribution_client: Option<Arc<MithrilStakeDistributionClient>>,
+
     /// CertificateClient
     pub certificate_client: Option<Arc<CertificateClient>>,
 
@@ -39,6 +46,9 @@ pub struct DependenciesBuilder {
 
     /// [SnapshotService]
     pub snapshot_service: Option<Arc<dyn SnapshotService>>,
+
+    /// [MithrilStakeDistributionService]
+    pub mithril_stake_distribution_service: Option<Arc<dyn MithrilStakeDistributionService>>,
 }
 
 impl DependenciesBuilder {
@@ -48,10 +58,12 @@ impl DependenciesBuilder {
             config,
             aggregator_client: None,
             snapshot_client: None,
+            mithril_stake_distribution_client: None,
             certificate_client: None,
             certificate_verifier: None,
             immutable_digester: None,
             snapshot_service: None,
+            mithril_stake_distribution_service: None,
         }
     }
 
@@ -96,6 +108,30 @@ impl DependenciesBuilder {
         }
 
         Ok(self.snapshot_client.as_ref().cloned().unwrap())
+    }
+
+    async fn build_mithril_stake_distribution_client(
+        &mut self,
+    ) -> StdResult<Arc<MithrilStakeDistributionClient>> {
+        let client = MithrilStakeDistributionClient::new(self.get_aggregator_client().await?);
+
+        Ok(Arc::new(client))
+    }
+
+    /// Get a clone of the [SnapshotClient] dependency
+    pub async fn get_mithril_stake_distribution_client(
+        &mut self,
+    ) -> StdResult<Arc<MithrilStakeDistributionClient>> {
+        if self.mithril_stake_distribution_client.is_none() {
+            self.mithril_stake_distribution_client =
+                Some(self.build_mithril_stake_distribution_client().await?);
+        }
+
+        Ok(self
+            .mithril_stake_distribution_client
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 
     async fn build_certificate_client(&mut self) -> StdResult<Arc<CertificateClient>> {
@@ -165,5 +201,33 @@ impl DependenciesBuilder {
         }
 
         Ok(self.snapshot_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_mithril_stake_distribution_service(
+        &mut self,
+    ) -> StdResult<Arc<dyn MithrilStakeDistributionService>> {
+        let service = AppMithrilStakeDistributionService::new(
+            self.get_mithril_stake_distribution_client().await?,
+            self.get_certificate_client().await?,
+            self.get_certificate_verifier().await?,
+        );
+
+        Ok(Arc::new(service))
+    }
+
+    /// Get a clone of the [MithrilStakeDistributionService] dependency
+    pub async fn get_mithril_stake_distribution_service(
+        &mut self,
+    ) -> StdResult<Arc<dyn MithrilStakeDistributionService>> {
+        if self.mithril_stake_distribution_service.is_none() {
+            self.mithril_stake_distribution_service =
+                Some(self.build_mithril_stake_distribution_service().await?);
+        }
+
+        Ok(self
+            .mithril_stake_distribution_service
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 }

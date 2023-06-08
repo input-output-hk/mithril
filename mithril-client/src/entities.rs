@@ -1,5 +1,8 @@
 use cli_table::{format::Justify, Table};
-use mithril_common::entities::{Epoch, Snapshot};
+use mithril_common::{
+    entities::{Epoch, Snapshot},
+    messages::MithrilStakeDistributionListItemMessage,
+};
 use serde::Serialize;
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
@@ -91,6 +94,32 @@ impl SnapshotFieldItem {
         SnapshotFieldItem {
             field_name,
             field_value,
+        }
+    }
+}
+
+/// Item to display Mithril Stake Distribution lines in a table.
+#[derive(Table, Debug, Clone, PartialEq, Eq, PartialOrd, Serialize)]
+pub struct MithrilStakeDistributionListItem {
+    #[table(title = "Epoch")]
+    /// Epoch at which the Mithril Stake Distribution is created
+    pub epoch: Epoch,
+
+    #[table(title = "Hash")]
+    /// Hash of the Mithril Stake Distribution (different from the AVK).
+    pub hash: String,
+
+    #[table(title = "Certificate Hash")]
+    /// Hash of the associated certificate
+    pub certificate_hash: String,
+}
+
+impl From<MithrilStakeDistributionListItemMessage> for MithrilStakeDistributionListItem {
+    fn from(value: MithrilStakeDistributionListItemMessage) -> Self {
+        Self {
+            epoch: value.epoch,
+            hash: value.hash,
+            certificate_hash: value.certificate_hash,
         }
     }
 }
