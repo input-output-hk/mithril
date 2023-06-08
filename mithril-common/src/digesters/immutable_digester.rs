@@ -3,7 +3,7 @@ use crate::{
     entities::{Beacon, ImmutableFileNumber},
 };
 use async_trait::async_trait;
-use std::io;
+use std::{io, path::PathBuf};
 use thiserror::Error;
 
 /// A digester than can compute the digest used for mithril signatures
@@ -55,12 +55,14 @@ pub enum ImmutableDigesterError {
 
     /// Error raised when there's less than the required number of completed immutables in
     /// the cardano database or even no immutable at all.
-    #[error("At least two immutables chunk should exists")]
+    #[error("At least two immutable chunks should exist in directory '{db_dir}': expected {expected_number} but found {found_number:?}.")]
     NotEnoughImmutable {
         /// Expected last [ImmutableFileNumber].
         expected_number: ImmutableFileNumber,
         /// Last [ImmutableFileNumber] found when listing [ImmutableFiles][crate::digesters::ImmutableFile].
         found_number: Option<ImmutableFileNumber>,
+        /// A cardano node DB directory
+        db_dir: PathBuf,
     },
 
     /// Error raised when the digest computation failed.

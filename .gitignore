@@ -12,4 +12,4 @@ mithril-stm/proptest-regressions/
 mithril-infra/.terraform*
 mithril-infra/terraform.tfstate*
 mithril-infra/*.tfvars
-
+justfile

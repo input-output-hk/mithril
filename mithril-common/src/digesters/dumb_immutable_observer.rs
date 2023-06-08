@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{
     digesters::{ImmutableDigester, ImmutableDigesterError},
     entities::Beacon,
@@ -41,6 +43,7 @@ impl ImmutableDigester for DumbImmutableDigester {
             Err(ImmutableDigesterError::NotEnoughImmutable {
                 expected_number: beacon.immutable_file_number,
                 found_number: None,
+                db_dir: PathBuf::new(),
             })
         }
     }

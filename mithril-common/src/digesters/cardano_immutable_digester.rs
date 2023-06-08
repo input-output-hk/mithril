@@ -60,11 +60,13 @@ impl ImmutableDigester for CardanoImmutableDigester {
             None => Err(ImmutableDigesterError::NotEnoughImmutable {
                 expected_number: up_to_file_number,
                 found_number: None,
+                db_dir: self.db_directory.clone(),
             }),
             Some(last_immutable_file) if last_immutable_file.number < up_to_file_number => {
                 Err(ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: up_to_file_number,
                     found_number: Some(last_immutable_file.number),
+                    db_dir: self.db_directory.clone(),
                 })
             }
             Some(_) => {
@@ -242,6 +244,7 @@ mod tests {
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: beacon.immutable_file_number,
                     found_number: None,
+                    db_dir: immutable_db.dir,
                 }
             ),
             format!("{result:?}")
@@ -278,6 +281,7 @@ mod tests {
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: beacon.immutable_file_number,
                     found_number: None,
+                    db_dir: immutable_db.dir,
                 }
             ),
             format!("{result:?}")
@@ -304,6 +308,7 @@ mod tests {
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: beacon.immutable_file_number,
                     found_number: Some(5),
+                    db_dir: immutable_db.dir,
                 }
             ),
             format!("{result:?}")
