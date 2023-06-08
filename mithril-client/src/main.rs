@@ -99,7 +99,7 @@ enum ArtifactCommands {
     #[clap(subcommand)]
     Snapshot(SnapshotCommands),
 
-    #[clap(subcommand)]
+    #[clap(subcommand, alias("msd"))]
     MithrilStakeDistribution(MithrilStakeDistributionCommands),
 }
 

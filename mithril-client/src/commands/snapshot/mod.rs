@@ -46,7 +46,7 @@ impl SnapshotCommands {
     }
 }
 
-/// Mithril Stake Distribution management
+/// Mithril Stake Distribution management (alias: msd)
 #[derive(Subcommand, Debug, Clone)]
 pub enum MithrilStakeDistributionCommands {
     /// List available snapshots
