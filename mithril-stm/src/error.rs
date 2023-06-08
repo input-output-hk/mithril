@@ -205,12 +205,6 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSigRegPartyError {
     }
 }
 
-impl<D: Digest + FixedOutput> From<StmAggregateSignatureError<D>> for StmSigRegPartyError {
-    fn from(_e: StmAggregateSignatureError<D>) -> Self {
-        StmSigRegPartyError::SerializationError
-    }
-}
-
 impl<D: Digest + FixedOutput> From<StmSigRegPartyError> for StmAggregateSignatureError<D> {
     fn from(_e: StmSigRegPartyError) -> Self {
         StmAggregateSignatureError::SerializationError
