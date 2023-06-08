@@ -139,6 +139,12 @@ variable "cardano_image_id" {
   default     = "8.0.0"
 }
 
+variable "cardano_configurations_repository_commit" {
+  type        = string
+  description = "The Cardano configurations commit to use"
+  default     = "7b1a4833e36f78202f67f6638d005c796f4626a9"
+}
+
 variable "mithril_api_domain" {
   type        = string
   description = "The Mithril api (sub)domain name of service to deploy"
