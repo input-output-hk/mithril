@@ -1190,7 +1190,7 @@ impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
 mod tests {
     use super::*;
     use crate::key_reg::*;
-    use crate::merkle_tree::BatchPath;
+    use crate::merkle_tree::{BatchPath, MTLeaf};
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
@@ -1639,65 +1639,76 @@ mod tests {
         }
     }
 
-    // //------------------------------------------------//
-    // //-------------- Full Node Verifier --------------//
-    // //------------------------------------------------//
-    // fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<SignerCore> {
-    //     let stake = vec![1; nparties];
-    //     setup_fnv_parties(params, stake)
-    // }
-    //
-    // fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<SignerCore> {
-    //     let mut trng = TestRng::deterministic_rng(ChaCha);
-    //     let mut rng = ChaCha20Rng::from_seed(trng.gen());
-    //     #[allow(clippy::needless_collect)]
-    //     let ps = stake
-    //         .into_iter()
-    //         .enumerate()
-    //         .map(|(ind, stake)| {
-    //             let p = StmInitializer::setup(params, stake, &mut rng);
-    //             p.new_signer_core(ind as Index)
-    //         })
-    //         .collect::<Vec<_>>();
-    //     ps
-    // }
-    //
-    // fn setup_full_node_verifier(signers: Vec<SignerCore>) -> FullNodeVerifier<D> {
-    //     let mut total_stake: Stake = 0;
-    //     let eligible_parties = signers
-    //         .iter()
-    //         .map(|signer| {
-    //             let (res, overflow) = total_stake.overflowing_add(signer.stake);
-    //             if overflow {
-    //                 panic!("Total stake overflow");
-    //             }
-    //             total_stake = res;
-    //             MTLeaf(signer.vk, signer.stake)
-    //         })
-    //         .collect::<Vec<RegParty>>();
-    //     FullNodeVerifier {
-    //         eligible_parties,
-    //         total_stake,
-    //         hasher: Default::default(),
-    //     }
-    // }
-    //
-    // fn find_fnv_signatures(msg: &[u8], ps: &[SignerCore], total_stake: Stake) -> Vec<StmSig> {
-    //     let mut sigs = Vec::new();
-    //     for s in ps {
-    //         if let Some(sig) = s.sign(msg, total_stake) {
-    //             sigs.push(sig);
-    //         }
-    //     }
-    //     sigs
-    // }
-    //
+    //------------------------------------------------//
+    //-------------- Full Node Verifier --------------//
+    //------------------------------------------------//
+    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
+    fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<SignerCore> {
+        let stake = vec![1; nparties];
+        setup_fnv_parties(params, stake)
+    }
+
+    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
+    fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<SignerCore> {
+        let mut trng = TestRng::deterministic_rng(ChaCha);
+        let mut rng = ChaCha20Rng::from_seed(trng.gen());
+
+        let signers = stake
+            .iter()
+            .map(|s| {
+                let sk = SigningKey::gen(&mut rng);
+                let vk = VerificationKey::from(&sk);
+                (sk, vk, *s)
+            })
+            .collect::<Vec<_>>();
+
+        let public_signers = signers
+            .iter()
+            .map(|(_, vk, s)| MTLeaf(*vk, *s))
+            .collect::<Vec<MTLeaf>>();
+
+        #[allow(clippy::needless_collect)]
+        signers
+            .iter()
+            .map(|s| SignerCore::setup(params, s.2, s.0.clone(), s.1, &public_signers))
+            .collect()
+    }
+
+    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
+    fn setup_full_node_verifier(signers: Vec<SignerCore>) -> FullNodeVerifier<D> {
+        let mut total_stake: Stake = 0;
+        let eligible_parties = signers
+            .iter()
+            .map(|signer| {
+                let (res, overflow) = total_stake.overflowing_add(signer.stake);
+                if overflow {
+                    panic!("Total stake overflow");
+                }
+                total_stake = res;
+                MTLeaf(signer.vk, signer.stake)
+            })
+            .collect::<Vec<RegParty>>();
+        FullNodeVerifier {
+            eligible_parties,
+            total_stake,
+            hasher: Default::default(),
+        }
+    }
+    #[allow(dead_code)] // REMOVE!!!!!!!!!!!
+    fn find_fnv_signatures(msg: &[u8], ps: &[SignerCore], total_stake: Stake) -> Vec<StmSig> {
+        let mut sigs = Vec::new();
+        for s in ps {
+            if let Some(sig) = s.sign(msg, total_stake) {
+                sigs.push(sig);
+            }
+        }
+        sigs
+    }
+
     // proptest! {
     //     #![proptest_config(ProptestConfig::with_cases(50))]
     //
     //     #[test]
-    //     /// Test that when a quorum is found, the aggregate signature can be verified by anyone with
-    //     /// access to the avk and the parameters.
     //     fn test_full_node_verifier(nparties in 2_usize..30,
     //                           m in 10_u64..20,
     //                           k in 1_u64..5,
