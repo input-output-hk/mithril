@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::{
     digesters::{ImmutableDigester, ImmutableDigesterError},
@@ -36,14 +36,18 @@ impl Default for DumbImmutableDigester {
 
 #[async_trait]
 impl ImmutableDigester for DumbImmutableDigester {
-    async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError> {
+    async fn compute_digest(
+        &self,
+        dirpath: &Path,
+        beacon: &Beacon,
+    ) -> Result<String, ImmutableDigesterError> {
         if self.is_success {
             Ok(self.digest.read().await.clone())
         } else {
             Err(ImmutableDigesterError::NotEnoughImmutable {
                 expected_number: beacon.immutable_file_number,
                 found_number: None,
-                db_dir: PathBuf::new(),
+                db_dir: dirpath.to_owned(),
             })
         }
     }

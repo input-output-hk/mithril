@@ -3,7 +3,10 @@ use crate::{
     entities::{Beacon, ImmutableFileNumber},
 };
 use async_trait::async_trait;
-use std::{io, path::PathBuf};
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 
 /// A digester than can compute the digest used for mithril signatures
@@ -15,6 +18,7 @@ use thiserror::Error;
 ///     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 ///     use mithril_common::entities::Beacon;
 ///     use mockall::mock;
+///     use std::path::Path;
 ///
 ///     mock! {
 ///         pub ImmutableDigesterImpl { }
@@ -23,6 +27,7 @@ use thiserror::Error;
 ///         impl ImmutableDigester for ImmutableDigesterImpl {
 ///             async fn compute_digest(
 ///               &self,
+///               dirpath: &Path,
 ///               beacon: &Beacon,
 ///             ) -> Result<String, ImmutableDigesterError>;
 ///         }
@@ -31,10 +36,11 @@ use thiserror::Error;
 ///     #[test]
 ///     fn test_mock() {
 ///         let mut mock = MockDigesterImpl::new();
-///         mock.expect_compute_digest().return_once(|_| {
+///         mock.expect_compute_digest().return_once(|_, _| {
 ///             Err(ImmutableDigesterError::NotEnoughImmutable {
 ///                 expected_number: 3,
 ///                 found_number: None,
+///                 db_dir: PathBuff::new(),
 ///             })
 ///         });
 ///     }
@@ -43,7 +49,11 @@ use thiserror::Error;
 #[async_trait]
 pub trait ImmutableDigester: Sync + Send {
     /// Compute the digest
-    async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError>;
+    async fn compute_digest(
+        &self,
+        dirpath: &Path,
+        beacon: &Beacon,
+    ) -> Result<String, ImmutableDigesterError>;
 }
 
 /// [ImmutableDigester] related Errors.
