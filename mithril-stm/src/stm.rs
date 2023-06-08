@@ -248,7 +248,7 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
 }
 
 /// Full node verifier including the ordered list of eligible signers and the total stake of the system.
-pub struct FullNodeVerifier<D: Digest> {
+pub struct CoreVerifier<D: Digest> {
     /// Ordered list of registered parties.
     pub eligible_parties: Vec<RegParty>,
     /// Total stake of registered parties.
@@ -535,26 +535,17 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         sigs: &[StmSig],
         msg: &[u8],
     ) -> Result<StmAggrSig<D>, AggregationError> {
-        let sig_reg_list = FullNodeVerifier::<D>::map_sig_party(&self.closed_reg.reg_parties, sigs);
+        let sig_reg_list = CoreVerifier::<D>::map_sig_party(&self.closed_reg.reg_parties, sigs);
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
         let msgp = avk.mt_commitment.concat_with_msg(msg);
-        let mut unique_sigs = FullNodeVerifier::<D>::dedup_sigs_for_indices(
+        let mut unique_sigs = CoreVerifier::<D>::dedup_sigs_for_indices(
             &self.closed_reg.total_stake,
             &self.params,
             &msgp,
             &sig_reg_list,
-        )?;
-        // let mut unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
+        )?; // todo: look into this conversion
+
         unique_sigs.sort_unstable();
-        // let signatures = unique_sigs
-        //     .iter()
-        //     .map(|sig_reg| {
-        //         (
-        //             sig_reg.sig.clone(),
-        //             self.closed_reg.reg_parties[sig_reg.sig.signer_index as usize],
-        //         )
-        //     })
-        //     .collect(); // todo: look into this conversion
 
         let mt_index_list = unique_sigs
             .iter()
@@ -885,18 +876,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             .map(|r| r.reg_party)
             .collect::<Vec<RegParty>>();
 
-        FullNodeVerifier::preliminary_verify(
-            &avk.total_stake,
-            &self.signatures,
-            parameters,
-            &msgp,
-        )?;
+        CoreVerifier::preliminary_verify(&avk.total_stake, &self.signatures, parameters, &msgp)?;
 
         let proof = &self.batch_proof;
 
         avk.mt_commitment.check(&leaves, &proof.clone())?;
 
-        let (sigs, vks) = FullNodeVerifier::<D>::collect_sigs_vks(&self.signatures);
+        let (sigs, vks) = CoreVerifier::<D>::collect_sigs_vks(&self.signatures);
         Ok((sigs, vks))
     }
 
@@ -1026,7 +1012,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
+impl<D: Digest + FixedOutput> CoreVerifier<D> {
     fn preliminary_verify(
         total_stake: &Stake,
         signatures: &[StmSigRegParty],
@@ -1675,7 +1661,7 @@ mod tests {
     }
 
     #[allow(dead_code)] // REMOVE!!!!!!!!!!!
-    fn setup_full_node_verifier(signers: Vec<SignerCore>) -> FullNodeVerifier<D> {
+    fn setup_full_node_verifier(signers: Vec<SignerCore>) -> CoreVerifier<D> {
         let mut total_stake: Stake = 0;
         let eligible_parties = signers
             .iter()
@@ -1688,7 +1674,7 @@ mod tests {
                 MTLeaf(signer.vk, signer.stake)
             })
             .collect::<Vec<RegParty>>();
-        FullNodeVerifier {
+        CoreVerifier {
             eligible_parties,
             total_stake,
             hasher: Default::default(),
