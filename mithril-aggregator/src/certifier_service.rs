@@ -126,7 +126,6 @@ pub struct MithrilCertifierService {
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
-    current_epoch: Arc<RwLock<Epoch>>,
     _logger: Logger,
 }
 
@@ -140,7 +139,6 @@ impl MithrilCertifierService {
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         multi_signer: Arc<RwLock<dyn MultiSigner>>,
-        current_epoch: Epoch,
         logger: Logger,
     ) -> Self {
         Self {
@@ -150,7 +148,6 @@ impl MithrilCertifierService {
             multi_signer,
             certificate_verifier,
             genesis_verifier,
-            current_epoch: Arc::new(RwLock::new(current_epoch)),
             _logger: logger,
         }
     }
@@ -173,19 +170,8 @@ impl MithrilCertifierService {
 impl CertifierService for MithrilCertifierService {
     async fn inform_epoch(&self, epoch: Epoch) -> StdResult<()> {
         debug!("CertifierService::inform_epoch(epoch: {epoch:?})");
-        let mut current_epoch = self.current_epoch.write().await;
-
-        if epoch <= *current_epoch {
-            debug!("CertifierService::inform_epoch: given epoch ({epoch:?}) is older than current epoch ({}), ignoring", *current_epoch);
-
-            return Ok(());
-        }
-        let nb = self
-            .open_message_repository
-            .clean_epoch(*current_epoch)
-            .await?;
-        info!("MithrilCertifierService: Got a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures.");
-        *current_epoch = epoch;
+        let nb = self.open_message_repository.clean_epoch(epoch).await?;
+        info!("MithrilCertifierService: Informed of a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures.");
 
         Ok(())
     }
@@ -417,43 +403,19 @@ mod tests {
             certificate_verifier,
             genesis_verifier,
             multi_signer,
-            Epoch(0),
             logger,
         )
     }
 
     #[tokio::test]
-    async fn should_not_clean_epoch_when_inform_same_epoch() {
+    async fn should_clean_epoch_when_inform_epoch() {
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
-        certifier_service
-            .create_open_message(&signed_entity_type, &protocol_message)
-            .await
-            .unwrap();
-        certifier_service.inform_epoch(epoch).await.unwrap();
-        let open_message = certifier_service
-            .get_open_message(&signed_entity_type)
-            .await
-            .unwrap();
-        assert!(open_message.is_some());
-    }
-
-    #[tokio::test]
-    async fn should_clean_epoch_when_inform_new_epoch() {
-        let beacon = Beacon::new("devnet".to_string(), 1, 1);
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
-        let protocol_message = ProtocolMessage::new();
-        let epoch = beacon.epoch;
-        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
             .await
@@ -471,11 +433,9 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
-        let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
             .multi_signer
             .write()
@@ -512,11 +472,9 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let mut protocol_message = ProtocolMessage::new();
-        let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
             .multi_signer
             .write()
@@ -552,11 +510,9 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
-        let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         let mut open_message = certifier_service
             .open_message_repository
             .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
@@ -586,11 +542,9 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
-        let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
             .multi_signer
             .write()
@@ -667,11 +621,9 @@ mod tests {
     async fn should_not_create_certificate_for_open_message_not_created() {
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
-        let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
             .create_certificate(&signed_entity_type)
             .await
@@ -686,8 +638,7 @@ mod tests {
         let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
             .open_message_repository
             .create_open_message(epoch, &signed_entity_type, &protocol_message)
@@ -708,11 +659,9 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
-        let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
         certifier_service.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
