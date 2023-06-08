@@ -255,7 +255,7 @@ async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), S
     let protocol_parameters_new = ProtocolParameters {
         k: 150,
         m: 200,
-        phi_f: 0.80,
+        phi_f: 0.85,
     };
     info!(
         "> updating protocol parameters to {:?}...",
