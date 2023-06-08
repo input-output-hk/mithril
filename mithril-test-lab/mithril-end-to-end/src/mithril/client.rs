@@ -15,7 +15,10 @@ pub enum SnapshotCommand {
 }
 
 #[derive(Debug)]
-pub struct MithrilStakeDistributionCommand;
+pub enum MithrilStakeDistributionCommand {
+    List,
+    Verify { hash: String },
+}
 
 #[derive(Debug)]
 pub enum ClientCommand {
@@ -51,7 +54,16 @@ impl Client {
                     vec!["snapshot".to_string(), "download".to_string(), digest]
                 }
             },
-            ClientCommand::MithrilStakeDistribution(_command) => Vec::new(),
+            ClientCommand::MithrilStakeDistribution(subcommand) => match subcommand {
+                MithrilStakeDistributionCommand::List => {
+                    vec!["mithril-stake-distribution".to_string(), "list".to_string()]
+                }
+                MithrilStakeDistributionCommand::Verify { hash } => vec![
+                    "mithril-stake-distribution".to_string(),
+                    "verify".to_string(),
+                    hash,
+                ],
+            },
         };
         let mut child = self.command.start(&args)?;
 

@@ -1,6 +1,7 @@
 use crate::utils::AttemptResult;
 use crate::{
-    attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure, SnapshotCommand,
+    attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure,
+    MithrilStakeDistributionCommand, SnapshotCommand,
 };
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
@@ -76,19 +77,24 @@ impl Spec {
         .await?;
 
         // Verify that mithril stake distribution artifacts are produced and signed correctly
-        let hash = assert_node_producing_mithril_stake_distribution(&aggregator_endpoint).await?;
-        let certificate_hash = assert_signer_is_signing_mithril_stake_distribution(
-            &aggregator_endpoint,
-            &hash,
-            target_epoch - 2,
-        )
-        .await?;
-        assert_is_creating_certificate_with_enough_signers(
-            &aggregator_endpoint,
-            &certificate_hash,
-            self.infrastructure.signers().len(),
-        )
-        .await?;
+        {
+            let hash =
+                assert_node_producing_mithril_stake_distribution(&aggregator_endpoint).await?;
+            let certificate_hash = assert_signer_is_signing_mithril_stake_distribution(
+                &aggregator_endpoint,
+                &hash,
+                target_epoch - 2,
+            )
+            .await?;
+            assert_is_creating_certificate_with_enough_signers(
+                &aggregator_endpoint,
+                &certificate_hash,
+                self.infrastructure.signers().len(),
+            )
+            .await?;
+            let mut client = self.infrastructure.build_client()?;
+            assert_client_can_verify_mithril_stake_distribution(&mut client, &hash).await?;
+        }
 
         // Verify that snapshot artifacts are produced and signed correctly
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
@@ -460,6 +466,22 @@ async fn assert_client_can_verify_snapshot(
         }))
         .await?;
     info!("Client downloaded & restored the snapshot"; "digest" => &digest);
+
+    Ok(())
+}
+
+async fn assert_client_can_verify_mithril_stake_distribution(
+    client: &mut Client,
+    hash: &str,
+) -> Result<(), Box<dyn Error>> {
+    client
+        .run(ClientCommand::MithrilStakeDistribution(
+            MithrilStakeDistributionCommand::Verify {
+                hash: hash.to_owned(),
+            },
+        ))
+        .await?;
+    info!("Client downloaded the Mithril stake distribution"; "hash" => &hash);
 
     Ok(())
 }
