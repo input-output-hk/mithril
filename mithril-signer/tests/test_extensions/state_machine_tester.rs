@@ -16,6 +16,7 @@ use slog::Drain;
 use slog_scope::debug;
 use std::error::Error as StdError;
 use std::fmt::Debug;
+use std::path::Path;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use thiserror::Error;
 
@@ -153,9 +154,12 @@ impl StateMachineTester {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
 
-        let cardano_immutable_snapshot_builder = Arc::new(
-            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger()),
-        );
+        let cardano_immutable_snapshot_builder =
+            Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
+                digester.clone(),
+                Path::new(""),
+                slog_scope::logger(),
+            ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

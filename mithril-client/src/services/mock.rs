@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -16,6 +17,7 @@ mock! {
     impl ImmutableDigester for DigesterImpl {
         async fn compute_digest(
             &self,
+            dirpath: &Path,
             beacon: &Beacon,
         ) -> Result<String, ImmutableDigesterError>;
     }

@@ -165,7 +165,6 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let single_signer = Arc::new(MithrilSingleSigner::new(self.compute_protocol_party_id()?));
         let digester = Arc::new(CardanoImmutableDigester::new(
-            &self.config.db_directory,
             self.build_digester_cache_provider().await?,
             slog_scope::logger(),
         ));
@@ -204,9 +203,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider.clone(),
         ));
 
-        let cardano_immutable_snapshot_builder = Arc::new(
-            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger()),
-        );
+        let cardano_immutable_snapshot_builder =
+            Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
+                digester.clone(),
+                &self.config.db_directory,
+                slog_scope::logger(),
+            ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

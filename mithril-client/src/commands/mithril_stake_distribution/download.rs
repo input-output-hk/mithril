@@ -9,7 +9,7 @@ use crate::dependencies::DependenciesBuilder;
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
 #[derive(Parser, Debug, Clone)]
-pub struct MithrilStakeDistributionVerifyCommand {
+pub struct MithrilStakeDistributionDownloadCommand {
     /// Hash of the Mithril Stake Distribution artifact
     artifact_hash: String,
 
@@ -20,7 +20,7 @@ pub struct MithrilStakeDistributionVerifyCommand {
     download_dir: PathBuf,
 }
 
-impl MithrilStakeDistributionVerifyCommand {
+impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config_builder = config_builder.set_default("genesis_verification_key", "")?;
@@ -32,7 +32,7 @@ impl MithrilStakeDistributionVerifyCommand {
             .await?;
 
         let filepath = service
-            .verify(
+            .download(
                 &self.artifact_hash,
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,

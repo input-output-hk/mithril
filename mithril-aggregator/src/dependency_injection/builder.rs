@@ -551,11 +551,8 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
-        let digester = CardanoImmutableDigester::new(
-            &self.configuration.db_directory,
-            immutable_digester_cache,
-            self.get_logger().await?,
-        );
+        let digester =
+            CardanoImmutableDigester::new(immutable_digester_cache, self.get_logger().await?);
 
         Ok(Arc::new(digester))
     }
@@ -862,6 +859,7 @@ impl DependenciesBuilder {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
+            &self.configuration.db_directory,
             self.get_logger().await?,
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{
     digesters::ImmutableDigester,
@@ -13,14 +16,20 @@ use slog::{debug, info, Logger};
 pub struct CardanoImmutableFilesFullSignableBuilder {
     immutable_digester: Arc<dyn ImmutableDigester>,
     logger: Logger,
+    dirpath: PathBuf,
 }
 
 impl CardanoImmutableFilesFullSignableBuilder {
     /// Constructor
-    pub fn new(immutable_digester: Arc<dyn ImmutableDigester>, logger: Logger) -> Self {
+    pub fn new(
+        immutable_digester: Arc<dyn ImmutableDigester>,
+        dirpath: &Path,
+        logger: Logger,
+    ) -> Self {
         Self {
             immutable_digester,
             logger,
+            dirpath: dirpath.to_owned(),
         }
     }
 }
@@ -29,7 +38,10 @@ impl CardanoImmutableFilesFullSignableBuilder {
 impl SignableBuilder<Beacon> for CardanoImmutableFilesFullSignableBuilder {
     async fn compute_protocol_message(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
         debug!(self.logger, "SignableBuilder::compute_signable({beacon:?})");
-        let digest = self.immutable_digester.compute_digest(&beacon).await?;
+        let digest = self
+            .immutable_digester
+            .compute_digest(&self.dirpath, &beacon)
+            .await?;
         info!(self.logger, "SignableBuilder: digest = '{digest}'.");
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
@@ -40,6 +52,8 @@ impl SignableBuilder<Beacon> for CardanoImmutableFilesFullSignableBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::*;
 
     use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
@@ -52,7 +66,11 @@ mod tests {
 
     #[async_trait]
     impl ImmutableDigester for ImmutableDigesterImpl {
-        async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError> {
+        async fn compute_digest(
+            &self,
+            _dirpath: &Path,
+            beacon: &Beacon,
+        ) -> Result<String, ImmutableDigesterError> {
             Ok(format!("immutable {}", beacon.immutable_file_number))
         }
     }
@@ -66,8 +84,11 @@ mod tests {
     #[tokio::test]
     async fn compute_signable() {
         let digester = ImmutableDigesterImpl::default();
-        let signable_builder =
-            CardanoImmutableFilesFullSignableBuilder::new(Arc::new(digester), create_logger());
+        let signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
+            Arc::new(digester),
+            Path::new(""),
+            create_logger(),
+        );
         let protocol_message = signable_builder
             .compute_protocol_message(Beacon::default())
             .await
