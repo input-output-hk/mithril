@@ -12,7 +12,7 @@ use mithril_common::StdError;
 /// Mithril Stake Distribution management (alias: msd)
 #[derive(Subcommand, Debug, Clone)]
 pub enum MithrilStakeDistributionCommands {
-    /// List available snapshots
+    /// List certified stake distributions
     #[clap(arg_required_else_help = false)]
     List(MithrilStakeDistributionListCommand),
 
@@ -22,7 +22,7 @@ pub enum MithrilStakeDistributionCommands {
 }
 
 impl MithrilStakeDistributionCommands {
-    /// Execute snapshot command
+    /// Execute Mithril stake distribution command
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,

@@ -54,13 +54,13 @@ impl ImmutableDigester for CardanoImmutableDigester {
             None => Err(ImmutableDigesterError::NotEnoughImmutable {
                 expected_number: up_to_file_number,
                 found_number: None,
-                db_dir: self.db_directory.clone(),
+                db_dir: dirpath.to_owned(),
             }),
             Some(last_immutable_file) if last_immutable_file.number < up_to_file_number => {
                 Err(ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: up_to_file_number,
                     found_number: Some(last_immutable_file.number),
-                    db_dir: self.db_directory.clone(),
+                    db_dir: dirpath.to_owned(),
                 })
             }
             Some(_) => {
