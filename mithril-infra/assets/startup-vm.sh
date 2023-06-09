@@ -5,7 +5,8 @@ rm -f /startup-ready.txt
 
 # Update and install dependencies
 sudo apt update -y
-sudo apt install -y jq tree ca-certificates curl gnupg lsb-release 
+sudo apt upgrade -y
+sudo apt install -y jq tree ca-certificates curl gnupg lsb-release apache2-utils
 
 # Install sqlite3
 curl http://ftp.fr.debian.org/debian/pool/main/s/sqlite3/libsqlite3-0_3.40.1-1_amd64.deb -o libsqlite3-0_3.40.1-1_amd64.deb

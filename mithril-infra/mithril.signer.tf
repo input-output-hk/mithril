@@ -12,7 +12,10 @@ resource "null_resource" "mithril_signer" {
   ]
 
   triggers = {
-    image_id = var.mithril_image_id
+    image_id                         = var.mithril_image_id,
+    vm_instance                      = google_compute_instance.vm_instance.id,
+    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
+    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password
   }
 
   connection {
@@ -59,6 +62,7 @@ EOT
       "export NETWORK=${var.cardano_network}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
+      "export AGGREGATOR_CREDENTIALS=${local.mithril_aggregator_credentials}",
       "export SIGNER_HOST=${local.mithril_signers_host[each.key]}",
       "export SIGNER_WWW_PORT=${local.mithril_signers_www_port[each.key]}",
       "export SIGNER_CARDANO_RELAY_ADDR=0.0.0.0",
@@ -67,6 +71,7 @@ EOT
       "export SIGNER_CARDANO_BLOCK_PRODUCER_PORT=${local.mithril_signers_block_producer_cardano_port[each.key]}",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
+      "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       "docker-compose -p $SIGNER_ID -f /home/curry/docker/docker-compose-signer-${each.value.type}.yaml --profile all up -d",

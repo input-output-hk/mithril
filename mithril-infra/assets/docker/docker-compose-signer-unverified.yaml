@@ -17,10 +17,7 @@ services:
       - cardano
       - all
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
     volumes:
       - ./cardano-configurations/network/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/db
@@ -49,7 +46,7 @@ services:
       - all
     environment:
       - RUST_BACKTRACE=1
-      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
       - NETWORK=${NETWORK}
       - PARTY_ID=${PARTY_ID}
       - RUN_INTERVAL=120000
@@ -68,10 +65,7 @@ services:
       cardano-node-signer:
         condition: service_started
     logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
+      driver: "${LOGGING_DRIVER}"
 
 networks:
   default:

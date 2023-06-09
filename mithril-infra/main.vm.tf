@@ -18,6 +18,10 @@ resource "google_compute_network" "vpc_network" {
 }
 
 resource "google_compute_instance" "vm_instance" {
+  depends_on = [
+    google_compute_disk.boot
+  ]
+
   name         = "${local.environment_name}-vm"
   machine_type = var.google_machine_type
   tags         = ["mithril", local.environment_name, var.environment_prefix, var.cardano_network]
@@ -31,7 +35,12 @@ resource "google_compute_instance" "vm_instance" {
   metadata_startup_script = file("./assets/startup-vm.sh")
 
   boot_disk {
-    source = google_compute_disk.boot.name
+    source      = google_compute_disk.boot.name
+    auto_delete = false
+  }
+
+  lifecycle {
+    ignore_changes = [attached_disk]
   }
 
   network_interface {
@@ -51,32 +60,33 @@ resource "google_compute_disk" "boot" {
   snapshot = var.google_compute_instance_boot_disk_snapshot
   labels = {
     environment = local.environment_name
+    type        = "boot"
   }
 }
 
-resource "google_compute_address" "mithril-external-address" {
-  name = "${local.environment_name}-ip"
-}
-
-resource "google_compute_resource_policy" "policy" {
-  name   = "${local.environment_name}-policy"
+resource "google_compute_resource_policy" "policy-boot" {
+  name   = "${local.environment_name}-policy-boot"
   region = var.google_region
   snapshot_schedule_policy {
     schedule {
       daily_schedule {
-        days_in_cycle = 1
-        start_time    = "04:00"
+        days_in_cycle = var.google_compute_instance_boot_disk_snapshot_pace_days
+        start_time    = var.google_compute_instance_boot_disk_snapshot_start_time
       }
     }
     retention_policy {
-      max_retention_days    = var.google_snapshot_max_retention_days
+      max_retention_days    = var.google_compute_instance_boot_disk_snapshot_max_retention_days
       on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
     }
   }
 }
 
-resource "google_compute_disk_resource_policy_attachment" "attachment" {
-  name = google_compute_resource_policy.policy.name
+resource "google_compute_disk_resource_policy_attachment" "policy-attachment-boot" {
+  name = google_compute_resource_policy.policy-boot.name
   disk = google_compute_disk.boot.name
   zone = var.google_zone
+}
+
+resource "google_compute_address" "mithril-external-address" {
+  name = "${local.environment_name}-ip"
 }

@@ -1,10 +1,11 @@
-
-resource "null_resource" "mithril_monitoring" {
+resource "null_resource" "mithril_network" {
   depends_on = [
-    null_resource.mithril_network
+    null_resource.mithril_bootstrap,
+    null_resource.mithril_mount_data_disk
   ]
 
   triggers = {
+    image_id    = var.mithril_image_id,
     vm_instance = google_compute_instance.vm_instance.id
   }
 
@@ -17,7 +18,7 @@ resource "null_resource" "mithril_monitoring" {
 
   provisioner "remote-exec" {
     inline = [
-      "docker-compose -f /home/curry/docker/docker-compose-monitoring.yaml --profile all up -d",
+      "docker network inspect mithril_network >/dev/null 2>&1 || docker network create mithril_network"
     ]
   }
 }

@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   reverse-proxy:
-    image: traefik:2.8
+    image: traefik:2.10
     container_name: reverse-proxy
     restart: always
     user: "${CURRENT_UID}:${DOCKER_GID}"
@@ -15,6 +15,8 @@ services:
     volumes:
       - ./traefik:/etc/traefik
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    logging:
+      driver: "${LOGGING_DRIVER}"
 
 networks:
   default:
