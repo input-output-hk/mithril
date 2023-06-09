@@ -73,7 +73,7 @@ pub trait SnapshotService: Sync + Send {
     /// The returned path is the location where the archive has been unpacked.
     async fn download(
         &self,
-        digest: &str,
+        snapshot: &Snapshot,
         pathdir: &Path,
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf>;
@@ -154,7 +154,7 @@ impl SnapshotService for MithrilClientSnapshotService {
 
     async fn download(
         &self,
-        digest: &str,
+        snapshot: &Snapshot,
         pathdir: &Path,
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
@@ -174,8 +174,7 @@ impl SnapshotService for MithrilClientSnapshotService {
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
-        // 2 - Get snapshot and certificate information using the given snapshot digest
-        let snapshot = self.snapshot_client.show(digest).await?;
+        // 2 - Get certificate information
         let certificate = self
             .certificate_client
             .get(&snapshot.certificate_hash)
@@ -194,14 +193,32 @@ impl SnapshotService for MithrilClientSnapshotService {
             .await?;
 
         // 4 - Launch download and unpack the file on disk
-        let filepath = self.snapshot_client.download(&snapshot, pathdir).await?;
+        let filepath = self
+            .snapshot_client
+            .download(snapshot, pathdir)
+            .await
+            .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
         let db_pathdir = Path::new(&self.config.get_string("download_dir")?).join("db");
 
-        self.unpack_snapshot(&filepath, &unpack_dir).await?;
+        self.unpack_snapshot(&filepath, &unpack_dir)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Could not unpack file '{}' in '{}': {e}",
+                    filepath.display(),
+                    unpack_dir.display()
+                )
+            })?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&db_pathdir, &certificate.beacon)
-            .await?;
+            .await
+            .map_err(|e| {
+                format!(
+                    "Could not compute digest in '{}': {e}",
+                    db_pathdir.display()
+                )
+            })?;
 
         // 5 - Compute protocol message and compare hash sums
         let mut protocol_message = certificate.protocol_message.clone();
@@ -246,6 +263,7 @@ mod tests {
 
     use crate::aggregator_client::{AggregatorClient, MockAggregatorHTTPClient};
     use crate::dependencies::DependenciesBuilder;
+    use crate::FromSnapshotMessageAdapter;
 
     use super::super::mock::*;
 
@@ -416,14 +434,6 @@ mod tests {
             .expect_download()
             .returning(move |_, _| Ok(()))
             .times(1);
-        http_client
-            .expect_get_content()
-            .returning(|_| {
-                let message = serde_json::to_string(&get_snapshot_message()).unwrap();
-
-                Ok(message)
-            })
-            .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
             message.signed_message = message.protocol_message.compute_hash();
@@ -442,6 +452,7 @@ mod tests {
             "snapshot-digest-123",
             true,
         )));
+        let snapshot = FromSnapshotMessageAdapter::adapt(get_snapshot_message());
         let snapshot_service = builder.get_snapshot_service().await.unwrap();
 
         let (_, verifier) = setup_genesis();
@@ -449,7 +460,7 @@ mod tests {
         build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
         let filepath = snapshot_service
             .download(
-                "digest-10",
+                &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
             )
@@ -472,14 +483,6 @@ mod tests {
             .expect_download()
             .returning(move |_, _| Ok(()))
             .times(1);
-        http_client
-            .expect_get_content()
-            .returning(|_| {
-                let message = serde_json::to_string(&get_snapshot_message()).unwrap();
-
-                Ok(message)
-            })
-            .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
             message.signed_message = message.protocol_message.compute_hash();
@@ -498,13 +501,15 @@ mod tests {
         dep_builder.certificate_verifier = Some(Arc::new(certificate_verifier));
         dep_builder.immutable_digester = Some(Arc::new(immutable_digester));
         let snapshot_service = dep_builder.get_snapshot_service().await.unwrap();
+        let mut snapshot = FromSnapshotMessageAdapter::adapt(get_snapshot_message());
+        snapshot.digest = "digest-10".to_string();
 
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
         build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
         let err = snapshot_service
             .download(
-                "digest-10",
+                &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
             )
@@ -522,7 +527,9 @@ mod tests {
                 _ => panic!("Wrong error type when snapshot could not be verified."),
             }
         } else {
-            panic!("Expected a SnapshotServiceError when snapshot can not be verified. {err}");
+            panic!(
+                "Expected a SnapshotServiceError when snapshot can not be verified. Got {err:?}: '{err}'"
+            );
         }
         let filepath = test_path.join("snapshot-digest-10");
         assert!(filepath.exists());
@@ -545,9 +552,10 @@ mod tests {
 
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
+        let snapshot = FromSnapshotMessageAdapter::adapt(get_snapshot_message());
         let err = snapshot_service
             .download(
-                "digest-10",
+                &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
             )

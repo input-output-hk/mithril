@@ -31,9 +31,10 @@ impl SnapshotDownloadCommand {
         let config = Arc::new(config);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
+        let snapshot = snapshot_service.show(&self.digest).await?;
         let filepath = snapshot_service
             .download(
-                &self.digest,
+                &snapshot,
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,
             )
@@ -54,7 +55,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
                 &self.digest,
                 filepath.display(),
                 filepath.display(),
-                config.get_string("network")?
+                snapshot.beacon.network,
             );
         }
 
