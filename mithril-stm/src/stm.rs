@@ -1693,7 +1693,7 @@ mod tests {
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
-            let params = StmParameters { m, k, phi_f: 0.2 };
+            let params = StmParameters { m, k, phi_f: 0.6 };
             let signers = setup_equal_fnv_parties(params, nparties);
             // let all_ps: Vec<usize> = (0..nparties).collect();
 
