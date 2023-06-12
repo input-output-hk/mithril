@@ -1,8 +1,9 @@
+use crate::{
+    entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey},
+    messages::certificate_metadata::CertificateMetadataMessage,
+};
+
 use serde::{Deserialize, Serialize};
-
-use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
-
-use crate::entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake};
 
 /// Message structure of a certificate
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
@@ -24,7 +25,7 @@ pub struct CertificateMessage {
 
     /// Certificate metadata
     /// aka METADATA(p,n)
-    pub metadata: CertificateMetadata,
+    pub metadata: CertificateMetadataMessage,
 
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
@@ -64,30 +65,7 @@ impl CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             beacon: Beacon::new("testnet".to_string(), 10, 100),
-            metadata: CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                "initiated_at".to_string(),
-                "sealed_at".to_string(),
-                vec![
-                    SignerWithStake::new(
-                        "1".to_string(),
-                        "verification-key-123".to_string(),
-                        None,
-                        None,
-                        None,
-                        10,
-                    ),
-                    SignerWithStake::new(
-                        "2".to_string(),
-                        "verification-key-456".to_string(),
-                        None,
-                        None,
-                        None,
-                        20,
-                    ),
-                ],
-            ),
+            metadata: CertificateMetadataMessage::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
@@ -100,6 +78,7 @@ impl CertificateMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::{ProtocolParameters, SignerWithStake};
 
     fn golden_message() -> CertificateMessage {
         let mut protocol_message = ProtocolMessage::new();
@@ -115,12 +94,12 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             beacon: Beacon::new("testnet".to_string(), 10, 100),
-            metadata: CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                "initiated_at".to_string(),
-                "sealed_at".to_string(),
-                vec![
+            metadata: CertificateMetadataMessage {
+                protocol_version: "0.1.0".to_string(),
+                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at: "initiated_at".to_string(),
+                sealed_at: "sealed_at".to_string(),
+                signers: vec![
                     SignerWithStake::new(
                         "1".to_string(),
                         "verification-key-123".to_string(),
@@ -138,7 +117,7 @@ mod tests {
                         20,
                     ),
                 ],
-            ),
+            },
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),

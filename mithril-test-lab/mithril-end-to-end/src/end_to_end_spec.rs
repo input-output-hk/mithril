@@ -3,11 +3,13 @@ use crate::{
     attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure,
     MithrilStakeDistributionCommand, SnapshotCommand,
 };
-use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
-use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, Epoch, EpochSettings, ProtocolParameters, Snapshot};
-use mithril_common::messages::{
-    MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
+use mithril_common::{
+    chain_observer::{CardanoCliChainObserver, ChainObserver},
+    digesters::ImmutableFile,
+    entities::{Epoch, EpochSettings, ProtocolParameters, Snapshot},
+    messages::{
+        CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
+    },
 };
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
@@ -422,7 +424,7 @@ async fn assert_is_creating_certificate_with_enough_signers(
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Certificate>().await {
+                StatusCode::OK => match response.json::<CertificateMessage>().await {
                     Ok(certificate) => Ok(Some(certificate)),
                     Err(err) => Err(format!("Invalid snapshot body : {err}",)),
                 },

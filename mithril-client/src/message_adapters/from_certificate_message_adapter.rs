@@ -1,4 +1,4 @@
-use mithril_common::entities::Certificate;
+use mithril_common::entities::{Certificate, CertificateMetadata};
 use mithril_common::messages::CertificateMessage;
 
 /// Adapter to convert [CertificateMessage] to [Certificate] instances
@@ -7,11 +7,19 @@ pub struct FromCertificateMessageAdapter;
 impl FromCertificateMessageAdapter {
     /// Method to trigger the conversion
     pub fn adapt(certificate_message: CertificateMessage) -> Certificate {
+        let metadata = CertificateMetadata {
+            protocol_version: certificate_message.metadata.protocol_version,
+            protocol_parameters: certificate_message.metadata.protocol_parameters,
+            initiated_at: certificate_message.metadata.initiated_at,
+            sealed_at: certificate_message.metadata.sealed_at,
+            signers: certificate_message.metadata.signers,
+        };
+
         Certificate {
             hash: certificate_message.hash,
             previous_hash: certificate_message.previous_hash,
             beacon: certificate_message.beacon,
-            metadata: certificate_message.metadata,
+            metadata,
             protocol_message: certificate_message.protocol_message,
             signed_message: certificate_message.signed_message,
             aggregate_verification_key: certificate_message.aggregate_verification_key,
