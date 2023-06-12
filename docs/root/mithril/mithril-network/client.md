@@ -11,7 +11,10 @@ Welcome to the Mithril Client Node guide!
 
 :::info
 
-The **Mithril Client** node is used to restore a **Cardano full node** by retrieving, from a **Mithril Aggregator**, a remote snapshot, its certificate chain and by verifying their validity thanks to the Mithril cryptographic primitives.
+The **Mithril Client** node is used to list, show or verify artifacts certified by **Mithril certificates**:
+
+ 1. Cardano full node snapshots
+ 1. Stake Distribution involved in Mithril signatures.
 
 :::
 
@@ -23,7 +26,7 @@ The **Mithril Client** node is used to restore a **Cardano full node** by retrie
 
 :::
 
-## Usecases
+## Wallet restoration
 
 At a first glance, a **Mithril Client** can be used by any user that needs to restore and bootstrap rapidly a **Cardano full node**:
 
@@ -32,19 +35,9 @@ At a first glance, a **Mithril Client** can be used by any user that needs to re
 
 On the long run, the **Mithril Client** is intended to be incorporated in **Light Clients** and **Wallets**.
 
-## Snapshot Artifacts Retrieval
+### Certificate chain Verification
 
-The first operation that a **Mithril Client** does is to retrieve snapshot artifacts from a remote source.
-
-The **Mithril Aggregator** is used as a provider for the **Snapshots** (at least their locations).
-
-This is done upon a manual action of a user that has previously selected the snapshot to use (if multiple are available).
-
-These artifacs are stored locally on a temporary location, are uncompressed if necessary and used to compute the message that should have been computed and signed by the **Mithril Signers**.
-
-## Snapshot Verification
-
-Along with the snapshot artifacts, the **Mithril Client** will download the associated **Certificate Chain** and for each **Mithril Certificate** verify that (in the following order):
+The first thing the **Mithril Client** does is to download the associated **Certificate Chain** and for each **Mithril Certificate** verify that (in the following order):
 
 1. The certificate is not tampered (by computing its hash and verifying that is is the same as the one used for downloading it).
 2. The locally computed **message** is the same as in the certificate.
@@ -61,8 +54,16 @@ For more information about the **Mithril Certificate Chain**, please refer to th
 
 :::
 
-## Snapshot Restoration
+### Snapshot Artifacts Retrieval
 
-Once the snapshot artifacts are verified, the **Mithril Client** node will move them from the temporary location to the final (user specified) location.
+Once the certificate chain is verified, the **Mithril Client** will try to download a **Full Cardano Node** snapshot. The **Mithril Aggregator** is used as a provider for the **Snapshots** locations. The snapshots might be stored at several locations, the client will try the given locations until it founds one that responds OK. 
 
-At this point, the **Cardano Node** will take over, start using the artifacts. and hopefully start addng new blocks to the ledger!
+These artifacts are downloaded locally on a temporary directory and then uncompressed in the location given on the command line. The uncompressed files are used to compute the message that is then compared with the one that is signed by the **Mithril Signers**. If the verification fails, the uncompressed files are removed from the disk.
+
+### Snapshot Restoration
+
+If the verification succeeds, the user can use these files to start a Cardano full node. At this point, the **Cardano Node** will take over and hopefully start adding new blocks to the ledger!
+
+## Mithril Stake Distribution
+
+The client can be also used to verify and download the **Stake Distribution** used for signatures at the upcoming Cardano's Epoch. As of Snapshots, the certificate chain is validated, then the signers **Verification Keys** are checked. If valid, a fingerprint of the stake distribution is computed and tested against the one used by the certificate. If it is different, the verification stops, otherwise, the JSON representation of the stake distribution is saved on the disk for further use.
