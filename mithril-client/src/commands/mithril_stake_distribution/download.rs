@@ -13,7 +13,7 @@ pub struct MithrilStakeDistributionDownloadCommand {
     /// Hash of the Mithril Stake Distribution artifact
     artifact_hash: String,
 
-    /// Directory where the snapshot will be downloaded. By default, a
+    /// Directory where the Mithril Stake Distribution will be downloaded. By default, a
     /// subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long, default_value = ".")]
