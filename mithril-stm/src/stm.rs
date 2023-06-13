@@ -1693,7 +1693,7 @@ mod tests {
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
-            let params = StmParameters { m, k, phi_f: 0.6 };
+            let params = StmParameters { m, k, phi_f: 0.2 };
             let signers = setup_equal_fnv_parties(params, nparties);
             // let all_ps: Vec<usize> = (0..nparties).collect();
 
@@ -1706,4 +1706,30 @@ mod tests {
 
         }
     }
+    // #[test]
+    // fn debug_fnv_stm(){
+    //     let m = 10;
+    //     let k = 3;
+    //     let msg =  [9, 63, 48, 31, 7, 157, 3, 7, 2, 4, 161, 31, 50, 84, 84, 96];
+    //     let nparties = 9;
+    //     let params = StmParameters { m, k, phi_f: 0.2 };
+    //     let signers = setup_equal_fnv_parties(params, nparties);
+    //     // let all_ps: Vec<usize> = (0..nparties).collect();
+    //
+    //     let fnv = setup_full_node_verifier(signers.clone());
+    //
+    //     let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake);
+    //
+    //     let verify_result = CoreVerifier::verify(&fnv, &signatures, &params, &msg);
+    //     assert!(verify_result.is_err(), "verify {verify_result:?}");
+    //
+    //     let ps = setup_equal_parties(params, nparties);
+    //     let clerk = StmClerk::from_signer(&ps[0]);
+    //
+    //     let all_ps: Vec<usize> = (0..nparties).collect();
+    //     let sigs = find_signatures(&msg, &ps, &all_ps);
+    //     let msig = clerk.aggregate(&sigs, &msg).unwrap();
+    //     assert!(msig.verify(&msg, &clerk.compute_avk(), &params).is_ok(), "verify {verify_result:?}");
+    //
+    // }
 }
