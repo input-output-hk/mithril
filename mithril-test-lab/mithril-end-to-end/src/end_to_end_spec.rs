@@ -6,9 +6,10 @@ use crate::{
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, ChainObserver},
     digesters::ImmutableFile,
-    entities::{Epoch, EpochSettings, ProtocolParameters, Snapshot},
+    entities::{Epoch, ProtocolParameters},
     messages::{
-        CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
+        CertificateMessage, EpochSettingsMessage, MithrilStakeDistributionListMessage,
+        MithrilStakeDistributionMessage, SnapshotMessage,
     },
 };
 use reqwest::StatusCode;
@@ -157,7 +158,9 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
     }
 }
 
-async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSettings, String> {
+async fn wait_for_epoch_settings(
+    aggregator_endpoint: &str,
+) -> Result<EpochSettingsMessage, String> {
     let url = format!("{aggregator_endpoint}/epoch-settings");
     info!("Waiting for the aggregator to expose epoch settings");
 
@@ -166,7 +169,7 @@ async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSetti
             Ok(response) => match response.status() {
                 StatusCode::OK => {
                     let epoch_settings = response
-                        .json::<EpochSettings>()
+                        .json::<EpochSettingsMessage>()
                         .await
                         .map_err(|e| format!("Invalid EpochSettings body : {e}"))?;
                     info!("Aggregator ready"; "epoch_settings"  => #?epoch_settings);
@@ -351,7 +354,7 @@ async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<Str
     match attempt!(45, Duration::from_millis(2000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
+                StatusCode::OK => match response.json::<Vec<SnapshotMessage>>().await.as_deref() {
                     Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
                     Ok(&[]) => Ok(None),
                     Err(err) => Err(format!("Invalid snapshot body : {err}",)),
@@ -387,7 +390,7 @@ async fn assert_signer_is_signing_snapshot(
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Snapshot>().await {
+                StatusCode::OK => match response.json::<SnapshotMessage>().await {
                     Ok(snapshot) => match snapshot.beacon.epoch {
                         epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
                         epoch => Err(format!(
