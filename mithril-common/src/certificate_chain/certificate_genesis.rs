@@ -75,8 +75,8 @@ impl CertificateGenesisProducer {
         genesis_signature: ProtocolGenesisSignature,
     ) -> Result<Certificate, CertificateGenesisProducerError> {
         let protocol_version = PROTOCOL_VERSION.to_string();
-        let initiated_at = format!("{:?}", Utc::now());
-        let sealed_at = format!("{:?}", Utc::now());
+        let initiated_at = Utc::now();
+        let sealed_at = Utc::now();
         let signers = vec![];
         let metadata = CertificateMetadata::new(
             protocol_version,

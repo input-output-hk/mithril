@@ -7,6 +7,7 @@ use crate::entities::{
     SignedEntityType, SingleSignatures,
 };
 use crate::{crypto_helper, entities};
+use chrono::{DateTime, Utc};
 
 /// Fake Beacon
 pub fn beacon() -> entities::Beacon {
@@ -101,8 +102,12 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
 
     // Certificate metadata
     let protocol_version = crypto_helper::PROTOCOL_VERSION.to_string();
-    let initiated_at = "2006-01-02T15:04:05Z".to_string();
-    let sealed_at = "2006-01-02T15:04:05Z".to_string();
+    let initiated_at = DateTime::parse_from_rfc3339("2006-01-02T15:04:05Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let sealed_at = DateTime::parse_from_rfc3339("2006-01-02T15:04:05Z")
+        .unwrap()
+        .with_timezone(&Utc);
     let metadata = CertificateMetadata::new(
         protocol_version,
         protocol_parameters,

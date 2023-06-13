@@ -1,4 +1,5 @@
 use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// CertificateMetadata represents the metadata associated to a Certificate
@@ -18,12 +19,12 @@ pub struct CertificateMetadataMessage {
     /// Date and time when the certificate was initiated
     /// Represents the time at which the single signatures registration is opened
     /// part of METADATA(p,n)
-    pub initiated_at: String,
+    pub initiated_at: DateTime<Utc>,
 
     /// Date and time when the certificate was sealed
     /// Represents the time at which the quorum of single signatures was reached so that they were aggregated into a multi signature
     /// part of METADATA(p,n)
-    pub sealed_at: String,
+    pub sealed_at: DateTime<Utc>,
 
     /// The list of the active signers with their stakes and verification keys
     /// part of METADATA(p,n)
@@ -33,11 +34,15 @@ pub struct CertificateMetadataMessage {
 impl CertificateMetadataMessage {
     /// CertificateMetadata factory
     pub fn dummy() -> Self {
+        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+            .unwrap()
+            .with_timezone(&Utc);
+
         Self {
             protocol_version: "0.1.0".to_string(),
             protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-            initiated_at: "initiated_at".to_string(),
-            sealed_at: "sealed_at".to_string(),
+            initiated_at,
+            sealed_at: initiated_at + Duration::seconds(100),
             signers: vec![
                 SignerWithStake::new(
                     "1".to_string(),
@@ -68,8 +73,12 @@ mod tests {
         CertificateMetadataMessage {
             protocol_version: "0.1.0".to_string(),
             protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-            initiated_at: "initiated_at".to_string(),
-            sealed_at: "sealed_at".to_string(),
+            initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                .unwrap()
+                .with_timezone(&Utc),
             signers: vec![
                 SignerWithStake::new(
                     "1".to_string(),
@@ -101,8 +110,8 @@ mod tests {
                 "m": 100,
                 "phi_f": 0.123
             },
-            "initiated_at": "initiated_at",
-            "sealed_at": "sealed_at",
+            "initiated_at": "2024-02-12T13:11:47Z",
+            "sealed_at": "2024-02-12T13:12:57Z",
             "signers": [
                 {
                     "party_id": "1",

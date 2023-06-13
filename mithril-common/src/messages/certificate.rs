@@ -79,6 +79,7 @@ impl CertificateMessage {
 mod tests {
     use super::*;
     use crate::entities::{ProtocolParameters, SignerWithStake};
+    use chrono::{DateTime, Utc};
 
     fn golden_message() -> CertificateMessage {
         let mut protocol_message = ProtocolMessage::new();
@@ -97,8 +98,12 @@ mod tests {
             metadata: CertificateMetadataMessage {
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: "initiated_at".to_string(),
-                sealed_at: "sealed_at".to_string(),
+                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
                 signers: vec![
                     SignerWithStake::new(
                         "1".to_string(),
@@ -145,8 +150,8 @@ mod tests {
                     "m": 100,
                     "phi_f": 0.123
                 },
-                "initiated_at": "initiated_at",
-                "sealed_at": "sealed_at",
+            "initiated_at": "2024-02-12T13:11:47Z",
+            "sealed_at": "2024-02-12T13:12:57Z",
                 "signers": [
                     {
                         "party_id": "1",
