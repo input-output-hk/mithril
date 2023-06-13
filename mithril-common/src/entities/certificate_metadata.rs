@@ -1,19 +1,16 @@
 use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution};
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// CertificateMetadata represents the metadata associated to a Certificate
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct CertificateMetadata {
     /// Protocol Version (semver)
     /// Useful to achieve backward compatibility of the certificates (including of the multi signature)
     /// part of METADATA(p,n)
-    #[serde(rename = "version")]
     pub protocol_version: ProtocolVersion,
 
     /// Protocol parameters
     /// part of METADATA(p,n)
-    #[serde(rename = "parameters")]
     pub protocol_parameters: ProtocolParameters,
 
     /// Date and time when the certificate was initiated

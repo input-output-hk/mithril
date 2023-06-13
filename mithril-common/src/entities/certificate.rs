@@ -3,11 +3,10 @@ use crate::entities::{
     HexEncodedMultiSignature, ProtocolMessage,
 };
 
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Certificate {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
