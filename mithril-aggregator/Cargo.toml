@@ -11,7 +11,7 @@ repository = { workspace = true }
 
 [dependencies]
 async-trait = "0.1.52"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.0", features = ["derive", "env", "cargo"] }
 cloud-storage = "0.11.0"
 config = "0.13.1"
