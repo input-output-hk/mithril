@@ -89,7 +89,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 pub enum CoreVerifierError {
     /// No quorum was found
     #[error("No Quorum was found.")]
-    NoQuorum,
+    NoQuorum(u64, u64),
 
     /// There is a duplicate index
     #[error("Indices are not unique.")]
@@ -202,7 +202,7 @@ impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureE
     fn from(e: CoreVerifierError) -> Self {
         match e {
             CoreVerifierError::IndexNotUnique => Self::CoreVerificationError(e),
-            CoreVerifierError::NoQuorum => Self::CoreVerificationError(e),
+            CoreVerifierError::NoQuorum(_, _) => Self::CoreVerificationError(e),
             CoreVerifierError::IndividualSignatureInvalid(_) => Self::CoreVerificationError(e),
             CoreVerifierError::AggregateSignatureInvalid => Self::CoreVerificationError(e),
         }
@@ -230,7 +230,7 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSigRegPartyError {
 impl From<AggregationError> for CoreVerifierError {
     fn from(e: AggregationError) -> Self {
         match e {
-            NotEnoughSignatures(_, _) => Self::NoQuorum,
+            NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
             AggregationError::UsizeConversionInvalid => unreachable!(),
         }
     }

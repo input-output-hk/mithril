@@ -1033,7 +1033,7 @@ impl CoreVerifier {
             return Err(CoreVerifierError::IndexNotUnique);
         }
         if (nr_indices as u64) < parameters.k {
-            return Err(CoreVerifierError::NoQuorum);
+            return Err(CoreVerifierError::NoQuorum(nr_indices as u64, parameters.k));
         }
 
         Ok(())
@@ -1700,11 +1700,20 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
 
             let fnv = setup_full_node_verifier(signers.clone());
-
             let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake, &all_ps);
 
             let verify_result = fnv.verify(&signatures, &params, &msg);
-            assert!(verify_result.is_ok(), "verify {verify_result:?}");
+
+            match verify_result{
+                Ok(_) => {
+                    assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
+                }
+                Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
+                    assert!((nr_indices as u64) < params.k);
+                }
+                Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
+                _ => unreachable!(),
+            }
         }
     }
 
