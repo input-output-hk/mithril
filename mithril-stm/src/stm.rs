@@ -1708,8 +1708,8 @@ mod tests {
                 Ok(_) => {
                     assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
                 }
-                Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
-                    assert!((nr_indices as u64) < params.k);
+                Err(CoreVerifierError::NoQuorum(nr_indices, _)) => {
+                    assert!((nr_indices) < params.k);
                 }
                 Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
                 _ => unreachable!(),
