@@ -27,7 +27,9 @@ impl
 
 #[cfg(test)]
 mod tests {
+    use chrono::{DateTime, Utc};
     use mithril_common::entities::SignedEntityType;
+    use mithril_common::test_utils::fake_data;
     use mithril_common::{entities::Epoch, test_utils::fake_data::signers_with_stakes};
 
     use super::*;
@@ -39,6 +41,8 @@ mod tests {
             signers_with_stake: signers_with_stakes(1),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
+            created_at: DateTime::<Utc>::default(),
+            protocol_parameters: fake_data::protocol_parameters(),
         };
         let signed_entity = SignedEntity {
             signed_entity_id: "signed-entity-id-123".to_string(),

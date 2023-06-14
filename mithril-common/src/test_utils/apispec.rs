@@ -33,9 +33,11 @@ impl<'a> APISpec<'a> {
                 .path(path)
                 .content_type(content_type)
                 .validate_request(request_body)
-                .unwrap_or_else(|_| panic!("OpenAPI invalid request in {}", spec_file))
+                .map_err(|e| panic!("OpenAPI invalid request in {spec_file}, reason: {e}"))
+                .unwrap()
                 .validate_response(response)
-                .unwrap_or_else(|_| panic!("OpenAPI invalid response in {}", spec_file));
+                .map_err(|e| panic!("OpenAPI invalid response in {spec_file}, reason: {e}"))
+                .unwrap();
         }
     }
 
