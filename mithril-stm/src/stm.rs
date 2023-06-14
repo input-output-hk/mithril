@@ -1033,7 +1033,7 @@ impl CoreVerifier {
             return Err(CoreVerifierError::IndexNotUnique);
         }
         if (nr_indices as u64) < parameters.k {
-            return Err(CoreVerifierError::NoQuorum(nr_indices as u64, parameters.k));
+            return Err(CoreVerifierError::NoQuorum(nr_indices as u64));
         }
 
         Ok(())
@@ -1708,7 +1708,7 @@ mod tests {
                 Ok(_) => {
                     assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
                 }
-                Err(CoreVerifierError::NoQuorum(nr_indices, _)) => {
+                Err(CoreVerifierError::NoQuorum(nr_indices)) => {
                     assert!((nr_indices) < params.k);
                 }
                 Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
