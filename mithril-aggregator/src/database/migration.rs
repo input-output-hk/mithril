@@ -328,5 +328,26 @@ drop table signed_entity_old;
 create unique index open_message_unique_index on open_message(signed_entity_type_id, beacon);
 "#,
         ),
+        // Migration 13
+        // Update signed_entity.artifact type StakeDistribution to add new fields in JSON.
+        SqlMigration::new(
+            13,
+            r#"
+update signed_entity
+    set artifact = json_insert(
+        json_insert(
+            artifact,
+            '$.protocol_parameters', 
+            json(certificate.protocol_parameters)
+        ), 
+        '$.created_at', 
+        created_at
+    )
+from certificate 
+where 
+    signed_entity.artifact->>'type' = 'MithrilStakeDistribution'
+    and signed_entity.certificate_id = certificate.certificate_id
+"#,
+        ),
     ]
 }
