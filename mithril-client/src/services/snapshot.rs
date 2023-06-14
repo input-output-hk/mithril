@@ -5,7 +5,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use config::Config;
 use flate2::read::GzDecoder;
 use mithril_common::{
     certificate_chain::CertificateVerifier,
@@ -81,9 +80,6 @@ pub trait SnapshotService: Sync + Send {
 
 /// Service used by the Command to perform business oriented tasks.
 pub struct MithrilClientSnapshotService {
-    /// Configuration settings
-    config: Arc<Config>,
-
     /// Snapshot HTTP client
     snapshot_client: Arc<SnapshotClient>,
 
@@ -100,14 +96,12 @@ pub struct MithrilClientSnapshotService {
 impl MithrilClientSnapshotService {
     /// Create a new instance of the service.
     pub fn new(
-        config: Arc<Config>,
         snapshot_client: Arc<SnapshotClient>,
         certificate_client: Arc<CertificateClient>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
         immutable_digester: Arc<dyn ImmutableDigester>,
     ) -> Self {
         Self {
-            config,
             snapshot_client,
             certificate_client,
             certificate_verifier,
@@ -198,7 +192,6 @@ impl SnapshotService for MithrilClientSnapshotService {
             .download(snapshot, pathdir)
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
-        let db_pathdir = Path::new(&self.config.get_string("download_dir")?).join("db");
 
         self.unpack_snapshot(&filepath, &unpack_dir)
             .await
@@ -211,12 +204,12 @@ impl SnapshotService for MithrilClientSnapshotService {
             })?;
         let unpacked_snapshot_digest = self
             .immutable_digester
-            .compute_digest(&db_pathdir, &certificate.beacon)
+            .compute_digest(&unpack_dir, &certificate.beacon)
             .await
             .map_err(|e| {
                 format!(
                     "Could not compute digest in '{}': {e}",
-                    db_pathdir.display()
+                    unpack_dir.display()
                 )
             })?;
 
