@@ -240,6 +240,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{DateTime, Utc};
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::ProtocolGenesisSigner,
@@ -248,7 +249,7 @@ mod tests {
             CertificateMessage, MithrilStakeDistributionListMessage,
             MithrilStakeDistributionMessage,
         },
-        test_utils::MithrilFixtureBuilder,
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
 
     use crate::{
@@ -269,6 +270,8 @@ mod tests {
             signers_with_stake: signers_with_stake.to_owned(),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
+            created_at: DateTime::<Utc>::default(),
+            protocol_parameters: fake_data::protocol_parameters(),
         }
     }
 
