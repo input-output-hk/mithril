@@ -303,7 +303,9 @@ impl SingleSignatureRepository {
 mod tests {
     use mithril_common::test_utils::fake_data;
 
-    use crate::database::provider::{setup_single_signature_db, setup_single_signature_records};
+    use crate::database::provider::{
+        apply_all_migrations_to_db, insert_single_signatures_in_db, setup_single_signature_records,
+    };
 
     use super::*;
 
@@ -413,7 +415,8 @@ mod tests {
         let single_signature_records_src = setup_single_signature_records(2, 3, 4);
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, single_signature_records_src.clone()).unwrap();
+        apply_all_migrations_to_db(&connection).unwrap();
+        insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
 
         let provider = SingleSignatureRecordProvider::new(&connection);
 
@@ -485,7 +488,7 @@ mod tests {
         let single_signature_records_copy = single_signature_records.clone();
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, Vec::new()).unwrap();
+        apply_all_migrations_to_db(&connection).unwrap();
 
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
 

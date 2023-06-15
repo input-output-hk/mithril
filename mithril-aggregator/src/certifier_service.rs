@@ -289,8 +289,7 @@ impl CertifierService for MithrilCertifierService {
             .collect::<Vec<_>>();
 
         let protocol_version = PROTOCOL_VERSION.to_string();
-        // Todo: use Datetime everywhere except in the DB (use NaiveDateTime there)
-        let initiated_at = open_message.created_at.and_utc();
+        let initiated_at = open_message.created_at;
         let sealed_at = Utc::now();
         let metadata = CertificateMetadata::new(
             protocol_version,

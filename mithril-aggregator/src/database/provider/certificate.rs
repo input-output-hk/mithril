@@ -1,12 +1,11 @@
 use async_trait::async_trait;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
-    database::DB_DATE_FORMAT,
     entities::{
         Beacon, Certificate, CertificateMetadata, Epoch, HexEncodedAgregateVerificationKey,
         HexEncodedKey, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignerWithStake,
@@ -18,9 +17,6 @@ use mithril_common::{
     store::adapter::{AdapterError, StoreAdapter},
     StdError, StdResult,
 };
-
-#[cfg(test)]
-use chrono::DateTime;
 
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
@@ -61,10 +57,10 @@ pub struct CertificateRecord {
     pub signers: Vec<SignerWithStake>,
 
     /// Date and time when the certificate was initiated
-    pub initiated_at: NaiveDateTime,
+    pub initiated_at: DateTime<Utc>,
 
     /// Date and time when the certificate was sealed
-    pub sealed_at: NaiveDateTime,
+    pub sealed_at: DateTime<Utc>,
 }
 
 impl CertificateRecord {
@@ -91,10 +87,10 @@ impl CertificateRecord {
             signers: vec![],
             initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
                 .unwrap()
-                .naive_utc(),
+                .with_timezone(&Utc),
             sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
                 .unwrap()
-                .naive_utc(),
+                .with_timezone(&Utc),
         }
     }
 }
@@ -115,8 +111,8 @@ impl From<Certificate> for CertificateRecord {
                 protocol_parameters: other.metadata.protocol_parameters,
                 protocol_message: other.protocol_message,
                 signers: other.metadata.signers,
-                initiated_at: other.metadata.initiated_at.naive_utc(),
-                sealed_at: other.metadata.sealed_at.naive_utc(),
+                initiated_at: other.metadata.initiated_at,
+                sealed_at: other.metadata.sealed_at,
             }
         } else {
             // Multi-signature certificate
@@ -132,8 +128,8 @@ impl From<Certificate> for CertificateRecord {
                 protocol_parameters: other.metadata.protocol_parameters,
                 protocol_message: other.protocol_message,
                 signers: other.metadata.signers,
-                initiated_at: other.metadata.initiated_at.naive_utc(),
-                sealed_at: other.metadata.sealed_at.naive_utc(),
+                initiated_at: other.metadata.initiated_at,
+                sealed_at: other.metadata.sealed_at,
             }
         }
     }
@@ -144,8 +140,8 @@ impl From<CertificateRecord> for Certificate {
         let certificate_metadata = CertificateMetadata::new(
             other.protocol_version,
             other.protocol_parameters,
-            other.initiated_at.and_utc(),
-            other.sealed_at.and_utc(),
+            other.initiated_at,
+            other.sealed_at,
             other.signers,
         );
 
@@ -234,20 +230,20 @@ impl SqLiteEntity for CertificateRecord {
                     ))
                 },
             )?,
-            initiated_at: NaiveDateTime::parse_from_str(&initiated_at, DB_DATE_FORMAT).map_err(
+            initiated_at: DateTime::parse_from_rfc3339(&initiated_at).map_err(
                 |e| {
                   HydrationError::InvalidData(format!(
-                      "Could not turn string '{initiated_at}' to NaiveDateTime. Error: {e}"
+                      "Could not turn string '{initiated_at}' to rfc3339 Datetime. Error: {e}"
                   ))
               },
-            )?,
-            sealed_at: NaiveDateTime::parse_from_str(&sealed_at, DB_DATE_FORMAT).map_err(
+            )?.with_timezone(&Utc),
+            sealed_at: DateTime::parse_from_rfc3339(&sealed_at).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
-                        "Could not turn string '{sealed_at}' to NaiveDateTime. Error: {e}"
+                        "Could not turn string '{sealed_at}' to rfc3339 Datetime. Error: {e}"
                     ))
                 },
-            )?,
+            )?.with_timezone(&Utc),
         };
 
         Ok(certificate_record)
@@ -397,8 +393,8 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
                 ),
                 Value::String(serde_json::to_string(&certificate_record.protocol_message).unwrap()),
                 Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
-                Value::String(format!("{}", certificate_record.initiated_at.format(DB_DATE_FORMAT))),
-                Value::String(format!("{}", certificate_record.sealed_at.format(DB_DATE_FORMAT))),
+                Value::String(certificate_record.initiated_at.to_rfc3339()),
+                Value::String(certificate_record.sealed_at.to_rfc3339()),
             ],
         )
     }
@@ -717,16 +713,10 @@ mod tests {
                 )
                 .unwrap();
             statement
-                .bind(
-                    12,
-                    format!("{}", certificate_record.initiated_at.format(DB_DATE_FORMAT)).as_str(),
-                )
+                .bind(12, certificate_record.initiated_at.to_rfc3339().as_str())
                 .unwrap();
             statement
-                .bind(
-                    13,
-                    format!("{}", certificate_record.sealed_at.format(DB_DATE_FORMAT)).as_str(),
-                )
+                .bind(13, certificate_record.sealed_at.to_rfc3339().as_str())
                 .unwrap();
             statement.next().unwrap();
         }
@@ -812,14 +802,8 @@ mod tests {
                 ),
                 Value::String(serde_json::to_string(&certificate_record.protocol_message).unwrap()),
                 Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
-                Value::String(format!(
-                    "{}",
-                    certificate_record.initiated_at.format(DB_DATE_FORMAT)
-                )),
-                Value::String(format!(
-                    "{}",
-                    certificate_record.sealed_at.format(DB_DATE_FORMAT)
-                )),
+                Value::String(certificate_record.initiated_at.to_rfc3339()),
+                Value::String(certificate_record.sealed_at.to_rfc3339()),
             ],
             params
         );

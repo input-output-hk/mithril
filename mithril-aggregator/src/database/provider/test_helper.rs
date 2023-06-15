@@ -33,14 +33,18 @@ pub fn setup_single_signature_records(
     single_signature_records
 }
 
-pub fn setup_single_signature_db(
-    connection: &Connection,
-    single_signature_records: Vec<SingleSignatureRecord>,
-) -> Result<(), StdError> {
+pub fn apply_all_migrations_to_db(connection: &Connection) -> Result<(), StdError> {
     for migration in get_migrations() {
         connection.execute(&migration.alterations)?;
     }
 
+    Ok(())
+}
+
+pub fn insert_single_signatures_in_db(
+    connection: &Connection,
+    single_signature_records: Vec<SingleSignatureRecord>,
+) -> Result<(), StdError> {
     if single_signature_records.is_empty() {
         return Ok(());
     }
