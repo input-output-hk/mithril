@@ -13,20 +13,20 @@
   "dependencies": {
     "@popperjs/core": "^2.11.8",
     "@reduxjs/toolkit": "^1.9.5",
-    "bootstrap": "^5.2.3",
+    "bootstrap": "^5.3.0",
     "bootstrap-icons": "^1.10.5",
-    "next": "^13.4.4",
+    "next": "^13.4.5",
     "next-redux-wrapper": "^8.1.0",
     "react": "^18.2.0",
     "react-bootstrap": "^2.7.4",
     "react-dom": "^18.2.0",
-    "react-redux": "^8.0.5"
+    "react-redux": "^8.1.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^14.0.0",
-    "eslint": "^8.41.0",
-    "eslint-config-next": "^13.4.4",
+    "eslint": "^8.42.0",
+    "eslint-config-next": "^13.4.5",
     "jest": "^29.5.0",
     "jest-environment-jsdom": "^29.5.0"
   }
