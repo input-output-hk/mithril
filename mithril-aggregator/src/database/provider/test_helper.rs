@@ -1,3 +1,4 @@
+use chrono::Utc;
 use mithril_common::{entities::Epoch, StdError};
 use sqlite::Connection;
 use uuid::Uuid;
@@ -25,7 +26,7 @@ pub fn setup_single_signature_records(
                     registration_epoch_setting_id: Epoch(epoch),
                     lottery_indexes: (1..=single_signature_id).collect(),
                     signature: format!("signature-{single_signature_id}"),
-                    created_at: format!("created-at-{single_signature_id}"),
+                    created_at: Utc::now(),
                 });
             }
         }
@@ -89,7 +90,7 @@ pub fn insert_single_signatures_in_db(
             .bind(5, single_signature_record.signature.as_str())
             .unwrap();
         statement
-            .bind(6, single_signature_record.created_at.as_str())
+            .bind(6, single_signature_record.created_at.to_rfc3339().as_str())
             .unwrap();
         statement.next().unwrap();
     }
