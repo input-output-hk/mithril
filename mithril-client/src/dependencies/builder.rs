@@ -181,7 +181,6 @@ impl DependenciesBuilder {
 
     async fn build_snapshot_service(&mut self) -> StdResult<Arc<dyn SnapshotService>> {
         let snapshot_service = MithrilClientSnapshotService::new(
-            self.config.clone(),
             self.get_snapshot_client().await?,
             self.get_certificate_client().await?,
             self.get_certificate_verifier().await?,
