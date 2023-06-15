@@ -335,7 +335,7 @@ impl StmInitializer {
     }
 
     #[allow(dead_code)] //REMOVE!!!!!!!!!!
-    fn new_core_signer<D: Digest + Clone>(self, eligible_parties: &Vec<RegParty>) -> StmSigner<D> {
+    fn new_core_signer<D: Digest + Clone>(self, eligible_parties: &[RegParty]) -> StmSigner<D> {
         let mut my_index = None;
         for (i, rp) in eligible_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -1148,7 +1148,7 @@ impl CoreVerifier {
 mod tests {
     use super::*;
     use crate::key_reg::*;
-    use crate::merkle_tree::BatchPath;
+    use crate::merkle_tree::{BatchPath, MTLeaf};
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
@@ -1597,141 +1597,136 @@ mod tests {
         }
     }
 
-    // //------------------------------------------------//
-    // //-------------- Full Node Verifier --------------//
-    // //------------------------------------------------//
-    // fn setup_equal_fnv_parties(params: StmParameters, nparties: usize) -> Vec<SignerCore> {
-    //     let stake = vec![1; nparties];
-    //     setup_fnv_parties(params, stake)
-    // }
-    //
-    // fn setup_fnv_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<SignerCore> {
-    //     let mut trng = TestRng::deterministic_rng(ChaCha);
-    //     let mut rng = ChaCha20Rng::from_seed(trng.gen());
-    //
-    //     let signers = stake
-    //         .iter()
-    //         .map(|s| {
-    //             let sk = SigningKey::gen(&mut rng);
-    //             let vk = VerificationKey::from(&sk);
-    //             (sk, vk, *s)
-    //         })
-    //         .collect::<Vec<_>>();
-    //
-    //     let public_signers = signers
-    //         .iter()
-    //         .map(|(_, vk, s)| MTLeaf(*vk, *s))
-    //         .collect::<Vec<MTLeaf>>();
-    //
-    //     #[allow(clippy::needless_collect)]
-    //     signers
-    //         .iter()
-    //         .map(|s| SignerCore::setup(params, s.2, s.0.clone(), s.1, &public_signers))
-    //         .collect()
-    // }
-    //
-    // fn setup_full_node_verifier(signers: Vec<SignerCore>) -> CoreVerifier {
-    //     let mut total_stake: Stake = 0;
-    //     let eligible_parties = signers
-    //         .iter()
-    //         .map(|signer| {
-    //             let (res, overflow) = total_stake.overflowing_add(signer.stake);
-    //             if overflow {
-    //                 panic!("Total stake overflow");
-    //             }
-    //             total_stake = res;
-    //             MTLeaf(signer.vk, signer.stake)
-    //         })
-    //         .collect::<Vec<RegParty>>();
-    //     CoreVerifier {
-    //         eligible_parties,
-    //         total_stake,
-    //     }
-    // }
-    //
-    // fn find_fnv_signatures(
-    //     msg: &[u8],
-    //     ps: &[SignerCore],
-    //     total_stake: Stake,
-    //     is: &[usize],
-    // ) -> Vec<StmSig> {
-    //     let mut sigs = Vec::new();
-    //     for i in is {
-    //         if let Some(sig) = ps[*i].sign(msg, total_stake) {
-    //             sigs.push(sig);
-    //         }
-    //     }
-    //     sigs
-    // }
-    //
-    // proptest! {
-    //     #![proptest_config(ProptestConfig::with_cases(50))]
-    //
-    //     #[test]
-    //     fn test_full_node_verifier(nparties in 2_usize..30,
-    //                           m in 10_u64..20,
-    //                           k in 1_u64..5,
-    //                           msg in any::<[u8;16]>()) {
-    //         let params = StmParameters { m, k, phi_f: 0.2 };
-    //         let signers = setup_equal_fnv_parties(params, nparties);
-    //         let all_ps: Vec<usize> = (0..nparties).collect();
-    //
-    //         let fnv = setup_full_node_verifier(signers.clone());
-    //         let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake, &all_ps);
-    //
-    //         let verify_result = fnv.verify(&signatures, &params, &msg);
-    //
-    //         match verify_result{
-    //             Ok(_) => {
-    //                 assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
-    //             }
-    //             Err(CoreVerifierError::NoQuorum(nr_indices)) => {
-    //                 assert!((nr_indices) < params.k);
-    //             }
-    //             Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
-    //             _ => unreachable!(),
-    //         }
-    //     }
-    // }
-    //
-    // #[test]
-    // fn debug_fnv_stm() {
-    //     let m = 10;
-    //     let k = 3;
-    //     let msg = [9, 63, 48, 31, 7, 157, 3, 7, 2, 4, 161, 31, 50, 84, 84, 96];
-    //     let nparties = 22;
-    //     let params = StmParameters { m, k, phi_f: 0.2 };
-    //     let all_ps: Vec<usize> = (0..nparties).collect();
-    //
-    //     // println!("Core verify");
-    //     let signers = setup_equal_fnv_parties(params, nparties);
-    //     let fnv = setup_full_node_verifier(signers.clone());
-    //     let signatures = find_fnv_signatures(&msg, &signers, fnv.total_stake, &all_ps);
-    //     // println!("sigs {:?}", signatures.len());
-    //     let verify_result = CoreVerifier::verify(&fnv, &signatures, &params, &msg);
-    //     assert!(verify_result.is_err(), "verify {verify_result:?}");
-    //
-    //     // println!("Stm Aggr verify");
-    //     let ps = setup_equal_parties(params, nparties);
-    //     let clerk = StmClerk::from_signer(&ps[0]);
-    //     let sigs = find_signatures(&msg, &ps, &all_ps);
-    //     // println!("sigs {:?}", sigs.len());
-    //     let msig = clerk.aggregate(&sigs, &msg).unwrap();
-    //     assert!(
-    //         msig.verify(&msg, &clerk.compute_avk(), &params).is_ok(),
-    //         "verify {verify_result:?}"
-    //     );
-    //
-    //     // println!("Core verify for msgp");
-    //     let msgp = clerk
-    //         .closed_reg
-    //         .merkle_tree
-    //         .to_commitment_batch_compat()
-    //         .concat_with_msg(&msg);
-    //
-    //     let signatures = find_fnv_signatures(&msgp, &signers, fnv.total_stake, &all_ps);
-    //     // println!("sigs {:?}", signatures.len());
-    //     let verify_result = CoreVerifier::verify(&fnv, &signatures, &params, &msgp);
-    //     assert!(verify_result.is_ok(), "verify {verify_result:?}");
-    // }
+    //------------------------------------------------//
+    //----------------- Core Verifier -----------------//
+    //------------------------------------------------//
+    fn setup_equal_core_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
+        let stake = vec![1; nparties];
+        setup_core_parties(params, stake)
+    }
+
+    fn setup_core_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
+        let mut trng = TestRng::deterministic_rng(ChaCha);
+        let mut rng = ChaCha20Rng::from_seed(trng.gen());
+
+        #[allow(clippy::needless_collect)]
+        let ps = stake
+            .into_iter()
+            .map(|stake| StmInitializer::setup(params, stake, &mut rng))
+            .collect::<Vec<StmInitializer>>();
+
+        let public_signers = ps
+            .iter()
+            .map(|s| MTLeaf(s.pk.vk, s.stake))
+            .collect::<Vec<MTLeaf>>();
+
+        ps.into_iter()
+            .map(|s| s.new_core_signer(&public_signers))
+            .collect()
+    }
+
+    fn setup_core_verifier(signers: Vec<StmSigner<D>>) -> CoreVerifier {
+        let mut total_stake: Stake = 0;
+        let eligible_parties = signers
+            .iter()
+            .map(|signer| {
+                let (res, overflow) = total_stake.overflowing_add(signer.stake);
+                if overflow {
+                    panic!("Total stake overflow");
+                }
+                total_stake = res;
+                MTLeaf(signer.vk, signer.stake)
+            })
+            .collect::<Vec<RegParty>>();
+        CoreVerifier {
+            eligible_parties,
+            total_stake,
+        }
+    }
+
+    fn find_core_signatures(
+        msg: &[u8],
+        ps: &[StmSigner<D>],
+        total_stake: Stake,
+        is: &[usize],
+    ) -> Vec<StmSig> {
+        let mut sigs = Vec::new();
+        for i in is {
+            if let Some(sig) = ps[*i].core_sign(msg, total_stake) {
+                sigs.push(sig);
+            }
+        }
+        sigs
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        fn test_core_verifier(nparties in 2_usize..30,
+                              m in 10_u64..20,
+                              k in 1_u64..5,
+                              msg in any::<[u8;16]>()) {
+            let params = StmParameters { m, k, phi_f: 0.2 };
+            let signers = setup_equal_core_parties(params, nparties);
+            let all_ps: Vec<usize> = (0..nparties).collect();
+
+            let core_verifier = setup_core_verifier(signers.clone());
+            let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
+
+            let verify_result = core_verifier.verify(&signatures, &params, &msg);
+
+            match verify_result{
+                Ok(_) => {
+                    assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
+                }
+                Err(CoreVerifierError::NoQuorum(nr_indices)) => {
+                    assert!((nr_indices) < params.k);
+                }
+                Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
+                _ => unreachable!(),
+            }
+        }
+    }
+
+    #[test]
+    fn debug_core_verifier_stm() {
+        let m = 10;
+        let k = 3;
+        let msg = [9, 63, 48, 31, 7, 157, 3, 7, 2, 4, 161, 31, 50, 84, 84, 96];
+        let nparties = 22;
+        let params = StmParameters { m, k, phi_f: 0.2 };
+        let all_ps: Vec<usize> = (0..nparties).collect();
+
+        // println!("Core verify");
+        let signers = setup_equal_core_parties(params, nparties);
+        let core_verifier = setup_core_verifier(signers.clone());
+        let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
+        // println!("sigs {:?}", signatures.len());
+        let verify_result = CoreVerifier::verify(&core_verifier, &signatures, &params, &msg);
+        assert!(verify_result.is_err(), "verify {verify_result:?}");
+
+        // println!("Stm Aggr verify");
+        let ps = setup_equal_parties(params, nparties);
+        let clerk = StmClerk::from_signer(&ps[0]);
+        let sigs = find_signatures(&msg, &ps, &all_ps);
+        // println!("sigs {:?}", sigs.len());
+        let msig = clerk.aggregate(&sigs, &msg).unwrap();
+        assert!(
+            msig.verify(&msg, &clerk.compute_avk(), &params).is_ok(),
+            "verify {verify_result:?}"
+        );
+
+        // println!("Core verify for msgp");
+        let msgp = clerk
+            .closed_reg
+            .merkle_tree
+            .to_commitment_batch_compat()
+            .concat_with_msg(&msg);
+
+        let signatures = find_core_signatures(&msgp, &signers, core_verifier.total_stake, &all_ps);
+        // println!("sigs {:?}", signatures.len());
+        let verify_result = CoreVerifier::verify(&core_verifier, &signatures, &params, &msgp);
+        assert!(verify_result.is_ok(), "verify {verify_result:?}");
+    }
 }
