@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
 
 use mithril_common::{
@@ -32,7 +32,7 @@ pub struct StakePool {
     epoch: Epoch,
 
     /// DateTime of the record creation.
-    created_at: NaiveDateTime,
+    created_at: DateTime<Utc>,
 }
 
 impl SqLiteEntity for StakePool {
@@ -56,13 +56,13 @@ impl SqLiteEntity for StakePool {
                     "Could not cast i64 ({epoch_int}) to u64. Error: '{e}'"
                 ))
             })?),
-            created_at: NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").map_err(
-                |e| {
+            created_at: DateTime::parse_from_rfc3339(datetime)
+                .map_err(|e| {
                     HydrationError::InvalidData(format!(
-                        "Could not turn string '{datetime}' to NaiveDateTime. Error: {e}"
+                        "Could not turn string '{datetime}' to rfc3339 Datetime. Error: {e}"
                     ))
-                },
-            )?,
+                })?
+                .with_timezone(&Utc),
         };
 
         Ok(stake_pool)
@@ -124,17 +124,17 @@ impl<'client> Provider<'client> for StakePoolProvider<'client> {
 }
 
 /// Query to update the stake distribution
-pub struct UpdateStakePoolProvider<'conn> {
+pub struct InsertOrReplaceStakePoolProvider<'conn> {
     connection: &'conn Connection,
 }
 
-impl<'conn> UpdateStakePoolProvider<'conn> {
+impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
     /// Create a new instance
     pub fn new(connection: &'conn Connection) -> Self {
         Self { connection }
     }
 
-    fn get_update_condition(
+    fn get_insert_or_replace_condition(
         &self,
         stake_pool_id: &str,
         epoch: Epoch,
@@ -144,11 +144,12 @@ impl<'conn> UpdateStakePoolProvider<'conn> {
         let stake = i64::try_from(stake).unwrap();
 
         WhereCondition::new(
-            "(stake_pool_id, epoch, stake) values (?1, ?2, ?3)",
+            "(stake_pool_id, epoch, stake, created_at) values (?1, ?2, ?3, ?4)",
             vec![
                 Value::String(stake_pool_id.to_owned()),
                 Value::Integer(epoch),
                 Value::Integer(stake),
+                Value::String(Utc::now().to_rfc3339()),
             ],
         )
     }
@@ -159,7 +160,7 @@ impl<'conn> UpdateStakePoolProvider<'conn> {
         epoch: Epoch,
         stake: Stake,
     ) -> Result<StakePool, StdError> {
-        let filters = self.get_update_condition(stake_pool_id, epoch, stake);
+        let filters = self.get_insert_or_replace_condition(stake_pool_id, epoch, stake);
 
         let entity = self.find(filters)?
             .next()
@@ -169,7 +170,7 @@ impl<'conn> UpdateStakePoolProvider<'conn> {
     }
 }
 
-impl<'conn> Provider<'conn> for UpdateStakePoolProvider<'conn> {
+impl<'conn> Provider<'conn> for InsertOrReplaceStakePoolProvider<'conn> {
     type Entity = StakePool;
 
     fn get_connection(&'conn self) -> &'conn Connection {
@@ -248,7 +249,7 @@ impl StakeStorer for StakePoolStore {
         stakes: StakeDistribution,
     ) -> Result<Option<StakeDistribution>, StoreError> {
         let connection = &*self.connection.lock().await;
-        let provider = UpdateStakePoolProvider::new(connection);
+        let provider = InsertOrReplaceStakePoolProvider::new(connection);
         let mut new_stakes = StakeDistribution::new();
         connection
             .execute("begin transaction")
@@ -307,9 +308,9 @@ mod tests {
         let query = {
             // leverage the expanded parameter from this provider which is unit
             // tested on its own above.
-            let update_provider = UpdateStakePoolProvider::new(connection);
+            let update_provider = InsertOrReplaceStakePoolProvider::new(connection);
             let (sql_values, _) = update_provider
-                .get_update_condition("pool_id", Epoch(1), 1000)
+                .get_insert_or_replace_condition("pool_id", Epoch(1), 1000)
                 .expand();
 
             connection.execute(&migration.alterations)?;
@@ -333,6 +334,7 @@ mod tests {
             statement.bind(1, *pool_id).unwrap();
             statement.bind(2, *epoch).unwrap();
             statement.bind(3, *stake).unwrap();
+            statement.bind(4, Utc::now().to_rfc3339().as_str()).unwrap();
             statement.next().unwrap();
         }
 
@@ -362,21 +364,24 @@ mod tests {
     }
 
     #[test]
-    fn update_stake_pool() {
+    fn insert_or_replace_stake_pool() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = UpdateStakePoolProvider::new(&connection);
-        let condition = provider.get_update_condition("pool_id", Epoch(1), 1000);
+        let provider = InsertOrReplaceStakePoolProvider::new(&connection);
+        let condition = provider.get_insert_or_replace_condition("pool_id", Epoch(1), 1000);
         let (values, params) = condition.expand();
 
         assert_eq!(
-            "(stake_pool_id, epoch, stake) values (?1, ?2, ?3)".to_string(),
+            "(stake_pool_id, epoch, stake, created_at) values (?1, ?2, ?3, ?4)".to_string(),
             values
         );
         assert_eq!(
             vec![
                 Value::String("pool_id".to_string()),
                 Value::Integer(1),
-                Value::Integer(1000)
+                Value::Integer(1000),
+                // Last params is the created_at date, since it's created by the condition itself
+                // (using Utc::now()) we don't need to test it
+                params.last().unwrap().clone()
             ],
             params
         );
@@ -424,7 +429,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         setup_stake_db(&connection).unwrap();
 
-        let provider = UpdateStakePoolProvider::new(&connection);
+        let provider = InsertOrReplaceStakePoolProvider::new(&connection);
         let stake_pool = provider.persist("pool4", Epoch(3), 9999).unwrap();
 
         assert_eq!("pool4".to_string(), stake_pool.stake_pool_id);
