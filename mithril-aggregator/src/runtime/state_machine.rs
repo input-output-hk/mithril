@@ -281,10 +281,23 @@ impl AggregatorRuntime {
                 nested_error: None,
             })?;
 
-        self.runner.drop_pending_certificate().await?;
+        // Every error raised below this comment must be raised to critical in order to trigger an aggregator restart which will avoid a dead loop in the state machine
+        // TODO: Implement a graceful retry mechanism for artifact creation and label open messages with `is_artifact_created` (to keep track of certified but without artifacts open messages)
+        self.runner.drop_pending_certificate().await.map_err(|e| {
+            RuntimeError::critical(
+                "transiting SIGNING → READY: failed dropping pending certificate",
+                Some(e),
+            )
+        })?;
         self.runner
             .create_artifact(&state.open_message.signed_entity_type, &certificate)
-            .await?;
+            .await
+            .map_err(|e| {
+                RuntimeError::critical(
+                    "transiting SIGNING → READY: failed creating artifact",
+                    Some(e),
+                )
+            })?;
 
         Ok(ReadyState {
             current_beacon: state.current_beacon,

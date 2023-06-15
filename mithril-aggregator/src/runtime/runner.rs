@@ -186,18 +186,25 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
     ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: get_current_non_certified_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
-        let open_message = match self
+        let open_message_maybe = match self
             .dependencies
             .certifier_service
             .get_open_message(signed_entity_type)
             .await?
         {
-            Some(existing_open_message) => {
+            Some(existing_open_message) if !existing_open_message.is_certified => {
                 info!(
-                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found";
+                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found, not already certified";
                     "signed_entity_type" => ?signed_entity_type
                 );
-                existing_open_message
+                Some(existing_open_message)
+            }
+            Some(_) => {
+                info!(
+                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found, already certified";
+                    "signed_entity_type" => ?signed_entity_type
+                );
+                None
             }
             None => {
                 info!(
@@ -205,12 +212,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     "signed_entity_type" => ?signed_entity_type
                 );
                 let protocol_message = self.compute_protocol_message(signed_entity_type).await?;
-                self.create_open_message(signed_entity_type, &protocol_message)
-                    .await?
+                Some(
+                    self.create_open_message(signed_entity_type, &protocol_message)
+                        .await?,
+                )
             }
         };
 
-        Ok((!open_message.is_certified).then_some(open_message))
+        Ok(open_message_maybe)
     }
 
     async fn get_current_non_certified_open_message(
