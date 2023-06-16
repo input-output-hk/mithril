@@ -345,7 +345,7 @@ update signed_entity
     )
 from certificate 
 where 
-    signed_entity.artifact->>'type' = 'MithrilStakeDistribution'
+    json_extract(signed_entity.artifact, '$.type') = 'MithrilStakeDistribution'
     and signed_entity.certificate_id = certificate.certificate_id
 "#,
         ),
