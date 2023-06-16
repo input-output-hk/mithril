@@ -26,7 +26,7 @@ fixed = "1.15.0"
 glob = "0.3"
 hex = "0.4.3"
 http = "0.2.6"
-jsonschema = "0.16.0"
+jsonschema = "0.17.0"
 kes-summed-ed25519 = { version = "0.2.0", features = ["serde_enabled", "sk_clone_enabled"] }
 lazy_static = "1.4.0"
 mockall = "0.11.0"
@@ -39,7 +39,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.7"
 serde_cbor = "0.11.2"
 serde_json = "1.0"
-serde_with = "2.2.0"
+serde_with = "3.0.0"
 serde_yaml = "0.9.10"
 sha2 = "0.10.2"
 slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
@@ -62,7 +62,7 @@ mithril-stm = { path = "../mithril-stm" }
 mithril-stm = { path = "../mithril-stm", default-features = false, features = ["num-integer-backend"] }
 
 [dev-dependencies]
-criterion = { version = "0.4.0", features = ["html_reports", "async_tokio"] }
+criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 slog-async = "2.7.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
