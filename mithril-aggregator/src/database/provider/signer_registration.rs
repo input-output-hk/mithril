@@ -1,12 +1,11 @@
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use sqlite::{Connection, Value};
 use std::{
     collections::{BTreeMap, HashMap},
     sync::Arc,
 };
-
-use chrono::Utc;
-use sqlite::{Connection, Value};
-
-use async_trait::async_trait;
+use tokio::sync::Mutex;
 
 use mithril_common::{
     crypto_helper::KESPeriod,
@@ -19,10 +18,8 @@ use mithril_common::{
         WhereCondition,
     },
     store::adapter::{AdapterError, StoreAdapter},
+    StdError,
 };
-
-use mithril_common::StdError;
-use tokio::sync::Mutex;
 
 /// SignerRegistration record is the representation of a stored signer_registration.
 #[derive(Debug, PartialEq, Clone)]
@@ -49,7 +46,7 @@ pub struct SignerRegistrationRecord {
     stake: Option<Stake>,
 
     /// Date and time when the signer_registration was created
-    created_at: String,
+    created_at: DateTime<Utc>,
 }
 
 impl SignerRegistrationRecord {
@@ -62,7 +59,7 @@ impl SignerRegistrationRecord {
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,
             stake: Some(other.stake),
-            created_at: format!("{:?}", Utc::now()),
+            created_at: Utc::now(),
         }
     }
 }
@@ -120,7 +117,13 @@ impl SqLiteEntity for SignerRegistrationRecord {
                 })?),
                 None => None,
             },
-            created_at,
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                })?
+                .with_timezone(&Utc),
         };
 
         Ok(signer_registration_record)
@@ -236,18 +239,18 @@ impl<'client> Provider<'client> for SignerRegistrationRecordProvider<'client> {
     }
 }
 
-/// Query to update the signer_registration record
-pub struct UpdateSignerRegistrationRecordProvider<'conn> {
+/// Query to insert or replace a signer_registration record
+pub struct InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     connection: &'conn Connection,
 }
 
-impl<'conn> UpdateSignerRegistrationRecordProvider<'conn> {
+impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     /// Create a new instance
     pub fn new(connection: &'conn Connection) -> Self {
         Self { connection }
     }
 
-    fn get_update_condition(
+    fn get_insert_or_replace_condition(
         &self,
         signer_registration_record: SignerRegistrationRecord,
     ) -> WhereCondition {
@@ -275,7 +278,7 @@ impl<'conn> UpdateSignerRegistrationRecordProvider<'conn> {
                             .stake
                             .map(|s| Value::Integer(i64::try_from(s).unwrap()))
                             .unwrap_or(Value::Null),
-                            Value::String(signer_registration_record.created_at),
+                            Value::String(signer_registration_record.created_at.to_rfc3339()),
             ],
         )
     }
@@ -284,7 +287,7 @@ impl<'conn> UpdateSignerRegistrationRecordProvider<'conn> {
         &self,
         signer_registration_record: SignerRegistrationRecord,
     ) -> Result<SignerRegistrationRecord, StdError> {
-        let filters = self.get_update_condition(signer_registration_record.clone());
+        let filters = self.get_insert_or_replace_condition(signer_registration_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!(
@@ -296,7 +299,7 @@ impl<'conn> UpdateSignerRegistrationRecordProvider<'conn> {
     }
 }
 
-impl<'conn> Provider<'conn> for UpdateSignerRegistrationRecordProvider<'conn> {
+impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     type Entity = SignerRegistrationRecord;
 
     fn get_connection(&'conn self) -> &'conn Connection {
@@ -400,7 +403,7 @@ impl StoreAdapter for SignerRegistrationStoreAdapter {
         record: &Self::Record,
     ) -> Result<(), AdapterError> {
         let connection = &*self.connection.lock().await;
-        let provider = UpdateSignerRegistrationRecordProvider::new(connection);
+        let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
         connection
             .execute("begin transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -534,9 +537,10 @@ mod tests {
         let query = {
             // leverage the expanded parameter from this provider which is unit
             // tested on its own above.
-            let update_provider = UpdateSignerRegistrationRecordProvider::new(connection);
-            let (sql_values, _) = update_provider
-                .get_update_condition(SignerRegistrationRecord::from_signer_with_stake(
+            let insert_or_replace_provider =
+                InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
+            let (sql_values, _) = insert_or_replace_provider
+                .get_insert_or_replace_condition(SignerRegistrationRecord::from_signer_with_stake(
                     signer_with_stakes_by_epoch
                         .first()
                         .unwrap()
@@ -602,7 +606,10 @@ mod tests {
                     )
                     .unwrap();
                 statement
-                    .bind(8, signer_registration_record.created_at.as_str())
+                    .bind(
+                        8,
+                        signer_registration_record.created_at.to_rfc3339().as_str(),
+                    )
                     .unwrap();
                 statement.next().unwrap();
             }
@@ -675,8 +682,9 @@ mod tests {
             Epoch(1),
         );
         let connection = Connection::open(":memory:").unwrap();
-        let provider = UpdateSignerRegistrationRecordProvider::new(&connection);
-        let condition = provider.get_update_condition(signer_registration_record.clone());
+        let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&connection);
+        let condition =
+            provider.get_insert_or_replace_condition(signer_registration_record.clone());
         let (values, params) = condition.expand();
 
         assert_eq!(
@@ -700,7 +708,7 @@ mod tests {
                     .unwrap(),
                 Value::Integer(signer_registration_record.kes_period.unwrap() as i64),
                 Value::Integer(signer_registration_record.stake.unwrap() as i64),
-                Value::String(signer_registration_record.created_at),
+                Value::String(signer_registration_record.created_at.to_rfc3339()),
             ],
             params
         );
@@ -747,7 +755,7 @@ mod tests {
             signer_registration_records
                 .into_iter()
                 .map(|mut sr| {
-                    sr.created_at = "".to_string();
+                    sr.created_at = DateTime::<Utc>::default();
                     sr
                 })
                 .collect::<Vec<_>>()
@@ -831,7 +839,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         setup_signer_registration_db(&connection, Vec::new()).unwrap();
 
-        let provider = UpdateSignerRegistrationRecordProvider::new(&connection);
+        let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&connection);
 
         for signer_with_stake in signer_with_stakes {
             let signer_registration_record =
