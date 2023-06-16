@@ -1,15 +1,16 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
-
-use mithril_common::sqlite::{
-    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
-};
-
-use mithril_common::StdError;
+use std::sync::Arc;
 use tokio::sync::Mutex;
+
+use mithril_common::{
+    sqlite::{
+        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
+        WhereCondition,
+    },
+    StdError,
+};
 
 use crate::signer_registerer::SignerRecorder;
 
@@ -23,10 +24,10 @@ pub struct SignerRecord {
     pool_ticker: Option<String>,
 
     /// Date and time when the signer was created.
-    created_at: String,
+    created_at: DateTime<Utc>,
 
     /// Date and time when the signer was updated.
-    updated_at: String,
+    updated_at: DateTime<Utc>,
 }
 
 impl SqLiteEntity for SignerRecord {
@@ -42,8 +43,20 @@ impl SqLiteEntity for SignerRecord {
         let signer_record = Self {
             signer_id,
             pool_ticker,
-            created_at,
-            updated_at,
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                })?
+                .with_timezone(&Utc),
+            updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                .map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{updated_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                })?
+                .with_timezone(&Utc),
         };
 
         Ok(signer_record)
@@ -132,8 +145,8 @@ impl<'conn> InsertSignerRecordProvider<'conn> {
                     .pool_ticker
                     .map(Value::String)
                     .unwrap_or(Value::Null),
-                Value::String(signer_record.created_at),
-                Value::String(signer_record.updated_at),
+                Value::String(signer_record.created_at.to_rfc3339()),
+                Value::String(signer_record.updated_at.to_rfc3339()),
             ],
         )
     }
@@ -186,8 +199,8 @@ impl<'conn> UpdateSignerRecordProvider<'conn> {
                     .pool_ticker
                     .map(Value::String)
                     .unwrap_or(Value::Null),
-                Value::String(signer_record.created_at),
-                Value::String(signer_record.updated_at),
+                Value::String(signer_record.created_at.to_rfc3339()),
+                Value::String(signer_record.updated_at.to_rfc3339()),
             ],
         )
     }
@@ -237,8 +250,8 @@ impl SignerRecorder for SignerStore {
     async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError> {
         let connection = &*self.connection.lock().await;
         let provider = InsertSignerRecordProvider::new(connection);
-        let created_at = format!("{:?}", Utc::now());
-        let updated_at = created_at.clone();
+        let created_at = Utc::now();
+        let updated_at = created_at;
         let signer_record = SignerRecord {
             signer_id,
             pool_ticker: None,
@@ -257,8 +270,8 @@ impl SignerRecorder for SignerStore {
     ) -> Result<(), StdError> {
         let connection = &*self.connection.lock().await;
         let provider = UpdateSignerRecordProvider::new(connection);
-        let created_at = format!("{:?}", Utc::now());
-        let updated_at = created_at.clone();
+        let created_at = Utc::now();
+        let updated_at = created_at;
         let signer_record = SignerRecord {
             signer_id,
             pool_ticker,
@@ -273,8 +286,8 @@ impl SignerRecorder for SignerStore {
 
 #[cfg(test)]
 mod tests {
-
     use crate::database::migration::get_migrations;
+    use chrono::Duration;
 
     use super::*;
 
@@ -283,8 +296,12 @@ mod tests {
             .map(|idx| SignerRecord {
                 signer_id: format!("signer-{idx}"),
                 pool_ticker: Some(format!("pool-ticker-{idx}")),
-                created_at: "2023-01-19T13:43:05.618857482Z".to_string(),
-                updated_at: "2024-01-19T13:43:05.618857482Z".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339("2024-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
             })
             .collect()
     }
@@ -325,10 +342,10 @@ mod tests {
                 )
                 .unwrap();
             statement
-                .bind(3, signer_record.created_at.as_str())
+                .bind(3, signer_record.created_at.to_rfc3339().as_str())
                 .unwrap();
             statement
-                .bind(4, signer_record.updated_at.as_str())
+                .bind(4, signer_record.updated_at.to_rfc3339().as_str())
                 .unwrap();
             statement.next().unwrap();
         }
@@ -377,8 +394,8 @@ mod tests {
             vec![
                 Value::String(signer_record.signer_id),
                 Value::String(signer_record.pool_ticker.unwrap()),
-                Value::String(signer_record.created_at),
-                Value::String(signer_record.updated_at),
+                Value::String(signer_record.created_at.to_rfc3339()),
+                Value::String(signer_record.updated_at.to_rfc3339()),
             ],
             params
         );
@@ -400,8 +417,8 @@ mod tests {
             vec![
                 Value::String(signer_record.signer_id),
                 Value::String(signer_record.pool_ticker.unwrap()),
-                Value::String(signer_record.created_at),
-                Value::String(signer_record.updated_at),
+                Value::String(signer_record.created_at.to_rfc3339()),
+                Value::String(signer_record.updated_at.to_rfc3339()),
             ],
             params
         );
@@ -455,11 +472,10 @@ mod tests {
             assert_eq!(signer_record, signer_record_saved);
         }
 
-        for signer_record in signer_records_fake {
-            let mut signer_record_copy = signer_record.clone();
-            signer_record_copy.updated_at = "2025-01-19T13:43:05.618857482Z".to_string();
-            let signer_record_saved = provider.persist(signer_record_copy.clone()).unwrap();
-            assert_eq!(signer_record_copy, signer_record_saved);
+        for mut signer_record in signer_records_fake {
+            signer_record.updated_at += Duration::hours(1);
+            let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
+            assert_eq!(signer_record, signer_record_saved);
         }
     }
 
@@ -477,13 +493,11 @@ mod tests {
             assert_eq!(signer_record, signer_record_saved);
         }
 
-        for signer_record in signer_records_fake {
-            let mut signer_record_copy = signer_record.clone();
-            signer_record_copy.pool_ticker =
-                Some(format!("new-pool-{}", signer_record_copy.signer_id));
-            signer_record_copy.updated_at = "2025-01-19T13:43:05.618857482Z".to_string();
-            let signer_record_saved = provider.persist(signer_record_copy.clone()).unwrap();
-            assert_eq!(signer_record_copy, signer_record_saved);
+        for mut signer_record in signer_records_fake {
+            signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
+            signer_record.updated_at += Duration::hours(1);
+            let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
+            assert_eq!(signer_record, signer_record_saved);
         }
     }
 
