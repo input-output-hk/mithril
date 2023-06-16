@@ -284,7 +284,9 @@ mod tests {
     use std::path::PathBuf;
 
     fn get_test_dir() -> PathBuf {
-        let test_dir = std::env::temp_dir().join("mithril_test");
+        let test_dir = std::env::temp_dir()
+            .join("mithril_test")
+            .join("signer_service");
 
         if test_dir.exists() {
             fs::remove_dir_all(&test_dir)
