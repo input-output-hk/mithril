@@ -1,6 +1,6 @@
 [package]
 name = "mithrildemo"
-version = "0.1.13"
+version = "0.1.14"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -9,7 +9,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-base64 = "0.13.0"
+base64 = "0.21.2"
 blake2 = "0.10.4"
 clap = { version = "4.0.18", features = ["derive"] }
 hex = "0.4.3"
