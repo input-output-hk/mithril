@@ -10,9 +10,9 @@ use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{
         key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolGenesisVerifier,
-        ProtocolKeyRegistration, ProtocolParameters, ProtocolStakeDistribution,
+        ProtocolKeyRegistration,
     },
-    entities::{ProtocolMessagePartKey, SignerWithStake},
+    entities::{MithrilStakeDistribution, ProtocolMessagePartKey},
     messages::MithrilStakeDistributionListItemMessage,
     StdError, StdResult,
 };
@@ -94,17 +94,17 @@ impl AppMithrilStakeDistributionService {
     // TODO: Create a structure to handle message verification.
     async fn create_clerk(
         &self,
-        signers_with_stake: &[SignerWithStake],
-        protocol_parameters: &ProtocolParameters,
+        stake_distribution: &MithrilStakeDistribution,
     ) -> StdResult<Option<ProtocolClerk>> {
-        let stake_distribution = signers_with_stake
+        let stakes: Vec<(String, u64)> = stake_distribution
+            .signers_with_stake
             .iter()
-            .map(|s| s.into())
-            .collect::<ProtocolStakeDistribution>();
-        let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
+            .map(|signer| (signer.party_id.clone(), signer.stake))
+            .collect();
+        let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         let mut total_signers = 0;
 
-        for signer in signers_with_stake {
+        for signer in &stake_distribution.signers_with_stake {
             let operational_certificate = match &signer.operational_certificate {
                 Some(operational_certificate) => key_decode_hex(operational_certificate)?,
                 _ => None,
@@ -132,7 +132,7 @@ impl AppMithrilStakeDistributionService {
             _ => {
                 let closed_registration = key_registration.close();
                 Ok(Some(ProtocolClerk::from_registration(
-                    protocol_parameters,
+                    &stake_distribution.protocol_parameters.clone().into(),
                     &closed_registration,
                 )))
             }
@@ -194,10 +194,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
 
         // 4 Compute and check protocol message
         let clerk = self
-            .create_clerk(
-                &stake_distribution.signers_with_stake,
-                &certificate.metadata.protocol_parameters.clone().into(),
-            )
+            .create_clerk(&stake_distribution)
             .await?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CouldNotVerifyStakeDistribution {
@@ -244,7 +241,7 @@ mod tests {
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::ProtocolGenesisSigner,
-        entities::Epoch,
+        entities::{Epoch, SignerWithStake},
         messages::{
             CertificateMessage, MithrilStakeDistributionListMessage,
             MithrilStakeDistributionMessage,
