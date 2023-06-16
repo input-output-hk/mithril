@@ -2049,7 +2049,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2079,7 +2079,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.62"
+version = "0.2.63"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2173,7 +2173,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -2196,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "base64 0.21.2",
  "blake2 0.10.6",
