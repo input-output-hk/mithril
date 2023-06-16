@@ -1,4 +1,5 @@
 use crate::signable_builder::Artifact;
+use chrono::{DateTime, Utc};
 
 use super::SignedEntityType;
 
@@ -21,5 +22,5 @@ where
     pub artifact: T,
 
     /// Date and time when the signed_entity was created
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
 }

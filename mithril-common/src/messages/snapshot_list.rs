@@ -1,8 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::Beacon;
-
-use crate::entities::Epoch;
+use crate::entities::{Beacon, Epoch};
 
 /// Message structure of a snapshot list
 pub type SnapshotListMessage = Vec<SnapshotListItemMessage>;
@@ -23,7 +22,7 @@ pub struct SnapshotListItemMessage {
     pub size: u64,
 
     /// Date and time at which the snapshot was created
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
 
     /// Locations where the binary content of the snapshot can be retrieved
     pub locations: Vec<String>,
@@ -42,7 +41,9 @@ impl SnapshotListItemMessage {
             certificate_hash: "d5daf6c03ace4a9c074e951844075b9b373bafc4e039160e3e2af01823e9abfb"
                 .to_string(),
             size: 807803196,
-            created_at: "2023-01-19T13:43:05.618857482Z".to_string(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
         }
     }
@@ -63,7 +64,9 @@ mod tests {
             certificate_hash: "d5daf6c03ace4a9c074e951844075b9b373bafc4e039160e3e2af01823e9abfb"
                 .to_string(),
             size: 807803196,
-            created_at: "2023-01-19T13:43:05.618857482Z".to_string(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
         }]
     }

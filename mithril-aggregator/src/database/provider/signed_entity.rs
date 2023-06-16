@@ -1,9 +1,9 @@
-use std::sync::Arc;
-
+use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlite::{Connection, Value};
-
-use async_trait::async_trait;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use mithril_common::{
     entities::{SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
@@ -13,11 +13,8 @@ use mithril_common::{
         WhereCondition,
     },
     store::adapter::AdapterError,
-    StdResult,
+    StdError, StdResult,
 };
-
-use mithril_common::StdError;
-use tokio::sync::Mutex;
 
 #[cfg(test)]
 use mockall::automock;
@@ -38,7 +35,7 @@ pub struct SignedEntityRecord {
     pub artifact: String,
 
     /// Date and time when the signed_entity was created
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
 }
 
 impl From<Snapshot> for SignedEntityRecord {
@@ -110,7 +107,13 @@ impl SqLiteEntity for SignedEntityRecord {
             )?,
             certificate_id,
             artifact: artifact_str,
-            created_at,
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                })?
+                .with_timezone(&Utc),
         };
 
         Ok(signed_entity_record)
@@ -236,7 +239,7 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
                 Value::String(signed_entity_record.certificate_id),
                 Value::String(signed_entity_record.signed_entity_type.get_json_beacon().unwrap()),
                 Value::String(signed_entity_record.artifact),
-                Value::String(signed_entity_record.created_at),
+                Value::String(signed_entity_record.created_at.to_rfc3339()),
             ],
         )
     }
@@ -422,7 +425,7 @@ mod tests {
                 .bind(5, signed_entity_record.artifact.as_str())
                 .unwrap();
             statement
-                .bind(6, signed_entity_record.created_at.as_str())
+                .bind(6, signed_entity_record.created_at.to_rfc3339().as_str())
                 .unwrap();
 
             statement.next().unwrap();
@@ -508,7 +511,7 @@ mod tests {
                         .unwrap()
                 ),
                 Value::String(signed_entity_record.artifact),
-                Value::String(signed_entity_record.created_at),
+                Value::String(signed_entity_record.created_at.to_rfc3339()),
             ],
             params
         );
