@@ -19,7 +19,7 @@ use mithril_common::{
         MithrilStakeDistributionSignableBuilder, SignableBuilderService,
     },
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, StdError,
+    BeaconProvider, BeaconProviderImpl, StdError, StdResult,
 };
 
 use crate::{
@@ -35,26 +35,26 @@ type SingleSignerService = Arc<dyn SingleSigner>;
 type BeaconProviderService = Arc<dyn BeaconProvider>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
-type Result<T> = std::result::Result<T, StdError>;
 /// The ServiceBuilder is intended to manage Services instance creation.
 /// The goal of this is to put all this code out of the way of business code.
 #[async_trait]
 pub trait ServiceBuilder {
     /// Create a SignerService instance.
-    async fn build(&self) -> Result<SignerServices>;
+    async fn build(&self) -> StdResult<SignerServices>;
 }
 
 /// Create a SignerService instance for Production environment.
 pub struct ProductionServiceBuilder<'a> {
     config: &'a Configuration,
-    chain_observer_builder: fn(&Configuration) -> Result<ChainObserverService>,
-    immutable_file_observer_builder: fn(&Configuration) -> Result<Arc<dyn ImmutableFileObserver>>,
+    chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService>,
+    immutable_file_observer_builder:
+        fn(&Configuration) -> StdResult<Arc<dyn ImmutableFileObserver>>,
 }
 
 impl<'a> ProductionServiceBuilder<'a> {
     /// Create a new production service builder.
     pub fn new(config: &'a Configuration) -> Self {
-        let chain_observer_builder: fn(&Configuration) -> Result<ChainObserverService> =
+        let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |config: &Configuration| {
                 Ok(Arc::new(CardanoCliChainObserver::new(Box::new(
                     CardanoCliRunner::new(
@@ -66,7 +66,8 @@ impl<'a> ProductionServiceBuilder<'a> {
             };
         let immutable_file_observer_builder: fn(
             &Configuration,
-        ) -> Result<Arc<dyn ImmutableFileObserver>> = |config: &Configuration| {
+        )
+            -> StdResult<Arc<dyn ImmutableFileObserver>> = |config: &Configuration| {
             Ok(Arc::new(ImmutableFileSystemObserver::new(
                 &config.db_directory,
             )))
@@ -82,7 +83,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     /// Override immutable file observer builder.
     pub fn override_immutable_file_observer_builder(
         &mut self,
-        builder: fn(&Configuration) -> Result<Arc<dyn ImmutableFileObserver>>,
+        builder: fn(&Configuration) -> StdResult<Arc<dyn ImmutableFileObserver>>,
     ) -> &mut Self {
         self.immutable_file_observer_builder = builder;
 
@@ -92,7 +93,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     /// Override default chain observer builder.
     pub fn override_chain_observer_builder(
         &mut self,
-        builder: fn(&Configuration) -> Result<ChainObserverService>,
+        builder: fn(&Configuration) -> StdResult<ChainObserverService>,
     ) -> &mut Self {
         self.chain_observer_builder = builder;
 
@@ -100,7 +101,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     }
 
     /// Compute protocol party id
-    fn compute_protocol_party_id(&self) -> Result<ProtocolPartyId> {
+    fn compute_protocol_party_id(&self) -> StdResult<ProtocolPartyId> {
         match &self.config.operational_certificate_path {
             Some(operational_certificate_path) => {
                 let opcert: OpCert = OpCert::from_file(operational_certificate_path)
@@ -119,7 +120,7 @@ impl<'a> ProductionServiceBuilder<'a> {
 
     async fn build_digester_cache_provider(
         &self,
-    ) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>> {
+    ) -> StdResult<Option<Arc<dyn ImmutableFileDigestCacheProvider>>> {
         if self.config.disable_digests_cache {
             return Ok(None);
         }
@@ -134,27 +135,40 @@ impl<'a> ProductionServiceBuilder<'a> {
 
         Ok(Some(Arc::new(cache_provider)))
     }
+
+    async fn build_sqlite_connection(&self) -> StdResult<Arc<Mutex<Connection>>> {
+        let sqlite_db_path = self.config.get_sqlite_file();
+        let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
+        let mut db_checker = DatabaseVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Signer,
+            sqlite_connection.clone(),
+        );
+
+        for migration in crate::database::migration::get_migrations() {
+            db_checker.add_migration(migration);
+        }
+
+        db_checker
+            .apply()
+            .await
+            .map_err(|e| -> StdError { format!("Database migration error {e}").into() })?;
+
+        Ok(sqlite_connection)
+    }
 }
 
 #[async_trait]
 impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     /// Build a Services for the Production environment.
-    async fn build(&self) -> Result<SignerServices> {
+    async fn build(&self) -> StdResult<SignerServices> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone())
                 .map_err(|e| format!("Could not create data stores directory: {e:?}"))?;
         }
 
-        let sqlite_db_path = self.config.get_sqlite_file();
-        let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
-        DatabaseVersionChecker::new(
-            slog_scope::logger(),
-            ApplicationNodeType::Signer,
-            sqlite_connection.clone(),
-        )
-        .apply()
-        .await
-        .map_err(|e| -> StdError { format!("Database migration error {e}").into() })?;
+        let sqlite_connection = self.build_sqlite_connection().await?;
+
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_initializer",
@@ -322,16 +336,18 @@ mod tests {
         };
 
         assert!(!stores_dir.exists());
-        let chain_observer_builder: fn(&Configuration) -> Result<ChainObserverService> = |_config| {
-            Ok(Arc::new(FakeObserver::new(Some(Beacon {
-                epoch: Epoch(1),
-                immutable_file_number: 1,
-                network: "devnet".to_string(),
-            }))))
-        };
+        let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
+            |_config| {
+                Ok(Arc::new(FakeObserver::new(Some(Beacon {
+                    epoch: Epoch(1),
+                    immutable_file_number: 1,
+                    network: "devnet".to_string(),
+                }))))
+            };
         let immutable_file_observer_builder: fn(
             &Configuration,
-        ) -> Result<Arc<dyn ImmutableFileObserver>> =
+        )
+            -> StdResult<Arc<dyn ImmutableFileObserver>> =
             |_config: &Configuration| Ok(Arc::new(DumbImmutableFileObserver::default()));
 
         let mut service_builder = ProductionServiceBuilder::new(&config);

@@ -8,6 +8,7 @@
 
 mod aggregator_client;
 mod configuration;
+pub mod database;
 mod message_adapters;
 mod protocol_initializer_store;
 mod runtime;
