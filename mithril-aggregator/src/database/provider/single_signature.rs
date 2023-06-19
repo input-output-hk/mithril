@@ -309,7 +309,8 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::database::provider::{
-        apply_all_migrations_to_db, insert_single_signatures_in_db, setup_single_signature_records,
+        apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
+        setup_single_signature_records,
     };
 
     use super::*;
@@ -421,6 +422,7 @@ mod tests {
 
         let connection = Connection::open(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
         insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
 
         let provider = SingleSignatureRecordProvider::new(&connection);
@@ -494,6 +496,7 @@ mod tests {
 
         let connection = Connection::open(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
 
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
 

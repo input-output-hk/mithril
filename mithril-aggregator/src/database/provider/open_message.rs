@@ -559,7 +559,9 @@ impl OpenMessageRepository {
 mod tests {
     use mithril_common::{entities::Beacon, sqlite::SourceAlias};
 
-    use crate::database::provider::{apply_all_migrations_to_db, SingleSignatureRecord};
+    use crate::database::provider::{
+        apply_all_migrations_to_db, disable_foreign_key_support, SingleSignatureRecord,
+    };
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
     use crate::database::provider::test_helper::{
@@ -567,6 +569,22 @@ mod tests {
     };
 
     use super::*;
+
+    async fn get_connection() -> Arc<Mutex<Connection>> {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let connection = builder.get_sqlite_connection().await.unwrap();
+        {
+            let lock = connection.lock().await;
+            lock.execute(
+                r#"insert into epoch_setting(epoch_setting_id, protocol_parameters)
+values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0.65 }');"#,
+            )
+            .unwrap();
+        }
+
+        connection
+    }
 
     #[test]
     fn open_message_with_single_signature_projection() {
@@ -717,18 +735,6 @@ mod tests {
         assert_eq!(vec![Value::Integer(12)], params,);
     }
 
-    async fn get_connection() -> Arc<Mutex<Connection>> {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
-        let connection = builder.get_sqlite_connection().await.unwrap();
-        {
-            let lock = connection.lock().await;
-            lock.execute(r#"insert into epoch_setting(epoch_setting_id, protocol_parameters) values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0.65 }');"#).unwrap();
-        }
-
-        connection
-    }
-
     #[tokio::test]
     async fn repository_get_open_message() {
         let connection = get_connection().await;
@@ -860,6 +866,7 @@ mod tests {
     async fn repository_get_open_message_with_single_signatures_when_signatures_exist() {
         let connection = Connection::open(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
         let connection = Arc::new(Mutex::new(connection));
         let repository = OpenMessageRepository::new(connection.clone());
 
@@ -899,6 +906,7 @@ mod tests {
     async fn repository_get_open_message_with_single_signatures_when_signatures_not_exist() {
         let connection = Connection::open(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
         let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
 
         let open_message = OpenMessageRecord::dummy();

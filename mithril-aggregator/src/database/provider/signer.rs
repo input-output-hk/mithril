@@ -286,7 +286,7 @@ impl SignerRecorder for SignerStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::migration::get_migrations;
+    use crate::database::provider::apply_all_migrations_to_db;
     use chrono::Duration;
 
     use super::*;
@@ -310,9 +310,7 @@ mod tests {
         connection: &Connection,
         signer_records: Vec<SignerRecord>,
     ) -> Result<(), StdError> {
-        for migration in get_migrations() {
-            connection.execute(&migration.alterations)?;
-        }
+        apply_all_migrations_to_db(connection)?;
 
         if signer_records.is_empty() {
             return Ok(());

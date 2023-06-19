@@ -623,8 +623,9 @@ impl StoreAdapter for CertificateStoreAdapter {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::provider::disable_foreign_key_support;
     use crate::{
-        database::migration::get_migrations, dependency_injection::DependenciesBuilder,
+        database::provider::apply_all_migrations_to_db, dependency_injection::DependenciesBuilder,
         Configuration,
     };
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
@@ -635,9 +636,8 @@ mod tests {
         connection: &Connection,
         certificates: Vec<Certificate>,
     ) -> Result<(), StdError> {
-        for migration in get_migrations() {
-            connection.execute(&migration.alterations)?;
-        }
+        apply_all_migrations_to_db(connection)?;
+        disable_foreign_key_support(connection)?;
 
         if certificates.is_empty() {
             return Ok(());

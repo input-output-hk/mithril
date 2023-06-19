@@ -518,7 +518,7 @@ mod tests {
 
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
-    use crate::database::migration::get_migrations;
+    use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
 
     use super::*;
 
@@ -526,9 +526,8 @@ mod tests {
         connection: &Connection,
         signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)>,
     ) -> Result<(), StdError> {
-        for migration in get_migrations() {
-            connection.execute(&migration.alterations)?;
-        }
+        apply_all_migrations_to_db(connection)?;
+        disable_foreign_key_support(connection)?;
 
         if signer_with_stakes_by_epoch.is_empty() {
             return Ok(());

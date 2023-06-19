@@ -1,5 +1,5 @@
 use chrono::Utc;
-use mithril_common::{entities::Epoch, StdError};
+use mithril_common::{entities::Epoch, StdResult};
 use sqlite::Connection;
 use uuid::Uuid;
 
@@ -34,7 +34,16 @@ pub fn setup_single_signature_records(
     single_signature_records
 }
 
-pub fn apply_all_migrations_to_db(connection: &Connection) -> Result<(), StdError> {
+pub fn disable_foreign_key_support(connection: &Connection) -> StdResult<()> {
+    connection
+        .execute("pragma foreign_keys=false")
+        .map_err(|e| {
+            format!("SQLite initialization: could not enable FOREIGN KEY support. err: {e}")
+        })?;
+    Ok(())
+}
+
+pub fn apply_all_migrations_to_db(connection: &Connection) -> StdResult<()> {
     for migration in get_migrations() {
         connection.execute(&migration.alterations)?;
     }
@@ -45,7 +54,7 @@ pub fn apply_all_migrations_to_db(connection: &Connection) -> Result<(), StdErro
 pub fn insert_single_signatures_in_db(
     connection: &Connection,
     single_signature_records: Vec<SingleSignatureRecord>,
-) -> Result<(), StdError> {
+) -> StdResult<()> {
     if single_signature_records.is_empty() {
         return Ok(());
     }

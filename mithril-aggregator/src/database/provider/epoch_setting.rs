@@ -399,12 +399,13 @@ impl ProtocolParametersStorer for EpochSettingStore {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::provider::apply_all_migrations_to_db;
     use mithril_common::test_utils::fake_data;
 
     use super::*;
 
     pub fn setup_epoch_setting_db(connection: &Connection) -> Result<(), StdError> {
-        use crate::database::migration::get_migrations;
+        apply_all_migrations_to_db(connection)?;
 
         let query = {
             // leverage the expanded parameter from this provider which is unit
@@ -413,9 +414,6 @@ mod tests {
             let (sql_values, _) = update_provider
                 .get_update_condition(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
                 .expand();
-            for migration in get_migrations() {
-                connection.execute(&migration.alterations)?;
-            }
 
             format!("insert into epoch_setting {sql_values}")
         };

@@ -293,18 +293,11 @@ impl StakeStorer for StakePoolStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::provider::apply_all_migrations_to_db;
 
     pub fn setup_stake_db(connection: &Connection) -> Result<(), StdError> {
-        use crate::database::migration::get_migrations;
+        apply_all_migrations_to_db(connection)?;
 
-        let migrations = get_migrations();
-        let migration =
-            migrations
-                .iter()
-                .find(|&m| m.version == 1)
-                .ok_or_else(|| -> StdError {
-                    "There should be a migration version 1".to_string().into()
-                })?;
         let query = {
             // leverage the expanded parameter from this provider which is unit
             // tested on its own above.
@@ -312,8 +305,6 @@ mod tests {
             let (sql_values, _) = update_provider
                 .get_insert_or_replace_condition("pool_id", Epoch(1), 1000)
                 .expand();
-
-            connection.execute(&migration.alterations)?;
 
             format!("insert into stake_pool {sql_values}")
         };
