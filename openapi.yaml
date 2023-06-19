@@ -937,9 +937,9 @@ components:
           items:
             $ref: "#/components/schemas/SignerWithStake"
         created_at:
-          description: Date & time of the entity creation
+          description: Date and time of the entity creation
           type: string
-          format: string,
+          format: date-time,
         protocol_parameters:
           $ref: "#/components/schemas/ProtocolParameters"
       example:

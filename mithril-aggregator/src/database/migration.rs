@@ -329,7 +329,7 @@ create unique index open_message_unique_index on open_message(signed_entity_type
 "#,
         ),
         // Migration 13
-        // Update signed_entity.artifact type StakeDistribution to add new fields in JSON.
+        // Update signed_entity.artifact type MithrilStakeDistribution to add new fields in JSON.
         SqlMigration::new(
             13,
             r#"
@@ -345,7 +345,7 @@ update signed_entity
     )
 from certificate 
 where 
-    json_extract(signed_entity.artifact, '$.type') = 'MithrilStakeDistribution'
+    signed_entity.signed_entity_type_id = 0
     and signed_entity.certificate_id = certificate.certificate_id
 "#,
         ),

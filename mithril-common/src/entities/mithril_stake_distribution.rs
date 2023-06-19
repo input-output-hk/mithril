@@ -25,7 +25,7 @@ pub struct MithrilStakeDistribution {
     pub certificate_hash: String,
 
     /// Creation time
-    pub created_at: chrono::DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 
     /// Protocol parameters used to sign this stake distribution
     pub protocol_parameters: ProtocolParameters,
