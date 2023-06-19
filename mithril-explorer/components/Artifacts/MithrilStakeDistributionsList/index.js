@@ -62,6 +62,9 @@ export default function MithrilStakeDistributionsList(props) {
                       <Card.Title>{mithrilStakeDistribution.hash}</Card.Title>
                       <ListGroup variant="flush" className="data-list-group">
                         <ListGroup.Item>Epoch: {mithrilStakeDistribution.epoch}</ListGroup.Item>
+		        {mithrilStakeDistribution.created_at &&
+			  <ListGroup.Item>Created: {new Date(mithrilStakeDistribution.created_at).toLocaleString()}</ListGroup.Item>
+			}
                         <ListGroup.Item>Certificate hash: <br/>
                           {mithrilStakeDistribution.certificate_hash}{' '}
                           <Button size="sm" onClick={() => showCertificate(mithrilStakeDistribution.certificate_hash)}>Show</Button>
