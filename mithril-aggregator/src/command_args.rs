@@ -2,8 +2,8 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::{crit, debug, info};
-use std::{error::Error, net::IpAddr, path::PathBuf};
-use tokio::{sync::oneshot, task::JoinSet};
+use std::{error::Error, net::IpAddr, path::PathBuf, time::Duration};
+use tokio::{sync::oneshot, task::JoinSet, time::sleep};
 
 use mithril_common::{
     crypto_helper::{key_decode_hex, EraMarkersSigner, ProtocolGenesisSigner},
@@ -244,7 +244,8 @@ impl ServeCommand {
         let _ = shutdown_tx.send(());
 
         info!("Event store is finishing...");
-        event_store_thread.await?;
+        sleep(Duration::from_millis(100)).await;
+        event_store_thread.abort();
         println!("Services stopped, exiting.");
 
         Ok(())
