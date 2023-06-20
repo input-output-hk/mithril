@@ -41,7 +41,7 @@ RUN /app/target/release/mithril-signer --version
 FROM ubuntu:22.04
 
 # Args
-ARG CARDANO_BIN_URL=https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-8.0.0-linux.tar.gz
+ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/8.1.1/cardano-node-8.1.1-linux.tar.gz
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
