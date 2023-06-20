@@ -161,7 +161,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             return Err(SnapshotServiceError::UnpackDirectoryAlreadyExists(unpack_dir).into());
         }
         {
-            let free_space = fs2::free_space(pathdir)? as f64;
+            let free_space = fs2::available_space(pathdir)? as f64;
 
             if free_space < 2.5 * snapshot.size as f64 {
                 warn!("There might not be enough space on the disk ({} free) to unpack a {} size snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));

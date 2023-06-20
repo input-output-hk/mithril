@@ -41,7 +41,10 @@ impl SnapshotDownloadCommand {
             .await?;
 
         if self.json {
-            println!(r#"{{"file": "{}"}}"#, filepath.display());
+            println!(
+                r#"{{"db_directory": "{}"}}"#,
+                filepath.canonicalize()?.display()
+            );
         } else {
             println!(
                 r###"Unpack success snapshot '{}'
