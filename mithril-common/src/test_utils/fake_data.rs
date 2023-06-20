@@ -1,5 +1,7 @@
 //! Fake data builders for testing.
 
+use chrono::DateTime;
+
 use crate::entities::{
     CertificateMetadata, Epoch, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey,
     SignedEntityType, SingleSignatures,
@@ -193,6 +195,8 @@ pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDist
             signers_with_stake: self::signers_with_stakes(5),
             hash: format!("hash-epoch-{epoch_idx}"),
             certificate_hash: format!("certificate-hash-epoch-{epoch_idx}"),
+            created_at: DateTime::default(),
+            protocol_parameters: self::protocol_parameters(),
         })
         .collect::<Vec<entities::MithrilStakeDistribution>>()
 }

@@ -916,6 +916,8 @@ components:
         - epoch
         - hash
         - signers
+        - created_at
+        - protocol_parameters
       properties:
         epoch:
           description: Cardano chain epoch number
@@ -934,6 +936,12 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SignerWithStake"
+        created_at:
+          description: Date and time of the entity creation
+          type: string
+          format: date-time,
+        protocol_parameters:
+          $ref: "#/components/schemas/ProtocolParameters"
       example:
         {
         "epoch": 123,
@@ -952,6 +960,8 @@ components:
                 "stake": "2345",
               },
             ],
+        "created_at": "2022-06-14T10:52:31Z",
+        "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
         }
 
     Error:

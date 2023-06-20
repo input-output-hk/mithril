@@ -1,10 +1,15 @@
+use std::str::FromStr;
+
+use chrono::DateTime;
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::entities::Epoch;
+use crate::entities::ProtocolParameters;
 use crate::entities::SignerWithStake;
 use crate::test_utils::fake_data;
 /// Message structure of a Mitrhil Stake Distribution
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct MithrilStakeDistributionMessage {
     /// Epoch at which the Mithril Stake Distribution is created
     pub epoch: Epoch,
@@ -18,6 +23,12 @@ pub struct MithrilStakeDistributionMessage {
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
+
+    /// DateTime of creation
+    pub created_at: DateTime<Utc>,
+
+    /// Protocol parameters used to compute AVK
+    pub protocol_parameters: ProtocolParameters,
 }
 
 impl MithrilStakeDistributionMessage {
@@ -31,12 +42,15 @@ impl MithrilStakeDistributionMessage {
                 .to_owned()],
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
+            created_at: DateTime::from_str("2023-06-13 17:05:41").unwrap(),
+            protocol_parameters: fake_data::protocol_parameters(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
 
     fn golden_message() -> MithrilStakeDistributionMessage {
@@ -45,6 +59,8 @@ mod tests {
             signers_with_stake: fake_data::signers_with_stakes(1),
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
+            created_at: DateTime::from_str("2023-06-13T17:05:41Z").unwrap(),
+            protocol_parameters: fake_data::protocol_parameters(),
         }
     }
 
@@ -61,13 +77,13 @@ mod tests {
                 }
             ],
             "hash": "hash-123",
-            "certificate_hash": "cert-hash-123"
+            "certificate_hash": "cert-hash-123",
+            "created_at": "2023-06-13T17:05:41Z",
+            "protocol_parameters": {"k": 5, "m": 100, "phi_f": 0.65 }
         }"#;
         let message: MithrilStakeDistributionMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be succesfully parsed into a MithrilStakeDistributionMessage instance.",
         );
-
-        println!("{}", serde_json::to_string(&golden_message()).unwrap());
 
         assert_eq!(golden_message(), message);
     }

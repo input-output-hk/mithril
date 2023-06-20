@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -5,6 +6,8 @@ use crate::{
     entities::{Epoch, SignerWithStake},
     signable_builder::Artifact,
 };
+
+use super::ProtocolParameters;
 
 /// Mithril Stake Distribution
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
@@ -20,6 +23,12 @@ pub struct MithrilStakeDistribution {
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
+
+    /// Creation time
+    pub created_at: DateTime<Utc>,
+
+    /// Protocol parameters used to sign this stake distribution
+    pub protocol_parameters: ProtocolParameters,
 }
 
 impl MithrilStakeDistribution {
@@ -28,6 +37,8 @@ impl MithrilStakeDistribution {
         epoch: Epoch,
         signers_with_stake: Vec<SignerWithStake>,
         certificate_hash: String,
+        created_at: DateTime<Utc>,
+        protocol_parameters: &ProtocolParameters,
     ) -> Self {
         let mut signers_with_stake_sorted = signers_with_stake;
         signers_with_stake_sorted.sort();
@@ -36,6 +47,8 @@ impl MithrilStakeDistribution {
             signers_with_stake: signers_with_stake_sorted,
             hash: "".to_string(),
             certificate_hash,
+            created_at,
+            protocol_parameters: protocol_parameters.to_owned(),
         };
         mithril_stake_distribution.hash = mithril_stake_distribution.compute_hash();
         mithril_stake_distribution

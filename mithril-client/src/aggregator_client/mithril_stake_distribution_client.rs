@@ -51,6 +51,7 @@ impl MithrilStakeDistributionClient {
 
 #[cfg(test)]
 mod tests {
+    use chrono::{DateTime, Utc};
     use mithril_common::{entities::Epoch, test_utils::fake_data};
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
@@ -95,6 +96,8 @@ mod tests {
             epoch: Epoch(1),
             signers_with_stake: fake_data::signers_with_stakes(2),
             hash: "hash".to_string(),
+            created_at: DateTime::<Utc>::default(),
+            protocol_parameters: fake_data::protocol_parameters(),
         };
         http_client
             .expect_get_content()
