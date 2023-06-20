@@ -6,6 +6,7 @@ use std::{
 
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
+use human_bytes::human_bytes;
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
@@ -13,7 +14,7 @@ use mithril_common::{
     entities::{ProtocolMessagePartKey, Snapshot},
     StdError, StdResult,
 };
-use slog_scope::{debug, warn};
+use slog_scope::{debug, info, warn};
 use tar::Archive;
 use thiserror::Error;
 
@@ -159,6 +160,16 @@ impl SnapshotService for MithrilClientSnapshotService {
         if unpack_dir.exists() {
             return Err(SnapshotServiceError::UnpackDirectoryAlreadyExists(unpack_dir).into());
         }
+        {
+            let free_space = fs2::free_space(pathdir)? as f64;
+
+            if free_space < 2.5 * snapshot.size as f64 {
+                warn!("There might not be enough space on the disk ({} free) to unpack a {} size snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
+            } else {
+                info!("It seems there is enough disk space ({} free) to download and unpack the {} large snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
+            }
+        }
+
         // 1 - Instanciate a genesis key verifier
         let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
             .map_err(|e| SnapshotServiceError::InvalidParameters {

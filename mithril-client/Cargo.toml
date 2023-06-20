@@ -18,6 +18,7 @@ cli-table = "0.4"
 config = "0.13.1"
 directories = "5.0.1"
 flate2 = "1.0.23"
+fs2 = "0.4.3"
 futures = "0.3"
 hex = "0.4.3"
 human_bytes = { version = "0.4.2", features = ["fast"] }
