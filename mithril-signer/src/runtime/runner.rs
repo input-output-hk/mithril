@@ -582,6 +582,7 @@ mod tests {
         let services = init_services().await;
         let config = Configuration {
             aggregator_endpoint: "http://0.0.0.0:3000".to_string(),
+            relay_endpoint: None,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             db_directory: PathBuf::new(),

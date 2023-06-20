@@ -199,6 +199,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let certificate_handler = Arc::new(AggregatorHTTPClient::new(
             self.config.aggregator_endpoint.clone(),
+            self.config.relay_endpoint.clone(),
             api_version_provider.clone(),
         ));
 
@@ -304,6 +305,7 @@ mod tests {
             network_magic: None,
             network: "preview".to_string(),
             aggregator_endpoint: "".to_string(),
+            relay_endpoint: None,
             party_id: Some("party-123456".to_string()),
             run_interval: 1000,
             db_directory: PathBuf::new(),

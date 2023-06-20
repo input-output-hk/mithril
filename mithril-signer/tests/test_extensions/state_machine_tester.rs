@@ -84,6 +84,7 @@ impl StateMachineTester {
             tests_setup::setup_temp_directory_for_signer(&selected_signer_party_id, false);
         let config = Configuration {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
+            relay_endpoint: None,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             db_directory: PathBuf::new(),
