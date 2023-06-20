@@ -9,7 +9,7 @@ use mithril_common::{
     test_utils::fake_data,
     BeaconProvider, BeaconProviderImpl,
 };
-use mithril_signer::{CertificateHandler, CertificateHandlerError};
+use mithril_signer::{AggregatorClient, AggregatorClientError};
 use tokio::sync::RwLock;
 
 pub struct FakeAggregator {
@@ -38,22 +38,22 @@ impl FakeAggregator {
         *settings = false;
     }
 
-    async fn get_beacon(&self) -> Result<Beacon, CertificateHandlerError> {
+    async fn get_beacon(&self) -> Result<Beacon, AggregatorClientError> {
         let beacon = self
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| CertificateHandlerError::RemoteServerTechnical(e.to_string()))?;
+            .map_err(|e| AggregatorClientError::RemoteServerTechnical(e.to_string()))?;
 
         Ok(beacon)
     }
 }
 
 #[async_trait]
-impl CertificateHandler for FakeAggregator {
+impl AggregatorClient for FakeAggregator {
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+    ) -> Result<Option<EpochSettings>, AggregatorClientError> {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
@@ -67,7 +67,7 @@ impl CertificateHandler for FakeAggregator {
 
     async fn retrieve_pending_certificate(
         &self,
-    ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
+    ) -> Result<Option<CertificatePending>, AggregatorClientError> {
         let store = self.registered_signers.read().await;
 
         if store.is_empty() {
@@ -98,7 +98,7 @@ impl CertificateHandler for FakeAggregator {
         &self,
         epoch: Epoch,
         signer: &Signer,
-    ) -> Result<(), CertificateHandlerError> {
+    ) -> Result<(), AggregatorClientError> {
         let mut store = self.registered_signers.write().await;
         let mut signers = store.get(&epoch).cloned().unwrap_or_default();
         signers.push(signer.clone());
@@ -112,7 +112,7 @@ impl CertificateHandler for FakeAggregator {
         &self,
         _signed_entity_type: &SignedEntityType,
         _signatures: &SingleSignatures,
-    ) -> Result<(), CertificateHandlerError> {
+    ) -> Result<(), AggregatorClientError> {
         Ok(())
     }
 }
@@ -157,7 +157,7 @@ mod tests {
                 &fake_signers.as_slice()[0],
             )
             .await
-            .expect("certificate handler should not fail while registering a user");
+            .expect("aggregator client should not fail while registering a user");
         let signers = fake_aggregator
             .get_registered_signers(&registration_epoch)
             .await
@@ -171,7 +171,7 @@ mod tests {
                 &fake_signers.as_slice()[1],
             )
             .await
-            .expect("certificate handler should not fail while registering a user");
+            .expect("aggregator client should not fail while registering a user");
         let signers = fake_aggregator
             .get_registered_signers(&registration_epoch)
             .await
@@ -191,7 +191,7 @@ mod tests {
 
         assert!(
             cert.is_none(),
-            "certificate handler is empty => no pending certificate"
+            "aggregator client is empty => no pending certificate"
         );
 
         for signer in fake_data::signers(3) {

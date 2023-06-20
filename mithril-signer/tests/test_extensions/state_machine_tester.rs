@@ -29,7 +29,7 @@ use mithril_common::{
     BeaconProviderImpl,
 };
 use mithril_signer::{
-    CertificateHandler, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
+    AggregatorClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     StateMachine,
 };
@@ -342,7 +342,7 @@ impl StateMachineTester {
         self
     }
 
-    /// register the signer in the certificate handler
+    /// register the signer in the aggregator client
     pub async fn register_signers(
         &mut self,
         signers_with_stake: &[SignerWithStake],

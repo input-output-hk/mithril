@@ -23,7 +23,7 @@ use crate::message_adapters::{
 
 /// Error structure for the Certificate Handler.
 #[derive(Error, Debug)]
-pub enum CertificateHandlerError {
+pub enum AggregatorClientError {
     /// The aggregator host has returned a technical error.
     #[error("remote server technical error: '{0}'")]
     RemoteServerTechnical(String),
@@ -51,51 +51,50 @@ pub enum CertificateHandlerError {
 
 #[cfg(test)]
 /// convenient methods to error enum
-impl CertificateHandlerError {
+impl AggregatorClientError {
     pub fn is_api_version_mismatch(&self) -> bool {
         matches!(self, Self::ApiVersionMismatch(_))
     }
 }
 
-/// Trait for mocking and testing a `CertificateHandler`
+/// Trait for mocking and testing a `AggregatorClient`
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait CertificateHandler: Sync + Send {
+pub trait AggregatorClient: Sync + Send {
     /// Retrieves epoch settings from the aggregator
-    async fn retrieve_epoch_settings(
-        &self,
-    ) -> Result<Option<EpochSettings>, CertificateHandlerError>;
+    async fn retrieve_epoch_settings(&self)
+        -> Result<Option<EpochSettings>, AggregatorClientError>;
 
     /// Retrieves a pending certificate from the aggregator
     async fn retrieve_pending_certificate(
         &self,
-    ) -> Result<Option<CertificatePending>, CertificateHandlerError>;
+    ) -> Result<Option<CertificatePending>, AggregatorClientError>;
 
     /// Registers signer with the aggregator.
     async fn register_signer(
         &self,
         epoch: Epoch,
         signer: &Signer,
-    ) -> Result<(), CertificateHandlerError>;
+    ) -> Result<(), AggregatorClientError>;
 
     /// Registers single signatures with the aggregator.
     async fn register_signatures(
         &self,
         signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
-    ) -> Result<(), CertificateHandlerError>;
+    ) -> Result<(), AggregatorClientError>;
 }
 
-/// CertificateHandlerHTTPClient is a http client for an aggregator
-pub struct CertificateHandlerHTTPClient {
+/// AggregatorHTTPClient is a http client for an aggregator
+pub struct AggregatorHTTPClient {
     aggregator_endpoint: String,
     api_version_provider: Arc<APIVersionProvider>,
 }
 
-impl CertificateHandlerHTTPClient {
-    /// CertificateHandlerHTTPClient factory
+impl AggregatorHTTPClient {
+    /// AggregatorHTTPClient factory
     pub fn new(aggregator_endpoint: String, api_version_provider: Arc<APIVersionProvider>) -> Self {
-        debug!("New CertificateHandlerHTTPClient created");
+        debug!("New AggregatorHTTPClient created");
         Self {
             aggregator_endpoint,
             api_version_provider,
@@ -116,15 +115,15 @@ impl CertificateHandlerHTTPClient {
     }
 
     /// API version error handling
-    fn handle_api_error(&self, response: &Response) -> CertificateHandlerError {
+    fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            CertificateHandlerError::ApiVersionMismatch(format!(
+            AggregatorClientError::ApiVersionMismatch(format!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
                 self.api_version_provider.compute_current_version().unwrap()
             ))
         } else {
-            CertificateHandlerError::ApiVersionMismatch(format!(
+            AggregatorClientError::ApiVersionMismatch(format!(
                 "version precondition failed, sent version '{}'.",
                 self.api_version_provider.compute_current_version().unwrap()
             ))
@@ -133,10 +132,10 @@ impl CertificateHandlerHTTPClient {
 }
 
 #[async_trait]
-impl CertificateHandler for CertificateHandlerHTTPClient {
+impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+    ) -> Result<Option<EpochSettings>, AggregatorClientError> {
         debug!("Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
         let response = self
@@ -148,14 +147,14 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<EpochSettingsMessage>().await {
                     Ok(message) => Ok(Some(FromEpochSettingsAdapter::adapt(message))),
-                    Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
+                    Err(err) => Err(AggregatorClientError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                _ => Err(AggregatorClientError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
                 )),
             },
-            Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
                 err.to_string(),
             )),
         }
@@ -163,7 +162,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
 
     async fn retrieve_pending_certificate(
         &self,
-    ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
+    ) -> Result<Option<CertificatePending>, AggregatorClientError> {
         debug!("Retrieve pending certificate");
         let url = format!("{}/certificate-pending", self.aggregator_endpoint);
         let response = self
@@ -175,15 +174,15 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CertificatePendingMessage>().await {
                     Ok(message) => Ok(Some(FromPendingCertificateMessageAdapter::adapt(message))),
-                    Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
+                    Err(err) => Err(AggregatorClientError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::NO_CONTENT => Ok(None),
-                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                _ => Err(AggregatorClientError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
                 )),
             },
-            Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
                 err.to_string(),
             )),
         }
@@ -193,7 +192,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
         &self,
         epoch: Epoch,
         signer: &Signer,
-    ) -> Result<(), CertificateHandlerError> {
+    ) -> Result<(), AggregatorClientError> {
         debug!("Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
         let register_signer_message =
@@ -208,14 +207,14 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
+                StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
                     format!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
-                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                _ => Err(AggregatorClientError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
                 )),
             },
-            Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
                 err.to_string(),
             )),
         }
@@ -225,7 +224,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
         &self,
         signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
-    ) -> Result<(), CertificateHandlerError> {
+    ) -> Result<(), AggregatorClientError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
         let register_single_signature_message = ToRegisterSignatureMessageAdapter::adapt(
@@ -242,17 +241,17 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
+                StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
                     format!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
-                StatusCode::CONFLICT => Err(CertificateHandlerError::RemoteServerLogical(
+                StatusCode::CONFLICT => Err(AggregatorClientError::RemoteServerLogical(
                     "already registered single signatures".to_string(),
                 )),
-                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                _ => Err(AggregatorClientError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
                 )),
             },
-            Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
                 err.to_string(),
             )),
         }
@@ -265,16 +264,16 @@ pub(crate) mod dumb {
     use mithril_common::test_utils::fake_data;
     use tokio::sync::RwLock;
 
-    /// This certificate handler is intended to be used by test services.
+    /// This aggregator client is intended to be used by test services.
     /// It actually does not communicate with an aggregator host but mimics this behavior.
     /// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
-    pub struct DumbCertificateHandler {
+    pub struct DumbAggregatorClient {
         epoch_settings: RwLock<Option<EpochSettings>>,
         certificate_pending: RwLock<Option<CertificatePending>>,
         last_registered_signer: RwLock<Option<Signer>>,
     }
 
-    impl DumbCertificateHandler {
+    impl DumbAggregatorClient {
         /// Instanciate a new DumbCertificateHandler.
         pub fn new() -> Self {
             Self {
@@ -308,7 +307,7 @@ pub(crate) mod dumb {
         }
     }
 
-    impl Default for DumbCertificateHandler {
+    impl Default for DumbAggregatorClient {
         fn default() -> Self {
             Self {
                 epoch_settings: RwLock::new(Some(fake_data::epoch_settings())),
@@ -319,10 +318,10 @@ pub(crate) mod dumb {
     }
 
     #[async_trait]
-    impl CertificateHandler for DumbCertificateHandler {
+    impl AggregatorClient for DumbAggregatorClient {
         async fn retrieve_epoch_settings(
             &self,
-        ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+        ) -> Result<Option<EpochSettings>, AggregatorClientError> {
             let epoch_settings = self.epoch_settings.read().await.clone();
 
             Ok(epoch_settings)
@@ -330,7 +329,7 @@ pub(crate) mod dumb {
 
         async fn retrieve_pending_certificate(
             &self,
-        ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
+        ) -> Result<Option<CertificatePending>, AggregatorClientError> {
             let cert = self.certificate_pending.read().await.clone();
 
             Ok(cert)
@@ -341,7 +340,7 @@ pub(crate) mod dumb {
             &self,
             _epoch: Epoch,
             signer: &Signer,
-        ) -> Result<(), CertificateHandlerError> {
+        ) -> Result<(), AggregatorClientError> {
             let mut last_registered_signer = self.last_registered_signer.write().await;
             let signer = signer.clone();
             *last_registered_signer = Some(signer);
@@ -354,7 +353,7 @@ pub(crate) mod dumb {
             &self,
             _signed_entity_type: &SignedEntityType,
             _signatures: &SingleSignatures,
-        ) -> Result<(), CertificateHandlerError> {
+        ) -> Result<(), AggregatorClientError> {
             Ok(())
         }
     }
@@ -407,10 +406,8 @@ mod tests {
             then.status(200)
                 .body(json!(epoch_settings_expected).to_string());
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
         assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
@@ -424,10 +421,8 @@ mod tests {
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let epoch_settings = certificate_handler
             .retrieve_epoch_settings()
             .await
@@ -443,13 +438,11 @@ mod tests {
             when.path("/epoch-settings");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
+            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             epoch_settings.unwrap_err().to_string()
         );
@@ -464,10 +457,8 @@ mod tests {
             then.status(200)
                 .body(json!(pending_certificate_expected).to_string());
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         pending_certificate.as_ref().expect("unexpected error");
         assert_eq!(
@@ -484,10 +475,8 @@ mod tests {
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let error = certificate_handler
             .retrieve_pending_certificate()
             .await
@@ -503,10 +492,8 @@ mod tests {
             when.path("/certificate-pending");
             then.status(204);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         assert!(pending_certificate.expect("unexpected error").is_none());
     }
@@ -518,13 +505,11 @@ mod tests {
             when.path("/certificate-pending");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
+            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             pending_certificate.unwrap_err().to_string()
         );
@@ -540,10 +525,8 @@ mod tests {
             when.method(POST).path("/register-signer");
             then.status(201);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signer = certificate_handler
             .register_signer(epoch, single_signer)
             .await;
@@ -561,10 +544,8 @@ mod tests {
         });
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let error = certificate_handler
             .register_signer(epoch, single_signer)
             .await
@@ -589,15 +570,13 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signer = certificate_handler
             .register_signer(epoch, single_signer)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerLogical(
+            AggregatorClientError::RemoteServerLogical(
                 "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
             )
             .to_string(),
@@ -615,15 +594,13 @@ mod tests {
             when.method(POST).path("/register-signer");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signer = certificate_handler
             .register_signer(epoch, single_signer)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
+            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             register_signer.unwrap_err().to_string()
         );
@@ -637,10 +614,8 @@ mod tests {
             when.method(POST).path("/register-signatures");
             then.status(201);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signatures = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
@@ -656,10 +631,8 @@ mod tests {
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let error = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await
@@ -682,15 +655,13 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signatures = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerLogical(
+            AggregatorClientError::RemoteServerLogical(
                 "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
             )
             .to_string(),
@@ -706,15 +677,13 @@ mod tests {
             when.method(POST).path("/register-signatures");
             then.status(409);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signatures = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerLogical(
+            AggregatorClientError::RemoteServerLogical(
                 "already registered single signatures".to_string()
             )
             .to_string(),
@@ -730,15 +699,13 @@ mod tests {
             when.method(POST).path("/register-signatures");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(
-            config.aggregator_endpoint,
-            Arc::new(api_version_provider),
-        );
+        let certificate_handler =
+            AggregatorHTTPClient::new(config.aggregator_endpoint, Arc::new(api_version_provider));
         let register_signatures = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
+            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             register_signatures.unwrap_err().to_string()
         );

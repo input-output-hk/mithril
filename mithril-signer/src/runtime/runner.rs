@@ -507,7 +507,7 @@ mod tests {
     };
 
     use crate::{
-        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
+        AggregatorClient, DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient,
         ProtocolInitializerStore, SingleSigner,
     };
 
@@ -559,7 +559,7 @@ mod tests {
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
-            certificate_handler: Arc::new(DumbCertificateHandler::default()),
+            certificate_handler: Arc::new(DumbAggregatorClient::default()),
             chain_observer,
             digester,
             single_signer: Arc::new(MithrilSingleSigner::new("1".to_string())),
@@ -660,7 +660,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_to_aggregator() {
         let mut services = init_services().await;
-        let certificate_handler = Arc::new(DumbCertificateHandler::default());
+        let certificate_handler = Arc::new(DumbAggregatorClient::default());
         services.certificate_handler = certificate_handler.clone();
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         let chain_observer = Arc::new(FakeObserver::default());
@@ -873,7 +873,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_single_signature() {
         let mut services = init_services().await;
-        let mut certificate_handler = MockCertificateHandler::new();
+        let mut certificate_handler = MockAggregatorClient::new();
         certificate_handler
             .expect_register_signatures()
             .once()
