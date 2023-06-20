@@ -79,7 +79,7 @@ impl MainOpts {
             )
             .add_source(config::Environment::default().separator("__"))
             .add_source(self.clone());
-        debug!("Started"; "run_mode" => &self.run_mode);
+        debug!("Started"; "run_mode" => &self.run_mode, "node_version" => env!("CARGO_PKG_VERSION"));
 
         self.command.execute(config_builder).await
     }

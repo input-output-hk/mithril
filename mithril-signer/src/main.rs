@@ -77,6 +77,8 @@ async fn main() -> Result<(), String> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
 
+    debug!("Starting"; "node_version" => env!("CARGO_PKG_VERSION"));
+
     // Load config
     let config: Configuration = config::Config::builder()
         .set_default("disable_digests_cache", args.disable_digests_cache)
