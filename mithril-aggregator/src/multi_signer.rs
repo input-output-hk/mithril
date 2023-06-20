@@ -260,7 +260,10 @@ impl MultiSignerImpl {
             total_signers += 1;
         }
         match total_signers {
-            0 => Ok(None),
+            0 => {
+                debug!("could not create clerk: no registered signers");
+                Ok(None)
+            }
             _ => {
                 let closed_registration = key_registration.close();
                 Ok(Some(ProtocolClerk::from_registration(
