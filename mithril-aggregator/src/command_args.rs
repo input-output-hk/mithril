@@ -2,8 +2,8 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::{crit, debug, info};
-use std::{error::Error, net::IpAddr, path::PathBuf, time::Duration};
-use tokio::{sync::oneshot, task::JoinSet, time::sleep};
+use std::{error::Error, net::IpAddr, path::PathBuf};
+use tokio::{sync::oneshot, task::JoinSet};
 
 use mithril_common::{
     crypto_helper::{key_decode_hex, EraMarkersSigner, ProtocolGenesisSigner},
@@ -233,9 +233,9 @@ impl ServeCommand {
             Ok(())
         });
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
+        dependencies_builder.vanish();
 
-        let res = join_set.join_next().await.unwrap()?;
-        if let Err(e) = res {
+        if let Err(e) = join_set.join_next().await.unwrap()? {
             crit!("A critical error occurred: {e}");
         }
 
@@ -244,8 +244,7 @@ impl ServeCommand {
         let _ = shutdown_tx.send(());
 
         info!("Event store is finishing...");
-        sleep(Duration::from_millis(100)).await;
-        event_store_thread.abort();
+        event_store_thread.await.unwrap();
         println!("Services stopped, exiting.");
 
         Ok(())

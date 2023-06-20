@@ -1124,4 +1124,7 @@ impl DependenciesBuilder {
 
         Ok(self.certifier_service.as_ref().cloned().unwrap())
     }
+
+    /// Remove the dependencies builder from memory to release Arc.
+    pub fn vanish(self) {}
 }
