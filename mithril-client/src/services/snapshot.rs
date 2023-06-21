@@ -1,5 +1,5 @@
 use std::{
-    fs::File,
+    fs::{remove_file, File},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -168,6 +168,16 @@ impl SnapshotService for MithrilClientSnapshotService {
             } else {
                 info!("It seems there is enough disk space ({} free) to download and unpack the {} large snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
             }
+
+            let _file =
+                File::create(&unpack_dir).map_err(|e| SnapshotServiceError::InvalidParameters {
+                    context: format!(
+                        "Can not write in the given directory '{}'.",
+                        pathdir.display()
+                    ),
+                    error: e.into(),
+                })?;
+            remove_file(&unpack_dir)?;
         }
 
         // 1 - Instanciate a genesis key verifier
