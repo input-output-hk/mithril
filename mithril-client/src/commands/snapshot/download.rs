@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
 use config::{builder::DefaultState, Config, ConfigBuilder};
+use indicatif::ProgressDrawTarget;
 use mithril_common::StdResult;
 
 use crate::dependencies::DependenciesBuilder;
@@ -32,11 +33,17 @@ impl SnapshotDownloadCommand {
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
         let snapshot = snapshot_service.show(&self.digest).await?;
+        let progress_target = if self.json {
+            ProgressDrawTarget::hidden()
+        } else {
+            ProgressDrawTarget::stdout()
+        };
         let filepath = snapshot_service
             .download(
                 &snapshot,
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,
+                progress_target,
             )
             .await?;
 

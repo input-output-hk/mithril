@@ -7,6 +7,7 @@ use std::{
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use human_bytes::human_bytes;
+use indicatif::ProgressDrawTarget;
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
@@ -76,6 +77,7 @@ pub trait SnapshotService: Sync + Send {
         snapshot: &Snapshot,
         pathdir: &Path,
         genesis_verification_key: &str,
+        progress_target: ProgressDrawTarget,
     ) -> StdResult<PathBuf>;
 }
 
@@ -152,6 +154,7 @@ impl SnapshotService for MithrilClientSnapshotService {
         snapshot: &Snapshot,
         pathdir: &Path,
         genesis_verification_key: &str,
+        progress_target: ProgressDrawTarget,
     ) -> StdResult<PathBuf> {
         debug!("Snapshot service: download.");
         // 0 - Check prerequisistes are met
@@ -210,7 +213,7 @@ impl SnapshotService for MithrilClientSnapshotService {
         // 4 - Launch download and unpack the file on disk
         let filepath = self
             .snapshot_client
-            .download(snapshot, pathdir)
+            .download(snapshot, pathdir, progress_target)
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
@@ -444,9 +447,10 @@ mod tests {
         let test_path = std::env::temp_dir().join("test_download_snapshot_ok");
         let _ = std::fs::remove_dir_all(&test_path);
         let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_probe().returning(|_| Ok(()));
         http_client
             .expect_download()
-            .returning(move |_, _| Ok(()))
+            .returning(move |_, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
@@ -477,6 +481,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
             )
             .await
             .expect("Snapshot download should succeed.");
@@ -493,9 +498,10 @@ mod tests {
         let test_path = std::env::temp_dir().join("test_download_snapshot_invalid_digest");
         let _ = std::fs::remove_dir_all(&test_path);
         let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_probe().returning(|_| Ok(()));
         http_client
             .expect_download()
-            .returning(move |_, _| Ok(()))
+            .returning(move |_, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
@@ -526,6 +532,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
             )
             .await
             .expect_err("Snapshot digest comparison should fail.");
@@ -572,6 +579,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
             )
             .await
             .expect_err("Snapshot download should fail.");

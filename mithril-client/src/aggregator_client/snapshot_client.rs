@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use indicatif::ProgressDrawTarget;
 use mithril_common::{
     entities::Snapshot,
     messages::{SnapshotListMessage, SnapshotMessage},
@@ -63,18 +64,30 @@ impl SnapshotClient {
     }
 
     /// Download the snapshot identified by the given snapshot in the given directory
-    pub async fn download(&self, snapshot: &Snapshot, download_dir: &Path) -> StdResult<PathBuf> {
+    pub async fn download(
+        &self,
+        snapshot: &Snapshot,
+        download_dir: &Path,
+        progress_target: ProgressDrawTarget,
+    ) -> StdResult<PathBuf> {
         let filepath = PathBuf::new()
             .join(download_dir)
             .join(format!("snapshot-{}", snapshot.digest));
 
         for url in snapshot.locations.as_slice() {
-            match self.http_client.download(url, &filepath).await {
-                Ok(()) => return Ok(filepath),
-                Err(e) => {
-                    warn!("Failed downloading snapshot from '{url}' Error: {e}.");
-                }
-            };
+            if self.http_client.probe(url).await.is_ok() {
+                match self
+                    .http_client
+                    .download(url, &filepath, progress_target)
+                    .await
+                {
+                    Ok(()) => return Ok(filepath),
+                    Err(e) => {
+                        warn!("Failed downloading snapshot from '{url}' Error: {e}.");
+                        return Err(e.into());
+                    }
+                };
+            }
         }
 
         let locations = snapshot.locations.join(", ");
