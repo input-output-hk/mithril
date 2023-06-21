@@ -325,7 +325,7 @@ impl RuntimeTester {
     pub async fn update_stake_distribution(
         &mut self,
         signers_with_stake: Vec<SignerWithStake>,
-    ) -> Result<Vec<SignerFixture>, String> {
+    ) -> Result<MithrilFixture, String> {
         self.chain_observer
             .set_signers(signers_with_stake.clone())
             .await;
@@ -354,7 +354,7 @@ impl RuntimeTester {
             ))
             .build();
 
-        Ok(fixture.signers_fixture())
+        Ok(fixture)
     }
 
     /// Update the digester result using the current beacon

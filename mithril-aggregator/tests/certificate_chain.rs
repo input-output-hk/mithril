@@ -2,10 +2,12 @@ mod test_extensions;
 
 use mithril_aggregator::{Configuration, VerificationKeyStorer};
 use mithril_common::{
-    entities::{Beacon, ProtocolParameters, SignedEntityTypeDiscriminants},
+    entities::{
+        Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+    },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, RuntimeTester};
+use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
 
 #[tokio::test]
 async fn certificate_chain() {
@@ -24,17 +26,30 @@ async fn certificate_chain() {
     let observer = tester.observer.clone();
 
     comment!("Create signers & declare stake distribution");
-    let fixture = MithrilFixtureBuilder::default()
+    let initial_fixture = MithrilFixtureBuilder::default()
         .with_signers(5)
         .with_protocol_parameters(protocol_parameters.clone())
         .build();
-    let signers = fixture.signers_fixture();
-    tester.init_state_from_fixture(&fixture).await.unwrap();
-    let mut signers_with_stake = fixture.signers_with_stake();
+    let signers = initial_fixture.signers_fixture();
+    tester
+        .init_state_from_fixture(&initial_fixture)
+        .await
+        .unwrap();
     let mut current_epoch = observer.current_epoch().await;
 
     comment!("Boostrap the genesis certificate, {:?}", current_epoch);
-    tester.register_genesis_certificate(&fixture).await.unwrap();
+    tester
+        .register_genesis_certificate(&initial_fixture)
+        .await
+        .unwrap();
+
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new_genesis(
+            Beacon::new("devnet".to_string(), 1, 1),
+            initial_fixture.compute_and_encode_avk()
+        )
+    );
 
     comment!("Increase immutable number");
     tester.increase_immutable_number().await.unwrap();
@@ -54,9 +69,16 @@ async fn certificate_chain() {
 
     comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(tester, "ready");
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((2, 0), (last_certificates.len(), snapshots.len()));
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 1, 2),
+            &initial_fixture.signers_with_stake(),
+            initial_fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+        )
+    );
 
     comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
     tester.increase_immutable_number().await.unwrap();
@@ -70,9 +92,16 @@ async fn certificate_chain() {
         .unwrap();
     comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
     cycle!(tester, "ready");
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((3, 1), (last_certificates.len(), snapshots.len()));
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 1, 3),
+            &initial_fixture.signers_with_stake(),
+            initial_fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 3)),
+            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+        )
+    );
 
     comment!(
         "Increase immutable number to do a second CardanoImmutableFilesFull certificate for this epoch, {:?}",
@@ -88,33 +117,30 @@ async fn certificate_chain() {
         .await
         .unwrap();
     cycle!(tester, "ready");
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((4, 2), (last_certificates.len(), snapshots.len()));
-    assert_eq!(
-        (
-            last_certificates[0].beacon.immutable_file_number,
-            last_certificates[0].beacon.epoch,
-        ),
-        (
-            last_certificates[1].beacon.immutable_file_number + 1,
-            last_certificates[1].beacon.epoch,
-        ),
-        "Only the immutable_file_number should have changed"
-    );
-    assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[3].hash,
-        "A new certificate on the same epoch should be linked to the first certificate of the current epoch"
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 1, 4),
+            &initial_fixture.signers_with_stake(),
+            initial_fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 4)),
+            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+        )
     );
 
     comment!("Change stake distribution");
-    for (i, signer) in signers_with_stake.iter_mut().enumerate() {
-        signer.stake += (i * 1000) as u64;
-    }
-    let new_signers = tester
-        .update_stake_distribution(signers_with_stake)
-        .await
-        .unwrap();
+    let next_fixture = {
+        let mut updated_signers = initial_fixture.signers_with_stake();
+        for (i, signer) in updated_signers.iter_mut().enumerate() {
+            signer.stake += (i * 1000) as u64;
+        }
+
+        tester
+            .update_stake_distribution(updated_signers)
+            .await
+            .unwrap()
+    };
+    let next_signers = next_fixture.signers_fixture();
 
     comment!(
         "Increase epoch, triggering stake distribution update, Next epoch: {:?}",
@@ -145,7 +171,7 @@ async fn certificate_chain() {
     comment!(
         "Signers register & send signatures, the new certificate should be link to the first of the previous epoch"
     );
-    tester.register_signers(&new_signers).await.unwrap();
+    tester.register_signers(&next_signers).await.unwrap();
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
@@ -154,28 +180,15 @@ async fn certificate_chain() {
         .await
         .unwrap();
     cycle!(tester, "ready");
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((5, 2), (last_certificates.len(), snapshots.len()));
-    assert_eq!(
-        (
-            last_certificates[0].beacon.immutable_file_number,
-            last_certificates[0].beacon.epoch,
-        ),
-        (
-            last_certificates[1].beacon.immutable_file_number,
-            last_certificates[1].beacon.epoch + 1,
-        ),
-        "Only the epoch should have changed"
-    );
-    assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[4].hash,
-        "The new epoch certificate should be linked to the first certificate of the previous epoch"
-    );
-    assert_eq!(
-        last_certificates[0].metadata.get_stake_distribution(),
-        last_certificates[2].metadata.get_stake_distribution(),
-        "The stake distribution update should only be taken into account at the next epoch",
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 2, 4),
+            &initial_fixture.signers_with_stake(),
+            initial_fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+        )
     );
 
     comment!(
@@ -198,6 +211,16 @@ async fn certificate_chain() {
         .await
         .unwrap();
     cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 3, 5),
+            &initial_fixture.signers_with_stake(),
+            initial_fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
+        )
+    );
 
     comment!(
         "Increase epoch & immutable, stake distribution updated at {} should be signed in the new certificate, Next epoch: {:?}",
@@ -214,35 +237,20 @@ async fn certificate_chain() {
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &new_signers,
+            &next_signers,
         )
         .await
         .unwrap();
     cycle!(tester, "ready");
-
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((7, 2), (last_certificates.len(), snapshots.len()));
-    assert_eq!(
-        (
-            last_certificates[0].beacon.immutable_file_number,
-            last_certificates[0].beacon.epoch,
-        ),
-        (
-            last_certificates[1].beacon.immutable_file_number + 1,
-            last_certificates[1].beacon.epoch + 1,
-        ),
-        "Both the epoch & immutable file number should have change"
-    );
-
-    assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[1].hash,
-        "The new epoch certificate should be linked to the first certificate of the previous epoch"
-    );
-    assert_ne!(
-        last_certificates[0].metadata.get_stake_distribution(),
-        last_certificates[2].metadata.get_stake_distribution(),
-        "The stake distribution update should have been applied for this epoch",
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 4, 6),
+            &next_fixture.signers_with_stake(),
+            next_fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
+        )
     );
 
     comment!(
@@ -255,7 +263,7 @@ async fn certificate_chain() {
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            &new_signers,
+            &next_signers,
         )
         .await
         .unwrap();
@@ -265,11 +273,14 @@ async fn certificate_chain() {
         "A CardanoImmutableFilesFull, linked to the MithrilStakeDistribution of the current epoch, should have been created, {:?}",
         current_epoch
     );
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((8, 3), (last_certificates.len(), snapshots.len()));
-    assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[1].hash,
-        "The CardanoImmutableFilesFull certificate should be linked to the MithrilStakeDistribution certificate of the current epoch"
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 4, 7),
+            &next_fixture.signers_with_stake(),
+            next_fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 4, 7)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
+        )
     );
 }
