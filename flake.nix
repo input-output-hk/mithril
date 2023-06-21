@@ -14,6 +14,8 @@
 
       imports = [inputs.treefmt-nix.flakeModule];
 
+      flake.hydraJobs = inputs.self.packages;
+
       perSystem = {
         pkgs,
         config,
