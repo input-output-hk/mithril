@@ -34,6 +34,9 @@ pub struct Configuration {
     /// Aggregator endpoint
     pub aggregator_endpoint: String,
 
+    /// Relay endpoint
+    pub relay_endpoint: Option<String>,
+
     /// Party Id
     // TODO: Field should be removed once the signer certification is fully deployed
     pub party_id: Option<PartyId>,
