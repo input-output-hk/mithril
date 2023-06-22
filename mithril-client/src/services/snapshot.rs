@@ -1,13 +1,15 @@
 use std::{
+    fmt::Write,
     fs::{remove_file, File},
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use human_bytes::human_bytes;
-use indicatif::ProgressDrawTarget;
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
@@ -18,9 +20,14 @@ use mithril_common::{
 use slog_scope::{debug, info, warn};
 use tar::Archive;
 use thiserror::Error;
+use tokio::{select, time::sleep};
 
 use crate::aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient};
 
+/// This ratio will be multiplied by the snapshot size to check if the available
+/// disk space is sufficient to perform download & extract operations. If not, a
+/// warning is printed.
+const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 2.5;
 /// [SnapshotService] related errors.
 #[derive(Error, Debug)]
 pub enum SnapshotServiceError {
@@ -28,7 +35,8 @@ pub enum SnapshotServiceError {
     #[error("Snapshot '{0}' not found")]
     SnapshotNotFound(String),
 
-    /// Error raised when the certificate verification failed for the downloaded archive.
+    /// Error raised when the certificate verification failed for the downloaded
+    /// archive.
     #[error("Certificate verification failed (snapshot digest = '{digest}'). The archive has been downloaded in '{path}'.")]
     CouldNotVerifySnapshot {
         /// snapshot digest
@@ -159,15 +167,16 @@ impl SnapshotService for MithrilClientSnapshotService {
         debug!("Snapshot service: download.");
         // 0 - Check prerequisistes are met
         let unpack_dir = pathdir.join("db");
-
+        let progress_bar = MultiProgress::with_draw_target(progress_target);
+        progress_bar.println("1/7 - Checking local disk info…")?;
         if unpack_dir.exists() {
             return Err(SnapshotServiceError::UnpackDirectoryAlreadyExists(unpack_dir).into());
         }
         {
             let free_space = fs2::available_space(pathdir)? as f64;
 
-            if free_space < 2.5 * snapshot.size as f64 {
-                warn!("There might not be enough space on the disk ({} free) to unpack a {} size snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
+            if free_space < FREE_SPACE_SNAPSHOT_SIZE_RATIO * snapshot.size as f64 {
+                warn!("There might not be enough space on the disk ({} free) to store and unpack a {} size snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
             } else {
                 info!("It seems there is enough disk space ({} free) to download and unpack the {} large snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
             }
@@ -193,6 +202,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
         // 2 - Get certificate information
+        progress_bar.println("2/7 - Fetching certificate information…")?;
         let certificate = self
             .certificate_client
             .get(&snapshot.certificate_hash)
@@ -202,21 +212,39 @@ impl SnapshotService for MithrilClientSnapshotService {
             })?;
 
         // 3 - Check the certificate chain
-        self.certificate_verifier
-            .verify_certificate_chain(
-                certificate.clone(),
-                self.certificate_client.clone(),
-                &genesis_verifier,
-            )
-            .await?;
+        progress_bar.println("3/7 - Check certificate chain…")?;
+        let pb = progress_bar.add(ProgressBar::new_spinner());
+        let spinner = async move {
+            loop {
+                pb.tick();
+                sleep(Duration::from_millis(50)).await;
+            }
+        };
+        let verifier = self.certificate_verifier.verify_certificate_chain(
+            certificate.clone(),
+            self.certificate_client.clone(),
+            &genesis_verifier,
+        );
+        let res = select! {
+            _ = spinner => Ok(()),
+            res = verifier => res,
+        };
+        res?;
 
         // 4 - Launch download and unpack the file on disk
+        progress_bar.println("4/7 Downloading the snapshot…")?;
+        let pb = progress_bar.add(ProgressBar::new(snapshot.size));
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+            .unwrap()
+            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .progress_chars("#>-"));
         let filepath = self
             .snapshot_client
-            .download(snapshot, pathdir, progress_target)
+            .download(snapshot, pathdir, pb)
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
+        progress_bar.println("5/7 Unpacking the snapshot…")?;
         self.unpack_snapshot(&filepath, &unpack_dir)
             .await
             .map_err(|e| {
@@ -226,6 +254,7 @@ impl SnapshotService for MithrilClientSnapshotService {
                     unpack_dir.display()
                 )
             })?;
+        progress_bar.println("6/7 - Compute snapshot digest…")?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&unpack_dir, &certificate.beacon)
@@ -238,6 +267,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             })?;
 
         // 5 - Compute protocol message and compare hash sums
+        progress_bar.println("7/7 - Verifying snapshot signature…")?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,

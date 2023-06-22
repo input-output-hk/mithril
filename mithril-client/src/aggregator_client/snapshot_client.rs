@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use indicatif::ProgressDrawTarget;
+use indicatif::ProgressBar;
 use mithril_common::{
     entities::Snapshot,
     messages::{SnapshotListMessage, SnapshotMessage},
@@ -68,7 +68,7 @@ impl SnapshotClient {
         &self,
         snapshot: &Snapshot,
         download_dir: &Path,
-        progress_target: ProgressDrawTarget,
+        progress_bar: ProgressBar,
     ) -> StdResult<PathBuf> {
         let filepath = PathBuf::new()
             .join(download_dir)
@@ -78,7 +78,7 @@ impl SnapshotClient {
             if self.http_client.probe(url).await.is_ok() {
                 match self
                     .http_client
-                    .download(url, &filepath, progress_target)
+                    .download(url, &filepath, progress_bar)
                     .await
                 {
                     Ok(()) => return Ok(filepath),

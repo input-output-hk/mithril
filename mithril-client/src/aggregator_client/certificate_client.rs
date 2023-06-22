@@ -8,6 +8,7 @@ use mithril_common::{
     messages::CertificateMessage,
     StdResult,
 };
+use slog_scope::{crit, debug};
 
 use crate::FromCertificateMessageAdapter;
 
@@ -33,7 +34,12 @@ impl CertificateClient {
             Err(e) if matches!(e, AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
             Ok(response) => {
-                let message = serde_json::from_str::<CertificateMessage>(&response)?;
+                let message =
+                    serde_json::from_str::<CertificateMessage>(&response).map_err(|e| {
+                        crit!("Could not create certificate from API message: {e}.");
+                        debug!("Certificate message = {response}");
+                        e
+                    })?;
 
                 Ok(Some(FromCertificateMessageAdapter::adapt(message)))
             }

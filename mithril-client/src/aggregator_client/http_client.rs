@@ -1,9 +1,9 @@
-use std::{fmt::Write, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use futures::StreamExt;
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
+use indicatif::ProgressBar;
 use reqwest::{Client, Response, StatusCode};
 use semver::Version;
 use slog_scope::debug;
@@ -56,7 +56,7 @@ pub trait AggregatorClient: Sync + Send {
         &self,
         url: &str,
         filepath: &Path,
-        progress_target: ProgressDrawTarget,
+        progress_bar: ProgressBar,
     ) -> Result<(), AggregatorHTTPClientError>;
 
     /// Test if the given URL points to a valid location & existing content.
@@ -183,7 +183,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         &self,
         url: &str,
         filepath: &Path,
-        progress_target: ProgressDrawTarget,
+        progress_bar: ProgressBar,
     ) -> Result<(), AggregatorHTTPClientError> {
         let response = self.get(url).await?;
         let mut local_file = fs::File::create(filepath).await.map_err(|e| {
@@ -195,18 +195,7 @@ impl AggregatorClient for AggregatorHTTPClient {
                 error: e.into(),
             }
         })?;
-        let total_bytes = response.content_length().ok_or_else(|| {
-            AggregatorHTTPClientError::RemoteServerTechnical(
-                "Download: cannot get response content length".to_string(),
-            )
-        })?;
         let mut downloaded_bytes: u64 = 0;
-        let pb = ProgressBar::new(total_bytes);
-        pb.set_draw_target(progress_target);
-        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-            .unwrap()
-            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-            .progress_chars("#>-"));
         let mut remote_stream = response.bytes_stream();
 
         while let Some(item) = remote_stream.next().await {
@@ -226,7 +215,7 @@ impl AggregatorClient for AggregatorHTTPClient {
                 }
             })?;
             downloaded_bytes += chunk.len() as u64;
-            pb.set_position(downloaded_bytes);
+            progress_bar.set_position(downloaded_bytes);
         }
 
         Ok(())
