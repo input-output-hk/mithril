@@ -95,18 +95,19 @@ pub mod handlers {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::http_server::SERVER_BASE_PATH;
-    use crate::signed_entity_service::MockSignedEntityService;
-    use mithril_common::entities::{Epoch, SignedEntity, SignedEntityType};
-    use mithril_common::signable_builder::Artifact;
-    use mithril_common::sqlite::HydrationError;
-    use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::test_utils::fake_data;
+    use crate::{
+        http_server::SERVER_BASE_PATH, initialize_dependencies,
+        signed_entity_service::MockSignedEntityService,
+    };
+    use chrono::{DateTime, Utc};
+    use mithril_common::{
+        entities::{Epoch, SignedEntity, SignedEntityType},
+        signable_builder::Artifact,
+        sqlite::HydrationError,
+        test_utils::{apispec::APISpec, fake_data},
+    };
     use serde_json::Value::Null;
-
-    use crate::initialize_dependencies;
-    use warp::http::Method;
-    use warp::test::request;
+    use warp::{http::Method, test::request};
 
     use super::*;
 
@@ -138,7 +139,9 @@ pub mod tests {
                 signed_entity_type: signed_entity_type.to_owned(),
                 certificate_id: format!("certificate-{idx}"),
                 artifact: record,
-                created_at: "2023-01-19T13:43:05.618857482Z".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
             })
             .collect()
     }

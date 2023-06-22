@@ -45,7 +45,7 @@ mod tests {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             certificate_id: "cert-hash-123".to_string(),
             artifact: mithril_stake_distribution,
-            created_at: "date-1234".to_string(),
+            created_at: DateTime::<Utc>::default(),
         };
         let mithril_stake_distribution_message_expected = MithrilStakeDistributionMessage {
             epoch: Epoch(1),

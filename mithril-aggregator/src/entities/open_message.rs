@@ -1,4 +1,4 @@
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, SingleSignatures,
 };
@@ -28,7 +28,7 @@ pub struct OpenMessage {
     pub single_signatures: Vec<SingleSignatures>,
 
     /// Message creation datetime
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 impl OpenMessage {
@@ -45,7 +45,7 @@ impl OpenMessage {
     pub fn dummy() -> Self {
         use mithril_common::test_utils::fake_data;
 
-        let beacon = mithril_common::test_utils::fake_data::beacon();
+        let beacon = fake_data::beacon();
         let epoch = beacon.epoch;
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon);
 
@@ -58,7 +58,7 @@ impl OpenMessage {
                 fake_data::single_signatures(vec![1, 4, 5]),
                 fake_data::single_signatures(vec![2, 3, 8]),
             ],
-            created_at: chrono::Local::now().naive_local(),
+            created_at: Utc::now(),
         }
     }
 }
@@ -92,6 +92,7 @@ impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessage {
 #[cfg(test)]
 mod test {
     use crate::database::provider::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
+    use chrono::Utc;
     use mithril_common::{
         entities::{Epoch, ProtocolMessage, SignedEntityType},
         test_utils::fake_data,
@@ -103,7 +104,7 @@ mod test {
 
     #[test]
     fn test_from_record() {
-        let created_at = chrono::Local::now().naive_local();
+        let created_at = Utc::now();
         let record = OpenMessageRecord {
             open_message_id: Uuid::new_v4(),
             epoch: Epoch(1),
@@ -127,7 +128,7 @@ mod test {
 
     #[test]
     fn test_from_record_with_single_signatures() {
-        let created_at = chrono::Local::now().naive_local();
+        let created_at = Utc::now();
         let record = OpenMessageWithSingleSignaturesRecord {
             open_message_id: Uuid::new_v4(),
             epoch: Epoch(1),

@@ -1,8 +1,8 @@
-#![allow(dead_code)]
-use std::sync::Arc;
-
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use uuid::Uuid;
 
 use mithril_common::{
     entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignatures},
@@ -10,11 +10,8 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
+    StdError,
 };
-
-use mithril_common::StdError;
-use tokio::sync::Mutex;
-use uuid::Uuid;
 
 use super::OpenMessageRecord;
 
@@ -37,7 +34,7 @@ pub struct SingleSignatureRecord {
     pub signature: HexEncodedSingleSignature,
 
     /// Date and time when the single_signature was created
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
 }
 
 impl SingleSignatureRecord {
@@ -52,7 +49,7 @@ impl SingleSignatureRecord {
             registration_epoch_setting_id,
             lottery_indexes: other.won_indexes.to_owned(),
             signature: other.signature.to_owned(),
-            created_at: format!("{:?}", Utc::now()),
+            created_at: Utc::now(),
         }
     }
 }
@@ -100,7 +97,13 @@ impl SqLiteEntity for SingleSignatureRecord {
                 ))
             })?,
             signature,
-            created_at,
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                })?
+                .with_timezone(&Utc),
         };
 
         Ok(single_signature_record)
@@ -152,6 +155,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
         ))
     }
 
+    #[allow(dead_code)] // todo: Should we keep this ?
     fn condition_by_signer_id(&self, signer_id: String) -> Result<WhereCondition, StdError> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
@@ -159,6 +163,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
         ))
     }
 
+    #[allow(dead_code)] // todo: Should we keep this ?
     fn condition_by_registration_epoch(
         &self,
         registration_epoch: &Epoch,
@@ -230,7 +235,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
                 ),
                 Value::String(serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()),
                 Value::String(single_signature_record.signature.to_owned()),
-                Value::String(single_signature_record.created_at.to_owned()),
+                Value::String(single_signature_record.created_at.to_rfc3339()),
             ],
         )
     }
@@ -303,7 +308,10 @@ impl SingleSignatureRepository {
 mod tests {
     use mithril_common::test_utils::fake_data;
 
-    use crate::database::provider::{setup_single_signature_db, setup_single_signature_records};
+    use crate::database::provider::{
+        apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
+        setup_single_signature_records,
+    };
 
     use super::*;
 
@@ -402,7 +410,7 @@ mod tests {
                     serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()
                 ),
                 Value::String(single_signature_record.signature),
-                Value::String(single_signature_record.created_at),
+                Value::String(single_signature_record.created_at.to_rfc3339()),
             ],
             params
         );
@@ -413,7 +421,9 @@ mod tests {
         let single_signature_records_src = setup_single_signature_records(2, 3, 4);
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, single_signature_records_src.clone()).unwrap();
+        apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
+        insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
 
         let provider = SingleSignatureRecordProvider::new(&connection);
 
@@ -485,7 +495,8 @@ mod tests {
         let single_signature_records_copy = single_signature_records.clone();
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, Vec::new()).unwrap();
+        apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
 
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
 

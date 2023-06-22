@@ -20,6 +20,7 @@ impl MessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMessa
 
 #[cfg(test)]
 mod tests {
+    use chrono::{DateTime, Utc};
     use mithril_common::{
         entities::{Beacon, SignedEntityType},
         test_utils::fake_data,
@@ -36,7 +37,7 @@ mod tests {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             certificate_id: "certificate-hash-123".to_string(),
             artifact: snapshot,
-            created_at: "date-123".to_string(),
+            created_at: DateTime::<Utc>::default(),
         };
         let snapshot_message = ToSnapshotMessageAdapter::adapt(signed_entity);
 

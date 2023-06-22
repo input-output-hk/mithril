@@ -1,4 +1,5 @@
 use crate::{entities::Beacon, signable_builder::Artifact};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Snapshot represents a snapshot file and its metadata
@@ -17,7 +18,7 @@ pub struct Snapshot {
     pub size: u64,
 
     /// Date and time at which the snapshot was created
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
 
     /// Locations where the binary content of the snapshot can be retrieved
     pub locations: Vec<String>,
@@ -30,7 +31,7 @@ impl Snapshot {
         beacon: Beacon,
         certificate_hash: String,
         size: u64,
-        created_at: String,
+        created_at: DateTime<Utc>,
         locations: Vec<String>,
     ) -> Snapshot {
         Snapshot {

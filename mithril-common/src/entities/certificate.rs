@@ -3,11 +3,10 @@ use crate::entities::{
     HexEncodedMultiSignature, ProtocolMessage,
 };
 
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Certificate {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -97,11 +96,18 @@ impl Certificate {
 mod tests {
     use super::*;
     use crate::entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake};
+    use chrono::{Duration, TimeZone, Timelike, Utc};
 
     #[test]
     fn test_certificate_compute_hash() {
-        let hash_expected = "7d714a2005ceb4778efe8805c9efe139a65aa5c607b38befeee97a4518928a0c";
+        let hash_expected = "bd6e3701ee3602b75d9bc69d77af48810937ea8e339f4b06175d15c5b6c95187";
 
+        let initiated_at = Utc
+            .with_ymd_and_hms(2024, 2, 12, 13, 11, 47)
+            .unwrap()
+            .with_nanosecond(123043)
+            .unwrap();
+        let sealed_at = initiated_at + Duration::seconds(100);
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -119,8 +125,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -156,8 +162,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -193,8 +199,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -230,8 +236,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0-modified".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -272,8 +278,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -309,8 +315,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -346,8 +352,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),
@@ -383,8 +389,8 @@ mod tests {
                 CertificateMetadata::new(
                     "0.1.0".to_string(),
                     ProtocolParameters::new(1000, 100, 0.123),
-                    "initiated_at".to_string(),
-                    "sealed_at".to_string(),
+                    initiated_at,
+                    sealed_at,
                     vec![
                         SignerWithStake::new(
                             "1".to_string(),

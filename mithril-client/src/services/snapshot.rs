@@ -239,24 +239,24 @@ impl SnapshotService for MithrilClientSnapshotService {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::create_dir_all;
-    use std::io::Write;
-
-    use config::builder::DefaultState;
-    use config::ConfigBuilder;
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
-    use mithril_common::crypto_helper::key_encode_hex;
-    use mithril_common::crypto_helper::tests_setup::setup_genesis;
-    use mithril_common::digesters::DumbImmutableDigester;
-    use mithril_common::messages::{
-        CertificateMessage, SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage,
+    use chrono::{DateTime, Utc};
+    use config::{builder::DefaultState, ConfigBuilder};
+    use flate2::{write::GzEncoder, Compression};
+    use mithril_common::{
+        crypto_helper::{key_encode_hex, tests_setup::setup_genesis},
+        digesters::DumbImmutableDigester,
+        messages::{
+            CertificateMessage, SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage,
+        },
+        test_utils::fake_data,
     };
-    use mithril_common::test_utils::fake_data;
+    use std::{fs::create_dir_all, io::Write};
 
-    use crate::aggregator_client::{AggregatorClient, MockAggregatorHTTPClient};
-    use crate::dependencies::DependenciesBuilder;
-    use crate::FromSnapshotMessageAdapter;
+    use crate::{
+        aggregator_client::{AggregatorClient, MockAggregatorHTTPClient},
+        dependencies::DependenciesBuilder,
+        FromSnapshotMessageAdapter,
+    };
 
     use super::super::mock::*;
 
@@ -285,7 +285,7 @@ mod tests {
             beacon: fake_data::beacon(),
             certificate_hash: "certificate-hash-1".to_string(),
             size: 1024,
-            created_at: "whatever".to_string(),
+            created_at: DateTime::<Utc>::default(),
             locations: vec!["location-1.1".to_string(), "location-1.2".to_string()],
         };
         let item2 = SnapshotListItemMessage {
@@ -293,7 +293,7 @@ mod tests {
             beacon: fake_data::beacon(),
             certificate_hash: "certificate-hash-2".to_string(),
             size: 1024,
-            created_at: "whatever".to_string(),
+            created_at: DateTime::<Utc>::default(),
             locations: vec!["location-2.1".to_string(), "location-2.2".to_string()],
         };
 
@@ -306,7 +306,7 @@ mod tests {
             beacon: fake_data::beacon(),
             certificate_hash: "snapshot-digest-123".to_string(),
             size: 1024,
-            created_at: "whatever".to_string(),
+            created_at: DateTime::<Utc>::default(),
             locations: vec!["location-10.1".to_string(), "location-10.2".to_string()],
         }
     }
@@ -537,7 +537,7 @@ mod tests {
     async fn test_download_snapshot_dir_already_exists() {
         let test_path = std::env::temp_dir().join("test_download_snapshot_dir_already_exists");
         let _ = std::fs::remove_dir_all(&test_path);
-        std::fs::create_dir_all(test_path.join("db")).unwrap();
+        create_dir_all(test_path.join("db")).unwrap();
         let http_client = MockAggregatorHTTPClient::new();
         let http_client = Arc::new(http_client);
         let mut dep_builder = get_dep_builder(http_client);

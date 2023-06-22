@@ -315,7 +315,9 @@ mod tests {
     const TABLE_NAME: &str = "key_value_store";
 
     fn get_file_path(test_name: &str) -> PathBuf {
-        let dirpath = std::env::temp_dir().join("mithril_test");
+        let dirpath = std::env::temp_dir()
+            .join("mithril_test")
+            .join("sqlite_adapter");
 
         if !dirpath.exists() {
             create_dir_all(&dirpath).unwrap_or_else(|_| {

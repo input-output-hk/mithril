@@ -128,7 +128,7 @@ impl SignedEntityService for MithrilSignedEntityService {
             signed_entity_type,
             certificate_id: certificate.hash.clone(),
             artifact: serde_json::to_string(&artifact)?,
-            created_at: format!("{:?}", Utc::now()),
+            created_at: Utc::now(),
         };
 
         self.signed_entity_storer

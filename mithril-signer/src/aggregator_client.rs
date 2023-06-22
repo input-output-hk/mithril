@@ -430,7 +430,7 @@ mod tests {
     #[tokio::test]
     async fn test_epoch_settings_ok_200() {
         let (server, config, api_version_provider) = setup_test();
-        let epoch_settings_expected = fake_data::epoch_settings();
+        let epoch_settings_expected = EpochSettingsMessage::dummy();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(200)
@@ -443,7 +443,10 @@ mod tests {
         );
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
-        assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
+        assert_eq!(
+            FromEpochSettingsAdapter::adapt(epoch_settings_expected),
+            epoch_settings.unwrap().unwrap()
+        );
     }
 
     #[tokio::test]
@@ -490,7 +493,7 @@ mod tests {
     #[tokio::test]
     async fn test_certificate_pending_ok_200() {
         let (server, config, api_version_provider) = setup_test();
-        let pending_certificate_expected = fake_data::certificate_pending();
+        let pending_certificate_expected = CertificatePendingMessage::dummy();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
             then.status(200)
@@ -504,7 +507,7 @@ mod tests {
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         pending_certificate.as_ref().expect("unexpected error");
         assert_eq!(
-            pending_certificate_expected,
+            FromPendingCertificateMessageAdapter::adapt(pending_certificate_expected),
             pending_certificate.unwrap().unwrap()
         );
     }

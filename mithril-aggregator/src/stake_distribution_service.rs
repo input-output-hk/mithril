@@ -227,9 +227,9 @@ impl StakeDistributionService for MithrilStakeDistributionService {
 #[cfg(test)]
 mod tests {
     use crate::dependency_injection::DependenciesBuilder;
+    use mithril_common::chain_observer::MockChainObserver;
 
     use super::*;
-    use mithril_common::chain_observer::MockChainObserver;
 
     async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
         let mut builder = DependenciesBuilder::new(crate::Configuration::new_sample());
@@ -237,29 +237,38 @@ mod tests {
             builder.get_stake_store().await.unwrap(),
             Arc::new(chain_observer),
         );
-        let query =
-            "insert into stake_pool (stake_pool_id, epoch, stake) values (?1, ?2, ?3)".to_string();
-        let stake_distribution: &[(&str, i64, i64); 9] = &[
-            ("pool1", 1, 1000),
-            ("pool2", 1, 1100),
-            ("pool3", 1, 1300),
-            ("pool1", 2, 1230),
-            ("pool2", 2, 1090),
-            ("pool3", 2, 1300),
-            ("pool1", 3, 1250),
-            ("pool2", 3, 1370),
-            ("pool3", 3, 1300),
-        ];
-        let connection = builder.get_sqlite_connection().await.unwrap();
-        let cnt_lock = connection.lock().await;
 
-        for (pool_id, epoch, stake) in stake_distribution {
-            let mut statement = cnt_lock.prepare(&query).unwrap();
-
-            statement.bind(1, *pool_id).unwrap();
-            statement.bind(2, *epoch).unwrap();
-            statement.bind(3, *stake).unwrap();
-            statement.next().unwrap();
+        let store = builder.get_stake_store().await.unwrap();
+        for (epoch, stake_distribution) in [
+            (
+                Epoch(1),
+                [
+                    ("pool1".to_string(), 1000),
+                    ("pool2".to_string(), 1100),
+                    ("pool3".to_string(), 1300),
+                ],
+            ),
+            (
+                Epoch(2),
+                [
+                    ("pool1".to_string(), 1230),
+                    ("pool2".to_string(), 1090),
+                    ("pool3".to_string(), 1300),
+                ],
+            ),
+            (
+                Epoch(3),
+                [
+                    ("pool1".to_string(), 1250),
+                    ("pool2".to_string(), 1370),
+                    ("pool3".to_string(), 1300),
+                ],
+            ),
+        ] {
+            store
+                .save_stakes(epoch, StakeDistribution::from(stake_distribution))
+                .await
+                .unwrap();
         }
 
         stake_service

@@ -1,9 +1,11 @@
+use chrono::{DateTime, Utc};
 use cli_table::{format::Justify, Table};
+use serde::Serialize;
+
 use mithril_common::{
     entities::{Epoch, Snapshot},
     messages::MithrilStakeDistributionListItemMessage,
 };
-use serde::Serialize;
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
 /// for the purpose of tabular display
@@ -35,7 +37,7 @@ pub struct SnapshotListItem {
 
     /// Date and time at which the snapshot was created
     #[table(title = "Created", justify = "Justify::Right")]
-    pub created_at: String,
+    pub created_at: DateTime<Utc>,
 }
 
 impl From<Snapshot> for SnapshotListItem {
@@ -61,7 +63,7 @@ impl SnapshotListItem {
         digest: String,
         size: u64,
         total_locations: u16,
-        created_at: String,
+        created_at: DateTime<Utc>,
     ) -> SnapshotListItem {
         SnapshotListItem {
             epoch,

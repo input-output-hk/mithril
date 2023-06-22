@@ -1,8 +1,8 @@
-use std::sync::Arc;
-
-use sqlite::{Connection, Value};
-
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use sqlite::{Connection, Value};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
@@ -15,11 +15,8 @@ use mithril_common::{
         WhereCondition,
     },
     store::adapter::{AdapterError, StoreAdapter},
-    StdResult,
+    StdError, StdResult,
 };
-
-use mithril_common::StdError;
-use tokio::sync::Mutex;
 
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
@@ -60,10 +57,10 @@ pub struct CertificateRecord {
     pub signers: Vec<SignerWithStake>,
 
     /// Date and time when the certificate was initiated
-    pub initiated_at: String,
+    pub initiated_at: DateTime<Utc>,
 
     /// Date and time when the certificate was sealed
-    pub sealed_at: String,
+    pub sealed_at: DateTime<Utc>,
 }
 
 impl CertificateRecord {
@@ -88,8 +85,12 @@ impl CertificateRecord {
             protocol_parameters: Default::default(),
             protocol_message: Default::default(),
             signers: vec![],
-            initiated_at: "???".to_string(),
-            sealed_at: "???".to_string(),
+            initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                .unwrap()
+                .with_timezone(&Utc),
+            sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                .unwrap()
+                .with_timezone(&Utc),
         }
     }
 }
@@ -229,8 +230,20 @@ impl SqLiteEntity for CertificateRecord {
                     ))
                 },
             )?,
-            initiated_at,
-            sealed_at
+            initiated_at: DateTime::parse_from_rfc3339(&initiated_at).map_err(
+                |e| {
+                  HydrationError::InvalidData(format!(
+                      "Could not turn string '{initiated_at}' to rfc3339 Datetime. Error: {e}"
+                  ))
+              },
+            )?.with_timezone(&Utc),
+            sealed_at: DateTime::parse_from_rfc3339(&sealed_at).map_err(
+                |e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{sealed_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                },
+            )?.with_timezone(&Utc),
         };
 
         Ok(certificate_record)
@@ -380,8 +393,8 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
                 ),
                 Value::String(serde_json::to_string(&certificate_record.protocol_message).unwrap()),
                 Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
-                Value::String(certificate_record.initiated_at.to_owned()),
-                Value::String(certificate_record.sealed_at.to_owned()),
+                Value::String(certificate_record.initiated_at.to_rfc3339()),
+                Value::String(certificate_record.sealed_at.to_rfc3339()),
             ],
         )
     }
@@ -610,8 +623,9 @@ impl StoreAdapter for CertificateStoreAdapter {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::provider::disable_foreign_key_support;
     use crate::{
-        database::migration::get_migrations, dependency_injection::DependenciesBuilder,
+        database::provider::apply_all_migrations_to_db, dependency_injection::DependenciesBuilder,
         Configuration,
     };
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
@@ -622,9 +636,8 @@ mod tests {
         connection: &Connection,
         certificates: Vec<Certificate>,
     ) -> Result<(), StdError> {
-        for migration in get_migrations() {
-            connection.execute(&migration.alterations)?;
-        }
+        apply_all_migrations_to_db(connection)?;
+        disable_foreign_key_support(connection)?;
 
         if certificates.is_empty() {
             return Ok(());
@@ -700,10 +713,10 @@ mod tests {
                 )
                 .unwrap();
             statement
-                .bind(12, certificate_record.initiated_at.as_str())
+                .bind(12, certificate_record.initiated_at.to_rfc3339().as_str())
                 .unwrap();
             statement
-                .bind(13, certificate_record.sealed_at.as_str())
+                .bind(13, certificate_record.sealed_at.to_rfc3339().as_str())
                 .unwrap();
             statement.next().unwrap();
         }
@@ -789,8 +802,8 @@ mod tests {
                 ),
                 Value::String(serde_json::to_string(&certificate_record.protocol_message).unwrap()),
                 Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
-                Value::String(certificate_record.initiated_at),
-                Value::String(certificate_record.sealed_at),
+                Value::String(certificate_record.initiated_at.to_rfc3339()),
+                Value::String(certificate_record.sealed_at.to_rfc3339()),
             ],
             params
         );

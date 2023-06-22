@@ -28,9 +28,10 @@ impl
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::SignedEntityType;
-    use mithril_common::test_utils::fake_data;
-    use mithril_common::{entities::Epoch, test_utils::fake_data::signers_with_stakes};
+    use mithril_common::{
+        entities::{Epoch, SignedEntityType},
+        test_utils::fake_data,
+    };
 
     use super::*;
 
@@ -38,7 +39,7 @@ mod tests {
     fn adapt_ok() {
         let mithril_stake_distribution = MithrilStakeDistribution {
             epoch: Epoch(1),
-            signers_with_stake: signers_with_stakes(1),
+            signers_with_stake: fake_data::signers_with_stakes(1),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::<Utc>::default(),
@@ -49,7 +50,7 @@ mod tests {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(0)),
             certificate_id: "certificate-hash-123".to_string(),
             artifact: mithril_stake_distribution,
-            created_at: "date-123".to_string(),
+            created_at: DateTime::<Utc>::default(),
         };
         let mithril_stake_distribution_list_message =
             ToMithrilStakeDistributionListMessageAdapter::adapt(vec![signed_entity]);

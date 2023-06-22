@@ -606,7 +606,7 @@ done
     cat >> activate.sh <<EOF
 echo ">> Wait for Cardano pools to be activated"
 POOLS_ACTIVATION_WAIT_ROUND_DELAY=2
-POOLS_ACTIVATION_WAIT_ROUNDS_MAX=\$(echo "scale=0; 5 * $EPOCH_LENGTH * $SLOT_LENGTH / \$POOLS_ACTIVATION_WAIT_ROUND_DELAY" | bc)
+POOLS_ACTIVATION_WAIT_ROUNDS_MAX=\$(echo "scale=0; 20 * $EPOCH_LENGTH * $SLOT_LENGTH / \$POOLS_ACTIVATION_WAIT_ROUND_DELAY" | bc)
 POOLS_ACTIVATION_WAIT_ROUNDS=1
 POOL_STAKE_RETRIEVAL_WAIT_ROUND_DELAY=2
 POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX=\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX
@@ -1135,6 +1135,10 @@ cat >> start-cardano.sh <<EOF
 
 echo ">> Start Cardano network"
 killall cardano-node > /dev/null 2>&1
+
+# Stop when there's an error, activate it after the killall since it will report an error if it doesn't kill anything
+set -e
+
 ./cardano-cli --version
 ./cardano-node --version
 

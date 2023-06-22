@@ -1,4 +1,5 @@
-use mithril_common::{entities::Epoch, StdError};
+use chrono::Utc;
+use mithril_common::{entities::Epoch, StdResult};
 use sqlite::Connection;
 use uuid::Uuid;
 
@@ -25,7 +26,7 @@ pub fn setup_single_signature_records(
                     registration_epoch_setting_id: Epoch(epoch),
                     lottery_indexes: (1..=single_signature_id).collect(),
                     signature: format!("signature-{single_signature_id}"),
-                    created_at: format!("created-at-{single_signature_id}"),
+                    created_at: Utc::now(),
                 });
             }
         }
@@ -33,14 +34,27 @@ pub fn setup_single_signature_records(
     single_signature_records
 }
 
-pub fn setup_single_signature_db(
-    connection: &Connection,
-    single_signature_records: Vec<SingleSignatureRecord>,
-) -> Result<(), StdError> {
+pub fn disable_foreign_key_support(connection: &Connection) -> StdResult<()> {
+    connection
+        .execute("pragma foreign_keys=false")
+        .map_err(|e| {
+            format!("SQLite initialization: could not enable FOREIGN KEY support. err: {e}")
+        })?;
+    Ok(())
+}
+
+pub fn apply_all_migrations_to_db(connection: &Connection) -> StdResult<()> {
     for migration in get_migrations() {
         connection.execute(&migration.alterations)?;
     }
 
+    Ok(())
+}
+
+pub fn insert_single_signatures_in_db(
+    connection: &Connection,
+    single_signature_records: Vec<SingleSignatureRecord>,
+) -> StdResult<()> {
     if single_signature_records.is_empty() {
         return Ok(());
     }
@@ -85,7 +99,7 @@ pub fn setup_single_signature_db(
             .bind(5, single_signature_record.signature.as_str())
             .unwrap();
         statement
-            .bind(6, single_signature_record.created_at.as_str())
+            .bind(6, single_signature_record.created_at.to_rfc3339().as_str())
             .unwrap();
         statement.next().unwrap();
     }

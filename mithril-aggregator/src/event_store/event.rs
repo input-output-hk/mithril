@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Utc};
 use mithril_common::sqlite::{
     HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
@@ -54,7 +54,7 @@ pub struct Event {
     pub event_id: i64,
 
     /// timestamp of event creation in the database.
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 
     /// the `source` of the original [EventMessage] this Event originates from.
     pub source: String,
@@ -67,35 +67,38 @@ pub struct Event {
 }
 
 impl SqLiteEntity for Event {
-    fn get_projection() -> Projection {
-        let mut projection = Projection::default();
-        projection.add_field("event_id", "event_id", "int");
-        projection.add_field("created_at", "strftime('%s', created_at)", "string");
-        projection.add_field("source", "source", "string");
-        projection.add_field("action", "action", "string");
-        projection.add_field("content", "content", "string");
-
-        projection
-    }
-
     fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError>
     where
         Self: Sized,
     {
+        let created_at = &row.get::<String, _>("created_at");
+
         let myself = Self {
             event_id: row.get::<i64, _>("event_id"),
-            created_at: NaiveDateTime::parse_from_str(&row.get::<String, _>("created_at"), "%s")
+            created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
-                        "could not parse Unix timestamp from the database: '{e}'"
+                        "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
                     ))
-                })?,
+                })?
+                .with_timezone(&Utc),
             source: row.get::<String, _>("source"),
             action: row.get::<String, _>("action"),
             content: row.get::<String, _>("content"),
         };
 
         Ok(myself)
+    }
+
+    fn get_projection() -> Projection {
+        let mut projection = Projection::default();
+        projection.add_field("event_id", "event_id", "int");
+        projection.add_field("created_at", "created_at", "string");
+        projection.add_field("source", "source", "string");
+        projection.add_field("action", "action", "string");
+        projection.add_field("content", "content", "string");
+
+        projection
     }
 }
 
@@ -115,7 +118,7 @@ impl<'conn> EventPersisterProvider<'conn> {
         let sql = r#"
         create table if not exists event (
             event_id integer primary key asc autoincrement,
-            created_at text not null default current_timestamp,
+            created_at text not null,
             source text not null,
             action text not null,
             content text nul null
@@ -153,7 +156,7 @@ impl EventPersister {
 
     fn get_persist_parameters(&self, message: EventMessage) -> Result<WhereCondition, StdError> {
         let filters = WhereCondition::new(
-            "(source, action, content) values (?*, ?*, ?*)",
+            "(source, action, content, created_at) values (?*, ?*, ?*, ?*)",
             vec![
                 sqlite::Value::String(message.source),
                 sqlite::Value::String(message.action),
@@ -162,6 +165,7 @@ impl EventPersister {
                     serde_json::to_string(&message.headers)?,
                     message.content
                 )),
+                sqlite::Value::String(Utc::now().to_rfc3339()),
             ],
         );
 
@@ -187,13 +191,14 @@ impl EventPersister {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mithril_common::StdResult;
 
     #[test]
     fn event_projection() {
         let projection = Event::get_projection();
 
         assert_eq!(
-            "event_id as event_id, strftime('%s', created_at) as created_at, source as source, action as action, content as content".to_string(),
+            "event_id as event_id, created_at as created_at, source as source, action as action, content as content".to_string(),
             projection.expand(SourceAlias::default())
         )
     }
@@ -206,9 +211,19 @@ mod tests {
         let (parameters, values) = persister.get_persist_parameters(message).unwrap().expand();
 
         assert_eq!(
-            "(source, action, content) values (?1, ?2, ?3)".to_string(),
+            "(source, action, content, created_at) values (?1, ?2, ?3, ?4)".to_string(),
             parameters
         );
-        assert_eq!(3, values.len());
+        assert_eq!(4, values.len());
+    }
+
+    #[test]
+    fn can_persist_event() -> StdResult<()> {
+        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
+        let persister = EventPersister::new(connection);
+        let message = EventMessage::new("source", "action", "content");
+
+        let _event = persister.persist(message)?;
+        Ok(())
     }
 }

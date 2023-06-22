@@ -115,7 +115,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             certificate.beacon.to_owned(),
             certificate.hash.to_owned(),
             *ongoing_snapshot.get_file_size(),
-            format!("{:?}", Utc::now()),
+            Utc::now(),
             remote_locations,
         );
 
@@ -189,7 +189,7 @@ mod tests {
             certificate.beacon.to_owned(),
             certificate.hash.to_owned(),
             *last_ongoing_snapshot.get_file_size(),
-            artifact.created_at.clone(),
+            artifact.created_at,
             remote_locations,
         );
         assert_eq!(artifact_expected, artifact);

@@ -1,7 +1,7 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::entities::Beacon;
-
 use crate::entities::ProtocolMessage;
 use crate::entities::ProtocolMessagePartKey;
 use crate::entities::ProtocolParameters;
@@ -27,12 +27,12 @@ pub struct CertificateListItemMessageMetadata {
     /// Date and time when the certificate was initiated
     /// Represents the time at which the single signatures registration is opened
     /// part of METADATA(p,n)
-    pub initiated_at: String,
+    pub initiated_at: DateTime<Utc>,
 
     /// Date and time when the certificate was sealed
     /// Represents the time at which the quorum of single signatures was reached so that they were aggregated into a multi signature
     /// part of METADATA(p,n)
-    pub sealed_at: String,
+    pub sealed_at: DateTime<Utc>,
 
     /// The number of signers that contributed to the certificate
     /// part of METADATA(p,n)
@@ -94,8 +94,12 @@ impl CertificateListItemMessage {
             metadata: CertificateListItemMessageMetadata {
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: "initiated_at".to_string(),
-                sealed_at: "sealed_at".to_string(),
+                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
                 total_signers: 2,
             },
             protocol_message: protocol_message.clone(),
@@ -126,8 +130,12 @@ mod tests {
             metadata: CertificateListItemMessageMetadata {
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: "initiated_at".to_string(),
-                sealed_at: "sealed_at".to_string(),
+                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
                 total_signers: 2,
             },
             protocol_message: protocol_message.clone(),
@@ -154,8 +162,8 @@ mod tests {
         "m": 100,
         "phi_f": 0.123
     },
-    "initiated_at": "initiated_at",
-    "sealed_at": "sealed_at",
+    "initiated_at": "2024-02-12T13:11:47Z",
+    "sealed_at": "2024-02-12T13:12:57Z",
     "total_signers": 2
 },
 "protocol_message": {

@@ -349,5 +349,177 @@ where
     and signed_entity.certificate_id = certificate.certificate_id
 "#,
         ),
+        // Migration 14
+        // Alter `signer`, `signer_registration`, `single_signature`, `open_message`, `certificate`,
+        // `stake_pool`, and `signed_entity` tables to remove `default current_timestamp` clause
+        // and migrate old data to rfc 3339 for `stake_pool` & `open_message` (other tables already
+        // are stored in a compatible format).
+        SqlMigration::new(
+            14,
+            r#"
+-- disable foreign keys since we will delete tables linked using them
+pragma foreign_keys=false;
+
+-- Migrate signer
+create table new_signer (
+    signer_id                   text        not null,
+    pool_ticker                 text,
+    created_at                  text        not null,
+    updated_at                  text        not null,
+    primary key (signer_id)
+);
+
+insert into new_signer select * from signer order by rowid asc;
+
+drop table signer;
+alter table new_signer rename to signer;
+
+-- Migrate signer_registration
+create table new_signer_registration (
+    signer_id                   text        not null,
+    epoch_setting_id            integer     not null,
+    verification_key            text        not null,
+    verification_key_signature  text,
+    operational_certificate     text,
+    kes_period                  integer,
+    stake                       integer,
+    created_at                  text        not null,
+    primary key (epoch_setting_id, signer_id)
+    foreign key (epoch_setting_id) references epoch_setting(epoch_setting_id)
+    foreign key (signer_id) references signer(signer_id)
+);
+insert into new_signer_registration select * from signer_registration order by rowid asc;
+
+drop table signer_registration;
+alter table new_signer_registration rename to signer_registration;
+
+-- Migrate single_signature
+create table new_single_signature (
+    open_message_id                 text        not null,
+    signer_id                       text        not null,
+    registration_epoch_setting_id   integer     not null,
+    lottery_indexes                 json        not null,
+    signature                       text        not null,
+    created_at                      text        not null,
+    primary key (open_message_id, signer_id, registration_epoch_setting_id)
+    foreign key (open_message_id) references open_message(open_message_id) on delete cascade
+    foreign key (signer_id, registration_epoch_setting_id) references signer_registration(signer_id, epoch_setting_id)
+);
+insert into new_single_signature select * from single_signature order by rowid asc;
+
+drop table single_signature;
+alter table new_single_signature rename to single_signature;
+
+-- Migrate open_message
+create table new_open_message (
+    open_message_id         text    not null,
+    epoch_setting_id        int     not null,
+    beacon                  json    not null,
+    signed_entity_type_id   int     not null,
+    created_at              text    not null,
+    protocol_message        json    not null,
+    is_certified            bool    not null default false,
+    primary key (open_message_id),
+    foreign key (epoch_setting_id)     references epoch_setting (epoch_setting_id),
+    foreign key (signed_entity_type_id) references signed_entity_type (signed_entity_type_id)
+);
+
+insert into new_open_message (open_message_id, epoch_setting_id, beacon, signed_entity_type_id,
+    created_at, protocol_message, is_certified)
+    select open_message_id, epoch_setting_id, beacon, signed_entity_type_id,
+        strftime('%Y-%m-%dT%H:%M:%fZ', created_at) as created_at,
+        protocol_message,
+        is_certified
+    from open_message order by rowid asc;
+
+drop table open_message;
+alter table new_open_message rename to open_message;
+
+create unique index open_message_unique_index on open_message(signed_entity_type_id, beacon);
+
+-- Migrate certificate
+create table new_certificate (
+    certificate_id              text     not null,
+    parent_certificate_id       text,
+    message                     text     not null,
+    signature                   text     not null,
+    aggregate_verification_key  text     not null,
+    epoch                       integer  not null,
+    beacon                      json     not null,
+    protocol_version            text     not null,
+    protocol_parameters         json     not null,
+    protocol_message            json     not null,
+    signers                     json     not null,
+    initiated_at                text     not null,
+    sealed_at                   text     not null,
+    primary key (certificate_id),
+    foreign key (parent_certificate_id) references certificate(certificate_id)
+);
+insert into new_certificate
+    select certificate_id, parent_certificate_id, message, signature, aggregate_verification_key,
+        epoch, beacon, protocol_version, protocol_parameters, protocol_message, signers,
+        strftime('%Y-%m-%dT%H:%M:%fZ', initiated_at) as initiated_at,
+        strftime('%Y-%m-%dT%H:%M:%fZ', sealed_at) as sealed_at
+    from certificate order by rowid asc;
+
+drop table certificate;
+alter table new_certificate rename to certificate;
+
+create index epoch_index on certificate(epoch);
+
+-- Migrate stake_pool
+create table new_stake_pool (
+    stake_pool_id text      not null,
+    epoch         integer   not null,
+    stake         integer   not null,
+    created_at    text      not null,
+    primary key (epoch, stake_pool_id)
+);
+
+insert into new_stake_pool (stake_pool_id, epoch, stake, created_at)
+    select stake_pool_id, epoch, stake, strftime('%Y-%m-%dT%H:%M:%fZ', created_at) as created_at
+    from stake_pool order by rowid asc;
+
+drop table stake_pool;
+alter table new_stake_pool rename to stake_pool;
+
+-- Migrate signed_entity
+create table new_signed_entity (
+    signed_entity_id            text        not null,
+    signed_entity_type_id       integer     not null,
+    certificate_id              text        not null,
+    beacon                      json        not null,
+    artifact                    json        not null,
+    created_at                  text        not null,
+    primary key (signed_entity_id)
+    foreign key (signed_entity_type_id) references signed_entity_type(signed_entity_type_id)
+    foreign key (certificate_id) references certificate(certificate_id)
+);
+insert into new_signed_entity select * from signed_entity order by rowid asc;
+
+drop table signed_entity;
+alter table new_signed_entity rename to signed_entity;
+
+-- reenable foreign keys
+pragma foreign_key_check;
+pragma foreign_keys=true;
+        "#,
+        ),
+        // Migration 15
+        // Alter `db_version` tables to remove `default current_timestamp` clause from its
+        // `updated_at` field, and migrate old date data to rfc 3339.
+        SqlMigration::new(
+            15,
+            r"
+-- In some context, most likely tests, the db_version does not exist since the migrator isn't used
+create table if not exists 'db_version' (application_type text not null primary key, version integer not null, updated_at text not null);
+
+create table new_db_version (application_type text not null primary key, version integer not null, updated_at text not null);
+insert into new_db_version select * from db_version order by rowid asc;
+
+drop table db_version;
+alter table new_db_version rename to db_version;
+            ",
+        ),
     ]
 }

@@ -289,8 +289,8 @@ impl CertifierService for MithrilCertifierService {
             .collect::<Vec<_>>();
 
         let protocol_version = PROTOCOL_VERSION.to_string();
-        let initiated_at = format!("{:?}", open_message.created_at);
-        let sealed_at = format!("{:?}", Utc::now());
+        let initiated_at = open_message.created_at;
+        let sealed_at = Utc::now();
         let metadata = CertificateMetadata::new(
             protocol_version,
             // TODO remove this multi_signer call ↓

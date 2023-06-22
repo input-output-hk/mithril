@@ -1,4 +1,4 @@
-use chrono::Local;
+use chrono::Utc;
 use slog::{debug, error};
 use slog::{info, Logger};
 use sqlite::Connection;
@@ -118,7 +118,7 @@ impl DatabaseVersionChecker {
             let db_version = DatabaseVersion {
                 version: migration.version,
                 application_type: self.application_type.clone(),
-                updated_at: Local::now().naive_local(),
+                updated_at: Utc::now(),
             };
             let _ = updater.save(db_version)?;
         }

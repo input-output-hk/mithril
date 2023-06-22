@@ -3,7 +3,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use chrono::NaiveDateTime;
+use chrono::{DateTime, NaiveDateTime, Utc};
 use sqlite::{Connection, Row, Value};
 
 use crate::sqlite::{
@@ -52,22 +52,32 @@ pub struct DatabaseVersion {
     /// Name of the application.
     pub application_type: ApplicationNodeType,
 
-    /// Date of the last version upgrade, Sqlite does not store timezone
-    /// information hence we have to use a `Chrono::NaiveDateTime` here.
-    pub updated_at: NaiveDateTime,
+    /// Date of the last version upgrade
+    pub updated_at: DateTime<Utc>,
 }
 
 impl SqLiteEntity for DatabaseVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
+        let version = row.get::<i64, _>(0);
+        let application_type = &row.get::<String, _>(1);
+        let updated_at = &row.get::<String, _>(2);
+
         Ok(Self {
-            version: row.get::<i64, _>(0),
-            application_type: ApplicationNodeType::new(&row.get::<String, _>(1))
+            version,
+            application_type: ApplicationNodeType::new(application_type)
                 .map_err(|e| HydrationError::InvalidData(format!("{e}")))?,
-            updated_at: NaiveDateTime::parse_from_str(
-                &row.get::<String, _>(2),
-                "%Y-%m-%d %H:%M:%S",
-            )
-            .map_err(|e| HydrationError::InvalidData(format!("{e}")))?,
+            updated_at: match DateTime::parse_from_rfc3339(updated_at) {
+                Ok(date) => Ok(date.with_timezone(&Utc)),
+                // todo: remove this fallback when aggregators & signers have been migrated
+                // Fallback to previous date format for compatibility
+                Err(_) => NaiveDateTime::parse_from_str(updated_at, "%Y-%m-%d %H:%M:%S")
+                    .map_err(|e| {
+                        HydrationError::InvalidData(format!(
+                            "Could not turn string '{updated_at}' to rfc3339 Datetime. Error: {e}"
+                        ))
+                    })
+                    .map(|d| d.and_utc()),
+            }?,
         })
     }
 
@@ -125,9 +135,9 @@ impl<'conn> DatabaseVersionProvider<'conn> {
 
         if !table_exists {
             let sql = format!("
-create table db_version (application_type text not null primary key, version integer not null, updated_at timestamp not null default CURRENT_TIMESTAMP);
-insert into db_version (application_type, version) values ('{application_type}', 0);
-");
+create table db_version (application_type text not null primary key, version integer not null, updated_at text not null);
+insert into db_version (application_type, version, updated_at) values ('{application_type}', 0, '{}');
+", Utc::now().to_rfc3339());
             connection.execute(sql)?;
         }
 
@@ -189,6 +199,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
             vec![
                 Value::String(format!("{}", version.application_type)),
                 Value::Integer(version.version),
+                Value::String(version.updated_at.to_rfc3339()),
             ],
         );
         let entity = self
@@ -213,8 +224,8 @@ impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
 
         format!(
             r#"
-insert into db_version (application_type, version) values (?, ?)
-  on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
+insert into db_version (application_type, version, updated_at) values (?, ?, ?)
+  on conflict (application_type) do update set version = excluded.version, updated_at = excluded.updated_at
 returning {projection}
 "#
         )
@@ -259,8 +270,8 @@ where true
 
         assert_eq!(
             r#"
-insert into db_version (application_type, version) values (?, ?)
-  on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
+insert into db_version (application_type, version, updated_at) values (?, ?, ?)
+  on conflict (application_type) do update set version = excluded.version, updated_at = excluded.updated_at
 returning db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
 "#,
             provider.get_definition("true")

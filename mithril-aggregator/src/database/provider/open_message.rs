@@ -1,22 +1,14 @@
-use mithril_common::StdError;
-
-use mithril_common::entities::{ProtocolMessage, SingleSignatures};
 use mithril_common::{
-    entities::{Epoch, SignedEntityType},
-    sqlite::{HydrationError, Projection, SqLiteEntity, WhereCondition},
-    sqlite::{Provider, SourceAlias},
+    entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures},
+    sqlite::{HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition},
+    StdResult,
 };
 
-use chrono::NaiveDateTime;
-use sqlite::Row;
-use sqlite::{Connection, Value};
-
+use chrono::{DateTime, Utc};
+use sqlite::{Connection, Row, Value};
 use std::sync::Arc;
-
 use tokio::sync::Mutex;
 use uuid::Uuid;
-
-type StdResult<T> = Result<T, StdError>;
 
 /// ## OpenMessage
 ///
@@ -41,7 +33,7 @@ pub struct OpenMessageRecord {
     pub is_certified: bool,
 
     /// Message creation datetime, it is set by the database.
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 impl OpenMessageRecord {
@@ -58,7 +50,7 @@ impl OpenMessageRecord {
             signed_entity_type,
             protocol_message: ProtocolMessage::new(),
             is_certified: false,
-            created_at: chrono::Local::now().naive_local(),
+            created_at: Utc::now(),
         }
     }
 }
@@ -114,11 +106,11 @@ impl SqLiteEntity for OpenMessageRecord {
         let is_certified = row.get::<i64, _>(5) != 0;
         let datetime = &row.get::<String, _>(6);
         let created_at =
-            NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").map_err(|e| {
+            DateTime::parse_from_rfc3339(datetime).map_err(|e| {
                 HydrationError::InvalidData(format!(
-                    "Could not turn open_message.created_at field value '{datetime}' to NaiveDateTime. Error: {e}"
+                    "Could not turn open_message.created_at field value '{datetime}' to rfc3339 Datetime. Error: {e}"
                 ))
-            })?;
+            })?.with_timezone(&Utc);
 
         let open_message = Self {
             open_message_id,
@@ -222,6 +214,7 @@ impl<'client> Provider<'client> for OpenMessageProvider<'client> {
 struct InsertOpenMessageProvider<'client> {
     connection: &'client Connection,
 }
+
 impl<'client> InsertOpenMessageProvider<'client> {
     pub fn new(connection: &'client Connection) -> Self {
         Self { connection }
@@ -233,7 +226,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<WhereCondition> {
-        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message) values (?*, ?*, ?*, ?*, ?*)";
+        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)";
         let beacon_str = signed_entity_type.get_json_beacon()?;
         let parameters = vec![
             Value::String(Uuid::new_v4().to_string()),
@@ -241,6 +234,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
             Value::String(beacon_str),
             Value::Integer(signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(protocol_message)?),
+            Value::String(Utc::now().to_rfc3339()),
         ];
 
         Ok(WhereCondition::new(expression, parameters))
@@ -271,15 +265,17 @@ impl<'client> UpdateOpenMessageProvider<'client> {
     }
 
     fn get_update_condition(&self, open_message: &OpenMessageRecord) -> StdResult<WhereCondition> {
-        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, is_certified) values (?*, ?*, ?*, ?*, ?*, ?*)";
+        let expression = "epoch_setting_id = ?*, beacon = ?*, \
+signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?* \
+where open_message_id = ?*";
         let beacon_str = open_message.signed_entity_type.get_json_beacon()?;
         let parameters = vec![
-            Value::String(open_message.open_message_id.to_string()),
             Value::Integer(open_message.epoch.0 as i64),
             Value::String(beacon_str),
             Value::Integer(open_message.signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(&open_message.protocol_message)?),
             Value::Integer(open_message.is_certified as i64),
+            Value::String(open_message.open_message_id.to_string()),
         ];
 
         Ok(WhereCondition::new(expression, parameters))
@@ -297,7 +293,7 @@ impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
         let aliases = SourceAlias::new(&[("{:open_message:}", "open_message")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("replace into open_message {condition} returning {projection}")
+        format!("update open_message set {condition} returning {projection}")
     }
 }
 
@@ -355,7 +351,7 @@ pub struct OpenMessageWithSingleSignaturesRecord {
     pub single_signatures: Vec<SingleSignatures>,
 
     /// Message creation datetime, it is set by the database.
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
@@ -563,13 +559,32 @@ impl OpenMessageRepository {
 mod tests {
     use mithril_common::{entities::Beacon, sqlite::SourceAlias};
 
+    use crate::database::provider::{
+        apply_all_migrations_to_db, disable_foreign_key_support, SingleSignatureRecord,
+    };
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
     use crate::database::provider::test_helper::{
-        setup_single_signature_db, setup_single_signature_records,
+        insert_single_signatures_in_db, setup_single_signature_records,
     };
 
     use super::*;
+
+    async fn get_connection() -> Arc<Mutex<Connection>> {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let connection = builder.get_sqlite_connection().await.unwrap();
+        {
+            let lock = connection.lock().await;
+            lock.execute(
+                r#"insert into epoch_setting(epoch_setting_id, protocol_parameters)
+values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0.65 }');"#,
+            )
+            .unwrap();
+        }
+
+        connection
+    }
 
     #[test]
     fn open_message_with_single_signature_projection() {
@@ -665,7 +680,7 @@ mod tests {
             .unwrap()
             .expand();
 
-        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message) values (?1, ?2, ?3, ?4, ?5)".to_string(), expr);
+        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(), expr);
         assert_eq!(Value::Integer(12), params[1]);
         assert_eq!(
             Value::String(r#"{"network":"","epoch":0,"immutable_file_number":0}"#.to_string()),
@@ -685,22 +700,26 @@ mod tests {
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::new(),
             is_certified: true,
-            created_at: NaiveDateTime::default(),
+            created_at: DateTime::<Utc>::default(),
         };
         let (expr, params) = provider
             .get_update_condition(&open_message)
             .unwrap()
             .expand();
 
-        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, is_certified) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(), expr);
+        assert_eq!(
+            "epoch_setting_id = ?1, beacon = ?2, signed_entity_type_id = ?3, protocol_message = ?4, is_certified = ?5 where open_message_id = ?6"
+                .to_string(),
+            expr
+        );
         assert_eq!(
             vec![
-                Value::String(open_message.open_message_id.to_string()),
                 Value::Integer(open_message.epoch.0 as i64),
                 Value::String(open_message.signed_entity_type.get_json_beacon().unwrap()),
                 Value::Integer(open_message.signed_entity_type.index() as i64),
                 Value::String(serde_json::to_string(&open_message.protocol_message).unwrap()),
                 Value::Integer(open_message.is_certified as i64),
+                Value::String(open_message.open_message_id.to_string()),
             ],
             params
         );
@@ -714,18 +733,6 @@ mod tests {
 
         assert_eq!("epoch_setting_id < ?1".to_string(), expr);
         assert_eq!(vec![Value::Integer(12)], params,);
-    }
-
-    async fn get_connection() -> Arc<Mutex<Connection>> {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
-        let connection = builder.get_sqlite_connection().await.unwrap();
-        {
-            let lock = connection.lock().await;
-            lock.execute(r#"insert into epoch_setting(epoch_setting_id, protocol_parameters) values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0.65 }');"#).unwrap();
-        }
-
-        connection
     }
 
     #[tokio::test]
@@ -857,15 +864,32 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_exist() {
-        let single_signature_records = setup_single_signature_records(1, 1, 4);
-
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, single_signature_records.clone()).unwrap();
-        let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
+        apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
+        let connection = Arc::new(Mutex::new(connection));
+        let repository = OpenMessageRepository::new(connection.clone());
 
-        let mut open_message = OpenMessageRecord::dummy();
-        open_message.open_message_id = single_signature_records[0].open_message_id;
-        repository.update_open_message(&open_message).await.unwrap();
+        let open_message = repository
+            .create_open_message(
+                Epoch(1),
+                &SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+                &ProtocolMessage::default(),
+            )
+            .await
+            .unwrap();
+        let single_signature_records: Vec<SingleSignatureRecord> =
+            setup_single_signature_records(1, 1, 4)
+                .into_iter()
+                .map(|s| SingleSignatureRecord {
+                    open_message_id: open_message.open_message_id,
+                    ..s
+                })
+                .collect();
+        {
+            let conn = connection.lock().await;
+            insert_single_signatures_in_db(&conn, single_signature_records).unwrap();
+        }
 
         let open_message_with_single_signatures = repository
             .get_open_message_with_single_signatures(&open_message.signed_entity_type)
@@ -881,7 +905,8 @@ mod tests {
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_not_exist() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, Vec::new()).unwrap();
+        apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
         let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
 
         let open_message = OpenMessageRecord::dummy();
