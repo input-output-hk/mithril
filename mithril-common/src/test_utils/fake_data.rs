@@ -82,10 +82,11 @@ pub fn certificate_pending() -> entities::CertificatePending {
 }
 
 /// Fake Genesis Certificate
-pub fn genesis_certificate(certificate_hash: String) -> entities::Certificate {
-    let mut certificate = certificate(certificate_hash);
+pub fn genesis_certificate(certificate_hash: &str) -> entities::Certificate {
+    let mut certificate = certificate(certificate_hash.to_string());
+    certificate.previous_hash = String::new();
     certificate.genesis_signature = certificate.multi_signature;
-    certificate.multi_signature = "".to_string();
+    certificate.multi_signature = String::new();
 
     certificate
 }
@@ -131,7 +132,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     let previous_hash = format!("{certificate_hash}0");
     let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
     let multi_signature = format!("MSIG{}", beacon.immutable_file_number).repeat(200);
-    let genesis_signature = "".to_string();
+    let genesis_signature = String::new();
     let mut certificate = entities::Certificate::new(
         previous_hash,
         beacon,
