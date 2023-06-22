@@ -144,29 +144,34 @@ impl From<CertificateRecord> for Certificate {
             other.sealed_at,
             other.signers,
         );
+        let signed_message = other.protocol_message.compute_hash();
 
         if other.parent_certificate_id.is_none() {
             // Genesis certificate
-            Certificate::new(
-                "".to_string(),
-                other.beacon,
-                certificate_metadata,
-                other.protocol_message,
-                other.aggregate_verification_key,
-                "".to_string(),
-                other.signature,
-            )
+            Certificate {
+                hash: other.certificate_id,
+                previous_hash: "".to_string(),
+                beacon: other.beacon,
+                metadata: certificate_metadata,
+                protocol_message: other.protocol_message,
+                signed_message,
+                aggregate_verification_key: other.aggregate_verification_key,
+                multi_signature: "".to_string(),
+                genesis_signature: other.signature,
+            }
         } else {
             // Multi-signature certificate
-            Certificate::new(
-                other.parent_certificate_id.unwrap(),
-                other.beacon,
-                certificate_metadata,
-                other.protocol_message,
-                other.aggregate_verification_key,
-                other.signature,
-                "".to_string(),
-            )
+            Certificate {
+                hash: other.certificate_id,
+                previous_hash: other.parent_certificate_id.unwrap(),
+                beacon: other.beacon,
+                metadata: certificate_metadata,
+                protocol_message: other.protocol_message,
+                signed_message,
+                aggregate_verification_key: other.aggregate_verification_key,
+                multi_signature: other.signature,
+                genesis_signature: "".to_string(),
+            }
         }
     }
 }
@@ -736,6 +741,16 @@ mod tests {
             certificates_new.push(certificate_record.into());
         }
         assert_eq!(certificates, certificates_new);
+    }
+
+    #[test]
+    fn converting_certificate_record_to_certificate_should_not_recompute_hash() {
+        let expected_hash = "my_hash";
+        let record =
+            CertificateRecord::dummy_genesis(expected_hash, Beacon::new(String::new(), 1, 1));
+        let certificate: Certificate = record.into();
+
+        assert_eq!(expected_hash, &certificate.hash);
     }
 
     #[test]
