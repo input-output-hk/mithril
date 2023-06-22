@@ -1,6 +1,7 @@
 mod era_command;
 mod genesis_command;
 mod serve_command;
+mod tools_command;
 
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
@@ -16,6 +17,7 @@ pub enum MainCommand {
     Genesis(genesis_command::GenesisCommand),
     Era(era_command::EraCommand),
     Serve(serve_command::ServeCommand),
+    Tools(tools_command::ToolsCommand),
 }
 
 impl MainCommand {
@@ -27,6 +29,7 @@ impl MainCommand {
             Self::Genesis(cmd) => cmd.execute(config_builder).await,
             Self::Era(cmd) => cmd.execute(config_builder).await,
             Self::Serve(cmd) => cmd.execute(config_builder).await,
+            Self::Tools(cmd) => cmd.execute(config_builder).await,
         }
     }
 }
