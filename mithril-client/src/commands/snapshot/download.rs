@@ -54,10 +54,11 @@ impl SnapshotDownloadCommand {
             );
         } else {
             println!(
-                r###"Unpack success snapshot '{}'
-into {}
+                r###"Snapshot '{}' has been unpacked and checked against Mithril multi-signature contained in the certificate.
+                
+Files in the directory '{}' can be used to run a Cardano node.
 
-Restore a Cardano Node with:
+If you are using Cardano Docker image, you can restore a Cardano Node with:
 
 docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:8.1.1
 

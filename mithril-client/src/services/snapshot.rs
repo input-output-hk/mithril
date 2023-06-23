@@ -25,9 +25,11 @@ use tokio::{select, time::sleep};
 use crate::aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient};
 
 /// This ratio will be multiplied by the snapshot size to check if the available
-/// disk space is sufficient to perform download & extract operations. If not, a
-/// warning is printed.
-const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 2.5;
+/// disk space is sufficient to store the archive plus the extracted files. If
+/// the available space is lower than that, a warning is raised. This ratio has
+/// been experimentally established.
+const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 3.5;
+
 /// [SnapshotService] related errors.
 #[derive(Error, Debug)]
 pub enum SnapshotServiceError {
@@ -232,7 +234,7 @@ impl SnapshotService for MithrilClientSnapshotService {
         res?;
 
         // 4 - Launch download and unpack the file on disk
-        progress_bar.println("4/7 Downloading the snapshot…")?;
+        progress_bar.println("4/7 - Downloading the snapshot…")?;
         let pb = progress_bar.add(ProgressBar::new(snapshot.size));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
             .unwrap()
@@ -244,16 +246,28 @@ impl SnapshotService for MithrilClientSnapshotService {
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
-        progress_bar.println("5/7 Unpacking the snapshot…")?;
-        self.unpack_snapshot(&filepath, &unpack_dir)
-            .await
-            .map_err(|e| {
+        progress_bar.println("5/7 - Unpacking the snapshot…")?;
+        {
+            let pb = progress_bar.add(ProgressBar::new_spinner());
+            let spinner = async move {
+                loop {
+                    pb.tick();
+                    sleep(Duration::from_millis(50)).await;
+                }
+            };
+            let unpacker = self.unpack_snapshot(&filepath, &unpack_dir);
+            let res = select! {
+                _ = spinner => Ok(()),
+                res = unpacker => res,
+            };
+            res.map_err(|e| {
                 format!(
                     "Could not unpack file '{}' in '{}': {e}",
                     filepath.display(),
                     unpack_dir.display()
                 )
             })?;
+        }
         progress_bar.println("6/7 - Compute snapshot digest…")?;
         let unpacked_snapshot_digest = self
             .immutable_digester

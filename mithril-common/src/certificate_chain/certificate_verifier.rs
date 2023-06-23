@@ -4,9 +4,7 @@ use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use slog::{debug, Logger};
 use std::sync::Arc;
-use std::time::Duration;
 use thiserror::Error;
-use tokio::time::sleep;
 
 use super::{CertificateRetriever, CertificateRetrieverError};
 use crate::crypto_helper::{
@@ -109,9 +107,6 @@ pub trait CertificateVerifier: Send + Sync {
         certificate_retriever: Arc<dyn CertificateRetriever>,
         genesis_verifier: &ProtocolGenesisVerifier,
     ) -> Result<(), CertificateVerifierError> {
-        sleep(Duration::from_secs(5)).await;
-
-        /*
         let mut certificate = certificate;
         while let Some(previous_certificate) = self
             .verify_certificate(
@@ -123,7 +118,7 @@ pub trait CertificateVerifier: Send + Sync {
         {
             certificate = previous_certificate;
         }
-        */
+
         Ok(())
     }
 
