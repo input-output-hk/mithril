@@ -28,12 +28,45 @@ pub fn generate_register_message(signers_fixture: &MithrilFixture) -> RegisterSi
 
 mod tests {
 
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+    };
+
+    use crate::{devnet::BftNode, Aggregator};
+
     use super::*;
 
+    // TODO
+    // * start an aggregator in the context of the test
+    // * configure aggregator to use mock cardano-cli
+    //   * implement mock cardano-client
+    //   * set canned answers from cardano-cli
     #[tokio::test]
     async fn should_register_a_new_signer() {
         let signers_fixture = generate_signer_data(1);
         let register_message = generate_register_message(&signers_fixture);
+        let dummy_bft_node = BftNode {
+            db_path: PathBuf::new(),
+            socket_path: PathBuf::new(),
+        };
+        let cardano_cli_path = Path::new("mock-cardano-cli");
+        let tmp_dir = std::env::temp_dir().join("load-aggregator");
+        fs::create_dir_all(&tmp_dir).unwrap();
+
+        let bin_dir = Path::new("../../target/release");
+        let mut aggregator = Aggregator::new(
+            8888,
+            &dummy_bft_node,
+            cardano_cli_path,
+            &tmp_dir,
+            bin_dir,
+            "Thales",
+        )
+        .unwrap();
+
+        aggregator.serve().unwrap();
+
         //let register_message_json = serde_json::to_string(&register_message).unwrap();
         let result = reqwest::Client::new()
             .post(
@@ -50,5 +83,6 @@ mod tests {
             result.text().await.unwrap()
         );
         // ensure POSTing payload gives 200
+        aggregator.stop().await.unwrap();
     }
 }
