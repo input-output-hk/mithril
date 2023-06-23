@@ -14,7 +14,7 @@ pub fn generate_register_message(signers_fixture: &MithrilFixture) -> RegisterSi
     let signers = signers_fixture.signers();
     let signer = signers.first().unwrap().to_owned();
     // generate HTTP payload for POST /signers
-    let epoch = Epoch(238);
+    let epoch = Epoch(42);
 
     RegisterSignerMessage {
         epoch: Some(epoch),
@@ -31,10 +31,12 @@ mod tests {
     use std::{
         fs,
         path::{Path, PathBuf},
+        sync::Arc,
         time::Duration,
     };
 
-    use mithril_common::entities::ProtocolParameters;
+    use mithril_common::{digesters::DummyImmutablesDbBuilder, entities::ProtocolParameters};
+    use slog::Drain;
 
     use crate::{devnet::BftNode, Aggregator};
 
@@ -47,16 +49,26 @@ mod tests {
     //   * set canned answers from cardano-cli
     #[tokio::test]
     async fn should_register_a_new_signer() {
+        // configure logger which is needed to run subprocess
+        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+        let _log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
+
         let signers_fixture = generate_signer_data(1);
         let register_message = generate_register_message(&signers_fixture);
-        let db_path = std::env::temp_dir().join("load-aggregator").join("db");
-        fs::create_dir_all(&db_path).unwrap();
+
+        // configure a dummy immutable db
+        let immutable_db = DummyImmutablesDbBuilder::new("load-tester")
+            .with_immutables(&[1, 2, 3])
+            .append_immutable_trio()
+            .build();
 
         let dummy_bft_node = BftNode {
-            db_path,
+            db_path: immutable_db.dir,
             socket_path: PathBuf::new(),
         };
-        let cardano_cli_path = Path::new("mock-cardano-cli");
+        let cardano_cli_path = Path::new("/home/curry/mithril/mithril-test-lab/mock-cardano-cli");
         let tmp_dir = std::env::temp_dir().join("load-aggregator");
         fs::create_dir_all(&tmp_dir).unwrap();
 

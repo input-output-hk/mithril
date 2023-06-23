@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+
+cat <<EOF
+{
+    "block": 8940865,
+    "epoch": 42,
+    "era": "Babbage",
+    "hash": "325412b8db78d8beaa2e8e4601b0ace50f3874c4c86e9ef96f0f0eebabd180f4",
+    "slot": 95959044,
+    "slotInEpoch": 314244,
+    "slotsToEpochEnd": 117756,
+    "syncProgress": "100.00"
+}
+EOF
+
+exit 0
