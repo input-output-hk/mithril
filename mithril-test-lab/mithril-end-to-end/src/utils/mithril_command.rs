@@ -22,7 +22,13 @@ impl MithrilCommand {
         env_vars: HashMap<&str, &str>,
         default_args: &[&str],
     ) -> Result<MithrilCommand, String> {
-        let process_path = bin_dir.canonicalize().unwrap().join(name);
+        let process_path = bin_dir
+            .canonicalize()
+            .expect(&format!(
+                "expected '{}/{name}' to be an existing executable",
+                bin_dir.display()
+            ))
+            .join(name);
         let log_path = work_dir.join(format!("{name}.log"));
 
         // ugly but it's far easier for callers to manipulate string literals
