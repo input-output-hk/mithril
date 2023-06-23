@@ -31,7 +31,10 @@ mod tests {
     use std::{
         fs,
         path::{Path, PathBuf},
+        time::Duration,
     };
+
+    use mithril_common::entities::ProtocolParameters;
 
     use crate::{devnet::BftNode, Aggregator};
 
@@ -46,8 +49,11 @@ mod tests {
     async fn should_register_a_new_signer() {
         let signers_fixture = generate_signer_data(1);
         let register_message = generate_register_message(&signers_fixture);
+        let db_path = std::env::temp_dir().join("load-aggregator").join("db");
+        fs::create_dir_all(&db_path).unwrap();
+
         let dummy_bft_node = BftNode {
-            db_path: PathBuf::new(),
+            db_path,
             socket_path: PathBuf::new(),
         };
         let cardano_cli_path = Path::new("mock-cardano-cli");
@@ -65,13 +71,13 @@ mod tests {
         )
         .unwrap();
 
+        aggregator.set_protocol_parameters(&ProtocolParameters::default());
         aggregator.serve().unwrap();
+        tokio::time::sleep(Duration::from_secs(10)).await;
 
         //let register_message_json = serde_json::to_string(&register_message).unwrap();
         let result = reqwest::Client::new()
-            .post(
-                "https://aggregator.testing-preview.api.mithril.network/aggregator/register-signer",
-            )
+            .post(format!("{}/register-signer", aggregator.endpoint()))
             .json(&register_message)
             .send()
             .await
