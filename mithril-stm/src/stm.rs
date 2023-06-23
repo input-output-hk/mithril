@@ -397,9 +397,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8]) -> Option<StmSig> {
-        if self.closed_reg.is_none() {
-            panic!("Closed registration not found!");
-        }
+        let closed_reg = self.closed_reg.expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate)."
         let msgp = self
             .closed_reg
             .as_ref()
@@ -411,18 +409,16 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
 
         Some(StmSig {
             sigma: signature.sigma,
-            indexes: signature.indexes.clone(),
             signer_index: self.signer_index,
+            indexes: signature.indexes,
         })
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
     /// the merkle tree root and the total stake.
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        if self.closed_reg.is_none() {
-            panic!("Closed registration not found!");
-        }
-        StmAggrVerificationKey::from(self.closed_reg.as_ref().unwrap())
+        let closed_reg = self.closed_reg.expect("Closed registration missing. Cannot compute AVK");
+        StmAggrVerificationKey::from(&closed_reg)
     }
 
     /// Return the closed registration instance
@@ -832,8 +828,8 @@ impl StmSigRegParty {
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
-    /// Indices and quorum are checked by `FullNodeVerifier::pre_verify`. So,
-    /// it collects the registered parties as leaves and the `StmSig`s in vectors and calls `pre_verify`
+    /// Indices and quorum are checked by `FullNodeVerifier::pre_verify`. This function
+    /// collects the registered parties as leaves and the `StmSig`s in vectors and calls `pre_verify`
     /// with `msgp`. After batch proof is checked, it collects and returns the signatures and
     /// verification keys to be used by aggregate verification.
     fn preliminary_verify(
@@ -852,12 +848,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         CoreVerifier::preliminary_verify(&avk.total_stake, &self.signatures, parameters, &msgp)?;
 
-        let proof = &self.batch_proof;
+        avk.mt_commitment.check(&leaves, &proof.batch_proof)?;
 
-        avk.mt_commitment.check(&leaves, &proof.clone())?;
-
-        let (sigs, vks) = CoreVerifier::collect_sigs_vks(&self.signatures);
-        Ok((sigs, vks))
+        Ok(CoreVerifier::collect_sigs_vks(&self.signatures));
     }
 
     /// Verify aggregate signature, by checking that

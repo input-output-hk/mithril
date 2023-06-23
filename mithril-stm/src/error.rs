@@ -1,8 +1,6 @@
 //! Crate specific errors
 
 use crate::merkle_tree::{BatchPath, Path};
-use crate::AggregationError::NotEnoughSignatures;
-use crate::RegisterError::SerializationError;
 use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
@@ -200,13 +198,7 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
 
 impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureError<D> {
     fn from(e: CoreVerifierError) -> Self {
-        match e {
-            CoreVerifierError::IndexNotUnique => Self::CoreVerificationError(e),
-            CoreVerifierError::NoQuorum(_) => Self::CoreVerificationError(e),
-            CoreVerifierError::IndividualSignatureInvalid(_) => Self::CoreVerificationError(e),
-            CoreVerifierError::AggregateSignatureInvalid => Self::CoreVerificationError(e),
-        }
-    }
+Self::CoreVerificationError(e)
 }
 
 impl<D: Digest + FixedOutput> From<StmSigRegPartyError> for StmAggregateSignatureError<D> {
