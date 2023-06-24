@@ -102,14 +102,6 @@ pub enum CoreVerifierError {
     IndividualSignatureInvalid(StmSignatureError),
 }
 
-/// Errors which can be output by StmSigRegParty .
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSigRegPartyError {
-    /// This error occurs when the the serialization of the raw bytes failed
-    #[error("Invalid bytes")]
-    SerializationError,
-}
-
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum AggregationError {
@@ -170,6 +162,15 @@ impl From<MultiSignatureError> for StmSignatureError {
     }
 }
 
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::SerializationError => Self::SerializationError,
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
@@ -202,21 +203,12 @@ impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureE
     }
 }
 
-impl<D: Digest + FixedOutput> From<StmSigRegPartyError> for StmAggregateSignatureError<D> {
-    fn from(_e: StmSigRegPartyError) -> Self {
-        StmAggregateSignatureError::SerializationError
-    }
-}
-
-impl From<StmSignatureError> for StmSigRegPartyError {
-    fn from(_e: StmSignatureError) -> Self {
-        StmSigRegPartyError::SerializationError
-    }
-}
-
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSigRegPartyError {
-    fn from(_e: MerkleTreeError<D>) -> Self {
-        StmSigRegPartyError::SerializationError
+impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
+    fn from(e: StmSignatureError) -> Self {
+        match e {
+            StmSignatureError::SerializationError => Self::SerializationError,
+            _ => unreachable!()
+        }
     }
 }
 

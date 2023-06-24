@@ -108,8 +108,7 @@
 
 use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
-    AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
-    StmSigRegPartyError, StmSignatureError,
+    AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError, StmSignatureError,
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
@@ -803,16 +802,16 @@ impl StmSigRegParty {
     ///Extract a `StmSigRegParty` from a byte slice.
     pub fn from_bytes<D: Digest + Clone + FixedOutput>(
         bytes: &[u8],
-    ) -> Result<StmSigRegParty, StmSigRegPartyError> {
+    ) -> Result<StmSigRegParty, StmSignatureError> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(&bytes[..8]);
         let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| StmSigRegPartyError::SerializationError)?;
+            .map_err(|_| StmSignatureError::SerializationError)?;
 
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let reg_size = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| StmSigRegPartyError::SerializationError)?;
+            .map_err(|_| StmSignatureError::SerializationError)?;
 
         let sig = StmSig::from_bytes::<D>(&bytes[16..16 + sig_size])?;
         let reg_party = RegParty::from_bytes(&bytes[16 + sig_size..16 + sig_size + reg_size])?;
