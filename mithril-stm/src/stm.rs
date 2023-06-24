@@ -334,7 +334,6 @@ impl StmInitializer {
         })
     }
 
-    #[allow(dead_code)] //REMOVE!!!!!!!!!!
     fn new_core_signer<D: Digest + Clone>(self, eligible_parties: &[RegParty]) -> StmSigner<D> {
         let mut my_index = None;
         for (i, rp) in eligible_parties.iter().enumerate() {
@@ -397,32 +396,29 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
     /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8]) -> Option<StmSig> {
-        let closed_reg = self.closed_reg.expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate)."
-        let msgp = self
-            .closed_reg
-            .as_ref()
-            .unwrap()
+        let closed_reg = self.closed_reg.as_ref().expect("Closed registration not found! Cannot produce StmSignatures. Use core_sign to produce core signatures (not valid for an StmCertificate).");
+        let msgp = closed_reg
             .merkle_tree
             .to_commitment_batch_compat()
             .concat_with_msg(msg);
-        let signature = &self.core_sign(&msgp, self.closed_reg.as_ref().unwrap().total_stake)?;
+        let signature = &self.core_sign(&msgp, closed_reg.total_stake)?;
 
         Some(StmSig {
             sigma: signature.sigma,
             signer_index: self.signer_index,
-            indexes: signature.indexes,
+            indexes: signature.indexes.clone(),
         })
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
     /// the merkle tree root and the total stake.
-    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        let closed_reg = self.closed_reg.expect("Closed registration missing. Cannot compute AVK");
-        StmAggrVerificationKey::from(&closed_reg)
+    fn compute_avk(&self) -> StmAggrVerificationKey<D> {
+        let closed_reg = self.closed_reg.as_ref().expect("Closed registration missing. Cannot compute AVK");
+        StmAggrVerificationKey::from(closed_reg)
     }
 
     /// Return the closed registration instance
-    pub fn get_closed_reg(self) -> ClosedKeyReg<D> {
+    fn get_closed_reg(self) -> ClosedKeyReg<D> {
         if self.closed_reg.is_none() {
             panic!("Closed registration not found!");
         }
@@ -848,9 +844,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
         CoreVerifier::preliminary_verify(&avk.total_stake, &self.signatures, parameters, &msgp)?;
 
-        avk.mt_commitment.check(&leaves, &proof.batch_proof)?;
+        avk.mt_commitment.check(&leaves, &self.batch_proof)?;
 
-        Ok(CoreVerifier::collect_sigs_vks(&self.signatures));
+        Ok(CoreVerifier::collect_sigs_vks(&self.signatures))
     }
 
     /// Verify aggregate signature, by checking that
@@ -1003,7 +999,7 @@ impl CoreVerifier {
             return Err(CoreVerifierError::IndexNotUnique);
         }
         if (nr_indices as u64) < parameters.k {
-            return Err(CoreVerifierError::NoQuorum(nr_indices as u64));
+            return Err(CoreVerifierError::NoQuorum(nr_indices as u64, parameters.k));
         }
 
         Ok(())
@@ -1673,7 +1669,7 @@ mod tests {
                 Ok(_) => {
                     assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
                 }
-                Err(CoreVerifierError::NoQuorum(nr_indices)) => {
+                Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
                     assert!((nr_indices) < params.k);
                 }
                 Err(CoreVerifierError::IndexNotUnique) => unreachable!(),

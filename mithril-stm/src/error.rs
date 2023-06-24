@@ -86,8 +86,8 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CoreVerifierError {
     /// No quorum was found
-    #[error("No Quorum was found.")]
-    NoQuorum(u64),
+    #[error("No Quorum was found. Expected {0} signatures but got {1}")]
+    NoQuorum(u64, u64),
 
     /// There is a duplicate index
     #[error("Indices are not unique.")]
@@ -198,7 +198,8 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
 
 impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureError<D> {
     fn from(e: CoreVerifierError) -> Self {
-Self::CoreVerificationError(e)
+        Self::CoreVerificationError(e)
+    }
 }
 
 impl<D: Digest + FixedOutput> From<StmSigRegPartyError> for StmAggregateSignatureError<D> {
@@ -222,7 +223,7 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSigRegPartyError {
 impl From<AggregationError> for CoreVerifierError {
     fn from(e: AggregationError) -> Self {
         match e {
-            NotEnoughSignatures(e, _e) => Self::NoQuorum(e),
+            AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
             AggregationError::UsizeConversionInvalid => unreachable!(),
         }
     }
@@ -249,11 +250,9 @@ impl From<StmSignatureError> for CoreVerifierError {
 impl From<MultiSignatureError> for RegisterError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
-            MultiSignatureError::SerializationError => SerializationError,
+            MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
-            MultiSignatureError::SignatureInvalid(_) => unreachable!(),
-            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
-            MultiSignatureError::BatchInvalid => unreachable!(),
+            _ => unreachable!(),
         }
     }
 }
