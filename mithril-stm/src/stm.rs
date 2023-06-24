@@ -108,7 +108,8 @@
 
 use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
-    AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError, StmSignatureError,
+    AggregationError, CoreVerifierError, RegisterError, StmAggregateSignatureError,
+    StmSignatureError,
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
@@ -333,6 +334,7 @@ impl StmInitializer {
         })
     }
 
+    #[allow(dead_code)] //REMOVE!!!!!!!!!!
     fn new_core_signer<D: Digest + Clone>(self, eligible_parties: &[RegParty]) -> StmSigner<D> {
         let mut my_index = None;
         for (i, rp) in eligible_parties.iter().enumerate() {
@@ -411,12 +413,17 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
 
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
     /// the merkle tree root and the total stake.
+    #[allow(dead_code)] //REMOVE!!!!!!!!!!
     fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        let closed_reg = self.closed_reg.as_ref().expect("Closed registration missing. Cannot compute AVK");
+        let closed_reg = self
+            .closed_reg
+            .as_ref()
+            .expect("Closed registration missing. Cannot compute AVK");
         StmAggrVerificationKey::from(closed_reg)
     }
 
     /// Return the closed registration instance
+    #[allow(dead_code)] //REMOVE!!!!!!!!!!
     fn get_closed_reg(self) -> ClosedKeyReg<D> {
         if self.closed_reg.is_none() {
             panic!("Closed registration not found!");
@@ -481,7 +488,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     /// Create a Clerk from a signer.
     pub fn from_signer(signer: &StmSigner<D>) -> Self {
         if signer.closed_reg.is_none() {
-            panic!("Closed registration not found!");
+            panic!("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!");
         }
         Self {
             params: signer.params,

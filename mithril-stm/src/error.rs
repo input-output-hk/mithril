@@ -207,7 +207,7 @@ impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureE
     fn from(e: StmSignatureError) -> Self {
         match e {
             StmSignatureError::SerializationError => Self::SerializationError,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
