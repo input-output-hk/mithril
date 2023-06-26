@@ -988,17 +988,27 @@ impl CoreVerifier {
     /// Setup a core verifier for given list of signers.
     pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
         let mut total_stake: Stake = 0;
-        let eligible_parties = public_signers
-            .iter()
-            .map(|signer| {
-                let (res, overflow) = total_stake.overflowing_add(signer.1);
-                if overflow {
-                    panic!("Total stake overflow");
-                }
-                total_stake = res;
-                MTLeaf(signer.0, signer.1)
-            })
-            .collect::<Vec<RegParty>>();
+        let mut unique_parties = HashSet::new();
+        for signer in public_signers.iter() {
+            let (res, overflow) = total_stake.overflowing_add(signer.1);
+            if overflow {
+                panic!("Total stake overflow");
+            }
+            total_stake = res;
+            unique_parties.insert(MTLeaf(signer.0, signer.1));
+        }
+        // let eligible_parties = public_signers
+        //     .iter()
+        //     .map(|signer| {
+        //         let (res, overflow) = total_stake.overflowing_add(signer.1);
+        //         if overflow {
+        //             panic!("Total stake overflow");
+        //         }
+        //         total_stake = res;
+        //         MTLeaf(signer.0, signer.1)
+        //     })
+        //     .collect::<Vec<RegParty>>();
+        let eligible_parties: Vec<_> = unique_parties.into_iter().collect();
         CoreVerifier {
             eligible_parties,
             total_stake,
@@ -1168,7 +1178,7 @@ impl CoreVerifier {
 mod tests {
     use super::*;
     use crate::key_reg::*;
-    use crate::merkle_tree::{BatchPath, MTLeaf};
+    use crate::merkle_tree::BatchPath;
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
@@ -1696,46 +1706,5 @@ mod tests {
                 _ => unreachable!(),
             }
         }
-    }
-
-    #[test]
-    fn debug_core_verifier_stm() {
-        let m = 10;
-        let k = 3;
-        let msg = [9, 63, 48, 31, 7, 157, 3, 7, 2, 4, 161, 31, 50, 84, 84, 96];
-        let nparties = 22;
-        let params = StmParameters { m, k, phi_f: 0.2 };
-        let all_ps: Vec<usize> = (0..nparties).collect();
-
-        // println!("Core verify");
-        let (signers, public_signers) = setup_equal_core_parties(params, nparties);
-        let core_verifier = CoreVerifier::setup(&public_signers);
-        let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
-        // println!("sigs {:?}", signatures.len());
-        let verify_result = CoreVerifier::verify(&core_verifier, &signatures, &params, &msg);
-        assert!(verify_result.is_err(), "verify {verify_result:?}");
-
-        // println!("Stm Aggr verify");
-        let ps = setup_equal_parties(params, nparties);
-        let clerk = StmClerk::from_signer(&ps[0]);
-        let sigs = find_signatures(&msg, &ps, &all_ps);
-        // println!("sigs {:?}", sigs.len());
-        let msig = clerk.aggregate(&sigs, &msg).unwrap();
-        assert!(
-            msig.verify(&msg, &clerk.compute_avk(), &params).is_ok(),
-            "verify {verify_result:?}"
-        );
-
-        // println!("Core verify for msgp");
-        let msgp = clerk
-            .closed_reg
-            .merkle_tree
-            .to_commitment_batch_compat()
-            .concat_with_msg(&msg);
-
-        let signatures = find_core_signatures(&msgp, &signers, core_verifier.total_stake, &all_ps);
-        // println!("sigs {:?}", signatures.len());
-        let verify_result = CoreVerifier::verify(&core_verifier, &signatures, &params, &msgp);
-        assert!(verify_result.is_ok(), "verify {verify_result:?}");
     }
 }
