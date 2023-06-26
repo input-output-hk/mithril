@@ -167,10 +167,13 @@ pub struct StmInitializer {
     pub(crate) pk: StmVerificationKeyPoP,
 }
 
-/// Participant in the protocol can sign messages that depend on `closed_reg`.
-/// So, `StmSigner` is built on `SignerCore` with one additional field: `ClosedKeyReg`.
-/// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
-/// This ensures that a `MerkleTree` root is not computed before all participants have registered.
+/// Participant in the protocol can sign messages.
+/// * If the signer has closed_registration, then it can generate Stm certificate.
+///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
+///     * This ensures that a `MerkleTree` root is not computed before all participants have registered.
+/// * If the signer does not have closed_registration, then it is a core signer.
+///     * This kind of signer cannot participate certificate generation.
+///     * Signature generated can be verified by a full node verifier (core verifier).
 #[derive(Debug, Clone)]
 pub struct StmSigner<D: Digest> {
     signer_index: u64,
@@ -238,7 +241,7 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
 
 /// Full node verifier including the ordered list of eligible signers and the total stake of the system.
 pub struct CoreVerifier {
-    /// Ordered list of registered parties.
+    /// List of registered parties.
     pub eligible_parties: Vec<RegParty>,
     /// Total stake of registered parties.
     pub total_stake: Stake,
