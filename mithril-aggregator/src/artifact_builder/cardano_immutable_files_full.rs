@@ -81,7 +81,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         let location = self
             .snapshot_uploader
             .upload_snapshot(ongoing_snapshot.get_file_path())
-            .await?;
+            .await;
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
             warn!(
@@ -90,7 +90,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             );
         }
 
-        Ok(vec![location])
+        Ok(vec![location?])
     }
 
     async fn create_snapshot(
@@ -152,7 +152,7 @@ mod tests {
 
     use super::*;
 
-    use crate::{DumbSnapshotUploader, DumbSnapshotter};
+    use crate::{snapshot_uploaders::MockSnapshotUploader, DumbSnapshotUploader, DumbSnapshotter};
 
     #[tokio::test]
     async fn should_compute_valid_artifact() {
@@ -247,6 +247,34 @@ mod tests {
                 .as_str()
             ),
             ongoing_snapshot.get_file_path()
+        );
+    }
+
+    #[tokio::test]
+    async fn remove_snapshot_archive_after_upload_even_if_an_error_occured() {
+        let file = NamedTempFile::new().unwrap();
+        let file_path = file.path();
+        let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
+        let mut snapshot_uploader = MockSnapshotUploader::new();
+        snapshot_uploader
+            .expect_upload_snapshot()
+            .return_once(|_| Err("an error".to_string()))
+            .once();
+
+        let cardano_immutable_files_full_artifact_builder =
+            CardanoImmutableFilesFullArtifactBuilder::new(
+                Arc::new(DumbSnapshotter::new()),
+                Arc::new(snapshot_uploader),
+            );
+
+        cardano_immutable_files_full_artifact_builder
+            .upload_snapshot_archive(&snapshot)
+            .await
+            .expect_err("Snapshot upload should have fail");
+
+        assert!(
+            !file_path.exists(),
+            "Ongoing snapshot file should have been removed even after upload failure"
         );
     }
 }
