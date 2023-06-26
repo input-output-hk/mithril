@@ -427,6 +427,8 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
         self.stake
     }
 
+    /// A core signature generated without closed registration.
+    /// The core signature can be verified by core verifier.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
@@ -717,7 +719,7 @@ impl StmSig {
         self.signer_index.cmp(&other.signer_index)
     }
 
-    /// Verify an stm signature by checking that the lottery was won,
+    /// Verify a core signature by checking that the lottery was won,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify_core(
         &self,
@@ -795,9 +797,9 @@ impl StmSigRegParty {
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
-    /// Indices and quorum are checked by `FullNodeVerifier::pre_verify`. This function
-    /// collects the registered parties as leaves and the `StmSig`s in vectors and calls `pre_verify`
-    /// with `msgp`. After batch proof is checked, it collects and returns the signatures and
+    /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp'.
+    /// It collects leaves from signatures and checks the batch proof.
+    /// After batch proof is checked, it collects and returns the signatures and
     /// verification keys to be used by aggregate verification.
     fn preliminary_verify(
         &self,
@@ -806,14 +808,13 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
         parameters: &StmParameters,
     ) -> Result<(Vec<Signature>, Vec<VerificationKey>), StmAggregateSignatureError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
+        CoreVerifier::preliminary_verify(&avk.total_stake, &self.signatures, parameters, &msgp)?;
 
         let leaves = self
             .signatures
             .iter()
             .map(|r| r.reg_party)
             .collect::<Vec<RegParty>>();
-
-        CoreVerifier::preliminary_verify(&avk.total_stake, &self.signatures, parameters, &msgp)?;
 
         avk.mt_commitment.check(&leaves, &self.batch_proof)?;
 
