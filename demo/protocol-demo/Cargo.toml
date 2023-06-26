@@ -1,6 +1,6 @@
 [package]
 name = "mithrildemo"
-version = "0.1.14"
+version = "0.1.15"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
