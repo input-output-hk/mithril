@@ -14,7 +14,7 @@
 
       imports = [inputs.treefmt-nix.flakeModule];
 
-      flake.hydraJobs = inputs.self.packages;
+      flake.hydraJobs = builtins.removeAttrs inputs.self.packages ["aarch64-linux"];
 
       perSystem = {
         pkgs,
