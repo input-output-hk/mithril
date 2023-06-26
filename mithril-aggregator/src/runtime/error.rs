@@ -60,11 +60,15 @@ impl From<Box<dyn StdError + Sync + Send>> for RuntimeError {
 // TODO: Are these errors still relevant, do we need to remove them?
 #[allow(clippy::enum_variant_names)]
 pub enum RunnerError {
-    /// No stack distribution found
-    #[error("Missing stack distribution: '{0}'.")]
+    /// No stake distribution found
+    #[error("Missing stake distribution: '{0}'.")]
     MissingStakeDistribution(String),
 
     /// Missing protocol parameters
     #[error("Missing protocol parameters: '{0}'.")]
     MissingProtocolParameters(String),
+
+    /// Missing next aggregate verification key
+    #[error("Missing next aggregate verification key: '{0}'.")]
+    MissingNextAggregateVerificationKey(String),
 }

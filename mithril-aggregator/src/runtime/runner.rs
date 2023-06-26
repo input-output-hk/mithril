@@ -411,7 +411,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             multi_signer
                 .compute_next_stake_distribution_aggregate_verification_key()
                 .await?
-                .unwrap_or_default(),
+                .ok_or_else(|| {
+                    RunnerError::MissingNextAggregateVerificationKey(format!(
+                        "Next aggregate verification key could not be computed for signer endity type {signed_entity_type:?}"
+                    ))
+                })?,
         );
 
         Ok(protocol_message)
