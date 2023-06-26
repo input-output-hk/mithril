@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.3.10"
+version = "0.3.12"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -18,9 +18,11 @@ cli-table = "0.4"
 config = "0.13.1"
 directories = "5.0.1"
 flate2 = "1.0.23"
+fs2 = "0.4.3"
 futures = "0.3"
 hex = "0.4.3"
 human_bytes = { version = "0.4.2", features = ["fast"] }
+indicatif = { version = "0.17.5", features = ["tokio"] }
 mithril-common = { path = "../mithril-common" }
 reqwest = { version = "0.11", features = ["json", "stream"] }
 semver = "1.0"

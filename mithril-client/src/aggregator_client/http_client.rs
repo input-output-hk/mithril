@@ -1,13 +1,9 @@
-use std::{
-    io::{stdout, Write},
-    path::Path,
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use futures::StreamExt;
-use human_bytes::human_bytes;
+use indicatif::ProgressBar;
 use reqwest::{Client, Response, StatusCode};
 use semver::Version;
 use slog_scope::debug;
@@ -56,7 +52,15 @@ pub trait AggregatorClient: Sync + Send {
     async fn get_content(&self, url: &str) -> Result<String, AggregatorHTTPClientError>;
 
     /// Download large files on the disk
-    async fn download(&self, url: &str, filepath: &Path) -> Result<(), AggregatorHTTPClientError>;
+    async fn download(
+        &self,
+        url: &str,
+        filepath: &Path,
+        progress_bar: ProgressBar,
+    ) -> Result<(), AggregatorHTTPClientError>;
+
+    /// Test if the given URL points to a valid location & existing content.
+    async fn probe(&self, url: &str) -> Result<(), AggregatorHTTPClientError>;
 }
 
 /// Responsible of HTTP transport and API version check.
@@ -175,7 +179,12 @@ impl AggregatorClient for AggregatorHTTPClient {
             })
     }
 
-    async fn download(&self, url: &str, filepath: &Path) -> Result<(), AggregatorHTTPClientError> {
+    async fn download(
+        &self,
+        url: &str,
+        filepath: &Path,
+        progress_bar: ProgressBar,
+    ) -> Result<(), AggregatorHTTPClientError> {
         let response = self.get(url).await?;
         let mut local_file = fs::File::create(filepath).await.map_err(|e| {
             AggregatorHTTPClientError::SubsystemError {
@@ -186,14 +195,8 @@ impl AggregatorClient for AggregatorHTTPClient {
                 error: e.into(),
             }
         })?;
-        let bytes_total = response.content_length().ok_or_else(|| {
-            AggregatorHTTPClientError::RemoteServerTechnical(
-                "Download: cannot get response content length".to_string(),
-            )
-        })?;
         let mut downloaded_bytes: u64 = 0;
         let mut remote_stream = response.bytes_stream();
-        let mut cursor = 0;
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.map_err(|e| {
@@ -212,21 +215,29 @@ impl AggregatorClient for AggregatorHTTPClient {
                 }
             })?;
             downloaded_bytes += chunk.len() as u64;
-            cursor = (cursor + 1) % 40;
-            print!(
-                "{} downloading {} ({:02}%)          \r",
-                match cursor {
-                    0..=9 => '/',
-                    10..=19 => '|',
-                    20..=29 => '\\',
-                    _ => '-',
-                },
-                human_bytes(bytes_total as f64),
-                (100 * downloaded_bytes) / bytes_total
-            );
-            stdout().flush().unwrap();
+            progress_bar.set_position(downloaded_bytes);
         }
 
         Ok(())
+    }
+
+    async fn probe(&self, url: &str) -> Result<(), AggregatorHTTPClientError> {
+        debug!("HEAD url='{url}'.");
+        let request_builder = Client::new().head(url.to_owned());
+        let response = request_builder.send().await.map_err(|e| {
+            AggregatorHTTPClientError::SubsystemError {
+                message: format!("Cannot perform a HEAD for url='{url}'"),
+                error: e.into(),
+            }
+        })?;
+        match response.status() {
+            StatusCode::OK => Ok(()),
+            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(format!(
+                "Url='{url} not found"
+            ))),
+            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(format!(
+                "Unhandled error {status_code}"
+            ))),
+        }
     }
 }

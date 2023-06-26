@@ -118,6 +118,7 @@ pub trait CertificateVerifier: Send + Sync {
         {
             certificate = previous_certificate;
         }
+
         Ok(())
     }
 
@@ -181,10 +182,6 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         certificate: &Certificate,
         genesis_verifier: &ProtocolGenesisVerifier,
     ) -> Result<(), CertificateVerifierError> {
-        println!(
-            "Verify genesis certificate #{} @ epoch #{}",
-            certificate.hash, certificate.beacon.epoch
-        );
         let genesis_signature = ProtocolGenesisSignature::from_bytes(
             &Vec::from_hex(&certificate.genesis_signature)
                 .map_err(|e| CertificateVerifierError::Codec(e.to_string()))?,

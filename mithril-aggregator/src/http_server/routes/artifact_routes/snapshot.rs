@@ -43,7 +43,7 @@ fn snapshot_download(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String / "download")
-        .and(warp::get())
+        .and(warp::get().or(warp::head()).unify())
         .and(middlewares::with_config(dependency_manager.clone()))
         .and(middlewares::with_signed_entity_service(dependency_manager))
         .and_then(handlers::snapshot_download)

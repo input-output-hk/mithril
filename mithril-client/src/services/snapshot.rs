@@ -1,11 +1,15 @@
 use std::{
-    fs::File,
+    fmt::Write,
+    fs::{remove_file, File},
     path::{Path, PathBuf},
     sync::Arc,
+    time::Duration,
 };
 
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
+use human_bytes::human_bytes;
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
@@ -13,11 +17,18 @@ use mithril_common::{
     entities::{ProtocolMessagePartKey, Snapshot},
     StdError, StdResult,
 };
-use slog_scope::{debug, warn};
+use slog_scope::{debug, info, warn};
 use tar::Archive;
 use thiserror::Error;
+use tokio::{select, time::sleep};
 
 use crate::aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient};
+
+/// This ratio will be multiplied by the snapshot size to check if the available
+/// disk space is sufficient to store the archive plus the extracted files. If
+/// the available space is lower than that, a warning is raised. This ratio has
+/// been experimentally established.
+const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 3.5;
 
 /// [SnapshotService] related errors.
 #[derive(Error, Debug)]
@@ -26,7 +37,8 @@ pub enum SnapshotServiceError {
     #[error("Snapshot '{0}' not found")]
     SnapshotNotFound(String),
 
-    /// Error raised when the certificate verification failed for the downloaded archive.
+    /// Error raised when the certificate verification failed for the downloaded
+    /// archive.
     #[error("Certificate verification failed (snapshot digest = '{digest}'). The archive has been downloaded in '{path}'.")]
     CouldNotVerifySnapshot {
         /// snapshot digest
@@ -75,6 +87,7 @@ pub trait SnapshotService: Sync + Send {
         snapshot: &Snapshot,
         pathdir: &Path,
         genesis_verification_key: &str,
+        progress_target: ProgressDrawTarget,
     ) -> StdResult<PathBuf>;
 }
 
@@ -151,14 +164,36 @@ impl SnapshotService for MithrilClientSnapshotService {
         snapshot: &Snapshot,
         pathdir: &Path,
         genesis_verification_key: &str,
+        progress_target: ProgressDrawTarget,
     ) -> StdResult<PathBuf> {
         debug!("Snapshot service: download.");
         // 0 - Check prerequisistes are met
         let unpack_dir = pathdir.join("db");
-
+        let progress_bar = MultiProgress::with_draw_target(progress_target);
+        progress_bar.println("1/7 - Checking local disk info…")?;
         if unpack_dir.exists() {
             return Err(SnapshotServiceError::UnpackDirectoryAlreadyExists(unpack_dir).into());
         }
+        {
+            let free_space = fs2::available_space(pathdir)? as f64;
+
+            if free_space < FREE_SPACE_SNAPSHOT_SIZE_RATIO * snapshot.size as f64 {
+                warn!("There might not be enough space on the disk ({} free) to store and unpack a {} size snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
+            } else {
+                info!("It seems there is enough disk space ({} free) to download and unpack the {} large snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
+            }
+
+            let _file =
+                File::create(&unpack_dir).map_err(|e| SnapshotServiceError::InvalidParameters {
+                    context: format!(
+                        "Can not write in the given directory '{}'.",
+                        pathdir.display()
+                    ),
+                    error: e.into(),
+                })?;
+            remove_file(&unpack_dir)?;
+        }
+
         // 1 - Instanciate a genesis key verifier
         let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
             .map_err(|e| SnapshotServiceError::InvalidParameters {
@@ -169,6 +204,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
         // 2 - Get certificate information
+        progress_bar.println("2/7 - Fetching certificate information…")?;
         let certificate = self
             .certificate_client
             .get(&snapshot.certificate_hash)
@@ -178,30 +214,61 @@ impl SnapshotService for MithrilClientSnapshotService {
             })?;
 
         // 3 - Check the certificate chain
-        self.certificate_verifier
-            .verify_certificate_chain(
-                certificate.clone(),
-                self.certificate_client.clone(),
-                &genesis_verifier,
-            )
-            .await?;
+        progress_bar.println("3/7 - Check certificate chain…")?;
+        let pb = progress_bar.add(ProgressBar::new_spinner());
+        let spinner = async move {
+            loop {
+                pb.tick();
+                sleep(Duration::from_millis(50)).await;
+            }
+        };
+        let verifier = self.certificate_verifier.verify_certificate_chain(
+            certificate.clone(),
+            self.certificate_client.clone(),
+            &genesis_verifier,
+        );
+        let res = select! {
+            _ = spinner => Ok(()),
+            res = verifier => res,
+        };
+        res?;
 
         // 4 - Launch download and unpack the file on disk
+        progress_bar.println("4/7 - Downloading the snapshot…")?;
+        let pb = progress_bar.add(ProgressBar::new(snapshot.size));
+        pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+            .unwrap()
+            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .progress_chars("#>-"));
         let filepath = self
             .snapshot_client
-            .download(snapshot, pathdir)
+            .download(snapshot, pathdir, pb)
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
-        self.unpack_snapshot(&filepath, &unpack_dir)
-            .await
-            .map_err(|e| {
+        progress_bar.println("5/7 - Unpacking the snapshot…")?;
+        {
+            let pb = progress_bar.add(ProgressBar::new_spinner());
+            let spinner = async move {
+                loop {
+                    pb.tick();
+                    sleep(Duration::from_millis(50)).await;
+                }
+            };
+            let unpacker = self.unpack_snapshot(&filepath, &unpack_dir);
+            let res = select! {
+                _ = spinner => Ok(()),
+                res = unpacker => res,
+            };
+            res.map_err(|e| {
                 format!(
                     "Could not unpack file '{}' in '{}': {e}",
                     filepath.display(),
                     unpack_dir.display()
                 )
             })?;
+        }
+        progress_bar.println("6/7 - Compute snapshot digest…")?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&unpack_dir, &certificate.beacon)
@@ -214,6 +281,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             })?;
 
         // 5 - Compute protocol message and compare hash sums
+        progress_bar.println("7/7 - Verifying snapshot signature…")?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -423,9 +491,10 @@ mod tests {
         let test_path = std::env::temp_dir().join("test_download_snapshot_ok");
         let _ = std::fs::remove_dir_all(&test_path);
         let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_probe().returning(|_| Ok(()));
         http_client
             .expect_download()
-            .returning(move |_, _| Ok(()))
+            .returning(move |_, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
@@ -456,6 +525,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
             )
             .await
             .expect("Snapshot download should succeed.");
@@ -472,9 +542,10 @@ mod tests {
         let test_path = std::env::temp_dir().join("test_download_snapshot_invalid_digest");
         let _ = std::fs::remove_dir_all(&test_path);
         let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_probe().returning(|_| Ok(()));
         http_client
             .expect_download()
-            .returning(move |_, _| Ok(()))
+            .returning(move |_, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
@@ -505,6 +576,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
             )
             .await
             .expect_err("Snapshot digest comparison should fail.");
@@ -551,6 +623,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
             )
             .await
             .expect_err("Snapshot download should fail.");
