@@ -33,10 +33,8 @@ fn test_core_verifier() {
         .collect::<Vec<_>>();
 
     for stake in parties {
-        initializers.push(StmInitializer::setup(params, stake, &mut rng));
-    }
-
-    for initializer in initializers.iter() {
+        let initializer = StmInitializer::setup(params, stake, &mut rng);
+        initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
