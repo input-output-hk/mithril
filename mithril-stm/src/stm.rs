@@ -518,7 +518,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
             &self.params,
             &msgp,
             &sig_reg_list,
-        )?; // todo: look into this conversion
+        )?;
 
         unique_sigs.sort_unstable();
 
@@ -1041,7 +1041,7 @@ impl CoreVerifier {
                 sig: sig.clone(),
                 reg_party: parties[sig.signer_index as usize],
             })
-            .collect()
+            .collect() // todo: look into this conversion
     }
 
     fn dedup_sigs_for_indices(
@@ -1620,12 +1620,18 @@ mod tests {
     //------------------------------------------------//
     //----------------- Core Verifier -----------------//
     //------------------------------------------------//
-    fn setup_equal_core_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
+    fn setup_equal_core_parties(
+        params: StmParameters,
+        nparties: usize,
+    ) -> (Vec<StmSigner<D>>, Vec<(VerificationKey, Stake)>) {
         let stake = vec![1; nparties];
         setup_core_parties(params, stake)
     }
 
-    fn setup_core_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
+    fn setup_core_parties(
+        params: StmParameters,
+        stake: Vec<Stake>,
+    ) -> (Vec<StmSigner<D>>, Vec<(VerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
@@ -1640,28 +1646,11 @@ mod tests {
             .map(|s| (s.pk.vk, s.stake))
             .collect::<Vec<(VerificationKey, Stake)>>();
 
-        ps.into_iter()
+        let signers = ps
+            .into_iter()
             .map(|s| s.new_core_signer(&public_signers))
-            .collect()
-    }
-
-    fn setup_core_verifier(signers: Vec<StmSigner<D>>) -> CoreVerifier {
-        let mut total_stake: Stake = 0;
-        let eligible_parties = signers
-            .iter()
-            .map(|signer| {
-                let (res, overflow) = total_stake.overflowing_add(signer.stake);
-                if overflow {
-                    panic!("Total stake overflow");
-                }
-                total_stake = res;
-                MTLeaf(signer.vk, signer.stake)
-            })
-            .collect::<Vec<RegParty>>();
-        CoreVerifier {
-            eligible_parties,
-            total_stake,
-        }
+            .collect();
+        (signers, public_signers)
     }
 
     fn find_core_signatures(
@@ -1688,10 +1677,10 @@ mod tests {
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m, k, phi_f: 0.2 };
-            let signers = setup_equal_core_parties(params, nparties);
+            let (signers, public_signers) = setup_equal_core_parties(params, nparties);
             let all_ps: Vec<usize> = (0..nparties).collect();
 
-            let core_verifier = setup_core_verifier(signers.clone());
+            let core_verifier = CoreVerifier::setup(&public_signers);
             let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
 
             let verify_result = core_verifier.verify(&signatures, &params, &msg);
@@ -1719,8 +1708,8 @@ mod tests {
         let all_ps: Vec<usize> = (0..nparties).collect();
 
         // println!("Core verify");
-        let signers = setup_equal_core_parties(params, nparties);
-        let core_verifier = setup_core_verifier(signers.clone());
+        let (signers, public_signers) = setup_equal_core_parties(params, nparties);
+        let core_verifier = CoreVerifier::setup(&public_signers);
         let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
         // println!("sigs {:?}", signatures.len());
         let verify_result = CoreVerifier::verify(&core_verifier, &signatures, &params, &msg);
