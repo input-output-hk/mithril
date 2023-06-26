@@ -160,6 +160,16 @@ impl<'client> SignedEntityRecordProvider<'client> {
         ))
     }
 
+    fn condition_by_certificate_id(
+        &self,
+        certificate_id: &str,
+    ) -> Result<WhereCondition, StdError> {
+        Ok(WhereCondition::new(
+            "certificate_id = ?*",
+            vec![Value::String(certificate_id.to_owned())],
+        ))
+    }
+
     fn condition_by_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityTypeDiscriminants,
@@ -178,6 +188,17 @@ impl<'client> SignedEntityRecordProvider<'client> {
         signed_entity_id: &str,
     ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
         let filters = self.condition_by_signed_entity_id(signed_entity_id)?;
+        let signed_entity_record = self.find(filters)?;
+
+        Ok(signed_entity_record)
+    }
+
+    /// Get [record][SignedEntityRecord] for a given `certificate_id`.
+    pub fn get_by_certificate_id(
+        &self,
+        certificate_id: &str,
+    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+        let filters = self.condition_by_certificate_id(certificate_id)?;
         let signed_entity_record = self.find(filters)?;
 
         Ok(signed_entity_record)
@@ -290,6 +311,12 @@ pub trait SignedEntityStorer: Sync + Send {
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>>;
 
+    /// Get signed entity type by certificate id
+    async fn get_signed_entity_by_certificate_id(
+        &self,
+        certificate_hash: &str,
+    ) -> StdResult<Option<SignedEntityRecord>>;
+
     /// Get last signed entities by signed entity type
     async fn get_last_signed_entities_by_type(
         &self,
@@ -328,6 +355,20 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let mut cursor = provider
             .get_by_signed_entity_id(signed_entity_id)
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let signed_entity = cursor.next();
+
+        Ok(signed_entity)
+    }
+
+    async fn get_signed_entity_by_certificate_id(
+        &self,
+        certificate_id: &str,
+    ) -> StdResult<Option<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let mut cursor = provider
+            .get_by_certificate_id(certificate_id)
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let signed_entity = cursor.next();
 
@@ -484,6 +525,19 @@ mod tests {
     }
 
     #[test]
+    fn get_signed_entity_record_by_signed_certificate_id() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = SignedEntityRecordProvider::new(&connection);
+        let condition = provider
+            .condition_by_certificate_id("certificate_id")
+            .unwrap();
+        let (filter, values) = condition.expand();
+
+        assert_eq!("certificate_id = ?1".to_string(), filter);
+        assert_eq!(vec![Value::String("certificate_id".to_string())], values);
+    }
+
+    #[test]
     fn insert_signed_entity_record() {
         let snapshots = fake_data::snapshots(1);
         let snapshot = snapshots.first().unwrap().to_owned();
@@ -549,6 +603,21 @@ mod tests {
         let expected_signed_entity_records: Vec<SignedEntityRecord> =
             signed_entity_records.iter().map(|c| c.to_owned()).collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);
+    }
+
+    #[tokio::test]
+    async fn test_get_signed_entity_record_by_certificate_id() {
+        let expected_record = fake_signed_entity_records(1).remove(0);
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signed_entity_db(&connection, vec![expected_record.clone()]).unwrap();
+        let store = SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
+
+        let record = store
+            .get_signed_entity_by_certificate_id(&expected_record.certificate_id)
+            .await
+            .expect("querying signed entity record by certificate id should not fail");
+
+        assert_eq!(Some(expected_record), record);
     }
 
     #[test]

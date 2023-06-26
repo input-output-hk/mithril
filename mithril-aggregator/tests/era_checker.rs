@@ -1,8 +1,7 @@
 mod test_extensions;
 use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
-    chain_observer::ChainObserver,
-    entities::{Epoch, ProtocolParameters},
+    entities::{Beacon, Epoch, ProtocolParameters},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
@@ -24,7 +23,8 @@ async fn testing_eras() {
         data_stores_directory: get_test_dir("testing_eras").join("aggregator.sqlite3"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(configuration).await;
+    let mut tester =
+        RuntimeTester::build(Beacon::new("net".to_string(), 1, 1), configuration).await;
     tester.era_reader_adapter.set_markers(vec![
         EraMarker::new("unsupported", Some(Epoch(0))),
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),
@@ -50,38 +50,16 @@ async fn testing_eras() {
     };
     tester.era_reader_adapter.set_markers(vec![
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0))),
-        EraMarker::new("unsupported", Some(Epoch(11))),
+        EraMarker::new("unsupported", Some(Epoch(2))),
     ]);
     let fixture = MithrilFixtureBuilder::default()
         .with_signers(5)
         .with_protocol_parameters(protocol_parameters.clone())
         .build();
-    let signers = fixture.signers_fixture();
-    let signers_with_stake = fixture.signers_with_stake();
-    tester
-        .chain_observer
-        .set_signers(signers_with_stake.clone())
-        .await;
-    tester
-        .deps_builder
-        .build_dependency_container()
-        .await
-        .unwrap()
-        .prepare_for_genesis(
-            signers_with_stake.clone(),
-            signers_with_stake.clone(),
-            &protocol_parameters,
-        )
-        .await;
-    let _ = tester
-        .chain_observer
-        .get_current_epoch()
-        .await
-        .unwrap()
-        .unwrap();
+    tester.init_state_from_fixture(&fixture).await.unwrap();
 
     comment!("Boostrap the genesis certificate");
-    tester.register_genesis_certificate(&signers).await.unwrap();
+    tester.register_genesis_certificate(&fixture).await.unwrap();
 
     comment!("Increase immutable number");
     tester.increase_immutable_number().await.unwrap();
@@ -90,12 +68,8 @@ async fn testing_eras() {
     cycle!(tester, "ready");
 
     // reach unsupported Epoch
-    let current_epoch = tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("Epoch was expected to be 11.");
-    assert_eq!(11, current_epoch);
+    let current_epoch = tester.chain_observer.next_epoch().await.unwrap();
+    assert_eq!(2, current_epoch, "Epoch was expected to be 2.");
     cycle!(tester, "idle");
 
     if let Err(e) = tester.runtime.cycle().await {

@@ -7,6 +7,8 @@ pub mod runtime_tester;
 #[macro_use]
 pub mod utilities;
 pub mod aggregator_observer;
+mod expected_certificate;
 
-pub use aggregator_observer::{AggregatorObserver, SignedEntityTypeDiscriminants};
+pub use aggregator_observer::AggregatorObserver;
+pub use expected_certificate::ExpectedCertificate;
 pub use runtime_tester::RuntimeTester;

@@ -3,13 +3,14 @@ use std::sync::Arc;
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        key_decode_hex, key_encode_hex, OpCert, ProtocolClerk, ProtocolGenesisSigner,
-        ProtocolInitializer, ProtocolKeyRegistration, ProtocolSigner,
-        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+        key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey, ProtocolClerk,
+        ProtocolGenesisSigner, ProtocolInitializer, ProtocolKeyRegistration, ProtocolSigner,
+        ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
+        ProtocolStakeDistribution,
     },
     entities::{
-        Beacon, Certificate, ProtocolMessage, ProtocolParameters, Signer, SignerWithStake,
-        SingleSignatures, StakeDistribution,
+        Beacon, Certificate, HexEncodedAgregateVerificationKey, ProtocolMessage,
+        ProtocolParameters, Signer, SignerWithStake, SingleSignatures, StakeDistribution,
     },
 };
 
@@ -32,6 +33,18 @@ pub struct SignerFixture {
     pub protocol_signer: ProtocolSigner,
     /// A [ProtocolSigner].
     pub protocol_initializer: ProtocolInitializer,
+}
+
+impl From<SignerFixture> for SignerWithStake {
+    fn from(fixture: SignerFixture) -> Self {
+        fixture.signer_with_stake
+    }
+}
+
+impl From<&SignerFixture> for SignerWithStake {
+    fn from(fixture: &SignerFixture) -> Self {
+        fixture.signer_with_stake.clone()
+    }
 }
 
 impl MithrilFixture {
@@ -86,30 +99,44 @@ impl MithrilFixture {
         self.stake_distribution.clone()
     }
 
-    /// Create a genesis certificate using the fixture signers for the given beacon
-    pub fn create_genesis_certificate(&self, beacon: &Beacon) -> Certificate {
+    /// Create a [ProtocolClerk] based on this fixture protocol parameters & signers
+    pub fn create_clerk(&self) -> ProtocolClerk {
         let mut key_registration = ProtocolKeyRegistration::init(&self.stake_distribution);
 
         for signer in self.signers.clone() {
-            let verification_key =
-                key_decode_hex(&signer.signer_with_stake.verification_key).unwrap();
             key_registration
                 .register(
                     Some(signer.signer_with_stake.party_id.to_owned()),
                     signer.operational_certificate(),
                     signer.verification_key_signature(),
                     signer.signer_with_stake.kes_period,
-                    verification_key,
+                    signer.verification_key(),
                 )
                 .unwrap();
         }
-
         let closed_registration = key_registration.close();
-        let clerk = ProtocolClerk::from_registration(
+
+        ProtocolClerk::from_registration(
             &self.protocol_parameters.clone().into(),
             &closed_registration,
-        );
-        let genesis_avk = clerk.compute_avk();
+        )
+    }
+
+    /// Compute the Aggregate Verification Key for this fixture.
+    pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
+        let clerk = self.create_clerk();
+        clerk.compute_avk()
+    }
+
+    /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAgregateVerificationKey].
+    pub fn compute_and_encode_avk(&self) -> HexEncodedAgregateVerificationKey {
+        let avk = self.compute_avk();
+        key_encode_hex(avk).unwrap()
+    }
+
+    /// Create a genesis certificate using the fixture signers for the given beacon
+    pub fn create_genesis_certificate(&self, beacon: &Beacon) -> Certificate {
+        let genesis_avk = self.compute_avk();
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
         let genesis_protocol_message =
@@ -152,7 +179,12 @@ impl SignerFixture {
         }
     }
 
-    /// Decode this verification key signature certificate if any
+    /// Decode this signer verification key certificate
+    pub fn verification_key(&self) -> ProtocolSignerVerificationKey {
+        key_decode_hex(&self.signer_with_stake.verification_key).unwrap()
+    }
+
+    /// Decode this signer verification key signature certificate if any
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
         self.signer_with_stake
             .verification_key_signature

@@ -1,27 +1,28 @@
-use mithril_aggregator::dependency_injection::DependenciesBuilder;
-use mithril_aggregator::event_store::EventMessage;
-use mithril_common::certificate_chain::CertificateGenesisProducer;
-use mithril_common::era::adapters::EraReaderDummyAdapter;
-use mithril_common::era::{EraMarker, EraReader, SupportedEra};
-use mithril_common::test_utils::{
-    MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
+use mithril_aggregator::database::provider::SignedEntityRecord;
+use mithril_aggregator::{
+    dependency_injection::DependenciesBuilder, event_store::EventMessage, AggregatorRuntime,
+    Configuration, DumbSnapshotUploader, DumbSnapshotter, ProtocolParametersStorer,
+    SignerRegisterer, SignerRegistrationError,
+};
+use mithril_common::{
+    chain_observer::FakeObserver,
+    crypto_helper::ProtocolGenesisSigner,
+    digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
+    entities::{
+        Beacon, Certificate, Epoch, ImmutableFileNumber, SignedEntityTypeDiscriminants,
+        SignerWithStake, Snapshot, StakeDistribution,
+    },
+    era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
+    test_utils::{
+        MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
+    },
 };
 use slog::Drain;
+use slog_scope::debug;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::test_extensions::AggregatorObserver;
-use mithril_aggregator::{
-    AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
-    ProtocolParametersStorer, SignerRegisterer, SignerRegistrationError,
-};
-use mithril_common::crypto_helper::{ProtocolClerk, ProtocolGenesisSigner};
-use mithril_common::digesters::DumbImmutableFileObserver;
-use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, Snapshot,
-    StakeDistribution,
-};
-use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
+use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
 
 #[macro_export]
 macro_rules! cycle {
@@ -42,6 +43,14 @@ macro_rules! cycle_err {
     }};
 }
 
+#[macro_export]
+macro_rules! assert_last_certificate_eq {
+    ( $tester:expr, $expected_certificate:expr ) => {{
+        let last_certificate = $tester.get_last_expected_certificate().await.unwrap();
+        assert_eq!($expected_certificate, last_certificate);
+    }};
+}
+
 pub struct RuntimeTester {
     pub snapshot_uploader: Arc<DumbSnapshotUploader>,
     pub chain_observer: Arc<FakeObserver>,
@@ -58,10 +67,13 @@ pub struct RuntimeTester {
 }
 
 impl RuntimeTester {
-    pub async fn build(configuration: Configuration) -> Self {
+    pub async fn build(start_beacon: Beacon, configuration: Configuration) -> Self {
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
-        let chain_observer = Arc::new(FakeObserver::default());
-        let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
+        let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
+        immutable_file_observer
+            .shall_return(Some(start_beacon.immutable_file_number))
+            .await;
+        let chain_observer = Arc::new(FakeObserver::new(Some(start_beacon)));
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
@@ -139,58 +151,37 @@ impl RuntimeTester {
         }
     }
 
+    /// Init the aggregator state based on the data in the given fixture
+    pub async fn init_state_from_fixture(
+        &mut self,
+        fixture: &MithrilFixture,
+    ) -> Result<(), String> {
+        // Tell the chain observer to returns the signers from the fixture when returning stake distribution
+        self.chain_observer
+            .set_signers(fixture.signers_with_stake())
+            .await;
+
+        // Init the stores needed for a genesis certificate
+        let dependency_container = self
+            .deps_builder
+            .build_dependency_container()
+            .await
+            .map_err(|e| format!("getting the dependency_container should not fail: {e:?}"))?;
+        let genesis_epochs = dependency_container.get_genesis_epochs().await;
+        dependency_container
+            .init_state_from_fixture(fixture, &[genesis_epochs.0, genesis_epochs.1])
+            .await;
+        Ok(())
+    }
+
     /// Registers the genesis certificate
     pub async fn register_genesis_certificate(
         &mut self,
-        signers: &[SignerFixture],
+        fixture: &MithrilFixture,
     ) -> Result<(), String> {
-        let beacon = self
-            .deps_builder
-            .get_beacon_provider()
-            .await
-            .unwrap()
-            .get_current_beacon()
-            .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
-        self.deps_builder
-            .get_certifier_service()
-            .await
-            .unwrap()
-            .inform_epoch(beacon.epoch)
-            .await
-            .expect("inform_epoch should not fail");
-        let protocol_parameters = self
-            .deps_builder
-            .get_protocol_parameters_store()
-            .await
-            .unwrap()
-            .get_protocol_parameters(beacon.epoch)
-            .await
-            .map_err(|e| {
-                format!("Querying the recording epoch protocol_parameters should not fail: {e:?}")
-            })?
-            .ok_or("A protocol parameters for the epoch should be available")?;
-        let first_signer = &&signers
-            .first()
-            .ok_or_else(|| "Signers list should not be empty".to_string())?
-            .protocol_signer;
-        let clerk = ProtocolClerk::from_signer(first_signer);
-        let genesis_avk = clerk.compute_avk();
-        let genesis_producer = CertificateGenesisProducer::new(Some(self.genesis_signer.clone()));
-        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
-            &genesis_avk,
-        )
-        .map_err(|e| format!("Creating the genesis protocol message should not fail: {e:?}"))?;
-        let genesis_signature = genesis_producer
-            .sign_genesis_protocol_message(genesis_protocol_message)
-            .map_err(|e| format!("Signing the genesis protocol message should not fail: {e:?}"))?;
-        let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
-            protocol_parameters,
-            beacon,
-            genesis_avk,
-            genesis_signature,
-        )
-        .map_err(|e| format!("Creating the genesis certificate should not fail: {e:?}"))?;
+        let beacon = self.observer.current_beacon().await;
+        let genesis_certificate = fixture.create_genesis_certificate(&beacon);
+        debug!("genesis_certificate: {genesis_certificate:?}");
         self.deps_builder
             .get_certificate_store()
             .await
@@ -206,15 +197,7 @@ impl RuntimeTester {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
         self.update_digester_digest().await?;
 
-        let updated_number = self
-            .deps_builder
-            .get_beacon_provider()
-            .await
-            .unwrap()
-            .get_current_beacon()
-            .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?
-            .immutable_file_number;
+        let updated_number = self.observer.current_beacon().await.immutable_file_number;
 
         if new_immutable_number == updated_number {
             Ok(new_immutable_number)
@@ -274,12 +257,16 @@ impl RuntimeTester {
     /// "Send", actually register, the given single signatures in the multi-signers
     pub async fn send_single_signatures(
         &mut self,
-        signed_entity_type: &SignedEntityType,
+        discriminant: SignedEntityTypeDiscriminants,
         signers: &[SignerFixture],
     ) -> Result<(), String> {
         let certifier_service = self.deps_builder.get_certifier_service().await.unwrap();
+        let signed_entity_type = self
+            .observer
+            .get_current_signed_entity_type(discriminant)
+            .await?;
         let message = certifier_service
-            .get_open_message(signed_entity_type)
+            .get_open_message(&signed_entity_type)
             .await
             .unwrap()
             .ok_or("There should be a message to be signed.")?
@@ -288,7 +275,7 @@ impl RuntimeTester {
         for signer_fixture in signers {
             if let Some(single_signatures) = signer_fixture.sign(&message) {
                 certifier_service
-                    .register_single_signature(signed_entity_type, &single_signatures)
+                    .register_single_signature(&signed_entity_type, &single_signatures)
                     .await
                     .map_err(|e| {
                         format!("registering a winning lottery signature should not fail: {e:?}")
@@ -338,18 +325,11 @@ impl RuntimeTester {
     pub async fn update_stake_distribution(
         &mut self,
         signers_with_stake: Vec<SignerWithStake>,
-    ) -> Result<Vec<SignerFixture>, String> {
+    ) -> Result<MithrilFixture, String> {
         self.chain_observer
             .set_signers(signers_with_stake.clone())
             .await;
-        let beacon = self
-            .deps_builder
-            .get_beacon_provider()
-            .await
-            .unwrap()
-            .get_current_beacon()
-            .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
+        let beacon = self.observer.current_beacon().await;
         let protocol_parameters = self
             .deps_builder
             .get_protocol_parameters_store()
@@ -374,19 +354,12 @@ impl RuntimeTester {
             ))
             .build();
 
-        Ok(fixture.signers_fixture())
+        Ok(fixture)
     }
 
     /// Update the digester result using the current beacon
     pub async fn update_digester_digest(&mut self) -> Result<(), String> {
-        let beacon = self
-            .deps_builder
-            .get_beacon_provider()
-            .await
-            .unwrap()
-            .get_current_beacon()
-            .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
+        let beacon = self.observer.current_beacon().await;
 
         self.digester
             .update_digest(format!(
@@ -401,5 +374,106 @@ impl RuntimeTester {
     /// Update the Era markers
     pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
         self.era_reader_adapter.set_markers(markers)
+    }
+
+    /// Get the last produced certificate with its signed entity if it's not a genesis certificate
+    pub async fn get_last_certificate_with_signed_entity(
+        &mut self,
+    ) -> Result<(Certificate, Option<SignedEntityRecord>), String> {
+        let certificate = self
+            .deps_builder
+            .get_certifier_service()
+            .await
+            .unwrap()
+            .get_latest_certificates(1)
+            .await
+            .map_err(|e| format!("Querying last certificate should not fail {e:?}"))?
+            .first()
+            .ok_or("No certificate have been produced by the aggregator")?
+            .clone();
+
+        let signed_entity = if certificate.genesis_signature.is_empty() {
+            let record = self
+                .deps_builder
+                .get_signed_entity_storer()
+                .await
+                .unwrap()
+                .get_signed_entity_by_certificate_id(&certificate.hash)
+                .await
+                .unwrap()
+                .ok_or("A signed entity must exist for non genesis certificate")?;
+            Some(record)
+        } else {
+            None
+        };
+
+        Ok((certificate, signed_entity))
+    }
+
+    /// Get the last produced certificate and transform it to a [ExpectedCertificate]
+    pub async fn get_last_expected_certificate(&mut self) -> Result<ExpectedCertificate, String> {
+        let (certificate, signed_entity_record) =
+            self.get_last_certificate_with_signed_entity().await?;
+
+        let expected_certificate = match signed_entity_record {
+            None if !certificate.genesis_signature.is_empty() => ExpectedCertificate::new_genesis(
+                certificate.beacon,
+                certificate.aggregate_verification_key,
+            ),
+            None => {
+                panic!("A certificate should always have a SignedEntity if it's not a genesis certificate");
+            }
+            Some(record) => {
+                let previous_cert_identifier = self
+                    .get_expected_certificate_identifier(&certificate.previous_hash)
+                    .await?;
+
+                ExpectedCertificate::new(
+                    certificate.beacon,
+                    &certificate.metadata.signers,
+                    certificate.aggregate_verification_key,
+                    record.signed_entity_type,
+                    previous_cert_identifier,
+                )
+            }
+        };
+
+        Ok(expected_certificate)
+    }
+
+    /// Get the [ExpectedCertificate] identifier for the given certificate hash.
+    async fn get_expected_certificate_identifier(
+        &mut self,
+        certificate_hash: &str,
+    ) -> Result<String, String> {
+        let cert_identifier = match self
+            .deps_builder
+            .get_signed_entity_storer()
+            .await
+            .unwrap()
+            .get_signed_entity_by_certificate_id(certificate_hash)
+            .await
+            .unwrap()
+        {
+            Some(record) => ExpectedCertificate::identifier(&record.signed_entity_type),
+            None => {
+                // Certificate is a genesis certificate
+                let genesis_certificate = self
+                    .deps_builder
+                    .get_certifier_service()
+                    .await
+                    .unwrap()
+                    .get_certificate_by_hash(certificate_hash)
+                    .await
+                    .map_err(|e| format!("Querying genesis certificate should not fail {e:?}"))?
+                    .ok_or(format!(
+                        "A genesis certificate should exist with hash {}",
+                        certificate_hash
+                    ))?;
+                ExpectedCertificate::genesis_identifier(&genesis_certificate.beacon)
+            }
+        };
+
+        Ok(cert_identifier)
     }
 }

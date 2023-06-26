@@ -111,5 +111,6 @@ impl SignedEntityTypeDiscriminants {
         }
     }
 }
+
 #[cfg(test)]
 mod tests {}
