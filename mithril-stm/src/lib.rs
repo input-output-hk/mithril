@@ -10,7 +10,7 @@ pub mod key_reg;
 mod merkle_tree;
 pub mod stm;
 
-pub use crate::error::{AggregationError, RegisterError};
+pub use crate::error::{AggregationError, CoreVerifierError, RegisterError};
 
 #[cfg(feature = "benchmark-internals")]
 pub mod multi_sig;

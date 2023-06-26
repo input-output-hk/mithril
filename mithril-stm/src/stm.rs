@@ -112,7 +112,7 @@ use crate::error::{
     StmSignatureError,
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
-use crate::merkle_tree::{BatchPath, MerkleTreeCommitmentBatchCompat};
+use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
@@ -334,8 +334,11 @@ impl StmInitializer {
         })
     }
 
-    #[allow(dead_code)] //REMOVE!!!!!!!!!!
-    fn new_core_signer<D: Digest + Clone>(self, eligible_parties: &[RegParty]) -> StmSigner<D> {
+    /// Creates a new core signer that does not include closed registration.
+    pub fn new_core_signer<D: Digest + Clone>(
+        self,
+        eligible_parties: &[(VerificationKey, Stake)],
+    ) -> StmSigner<D> {
         let mut my_index = None;
         for (i, rp) in eligible_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -982,6 +985,26 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 }
 
 impl CoreVerifier {
+    /// Setup a core verifier for given list of signers.
+    pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
+        let mut total_stake: Stake = 0;
+        let eligible_parties = public_signers
+            .iter()
+            .map(|signer| {
+                let (res, overflow) = total_stake.overflowing_add(signer.1);
+                if overflow {
+                    panic!("Total stake overflow");
+                }
+                total_stake = res;
+                MTLeaf(signer.0, signer.1)
+            })
+            .collect::<Vec<RegParty>>();
+        CoreVerifier {
+            eligible_parties,
+            total_stake,
+        }
+    }
+
     fn preliminary_verify(
         total_stake: &Stake,
         signatures: &[StmSigRegParty],
@@ -1117,8 +1140,10 @@ impl CoreVerifier {
         (sigs, vks)
     }
 
-    #[allow(dead_code)] //REMOVE!!!!!!!!!!
-    fn verify(
+    /// Core verification
+    ///
+    /// Verify a list of signatures with respect to given message with given parameters.
+    pub fn verify(
         &self,
         signatures: &[StmSig],
         parameters: &StmParameters,
@@ -1612,8 +1637,8 @@ mod tests {
 
         let public_signers = ps
             .iter()
-            .map(|s| MTLeaf(s.pk.vk, s.stake))
-            .collect::<Vec<MTLeaf>>();
+            .map(|s| (s.pk.vk, s.stake))
+            .collect::<Vec<(VerificationKey, Stake)>>();
 
         ps.into_iter()
             .map(|s| s.new_core_signer(&public_signers))
