@@ -237,7 +237,7 @@ impl StateMachine {
                         info!(" ⋅ pending certificate has not changed, waiting…");
                     } else {
                         info!(" → new pending certificate detected, transiting to REGISTERED");
-                        self.state = self.transition_from_signed_to_registered().await?;
+                        self.state = self.transition_from_signed_to_registered(*epoch).await?;
                     }
                 } else {
                     info!(" ⋅ no pending certificate, waiting…");
@@ -291,14 +291,11 @@ impl StateMachine {
         Ok(SignerState::Unregistered { epoch })
     }
 
-    async fn transition_from_signed_to_registered(&self) -> Result<SignerState, RuntimeError> {
-        let current_beacon = self
-            .get_current_beacon("checking if epoch has changed")
-            .await?;
-
-        Ok(SignerState::Registered {
-            epoch: current_beacon.epoch,
-        })
+    async fn transition_from_signed_to_registered(
+        &self,
+        epoch: Epoch,
+    ) -> Result<SignerState, RuntimeError> {
+        Ok(SignerState::Registered { epoch })
     }
 
     async fn transition_from_registered_to_unregistered(
@@ -691,7 +688,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
-            .times(2)
+            .times(1)
             .returning(move || Ok(beacon_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
