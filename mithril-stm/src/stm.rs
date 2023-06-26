@@ -239,7 +239,7 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub batch_proof: BatchPath<D>,
 }
 
-/// Full node verifier including the ordered list of eligible signers and the total stake of the system.
+/// Full node verifier including the list of eligible signers and the total stake of the system.
 pub struct CoreVerifier {
     /// List of registered parties.
     pub eligible_parties: Vec<RegParty>,
