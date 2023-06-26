@@ -487,6 +487,49 @@ order by certificate.ROWID desc"#
     }
 }
 
+/// Provider to remove old data from the `certificate` table
+pub struct DeleteCertificateProvider<'conn> {
+    connection: &'conn Connection,
+}
+
+impl<'conn> Provider<'conn> for DeleteCertificateProvider<'conn> {
+    type Entity = CertificateRecord;
+
+    fn get_connection(&'conn self) -> &'conn Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        // it is important to alias the fields with the same name as the table
+        // since the table cannot be aliased in a RETURNING statement in SQLite.
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:certificate:}", "certificate")]));
+
+        format!("delete from certificate where {condition} returning {projection}")
+    }
+}
+
+impl<'conn> DeleteCertificateProvider<'conn> {
+    /// Create a new instance
+    pub fn new(connection: &'conn Connection) -> Self {
+        Self { connection }
+    }
+
+    /// Create the SQL condition to delete certificates with the given ids.
+    fn get_delete_by_ids_condition(&self, ids: &[&str]) -> WhereCondition {
+        let ids_values = ids.iter().map(|id| Value::String(id.to_string())).collect();
+
+        WhereCondition::where_in("certificate_id", ids_values)
+    }
+
+    /// Delete the certificates with with the given ids.
+    pub fn delete_by_ids(&self, ids: &[&str]) -> Result<EntityCursor<CertificateRecord>, StdError> {
+        let filters = self.get_delete_by_ids_condition(ids);
+
+        self.find(filters)
+    }
+}
+
 /// Database frontend API for Certificate queries.
 pub struct CertificateRepository {
     connection: Arc<Mutex<Connection>>,
@@ -542,6 +585,20 @@ impl CertificateRepository {
             .unwrap();
 
         Ok(new_certificate.into())
+    }
+
+    /// Delete all the given certificates from the database
+    pub async fn delete_certificates(&self, certificates: &[&Certificate]) -> StdResult<()> {
+        let ids = certificates
+            .iter()
+            .map(|c| c.hash.as_str())
+            .collect::<Vec<_>>();
+
+        let connection = self.connection.lock().await;
+        let provider = DeleteCertificateProvider::new(&connection);
+        let _ = provider.delete_by_ids(&ids)?.collect::<Vec<_>>();
+
+        Ok(())
     }
 }
 
@@ -1284,5 +1341,56 @@ mod tests {
 
             assert_eq!(certificates[4].hash, cert.certificate_id);
         }
+    }
+
+    #[test]
+    fn delete_certificates_condition_correctly_joins_given_ids() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = DeleteCertificateProvider::new(&connection);
+        let condition = provider.get_delete_by_ids_condition(&["a", "b", "c"]);
+        let (condition, params) = condition.expand();
+
+        assert_eq!("certificate_id in (?1, ?2, ?3)".to_string(), condition);
+        assert_eq!(
+            vec![
+                Value::String("a".to_string()),
+                Value::String("b".to_string()),
+                Value::String("c".to_string()),
+            ],
+            params
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_only_given_certificates() {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let repository = CertificateRepository::new(connection.clone());
+        let records = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+        ];
+        insert_certificate_records(connection, records.clone()).await;
+        let certificates: Vec<Certificate> = records.into_iter().map(|c| c.into()).collect();
+
+        // Delete all records except the first
+        repository
+            .delete_certificates(
+                &certificates
+                    .iter()
+                    .filter(|r| r.beacon.immutable_file_number > 1)
+                    .collect::<Vec<_>>(),
+            )
+            .await
+            .unwrap();
+
+        let expected_remaining_certificate = certificates.first().unwrap().clone();
+        let remaining_certificates = repository
+            .get_latest_certificates(usize::MAX)
+            .await
+            .unwrap();
+
+        assert_eq!(vec![expected_remaining_certificate], remaining_certificates)
     }
 }
