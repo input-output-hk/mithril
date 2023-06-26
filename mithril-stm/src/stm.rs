@@ -414,26 +414,6 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
         })
     }
 
-    /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
-    /// the merkle tree root and the total stake.
-    #[allow(dead_code)] //REMOVE!!!!!!!!!!
-    fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        let closed_reg = self
-            .closed_reg
-            .as_ref()
-            .expect("Closed registration missing. Cannot compute AVK");
-        StmAggrVerificationKey::from(closed_reg)
-    }
-
-    /// Return the closed registration instance
-    #[allow(dead_code)] //REMOVE!!!!!!!!!!
-    fn get_closed_reg(self) -> ClosedKeyReg<D> {
-        if self.closed_reg.is_none() {
-            panic!("Closed registration not found!");
-        }
-        self.closed_reg.unwrap()
-    }
-
     /// Extract the verification key.
     pub fn verification_key(&self) -> StmVerificationKey {
         self.vk
@@ -490,12 +470,14 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
     /// Create a Clerk from a signer.
     pub fn from_signer(signer: &StmSigner<D>) -> Self {
-        if signer.closed_reg.is_none() {
-            panic!("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!");
-        }
+        let closed_reg = signer
+            .closed_reg
+            .as_ref()
+            .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!");
+
         Self {
             params: signer.params,
-            closed_reg: signer.closed_reg.as_ref().unwrap().clone(),
+            closed_reg: closed_reg.clone(),
         }
     }
 
@@ -997,17 +979,7 @@ impl CoreVerifier {
             total_stake = res;
             unique_parties.insert(MTLeaf(signer.0, signer.1));
         }
-        // let eligible_parties = public_signers
-        //     .iter()
-        //     .map(|signer| {
-        //         let (res, overflow) = total_stake.overflowing_add(signer.1);
-        //         if overflow {
-        //             panic!("Total stake overflow");
-        //         }
-        //         total_stake = res;
-        //         MTLeaf(signer.0, signer.1)
-        //     })
-        //     .collect::<Vec<RegParty>>();
+
         let eligible_parties: Vec<_> = unique_parties.into_iter().collect();
         CoreVerifier {
             eligible_parties,
