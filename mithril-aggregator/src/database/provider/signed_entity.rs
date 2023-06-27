@@ -170,6 +170,15 @@ impl<'client> SignedEntityRecordProvider<'client> {
         ))
     }
 
+    fn condition_by_certificates_ids(&self, certificates_ids: &[&str]) -> WhereCondition {
+        let ids_values = certificates_ids
+            .iter()
+            .map(|id| Value::String(id.to_string()))
+            .collect();
+
+        WhereCondition::where_in("certificate_id", ids_values)
+    }
+
     fn condition_by_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityTypeDiscriminants,
@@ -199,6 +208,17 @@ impl<'client> SignedEntityRecordProvider<'client> {
         certificate_id: &str,
     ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
         let filters = self.condition_by_certificate_id(certificate_id)?;
+        let signed_entity_record = self.find(filters)?;
+
+        Ok(signed_entity_record)
+    }
+
+    /// Get [records][SignedEntityRecord] for a list of given `certificates_ids`.
+    pub fn get_by_certificates_ids(
+        &self,
+        certificates_ids: &[&str],
+    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+        let filters = self.condition_by_certificates_ids(certificates_ids);
         let signed_entity_record = self.find(filters)?;
 
         Ok(signed_entity_record)
@@ -377,6 +397,12 @@ pub trait SignedEntityStorer: Sync + Send {
         certificate_hash: &str,
     ) -> StdResult<Option<SignedEntityRecord>>;
 
+    /// Get signed entities type by certificates ids
+    async fn get_signed_entity_by_certificates_ids<'a>(
+        &self,
+        certificates_ids: &[&'a str],
+    ) -> StdResult<Vec<SignedEntityRecord>>;
+
     /// Get last signed entities by signed entity type
     async fn get_last_signed_entities_by_type(
         &self,
@@ -439,6 +465,17 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let signed_entity = cursor.next();
 
         Ok(signed_entity)
+    }
+
+    async fn get_signed_entity_by_certificates_ids<'a>(
+        &self,
+        certificates_ids: &[&'a str],
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let cursor = provider.get_by_certificates_ids(certificates_ids)?;
+
+        Ok(cursor.collect())
     }
 
     async fn get_last_signed_entities_by_type(
@@ -622,6 +659,24 @@ mod tests {
     }
 
     #[test]
+    fn get_signed_entity_record_by_signed_certificates_ids() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = SignedEntityRecordProvider::new(&connection);
+        let condition = provider.condition_by_certificates_ids(&["a", "b", "c"]);
+        let (condition, params) = condition.expand();
+
+        assert_eq!("certificate_id in (?1, ?2, ?3)".to_string(), condition);
+        assert_eq!(
+            vec![
+                Value::String("a".to_string()),
+                Value::String("b".to_string()),
+                Value::String("c".to_string()),
+            ],
+            params
+        );
+    }
+
+    #[test]
     fn insert_signed_entity_record() {
         let snapshots = fake_data::snapshots(1);
         let snapshot = snapshots.first().unwrap().to_owned();
@@ -702,6 +757,29 @@ mod tests {
             .expect("querying signed entity record by certificate id should not fail");
 
         assert_eq!(Some(expected_record), record);
+    }
+
+    #[tokio::test]
+    async fn test_get_signed_entity_record_by_certificates_ids() {
+        let expected_records = fake_signed_entity_records(3);
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signed_entity_db(&connection, expected_records.clone()).unwrap();
+        let store = SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
+        let certificates_ids: Vec<&str> = expected_records
+            .iter()
+            .map(|r| r.certificate_id.as_str())
+            .collect();
+
+        let queried_records = store
+            .get_signed_entity_by_certificates_ids(&certificates_ids)
+            .await
+            .expect("querying signed entity record by certificates ids should not fail");
+
+        assert_eq!(
+            // Records are inserted older to earlier and queried the other way round
+            expected_records.into_iter().rev().collect::<Vec<_>>(),
+            queried_records
+        );
     }
 
     #[test]
