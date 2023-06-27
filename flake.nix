@@ -14,7 +14,7 @@
 
       imports = [inputs.treefmt-nix.flakeModule];
 
-      flake.hydraJobs = inputs.self.packages;
+      flake.hydraJobs = builtins.removeAttrs inputs.self.packages ["aarch64-linux"];
 
       perSystem = {
         pkgs,
@@ -49,7 +49,9 @@
           ]
           ++ lib.optional (pkgs.stdenv.isDarwin) [
             pkgs.darwin.apple_sdk.frameworks.Security
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
             pkgs.darwin.configdHeaders
+            pkgs.darwin.libiconv
           ];
 
         buildPackage = name: cargoToml:
