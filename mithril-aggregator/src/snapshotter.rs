@@ -69,7 +69,7 @@ impl Snapshotter for GzipSnapshotter {
             if archive_path.exists() {
                 if let Err(remove_error) = std::fs::remove_file(&archive_path) {
                     warn!(
-                        " > Post snapshotter.snapshot failure, could not remove temporary archive: path:{}, err: {}",
+                        " > Post snapshotter.snapshot failure, could not remove temporary archive at path: path:{}, err: {}",
                         archive_path.display(),
                         remove_error
                     );
@@ -234,34 +234,28 @@ mod tests {
 
     #[test]
     fn should_create_directory_if_does_not_exist() {
-        // arrange
         let test_dir = get_test_directory("should_create_directory_if_does_not_exist");
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = std::env::temp_dir().join("whatever");
 
-        // act
         Arc::new(GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap());
 
-        // assert
         assert!(pending_snapshot_directory.is_dir());
     }
 
     #[test]
     fn should_clean_pending_snapshot_directory_if_already_exists() {
-        // arrange
         let test_dir =
             get_test_directory("should_clean_pending_snapshot_directory_if_already_exists");
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = std::env::temp_dir().join("whatever");
 
-        // act
         std::fs::create_dir_all(&pending_snapshot_directory).unwrap();
 
         std::fs::File::create(pending_snapshot_directory.join("whatever.txt")).unwrap();
 
         Arc::new(GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap());
 
-        // assert
         assert_eq!(
             0,
             std::fs::read_dir(pending_snapshot_directory)
@@ -272,14 +266,12 @@ mod tests {
 
     #[test]
     fn should_delete_tmp_file_in_pending_snapshot_directory_if_snapshotting_fail() {
-        // arrange
         let test_dir = get_test_directory(
             "should_delete_tmp_file_in_pending_snapshot_directory_if_snapshotting_fail",
         );
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = test_dir.join("db");
 
-        // act
         let snapshotter = Arc::new(
             GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap(),
         );
@@ -295,7 +287,6 @@ mod tests {
             .map(|f| f.unwrap().file_name().to_str().unwrap().to_owned())
             .collect();
 
-        // assert
         assert_eq!(vec!["other-process.file".to_string()], remaining_files);
     }
 }

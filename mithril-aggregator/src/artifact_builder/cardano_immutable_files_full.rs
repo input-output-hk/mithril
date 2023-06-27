@@ -270,7 +270,7 @@ mod tests {
         cardano_immutable_files_full_artifact_builder
             .upload_snapshot_archive(&snapshot)
             .await
-            .expect_err("Snapshot upload should have fail");
+            .expect_err("Snapshot upload should have failed");
 
         assert!(
             !file_path.exists(),
