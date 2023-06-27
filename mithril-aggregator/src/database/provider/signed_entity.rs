@@ -298,6 +298,66 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
     }
 }
 
+struct UpdateSignedEntityProvider<'client> {
+    connection: &'client Connection,
+}
+
+impl<'client> UpdateSignedEntityProvider<'client> {
+    pub fn new(connection: &'client Connection) -> Self {
+        Self { connection }
+    }
+
+    fn get_update_condition(
+        &self,
+        signed_entity_record: &SignedEntityRecord,
+    ) -> StdResult<WhereCondition> {
+        let expression =
+            "signed_entity_type_id = ?*, certificate_id = ?*, beacon = ?*, artifact = ?*, \
+created_at = ?* \
+where signed_entity_id = ?*";
+        let parameters = vec![
+            Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
+            Value::String(signed_entity_record.certificate_id.to_owned()),
+            Value::String(signed_entity_record.signed_entity_type.get_json_beacon()?),
+            Value::String(signed_entity_record.artifact.to_owned()),
+            Value::String(signed_entity_record.created_at.to_rfc3339()),
+            Value::String(signed_entity_record.signed_entity_id.to_owned()),
+        ];
+
+        Ok(WhereCondition::new(expression, parameters))
+    }
+
+    fn persist(
+        &self,
+        signed_entity_record: &SignedEntityRecord,
+    ) -> Result<SignedEntityRecord, StdError> {
+        let filters = self.get_update_condition(signed_entity_record)?;
+        let mut cursor = self.find(filters)?;
+
+        cursor.next().ok_or_else(|| {
+            panic!(
+                "Updating a signed_entity should not return nothing, id = {:?}",
+                signed_entity_record.signed_entity_id
+            )
+        })
+    }
+}
+
+impl<'client> Provider<'client> for UpdateSignedEntityProvider<'client> {
+    type Entity = SignedEntityRecord;
+
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:signed_entity:}", "signed_entity")]));
+
+        format!("update signed_entity set {condition} returning {projection}")
+    }
+}
+
 /// Signed entity storer trait
 #[cfg_attr(test, automock)]
 #[async_trait]
@@ -322,6 +382,12 @@ pub trait SignedEntityStorer: Sync + Send {
         &self,
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
+    ) -> StdResult<Vec<SignedEntityRecord>>;
+
+    /// Perform an update for all the given signed entities.
+    async fn update_signed_entities(
+        &self,
+        signed_entities: Vec<SignedEntityRecord>,
     ) -> StdResult<Vec<SignedEntityRecord>>;
 }
 
@@ -388,6 +454,24 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
 
         Ok(signed_entities)
+    }
+
+    async fn update_signed_entities(
+        &self,
+        signed_entities: Vec<SignedEntityRecord>,
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = UpdateSignedEntityProvider::new(connection);
+        connection.execute("begin transaction")?;
+        let mut updated_records = vec![];
+
+        for record in signed_entities {
+            updated_records.push(provider.persist(&record)?);
+        }
+
+        connection.execute("commit transaction")?;
+
+        Ok(updated_records)
     }
 }
 
@@ -634,5 +718,78 @@ mod tests {
                 provider.persist(signed_entity_record.clone()).unwrap();
             assert_eq!(signed_entity_record, signed_entity_record_saved);
         }
+    }
+
+    #[test]
+    fn update_provider_condition() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = UpdateSignedEntityProvider::new(&connection);
+        let snapshots = fake_data::snapshots(1);
+        let snapshot = snapshots.first().unwrap().to_owned();
+        let signed_entity_record: SignedEntityRecord = snapshot.into();
+        let (expr, params) = provider
+            .get_update_condition(&signed_entity_record)
+            .unwrap()
+            .expand();
+
+        assert_eq!(
+            "signed_entity_type_id = ?1, certificate_id = ?2, beacon = ?3, artifact = ?4, created_at = ?5 where signed_entity_id = ?6"
+                .to_string(),
+            expr
+        );
+        assert_eq!(
+            vec![
+                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
+                Value::String(signed_entity_record.certificate_id.to_owned()),
+                Value::String(
+                    signed_entity_record
+                        .signed_entity_type
+                        .get_json_beacon()
+                        .unwrap()
+                ),
+                Value::String(signed_entity_record.artifact.to_owned()),
+                Value::String(signed_entity_record.created_at.to_rfc3339()),
+                Value::String(signed_entity_record.signed_entity_id),
+            ],
+            params
+        );
+    }
+
+    #[tokio::test]
+    async fn update_only_given_entities() {
+        let mut signed_entity_records = fake_signed_entity_records(5);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
+        let store = SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
+
+        let records_to_update: Vec<SignedEntityRecord> = signed_entity_records
+            .drain(2..)
+            .map(|mut r| {
+                r.certificate_id = format!("updated-{}", r.certificate_id);
+                r
+            })
+            .collect();
+        let expected_records: Vec<SignedEntityRecord> = signed_entity_records
+            .into_iter()
+            .chain(records_to_update.clone())
+            .rev() // Records are returned from latest to oldest
+            .collect();
+
+        let updated_records = store
+            .update_signed_entities(records_to_update.clone())
+            .await
+            .expect("updating signed entities should not fail");
+
+        let stored_records = store
+            .get_last_signed_entities_by_type(
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                usize::MAX,
+            )
+            .await
+            .expect("getting signed entities should not fail");
+
+        assert_eq!(records_to_update, updated_records);
+        assert_eq!(expected_records, stored_records);
     }
 }
