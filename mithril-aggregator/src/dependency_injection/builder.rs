@@ -574,23 +574,10 @@ impl DependenciesBuilder {
                     .snapshot_directory
                     .join("pending_snapshot");
 
-                // **TODO** this code should be in the snapshotter constructor.
-                if !ongoing_snapshot_directory.exists() {
-                    std::fs::create_dir(&ongoing_snapshot_directory).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: format!(
-                                "Cannot create snapshotter directory '{}'.",
-                                ongoing_snapshot_directory.display()
-                            ),
-                            error: Some(e.into()),
-                        }
-                    })?;
-                }
-
                 Arc::new(GzipSnapshotter::new(
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
-                ))
+                )?)
             }
             _ => Arc::new(DumbSnapshotter::new()),
         };
