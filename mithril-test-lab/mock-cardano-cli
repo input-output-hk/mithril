@@ -1,16 +1,84 @@
 #!/usr/bin/env bash
 
-cat <<EOF
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
+
+cd "$(dirname "$0")"
+
+main () {
+	command_to_run="default"
+
+	while [[ "$#" -gt 0 ]]; do
+		case $1 in
+			stake-distribution) command_to_run="stake-distribution"; break ;;
+			stake-snapshot) command_to_run="stake-snapshot"; break ;;
+			tip) command_to_run="chain-tip"; break ;;
+		esac
+		shift
+	done
+
+	case $command_to_run in
+		stake-distribution) cat <<EOF
+	PoolId                                 Stake frac
+------------------------------------------------------------------------------
+pool1reveeljzl7klh6fhgh8t9xvtvxycx88u5zvnzw0m49srxzrjtu5   2.493e-3
+pool1qqfnw2fwajdnam7xsqhhrje5cgd8jcltzfrx655rd23eqlxjfef   2.164e-5
+pool1qqnjh80kudcjphrxftj74x22q3a4uvw8wknlxptgs7gdqtstqad   8.068e-7
+pool1qquwwu6680fr72y4779r2kpc7mxtch8rp2uhuqcc7v9p6q4f7ph   7.073e-7
+pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8   2.474e-11
+pool1qptl80vq84xm28pt3t2lhpfzqag28csjhktxz5k6a74n260clmt   5.600e-7
+pool1wp86cljzqwzh70yjz7k80v04fcfq7vqfy8tuqsnm2lytjhgdwf7   5.161e-5
+pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
+EOF
+			;;
+		stake-snapshot) cat <<EOF
 {
-    "block": 8940865,
-    "epoch": 42,
-    "era": "Babbage",
-    "hash": "325412b8db78d8beaa2e8e4601b0ace50f3874c4c86e9ef96f0f0eebabd180f4",
-    "slot": 95959044,
-    "slotInEpoch": 314244,
-    "slotsToEpochEnd": 117756,
-    "syncProgress": "100.00"
+    "pools": {
+        "00000036d515e12e18cd3c88c74f09a67984c2c279a5296aa96efe89": {
+            "stakeGo": 300000000000,
+            "stakeMark": 300000000001,
+            "stakeSet": 300000000002
+        },
+        "000000f66e28b0f18aef20555f4c4954234e3270dfbbdcc13f54e799": {
+            "stakeGo": 600000000000,
+            "stakeMark": 600000000001,
+            "stakeSet": 600000000002
+        },
+        "00000110093effbf3ce788aebd3e7506b80322bd3995ad432e61fad5": {
+            "stakeGo": 1200000000000,
+            "stakeMark": 1200000000001,
+            "stakeSet": 1200000000002
+        },
+        "00000ffff93effbf3ce788aebd3e7506b80322bd3995ad432e61fad5": {
+            "stakeGo": 0,
+            "stakeMark": 0,
+            "stakeSet": 1300000000002
+        }
+    },
+    "total": {
+        "stakeGo": 2100000000000,
+        "stakeMark": 2100000000003,
+        "stakeSet": 2100000000006
+    }
 }
 EOF
+			;;
+		chain-tip) cat <<EOF
+{
+    "era": "Babbage",
+    "syncProgress": "100.00",
+    "hash": "f6d1b8c328697c7a4a8e7f718c79510acbcd411ff4ca19401ded13534d45a38d",
+    "epoch": 1,
+    "slot": 0,
+    "block": 0
+}
+EOF
+			;;
+		default | *) echo "{}" ;;
+	esac
+}
 
-exit 0
+main "$@"

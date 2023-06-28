@@ -14,7 +14,7 @@ pub fn generate_register_message(signers_fixture: &MithrilFixture) -> RegisterSi
     let signers = signers_fixture.signers();
     let signer = signers.first().unwrap().to_owned();
     // generate HTTP payload for POST /signers
-    let epoch = Epoch(42);
+    let epoch = Epoch(2);
 
     RegisterSignerMessage {
         epoch: Some(epoch),
@@ -70,6 +70,10 @@ mod tests {
         };
         let cardano_cli_path = Path::new("/home/curry/mithril/mithril-test-lab/mock-cardano-cli");
         let tmp_dir = std::env::temp_dir().join("load-aggregator");
+        if tmp_dir.exists() {
+            fs::remove_dir_all(&tmp_dir).unwrap();
+        }
+
         fs::create_dir_all(&tmp_dir).unwrap();
 
         let bin_dir = Path::new("../../target/release");
@@ -79,7 +83,7 @@ mod tests {
             cardano_cli_path,
             &tmp_dir,
             bin_dir,
-            "Thales",
+            "thales",
         )
         .unwrap();
 
@@ -87,7 +91,6 @@ mod tests {
         aggregator.serve().unwrap();
         tokio::time::sleep(Duration::from_secs(10)).await;
 
-        //let register_message_json = serde_json::to_string(&register_message).unwrap();
         let result = reqwest::Client::new()
             .post(format!("{}/register-signer", aggregator.endpoint()))
             .json(&register_message)
@@ -100,6 +103,7 @@ mod tests {
             "text: {}",
             result.text().await.unwrap()
         );
+
         // ensure POSTing payload gives 200
         aggregator.stop().await.unwrap();
     }
