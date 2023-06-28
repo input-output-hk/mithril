@@ -161,6 +161,7 @@ impl CertificatesHashMigrator {
         self.certificate_repository
             .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
             .await?;
+
         Ok(())
     }
 }

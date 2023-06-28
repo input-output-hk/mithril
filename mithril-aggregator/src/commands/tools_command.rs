@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
+use mithril_common::sqlite::vacuum_database;
 use slog_scope::debug;
 use std::{error::Error, sync::Arc};
 
@@ -69,13 +70,18 @@ impl RecomputeCertificatesHashCommand {
         let connection = dependencies_builder.get_sqlite_connection().await?;
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
-            Arc::new(SignedEntityStoreAdapter::new(connection)),
+            Arc::new(SignedEntityStoreAdapter::new(connection.clone())),
         );
 
         migrator
             .migrate()
             .await
-            .map_err(|err| format!("Certificate hash migrator error: {err}"))?;
+            .map_err(|err| format!("recompute-certificates-hash: migration error: {err}"))?;
+
+        vacuum_database(connection)
+            .await
+            .map_err(|err| format!("recompute-certificates-hash: database vacuum error: {err}"))?;
+
         Ok(())
     }
 }
