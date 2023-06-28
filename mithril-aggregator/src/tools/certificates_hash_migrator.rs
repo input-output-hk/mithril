@@ -1,7 +1,7 @@
 use crate::database::provider::{CertificateRepository, SignedEntityStorer};
 use mithril_common::{entities::Certificate, StdResult};
-use std::collections::HashMap;
-use std::sync::Arc;
+use slog_scope::{debug, info, trace};
+use std::{collections::HashMap, sync::Arc};
 
 /// Tools to recompute all the certificates hashes in a aggregator database.
 pub struct CertificatesHashMigrator {
@@ -23,16 +23,16 @@ impl CertificatesHashMigrator {
 
     /// Recompute all the certificates hashes the database.
     pub async fn migrate(&self) -> StdResult<()> {
+        info!("🔧 Certificate Hash Migrator: starting");
         let (old_certificates, old_and_new_hashes) =
             self.create_certificates_with_updated_hash().await?;
 
         self.update_signed_entities_certificate_hash(old_and_new_hashes)
             .await?;
 
-        self.certificate_repository
-            .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
-            .await?;
+        self.cleanup(old_certificates).await?;
 
+        info!("🔧 Certificate Hash Migrator: all certificates have been migrated successfully");
         Ok(())
     }
 
@@ -41,6 +41,7 @@ impl CertificatesHashMigrator {
     async fn create_certificates_with_updated_hash(
         &self,
     ) -> StdResult<(Vec<Certificate>, HashMap<String, String>)> {
+        info!("🔧 Certificate Hash Migrator: recomputing all certificates hash");
         let old_certificates = self
             .certificate_repository
             // arbitrary high value to get all existing certificates
@@ -54,23 +55,46 @@ impl CertificatesHashMigrator {
         // Note: get_latest_certificates retrieve certificates from the earliest to the older,
         // in order to have a strong guarantee that when inserting a certificate in the db its
         // previous_hash exist we have to work in the reverse order.
+        debug!("🔧 Certificate Hash Migrator: computing new hash for all certificates");
         for mut certificate in old_certificates.clone().into_iter().rev() {
             let new_hash = certificate.compute_hash();
             old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
+            trace!(
+                "🔧 Certificate Hash Migrator: new hash computed for certificate {:?}",
+                certificate.beacon;
+                "old_hash" => &certificate.hash,
+                "new_hash" => &new_hash
+            );
 
             certificate.hash = new_hash;
             migrated_certificates.push(certificate);
         }
 
         // 2 - Update all certificates previous hash
+        debug!("🔧 Certificate Hash Migrator: updating certificates previous_hashes to new computed hash");
         for mut certificate in migrated_certificates.iter_mut() {
-            // Should we raise an error if no matching is found ?
-            if let Some(new_hash) = old_and_new_hashes.get(&certificate.previous_hash) {
-                certificate.previous_hash = new_hash.clone();
+            if certificate.is_genesis() {
+                continue;
             }
+
+            let new_hash = old_and_new_hashes
+                .get(&certificate.previous_hash)
+                .ok_or(format!(
+                        "Could not migrate certificate previous_hash: The hash '{}' doesn't exist in the certificate table",
+                        certificate.previous_hash
+                ))?;
+            certificate.previous_hash = new_hash.clone();
         }
 
+        // 3 - Certificates migrated, we can insert them in the db
+        debug!("🔧 Certificate Hash Migrator: inserting migrated certificates in the database");
         for migrated_certificate in migrated_certificates {
+            trace!(
+                "🔧 Certificate Hash Migrator: inserting migrated certificate {:?}",
+                migrated_certificate.beacon;
+                "hash" => &migrated_certificate.hash,
+                "previous_hash" => &migrated_certificate.previous_hash
+            );
             self.certificate_repository
                 .create_certificate(migrated_certificate)
                 .await?;
@@ -83,6 +107,7 @@ impl CertificatesHashMigrator {
         &self,
         old_and_new_certificate_hashes: HashMap<String, String>,
     ) -> StdResult<()> {
+        info!("🔧 Certificate Hash Migrator: updating signed entities certificate ids");
         let old_hashes: Vec<&str> = old_and_new_certificate_hashes
             .keys()
             .map(|k| k.as_str())
@@ -92,8 +117,9 @@ impl CertificatesHashMigrator {
             .get_signed_entity_by_certificates_ids(&old_hashes)
             .await?;
 
+        debug!("🔧 Certificate Hash Migrator: updating signed entities certificate_ids to new computed hash");
         for mut signed_entity_record in records_to_migrate.iter_mut() {
-            signed_entity_record.certificate_id =
+            let new_certificate_hash =
                 old_and_new_certificate_hashes
                     .get(&signed_entity_record.certificate_id)
                     .ok_or( format!(
@@ -101,12 +127,29 @@ impl CertificatesHashMigrator {
                         signed_entity_record.certificate_id
                     ))?
                     .to_string();
+
+            trace!(
+                "🔧 Certificate Hash Migrator: migrating signed entity {} certificate hash computed for certificate",
+                signed_entity_record.signed_entity_id;
+                "old_certificate_hash" => &signed_entity_record.certificate_id,
+                "new_certificate_hash" => &new_certificate_hash
+            );
+            signed_entity_record.certificate_id = new_certificate_hash;
         }
 
+        debug!("🔧 Certificate Hash Migrator: updating migrated signed entities in the database");
         self.signed_entity_storer
             .update_signed_entities(records_to_migrate)
             .await?;
 
+        Ok(())
+    }
+
+    async fn cleanup(&self, old_certificates: Vec<Certificate>) -> StdResult<()> {
+        info!("🔧 Certificate Hash Migrator: deleting old certificates in the database");
+        self.certificate_repository
+            .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
+            .await?;
         Ok(())
     }
 }
@@ -114,14 +157,12 @@ impl CertificatesHashMigrator {
 #[cfg(test)]
 mod test {
     use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, SignedEntityRecord,
-        SignedEntityStoreAdapter, SignedEntityStorer,
+        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRecord,
+        CertificateRepository, SignedEntityRecord, SignedEntityStoreAdapter, SignedEntityStorer,
     };
-    use crate::database::provider::{CertificateRecord, CertificateRepository};
-    use mithril_common::entities::Epoch;
     use mithril_common::{
         entities::{
-            Beacon, Certificate, ImmutableFileNumber,
+            Beacon, Certificate, Epoch, ImmutableFileNumber,
             SignedEntityType::{
                 CardanoImmutableFilesFull, CardanoStakeDistribution, MithrilStakeDistribution,
             },
@@ -130,8 +171,7 @@ mod test {
         StdResult,
     };
     use sqlite::Connection;
-    use std::collections::HashMap;
-    use std::sync::Arc;
+    use std::{collections::HashMap, sync::Arc};
     use tokio::sync::Mutex;
 
     use super::CertificatesHashMigrator;
@@ -328,11 +368,6 @@ mod test {
                     .get_signed_entity_by_certificate_id(&certificate.hash)
                     .await?;
                 result.push((certificate, record));
-                //     .ok_or(format!(
-                //         "A signed entity should exist for certificate: {}",
-                //         certificate.hash
-                //     ))?;
-                // result.push((certificate, Some(record)));
             }
         }
 

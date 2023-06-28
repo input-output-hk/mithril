@@ -2,6 +2,7 @@ use crate::entities::{
     Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, HexEncodedGenesisSignature,
     HexEncodedMultiSignature, ProtocolMessage,
 };
+use std::ops::Not;
 
 use sha2::{Digest, Sha256};
 
@@ -89,6 +90,11 @@ impl Certificate {
         hasher.update(self.multi_signature.as_bytes());
         hasher.update(self.genesis_signature.as_bytes());
         hex::encode(hasher.finalize())
+    }
+
+    /// Tell if the certificate is a genesis certificate
+    pub fn is_genesis(&self) -> bool {
+        self.genesis_signature.is_empty().not()
     }
 }
 
