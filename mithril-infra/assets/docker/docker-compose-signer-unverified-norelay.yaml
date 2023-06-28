@@ -36,15 +36,6 @@ services:
         "/db"
       ]
 
-  mithril-relay:
-    image: ubuntu/squid:latest
-    container_name: mithril-relay-${SIGNER_ID}
-    profiles:
-      - mithril
-      - all
-    volumes:
-      - ./squid/squid.conf:/etc/squid/squid.conf:ro
-
   mithril-signer:
     image: ghcr.io/input-output-hk/mithril-signer:${MITHRIL_IMAGE_ID}
     container_name: mithril-signer-${SIGNER_ID}
@@ -66,7 +57,6 @@ services:
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
       - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
-      - RELAY_ENDPOINT=http://mithril-relay-${SIGNER_ID}:3128
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
