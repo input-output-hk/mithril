@@ -107,17 +107,9 @@ impl CertificatesHashMigrator {
 
         // 2 - Certificates migrated, we can insert them in the db
         debug!("🔧 Certificate Hash Migrator: inserting migrated certificates in the database");
-        for migrated_certificate in migrated_certificates {
-            trace!(
-                "🔧 Certificate Hash Migrator: inserting migrated certificate {:?}",
-                migrated_certificate.beacon;
-                "hash" => &migrated_certificate.hash,
-                "previous_hash" => &migrated_certificate.previous_hash
-            );
-            self.certificate_repository
-                .create_certificate(migrated_certificate)
-                .await?;
-        }
+        self.certificate_repository
+            .create_many_certificates(migrated_certificates)
+            .await?;
 
         Ok((old_certificates, old_and_new_hashes))
     }
