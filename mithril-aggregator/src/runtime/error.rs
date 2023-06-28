@@ -1,4 +1,4 @@
-use std::error::Error as StdError;
+use mithril_common::StdError;
 use thiserror::Error;
 
 /// Error encountered or produced by the Runtime.
@@ -13,7 +13,7 @@ pub enum RuntimeError {
         message: String,
 
         /// Eventual caught error
-        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+        nested_error: Option<StdError>,
     },
     /// A Critical error means the Runtime stops and the software exits with an
     /// error code.
@@ -23,13 +23,22 @@ pub enum RuntimeError {
         message: String,
 
         /// Eventual caught error
-        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+        nested_error: Option<StdError>,
+    },
+    /// An error that needs to re-initialize the state machine.
+    #[error("An error occured: {message}. The state machine will be re-initialized. Nested error: {nested_error:#?}")]
+    ReInit {
+        /// error message
+        message: String,
+
+        /// Eventual caught error
+        nested_error: Option<StdError>,
     },
 }
 
 impl RuntimeError {
     /// Create a new KeepState error
-    pub fn keep_state(message: &str, error: Option<Box<dyn StdError + Sync + Send>>) -> Self {
+    pub fn keep_state(message: &str, error: Option<StdError>) -> Self {
         Self::KeepState {
             message: message.to_string(),
             nested_error: error,
@@ -37,7 +46,7 @@ impl RuntimeError {
     }
 
     /// Create a new Critical error
-    pub fn critical(message: &str, error: Option<Box<dyn StdError + Sync + Send>>) -> Self {
+    pub fn critical(message: &str, error: Option<StdError>) -> Self {
         Self::Critical {
             message: message.to_string(),
             nested_error: error,
@@ -45,8 +54,8 @@ impl RuntimeError {
     }
 }
 
-impl From<Box<dyn StdError + Sync + Send>> for RuntimeError {
-    fn from(value: Box<dyn StdError + Sync + Send>) -> Self {
+impl From<StdError> for RuntimeError {
+    fn from(value: StdError) -> Self {
         Self::KeepState {
             message: "Error caught, state preserved, will retry to cycle.".to_string(),
             nested_error: Some(value),

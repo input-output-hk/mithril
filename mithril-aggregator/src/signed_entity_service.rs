@@ -120,9 +120,20 @@ impl SignedEntityService for MithrilSignedEntityService {
             "certificate_hash" => &certificate.hash
         );
 
-        let artifact = self
-            .compute_artifact(signed_entity_type.clone(), certificate)
-            .await?;
+        let mut remaining_retries = 3;
+        let artifact = loop {
+            remaining_retries -= 1;
+
+            match self
+                .compute_artifact(signed_entity_type.clone(), certificate)
+                .await
+            {
+                Err(error) if remaining_retries == 0 => break Err(error),
+                Err(_error) => (),
+                Ok(artifact) => break Ok(artifact),
+            };
+        }?;
+
         let signed_entity = SignedEntityRecord {
             signed_entity_id: artifact.get_id(),
             signed_entity_type,
