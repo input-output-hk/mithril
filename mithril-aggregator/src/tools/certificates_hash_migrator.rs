@@ -49,44 +49,54 @@ impl CertificatesHashMigrator {
             .await?;
 
         let mut migrated_certificates = vec![];
-        let mut old_and_new_hashes = HashMap::new();
+        let mut old_and_new_hashes: HashMap<String, String> = HashMap::new();
 
-        // 1 - Recompute all certificates hashes, but not their previous
+        // 1 - Recompute all certificates hashes
         // Note: get_latest_certificates retrieve certificates from the earliest to the older,
         // in order to have a strong guarantee that when inserting a certificate in the db its
         // previous_hash exist we have to work in the reverse order.
         debug!("🔧 Certificate Hash Migrator: computing new hash for all certificates");
         for mut certificate in old_certificates.clone().into_iter().rev() {
+            let old_previous_hash = if certificate.is_genesis() {
+                certificate.previous_hash.clone()
+            } else {
+                let old_previous_hash = certificate.previous_hash.clone();
+                certificate.previous_hash = old_and_new_hashes
+                    .get(&certificate.previous_hash)
+                    .ok_or(format!(
+                        "Could not migrate certificate previous_hash: The hash '{}' doesn't exist in the certificate table",
+                        certificate.previous_hash
+                    ))?.to_string();
+
+                old_previous_hash
+            };
+
             let new_hash = certificate.compute_hash();
             old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
-            trace!(
-                "🔧 Certificate Hash Migrator: new hash computed for certificate {:?}",
-                certificate.beacon;
-                "old_hash" => &certificate.hash,
-                "new_hash" => &new_hash
-            );
+
+            if certificate.is_genesis() {
+                trace!(
+                    "🔧 Certificate Hash Migrator: new hash computed for genesis certificate {:?}",
+                    certificate.beacon;
+                    "old_hash" => &certificate.hash,
+                    "new_hash" => &new_hash,
+                );
+            } else {
+                trace!(
+                    "🔧 Certificate Hash Migrator: new hash computed for certificate {:?}",
+                    certificate.beacon;
+                    "old_hash" => &certificate.hash,
+                    "new_hash" => &new_hash,
+                    "old_previous_hash" => &old_previous_hash,
+                    "new_previous_hash" => &certificate.previous_hash
+                );
+            }
 
             certificate.hash = new_hash;
             migrated_certificates.push(certificate);
         }
 
-        // 2 - Update all certificates previous hash
-        debug!("🔧 Certificate Hash Migrator: updating certificates previous_hashes to new computed hash");
-        for mut certificate in migrated_certificates.iter_mut() {
-            if certificate.is_genesis() {
-                continue;
-            }
-
-            let new_hash = old_and_new_hashes
-                .get(&certificate.previous_hash)
-                .ok_or(format!(
-                        "Could not migrate certificate previous_hash: The hash '{}' doesn't exist in the certificate table",
-                        certificate.previous_hash
-                ))?;
-            certificate.previous_hash = new_hash.clone();
-        }
-
-        // 3 - Certificates migrated, we can insert them in the db
+        // 2 - Certificates migrated, we can insert them in the db
         debug!("🔧 Certificate Hash Migrator: inserting migrated certificates in the database");
         for migrated_certificate in migrated_certificates {
             trace!(
@@ -273,11 +283,14 @@ mod test {
     fn recompute_hashes(
         certificates_and_signed_entity: Vec<(Certificate, Option<SignedEntityRecord>)>,
     ) -> Vec<(Certificate, Option<SignedEntityRecord>)> {
-        let mut old_and_new_hashes = HashMap::new();
+        let mut old_and_new_hashes: HashMap<String, String> = HashMap::new();
         let mut result = vec![];
 
-        // 1 - update cert hash & their signed entity but not their previous_hash
         for (mut certificate, signed_entity_maybe) in certificates_and_signed_entity {
+            if let Some(hash) = old_and_new_hashes.get(&certificate.previous_hash) {
+                certificate.previous_hash = hash.clone();
+            }
+
             let new_hash = certificate.compute_hash();
             old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
             certificate.hash = new_hash;
@@ -292,13 +305,6 @@ mod test {
 
             result.push((certificate, signed_entity_maybe));
         }
-
-        // 2 - update their previous hash
-        result.iter_mut().for_each(|(cert, _)| {
-            if let Some(x) = old_and_new_hashes.get(&cert.previous_hash) {
-                cert.previous_hash = x.clone();
-            }
-        });
 
         result
     }
@@ -317,6 +323,16 @@ mod test {
                     created_at: Default::default(),
                 }),
             ),
+            (
+                dummy_certificate("cert2", "cert1", 2, 3),
+                Some(SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id".to_string(),
+                    signed_entity_type: MithrilStakeDistribution(Epoch(2)),
+                    certificate_id: "cert2".to_string(),
+                    artifact: "".to_string(),
+                    created_at: Default::default(),
+                }),
+            ),
         ];
         let expected = vec![
             (
@@ -329,7 +345,7 @@ mod test {
             ),
             (
                 dummy_certificate(
-                    "0d8295035fb86cdc134182ef7fd875e3918afd592284fe55cc6b08549dc7ffea",
+                    "cff5adad248581d0b3706a48b1000f0d8caa590077b73ccc630339db07665926",
                     "b242ffde83e197319b68594c886aaaa8f1324e0e02b8226f982e866717f4d85d",
                     1,
                     2,
@@ -338,7 +354,24 @@ mod test {
                     signed_entity_id: "signed_entity_id".to_string(),
                     signed_entity_type: MithrilStakeDistribution(Epoch(1)),
                     certificate_id:
-                        "0d8295035fb86cdc134182ef7fd875e3918afd592284fe55cc6b08549dc7ffea"
+                        "cff5adad248581d0b3706a48b1000f0d8caa590077b73ccc630339db07665926"
+                            .to_string(),
+                    artifact: "".to_string(),
+                    created_at: Default::default(),
+                }),
+            ),
+            (
+                dummy_certificate(
+                    "d2c74da93514464722d58aaadfc5950180cf7f6484dfc648287eb56a7c2edf08",
+                    "cff5adad248581d0b3706a48b1000f0d8caa590077b73ccc630339db07665926",
+                    2,
+                    3,
+                ),
+                Some(SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id".to_string(),
+                    signed_entity_type: MithrilStakeDistribution(Epoch(2)),
+                    certificate_id:
+                        "d2c74da93514464722d58aaadfc5950180cf7f6484dfc648287eb56a7c2edf08"
                             .to_string(),
                     artifact: "".to_string(),
                     created_at: Default::default(),
