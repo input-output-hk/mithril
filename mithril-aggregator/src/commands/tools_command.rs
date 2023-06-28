@@ -1,11 +1,16 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use slog_scope::debug;
-use std::error::Error;
+use std::{error::Error, sync::Arc};
 
-use crate::{dependency_injection::DependenciesBuilder, Configuration};
+use crate::{
+    database::provider::{CertificateRepository, SignedEntityStoreAdapter},
+    dependency_injection::DependenciesBuilder,
+    tools::CertificatesHashMigrator,
+    Configuration,
+};
 
-/// Tools command
+/// List of tools to upkeep the aggregator
 #[derive(Parser, Debug, Clone)]
 pub struct ToolsCommand {
     /// commands
@@ -25,7 +30,11 @@ impl ToolsCommand {
 /// Tools subcommands.
 #[derive(Debug, Clone, Subcommand)]
 pub enum ToolsSubCommand {
-    /// Recompute certificates hash command.
+    /// Load all certificates in the database to recompute their hash and update all related
+    /// entities.
+    ///
+    /// Since it will modify the aggregator sqlite database it's strongly recommended to backup it
+    /// before running this command.
     RecomputeCertificatesHash(RecomputeCertificatesHashCommand),
 }
 
@@ -57,8 +66,16 @@ impl RecomputeCertificatesHashCommand {
         debug!("RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
         println!("Recomputing all certificate hash",);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let _dependencies = dependencies_builder.create_genesis_container().await?;
+        let connection = dependencies_builder.get_sqlite_connection().await?;
+        let migrator = CertificatesHashMigrator::new(
+            CertificateRepository::new(connection.clone()),
+            Arc::new(SignedEntityStoreAdapter::new(connection)),
+        );
 
-        todo!()
+        migrator
+            .migrate()
+            .await
+            .map_err(|err| format!("Certificate hash migrator error: {err}"))?;
+        Ok(())
     }
 }
