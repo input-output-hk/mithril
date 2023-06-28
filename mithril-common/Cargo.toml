@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.2.68"
+version = "0.2.69"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
