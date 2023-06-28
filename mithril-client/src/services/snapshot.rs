@@ -1,34 +1,28 @@
 use std::{
     fmt::Write,
-    fs::{remove_file, File},
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
 
 use async_trait::async_trait;
-use flate2::read::GzDecoder;
-use human_bytes::human_bytes;
+use futures::Future;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::ImmutableDigester,
-    entities::{ProtocolMessagePartKey, Snapshot},
+    entities::{Certificate, ProtocolMessagePartKey, Snapshot},
     StdError, StdResult,
 };
-use slog_scope::{debug, info, warn};
-use tar::Archive;
+use slog_scope::{debug, warn};
 use thiserror::Error;
 use tokio::{select, time::sleep};
 
-use crate::aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient};
-
-/// This ratio will be multiplied by the snapshot size to check if the available
-/// disk space is sufficient to store the archive plus the extracted files. If
-/// the available space is lower than that, a warning is raised. This ratio has
-/// been experimentally established.
-const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 3.5;
+use crate::{
+    aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient},
+    utils::{SnapshotUnpacker, SnapshotUnpackerError},
+};
 
 /// [SnapshotService] related errors.
 #[derive(Error, Debug)]
@@ -61,12 +55,6 @@ pub enum SnapshotServiceError {
         /// Eventual nested error
         error: StdError,
     },
-
-    /// The directory where the files from snapshot are expanded already exists.
-    /// An error is raised because it lets the user a chance to preserve a
-    /// previous work.
-    #[error("Unpack directory '{0}' already exists, please move or delete it.")]
-    UnpackDirectoryAlreadyExists(PathBuf),
 }
 
 /// ## SnapshotService
@@ -122,13 +110,62 @@ impl MithrilClientSnapshotService {
         }
     }
 
-    async fn unpack_snapshot(&self, filepath: &Path, unpack_dir: &Path) -> StdResult<()> {
-        let snapshot_file_tar_gz = File::open(filepath)?;
-        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let mut snapshot_archive = Archive::new(snapshot_file_tar);
-        snapshot_archive.unpack(unpack_dir)?;
+    fn check_disk_space_error(&self, error: StdError) -> StdResult<()> {
+        if let Some(SnapshotUnpackerError::NotEnoughSpace {
+            left_space: _,
+            pathdir: _,
+            archive_size: _,
+        }) = error.downcast_ref::<SnapshotUnpackerError>()
+        {
+            warn!("{error}");
+
+            Ok(())
+        } else {
+            Err(error)
+        }
+    }
+
+    async fn verify_certificate_chain(
+        &self,
+        genesis_verification_key: &str,
+        certificate: &Certificate,
+    ) -> StdResult<()> {
+        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
+            .map_err(|e| SnapshotServiceError::InvalidParameters {
+                context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
+                error: e.into(),
+            })?;
+        let genesis_verifier =
+            ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
+
+        self.certificate_verifier
+            .verify_certificate_chain(
+                certificate.clone(),
+                self.certificate_client.clone(),
+                &genesis_verifier,
+            )
+            .await?;
 
         Ok(())
+    }
+
+    async fn wait_spinner(
+        &self,
+        progress_bar: &MultiProgress,
+        future: impl Future<Output = StdResult<()>>,
+    ) -> StdResult<()> {
+        let pb = progress_bar.add(ProgressBar::new_spinner());
+        let spinner = async move {
+            loop {
+                pb.tick();
+                sleep(Duration::from_millis(50)).await;
+            }
+        };
+
+        select! {
+            _ = spinner => Ok(()),
+            res = future => res,
+        }
     }
 }
 
@@ -167,44 +204,17 @@ impl SnapshotService for MithrilClientSnapshotService {
         progress_target: ProgressDrawTarget,
     ) -> StdResult<PathBuf> {
         debug!("Snapshot service: download.");
-        // 0 - Check prerequisistes are met
+
         let unpack_dir = pathdir.join("db");
         let progress_bar = MultiProgress::with_draw_target(progress_target);
         progress_bar.println("1/7 - Checking local disk info…")?;
-        if unpack_dir.exists() {
-            return Err(SnapshotServiceError::UnpackDirectoryAlreadyExists(unpack_dir).into());
-        }
-        {
-            let free_space = fs2::available_space(pathdir)? as f64;
+        let unpacker = SnapshotUnpacker::default();
 
-            if free_space < FREE_SPACE_SNAPSHOT_SIZE_RATIO * snapshot.size as f64 {
-                warn!("There might not be enough space on the disk ({} free) to store and unpack a {} size snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
-            } else {
-                info!("It seems there is enough disk space ({} free) to download and unpack the {} large snapshot.", human_bytes(free_space), human_bytes(snapshot.size as f64));
-            }
-
-            let _file =
-                File::create(&unpack_dir).map_err(|e| SnapshotServiceError::InvalidParameters {
-                    context: format!(
-                        "Can not write in the given directory '{}'.",
-                        pathdir.display()
-                    ),
-                    error: e.into(),
-                })?;
-            remove_file(&unpack_dir)?;
+        if let Err(e) = unpacker.check_prerequisites(&unpack_dir, snapshot.size) {
+            self.check_disk_space_error(e)?;
         }
 
-        // 1 - Instanciate a genesis key verifier
-        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
-            .map_err(|e| SnapshotServiceError::InvalidParameters {
-                context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
-                error: e.into(),
-            })?;
-        let genesis_verifier =
-            ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
-
-        // 2 - Get certificate information
-        progress_bar.println("2/7 - Fetching certificate information…")?;
+        progress_bar.println("2/7 - Fetching the certificate's information…")?;
         let certificate = self
             .certificate_client
             .get(&snapshot.certificate_hash)
@@ -213,27 +223,10 @@ impl SnapshotService for MithrilClientSnapshotService {
                 SnapshotServiceError::CouldNotFindCertificate(snapshot.certificate_hash.clone())
             })?;
 
-        // 3 - Check the certificate chain
-        progress_bar.println("3/7 - Check certificate chain…")?;
-        let pb = progress_bar.add(ProgressBar::new_spinner());
-        let spinner = async move {
-            loop {
-                pb.tick();
-                sleep(Duration::from_millis(50)).await;
-            }
-        };
-        let verifier = self.certificate_verifier.verify_certificate_chain(
-            certificate.clone(),
-            self.certificate_client.clone(),
-            &genesis_verifier,
-        );
-        let res = select! {
-            _ = spinner => Ok(()),
-            res = verifier => res,
-        };
-        res?;
+        progress_bar.println("3/7 - Verifying the certificate chain…")?;
+        let verifier = self.verify_certificate_chain(genesis_verification_key, &certificate);
+        self.wait_spinner(&progress_bar, verifier).await?;
 
-        // 4 - Launch download and unpack the file on disk
         progress_bar.println("4/7 - Downloading the snapshot…")?;
         let pb = progress_bar.add(ProgressBar::new(snapshot.size));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
@@ -247,28 +240,10 @@ impl SnapshotService for MithrilClientSnapshotService {
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
         progress_bar.println("5/7 - Unpacking the snapshot…")?;
-        {
-            let pb = progress_bar.add(ProgressBar::new_spinner());
-            let spinner = async move {
-                loop {
-                    pb.tick();
-                    sleep(Duration::from_millis(50)).await;
-                }
-            };
-            let unpacker = self.unpack_snapshot(&filepath, &unpack_dir);
-            let res = select! {
-                _ = spinner => Ok(()),
-                res = unpacker => res,
-            };
-            res.map_err(|e| {
-                format!(
-                    "Could not unpack file '{}' in '{}': {e}",
-                    filepath.display(),
-                    unpack_dir.display()
-                )
-            })?;
-        }
-        progress_bar.println("6/7 - Compute snapshot digest…")?;
+        let unpacker = unpacker.unpack_snapshot(&filepath, &unpack_dir);
+        self.wait_spinner(&progress_bar, unpacker).await?;
+
+        progress_bar.println("6/7 - Computing the snapshot digest…")?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&unpack_dir, &certificate.beacon)
@@ -280,8 +255,7 @@ impl SnapshotService for MithrilClientSnapshotService {
                 )
             })?;
 
-        // 5 - Compute protocol message and compare hash sums
-        progress_bar.println("7/7 - Verifying snapshot signature…")?;
+        progress_bar.println("7/7 - Verifying the snapshot signature…")?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -318,7 +292,10 @@ mod tests {
         },
         test_utils::fake_data,
     };
-    use std::{fs::create_dir_all, io::Write};
+    use std::{
+        fs::{create_dir_all, File},
+        io::Write,
+    };
 
     use crate::{
         aggregator_client::{AggregatorClient, MockAggregatorHTTPClient},
@@ -628,9 +605,9 @@ mod tests {
             .await
             .expect_err("Snapshot download should fail.");
 
-        if let Some(e) = err.downcast_ref::<SnapshotServiceError>() {
+        if let Some(e) = err.downcast_ref::<SnapshotUnpackerError>() {
             match e {
-                SnapshotServiceError::UnpackDirectoryAlreadyExists(path) => {
+                SnapshotUnpackerError::UnpackDirectoryAlreadyExists(path) => {
                     assert_eq!(&test_path.join("db"), path);
                 }
                 _ => panic!("Wrong error type when unpack dir already exists."),

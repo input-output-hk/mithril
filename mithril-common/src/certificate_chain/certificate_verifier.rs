@@ -197,10 +197,6 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<Option<Certificate>, CertificateVerifierError> {
-        println!(
-            "Verify standard certificate #{} @ epoch #{}",
-            certificate.hash, certificate.beacon.epoch
-        );
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
             &certificate.multi_signature,

@@ -54,7 +54,7 @@ impl SnapshotDownloadCommand {
             );
         } else {
             println!(
-                r###"Snapshot '{}' has been unpacked and checked against Mithril multi-signature contained in the certificate.
+                r###"Snapshot '{}' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
                 
 Files in the directory '{}' can be used to run a Cardano node.
 

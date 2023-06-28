@@ -12,6 +12,7 @@ pub mod dependencies;
 mod entities;
 mod message_adapters;
 pub mod services;
+pub mod utils;
 
 pub use entities::*;
 pub use message_adapters::{
