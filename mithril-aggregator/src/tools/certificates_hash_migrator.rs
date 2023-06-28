@@ -71,7 +71,16 @@ impl CertificatesHashMigrator {
                 old_previous_hash
             };
 
-            let new_hash = certificate.compute_hash();
+            let new_hash = {
+                let computed_hash = certificate.compute_hash();
+                // return none if the hash did not change to trigger an error
+                (computed_hash != certificate.hash).then_some(computed_hash)
+            }
+            .ok_or(format!(
+                "Hash did not change for certificate {:?}, hash: {}",
+                certificate.beacon, certificate.hash
+            ))?;
+
             old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
 
             if certificate.is_genesis() {
@@ -554,5 +563,27 @@ mod test {
             ],
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn should_fail_if_any_hash_doesnt_change() {
+        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let certificate = {
+            let mut cert = dummy_genesis("whatever", 1, 2);
+            cert.hash = cert.compute_hash();
+            cert
+        };
+        fill_certificates_and_signed_entities_in_db(connection.clone(), &[(certificate, None)])
+            .await
+            .unwrap();
+
+        let migrator = CertificatesHashMigrator::new(
+            CertificateRepository::new(connection.clone()),
+            Arc::new(SignedEntityStoreAdapter::new(connection.clone())),
+        );
+        migrator
+            .migrate()
+            .await
+            .expect_err("Migration should fail if an hash doesnt change");
     }
 }
