@@ -29,6 +29,12 @@ In this guide, you will learn how to setup a **Mithril Signer** on a **Cardano S
 
 :::
 
+:::caution
+
+The **production** deployment model is still in beta version.
+
+:::
+
 Here is the schema of the **production** deployment for the `mainnet`:
 [![Production Mithril Signer Deployment Model](images/signer-deployment-production.jpg)](images/signer-deployment-production.jpg)
 
