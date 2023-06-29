@@ -229,6 +229,7 @@ impl<'conn> DeleteStakePoolProvider<'conn> {
         self.find(filters)
     }
 }
+
 /// Service to deal with stake pools (read & write).
 pub struct StakePoolStore {
     connection: Arc<Mutex<Connection>>,

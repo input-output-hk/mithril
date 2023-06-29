@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
+use std::iter::repeat;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -378,29 +379,52 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
     }
 
     fn get_insert_condition(&self, certificate_record: &CertificateRecord) -> WhereCondition {
+        self.get_insert_many_condition(&vec![certificate_record.clone()])
+    }
+
+    fn get_insert_many_condition(
+        &self,
+        certificates_records: &[CertificateRecord],
+    ) -> WhereCondition {
+        let columns = "(certificate_id, parent_certificate_id, message, signature, \
+aggregate_verification_key, epoch, beacon, protocol_version, protocol_parameters, \
+protocol_message, signers, initiated_at, sealed_at)";
+        let values_columns: Vec<&str> =
+            repeat("(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)")
+                .take(certificates_records.len())
+                .collect();
+
+        let values: Vec<Value> = certificates_records
+            .iter()
+            .flat_map(|certificate_record| {
+                vec![
+                    Value::String(certificate_record.certificate_id.to_owned()),
+                    match certificate_record.parent_certificate_id.to_owned() {
+                        Some(parent_certificate_id) => Value::String(parent_certificate_id),
+                        None => Value::Null,
+                    },
+                    Value::String(certificate_record.message.to_owned()),
+                    Value::String(certificate_record.signature.to_owned()),
+                    Value::String(certificate_record.aggregate_verification_key.to_owned()),
+                    Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
+                    Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
+                    Value::String(certificate_record.protocol_version.to_owned()),
+                    Value::String(
+                        serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
+                    ),
+                    Value::String(
+                        serde_json::to_string(&certificate_record.protocol_message).unwrap(),
+                    ),
+                    Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
+                    Value::String(certificate_record.initiated_at.to_rfc3339()),
+                    Value::String(certificate_record.sealed_at.to_rfc3339()),
+                ]
+            })
+            .collect();
+
         WhereCondition::new(
-            "(certificate_id, parent_certificate_id, message, signature, aggregate_verification_key, epoch, beacon, protocol_version, protocol_parameters, protocol_message, signers, initiated_at, sealed_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-            vec![
-                Value::String(certificate_record.certificate_id.to_owned()),
-                if let Some(parent_certificate_id) = certificate_record.parent_certificate_id.to_owned() {
-                    Value::String(parent_certificate_id)
-                }else{
-                    Value::Null
-                },
-                Value::String(certificate_record.message.to_owned()),
-                Value::String(certificate_record.signature.to_owned()),
-                Value::String(certificate_record.aggregate_verification_key.to_owned()),
-                Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
-                Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
-                Value::String(certificate_record.protocol_version.to_owned()),
-                Value::String(
-                    serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
-                ),
-                Value::String(serde_json::to_string(&certificate_record.protocol_message).unwrap()),
-                Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
-                Value::String(certificate_record.initiated_at.to_rfc3339()),
-                Value::String(certificate_record.sealed_at.to_rfc3339()),
-            ],
+            format!("{columns} values {}", values_columns.join(", ")).as_str(),
+            values,
         )
     }
 
@@ -417,6 +441,15 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
         });
 
         Ok(entity)
+    }
+
+    fn persist_many(
+        &self,
+        certificates_records: Vec<CertificateRecord>,
+    ) -> Result<Vec<CertificateRecord>, StdError> {
+        let filters = self.get_insert_many_condition(&certificates_records);
+
+        Ok(self.find(filters)?.collect())
     }
 }
 
@@ -487,6 +520,49 @@ order by certificate.ROWID desc"#
     }
 }
 
+/// Provider to remove old data from the `certificate` table
+pub struct DeleteCertificateProvider<'conn> {
+    connection: &'conn Connection,
+}
+
+impl<'conn> Provider<'conn> for DeleteCertificateProvider<'conn> {
+    type Entity = CertificateRecord;
+
+    fn get_connection(&'conn self) -> &'conn Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        // it is important to alias the fields with the same name as the table
+        // since the table cannot be aliased in a RETURNING statement in SQLite.
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:certificate:}", "certificate")]));
+
+        format!("delete from certificate where {condition} returning {projection}")
+    }
+}
+
+impl<'conn> DeleteCertificateProvider<'conn> {
+    /// Create a new instance
+    pub fn new(connection: &'conn Connection) -> Self {
+        Self { connection }
+    }
+
+    /// Create the SQL condition to delete certificates with the given ids.
+    fn get_delete_by_ids_condition(&self, ids: &[&str]) -> WhereCondition {
+        let ids_values = ids.iter().map(|id| Value::String(id.to_string())).collect();
+
+        WhereCondition::where_in("certificate_id", ids_values)
+    }
+
+    /// Delete the certificates with with the given ids.
+    pub fn delete_by_ids(&self, ids: &[&str]) -> Result<EntityCursor<CertificateRecord>, StdError> {
+        let filters = self.get_delete_by_ids_condition(ids);
+
+        self.find(filters)
+    }
+}
+
 /// Database frontend API for Certificate queries.
 pub struct CertificateRepository {
     connection: Arc<Mutex<Connection>>,
@@ -542,6 +618,37 @@ impl CertificateRepository {
             .unwrap();
 
         Ok(new_certificate.into())
+    }
+
+    /// Create many certificates at once in the database.
+    pub async fn create_many_certificates(
+        &self,
+        certificates: Vec<Certificate>,
+    ) -> StdResult<Vec<Certificate>> {
+        let lock = self.connection.lock().await;
+        let provider = InsertCertificateRecordProvider::new(&lock);
+        let records: Vec<CertificateRecord> =
+            certificates.into_iter().map(|cert| cert.into()).collect();
+        let new_certificates = provider.persist_many(records)?;
+
+        Ok(new_certificates
+            .into_iter()
+            .map(|cert| cert.into())
+            .collect::<Vec<_>>())
+    }
+
+    /// Delete all the given certificates from the database
+    pub async fn delete_certificates(&self, certificates: &[&Certificate]) -> StdResult<()> {
+        let ids = certificates
+            .iter()
+            .map(|c| c.hash.as_str())
+            .collect::<Vec<_>>();
+
+        let connection = self.connection.lock().await;
+        let provider = DeleteCertificateProvider::new(&connection);
+        let _ = provider.delete_by_ids(&ids)?.collect::<Vec<_>>();
+
+        Ok(())
     }
 }
 
@@ -799,7 +906,7 @@ mod tests {
     }
 
     #[test]
-    fn insert_certificate_record() {
+    fn insert_certificate_condition() {
         let (certificates, _) = setup_certificate_chain(2, 1);
         let certificate_record: CertificateRecord = certificates.first().unwrap().to_owned().into();
         let connection = Connection::open(":memory:").unwrap();
@@ -829,6 +936,57 @@ mod tests {
                 Value::String(certificate_record.initiated_at.to_rfc3339()),
                 Value::String(certificate_record.sealed_at.to_rfc3339()),
             ],
+            params
+        );
+    }
+
+    #[test]
+    fn insert_many_certificates_condition() {
+        let (certificates, _) = setup_certificate_chain(2, 1);
+        let certificates_records: Vec<CertificateRecord> =
+            certificates.into_iter().map(|c| c.into()).collect();
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = InsertCertificateRecordProvider::new(&connection);
+        let condition = provider.get_insert_many_condition(&certificates_records);
+        let (values, params) = condition.expand();
+
+        assert_eq!(
+            "(certificate_id, parent_certificate_id, message, signature, \
+aggregate_verification_key, epoch, beacon, protocol_version, protocol_parameters, \
+protocol_message, signers, initiated_at, sealed_at) values \
+(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13), \
+(?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)"
+                .to_string(),
+            values
+        );
+        assert_eq!(
+            certificates_records
+                .into_iter()
+                .flat_map(|certificate_record| {
+                    vec![
+                        Value::String(certificate_record.certificate_id),
+                        match certificate_record.parent_certificate_id {
+                            Some(id) => Value::String(id),
+                            None => Value::Null,
+                        },
+                        Value::String(certificate_record.message),
+                        Value::String(certificate_record.signature),
+                        Value::String(certificate_record.aggregate_verification_key),
+                        Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
+                        Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
+                        Value::String(certificate_record.protocol_version),
+                        Value::String(
+                            serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
+                        ),
+                        Value::String(
+                            serde_json::to_string(&certificate_record.protocol_message).unwrap(),
+                        ),
+                        Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
+                        Value::String(certificate_record.initiated_at.to_rfc3339()),
+                        Value::String(certificate_record.sealed_at.to_rfc3339()),
+                    ]
+                })
+                .collect::<Vec<_>>(),
             params
         );
     }
@@ -886,6 +1044,23 @@ mod tests {
             let certificate_record_saved = provider.persist(certificate_record.clone()).unwrap();
             assert_eq!(certificate_record, certificate_record_saved);
         }
+    }
+
+    #[test]
+    fn test_insert_many_certificates_records() {
+        let (certificates, _) = setup_certificate_chain(5, 2);
+        let certificates_records: Vec<CertificateRecord> =
+            certificates.into_iter().map(|cert| cert.into()).collect();
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_certificate_db(&connection, Vec::new()).unwrap();
+
+        let provider = InsertCertificateRecordProvider::new(&connection);
+        let certificates_records_saved = provider
+            .persist_many(certificates_records.clone())
+            .expect("saving many records should not fail");
+
+        assert_eq!(certificates_records, certificates_records_saved);
     }
 
     #[tokio::test]
@@ -1284,5 +1459,56 @@ mod tests {
 
             assert_eq!(certificates[4].hash, cert.certificate_id);
         }
+    }
+
+    #[test]
+    fn delete_certificates_condition_correctly_joins_given_ids() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = DeleteCertificateProvider::new(&connection);
+        let condition = provider.get_delete_by_ids_condition(&["a", "b", "c"]);
+        let (condition, params) = condition.expand();
+
+        assert_eq!("certificate_id in (?1, ?2, ?3)".to_string(), condition);
+        assert_eq!(
+            vec![
+                Value::String("a".to_string()),
+                Value::String("b".to_string()),
+                Value::String("c".to_string()),
+            ],
+            params
+        );
+    }
+
+    #[tokio::test]
+    async fn delete_only_given_certificates() {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let repository = CertificateRepository::new(connection.clone());
+        let records = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+        ];
+        insert_certificate_records(connection, records.clone()).await;
+        let certificates: Vec<Certificate> = records.into_iter().map(|c| c.into()).collect();
+
+        // Delete all records except the first
+        repository
+            .delete_certificates(
+                &certificates
+                    .iter()
+                    .filter(|r| r.beacon.immutable_file_number > 1)
+                    .collect::<Vec<_>>(),
+            )
+            .await
+            .unwrap();
+
+        let expected_remaining_certificate = certificates.first().unwrap().clone();
+        let remaining_certificates = repository
+            .get_latest_certificates(usize::MAX)
+            .await
+            .unwrap();
+
+        assert_eq!(vec![expected_remaining_certificate], remaining_certificates)
     }
 }

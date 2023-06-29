@@ -170,6 +170,15 @@ impl<'client> SignedEntityRecordProvider<'client> {
         ))
     }
 
+    fn condition_by_certificates_ids(&self, certificates_ids: &[&str]) -> WhereCondition {
+        let ids_values = certificates_ids
+            .iter()
+            .map(|id| Value::String(id.to_string()))
+            .collect();
+
+        WhereCondition::where_in("certificate_id", ids_values)
+    }
+
     fn condition_by_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityTypeDiscriminants,
@@ -199,6 +208,17 @@ impl<'client> SignedEntityRecordProvider<'client> {
         certificate_id: &str,
     ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
         let filters = self.condition_by_certificate_id(certificate_id)?;
+        let signed_entity_record = self.find(filters)?;
+
+        Ok(signed_entity_record)
+    }
+
+    /// Get [records][SignedEntityRecord] for a list of given `certificates_ids`.
+    pub fn get_by_certificates_ids(
+        &self,
+        certificates_ids: &[&str],
+    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+        let filters = self.condition_by_certificates_ids(certificates_ids);
         let signed_entity_record = self.find(filters)?;
 
         Ok(signed_entity_record)
@@ -298,6 +318,66 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
     }
 }
 
+struct UpdateSignedEntityProvider<'client> {
+    connection: &'client Connection,
+}
+
+impl<'client> UpdateSignedEntityProvider<'client> {
+    pub fn new(connection: &'client Connection) -> Self {
+        Self { connection }
+    }
+
+    fn get_update_condition(
+        &self,
+        signed_entity_record: &SignedEntityRecord,
+    ) -> StdResult<WhereCondition> {
+        let expression =
+            "signed_entity_type_id = ?*, certificate_id = ?*, beacon = ?*, artifact = ?*, \
+created_at = ?* \
+where signed_entity_id = ?*";
+        let parameters = vec![
+            Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
+            Value::String(signed_entity_record.certificate_id.to_owned()),
+            Value::String(signed_entity_record.signed_entity_type.get_json_beacon()?),
+            Value::String(signed_entity_record.artifact.to_owned()),
+            Value::String(signed_entity_record.created_at.to_rfc3339()),
+            Value::String(signed_entity_record.signed_entity_id.to_owned()),
+        ];
+
+        Ok(WhereCondition::new(expression, parameters))
+    }
+
+    fn persist(
+        &self,
+        signed_entity_record: &SignedEntityRecord,
+    ) -> Result<SignedEntityRecord, StdError> {
+        let filters = self.get_update_condition(signed_entity_record)?;
+        let mut cursor = self.find(filters)?;
+
+        cursor.next().ok_or_else(|| {
+            panic!(
+                "Updating a signed_entity should not return nothing, id = {:?}",
+                signed_entity_record.signed_entity_id
+            )
+        })
+    }
+}
+
+impl<'client> Provider<'client> for UpdateSignedEntityProvider<'client> {
+    type Entity = SignedEntityRecord;
+
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:signed_entity:}", "signed_entity")]));
+
+        format!("update signed_entity set {condition} returning {projection}")
+    }
+}
+
 /// Signed entity storer trait
 #[cfg_attr(test, automock)]
 #[async_trait]
@@ -317,11 +397,23 @@ pub trait SignedEntityStorer: Sync + Send {
         certificate_hash: &str,
     ) -> StdResult<Option<SignedEntityRecord>>;
 
+    /// Get signed entities type by certificates ids
+    async fn get_signed_entity_by_certificates_ids<'a>(
+        &self,
+        certificates_ids: &[&'a str],
+    ) -> StdResult<Vec<SignedEntityRecord>>;
+
     /// Get last signed entities by signed entity type
     async fn get_last_signed_entities_by_type(
         &self,
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
+    ) -> StdResult<Vec<SignedEntityRecord>>;
+
+    /// Perform an update for all the given signed entities.
+    async fn update_signed_entities(
+        &self,
+        signed_entities: Vec<SignedEntityRecord>,
     ) -> StdResult<Vec<SignedEntityRecord>>;
 }
 
@@ -375,6 +467,17 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         Ok(signed_entity)
     }
 
+    async fn get_signed_entity_by_certificates_ids<'a>(
+        &self,
+        certificates_ids: &[&'a str],
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let cursor = provider.get_by_certificates_ids(certificates_ids)?;
+
+        Ok(cursor.collect())
+    }
+
     async fn get_last_signed_entities_by_type(
         &self,
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
@@ -388,6 +491,24 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
 
         Ok(signed_entities)
+    }
+
+    async fn update_signed_entities(
+        &self,
+        signed_entities: Vec<SignedEntityRecord>,
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = UpdateSignedEntityProvider::new(connection);
+        connection.execute("begin transaction")?;
+        let mut updated_records = vec![];
+
+        for record in signed_entities {
+            updated_records.push(provider.persist(&record)?);
+        }
+
+        connection.execute("commit transaction")?;
+
+        Ok(updated_records)
     }
 }
 
@@ -538,6 +659,24 @@ mod tests {
     }
 
     #[test]
+    fn get_signed_entity_record_by_signed_certificates_ids() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = SignedEntityRecordProvider::new(&connection);
+        let condition = provider.condition_by_certificates_ids(&["a", "b", "c"]);
+        let (condition, params) = condition.expand();
+
+        assert_eq!("certificate_id in (?1, ?2, ?3)".to_string(), condition);
+        assert_eq!(
+            vec![
+                Value::String("a".to_string()),
+                Value::String("b".to_string()),
+                Value::String("c".to_string()),
+            ],
+            params
+        );
+    }
+
+    #[test]
     fn insert_signed_entity_record() {
         let snapshots = fake_data::snapshots(1);
         let snapshot = snapshots.first().unwrap().to_owned();
@@ -620,6 +759,29 @@ mod tests {
         assert_eq!(Some(expected_record), record);
     }
 
+    #[tokio::test]
+    async fn test_get_signed_entity_record_by_certificates_ids() {
+        let expected_records = fake_signed_entity_records(3);
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signed_entity_db(&connection, expected_records.clone()).unwrap();
+        let store = SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
+        let certificates_ids: Vec<&str> = expected_records
+            .iter()
+            .map(|r| r.certificate_id.as_str())
+            .collect();
+
+        let queried_records = store
+            .get_signed_entity_by_certificates_ids(&certificates_ids)
+            .await
+            .expect("querying signed entity record by certificates ids should not fail");
+
+        assert_eq!(
+            // Records are inserted older to earlier and queried the other way round
+            expected_records.into_iter().rev().collect::<Vec<_>>(),
+            queried_records
+        );
+    }
+
     #[test]
     fn test_insert_signed_entity_record() {
         let signed_entity_records = fake_signed_entity_records(5);
@@ -634,5 +796,78 @@ mod tests {
                 provider.persist(signed_entity_record.clone()).unwrap();
             assert_eq!(signed_entity_record, signed_entity_record_saved);
         }
+    }
+
+    #[test]
+    fn update_provider_condition() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = UpdateSignedEntityProvider::new(&connection);
+        let snapshots = fake_data::snapshots(1);
+        let snapshot = snapshots.first().unwrap().to_owned();
+        let signed_entity_record: SignedEntityRecord = snapshot.into();
+        let (expr, params) = provider
+            .get_update_condition(&signed_entity_record)
+            .unwrap()
+            .expand();
+
+        assert_eq!(
+            "signed_entity_type_id = ?1, certificate_id = ?2, beacon = ?3, artifact = ?4, created_at = ?5 where signed_entity_id = ?6"
+                .to_string(),
+            expr
+        );
+        assert_eq!(
+            vec![
+                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
+                Value::String(signed_entity_record.certificate_id.to_owned()),
+                Value::String(
+                    signed_entity_record
+                        .signed_entity_type
+                        .get_json_beacon()
+                        .unwrap()
+                ),
+                Value::String(signed_entity_record.artifact.to_owned()),
+                Value::String(signed_entity_record.created_at.to_rfc3339()),
+                Value::String(signed_entity_record.signed_entity_id),
+            ],
+            params
+        );
+    }
+
+    #[tokio::test]
+    async fn update_only_given_entities() {
+        let mut signed_entity_records = fake_signed_entity_records(5);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
+        let store = SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
+
+        let records_to_update: Vec<SignedEntityRecord> = signed_entity_records
+            .drain(2..)
+            .map(|mut r| {
+                r.certificate_id = format!("updated-{}", r.certificate_id);
+                r
+            })
+            .collect();
+        let expected_records: Vec<SignedEntityRecord> = signed_entity_records
+            .into_iter()
+            .chain(records_to_update.clone())
+            .rev() // Records are returned from latest to oldest
+            .collect();
+
+        let updated_records = store
+            .update_signed_entities(records_to_update.clone())
+            .await
+            .expect("updating signed entities should not fail");
+
+        let stored_records = store
+            .get_last_signed_entities_by_type(
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                usize::MAX,
+            )
+            .await
+            .expect("getting signed entities should not fail");
+
+        assert_eq!(records_to_update, updated_records);
+        assert_eq!(expected_records, stored_records);
     }
 }

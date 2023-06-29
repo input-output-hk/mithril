@@ -13,7 +13,7 @@
 
 mod artifact_builder;
 pub mod certifier_service;
-mod command_args;
+mod commands;
 mod configuration;
 pub mod database;
 mod dependency;
@@ -38,7 +38,7 @@ pub use crate::configuration::{
     Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
-pub use command_args::MainOpts;
+pub use commands::MainOpts;
 pub use dependency::DependencyManager;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,
