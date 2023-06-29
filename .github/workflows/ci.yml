@@ -122,17 +122,17 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
-          cargo-tools: cargo2junit
+          cargo-tools: cargo-nextest
+      
+      - name: Build tests
+        run: cargo nextest run --no-run ${{ matrix.test-args }}
 
       - name: Run tests
         shell: bash
         run: |
-          set -o pipefail && \
-          cargo test --no-fail-fast ${{ matrix.test-args }}
-          # TODO: Previous command that uses unstable options which are not supported anymore in stable toolchain
-          #cargo test --no-fail-fast ${{ matrix.test-args }} \
-          #    -- -Z unstable-options --format json --report-time \
-          #    | tee >(cargo2junit > test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml)
+          cargo nextest run --profile ci ${{ matrix.test-args }}
+          # Rename junit file to include runner info
+          mv target/nextest/ci/tests-result.junit.xml test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml
 
       - name: Upload Tests Results
         uses: actions/upload-artifact@v3
@@ -140,7 +140,7 @@ jobs:
         with:
           name: test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}
           path: |
-            ./**/test-results-*.xml
+            ./test-results-*.xml
   
   check:
     runs-on: ubuntu-22.04
@@ -232,9 +232,7 @@ jobs:
           if-no-files-found: error
   
   publish-tests-results:
-    # TODO: reactivate when cargo test errors export to json works in stable version
-    #if: success() || failure()
-    if: false
+    if: success() || failure()
     runs-on: ubuntu-22.04
     needs: 
       - test

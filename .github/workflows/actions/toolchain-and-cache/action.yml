@@ -22,9 +22,17 @@ runs:
       uses: Swatinem/rust-cache@v2
       with:
         key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
-
+    
+    - name: Install cargo tools installer
+      uses: taiki-e/install-action@v2
+      if: inputs.cargo-tools != ''
+      with:
+        tool: cargo-binstall
+    
     - name: Install cargo tools
       if: inputs.cargo-tools != ''
       shell: bash
       run: |
-        cargo install ${{ inputs.cargo-tools }} 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+        # Sometimes without the `--force` options the installed binaries are not found by cargo
+        # leading to error such as: `error: no such command: `my-tool``
+        cargo binstall --force --no-confirm ${{ inputs.cargo-tools }}
