@@ -4,7 +4,8 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, State, Statement};
 use tokio::sync::Mutex;
 
-use std::{marker::PhantomData, ops::Deref, sync::Arc, thread::sleep, time::Duration};
+use lazy_static::__Deref;
+use std::{marker::PhantomData, sync::Arc, thread::sleep, time::Duration};
 
 use super::{AdapterError, StoreAdapter};
 
@@ -54,7 +55,7 @@ where
             .next()
             .map_err(|e| AdapterError::QueryError(e.into()))?;
         let table_exists = statement
-            .read::<i64>(0)
+            .read::<i64, _>(0)
             .map_err(|e| AdapterError::ParsingDataError(e.into()))?;
 
         if table_exists != 1 {
@@ -103,7 +104,7 @@ where
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
-            .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
+            .bind((1, self.get_hash_from_key(key)?.as_str()))
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
 
         Ok(statement)
@@ -131,7 +132,7 @@ where
             return Ok(None);
         }
         let maybe_value: Option<V> = statement
-            .read::<String>(0)
+            .read::<String, _>(0)
             .map_err(|e| AdapterError::QueryError(e.into()))
             .and_then(|v| {
                 serde_json::from_str(&v).map_err(|e| AdapterError::ParsingDataError(e.into()))
@@ -166,13 +167,13 @@ where
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
-            .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
+            .bind((1, self.get_hash_from_key(key)?.as_str()))
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
-            .bind::<&str>(2, self.serialize_key(key)?.as_str())
+            .bind((2, self.serialize_key(key)?.as_str()))
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
-            .bind::<&str>(3, value.as_str())
+            .bind((3, value.as_str()))
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         let _ = statement
             .next()
@@ -203,7 +204,7 @@ where
             .map_err(|e| AdapterError::QueryError(e.into()))?;
 
         statement
-            .read::<i64>(0)
+            .read::<i64, _>(0)
             .map_err(|e| {
                 AdapterError::GeneralError(format!("There should be a result in this case ! {e:?}"))
             })
@@ -221,15 +222,15 @@ where
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
-            .bind::<i64>(1, how_many as i64)
+            .bind((1, how_many as i64))
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
-        let cursor = statement.into_cursor();
+        let cursor = statement.iter();
 
         let results = cursor
             .map(|row| {
                 let row = row.unwrap();
-                let key: K = serde_json::from_str(&row.get::<String, _>(0)).unwrap();
-                let value: V = serde_json::from_str(&row.get::<String, _>(1)).unwrap();
+                let key: K = serde_json::from_str(row.read::<&str, _>(0)).unwrap();
+                let value: V = serde_json::from_str(row.read::<&str, _>(1)).unwrap();
 
                 (key, value)
             })
@@ -278,12 +279,12 @@ where
         let cursor = connection
             .prepare(sql)
             .map_err(|e| AdapterError::QueryError(e.into()))?
-            .into_cursor();
+            .into_iter();
 
         let results = cursor
             .map(|row| {
                 let row = row.unwrap();
-                let res: V = serde_json::from_str(&row.get::<String, _>(0)).unwrap();
+                let res: V = serde_json::from_str(row.read::<&str, _>(0)).unwrap();
 
                 res
             })
@@ -304,8 +305,8 @@ impl<V> Iterator for SQLiteResultIterator<V> {
 #[cfg(test)]
 mod tests {
 
+    use sqlite::Value;
     use std::{
-        borrow::Borrow,
         fs::{create_dir_all, remove_file},
         path::PathBuf,
     };
@@ -351,10 +352,7 @@ mod tests {
     async fn test_store_record() {
         let test_name = "test_store_record";
         let mut adapter = init_db(test_name, None);
-        adapter
-            .store_record(&1, "one".to_string().borrow())
-            .await
-            .unwrap();
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
         let filepath = get_file_path(test_name);
         let connection = Connection::open(&filepath).unwrap_or_else(|_| {
             panic!(
@@ -362,60 +360,40 @@ mod tests {
                 filepath.display()
             )
         });
-        let mut statement = connection
+        let mut cursor = connection
             .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
             .unwrap()
-            .into_cursor();
-        let row = statement
+            .into_iter();
+        let row = cursor
             .try_next()
             .unwrap()
             .expect("Expecting at least one row in the result set.");
-        assert_eq!(
-            1,
-            row[1]
-                .as_integer()
-                .expect("expecting field 1 to be an integer")
-        );
-        assert_eq!(
-            "\"one\"".to_string(),
-            row[2]
-                .as_string()
-                .expect("expecting field 2 to be a string")
-        );
-        adapter
-            .store_record(&1, "zwei".to_string().borrow())
-            .await
+        assert_eq!(Value::Integer(1), row[1]);
+        assert_eq!(Value::String("\"one\"".to_string()), row[2]);
+
+        // We must drop the cursor else the db will be locked
+        drop(cursor);
+
+        adapter.store_record(&1, &"zwei".to_string()).await.unwrap();
+        let mut statement = connection
+            .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
             .unwrap();
-        let mut statement = connection
-            .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
-            .unwrap()
-            .into_cursor();
-        let row = statement
+        let mut cursor = statement.iter();
+        let row = cursor
             .try_next()
             .unwrap()
             .expect("Expecting at least one row in the result set.");
-        assert_eq!(
-            "\"zwei\"".to_string(),
-            row[2]
-                .as_string()
-                .expect("expecting field 2 to be a string")
-        );
+        assert_eq!(Value::String("\"zwei\"".to_string()), row[2]);
     }
 
     #[tokio::test]
     async fn test_get_record() {
         let test_name = "test_get_record";
         let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
-            .store_record(&1, "one".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&2, "two".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&3, "three".to_string().borrow())
+            .store_record(&3, &"three".to_string())
             .await
             .unwrap();
         assert_eq!(
@@ -437,16 +415,10 @@ mod tests {
     async fn test_get_iterator() {
         let test_name = "test_get_iterator";
         let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
-            .store_record(&1, "one".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&2, "two".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&3, "three".to_string().borrow())
+            .store_record(&3, &"three".to_string())
             .await
             .unwrap();
         let collection: Vec<(usize, String)> =
@@ -465,14 +437,8 @@ mod tests {
     async fn test_record_exists() {
         let test_name = "test_record_exists";
         let mut adapter = init_db(test_name, None);
-        adapter
-            .store_record(&1, "one".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&2, "two".to_string().borrow())
-            .await
-            .unwrap();
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
 
         assert!(adapter.record_exists(&1).await.unwrap());
         assert!(adapter.record_exists(&2).await.unwrap());
@@ -483,14 +449,8 @@ mod tests {
     async fn test_remove() {
         let test_name = "test_remove";
         let mut adapter = init_db(test_name, None);
-        adapter
-            .store_record(&1, "one".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&2, "two".to_string().borrow())
-            .await
-            .unwrap();
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
         let record = adapter
             .remove(&1)
             .await
@@ -508,16 +468,10 @@ mod tests {
     async fn test_get_last_n_records() {
         let test_name = "test_get_last_n_records";
         let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
-            .store_record(&1, "one".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&2, "two".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&3, "three".to_string().borrow())
+            .store_record(&3, &"three".to_string())
             .await
             .unwrap();
         assert_eq!(
@@ -544,20 +498,14 @@ mod tests {
     async fn check_get_last_n_modified_records() {
         let test_name = "check_get_last_n_modified_records";
         let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
-            .store_record(&1, "one".to_string().borrow())
+            .store_record(&3, &"three".to_string())
             .await
             .unwrap();
         adapter
-            .store_record(&2, "two".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&3, "three".to_string().borrow())
-            .await
-            .unwrap();
-        adapter
-            .store_record(&1, "updated record".to_string().borrow())
+            .store_record(&1, &"updated record".to_string())
             .await
             .unwrap();
         let values = adapter.get_last_n_records(2).await.unwrap();

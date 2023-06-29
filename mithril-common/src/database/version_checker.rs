@@ -205,13 +205,11 @@ mod tests {
         let column_count = connection
             .prepare(sql)
             .unwrap()
-            .into_cursor()
-            .bind(&[])
-            .unwrap()
+            .iter()
             .next()
             .unwrap()
             .unwrap()
-            .get::<i64, _>(0);
+            .read::<i64, _>(0);
 
         column_count
     }

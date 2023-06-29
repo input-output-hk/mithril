@@ -58,9 +58,9 @@ pub struct DatabaseVersion {
 
 impl SqLiteEntity for DatabaseVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
-        let version = row.get::<i64, _>(0);
-        let application_type = &row.get::<String, _>(1);
-        let updated_at = &row.get::<String, _>(2);
+        let version = row.read::<i64, _>(0);
+        let application_type = row.read::<&str, _>(1);
+        let updated_at = row.read::<&str, _>(2);
 
         Ok(Self {
             version,
@@ -126,11 +126,11 @@ impl<'conn> DatabaseVersionProvider<'conn> {
         let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
         let table_exists = connection
             .prepare(sql)?
-            .into_cursor()
-            .bind(&[])?
+            .iter()
             .next()
-            .unwrap()?
-            .get::<i64, _>(0)
+            .unwrap()
+            .unwrap()
+            .read::<i64, _>(0)
             == 1;
 
         if !table_exists {
