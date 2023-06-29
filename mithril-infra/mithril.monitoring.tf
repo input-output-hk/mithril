@@ -5,6 +5,7 @@ resource "null_resource" "mithril_monitoring" {
   ]
 
   triggers = {
+    image_id    = var.mithril_image_id,
     vm_instance = google_compute_instance.vm_instance.id
   }
 
@@ -17,6 +18,7 @@ resource "null_resource" "mithril_monitoring" {
 
   provisioner "remote-exec" {
     inline = [
+      "export PROMETHEUS_HOST=${local.prometheus_host}",
       "docker-compose -f /home/curry/docker/docker-compose-monitoring.yaml --profile all up -d",
     ]
   }

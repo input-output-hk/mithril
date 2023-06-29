@@ -10,6 +10,10 @@ output "mithril_signers_endpoint_url" {
   value = local.mithril_signers_endpoint_url
 }
 
+output "prometheus_endpoint_url" {
+  value = local.prometheus_endpoint_url
+}
+
 output "storage_bucket" {
   value = google_storage_bucket.cloud_storage.name
 }
