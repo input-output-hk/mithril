@@ -197,6 +197,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found, not already certified";
                     "signed_entity_type" => ?signed_entity_type
                 );
+
                 Some(existing_open_message)
             }
             Some(_) => {
@@ -204,6 +205,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found, already certified";
                     "signed_entity_type" => ?signed_entity_type
                 );
+
                 None
             }
             None => {
@@ -211,12 +213,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: no open message found, a new one will be created";
                     "signed_entity_type" => ?signed_entity_type
                 );
-                // In order to fix flakiness in the end to end tests, we are compelled to update the beacon (of the multi-signer)
-                // This avoids the computation of the next AVK on the wrong epoch (in 'compute_protocol_message')
-                // TODO: remove 'current_beacon' from the multi-signer state which will avoid this fix
+                // In order to fix flakiness in the end to end tests, we are
+                // compelled to update the beacon (of the multi-signer) This
+                // avoids the computation of the next AVK on the wrong epoch (in
+                // 'compute_protocol_message')
+                // TODO: remove 'current_beacon' from the multi-signer state
+                // which will avoid this fix
                 let chain_beacon: Beacon = self.get_beacon_from_chain().await?;
                 self.update_beacon(&chain_beacon).await?;
                 let protocol_message = self.compute_protocol_message(signed_entity_type).await?;
+
                 Some(
                     self.create_open_message(signed_entity_type, &protocol_message)
                         .await?,

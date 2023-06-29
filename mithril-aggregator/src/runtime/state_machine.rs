@@ -51,7 +51,9 @@ impl Display for AggregatorState {
 
 /// The AggregatorRuntime responsibility is to create a state machine to handle
 /// all actions required by the process of getting multi-signatures.
-/// See the [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood) for more explanations about the Aggregator state machine.
+/// See the
+/// [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood)
+/// for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
     /// the internal state of the automate
     state: AggregatorState,
@@ -104,6 +106,8 @@ impl AggregatorRuntime {
 
         loop {
             if let Err(e) = self.cycle().await {
+                warn!("State machine issued an error: {e}");
+
                 match &e {
                     RuntimeError::Critical {
                         message: _,
@@ -113,8 +117,32 @@ impl AggregatorRuntime {
 
                         return Err(e);
                     }
-                    _ => {
-                        warn!("state machine: cycle returned an error: '{e}'.");
+                    RuntimeError::KeepState {
+                        message,
+                        nested_error,
+                    } => {
+                        warn!(
+                            "KeepState Error: {message}. Nested error: «{}».",
+                            nested_error
+                                .as_ref()
+                                .map(|e| format!("{e}"))
+                                .unwrap_or("None".into())
+                        );
+                    }
+                    RuntimeError::ReInit {
+                        message,
+                        nested_error,
+                    } => {
+                        warn!(
+                            "ReInit Error: {message}. Nested error: «{}».",
+                            nested_error
+                                .as_ref()
+                                .map(|e| format!("{e}"))
+                                .unwrap_or("None".into())
+                        );
+                        self.state = AggregatorState::Idle(IdleState {
+                            current_beacon: None,
+                        });
                     }
                 }
             }
@@ -280,23 +308,21 @@ impl AggregatorRuntime {
                 message: "not enough signature yet to create a certificate, waiting…".to_string(),
                 nested_error: None,
             })?;
-
-        // Every error raised below this comment must be raised to critical in order to trigger an aggregator restart which will avoid a dead loop in the state machine
-        // TODO: Implement a graceful retry mechanism for artifact creation and label open messages with `is_artifact_created` (to keep track of certified but without artifacts open messages)
-        self.runner.drop_pending_certificate().await.map_err(|e| {
-            RuntimeError::critical(
-                "transiting SIGNING → READY: failed dropping pending certificate",
-                Some(e),
-            )
-        })?;
+        self.runner
+            .drop_pending_certificate()
+            .await
+            .map_err(|e| RuntimeError::ReInit {
+                message: "transiting SIGNING → READY: failed to drop pending certificate"
+                    .to_string(),
+                nested_error: Some(e),
+            })?;
         self.runner
             .create_artifact(&state.open_message.signed_entity_type, &certificate)
             .await
-            .map_err(|e| {
-                RuntimeError::critical(
-                    "transiting SIGNING → READY: failed creating artifact",
-                    Some(e),
-                )
+            .map_err(|e| RuntimeError::ReInit {
+                message: "transiting SIGNING → READY: failed to create artifact. Retrying…"
+                    .to_string(),
+                nested_error: Some(e),
             })?;
 
         Ok(ReadyState {
@@ -653,10 +679,61 @@ mod tests {
             open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        runtime
+        let err = runtime
             .cycle()
             .await
             .expect_err("cycle should have returned an error");
+
+        match err {
+            RuntimeError::KeepState {
+                message: _,
+                nested_error: _,
+            } => (),
+            _ => panic!("KeepState error expected, got {err:?}."),
+        };
+
+        assert_eq!("signing".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    async fn signing_artifact_not_created() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
+        runner
+            .expect_get_current_non_certified_open_message_for_signed_entity_type()
+            .once()
+            .returning(|_| Ok(Some(OpenMessage::dummy())));
+        runner
+            .expect_create_certificate()
+            .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
+        runner
+            .expect_drop_pending_certificate()
+            .once()
+            .returning(|| Ok(Some(fake_data::certificate_pending())));
+        runner
+            .expect_create_artifact()
+            .once()
+            .returning(|_, _| Err("whatever".into()));
+        let state = SigningState {
+            current_beacon: fake_data::beacon(),
+            open_message: OpenMessage::dummy(),
+        };
+        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
+        let err = runtime
+            .cycle()
+            .await
+            .expect_err("cycle should have returned an error");
+
+        match err {
+            RuntimeError::ReInit {
+                message: _,
+                nested_error: _,
+            } => (),
+            _ => panic!("ReInit error expected, got {err:?}."),
+        };
 
         assert_eq!("signing".to_string(), runtime.get_state());
     }
