@@ -3,11 +3,14 @@ use crate::crypto_helper::cardano::{
     StmInitializerWrapper,
 };
 
-use mithril_stm::stm::{
-    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSig, StmSigner,
-    StmVerificationKeyPoP,
+use mithril_stm::{
+    key_reg::ClosedKeyReg,
+    stm::{
+        Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSig,
+        StmSigner, StmVerificationKeyPoP,
+    },
+    AggregationError,
 };
-use mithril_stm::AggregationError;
 
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;
@@ -45,6 +48,9 @@ pub type ProtocolClerk = StmClerk<D>;
 
 /// Alias of a wrapper of [MithrilStm:KeyReg](struct@mithril_stm::key_reg::KeyReg).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
+
+/// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::key_reg::KeyReg).
+pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
 
 /// Alias of [MithrilStm:StmSig](struct@mithril_stm::stm::StmSig).
 pub type ProtocolSingleSignature = StmSig;

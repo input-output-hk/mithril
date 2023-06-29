@@ -16,6 +16,7 @@ name = "digester"
 harness = false
 
 [dependencies]
+anyhow = "1.0.71"
 async-trait = "0.1.52"
 bech32 = "0.9.1"
 blake2 = "0.10.4"
