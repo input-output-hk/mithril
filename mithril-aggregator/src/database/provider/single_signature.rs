@@ -69,17 +69,17 @@ impl SqLiteEntity for SingleSignatureRecord {
     where
         Self: Sized,
     {
-        let open_message_id = row.get::<String, _>(0);
-        let open_message_id = Uuid::parse_str(&open_message_id).map_err(|e| {
+        let open_message_id = row.read::<&str, _>(0);
+        let open_message_id = Uuid::parse_str(open_message_id).map_err(|e| {
             HydrationError::InvalidData(format!(
                 "Invalid UUID in single_signature.open_message_id: '{open_message_id}'. Error: {e}"
             ))
         })?;
-        let signer_id = row.get::<String, _>(1);
-        let registration_epoch_setting_id_int = row.get::<i64, _>(2);
-        let lottery_indexes_str = row.get::<String, _>(3);
-        let signature = row.get::<String, _>(4);
-        let created_at = row.get::<String, _>(5);
+        let signer_id = row.read::<&str, _>(1).to_string();
+        let registration_epoch_setting_id_int = row.read::<i64, _>(2);
+        let lottery_indexes_str = row.read::<&str, _>(3);
+        let signature = row.read::<&str, _>(4).to_string();
+        let created_at = row.read::<&str, _>(5);
 
         let single_signature_record = Self {
             open_message_id,
@@ -91,13 +91,13 @@ impl SqLiteEntity for SingleSignatureRecord {
                 ))
                 })?,
             ),
-            lottery_indexes: serde_json::from_str(&lottery_indexes_str).map_err(|e| {
+            lottery_indexes: serde_json::from_str(lottery_indexes_str).map_err(|e| {
                 HydrationError::InvalidData(format!(
                     "Could not turn string '{lottery_indexes_str}' to Vec<LotteryIndex>. Error: {e}"
                 ))
             })?,
             signature,
-            created_at: DateTime::parse_from_rfc3339(&created_at)
+            created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"

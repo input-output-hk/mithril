@@ -38,8 +38,8 @@ impl SqLiteEntity for EpochSettingRecord {
     where
         Self: Sized,
     {
-        let epoch_setting_id_int = row.get::<i64, _>(0);
-        let protocol_parameters_string = &row.get::<String, _>(1);
+        let epoch_setting_id_int = row.read::<i64, _>(0);
+        let protocol_parameters_string = &row.read::<&str, _>(1);
 
         let epoch_setting_record = Self {
             epoch_setting_id: Epoch(epoch_setting_id_int.try_into().map_err(|e| {
@@ -426,12 +426,12 @@ mod tests {
         for (epoch, protocol_parameters) in epoch_settings {
             let mut statement = connection.prepare(&query)?;
 
-            statement.bind(1, *epoch).unwrap();
+            statement.bind((1, *epoch)).unwrap();
             statement
-                .bind(
+                .bind((
                     2,
                     serde_json::to_string(protocol_parameters).unwrap().as_str(),
-                )
+                ))
                 .unwrap();
             statement.next().unwrap();
         }

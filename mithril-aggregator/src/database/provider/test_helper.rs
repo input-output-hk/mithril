@@ -73,33 +73,33 @@ pub fn insert_single_signatures_in_db(
         let mut statement = connection.prepare(&query)?;
 
         statement
-            .bind(
+            .bind((
                 1,
                 single_signature_record.open_message_id.to_string().as_str(),
-            )
+            ))
             .unwrap();
         statement
-            .bind(2, single_signature_record.signer_id.as_str())
+            .bind((2, single_signature_record.signer_id.as_str()))
             .unwrap();
         statement
-            .bind(
+            .bind((
                 3,
                 single_signature_record.registration_epoch_setting_id.0 as i64,
-            )
+            ))
             .unwrap();
         statement
-            .bind(
+            .bind((
                 4,
                 serde_json::to_string(&single_signature_record.lottery_indexes)
                     .unwrap()
                     .as_str(),
-            )
+            ))
             .unwrap();
         statement
-            .bind(5, single_signature_record.signature.as_str())
+            .bind((5, single_signature_record.signature.as_str()))
             .unwrap();
         statement
-            .bind(6, single_signature_record.created_at.to_rfc3339().as_str())
+            .bind((6, single_signature_record.created_at.to_rfc3339().as_str()))
             .unwrap();
         statement.next().unwrap();
     }

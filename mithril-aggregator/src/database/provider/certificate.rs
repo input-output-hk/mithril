@@ -182,19 +182,19 @@ impl SqLiteEntity for CertificateRecord {
     where
         Self: Sized,
     {
-        let certificate_id = row.get::<String, _>(0);
-        let parent_certificate_id = row.get::<Option<String>, _>(1);
-        let message = row.get::<String, _>(2);
-        let signature = row.get::<String, _>(3);
-        let aggregate_verification_key = row.get::<String, _>(4);
-        let epoch_int = row.get::<i64, _>(5);
-        let beacon_string = row.get::<String, _>(6);
-        let protocol_version = row.get::<String, _>(7);
-        let protocol_parameters_string = row.get::<String, _>(8);
-        let protocol_message_string = row.get::<String, _>(9);
-        let signers_string = row.get::<String, _>(10);
-        let initiated_at = row.get::<String, _>(11);
-        let sealed_at = row.get::<String, _>(12);
+        let certificate_id = row.read::<&str, _>(0).to_string();
+        let parent_certificate_id = row.read::<Option<&str>, _>(1).map(|s| s.to_owned());
+        let message = row.read::<&str, _>(2).to_string();
+        let signature = row.read::<&str, _>(3).to_string();
+        let aggregate_verification_key = row.read::<&str, _>(4).to_string();
+        let epoch_int = row.read::<i64, _>(5);
+        let beacon_string = row.read::<&str, _>(6);
+        let protocol_version = row.read::<&str, _>(7).to_string();
+        let protocol_parameters_string = row.read::<&str, _>(8);
+        let protocol_message_string = row.read::<&str, _>(9);
+        let signers_string = row.read::<&str, _>(10);
+        let initiated_at = row.read::<&str, _>(11);
+        let sealed_at = row.read::<&str, _>(12);
 
         let certificate_record = Self {
             certificate_id,
@@ -207,7 +207,7 @@ impl SqLiteEntity for CertificateRecord {
                     "Could not cast i64 ({epoch_int}) to u64. Error: '{e}'"
                 ))
             })?),
-            beacon: serde_json::from_str(&beacon_string).map_err(
+            beacon: serde_json::from_str(beacon_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{beacon_string}' to Beacon. Error: {e}"
@@ -215,35 +215,35 @@ impl SqLiteEntity for CertificateRecord {
                 },
             )?,
             protocol_version,
-            protocol_parameters: serde_json::from_str(&protocol_parameters_string).map_err(
+            protocol_parameters: serde_json::from_str(protocol_parameters_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{protocol_parameters_string}' to ProtocolParameters. Error: {e}"
                     ))
                 },
             )?,
-            protocol_message: serde_json::from_str(&protocol_message_string).map_err(
+            protocol_message: serde_json::from_str(protocol_message_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{protocol_message_string}' to ProtocolMessage. Error: {e}"
                     ))
                 },
             )?,
-            signers: serde_json::from_str(&signers_string).map_err(
+            signers: serde_json::from_str(signers_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{signers_string}' to Vec<SignerWithStake>. Error: {e}"
                     ))
                 },
             )?,
-            initiated_at: DateTime::parse_from_rfc3339(&initiated_at).map_err(
+            initiated_at: DateTime::parse_from_rfc3339(initiated_at).map_err(
                 |e| {
                   HydrationError::InvalidData(format!(
                       "Could not turn string '{initiated_at}' to rfc3339 Datetime. Error: {e}"
                   ))
               },
             )?.with_timezone(&Utc),
-            sealed_at: DateTime::parse_from_rfc3339(&sealed_at).map_err(
+            sealed_at: DateTime::parse_from_rfc3339(sealed_at).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{sealed_at}' to rfc3339 Datetime. Error: {e}"
@@ -779,65 +779,65 @@ mod tests {
             let mut statement = connection.prepare(&query)?;
 
             statement
-                .bind(1, certificate_record.certificate_id.as_str())
+                .bind((1, certificate_record.certificate_id.as_str()))
                 .unwrap();
             if let Some(parent_certificate_id) = certificate_record.parent_certificate_id {
-                statement.bind(2, parent_certificate_id.as_str()).unwrap();
+                statement.bind((2, parent_certificate_id.as_str())).unwrap();
             } else {
-                statement.bind(2, &Value::Null).unwrap();
+                statement.bind((2, &Value::Null)).unwrap();
             }
             statement
-                .bind(3, certificate_record.message.as_str())
+                .bind((3, certificate_record.message.as_str()))
                 .unwrap();
             statement
-                .bind(4, certificate_record.signature.as_str())
+                .bind((4, certificate_record.signature.as_str()))
                 .unwrap();
             statement
-                .bind(5, certificate_record.aggregate_verification_key.as_str())
+                .bind((5, certificate_record.aggregate_verification_key.as_str()))
                 .unwrap();
             statement
-                .bind(6, certificate_record.epoch.0 as i64)
+                .bind((6, certificate_record.epoch.0 as i64))
                 .unwrap();
             statement
-                .bind(
+                .bind((
                     7,
                     serde_json::to_string(&certificate_record.beacon)
                         .unwrap()
                         .as_str(),
-                )
+                ))
                 .unwrap();
             statement
-                .bind(8, certificate_record.protocol_version.as_str())
+                .bind((8, certificate_record.protocol_version.as_str()))
                 .unwrap();
             statement
-                .bind(
+                .bind((
                     9,
                     serde_json::to_string(&certificate_record.protocol_parameters)
                         .unwrap()
                         .as_str(),
-                )
+                ))
                 .unwrap();
             statement
-                .bind(
+                .bind((
                     10,
                     serde_json::to_string(&certificate_record.protocol_message)
                         .unwrap()
                         .as_str(),
-                )
+                ))
                 .unwrap();
             statement
-                .bind(
+                .bind((
                     11,
                     serde_json::to_string(&certificate_record.signers)
                         .unwrap()
                         .as_str(),
-                )
+                ))
                 .unwrap();
             statement
-                .bind(12, certificate_record.initiated_at.to_rfc3339().as_str())
+                .bind((12, certificate_record.initiated_at.to_rfc3339().as_str()))
                 .unwrap();
             statement
-                .bind(13, certificate_record.sealed_at.to_rfc3339().as_str())
+                .bind((13, certificate_record.sealed_at.to_rfc3339().as_str()))
                 .unwrap();
             statement.next().unwrap();
         }

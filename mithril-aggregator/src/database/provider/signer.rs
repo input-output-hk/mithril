@@ -35,22 +35,22 @@ impl SqLiteEntity for SignerRecord {
     where
         Self: Sized,
     {
-        let signer_id = row.get::<String, _>(0);
-        let pool_ticker = row.get::<Option<String>, _>(1);
-        let created_at = row.get::<String, _>(2);
-        let updated_at = row.get::<String, _>(3);
+        let signer_id = row.read::<&str, _>(0).to_string();
+        let pool_ticker = row.read::<Option<&str>, _>(1).map(|s| s.to_owned());
+        let created_at = row.read::<&str, _>(2);
+        let updated_at = row.read::<&str, _>(3);
 
         let signer_record = Self {
             signer_id,
             pool_ticker,
-            created_at: DateTime::parse_from_rfc3339(&created_at)
+            created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
                     ))
                 })?
                 .with_timezone(&Utc),
-            updated_at: DateTime::parse_from_rfc3339(&updated_at)
+            updated_at: DateTime::parse_from_rfc3339(updated_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{updated_at}' to rfc3339 Datetime. Error: {e}"
@@ -329,21 +329,23 @@ mod tests {
         for signer_record in signer_records {
             let mut statement = connection.prepare(&query)?;
 
-            statement.bind(1, signer_record.signer_id.as_str()).unwrap();
             statement
-                .bind(
+                .bind((1, signer_record.signer_id.as_str()))
+                .unwrap();
+            statement
+                .bind((
                     2,
                     &signer_record
                         .pool_ticker
                         .map(Value::String)
                         .unwrap_or(Value::Null),
-                )
+                ))
                 .unwrap();
             statement
-                .bind(3, signer_record.created_at.to_rfc3339().as_str())
+                .bind((3, signer_record.created_at.to_rfc3339().as_str()))
                 .unwrap();
             statement
-                .bind(4, signer_record.updated_at.to_rfc3339().as_str())
+                .bind((4, signer_record.updated_at.to_rfc3339().as_str()))
                 .unwrap();
             statement.next().unwrap();
         }

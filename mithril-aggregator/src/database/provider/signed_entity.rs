@@ -82,18 +82,19 @@ impl SqLiteEntity for SignedEntityRecord {
     where
         Self: Sized,
     {
-        let signed_entity_id = row.get::<String, _>(0);
-        let signed_entity_type_id_int = row.get::<i64, _>(1);
-        let certificate_id = row.get::<String, _>(2);
+        let signed_entity_id = row.read::<&str, _>(0).to_string();
+        let signed_entity_type_id_int = row.read::<i64, _>(1);
+        let certificate_id = row.read::<&str, _>(2).to_string();
         // TODO: We need to check first that the cell can be read as a string first
         // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
         // If it fails, we fallback on readign the cell as an integer (e.g. when beacon json is '5').
         // Maybe there is a better way of doing this.
-        let beacon_str = row
-            .try_get::<String, _>(3)
-            .unwrap_or_else(|_| (row.get::<i64, _>(3)).to_string());
-        let artifact_str = row.get::<String, _>(4);
-        let created_at = row.get::<String, _>(5);
+        let beacon_str = match row.try_read::<&str, _>(3) {
+            Ok(value) => value.to_string(),
+            Err(_) => (row.read::<i64, _>(3)).to_string(),
+        };
+        let artifact_str = row.read::<&str, _>(4).to_string();
+        let created_at = row.read::<&str, _>(5);
 
         let signed_entity_record = Self {
             signed_entity_id,
@@ -107,7 +108,7 @@ impl SqLiteEntity for SignedEntityRecord {
             )?,
             certificate_id,
             artifact: artifact_str,
-            created_at: DateTime::parse_from_rfc3339(&created_at)
+            created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
@@ -563,29 +564,29 @@ mod tests {
             let mut statement = connection.prepare(&query)?;
 
             statement
-                .bind(1, signed_entity_record.signed_entity_id.as_str())
+                .bind((1, signed_entity_record.signed_entity_id.as_str()))
                 .unwrap();
             statement
-                .bind(2, signed_entity_record.signed_entity_type.index() as i64)
+                .bind((2, signed_entity_record.signed_entity_type.index() as i64))
                 .unwrap();
             statement
-                .bind(3, signed_entity_record.certificate_id.as_str())
+                .bind((3, signed_entity_record.certificate_id.as_str()))
                 .unwrap();
             statement
-                .bind(
+                .bind((
                     4,
                     signed_entity_record
                         .signed_entity_type
                         .get_json_beacon()
                         .unwrap()
                         .as_str(),
-                )
+                ))
                 .unwrap();
             statement
-                .bind(5, signed_entity_record.artifact.as_str())
+                .bind((5, signed_entity_record.artifact.as_str()))
                 .unwrap();
             statement
-                .bind(6, signed_entity_record.created_at.to_rfc3339().as_str())
+                .bind((6, signed_entity_record.created_at.to_rfc3339().as_str()))
                 .unwrap();
 
             statement.next().unwrap();

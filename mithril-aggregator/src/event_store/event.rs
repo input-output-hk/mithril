@@ -71,10 +71,10 @@ impl SqLiteEntity for Event {
     where
         Self: Sized,
     {
-        let created_at = &row.get::<String, _>("created_at");
+        let created_at = &row.read::<&str, _>("created_at");
 
         let myself = Self {
-            event_id: row.get::<i64, _>("event_id"),
+            event_id: row.read::<i64, _>("event_id"),
             created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
@@ -82,9 +82,9 @@ impl SqLiteEntity for Event {
                     ))
                 })?
                 .with_timezone(&Utc),
-            source: row.get::<String, _>("source"),
-            action: row.get::<String, _>("action"),
-            content: row.get::<String, _>("content"),
+            source: row.read::<&str, _>("source").to_string(),
+            action: row.read::<&str, _>("action").to_string(),
+            content: row.read::<&str, _>("content").to_string(),
         };
 
         Ok(myself)
