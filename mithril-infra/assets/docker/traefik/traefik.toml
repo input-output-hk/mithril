@@ -18,8 +18,18 @@
   [entryPoints.websecure]
     address = ":443"
 
+  [entryPoints.metrics]
+    address = ":8080"
+
 [certificatesResolvers.lets-encrypt.acme]
   storage = "/etc/traefik/acme.json"
   email = "admin@mithril.network"
   [certificatesResolvers.lets-encrypt.acme.tlsChallenge]
+
+[metrics]
+  [metrics.prometheus]
+    entryPoint = "metrics"
+    addEntryPointsLabels = true
+    addRoutersLabels = true
+    addServicesLabels = true
 
