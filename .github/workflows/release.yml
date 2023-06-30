@@ -152,6 +152,8 @@ jobs:
       ERA_READER_ADDRESS_URL: ${{ vars.ERA_READER_ADDRESS_URL }}
       ERA_READER_VERIFICATION_KEY_URL: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
       ERA_READER_SECRET_KEY: ${{ secrets.ERA_READER_SECRET_KEY }}
+      PROMETHEUS_AUTH_USERNAME: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
+      PROMETHEUS_AUTH_PASSWORD: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
 
     defaults:
       run:
@@ -191,6 +193,8 @@ jobs:
           mithril_era_reader_verification_key_url = "${{ env.ERA_READER_VERIFICATION_KEY_URL }}"
           mithril_era_reader_secret_key           = "${{ env.ERA_READER_SECRET_KEY }}"
           mithril_signers                         = ${{ matrix.mithril_signers }}
+          prometheus_auth_username                = "${{ env.PROMETHEUS_AUTH_USERNAME }}"
+          prometheus_auth_password                = "${{ env.PROMETHEUS_AUTH_PASSWORD }}"
         EOF
         terraform fmt ./env.variables.tfvars
         cat ./env.variables.tfvars
