@@ -425,14 +425,16 @@ mod tests {
         ];
         for (epoch, protocol_parameters) in epoch_settings {
             let mut statement = connection.prepare(&query)?;
-
-            statement.bind((1, *epoch)).unwrap();
             statement
-                .bind((
-                    2,
-                    serde_json::to_string(protocol_parameters).unwrap().as_str(),
-                ))
+                .bind::<&[(_, Value)]>(&[
+                    (1, Value::Integer(*epoch)),
+                    (
+                        2,
+                        serde_json::to_string(protocol_parameters).unwrap().into(),
+                    ),
+                ])
                 .unwrap();
+
             statement.next().unwrap();
         }
 

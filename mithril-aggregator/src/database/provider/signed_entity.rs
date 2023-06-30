@@ -562,31 +562,27 @@ mod tests {
 
         for signed_entity_record in signed_entity_records {
             let mut statement = connection.prepare(&query)?;
-
             statement
-                .bind((1, signed_entity_record.signed_entity_id.as_str()))
-                .unwrap();
-            statement
-                .bind((2, signed_entity_record.signed_entity_type.index() as i64))
-                .unwrap();
-            statement
-                .bind((3, signed_entity_record.certificate_id.as_str()))
-                .unwrap();
-            statement
-                .bind((
-                    4,
-                    signed_entity_record
-                        .signed_entity_type
-                        .get_json_beacon()
-                        .unwrap()
-                        .as_str(),
-                ))
-                .unwrap();
-            statement
-                .bind((5, signed_entity_record.artifact.as_str()))
-                .unwrap();
-            statement
-                .bind((6, signed_entity_record.created_at.to_rfc3339().as_str()))
+                .bind::<&[(_, Value)]>(&[
+                    (1, signed_entity_record.signed_entity_id.into()),
+                    (
+                        2,
+                        i64::try_from(signed_entity_record.signed_entity_type.index())
+                            .unwrap()
+                            .into(),
+                    ),
+                    (3, signed_entity_record.certificate_id.into()),
+                    (
+                        4,
+                        signed_entity_record
+                            .signed_entity_type
+                            .get_json_beacon()
+                            .unwrap()
+                            .into(),
+                    ),
+                    (5, signed_entity_record.artifact.into()),
+                    (6, signed_entity_record.created_at.to_rfc3339().into()),
+                ])
                 .unwrap();
 
             statement.next().unwrap();

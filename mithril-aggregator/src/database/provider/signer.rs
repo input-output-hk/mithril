@@ -328,24 +328,19 @@ mod tests {
 
         for signer_record in signer_records {
             let mut statement = connection.prepare(&query)?;
-
             statement
-                .bind((1, signer_record.signer_id.as_str()))
-                .unwrap();
-            statement
-                .bind((
-                    2,
-                    &signer_record
-                        .pool_ticker
-                        .map(Value::String)
-                        .unwrap_or(Value::Null),
-                ))
-                .unwrap();
-            statement
-                .bind((3, signer_record.created_at.to_rfc3339().as_str()))
-                .unwrap();
-            statement
-                .bind((4, signer_record.updated_at.to_rfc3339().as_str()))
+                .bind::<&[(_, Value)]>(&[
+                    (1, signer_record.signer_id.into()),
+                    (
+                        2,
+                        signer_record
+                            .pool_ticker
+                            .map(Value::String)
+                            .unwrap_or(Value::Null),
+                    ),
+                    (3, signer_record.created_at.to_rfc3339().into()),
+                    (4, signer_record.updated_at.to_rfc3339().into()),
+                ])
                 .unwrap();
             statement.next().unwrap();
         }

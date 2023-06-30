@@ -558,58 +558,48 @@ mod tests {
                 let signer_registration_record =
                     SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, epoch);
                 let mut statement = connection.prepare(&query)?;
+                statement
+                    .bind::<&[(_, Value)]>(&[
+                        (1, signer_registration_record.signer_id.into()),
+                        (
+                            2,
+                            i64::try_from(signer_registration_record.epoch_setting_id.0)
+                                .unwrap()
+                                .into(),
+                        ),
+                        (3, signer_registration_record.verification_key.into()),
+                        (
+                            4,
+                            signer_registration_record
+                                .verification_key_signature
+                                .map(Value::String)
+                                .unwrap_or(Value::Null),
+                        ),
+                        (
+                            5,
+                            signer_registration_record
+                                .operational_certificate
+                                .map(Value::String)
+                                .unwrap_or(Value::Null),
+                        ),
+                        (
+                            6,
+                            signer_registration_record
+                                .kes_period
+                                .map(|k| Value::Integer(k as i64))
+                                .unwrap_or(Value::Null),
+                        ),
+                        (
+                            7,
+                            signer_registration_record
+                                .stake
+                                .map(|s| Value::Integer(s as i64))
+                                .unwrap_or(Value::Null),
+                        ),
+                        (8, signer_registration_record.created_at.to_rfc3339().into()),
+                    ])
+                    .unwrap();
 
-                statement
-                    .bind((1, signer_registration_record.signer_id.as_str()))
-                    .unwrap();
-                statement
-                    .bind((2, signer_registration_record.epoch_setting_id.0 as i64))
-                    .unwrap();
-                statement
-                    .bind((3, signer_registration_record.verification_key.as_str()))
-                    .unwrap();
-                statement
-                    .bind((
-                        4,
-                        &signer_registration_record
-                            .verification_key_signature
-                            .map(Value::String)
-                            .unwrap_or(Value::Null),
-                    ))
-                    .unwrap();
-                statement
-                    .bind((
-                        5,
-                        &signer_registration_record
-                            .operational_certificate
-                            .map(Value::String)
-                            .unwrap_or(Value::Null),
-                    ))
-                    .unwrap();
-                statement
-                    .bind((
-                        6,
-                        &signer_registration_record
-                            .kes_period
-                            .map(|k| Value::Integer(k as i64))
-                            .unwrap_or(Value::Null),
-                    ))
-                    .unwrap();
-                statement
-                    .bind((
-                        7,
-                        &signer_registration_record
-                            .stake
-                            .map(|s| Value::Integer(s as i64))
-                            .unwrap_or(Value::Null),
-                    ))
-                    .unwrap();
-                statement
-                    .bind((
-                        8,
-                        signer_registration_record.created_at.to_rfc3339().as_str(),
-                    ))
-                    .unwrap();
                 statement.next().unwrap();
             }
         }

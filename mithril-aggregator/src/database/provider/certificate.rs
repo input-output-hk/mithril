@@ -777,68 +777,50 @@ mod tests {
         for certificate in certificates {
             let certificate_record: CertificateRecord = certificate.into();
             let mut statement = connection.prepare(&query)?;
+            statement
+                .bind::<&[(_, Value)]>(&[
+                    (1, certificate_record.certificate_id.into()),
+                    (
+                        2,
+                        match certificate_record.parent_certificate_id {
+                            None => Value::Null,
+                            Some(parent_certificate_id) => parent_certificate_id.into(),
+                        },
+                    ),
+                    (3, certificate_record.message.into()),
+                    (4, certificate_record.signature.into()),
+                    (5, certificate_record.aggregate_verification_key.into()),
+                    (6, i64::try_from(certificate_record.epoch.0).unwrap().into()),
+                    (
+                        7,
+                        serde_json::to_string(&certificate_record.beacon)
+                            .unwrap()
+                            .into(),
+                    ),
+                    (8, certificate_record.protocol_version.into()),
+                    (
+                        9,
+                        serde_json::to_string(&certificate_record.protocol_parameters)
+                            .unwrap()
+                            .into(),
+                    ),
+                    (
+                        10,
+                        serde_json::to_string(&certificate_record.protocol_message)
+                            .unwrap()
+                            .into(),
+                    ),
+                    (
+                        11,
+                        serde_json::to_string(&certificate_record.signers)
+                            .unwrap()
+                            .into(),
+                    ),
+                    (12, certificate_record.initiated_at.to_rfc3339().into()),
+                    (13, certificate_record.sealed_at.to_rfc3339().into()),
+                ])
+                .unwrap();
 
-            statement
-                .bind((1, certificate_record.certificate_id.as_str()))
-                .unwrap();
-            if let Some(parent_certificate_id) = certificate_record.parent_certificate_id {
-                statement.bind((2, parent_certificate_id.as_str())).unwrap();
-            } else {
-                statement.bind((2, &Value::Null)).unwrap();
-            }
-            statement
-                .bind((3, certificate_record.message.as_str()))
-                .unwrap();
-            statement
-                .bind((4, certificate_record.signature.as_str()))
-                .unwrap();
-            statement
-                .bind((5, certificate_record.aggregate_verification_key.as_str()))
-                .unwrap();
-            statement
-                .bind((6, certificate_record.epoch.0 as i64))
-                .unwrap();
-            statement
-                .bind((
-                    7,
-                    serde_json::to_string(&certificate_record.beacon)
-                        .unwrap()
-                        .as_str(),
-                ))
-                .unwrap();
-            statement
-                .bind((8, certificate_record.protocol_version.as_str()))
-                .unwrap();
-            statement
-                .bind((
-                    9,
-                    serde_json::to_string(&certificate_record.protocol_parameters)
-                        .unwrap()
-                        .as_str(),
-                ))
-                .unwrap();
-            statement
-                .bind((
-                    10,
-                    serde_json::to_string(&certificate_record.protocol_message)
-                        .unwrap()
-                        .as_str(),
-                ))
-                .unwrap();
-            statement
-                .bind((
-                    11,
-                    serde_json::to_string(&certificate_record.signers)
-                        .unwrap()
-                        .as_str(),
-                ))
-                .unwrap();
-            statement
-                .bind((12, certificate_record.initiated_at.to_rfc3339().as_str()))
-                .unwrap();
-            statement
-                .bind((13, certificate_record.sealed_at.to_rfc3339().as_str()))
-                .unwrap();
             statement.next().unwrap();
         }
 

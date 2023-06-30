@@ -322,12 +322,13 @@ mod tests {
         ];
         for (pool_id, epoch, stake) in stake_distribution {
             let mut statement = connection.prepare(&query)?;
-
-            statement.bind((1, *pool_id)).unwrap();
-            statement.bind((2, *epoch)).unwrap();
-            statement.bind((3, *stake)).unwrap();
             statement
-                .bind((4, Utc::now().to_rfc3339().as_str()))
+                .bind::<&[(_, Value)]>(&[
+                    (1, pool_id.to_string().into()),
+                    (2, Value::Integer(*epoch)),
+                    (3, Value::Integer(*stake)),
+                    (4, Utc::now().to_rfc3339().into()),
+                ])
                 .unwrap();
             statement.next().unwrap();
         }
