@@ -82,14 +82,14 @@ impl SqLiteEntity for SignerRegistrationRecord {
     where
         Self: Sized,
     {
-        let signer_id = row.get::<String, _>(0);
-        let epoch_setting_id_int = row.get::<i64, _>(1);
-        let verification_key = row.get::<String, _>(2);
-        let verification_key_signature = row.get::<Option<String>, _>(3);
-        let operational_certificate = row.get::<Option<String>, _>(4);
-        let kes_period_int = row.get::<Option<i64>, _>(5);
-        let stake_int = row.get::<Option<i64>, _>(6);
-        let created_at = row.get::<String, _>(7);
+        let signer_id = row.read::<&str, _>(0).to_string();
+        let epoch_setting_id_int = row.read::<i64, _>(1);
+        let verification_key = row.read::<&str, _>(2).to_string();
+        let verification_key_signature = row.read::<Option<&str>, _>(3).map(|s| s.to_owned());
+        let operational_certificate = row.read::<Option<&str>, _>(4).map(|s| s.to_owned());
+        let kes_period_int = row.read::<Option<i64>, _>(5);
+        let stake_int = row.read::<Option<i64>, _>(6);
+        let created_at = row.read::<&str, _>(7);
 
         let signer_registration_record = Self {
             signer_id,
@@ -117,7 +117,7 @@ impl SqLiteEntity for SignerRegistrationRecord {
                 })?),
                 None => None,
             },
-            created_at: DateTime::parse_from_rfc3339(&created_at)
+            created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{created_at}' to rfc3339 Datetime. Error: {e}"
@@ -558,58 +558,48 @@ mod tests {
                 let signer_registration_record =
                     SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, epoch);
                 let mut statement = connection.prepare(&query)?;
+                statement
+                    .bind::<&[(_, Value)]>(&[
+                        (1, signer_registration_record.signer_id.into()),
+                        (
+                            2,
+                            i64::try_from(signer_registration_record.epoch_setting_id.0)
+                                .unwrap()
+                                .into(),
+                        ),
+                        (3, signer_registration_record.verification_key.into()),
+                        (
+                            4,
+                            signer_registration_record
+                                .verification_key_signature
+                                .map(Value::String)
+                                .unwrap_or(Value::Null),
+                        ),
+                        (
+                            5,
+                            signer_registration_record
+                                .operational_certificate
+                                .map(Value::String)
+                                .unwrap_or(Value::Null),
+                        ),
+                        (
+                            6,
+                            signer_registration_record
+                                .kes_period
+                                .map(|k| Value::Integer(k as i64))
+                                .unwrap_or(Value::Null),
+                        ),
+                        (
+                            7,
+                            signer_registration_record
+                                .stake
+                                .map(|s| Value::Integer(s as i64))
+                                .unwrap_or(Value::Null),
+                        ),
+                        (8, signer_registration_record.created_at.to_rfc3339().into()),
+                    ])
+                    .unwrap();
 
-                statement
-                    .bind(1, signer_registration_record.signer_id.as_str())
-                    .unwrap();
-                statement
-                    .bind(2, signer_registration_record.epoch_setting_id.0 as i64)
-                    .unwrap();
-                statement
-                    .bind(3, signer_registration_record.verification_key.as_str())
-                    .unwrap();
-                statement
-                    .bind(
-                        4,
-                        &signer_registration_record
-                            .verification_key_signature
-                            .map(Value::String)
-                            .unwrap_or(Value::Null),
-                    )
-                    .unwrap();
-                statement
-                    .bind(
-                        5,
-                        &signer_registration_record
-                            .operational_certificate
-                            .map(Value::String)
-                            .unwrap_or(Value::Null),
-                    )
-                    .unwrap();
-                statement
-                    .bind(
-                        6,
-                        &signer_registration_record
-                            .kes_period
-                            .map(|k| Value::Integer(k as i64))
-                            .unwrap_or(Value::Null),
-                    )
-                    .unwrap();
-                statement
-                    .bind(
-                        7,
-                        &signer_registration_record
-                            .stake
-                            .map(|s| Value::Integer(s as i64))
-                            .unwrap_or(Value::Null),
-                    )
-                    .unwrap();
-                statement
-                    .bind(
-                        8,
-                        signer_registration_record.created_at.to_rfc3339().as_str(),
-                    )
-                    .unwrap();
                 statement.next().unwrap();
             }
         }

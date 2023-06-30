@@ -73,19 +73,19 @@ impl SqLiteEntity for OpenMessageRecord {
     where
         Self: Sized,
     {
-        let open_message_id = row.get::<String, _>(0);
-        let open_message_id = Uuid::parse_str(&open_message_id).map_err(|e| {
+        let open_message_id = row.read::<&str, _>(0);
+        let open_message_id = Uuid::parse_str(open_message_id).map_err(|e| {
             HydrationError::InvalidData(format!(
                 "Invalid UUID in open_message.open_message_id: '{open_message_id}'. Error: {e}"
             ))
         })?;
-        let protocol_message = row.get::<String, _>(4);
-        let protocol_message = serde_json::from_str(&protocol_message).map_err(|e| {
+        let protocol_message = row.read::<&str, _>(4);
+        let protocol_message = serde_json::from_str(protocol_message).map_err(|e| {
             HydrationError::InvalidData(format!(
                 "Invalid protocol message JSON representation '{protocol_message}'. Error: {e}"
             ))
         })?;
-        let epoch_setting_id = row.get::<i64, _>(1);
+        let epoch_setting_id = row.read::<i64, _>(1);
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
 
@@ -93,18 +93,19 @@ impl SqLiteEntity for OpenMessageRecord {
         // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
         // If it fails, we fallback on readign the cell as an integer (e.g. when beacon json is '5').
         // Maybe there is a better way of doing this.
-        let beacon_str = row
-            .try_get::<String, _>(2)
-            .unwrap_or_else(|_| (row.get::<i64, _>(2)).to_string());
+        let beacon_str = match row.try_read::<&str, _>(2) {
+            Ok(value) => value.to_string(),
+            Err(_) => (row.read::<i64, _>(2)).to_string(),
+        };
 
-        let signed_entity_type_id = usize::try_from(row.get::<i64, _>(3)).map_err(|e| {
+        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(3)).map_err(|e| {
             panic!(
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"
             )
         })?;
         let signed_entity_type = SignedEntityType::hydrate(signed_entity_type_id, &beacon_str)?;
-        let is_certified = row.get::<i64, _>(5) != 0;
-        let datetime = &row.get::<String, _>(6);
+        let is_certified = row.read::<i64, _>(5) != 0;
+        let datetime = &row.read::<&str, _>(6);
         let created_at =
             DateTime::parse_from_rfc3339(datetime).map_err(|e| {
                 HydrationError::InvalidData(format!(
@@ -359,7 +360,7 @@ impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
     where
         Self: Sized,
     {
-        let single_signatures = &row.get::<String, _>(7);
+        let single_signatures = &row.read::<&str, _>(7);
         let single_signatures: Vec<SingleSignatures> = serde_json::from_str(single_signatures)
             .map_err(|e| {
                 HydrationError::InvalidData(format!(
@@ -674,7 +675,11 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
         let (expr, params) = provider
             .get_insert_condition(
                 epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::new(
+                    "testnet".to_string(),
+                    2,
+                    4,
+                )),
                 &ProtocolMessage::new(),
             )
             .unwrap()
@@ -683,11 +688,16 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
         assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(), expr);
         assert_eq!(Value::Integer(12), params[1]);
         assert_eq!(
-            Value::String(r#"{"network":"","epoch":0,"immutable_file_number":0}"#.to_string()),
+            Value::String(
+                r#"{"network":"testnet","epoch":2,"immutable_file_number":4}"#.to_string()
+            ),
             params[2]
         );
         assert_eq!(Value::Integer(2), params[3]);
-        assert!(!params[4].as_string().unwrap().is_empty());
+        assert_eq!(
+            Value::String(serde_json::to_string(&ProtocolMessage::new()).unwrap()),
+            params[4]
+        );
     }
 
     #[test]

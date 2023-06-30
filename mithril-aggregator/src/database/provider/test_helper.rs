@@ -1,6 +1,6 @@
 use chrono::Utc;
 use mithril_common::{entities::Epoch, StdResult};
-use sqlite::Connection;
+use sqlite::{Connection, Value};
 use uuid::Uuid;
 
 use crate::database::{migration::get_migrations, provider::UpdateSingleSignatureRecordProvider};
@@ -73,33 +73,27 @@ pub fn insert_single_signatures_in_db(
         let mut statement = connection.prepare(&query)?;
 
         statement
-            .bind(
-                1,
-                single_signature_record.open_message_id.to_string().as_str(),
-            )
-            .unwrap();
-        statement
-            .bind(2, single_signature_record.signer_id.as_str())
-            .unwrap();
-        statement
-            .bind(
-                3,
-                single_signature_record.registration_epoch_setting_id.0 as i64,
-            )
-            .unwrap();
-        statement
-            .bind(
-                4,
-                serde_json::to_string(&single_signature_record.lottery_indexes)
-                    .unwrap()
-                    .as_str(),
-            )
-            .unwrap();
-        statement
-            .bind(5, single_signature_record.signature.as_str())
-            .unwrap();
-        statement
-            .bind(6, single_signature_record.created_at.to_rfc3339().as_str())
+            .bind::<&[(_, Value)]>(&[
+                (
+                    1,
+                    single_signature_record.open_message_id.to_string().into(),
+                ),
+                (2, single_signature_record.signer_id.into()),
+                (
+                    3,
+                    i64::try_from(single_signature_record.registration_epoch_setting_id.0)
+                        .unwrap()
+                        .into(),
+                ),
+                (
+                    4,
+                    serde_json::to_string(&single_signature_record.lottery_indexes)
+                        .unwrap()
+                        .into(),
+                ),
+                (5, single_signature_record.signature.into()),
+                (6, single_signature_record.created_at.to_rfc3339().into()),
+            ])
             .unwrap();
         statement.next().unwrap();
     }

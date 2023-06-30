@@ -24,8 +24,9 @@ pub trait Provider<'conn> {
             .get_connection()
             .prepare(&sql)
             .map_err(|e| format!("error=`{e}, SQL=`{}`", &sql.replace('\n', " ").trim()))?
-            .into_cursor()
-            .bind(&params)?;
+            .into_iter()
+            .bind(&params[..])?;
+
         let iterator = EntityCursor::new(cursor);
 
         Ok(iterator)
@@ -56,10 +57,10 @@ mod tests {
     impl SqLiteEntity for TestEntity {
         fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError> {
             Ok(TestEntity {
-                text_data: row.get::<String, _>(0),
-                real_data: row.get::<f64, _>(1),
-                integer_data: row.get::<i64, _>(2),
-                maybe_null: row.get::<Option<i64>, _>(3),
+                text_data: row.read::<&str, _>(0).to_string(),
+                real_data: row.read::<f64, _>(1),
+                integer_data: row.read::<i64, _>(2),
+                maybe_null: row.read::<Option<i64>, _>(3),
             })
         }
 

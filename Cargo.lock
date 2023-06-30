@@ -2118,7 +2118,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.3.44"
+version = "0.3.45"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.70"
+version = "0.2.72"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2255,7 +2255,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.56"
+version = "0.2.57"
 dependencies = [
  "async-trait",
  "clap",
@@ -3591,9 +3591,9 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "sqlite"
-version = "0.28.1"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d7dcfcc5c3247141692d47227842b3e9c3cf7fe8dd78d91786d76eb3f27b717"
+checksum = "f3ddda64c469a257a3b31298805427784d992c226c94b81003f96e8b122286ad"
 dependencies = [
  "libc",
  "sqlite3-sys",
@@ -3601,9 +3601,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite3-src"
-version = "0.4.0"
+version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1815a7a02c996eb8e5c64f61fcb6fd9b12e593ce265c512c5853b2513635691"
+checksum = "bfc95a51a1ee38839599371685b9d4a926abb51791f0bc3bf8c3bb7867e6e454"
 dependencies = [
  "cc",
  "pkg-config",
@@ -3611,9 +3611,9 @@ dependencies = [
 
 [[package]]
 name = "sqlite3-sys"
-version = "0.14.0"
+version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d47c99824fc55360ba00caf28de0b8a0458369b832e016a64c13af0ad9fbb9ee"
+checksum = "f2752c669433e40ebb08fde824146f50d9628aa0b66a3b7fc6be34db82a8063b"
 dependencies = [
  "libc",
  "sqlite3-src",

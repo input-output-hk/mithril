@@ -45,4 +45,21 @@ mod test {
             .await
             .expect("Vacuum should not fail");
     }
+
+    #[test]
+    fn sqlite_version_should_be_3_42_or_more() {
+        let connection = Connection::open(":memory:").unwrap();
+        let mut statement = connection.prepare("select sqlite_version()").unwrap();
+        let cursor = statement.iter().next().unwrap().unwrap();
+        let db_version = cursor.read::<&str, _>(0);
+        let version = semver::Version::parse(db_version)
+            .expect("Sqlite version should be parsable to semver");
+        let requirement = semver::VersionReq::parse(">=3.42.0").unwrap();
+
+        assert!(
+            requirement.matches(&version),
+            "Sqlite version {} is lower than 3.42.0",
+            version
+        )
+    }
 }

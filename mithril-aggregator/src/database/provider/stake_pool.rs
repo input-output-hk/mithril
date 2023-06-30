@@ -40,12 +40,12 @@ impl SqLiteEntity for StakePool {
     where
         Self: Sized,
     {
-        let epoch_int = row.get::<i64, _>(2);
-        let datetime = &row.get::<String, _>(3);
-        let stake = row.get::<i64, _>(1);
+        let epoch_int = row.read::<i64, _>(2);
+        let datetime = &row.read::<&str, _>(3);
+        let stake = row.read::<i64, _>(1);
 
         let stake_pool = Self {
-            stake_pool_id: row.get::<String, _>(0),
+            stake_pool_id: row.read::<&str, _>(0).to_string(),
             stake: u64::try_from(stake).map_err(|e| {
                 HydrationError::InconsistentType(format!(
                     "Could not cast the stake from internal db I64 → U64. Error: '{e}'."
@@ -322,11 +322,14 @@ mod tests {
         ];
         for (pool_id, epoch, stake) in stake_distribution {
             let mut statement = connection.prepare(&query)?;
-
-            statement.bind(1, *pool_id).unwrap();
-            statement.bind(2, *epoch).unwrap();
-            statement.bind(3, *stake).unwrap();
-            statement.bind(4, Utc::now().to_rfc3339().as_str()).unwrap();
+            statement
+                .bind::<&[(_, Value)]>(&[
+                    (1, pool_id.to_string().into()),
+                    (2, Value::Integer(*epoch)),
+                    (3, Value::Integer(*stake)),
+                    (4, Utc::now().to_rfc3339().into()),
+                ])
+                .unwrap();
             statement.next().unwrap();
         }
 
