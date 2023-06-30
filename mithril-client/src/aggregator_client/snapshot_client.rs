@@ -7,7 +7,7 @@ use std::{
 
 use indicatif::ProgressBar;
 use mithril_common::{
-    entities::Snapshot,
+    entities::{SignedEntity, Snapshot},
     messages::{SnapshotListMessage, SnapshotMessage},
     StdResult,
 };
@@ -44,23 +44,23 @@ impl SnapshotClient {
     }
 
     /// Return a list of available snapshots
-    pub async fn list(&self) -> StdResult<Vec<Snapshot>> {
+    pub async fn list(&self) -> StdResult<Vec<SignedEntity<Snapshot>>> {
         let url = "artifact/snapshots";
         let response = self.http_client.get_content(url).await?;
         let message = serde_json::from_str::<SnapshotListMessage>(&response)?;
-        let snapshots = FromSnapshotListMessageAdapter::adapt(message);
+        let signed_entities = FromSnapshotListMessageAdapter::adapt(message);
 
-        Ok(snapshots)
+        Ok(signed_entities)
     }
 
     /// Return a snapshot based on the given digest (list to get the digests)
-    pub async fn show(&self, digest: &str) -> StdResult<Snapshot> {
+    pub async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>> {
         let url = format!("artifact/snapshot/{}", digest);
         let response = self.http_client.get_content(&url).await?;
         let message = serde_json::from_str::<SnapshotMessage>(&response)?;
-        let snapshot = FromSnapshotMessageAdapter::adapt(message);
+        let signed_entity = FromSnapshotMessageAdapter::adapt(message);
 
-        Ok(snapshot)
+        Ok(signed_entity)
     }
 
     /// Download the snapshot identified by the given snapshot in the given directory

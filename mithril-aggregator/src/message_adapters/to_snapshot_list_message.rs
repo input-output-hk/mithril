@@ -16,7 +16,7 @@ impl MessageAdapter<Vec<SignedEntity<Snapshot>>, SnapshotListMessage>
                 beacon: entity.artifact.beacon,
                 certificate_hash: entity.certificate_id,
                 size: entity.artifact.size,
-                created_at: entity.artifact.created_at,
+                created_at: entity.created_at,
                 locations: entity.artifact.locations,
             })
             .collect()

@@ -12,7 +12,7 @@ impl MessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMessa
             beacon: signed_entity.artifact.beacon,
             certificate_hash: signed_entity.certificate_id,
             size: signed_entity.artifact.size,
-            created_at: signed_entity.artifact.created_at,
+            created_at: signed_entity.created_at,
             locations: signed_entity.artifact.locations,
         }
     }

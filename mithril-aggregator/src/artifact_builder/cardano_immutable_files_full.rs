@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
@@ -113,9 +112,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         let snapshot = Snapshot::new(
             snapshot_digest,
             certificate.beacon.to_owned(),
-            certificate.hash.to_owned(),
             *ongoing_snapshot.get_file_size(),
-            Utc::now(),
             remote_locations,
         );
 
@@ -187,9 +184,7 @@ mod tests {
         let artifact_expected = Snapshot::new(
             snapshot_digest.to_owned(),
             certificate.beacon.to_owned(),
-            certificate.hash.to_owned(),
             *last_ongoing_snapshot.get_file_size(),
-            artifact.created_at,
             remote_locations,
         );
         assert_eq!(artifact_expected, artifact);

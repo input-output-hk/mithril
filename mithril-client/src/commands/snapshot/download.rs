@@ -32,7 +32,7 @@ impl SnapshotDownloadCommand {
         let config = Arc::new(config);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let snapshot = snapshot_service.show(&self.digest).await?;
+        let signed_entity = snapshot_service.show(&self.digest).await?;
         let progress_target = if self.json {
             ProgressDrawTarget::hidden()
         } else {
@@ -40,7 +40,7 @@ impl SnapshotDownloadCommand {
         };
         let filepath = snapshot_service
             .download(
-                &snapshot,
+                &signed_entity,
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,
                 progress_target,
@@ -66,7 +66,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
                 &self.digest,
                 filepath.display(),
                 filepath.display(),
-                snapshot.beacon.network,
+                signed_entity.artifact.beacon.network,
             );
         }
 

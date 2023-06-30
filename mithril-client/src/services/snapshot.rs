@@ -12,7 +12,7 @@ use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::ImmutableDigester,
-    entities::{Certificate, ProtocolMessagePartKey, Snapshot},
+    entities::{Certificate, ProtocolMessagePartKey, SignedEntity, Snapshot},
     StdError, StdResult,
 };
 use slog_scope::{debug, warn};
@@ -63,16 +63,16 @@ pub enum SnapshotServiceError {
 #[async_trait]
 pub trait SnapshotService: Sync + Send {
     /// Return the list of the snapshots stored by the Aggregator.
-    async fn list(&self) -> StdResult<Vec<Snapshot>>;
+    async fn list(&self) -> StdResult<Vec<SignedEntity<Snapshot>>>;
 
     /// Show details of the snapshot identified by the given digest.
-    async fn show(&self, digest: &str) -> StdResult<Snapshot>;
+    async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>>;
 
     /// Download and verify the snapshot identified by the given digest.
     /// The returned path is the location where the archive has been unpacked.
     async fn download(
         &self,
-        snapshot: &Snapshot,
+        snapshot: &SignedEntity<Snapshot>,
         pathdir: &Path,
         genesis_verification_key: &str,
         progress_target: ProgressDrawTarget,
@@ -171,15 +171,15 @@ impl MithrilClientSnapshotService {
 
 #[async_trait]
 impl SnapshotService for MithrilClientSnapshotService {
-    async fn list(&self) -> StdResult<Vec<Snapshot>> {
+    async fn list(&self) -> StdResult<Vec<SignedEntity<Snapshot>>> {
         debug!("Snapshot service: list.");
 
         self.snapshot_client.list().await
     }
 
-    async fn show(&self, digest: &str) -> StdResult<Snapshot> {
+    async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>> {
         debug!("Snapshot service: show.");
-        let snapshot =
+        let signed_entity =
             self.snapshot_client
                 .show(digest)
                 .await
@@ -193,12 +193,12 @@ impl SnapshotService for MithrilClientSnapshotService {
                     _ => e,
                 })?;
 
-        Ok(snapshot)
+        Ok(signed_entity)
     }
 
     async fn download(
         &self,
-        snapshot: &Snapshot,
+        signed_entity: &SignedEntity<Snapshot>,
         pathdir: &Path,
         genesis_verification_key: &str,
         progress_target: ProgressDrawTarget,
@@ -210,17 +210,17 @@ impl SnapshotService for MithrilClientSnapshotService {
         progress_bar.println("1/7 - Checking local disk info…")?;
         let unpacker = SnapshotUnpacker::default();
 
-        if let Err(e) = unpacker.check_prerequisites(&unpack_dir, snapshot.size) {
+        if let Err(e) = unpacker.check_prerequisites(&unpack_dir, signed_entity.artifact.size) {
             self.check_disk_space_error(e)?;
         }
 
         progress_bar.println("2/7 - Fetching the certificate's information…")?;
         let certificate = self
             .certificate_client
-            .get(&snapshot.certificate_hash)
+            .get(&signed_entity.certificate_id)
             .await?
             .ok_or_else(|| {
-                SnapshotServiceError::CouldNotFindCertificate(snapshot.certificate_hash.clone())
+                SnapshotServiceError::CouldNotFindCertificate(signed_entity.certificate_id.clone())
             })?;
 
         progress_bar.println("3/7 - Verifying the certificate chain…")?;
@@ -228,14 +228,14 @@ impl SnapshotService for MithrilClientSnapshotService {
         self.wait_spinner(&progress_bar, verifier).await?;
 
         progress_bar.println("4/7 - Downloading the snapshot…")?;
-        let pb = progress_bar.add(ProgressBar::new(snapshot.size));
+        let pb = progress_bar.add(ProgressBar::new(signed_entity.artifact.size));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
             .unwrap()
             .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
             .progress_chars("#>-"));
         let filepath = self
             .snapshot_client
-            .download(snapshot, pathdir, pb)
+            .download(&signed_entity.artifact, pathdir, pb)
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
@@ -269,7 +269,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             }
 
             return Err(SnapshotServiceError::CouldNotVerifySnapshot {
-                digest: snapshot.digest.clone(),
+                digest: signed_entity.artifact.digest.clone(),
                 path: filepath.canonicalize().unwrap(),
             }
             .into());
@@ -421,7 +421,12 @@ mod tests {
 
         assert_eq!(
             "digest-10".to_string(),
-            snapshot_service.show("digest").await.unwrap().digest
+            snapshot_service
+                .show("digest")
+                .await
+                .unwrap()
+                .artifact
+                .digest
         );
     }
 
@@ -542,15 +547,15 @@ mod tests {
         dep_builder.certificate_verifier = Some(Arc::new(certificate_verifier));
         dep_builder.immutable_digester = Some(Arc::new(immutable_digester));
         let snapshot_service = dep_builder.get_snapshot_service().await.unwrap();
-        let mut snapshot = FromSnapshotMessageAdapter::adapt(get_snapshot_message());
-        snapshot.digest = "digest-10".to_string();
+        let mut signed_entity = FromSnapshotMessageAdapter::adapt(get_snapshot_message());
+        signed_entity.artifact.digest = "digest-10".to_string();
 
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
         build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
         let err = snapshot_service
             .download(
-                &snapshot,
+                &signed_entity,
                 &test_path,
                 &key_encode_hex(genesis_verification_key).unwrap(),
                 ProgressDrawTarget::hidden(),

@@ -38,20 +38,6 @@ pub struct SignedEntityRecord {
     pub created_at: DateTime<Utc>,
 }
 
-impl From<Snapshot> for SignedEntityRecord {
-    fn from(other: Snapshot) -> Self {
-        let entity = serde_json::to_string(&other).unwrap();
-
-        SignedEntityRecord {
-            signed_entity_id: other.digest,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(other.beacon),
-            certificate_id: other.certificate_hash,
-            artifact: entity,
-            created_at: other.created_at,
-        }
-    }
-}
-
 impl From<SignedEntityRecord> for Snapshot {
     fn from(other: SignedEntityRecord) -> Snapshot {
         serde_json::from_str(&other.artifact).unwrap()
@@ -520,6 +506,24 @@ mod tests {
 
     use super::*;
 
+    impl SignedEntityRecord {
+        fn from_snapshot(
+            snapshot: Snapshot,
+            certificate_id: String,
+            created_at: DateTime<Utc>,
+        ) -> Self {
+            let entity = serde_json::to_string(&snapshot).unwrap();
+
+            SignedEntityRecord {
+                signed_entity_id: snapshot.digest,
+                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(snapshot.beacon),
+                certificate_id,
+                artifact: entity,
+                created_at,
+            }
+        }
+    }
+
     pub fn fake_signed_entity_records(total_records: usize) -> Vec<SignedEntityRecord> {
         let snapshots = fake_data::snapshots(total_records as u64);
         (0..total_records)
@@ -531,9 +535,11 @@ mod tests {
                     signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
                         snapshot.beacon,
                     ),
-                    certificate_id: snapshot.certificate_hash,
+                    certificate_id: format!("certificate-{idx}"),
                     artifact: entity,
-                    created_at: snapshot.created_at,
+                    created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
                 }
             })
             .collect()
@@ -597,7 +603,13 @@ mod tests {
         let snapshot = snapshots.first().unwrap().to_owned();
         let snapshot_expected = snapshot.clone();
 
-        let signed_entity: SignedEntityRecord = snapshot.into();
+        let signed_entity: SignedEntityRecord = SignedEntityRecord::from_snapshot(
+            snapshot,
+            "certificate-1".to_string(),
+            DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
         let snapshot: Snapshot = signed_entity.into();
         assert_eq!(snapshot_expected, snapshot);
     }
@@ -677,7 +689,13 @@ mod tests {
     fn insert_signed_entity_record() {
         let snapshots = fake_data::snapshots(1);
         let snapshot = snapshots.first().unwrap().to_owned();
-        let signed_entity_record: SignedEntityRecord = snapshot.into();
+        let signed_entity_record: SignedEntityRecord = SignedEntityRecord::from_snapshot(
+            snapshot,
+            "certificate-1".to_string(),
+            DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
         let connection = Connection::open(":memory:").unwrap();
         let provider = InsertSignedEntityRecordProvider::new(&connection);
         let condition = provider.get_insert_condition(signed_entity_record.clone());
@@ -801,7 +819,13 @@ mod tests {
         let provider = UpdateSignedEntityProvider::new(&connection);
         let snapshots = fake_data::snapshots(1);
         let snapshot = snapshots.first().unwrap().to_owned();
-        let signed_entity_record: SignedEntityRecord = snapshot.into();
+        let signed_entity_record: SignedEntityRecord = SignedEntityRecord::from_snapshot(
+            snapshot,
+            "certificate-1".to_string(),
+            DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
         let (expr, params) = provider
             .get_update_condition(&signed_entity_record)
             .unwrap()
