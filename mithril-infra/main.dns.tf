@@ -42,6 +42,6 @@ locals {
     format("https://%s", "mithril-signer-${key}.${trimsuffix(google_dns_managed_zone.mithril-api-zone.dns_name, ".")}")
   ]
   prometheus_host         = trimsuffix(google_dns_record_set.prometheus-endpoint.name, ".")
-  prometheus_endpoint_url = format("https://%s", "prometheus.${trimsuffix(google_dns_managed_zone.mithril-api-zone.dns_name, ".")}")
+  prometheus_endpoint_url = format("https://%s%s", local.prometheus_credentials, local.prometheus_host)
 
 }

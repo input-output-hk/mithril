@@ -18,6 +18,8 @@ services:
       - 'traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)'
       - 'traefik.http.routers.prometheus.tls=true'
       - 'traefik.http.routers.prometheus.tls.certresolver=lets-encrypt'
+      - "traefik.http.routers.prometheus.middlewares=test-auth"
+      - "traefik.http.middlewares.test-auth.basicauth.users=${AUTH_USER_PASSWORD}"
 
   promtail:
     image: grafana/promtail:1.4.1
