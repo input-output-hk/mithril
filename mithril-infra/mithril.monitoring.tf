@@ -1,7 +1,10 @@
 
 resource "null_resource" "mithril_monitoring" {
   depends_on = [
-    null_resource.mithril_network
+    null_resource.mithril_network,
+    null_resource.mithril_reverse_proxy,
+    null_resource.mithril_aggregator,
+    null_resource.mithril_signer
   ]
 
   triggers = {

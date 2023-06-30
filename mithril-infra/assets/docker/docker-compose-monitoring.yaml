@@ -13,6 +13,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/targets.json:/etc/prometheus/targets.json:ro
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)'
@@ -20,6 +21,20 @@ services:
       - 'traefik.http.routers.prometheus.tls.certresolver=lets-encrypt'
       - "traefik.http.routers.prometheus.middlewares=test-auth"
       - "traefik.http.middlewares.test-auth.basicauth.users=${AUTH_USER_PASSWORD}"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
   promtail:
     image: grafana/promtail:1.4.1

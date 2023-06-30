@@ -11,7 +11,9 @@ scrape_configs:
     static_configs:
     - targets: ['prometheus:9090']
 
-  - job_name: 'reverse-proxy'
-    static_configs:
-    - targets: ['reverse-proxy:8680']
+  - job_name: 'targets-discovery'
+    file_sd_configs:
+    - files:
+      - 'targets.json'
+
 
