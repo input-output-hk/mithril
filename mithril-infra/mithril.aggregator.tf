@@ -21,10 +21,20 @@ resource "null_resource" "mithril_aggregator" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p /home/curry/data/${var.cardano_network}",
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/config",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/db",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/ipc",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-aggregator/mithril/stores",
-      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-aggregator/mithril/snapshots"
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-aggregator/mithril/snapshots",
+      <<-EOT
+set -e
+# Setup cardano node configuration
+AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/config
+cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network} $AGGREGATOR_CONFIG_DIRECTORY
+cat $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-aggregator\"" > $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
+rm -f $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+mv $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+EOT
     ]
   }
 

@@ -28,6 +28,7 @@ resource "null_resource" "mithril_signer" {
   provisioner "remote-exec" {
     inline = [
       "mkdir -p /home/curry/data/${var.cardano_network}",
+      "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/db",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/db/passive",
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/db/block-producer",
@@ -39,6 +40,7 @@ resource "null_resource" "mithril_signer" {
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/mithril/snapshots",
       "echo -n ${local.mithril_signers_relay_cardano_port[each.key]} > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/port",
       <<-EOT
+# Setup cardano node topology
 cat > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json << EOF
 {
   "Producers": [
@@ -51,6 +53,19 @@ cat > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano
 }
 EOF
 cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq '.Producers[1] |= . + { "addr": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}, "valency": 1}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
+EOT
+      ,
+      <<-EOT
+# Setup cardano node configuration
+SIGNER_TYPES="full relay block-producer"
+for SIGNER_TYPE in $SIGNER_TYPES; do
+  SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
+  mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
+  cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network} $SIGNER_TYPE_CONFIG_DIRECTORY
+  cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
+  rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+  mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+done
 EOT
     ]
   }

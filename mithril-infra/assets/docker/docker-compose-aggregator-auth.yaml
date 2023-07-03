@@ -17,7 +17,7 @@ services:
     logging:
       driver: "${LOGGING_DRIVER}"
     volumes:
-      - ./cardano-configurations/network/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-aggregator/cardano/config/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
     environment:

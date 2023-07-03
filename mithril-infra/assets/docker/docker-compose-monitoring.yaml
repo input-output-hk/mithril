@@ -6,6 +6,7 @@ services:
     container_name: prometheus
     profiles:
       - tools
+      - monitoring
       - all
     ports:
       - "9090:9090"
@@ -13,7 +14,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/targets.json:/etc/prometheus/targets.json:ro
+      - ./prometheus/cardano.json:/etc/prometheus/cardano.json:ro
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)'
@@ -25,6 +26,10 @@ services:
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node-exporter
+    profiles:
+      - tools
+      - monitoring
+      - all
     restart: unless-stopped
     volumes:
       - /proc:/host/proc:ro
@@ -37,10 +42,11 @@ services:
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
   promtail:
-    image: grafana/promtail:1.4.1
+    image: grafana/promtail:latest
     container_name: promtail
     profiles:
       - tools
+      - monitoring
       - all
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers

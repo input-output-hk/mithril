@@ -23,6 +23,23 @@ resource "null_resource" "mithril_monitoring" {
 
   provisioner "remote-exec" {
     inline = [
+      <<-EOT
+# Setup prometheus targets configuration for Cardano nodes
+CARDANO_NODES=$(docker ps --format='{{.Names}}:12798,' | grep "cardano-node" | sort | tr -d '\n\t\r ' | sed 's/.$//')
+cat /home/curry/docker/prometheus/cardano.json | jq --arg CARDANO_NODES "$CARDANO_NODES" '. += [{
+    "labels": {
+        "job": "cardano-nodes"
+    },
+    "targets": $CARDANO_NODES
+}]' | jq '. | map(try(.targets |= split(",")) // .)' > /home/curry/docker/prometheus/cardano.json.new
+rm -f /home/curry/docker/prometheus/cardano.json
+mv /home/curry/docker/prometheus/cardano.json.new docker/prometheus/cardano.json
+EOT
+    ]
+  }
+
+  provisioner "remote-exec" {
+    inline = [
       "export PROMETHEUS_HOST=${local.prometheus_host}",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",
       "docker-compose -f /home/curry/docker/docker-compose-monitoring.yaml --profile all up -d",

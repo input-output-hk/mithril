@@ -19,7 +19,7 @@ services:
     logging:
       driver: "${LOGGING_DRIVER}"
     volumes:
-      - ./cardano-configurations/network/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/relay/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/relay:/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
@@ -58,7 +58,7 @@ services:
     logging:
       driver: "${LOGGING_DRIVER}"
     volumes:
-      - ./cardano-configurations/network/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/block-producer/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
