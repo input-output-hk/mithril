@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::MithrilStakeDistribution,
+    entities::{MithrilStakeDistribution, SignedEntity},
     messages::{MessageAdapter, MithrilStakeDistributionMessage},
     messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage},
     StdResult,
@@ -32,16 +32,18 @@ impl MithrilStakeDistributionClient {
     }
 
     /// Download the given stake distribution. If it cannot be found, a None is returned.
-    pub async fn get(&self, hash: &str) -> StdResult<Option<MithrilStakeDistribution>> {
+    pub async fn get(
+        &self,
+        hash: &str,
+    ) -> StdResult<Option<SignedEntity<MithrilStakeDistribution>>> {
         let url = format!("artifact/mithril-stake-distribution/{hash}");
 
         match self.http_client.get_content(&url).await {
             Ok(content) => {
                 let message: MithrilStakeDistributionMessage = serde_json::from_str(&content)?;
-                let stake_distribution: MithrilStakeDistribution =
-                    FromMithrilStakeDistributionMessageAdapter::adapt(message);
+                let signed_entity = FromMithrilStakeDistributionMessageAdapter::adapt(message);
 
-                Ok(Some(stake_distribution))
+                Ok(Some(signed_entity))
             }
             Err(e) if matches!(e, AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
@@ -103,13 +105,13 @@ mod tests {
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = MithrilStakeDistributionClient::new(Arc::new(http_client));
-        let stake_distribution = client
+        let signed_entity = client
             .get("hash")
             .await
             .unwrap()
             .expect("This test returns a stake distribution");
 
-        assert_eq!("hash".to_string(), stake_distribution.hash);
-        assert_eq!(2, stake_distribution.signers_with_stake.len(),);
+        assert_eq!("hash".to_string(), signed_entity.artifact.hash);
+        assert_eq!(2, signed_entity.artifact.signers_with_stake.len(),);
     }
 }

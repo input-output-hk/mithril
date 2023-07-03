@@ -153,24 +153,22 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
         // 1 - retrieve stake distribution
-        let stake_distribution =
-            self.stake_distribution_client
-                .get(hash)
-                .await?
-                .ok_or_else(|| {
-                    MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(
-                        hash.to_owned(),
-                    )
-                })?;
+        let signed_entity = self
+            .stake_distribution_client
+            .get(hash)
+            .await?
+            .ok_or_else(|| {
+                MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(hash.to_owned())
+            })?;
 
         // 2 retrieve certificate
         let certificate = self
             .certificate_client
-            .get(&stake_distribution.certificate_hash)
+            .get(&signed_entity.certificate_id)
             .await?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CertificateNotFound(
-                    stake_distribution.certificate_hash.clone(),
+                    signed_entity.certificate_id.clone(),
                 )
             })?;
 
@@ -194,7 +192,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
 
         // 4 Compute and check protocol message
         let clerk = self
-            .create_clerk(&stake_distribution)
+            .create_clerk(&signed_entity.artifact)
             .await?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CouldNotVerifyStakeDistribution {
@@ -229,7 +227,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         let filepath = PathBuf::new()
             .join(dirpath)
             .join(format!("mithril_stake_distribution-{hash}.json"));
-        std::fs::write(&filepath, serde_json::to_string(&stake_distribution)?)?;
+        std::fs::write(&filepath, serde_json::to_string(&signed_entity.artifact)?)?;
 
         Ok(filepath)
     }

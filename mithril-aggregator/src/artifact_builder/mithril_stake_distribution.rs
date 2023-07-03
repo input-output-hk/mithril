@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -37,7 +36,7 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
     async fn compute_artifact(
         &self,
         beacon: Epoch,
-        certificate: &Certificate,
+        _certificate: &Certificate,
     ) -> StdResult<MithrilStakeDistribution> {
         let multi_signer = self.multi_signer.read().await;
         let protocol_parameters = multi_signer
@@ -47,8 +46,6 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
         Ok(MithrilStakeDistribution::new(
             beacon,
             multi_signer.get_next_signers_with_stake().await?,
-            certificate.hash.to_owned(),
-            chrono::DateTime::<Utc>::default(),
             &protocol_parameters.into(),
         ))
     }
@@ -56,7 +53,6 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
     use mithril_common::{crypto_helper::ProtocolParameters, test_utils::fake_data};
 
     use super::*;
@@ -83,13 +79,8 @@ mod tests {
             .compute_artifact(Epoch(1), &certificate)
             .await
             .unwrap();
-        let artifact_expected = MithrilStakeDistribution::new(
-            Epoch(1),
-            signers_with_stake,
-            "certificate-123".to_string(),
-            DateTime::<Utc>::default(),
-            &protocol_parameters,
-        );
+        let artifact_expected =
+            MithrilStakeDistribution::new(Epoch(1), signers_with_stake, &protocol_parameters);
         assert_eq!(artifact_expected, artifact);
     }
 
@@ -101,8 +92,6 @@ mod tests {
             MithrilStakeDistribution::new(
                 Epoch(1),
                 signers_with_stake.clone(),
-                "certificate-123".to_string(),
-                DateTime::<Utc>::default(),
                 &ProtocolParameters {
                     k: 1,
                     m: 1,
@@ -113,8 +102,6 @@ mod tests {
             MithrilStakeDistribution::new(
                 Epoch(1),
                 signers_with_stake.into_iter().rev().collect(),
-                "certificate-123".to_string(),
-                DateTime::<Utc>::default(),
                 &ProtocolParameters {
                     k: 1,
                     m: 1,
@@ -132,8 +119,6 @@ mod tests {
         let sd = MithrilStakeDistribution::new(
             Epoch(1),
             signers_with_stake.clone(),
-            "certificate-123".to_string(),
-            DateTime::<Utc>::default(),
             &ProtocolParameters {
                 k: 1,
                 m: 1,
@@ -144,8 +129,6 @@ mod tests {
         let sd2 = MithrilStakeDistribution::new(
             Epoch(1),
             signers_with_stake.into_iter().rev().collect(),
-            "certificate-123".to_string(),
-            DateTime::<Utc>::default(),
             &ProtocolParameters {
                 k: 1,
                 m: 1,

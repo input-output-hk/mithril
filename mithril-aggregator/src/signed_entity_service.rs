@@ -224,7 +224,6 @@ impl SignedEntityService for MithrilSignedEntityService {
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
     use mithril_common::{entities::Epoch, test_utils::fake_data};
 
     use super::*;
@@ -240,8 +239,6 @@ mod tests {
         let mithril_stake_distribution_expected = MithrilStakeDistribution::new(
             Epoch(1),
             signers_with_stake,
-            "certificate-123".to_string(),
-            DateTime::<Utc>::default(),
             &fake_data::protocol_parameters(),
         );
         let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
