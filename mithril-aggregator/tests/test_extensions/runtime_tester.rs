@@ -9,8 +9,8 @@ use mithril_common::{
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
-        Beacon, Certificate, Epoch, ImmutableFileNumber, SignedEntityTypeDiscriminants,
-        SignerWithStake, Snapshot, StakeDistribution,
+        Beacon, Certificate, Epoch, ImmutableFileNumber, SignedEntityTypeDiscriminants, Snapshot,
+        StakeDistribution,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -324,11 +324,8 @@ impl RuntimeTester {
     /// Updates the stake distribution given a vector of signers with stakes
     pub async fn update_stake_distribution(
         &mut self,
-        signers_with_stake: Vec<SignerWithStake>,
+        new_stake_distribution: StakeDistribution,
     ) -> Result<MithrilFixture, String> {
-        self.chain_observer
-            .set_signers(signers_with_stake.clone())
-            .await;
         let beacon = self.observer.current_beacon().await;
         let protocol_parameters = self
             .deps_builder
@@ -343,16 +340,16 @@ impl RuntimeTester {
             .ok_or("A protocol parameters for the recording epoch should be available")?;
 
         let fixture = MithrilFixtureBuilder::default()
-            .with_signers(signers_with_stake.len())
+            .with_signers(new_stake_distribution.len())
             .with_protocol_parameters(protocol_parameters)
             .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
-                StakeDistribution::from_iter(
-                    signers_with_stake
-                        .into_iter()
-                        .map(|s| (s.party_id, s.stake)),
-                ),
+                new_stake_distribution,
             ))
             .build();
+
+        self.chain_observer
+            .set_signers(fixture.signers_with_stake())
+            .await;
 
         Ok(fixture)
     }

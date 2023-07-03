@@ -1,9 +1,10 @@
 mod test_extensions;
 
-use mithril_aggregator::{Configuration, VerificationKeyStorer};
+use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
         Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+        StakeDistribution,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -130,13 +131,16 @@ async fn certificate_chain() {
 
     comment!("Change stake distribution");
     let next_fixture = {
-        let mut updated_signers = initial_fixture.signers_with_stake();
-        for (i, signer) in updated_signers.iter_mut().enumerate() {
-            signer.stake += (i * 1000) as u64;
-        }
+        let updated_stake_distribution = StakeDistribution::from_iter(
+            initial_fixture
+                .signers_with_stake()
+                .into_iter()
+                .enumerate()
+                .map(|(i, s)| (s.party_id, s.stake + (i as u64) * 1000)),
+        );
 
         tester
-            .update_stake_distribution(updated_signers)
+            .update_stake_distribution(updated_stake_distribution)
             .await
             .unwrap()
     };
