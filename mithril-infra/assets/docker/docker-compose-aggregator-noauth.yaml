@@ -16,6 +16,8 @@ services:
       - all
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     volumes:
       - ../data/${NETWORK}/mithril-aggregator/cardano/config/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
@@ -77,6 +79,8 @@ services:
         condition: service_started
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)'

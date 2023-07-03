@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.45.0
     container_name: prometheus
     profiles:
       - tools
@@ -15,6 +15,10 @@ services:
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/cardano.json:/etc/prometheus/cardano.json:ro
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)'
@@ -40,18 +44,45 @@ services:
       - '--path.rootfs=/rootfs'
       - '--path.sysfs=/host/sys'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+  loki:
+    image: grafana/loki:2.8.0
+    container_name: loki
+    profiles:
+      - tools
+      - monitoring
+      - all
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/local-config.yaml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
   promtail:
-    image: grafana/promtail:latest
+    image: grafana/promtail:2.8.0
     container_name: promtail
     profiles:
       - tools
       - monitoring
       - all
+    ports:
+      - "9080:9080"
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers
       - ./promtail/promtail-config.yml:/etc/promtail/promtail-config.yml
-    command: -config.file=/etc/promtail/promtail-config.yml
+    command: -config.file=/etc/promtail/promtail-config.yml -config.expand-env=true
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
 networks:
   default:

@@ -18,6 +18,8 @@ services:
       - all
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/full/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/db
@@ -66,6 +68,8 @@ services:
         condition: service_started
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
 networks:
   default:

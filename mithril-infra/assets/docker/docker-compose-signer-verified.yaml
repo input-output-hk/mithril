@@ -18,6 +18,8 @@ services:
       - all
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/relay/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/relay:/db
@@ -57,6 +59,8 @@ services:
       - all
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/block-producer/${NETWORK}:/config
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/db
@@ -132,6 +136,8 @@ services:
         condition: service_started
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
   mithril-signer-www:
     image: nginx:latest
@@ -146,6 +152,8 @@ services:
       - "${SIGNER_WWW_PORT}:8080"
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
       - 'traefik.enable=true'
       - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)'

@@ -40,6 +40,7 @@ EOT
 
   provisioner "remote-exec" {
     inline = [
+      "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export PROMETHEUS_HOST=${local.prometheus_host}",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",
       "docker-compose -f /home/curry/docker/docker-compose-monitoring.yaml --profile all up -d",
