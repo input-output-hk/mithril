@@ -522,94 +522,6 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         })
     }
 
-    /// Given a slice of `sigs`, this function returns a new list of signatures with only valid indices.
-    /// In case of conflict (having several signatures for the same index)
-    /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
-    /// The function selects at least `self.k` indexes.
-    ///  # Error
-    /// If there is no sufficient signatures, then the function fails.
-    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
-    // todo: not good, because it only removes index if there is a conflict (see benches)
-    pub fn dedup_sigs_for_indices(
-        &self,
-        msg: &[u8],
-        sigs: &[StmSig],
-    ) -> Result<Vec<StmSig>, AggregationError> {
-        let avk = StmAggrVerificationKey::from(&self.closed_reg);
-        let mut sig_by_index: BTreeMap<Index, &StmSig> = BTreeMap::new();
-        let mut removal_idx_by_vk: HashMap<&StmSig, Vec<Index>> = HashMap::new();
-        let reg_parties = sigs
-            .iter()
-            .map(|sig| self.closed_reg.reg_parties[sig.signer_index as usize])
-            .collect::<Vec<RegParty>>(); // todo: look into this
-
-        for (sig, reg_party) in sigs.iter().zip(reg_parties.iter()) {
-            if sig
-                .verify(&self.params, &reg_party.0, &reg_party.1, &avk, msg)
-                .is_err()
-            {
-                continue;
-            }
-
-            for index in sig.indexes.iter() {
-                let mut insert_this_sig = false;
-                if let Some(&previous_sig) = sig_by_index.get(index) {
-                    let sig_to_remove_index = if sig.sigma < previous_sig.sigma {
-                        insert_this_sig = true;
-                        previous_sig
-                    } else {
-                        sig
-                    };
-
-                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
-                        indexes.push(*index);
-                    } else {
-                        removal_idx_by_vk.insert(sig_to_remove_index, vec![*index]);
-                    }
-                } else {
-                    insert_this_sig = true;
-                }
-
-                if insert_this_sig {
-                    sig_by_index.insert(*index, sig);
-                }
-            }
-        }
-
-        let mut dedup_sigs: HashSet<StmSig> = HashSet::new();
-        let mut count: u64 = 0;
-
-        for (_, &sig) in sig_by_index.iter() {
-            if dedup_sigs.contains(sig) {
-                continue;
-            }
-            let mut deduped_sig = sig.clone();
-            if let Some(indexes) = removal_idx_by_vk.get(sig) {
-                deduped_sig.indexes = deduped_sig
-                    .indexes
-                    .clone()
-                    .into_iter()
-                    .filter(|i| !indexes.contains(i))
-                    .collect();
-            }
-
-            let size: Result<u64, _> = deduped_sig.indexes.len().try_into();
-            if let Ok(size) = size {
-                if dedup_sigs.contains(&deduped_sig) {
-                    panic!("Should not reach!");
-                }
-                dedup_sigs.insert(deduped_sig);
-                count += size;
-
-                if count >= self.params.k {
-                    return Ok(dedup_sigs.into_iter().collect());
-                }
-            }
-        }
-
-        Err(AggregationError::NotEnoughSignatures(count, self.params.k))
-    }
-
     /// Compute the `StmAggrVerificationKey` related to the used registration.
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
@@ -1007,6 +919,14 @@ impl CoreVerifier {
             .collect() // todo: look into this conversion
     }
 
+    /// Given a slice of `sig_reg_list`, this function returns a new list of sig_reg_list with only valid indices.
+    /// In case of conflict (having several signatures for the same index)
+    /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
+    /// The function selects at least `self.k` indexes.
+    ///  # Error
+    /// If there is no sufficient signatures, then the function fails.
+    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
+    // todo: not good, because it only removes index if there is a conflict (see benches)
     fn dedup_sigs_for_indices(
         total_stake: &Stake,
         params: &StmParameters,
@@ -1253,7 +1173,6 @@ mod tests {
             let avk = clerk.compute_avk();
             let mut sigs = Vec::with_capacity(2);
 
-
             if let Some(sig) = ps[0].sign(&false_msg) {
                 sigs.push(sig);
             }
@@ -1262,10 +1181,18 @@ mod tests {
                 sigs.push(sig);
             }
 
-            let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
+            let sig_reg_list = CoreVerifier::map_sig_party(&clerk.closed_reg.reg_parties, &sigs);
+
+            let msgp = avk.mt_commitment.concat_with_msg(&msg);
+            let dedup_result = CoreVerifier::dedup_sigs_for_indices(
+                &clerk.closed_reg.total_stake,
+                &params,
+                &msgp,
+                &sig_reg_list,
+            );
             assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
             for passed_sigs in dedup_result.unwrap() {
-                let verify_result = passed_sigs.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg);
+                let verify_result = passed_sigs.sig.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg);
                 assert!(verify_result.is_ok(), "verify {verify_result:?}");
             }
         }
