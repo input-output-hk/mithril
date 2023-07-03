@@ -41,10 +41,13 @@ use crate::{
     },
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::ExecutionEnvironment,
-    database::provider::{
-        CertificateRepository, CertificateStoreAdapter, EpochSettingStore, OpenMessageRepository,
-        SignedEntityStoreAdapter, SignedEntityStorer, SignerRegistrationStoreAdapter, SignerStore,
-        SingleSignatureRepository, StakePoolStore,
+    database::{
+        provider::SignerRegistrationStore,
+        provider::{
+            CertificateRepository, CertificateStoreAdapter, EpochSettingStore,
+            OpenMessageRepository, SignedEntityStoreAdapter, SignedEntityStorer, SignerStore,
+            SingleSignatureRepository, StakePoolStore,
+        },
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -57,7 +60,7 @@ use crate::{
     CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     GzipSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
-    SnapshotUploaderType, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
+    SnapshotUploaderType, Snapshotter, VerificationKeyStorer,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -399,11 +402,9 @@ impl DependenciesBuilder {
     }
 
     async fn build_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
-        Ok(Arc::new(VerificationKeyStore::new(
-            Box::new(SignerRegistrationStoreAdapter::new(
-                self.get_sqlite_connection().await?,
-            )),
-            self.configuration.store_retention_limit,
+        Ok(Arc::new(SignerRegistrationStore::new(
+            self.get_sqlite_connection().await?,
+            self.configuration.store_retention_limit.map(|l| l as u64),
         )))
     }
 
