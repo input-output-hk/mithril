@@ -7,6 +7,9 @@ use std::{
 };
 use tokio::sync::Mutex;
 
+use crate::VerificationKeyStorer;
+use mithril_common::entities::Signer;
+use mithril_common::store::StoreError;
 use mithril_common::{
     crypto_helper::KESPeriod,
     entities::{
@@ -64,9 +67,21 @@ impl SignerRegistrationRecord {
     }
 }
 
+impl From<SignerRegistrationRecord> for Signer {
+    fn from(other: SignerRegistrationRecord) -> Self {
+        Self {
+            party_id: other.signer_id,
+            verification_key: other.verification_key,
+            verification_key_signature: other.verification_key_signature,
+            operational_certificate: other.operational_certificate,
+            kes_period: other.kes_period,
+        }
+    }
+}
+
 impl From<SignerRegistrationRecord> for SignerWithStake {
-    fn from(other: SignerRegistrationRecord) -> SignerWithStake {
-        SignerWithStake {
+    fn from(other: SignerRegistrationRecord) -> Self {
+        Self {
             party_id: other.signer_id,
             verification_key: other.verification_key,
             verification_key_signature: other.verification_key_signature,
@@ -381,6 +396,80 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
 }
 
 /// Service to deal with signer_registration (read & write).
+pub struct SignerRegistrationStore {
+    connection: Arc<Mutex<Connection>>,
+    /// Number of epoch before previous records will be deleted at the next save
+    epoch_retention_limit: Option<u64>,
+}
+
+impl SignerRegistrationStore {
+    /// Create a new [SignerRegistrationStore] service
+    pub fn new(connection: Arc<Mutex<Connection>>, epoch_retention_limit: Option<u64>) -> Self {
+        Self {
+            connection,
+            epoch_retention_limit,
+        }
+    }
+}
+
+#[async_trait]
+impl VerificationKeyStorer for SignerRegistrationStore {
+    async fn save_verification_key(
+        &self,
+        epoch: Epoch,
+        signer: SignerWithStake,
+    ) -> Result<Option<SignerWithStake>, StoreError> {
+        let connection = &*self.connection.lock().await;
+        let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
+        let existing_record = SignerRegistrationRecordProvider::new(connection)
+            .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
+            .map_err(|e| AdapterError::QueryError(e))?
+            .next();
+
+        let _updated_record = provider
+            .persist(SignerRegistrationRecord::from_signer_with_stake(
+                signer, epoch,
+            ))
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+
+        if let Some(threshold) = self.epoch_retention_limit {
+            // Note: this means that if called with an epoch in the future this could remove all
+            // current records, the caller should check that the given epoch is the current one
+            // or we must get it to do the work ourself here.
+            let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
+                // we want to prune including the given epoch (+1)
+                .prune(epoch - threshold + 1)
+                .map_err(|e| AdapterError::QueryError(e))?
+                .collect::<Vec<_>>();
+        }
+
+        match existing_record {
+            None => Ok(None),
+            Some(previous_record) => Ok(Some(previous_record.into())),
+        }
+    }
+
+    async fn get_verification_keys(
+        &self,
+        epoch: Epoch,
+    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignerRegistrationRecordProvider::new(connection);
+        let cursor = provider
+            .get_by_epoch(&epoch)
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+
+        let signer_with_stakes: HashMap<PartyId, Signer> =
+            HashMap::from_iter(cursor.map(|record| (record.signer_id.to_owned(), record.into())));
+
+        match signer_with_stakes.is_empty() {
+            true => Ok(None),
+            false => Ok(Some(signer_with_stakes)),
+        }
+    }
+}
+
+/// Service to deal with signer_registration (read & write).
 pub struct SignerRegistrationStoreAdapter {
     connection: Arc<Mutex<Connection>>,
 }
@@ -519,6 +608,7 @@ mod tests {
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
     use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
+    use crate::store::test_verification_key_storer;
 
     use super::*;
 
@@ -908,4 +998,27 @@ mod tests {
                 .collect::<Vec<(Epoch, BTreeMap<PartyId, SignerWithStake>)>>()
         )
     }
+
+    pub fn init_signer_registration_store(
+        initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
+        retention_limit: Option<usize>,
+    ) -> Arc<dyn VerificationKeyStorer> {
+        let connection = Connection::open(":memory:").unwrap();
+        let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
+            .into_iter()
+            .map(|(e, signers)| (e, signers.into_values().collect::<Vec<_>>()))
+            .collect();
+
+        setup_signer_registration_db(&connection, initial_data).unwrap();
+
+        Arc::new(SignerRegistrationStore::new(
+            Arc::new(Mutex::new(connection)),
+            retention_limit.map(|threshold| threshold as u64),
+        ))
+    }
+
+    test_verification_key_storer!(
+        test_signer_registration_store =>
+        crate::database::provider::signer_registration::tests::init_signer_registration_store
+    );
 }
