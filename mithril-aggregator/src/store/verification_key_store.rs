@@ -10,7 +10,7 @@ type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, Signe
 
 /// Mocking trait for `VerificationKeyStore`.
 #[async_trait]
-pub trait VerificationKeyStorer {
+pub trait VerificationKeyStorer: Sync + Send {
     /// Save the verification key, for the given [Signer] for the given [Epoch].
     async fn save_verification_key(
         &self,
@@ -24,6 +24,7 @@ pub trait VerificationKeyStorer {
         epoch: Epoch,
     ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError>;
 }
+
 /// Store for the `VerificationKey`.
 pub struct VerificationKeyStore {
     adapter: RwLock<Adapter>,

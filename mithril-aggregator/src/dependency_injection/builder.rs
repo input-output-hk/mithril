@@ -57,7 +57,7 @@ use crate::{
     CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     GzipSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
-    SnapshotUploaderType, Snapshotter, VerificationKeyStore,
+    SnapshotUploaderType, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -99,7 +99,7 @@ pub struct DependenciesBuilder {
     pub certificate_store: Option<Arc<CertificateStore>>,
 
     /// Verification key store.
-    pub verification_key_store: Option<Arc<VerificationKeyStore>>,
+    pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
     /// Protocol parameter store.
     pub protocol_parameters_store: Option<Arc<ProtocolParametersStore>>,
@@ -398,7 +398,7 @@ impl DependenciesBuilder {
         Ok(self.certificate_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
+    async fn build_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
         Ok(Arc::new(VerificationKeyStore::new(
             Box::new(SignerRegistrationStoreAdapter::new(
                 self.get_sqlite_connection().await?,
@@ -407,8 +407,8 @@ impl DependenciesBuilder {
         )))
     }
 
-    /// Get a configured [VerificationKeyStore].
-    pub async fn get_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
+    /// Get a configured [VerificationKeyStorer].
+    pub async fn get_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
         if self.verification_key_store.is_none() {
             self.verification_key_store = Some(self.build_verification_key_store().await?);
         }

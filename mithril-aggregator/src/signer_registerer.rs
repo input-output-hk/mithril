@@ -3,7 +3,6 @@ use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::{VerificationKeyStore, VerificationKeyStorer};
 use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::{
@@ -13,6 +12,8 @@ use mithril_common::{
     store::StoreError,
     StdError,
 };
+
+use crate::VerificationKeyStorer;
 
 #[cfg(test)]
 use mockall::automock;
@@ -131,7 +132,7 @@ pub struct MithrilSignerRegisterer {
     chain_observer: Arc<dyn ChainObserver>,
 
     /// Verification key store
-    verification_key_store: Arc<VerificationKeyStore>,
+    verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Signer recorder
     signer_recorder: Arc<dyn SignerRecorder>,
@@ -141,7 +142,7 @@ impl MithrilSignerRegisterer {
     /// MithrilSignerRegisterer factory
     pub fn new(
         chain_observer: Arc<dyn ChainObserver>,
-        verification_key_store: Arc<VerificationKeyStore>,
+        verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
     ) -> Self {
         Self {

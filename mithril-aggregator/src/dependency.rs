@@ -25,8 +25,7 @@ use crate::{
     signer_registerer::SignerRecorder,
     ticker_service::TickerService,
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
-    SignerRegisterer, SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStore,
-    VerificationKeyStorer,
+    SignerRegisterer, SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
 };
 use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
 use crate::{
@@ -63,7 +62,7 @@ pub struct DependencyManager {
     pub certificate_store: Arc<CertificateStore>,
 
     /// Verification key store.
-    pub verification_key_store: Arc<VerificationKeyStore>,
+    pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Protocol parameter store.
     pub protocol_parameters_store: Arc<ProtocolParametersStore>,
@@ -249,7 +248,7 @@ impl DependencyManager {
     /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator genesis state.
     ///
     /// For the current and the next epoch:
-    /// * Fill the [VerificationKeyStore] with the given signers keys.
+    /// * Fill the [VerificationKeyStorer] with the given signers keys.
     /// * Fill the [StakeStore] with the given signers stakes.
     /// * Fill the [ProtocolParametersStore] with the given parameters.
     pub async fn prepare_for_genesis(
