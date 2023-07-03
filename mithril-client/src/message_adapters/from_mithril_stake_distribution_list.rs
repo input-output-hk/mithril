@@ -1,11 +1,12 @@
 use mithril_common::messages::{
-    MessageAdapter, MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,
+    FromMessageAdapter, MithrilStakeDistributionListItemMessage,
+    MithrilStakeDistributionListMessage,
 };
 
 pub struct FromMithrilStakeDistributionListAdapter;
 
 impl
-    MessageAdapter<
+    FromMessageAdapter<
         MithrilStakeDistributionListMessage,
         Vec<MithrilStakeDistributionListItemMessage>,
     > for FromMithrilStakeDistributionListAdapter

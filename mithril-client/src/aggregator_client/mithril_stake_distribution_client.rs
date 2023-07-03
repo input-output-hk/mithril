@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{MithrilStakeDistribution, SignedEntity},
-    messages::{MessageAdapter, MithrilStakeDistributionMessage},
+    messages::{FromMessageAdapter, MithrilStakeDistributionMessage},
     messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage},
     StdResult,
 };

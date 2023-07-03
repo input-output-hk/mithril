@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::Certificate,
-    messages::CertificateMessage,
+    messages::{CertificateMessage, FromMessageAdapter},
     StdResult,
 };
 use slog_scope::{crit, debug};

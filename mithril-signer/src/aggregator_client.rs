@@ -9,7 +9,9 @@ use mithril_common::{
     entities::{
         CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer, SingleSignatures,
     },
-    messages::{CertificatePendingMessage, EpochSettingsMessage},
+    messages::{
+        CertificatePendingMessage, EpochSettingsMessage, FromMessageAdapter, ToMessageAdapter,
+    },
     MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
@@ -225,7 +227,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         debug!("Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
         let register_signer_message =
-            ToRegisterSignerMessageAdapter::adapt(epoch, signer.to_owned());
+            ToRegisterSignerMessageAdapter::adapt((epoch, signer.to_owned()));
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.post(url.clone()))
             .json(&register_signer_message)
@@ -256,10 +258,10 @@ impl AggregatorClient for AggregatorHTTPClient {
     ) -> Result<(), AggregatorClientError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
-        let register_single_signature_message = ToRegisterSignatureMessageAdapter::adapt(
+        let register_single_signature_message = ToRegisterSignatureMessageAdapter::adapt((
             signed_entity_type.to_owned(),
             signatures.to_owned(),
-        );
+        ));
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.post(url.clone()))
             .json(&register_single_signature_message)

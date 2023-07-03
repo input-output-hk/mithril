@@ -1,11 +1,11 @@
 use mithril_common::{
     entities::{MithrilStakeDistribution, SignedEntity, SignedEntityType},
-    messages::{MessageAdapter, MithrilStakeDistributionMessage},
+    messages::{FromMessageAdapter, MithrilStakeDistributionMessage},
 };
 
 pub struct FromMithrilStakeDistributionMessageAdapter;
 
-impl MessageAdapter<MithrilStakeDistributionMessage, SignedEntity<MithrilStakeDistribution>>
+impl FromMessageAdapter<MithrilStakeDistributionMessage, SignedEntity<MithrilStakeDistribution>>
     for FromMithrilStakeDistributionMessageAdapter
 {
     fn adapt(from: MithrilStakeDistributionMessage) -> SignedEntity<MithrilStakeDistribution> {

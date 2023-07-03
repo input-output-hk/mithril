@@ -1,12 +1,12 @@
 use mithril_common::entities::{SignedEntity, SignedEntityType, Snapshot};
-use mithril_common::messages::SnapshotMessage;
+use mithril_common::messages::{FromMessageAdapter, SnapshotMessage};
 
 /// Adapter to convert [SnapshotMessage] to [`SignedEntity<Snapshot>`] instances
 pub struct FromSnapshotMessageAdapter;
 
-impl FromSnapshotMessageAdapter {
+impl FromMessageAdapter<SnapshotMessage, SignedEntity<Snapshot>> for FromSnapshotMessageAdapter {
     /// Method to trigger the conversion
-    pub fn adapt(snapshot_message: SnapshotMessage) -> SignedEntity<Snapshot> {
+    fn adapt(snapshot_message: SnapshotMessage) -> SignedEntity<Snapshot> {
         let snapshot = Snapshot {
             digest: snapshot_message.digest.clone(),
             beacon: snapshot_message.beacon.clone(),

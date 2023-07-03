@@ -8,7 +8,7 @@ use std::{
 use indicatif::ProgressBar;
 use mithril_common::{
     entities::{SignedEntity, Snapshot},
-    messages::{SnapshotListMessage, SnapshotMessage},
+    messages::{FromMessageAdapter, SnapshotListMessage, SnapshotMessage},
     StdResult,
 };
 use slog_scope::warn;

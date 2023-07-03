@@ -35,7 +35,7 @@ mod handlers {
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
-    use mithril_common::messages::RegisterSignerMessage;
+    use mithril_common::messages::{FromMessageAdapter, RegisterSignerMessage};
     use mithril_common::BeaconProvider;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;

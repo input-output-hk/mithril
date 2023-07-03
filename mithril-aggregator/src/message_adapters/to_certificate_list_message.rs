@@ -1,14 +1,17 @@
 use mithril_common::entities::Certificate;
 use mithril_common::messages::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
+    ToMessageAdapter,
 };
 
 /// Adapter to convert a list of [Certificate] to [CertificateListMessage] instances
 pub struct ToCertificateListMessageAdapter;
 
-impl ToCertificateListMessageAdapter {
+impl ToMessageAdapter<Vec<Certificate>, CertificateListMessage>
+    for ToCertificateListMessageAdapter
+{
     /// Method to trigger the conversion
-    pub fn adapt(certificates: Vec<Certificate>) -> CertificateListMessage {
+    fn adapt(certificates: Vec<Certificate>) -> CertificateListMessage {
         certificates
             .into_iter()
             .map(|certificate| CertificateListItemMessage {

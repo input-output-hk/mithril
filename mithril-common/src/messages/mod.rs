@@ -20,7 +20,8 @@ pub use certificate_list::{
 pub use certificate_metadata::CertificateMetadataMessage;
 pub use certificate_pending::{CertificatePendingMessage, SignerMessage};
 pub use epoch_settings::EpochSettingsMessage;
-pub use interface::MessageAdapter;
+pub use interface::FromMessageAdapter;
+pub use interface::ToMessageAdapter;
 pub use mithril_stake_distribution::MithrilStakeDistributionMessage;
 pub use mithril_stake_distribution_list::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,

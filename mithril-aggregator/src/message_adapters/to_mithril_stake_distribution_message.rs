@@ -1,10 +1,10 @@
 use mithril_common::entities::{MithrilStakeDistribution, SignedEntity};
-use mithril_common::messages::{MessageAdapter, MithrilStakeDistributionMessage};
+use mithril_common::messages::{MithrilStakeDistributionMessage, ToMessageAdapter};
 
 /// Adapter to convert [MithrilStakeDistribution] to [MithrilStakeDistributionMessage] instances
 pub struct ToMithrilStakeDistributionMessageAdapter;
 
-impl MessageAdapter<SignedEntity<MithrilStakeDistribution>, MithrilStakeDistributionMessage>
+impl ToMessageAdapter<SignedEntity<MithrilStakeDistribution>, MithrilStakeDistributionMessage>
     for ToMithrilStakeDistributionMessageAdapter
 {
     /// Method to trigger the conversion

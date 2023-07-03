@@ -1,12 +1,12 @@
 use mithril_common::entities::EpochSettings;
-use mithril_common::messages::EpochSettingsMessage;
+use mithril_common::messages::{EpochSettingsMessage, ToMessageAdapter};
 
 /// Adapter to spawn [EpochSettingsMessage] from [EpochSettings] instances.
 pub struct ToEpochSettingsMessageAdapter;
 
-impl ToEpochSettingsMessageAdapter {
+impl ToMessageAdapter<EpochSettings, EpochSettingsMessage> for ToEpochSettingsMessageAdapter {
     /// Turn an entity instance into message.
-    pub fn adapt(epoch_settings: EpochSettings) -> EpochSettingsMessage {
+    fn adapt(epoch_settings: EpochSettings) -> EpochSettingsMessage {
         EpochSettingsMessage {
             epoch: epoch_settings.epoch,
             protocol_parameters: epoch_settings.protocol_parameters,

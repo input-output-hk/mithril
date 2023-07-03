@@ -1,9 +1,14 @@
-use mithril_common::{entities::SingleSignatures, messages::RegisterSignatureMessage};
+use mithril_common::{
+    entities::SingleSignatures,
+    messages::{FromMessageAdapter, RegisterSignatureMessage},
+};
 
 pub struct FromRegisterSingleSignatureAdapter;
 
-impl FromRegisterSingleSignatureAdapter {
-    pub fn adapt(register_single_signature_message: RegisterSignatureMessage) -> SingleSignatures {
+impl FromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
+    for FromRegisterSingleSignatureAdapter
+{
+    fn adapt(register_single_signature_message: RegisterSignatureMessage) -> SingleSignatures {
         SingleSignatures {
             party_id: register_single_signature_message.party_id,
             signature: register_single_signature_message.signature,

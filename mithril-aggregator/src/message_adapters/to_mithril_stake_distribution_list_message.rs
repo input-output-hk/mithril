@@ -1,14 +1,16 @@
 use mithril_common::entities::{MithrilStakeDistribution, SignedEntity};
 use mithril_common::messages::{
-    MessageAdapter, MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,
+    MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage, ToMessageAdapter,
 };
 
 /// Adapter to convert a list of [MithrilStakeDistribution] to [MithrilStakeDistributionListMessage] instances
 pub struct ToMithrilStakeDistributionListMessageAdapter;
 
 impl
-    MessageAdapter<Vec<SignedEntity<MithrilStakeDistribution>>, MithrilStakeDistributionListMessage>
-    for ToMithrilStakeDistributionListMessageAdapter
+    ToMessageAdapter<
+        Vec<SignedEntity<MithrilStakeDistribution>>,
+        MithrilStakeDistributionListMessage,
+    > for ToMithrilStakeDistributionListMessageAdapter
 {
     /// Method to trigger the conversion
     fn adapt(

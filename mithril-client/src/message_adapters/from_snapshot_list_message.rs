@@ -1,12 +1,14 @@
 use mithril_common::entities::{SignedEntity, SignedEntityType, Snapshot};
-use mithril_common::messages::SnapshotListMessage;
+use mithril_common::messages::{FromMessageAdapter, SnapshotListMessage};
 
 /// Adapter to convert [SnapshotListMessage] to SnapshotList instances
 pub struct FromSnapshotListMessageAdapter;
 
-impl FromSnapshotListMessageAdapter {
+impl FromMessageAdapter<SnapshotListMessage, Vec<SignedEntity<Snapshot>>>
+    for FromSnapshotListMessageAdapter
+{
     /// Method to trigger the conversion
-    pub fn adapt(snapshot_list_message: SnapshotListMessage) -> Vec<SignedEntity<Snapshot>> {
+    fn adapt(snapshot_list_message: SnapshotListMessage) -> Vec<SignedEntity<Snapshot>> {
         snapshot_list_message
             .into_iter()
             .map(|snapshot_list_item_message| {

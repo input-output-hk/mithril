@@ -1,11 +1,14 @@
-use mithril_common::{entities::EpochSettings, messages::EpochSettingsMessage};
+use mithril_common::{
+    entities::EpochSettings,
+    messages::{EpochSettingsMessage, FromMessageAdapter},
+};
 
 /// Adapter to convert [EpochSettingsMessage] to [EpochSettings].
 pub struct FromEpochSettingsAdapter;
 
-impl FromEpochSettingsAdapter {
+impl FromMessageAdapter<EpochSettingsMessage, EpochSettings> for FromEpochSettingsAdapter {
     /// Method to convert.
-    pub fn adapt(message: EpochSettingsMessage) -> EpochSettings {
+    fn adapt(message: EpochSettingsMessage) -> EpochSettings {
         EpochSettings {
             epoch: message.epoch,
             protocol_parameters: message.protocol_parameters,

@@ -29,7 +29,7 @@ mod handlers {
     use crate::message_adapters::FromRegisterSingleSignatureAdapter;
     use crate::ticker_service::TickerService;
     use mithril_common::entities::SignedEntityType;
-    use mithril_common::messages::RegisterSignatureMessage;
+    use mithril_common::messages::{FromMessageAdapter, RegisterSignatureMessage};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;

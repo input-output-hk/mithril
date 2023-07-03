@@ -288,7 +288,8 @@ mod tests {
         crypto_helper::{key_encode_hex, tests_setup::setup_genesis},
         digesters::DumbImmutableDigester,
         messages::{
-            CertificateMessage, SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage,
+            CertificateMessage, FromMessageAdapter, SnapshotListItemMessage, SnapshotListMessage,
+            SnapshotMessage,
         },
         test_utils::fake_data,
     };

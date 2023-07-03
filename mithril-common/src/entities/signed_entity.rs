@@ -1,11 +1,11 @@
 use crate::signable_builder::Artifact;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use super::SignedEntityType;
 
 /// Aggregate for signed entity
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SignedEntity<T>
 where
     T: Artifact,
