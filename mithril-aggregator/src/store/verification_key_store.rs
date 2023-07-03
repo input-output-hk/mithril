@@ -8,10 +8,11 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>>;
 
-/// Mocking trait for `VerificationKeyStore`.
+/// Store and get signers verification keys for given epoch.
 #[async_trait]
 pub trait VerificationKeyStorer: Sync + Send {
-    /// Save the verification key, for the given [Signer] for the given [Epoch].
+    /// Save the verification key, for the given [Signer] for the given [Epoch], returns the
+    /// previous values if one already existed.
     async fn save_verification_key(
         &self,
         epoch: Epoch,
@@ -88,24 +89,74 @@ impl VerificationKeyStorer for VerificationKeyStore {
     }
 }
 
+/// Macro that generate tests that a [VerificationKeyStorer] must pass
 #[cfg(test)]
-mod tests {
-    use super::*;
+macro_rules! test_verification_key_storer {
+    ($suit_name:ident => $store_builder:expr) => {
+        #[cfg(test)]
+        mod $suit_name {
+            use crate::store::verification_key_store_test_suite as test_suite;
 
-    use mithril_common::store::adapter::MemoryAdapter;
+            #[tokio::test]
+            async fn save_key_in_empty_store() {
+                test_suite::save_key_in_empty_store(&$store_builder).await;
+            }
 
-    fn init_store(
+            #[tokio::test]
+            async fn update_signer_in_store() {
+                test_suite::update_signer_in_store(&$store_builder).await;
+            }
+
+            #[tokio::test]
+            async fn get_verification_keys_for_empty_epoch() {
+                test_suite::get_verification_keys_for_empty_epoch(&$store_builder).await;
+            }
+
+            #[tokio::test]
+            async fn get_verification_keys_for_existing_epoch() {
+                test_suite::get_verification_keys_for_existing_epoch(&$store_builder).await;
+            }
+
+            #[tokio::test]
+            async fn check_retention_limit() {
+                test_suite::check_retention_limit(&$store_builder).await;
+            }
+        }
+    };
+}
+
+#[cfg(test)]
+pub(crate) use test_verification_key_storer;
+
+#[macro_use]
+#[cfg(test)]
+pub mod test_suite {
+    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
+    use std::collections::{BTreeMap, HashMap};
+    use std::sync::Arc;
+
+    use crate::VerificationKeyStorer;
+
+    /// A builder of [VerificationKeyStorer], the arguments are:
+    /// * initial_data
+    /// * optional retention limit
+    type StoreBuilder = dyn Fn(
+        Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
+        Option<usize>,
+    ) -> Arc<dyn VerificationKeyStorer>;
+
+    fn build_signers(
         nb_epoch: u64,
-        signers_per_epoch: u64,
-        retention_limit: Option<usize>,
-    ) -> VerificationKeyStore {
-        let mut values: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> = Vec::new();
+        signers_per_epoch: usize,
+    ) -> Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> {
+        let mut values = vec![];
 
         for epoch in 1..=nb_epoch {
-            let mut signers: HashMap<PartyId, SignerWithStake> = HashMap::new();
+            let mut signers: HashMap<PartyId, SignerWithStake> =
+                HashMap::with_capacity(signers_per_epoch);
 
             for party_idx in 1..=signers_per_epoch {
-                let party_id = format!("{party_idx}");
+                let party_id = format!("party_id:e{epoch}:{party_idx}");
                 signers.insert(
                     party_id.clone(),
                     SignerWithStake {
@@ -121,19 +172,12 @@ mod tests {
             values.push((Epoch(epoch), signers));
         }
 
-        let values = if !values.is_empty() {
-            Some(values)
-        } else {
-            None
-        };
-        let adapter: MemoryAdapter<Epoch, HashMap<PartyId, SignerWithStake>> =
-            MemoryAdapter::new(values).unwrap();
-        VerificationKeyStore::new(Box::new(adapter), retention_limit)
+        values
     }
 
-    #[tokio::test]
-    async fn save_key_in_empty_store() {
-        let store = init_store(0, 0, None);
+    pub async fn save_key_in_empty_store(store_builder: &StoreBuilder) {
+        let signers = build_signers(0, 0);
+        let store = store_builder(signers, None);
         let res = store
             .save_verification_key(
                 Epoch(0),
@@ -152,15 +196,15 @@ mod tests {
         assert!(res.is_none());
     }
 
-    #[tokio::test]
-    async fn update_signer_in_store() {
-        let store = init_store(1, 1, None);
+    pub async fn update_signer_in_store(store_builder: &StoreBuilder) {
+        let signers = build_signers(1, 1);
+        let store = store_builder(signers, None);
         let res = store
             .save_verification_key(
                 Epoch(1),
                 SignerWithStake {
-                    party_id: "1".to_string(),
-                    verification_key: "test".to_string(),
+                    party_id: "party_id:e1:1".to_string(),
+                    verification_key: "new_vkey".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
                     kes_period: None,
@@ -170,40 +214,50 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(res.is_some());
         assert_eq!(
-            SignerWithStake {
-                party_id: "1".to_string(),
-                verification_key: "vkey 1".to_string(),
+            Some(SignerWithStake {
+                party_id: "party_id:e1:1".to_string(),
+                verification_key: "vkey party_id:e1:1".to_string(),
                 verification_key_signature: None,
                 operational_certificate: None,
                 kes_period: None,
                 stake: 10,
-            },
-            res.unwrap(),
+            }),
+            res,
         );
     }
 
-    #[tokio::test]
-    async fn get_verification_keys_for_empty_epoch() {
-        let store = init_store(2, 1, None);
+    pub async fn get_verification_keys_for_empty_epoch(store_builder: &StoreBuilder) {
+        let signers = build_signers(2, 1);
+        let store = store_builder(signers, None);
         let res = store.get_verification_keys(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
     }
 
-    #[tokio::test]
-    async fn get_verification_keys_for_existing_epoch() {
-        let store = init_store(2, 2, None);
-        let res = store.get_verification_keys(Epoch(1)).await.unwrap();
+    pub async fn get_verification_keys_for_existing_epoch(store_builder: &StoreBuilder) {
+        let signers = build_signers(2, 2);
+        let expected_signers: Option<BTreeMap<PartyId, Signer>> = signers
+            .iter()
+            .filter(|(e, _)| e == 1)
+            .cloned()
+            .map(|(_, signers)| {
+                BTreeMap::from_iter(signers.into_iter().map(|(p, s)| (p, s.into())))
+            })
+            .next();
+        let store = store_builder(signers, None);
+        let res = store
+            .get_verification_keys(Epoch(1))
+            .await
+            .unwrap()
+            .map(|x| BTreeMap::from_iter(x.into_iter()));
 
-        assert!(res.is_some());
-        assert_eq!(2, res.unwrap().len());
+        assert_eq!(expected_signers, res);
     }
 
-    #[tokio::test]
-    async fn check_retention_limit() {
-        let store = init_store(2, 2, Some(2));
+    pub async fn check_retention_limit(store_builder: &StoreBuilder) {
+        let signers = build_signers(2, 2);
+        let store = store_builder(signers, Some(2));
         assert!(store
             .get_verification_keys(Epoch(1))
             .await
@@ -223,10 +277,42 @@ mod tests {
             )
             .await
             .unwrap();
-        assert!(store
-            .get_verification_keys(Epoch(1))
-            .await
-            .unwrap()
-            .is_none());
+        let first_epoch_keys = store.get_verification_keys(Epoch(1)).await.unwrap();
+        assert_eq!(None, first_epoch_keys);
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_common::{
+        entities::{Epoch, PartyId, SignerWithStake},
+        store::adapter::MemoryAdapter,
+    };
+    use std::{collections::HashMap, sync::Arc};
+
+    use crate::{VerificationKeyStore, VerificationKeyStorer};
+
+    pub fn init_store(
+        initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
+        retention_limit: Option<usize>,
+    ) -> Arc<dyn VerificationKeyStorer> {
+        let values = if initial_data.is_empty() {
+            None
+        } else {
+            Some(initial_data)
+        };
+
+        let adapter: MemoryAdapter<Epoch, HashMap<PartyId, SignerWithStake>> =
+            MemoryAdapter::new(values).unwrap();
+
+        Arc::new(VerificationKeyStore::new(
+            Box::new(adapter),
+            retention_limit,
+        ))
+    }
+
+    test_verification_key_storer!(
+        test_verification_key_store =>
+        crate::store::verification_key_store::tests::init_store
+    );
 }
