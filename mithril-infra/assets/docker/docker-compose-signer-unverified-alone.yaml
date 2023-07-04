@@ -30,6 +30,8 @@ services:
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
     logging:
       driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
 networks:
   default:
