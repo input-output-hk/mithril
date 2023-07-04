@@ -295,10 +295,9 @@ mod tests {
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_with_operational_certificate() {
         let chain_observer = FakeObserver::default();
-        let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
-            None,
-        ));
+        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        )));
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
             .expect_record_signer_id()
@@ -341,10 +340,9 @@ mod tests {
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_without_operational_certificate() {
         let chain_observer = FakeObserver::default();
-        let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
-            None,
-        ));
+        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        )));
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
             .expect_record_signer_id()
@@ -390,10 +388,9 @@ mod tests {
     #[tokio::test]
     async fn cant_register_signer_if_registration_round_is_not_opened() {
         let chain_observer = FakeObserver::default();
-        let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
-            None,
-        ));
+        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        )));
         let signer_recorder = MockSignerRecorder::new();
         let signer_registerer = MithrilSignerRegisterer::new(
             Arc::new(chain_observer),

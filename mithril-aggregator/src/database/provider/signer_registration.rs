@@ -394,17 +394,12 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
 /// Service to deal with signer_registration (read & write).
 pub struct SignerRegistrationStore {
     connection: Arc<Mutex<Connection>>,
-    /// Number of epoch before previous records will be deleted at the next save
-    epoch_retention_limit: Option<u64>,
 }
 
 impl SignerRegistrationStore {
     /// Create a new [SignerRegistrationStore] service
-    pub fn new(connection: Arc<Mutex<Connection>>, epoch_retention_limit: Option<u64>) -> Self {
-        Self {
-            connection,
-            epoch_retention_limit,
-        }
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+        Self { connection }
     }
 }
 
@@ -427,17 +422,6 @@ impl VerificationKeyStorer for SignerRegistrationStore {
                 signer, epoch,
             ))
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-
-        if let Some(threshold) = self.epoch_retention_limit {
-            // Note: this means that if called with an epoch in the future this could remove all
-            // current records, the caller should check that the given epoch is the current one
-            // or we must get it to do the work ourself here.
-            let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
-                // we want to prune including the given epoch (+1)
-                .prune(epoch - threshold + 1)
-                .map_err(|e| AdapterError::QueryError(e))?
-                .collect::<Vec<_>>();
-        }
 
         match existing_record {
             None => Ok(None),
@@ -462,6 +446,17 @@ impl VerificationKeyStorer for SignerRegistrationStore {
             true => Ok(None),
             false => Ok(Some(signer_with_stakes)),
         }
+    }
+
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError> {
+        let connection = &*self.connection.lock().await;
+        let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
+            // we want to prune including the given epoch (+1)
+            .prune(max_epoch_to_prune + 1)
+            .map_err(|e| AdapterError::QueryError(e))?
+            .collect::<Vec<_>>();
+
+        Ok(())
     }
 }
 
@@ -805,7 +800,6 @@ mod tests {
 
     pub fn init_signer_registration_store(
         initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
-        retention_limit: Option<usize>,
     ) -> Arc<dyn VerificationKeyStorer> {
         let connection = Connection::open(":memory:").unwrap();
         let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
@@ -815,10 +809,9 @@ mod tests {
 
         setup_signer_registration_db(&connection, initial_data).unwrap();
 
-        Arc::new(SignerRegistrationStore::new(
-            Arc::new(Mutex::new(connection)),
-            retention_limit.map(|threshold| threshold as u64),
-        ))
+        Arc::new(SignerRegistrationStore::new(Arc::new(Mutex::new(
+            connection,
+        ))))
     }
 
     test_verification_key_storer!(

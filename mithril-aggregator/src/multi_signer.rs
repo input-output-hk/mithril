@@ -595,10 +595,9 @@ mod tests {
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
-        let verification_key_store = VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
-            None,
-        );
+        let verification_key_store = VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        ));
         let stake_store = StakeStore::new(
             Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
             None,

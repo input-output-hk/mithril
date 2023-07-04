@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use mithril_common::store::StorePruner;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -24,37 +23,22 @@ pub trait VerificationKeyStorer: Sync + Send {
         &self,
         epoch: Epoch,
     ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError>;
+
+    /// Prune all verification keys that are at or below the given epoch.
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError>;
 }
 
 /// Store for the `VerificationKey`.
 pub struct VerificationKeyStore {
     adapter: RwLock<Adapter>,
-    retention_limit: Option<usize>,
 }
 
 impl VerificationKeyStore {
     /// Create a new instance.
-    pub fn new(adapter: Adapter, retention_limit: Option<usize>) -> Self {
+    pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),
-            retention_limit,
         }
-    }
-}
-
-#[async_trait]
-impl StorePruner for VerificationKeyStore {
-    type Key = Epoch;
-    type Record = HashMap<PartyId, SignerWithStake>;
-
-    fn get_adapter(
-        &self,
-    ) -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>> {
-        &self.adapter
-    }
-
-    fn get_max_records(&self) -> Option<usize> {
-        self.retention_limit
     }
 }
 
@@ -75,7 +59,6 @@ impl VerificationKeyStorer for VerificationKeyStore {
             .await
             .store_record(&epoch, &signers)
             .await?;
-        self.prune().await?;
 
         Ok(prev_signer)
     }
@@ -86,6 +69,21 @@ impl VerificationKeyStorer for VerificationKeyStore {
     ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
         Ok(record.map(|h| h.into_iter().map(|(k, v)| (k, v.into())).collect()))
+    }
+
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError> {
+        let mut adapter = self.adapter.write().await;
+
+        for (epoch, _record) in adapter
+            .get_last_n_records(usize::MAX)
+            .await?
+            .into_iter()
+            .filter(|(e, _)| e <= &max_epoch_to_prune)
+        {
+            adapter.remove(&epoch).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -118,8 +116,8 @@ macro_rules! test_verification_key_storer {
             }
 
             #[tokio::test]
-            async fn check_retention_limit() {
-                test_suite::check_retention_limit(&$store_builder).await;
+            async fn can_prune_keys_from_given_epoch_retention_limit() {
+                test_suite::can_prune_keys_from_given_epoch_retention_limit(&$store_builder).await;
             }
         }
     };
@@ -139,11 +137,8 @@ pub mod test_suite {
 
     /// A builder of [VerificationKeyStorer], the arguments are:
     /// * initial_data
-    /// * optional retention limit
-    type StoreBuilder = dyn Fn(
-        Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
-        Option<usize>,
-    ) -> Arc<dyn VerificationKeyStorer>;
+    type StoreBuilder =
+        dyn Fn(Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>) -> Arc<dyn VerificationKeyStorer>;
 
     fn build_signers(
         nb_epoch: u64,
@@ -177,7 +172,7 @@ pub mod test_suite {
 
     pub async fn save_key_in_empty_store(store_builder: &StoreBuilder) {
         let signers = build_signers(0, 0);
-        let store = store_builder(signers, None);
+        let store = store_builder(signers);
         let res = store
             .save_verification_key(
                 Epoch(0),
@@ -198,7 +193,7 @@ pub mod test_suite {
 
     pub async fn update_signer_in_store(store_builder: &StoreBuilder) {
         let signers = build_signers(1, 1);
-        let store = store_builder(signers, None);
+        let store = store_builder(signers);
         let res = store
             .save_verification_key(
                 Epoch(1),
@@ -229,7 +224,7 @@ pub mod test_suite {
 
     pub async fn get_verification_keys_for_empty_epoch(store_builder: &StoreBuilder) {
         let signers = build_signers(2, 1);
-        let store = store_builder(signers, None);
+        let store = store_builder(signers);
         let res = store.get_verification_keys(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
@@ -237,15 +232,15 @@ pub mod test_suite {
 
     pub async fn get_verification_keys_for_existing_epoch(store_builder: &StoreBuilder) {
         let signers = build_signers(2, 2);
+        let store = store_builder(signers.clone());
+
         let expected_signers: Option<BTreeMap<PartyId, Signer>> = signers
-            .iter()
+            .into_iter()
             .filter(|(e, _)| e == 1)
-            .cloned()
             .map(|(_, signers)| {
                 BTreeMap::from_iter(signers.into_iter().map(|(p, s)| (p, s.into())))
             })
             .next();
-        let store = store_builder(signers, None);
         let res = store
             .get_verification_keys(Epoch(1))
             .await
@@ -255,30 +250,27 @@ pub mod test_suite {
         assert_eq!(expected_signers, res);
     }
 
-    pub async fn check_retention_limit(store_builder: &StoreBuilder) {
-        let signers = build_signers(2, 2);
-        let store = store_builder(signers, Some(2));
-        assert!(store
-            .get_verification_keys(Epoch(1))
-            .await
-            .unwrap()
-            .is_some());
-        let _ = store
-            .save_verification_key(
-                Epoch(3),
-                SignerWithStake {
-                    party_id: "party_id".to_string(),
-                    verification_key: "whatever".to_string(),
-                    verification_key_signature: None,
-                    operational_certificate: None,
-                    kes_period: None,
-                    stake: 10,
-                },
-            )
-            .await
-            .unwrap();
-        let first_epoch_keys = store.get_verification_keys(Epoch(1)).await.unwrap();
-        assert_eq!(None, first_epoch_keys);
+    pub async fn can_prune_keys_from_given_epoch_retention_limit(store_builder: &StoreBuilder) {
+        let signers = build_signers(6, 2);
+        let store = store_builder(signers);
+
+        for epoch in 1..6 {
+            assert!(
+                store
+                    .get_verification_keys(Epoch(epoch))
+                    .await
+                    .unwrap()
+                    .is_some(),
+                "Keys should exist before pruning"
+            );
+            store
+                .prune_verification_keys(Epoch(epoch))
+                .await
+                .expect("Pruning should not fail");
+
+            let pruned_epoch_keys = store.get_verification_keys(Epoch(epoch)).await.unwrap();
+            assert_eq!(None, pruned_epoch_keys);
+        }
     }
 }
 
@@ -294,7 +286,6 @@ mod tests {
 
     pub fn init_store(
         initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
-        retention_limit: Option<usize>,
     ) -> Arc<dyn VerificationKeyStorer> {
         let values = if initial_data.is_empty() {
             None
@@ -305,10 +296,7 @@ mod tests {
         let adapter: MemoryAdapter<Epoch, HashMap<PartyId, SignerWithStake>> =
             MemoryAdapter::new(values).unwrap();
 
-        Arc::new(VerificationKeyStore::new(
-            Box::new(adapter),
-            retention_limit,
-        ))
+        Arc::new(VerificationKeyStore::new(Box::new(adapter)))
     }
 
     test_verification_key_storer!(
