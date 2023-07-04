@@ -136,6 +136,10 @@ pub struct MithrilSignerRegisterer {
 
     /// Signer recorder
     signer_recorder: Arc<dyn SignerRecorder>,
+
+    /// Number of epochs before previous records will be deleted at the next registration round
+    /// opening
+    verification_key_epoch_retention_limit: Option<u64>,
 }
 
 impl MithrilSignerRegisterer {
@@ -144,12 +148,14 @@ impl MithrilSignerRegisterer {
         chain_observer: Arc<dyn ChainObserver>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
+        verification_key_epoch_retention_limit: Option<u64>,
     ) -> Self {
         Self {
             current_round: RwLock::new(None),
             chain_observer,
             verification_key_store,
             signer_recorder,
+            verification_key_epoch_retention_limit,
         }
     }
 
@@ -171,6 +177,12 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
             epoch: registration_epoch,
             stake_distribution,
         });
+
+        if let Some(retention_limit) = self.verification_key_epoch_retention_limit {
+            self.verification_key_store
+                .prune_verification_keys(registration_epoch - retention_limit)
+                .await?;
+        }
 
         Ok(())
     }
@@ -278,6 +290,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
+    use mithril_common::test_utils::fake_data;
     use mithril_common::{
         chain_observer::FakeObserver,
         entities::{Epoch, PartyId, Signer, SignerWithStake},
@@ -294,7 +307,6 @@ mod tests {
 
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_with_operational_certificate() {
-        let chain_observer = FakeObserver::default();
         let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
         )));
@@ -304,9 +316,10 @@ mod tests {
             .returning(|_| Ok(()))
             .once();
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(chain_observer),
+            Arc::new(FakeObserver::default()),
             verification_key_store.clone(),
             Arc::new(signer_recorder),
+            None,
         );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -339,7 +352,6 @@ mod tests {
 
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_without_operational_certificate() {
-        let chain_observer = FakeObserver::default();
         let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
         )));
@@ -349,9 +361,10 @@ mod tests {
             .returning(|_| Ok(()))
             .once();
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(chain_observer),
+            Arc::new(FakeObserver::default()),
             verification_key_store.clone(),
             Arc::new(signer_recorder),
+            None,
         );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default()
@@ -387,15 +400,15 @@ mod tests {
 
     #[tokio::test]
     async fn cant_register_signer_if_registration_round_is_not_opened() {
-        let chain_observer = FakeObserver::default();
         let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
         )));
         let signer_recorder = MockSignerRecorder::new();
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(chain_observer),
+            Arc::new(FakeObserver::default()),
             verification_key_store.clone(),
             Arc::new(signer_recorder),
+            None,
         );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -405,5 +418,53 @@ mod tests {
             .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect_err("signer registration should fail if no round opened");
+    }
+
+    #[tokio::test]
+    async fn should_prune_verification_keys_older_than_two_epochs_at_round_opening() {
+        let initial_keys = (1..=5)
+            .map(|epoch| {
+                let signers: HashMap<PartyId, SignerWithStake> = HashMap::from_iter(
+                    fake_data::signers_with_stakes(1)
+                        .into_iter()
+                        .map(|s| (s.party_id.to_owned(), s)),
+                );
+                (Epoch(epoch), signers)
+            })
+            .collect();
+        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(Some(initial_keys))
+                .unwrap(),
+        )));
+        let signer_recorder = MockSignerRecorder::new();
+        let signer_registerer = MithrilSignerRegisterer::new(
+            Arc::new(FakeObserver::default()),
+            verification_key_store.clone(),
+            Arc::new(signer_recorder),
+            Some(2),
+        );
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+
+        signer_registerer
+            .open_registration_round(Epoch(5), fixture.stake_distribution())
+            .await
+            .expect("Opening a registration round should not fail");
+
+        for epoch in 1..=3 {
+            let verification_keys = verification_key_store
+                .get_verification_keys(Epoch(epoch))
+                .await
+                .unwrap();
+            assert_eq!(None, verification_keys);
+        }
+
+        let verification_keys = verification_key_store
+            .get_verification_keys(Epoch(4))
+            .await
+            .unwrap();
+        assert!(
+            verification_keys.is_some(),
+            "Verification keys of the previous epoch should not have been pruned"
+        );
     }
 }

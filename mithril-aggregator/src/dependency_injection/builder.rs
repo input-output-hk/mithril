@@ -643,6 +643,7 @@ impl DependenciesBuilder {
             self.get_chain_observer().await?,
             self.get_verification_key_store().await?,
             self.get_signer_recorder().await?,
+            self.configuration.store_retention_limit.map(|l| l as u64),
         );
 
         Ok(Arc::new(registerer))
