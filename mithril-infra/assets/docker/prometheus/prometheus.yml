@@ -7,6 +7,14 @@ scrape_configs:
     static_configs:
     - targets: ['prometheus:9090']
 
+  - job_name: 'promtail'
+    static_configs:
+    - targets: ['promtail:9080']
+
+  - job_name: 'loki'
+    static_configs:
+    - targets: ['loki:3100']
+
   - job_name: 'node-exporter'
     static_configs:
     - targets: ['node-exporter:9100']
