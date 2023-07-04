@@ -3,8 +3,8 @@ use cli_table::{format::Justify, Table};
 use serde::Serialize;
 
 use mithril_common::{
-    entities::{Epoch, SignedEntity, Snapshot},
-    messages::MithrilStakeDistributionListItemMessage,
+    entities::Epoch,
+    messages::{MithrilStakeDistributionListItemMessage, SnapshotListItemMessage},
 };
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
@@ -40,15 +40,15 @@ pub struct SnapshotListItem {
     pub created_at: DateTime<Utc>,
 }
 
-impl From<SignedEntity<Snapshot>> for SnapshotListItem {
-    fn from(value: SignedEntity<Snapshot>) -> Self {
-        SnapshotListItem {
-            epoch: value.artifact.beacon.epoch,
-            immutable_file_number: value.artifact.beacon.immutable_file_number,
-            network: value.artifact.beacon.network,
-            digest: value.artifact.digest,
-            size: value.artifact.size,
-            total_locations: u16::try_from(value.artifact.locations.len()).unwrap(),
+impl From<SnapshotListItemMessage> for SnapshotListItem {
+    fn from(value: SnapshotListItemMessage) -> Self {
+        Self {
+            epoch: value.beacon.epoch,
+            immutable_file_number: value.beacon.immutable_file_number,
+            network: value.beacon.network,
+            digest: value.digest,
+            size: value.size,
+            total_locations: u16::try_from(value.locations.len()).unwrap(),
             created_at: value.created_at,
         }
     }

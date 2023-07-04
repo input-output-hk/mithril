@@ -22,16 +22,16 @@ impl SnapshotListCommand {
         let config: Config = config_builder.build()?;
         let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let signed_entities = snapshot_service.list().await?;
+        let items = snapshot_service.list().await?;
 
         if self.json {
-            println!("{}", serde_json::to_string(&signed_entities)?);
+            println!("{}", serde_json::to_string(&items)?);
         } else {
-            let snapshot_list_items: Vec<SnapshotListItem> = signed_entities
+            let items = items
                 .into_iter()
-                .map(|snapshot| snapshot.into())
-                .collect();
-            print_stdout(snapshot_list_items.with_title()).unwrap();
+                .map(SnapshotListItem::from)
+                .collect::<Vec<_>>();
+            print_stdout(items.with_title())?;
         }
 
         Ok(())

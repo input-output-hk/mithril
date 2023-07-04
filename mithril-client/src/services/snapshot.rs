@@ -13,6 +13,7 @@ use mithril_common::{
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::ImmutableDigester,
     entities::{Certificate, ProtocolMessagePartKey, SignedEntity, Snapshot},
+    messages::SnapshotListItemMessage,
     StdError, StdResult,
 };
 use slog_scope::{debug, warn};
@@ -63,7 +64,7 @@ pub enum SnapshotServiceError {
 #[async_trait]
 pub trait SnapshotService: Sync + Send {
     /// Return the list of the snapshots stored by the Aggregator.
-    async fn list(&self) -> StdResult<Vec<SignedEntity<Snapshot>>>;
+    async fn list(&self) -> StdResult<Vec<SnapshotListItemMessage>>;
 
     /// Show details of the snapshot identified by the given digest.
     async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>>;
@@ -171,7 +172,7 @@ impl MithrilClientSnapshotService {
 
 #[async_trait]
 impl SnapshotService for MithrilClientSnapshotService {
-    async fn list(&self) -> StdResult<Vec<SignedEntity<Snapshot>>> {
+    async fn list(&self) -> StdResult<Vec<SnapshotListItemMessage>> {
         debug!("Snapshot service: list.");
 
         self.snapshot_client.list().await
