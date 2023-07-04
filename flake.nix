@@ -60,6 +60,7 @@
             cargoExtraArgs = "-p ${name}";
             src = clean ./.;
             inherit buildInputs;
+            CARGO_TERM_VERBOSE = "true";
           };
       in {
         packages = {
@@ -69,6 +70,7 @@
             src = clean ./.;
             doCheck = false; # some tests require cardano-cli
             inherit buildInputs;
+            CARGO_TERM_VERBOSE = "true";
           };
 
           mithril-client = buildPackage "mithril-client" ./mithril-client/Cargo.toml;
