@@ -5,10 +5,10 @@ use mithril_common::{
     entities::{Beacon, ProtocolParameters},
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, RuntimeTester};
+use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
 
 #[tokio::test]
-async fn simple_scenario() {
+async fn genesis_to_signing() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 100,
@@ -16,7 +16,7 @@ async fn simple_scenario() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("simple_scenario").join("aggregator.sqlite3"),
+        data_stores_directory: get_test_dir("genesis_to_signing").join("aggregator.sqlite3"),
         ..Configuration::new_sample()
     };
     let mut tester =
@@ -33,6 +33,14 @@ async fn simple_scenario() {
 
     comment!("Boostrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
+
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new_genesis(
+            Beacon::new("devnet".to_string(), 1, 1),
+            fixture.compute_and_encode_avk()
+        )
+    );
 
     comment!("Increase immutable number");
     tester.increase_immutable_number().await.unwrap();

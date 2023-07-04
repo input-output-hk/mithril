@@ -41,10 +41,13 @@ use crate::{
     },
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::ExecutionEnvironment,
-    database::provider::{
-        CertificateRepository, CertificateStoreAdapter, EpochSettingStore, OpenMessageRepository,
-        SignedEntityStoreAdapter, SignedEntityStorer, SignerRegistrationStoreAdapter, SignerStore,
-        SingleSignatureRepository, StakePoolStore,
+    database::{
+        provider::SignerRegistrationStore,
+        provider::{
+            CertificateRepository, CertificateStoreAdapter, EpochSettingStore,
+            OpenMessageRepository, SignedEntityStoreAdapter, SignedEntityStorer, SignerStore,
+            SingleSignatureRepository, StakePoolStore,
+        },
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -57,7 +60,7 @@ use crate::{
     CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     GzipSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
-    SnapshotUploaderType, Snapshotter, VerificationKeyStore,
+    SnapshotUploaderType, Snapshotter, VerificationKeyStorer,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -99,7 +102,7 @@ pub struct DependenciesBuilder {
     pub certificate_store: Option<Arc<CertificateStore>>,
 
     /// Verification key store.
-    pub verification_key_store: Option<Arc<VerificationKeyStore>>,
+    pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
     /// Protocol parameter store.
     pub protocol_parameters_store: Option<Arc<ProtocolParametersStore>>,
@@ -398,17 +401,14 @@ impl DependenciesBuilder {
         Ok(self.certificate_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
-        Ok(Arc::new(VerificationKeyStore::new(
-            Box::new(SignerRegistrationStoreAdapter::new(
-                self.get_sqlite_connection().await?,
-            )),
-            self.configuration.store_retention_limit,
+    async fn build_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
+        Ok(Arc::new(SignerRegistrationStore::new(
+            self.get_sqlite_connection().await?,
         )))
     }
 
-    /// Get a configured [VerificationKeyStore].
-    pub async fn get_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
+    /// Get a configured [VerificationKeyStorer].
+    pub async fn get_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
         if self.verification_key_store.is_none() {
             self.verification_key_store = Some(self.build_verification_key_store().await?);
         }
@@ -643,6 +643,7 @@ impl DependenciesBuilder {
             self.get_chain_observer().await?,
             self.get_verification_key_store().await?,
             self.get_signer_recorder().await?,
+            self.configuration.store_retention_limit.map(|l| l as u64),
         );
 
         Ok(Arc::new(registerer))

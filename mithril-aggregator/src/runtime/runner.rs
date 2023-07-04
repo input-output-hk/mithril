@@ -733,6 +733,7 @@ pub mod tests {
             deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
+            None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
@@ -772,6 +773,7 @@ pub mod tests {
             deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
+            None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);

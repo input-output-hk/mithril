@@ -137,6 +137,18 @@ impl PartialEq<Epoch> for u64 {
     }
 }
 
+impl PartialEq<u64> for &Epoch {
+    fn eq(&self, other: &u64) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialEq<&Epoch> for u64 {
+    fn eq(&self, other: &&Epoch) -> bool {
+        other.0.eq(self)
+    }
+}
+
 impl Display for Epoch {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
@@ -200,5 +212,13 @@ mod tests {
     #[test]
     fn test_next() {
         assert_eq!(Epoch(4), Epoch(3).next());
+    }
+
+    #[test]
+    fn test_eq() {
+        assert_eq!(Epoch(3), 3);
+        assert_eq!(&Epoch(4), 4);
+        assert_eq!(5, Epoch(5));
+        assert_eq!(6, &Epoch(6));
     }
 }

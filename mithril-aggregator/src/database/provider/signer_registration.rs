@@ -1,25 +1,24 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 use mithril_common::{
     crypto_helper::KESPeriod,
     entities::{
         Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature,
-        PartyId, SignerWithStake, Stake,
+        PartyId, Signer, SignerWithStake, Stake,
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::adapter::{AdapterError, StoreAdapter},
+    store::{adapter::AdapterError, StoreError},
     StdError,
 };
+
+use crate::VerificationKeyStorer;
 
 /// SignerRegistration record is the representation of a stored signer_registration.
 #[derive(Debug, PartialEq, Clone)]
@@ -64,9 +63,21 @@ impl SignerRegistrationRecord {
     }
 }
 
+impl From<SignerRegistrationRecord> for Signer {
+    fn from(other: SignerRegistrationRecord) -> Self {
+        Self {
+            party_id: other.signer_id,
+            verification_key: other.verification_key,
+            verification_key_signature: other.verification_key_signature,
+            operational_certificate: other.operational_certificate,
+            kes_period: other.kes_period,
+        }
+    }
+}
+
 impl From<SignerRegistrationRecord> for SignerWithStake {
-    fn from(other: SignerRegistrationRecord) -> SignerWithStake {
-        SignerWithStake {
+    fn from(other: SignerRegistrationRecord) -> Self {
+        Self {
             party_id: other.signer_id,
             verification_key: other.verification_key,
             verification_key_signature: other.verification_key_signature,
@@ -381,144 +392,82 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
 }
 
 /// Service to deal with signer_registration (read & write).
-pub struct SignerRegistrationStoreAdapter {
+pub struct SignerRegistrationStore {
     connection: Arc<Mutex<Connection>>,
 }
 
-impl SignerRegistrationStoreAdapter {
-    /// Create a new SignerRegistrationStoreAdapter service
+impl SignerRegistrationStore {
+    /// Create a new [SignerRegistrationStore] service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
     }
 }
 
 #[async_trait]
-impl StoreAdapter for SignerRegistrationStoreAdapter {
-    type Key = Epoch;
-    type Record = HashMap<PartyId, SignerWithStake>;
-
-    async fn store_record(
-        &mut self,
-        key: &Self::Key,
-        record: &Self::Record,
-    ) -> Result<(), AdapterError> {
+impl VerificationKeyStorer for SignerRegistrationStore {
+    async fn save_verification_key(
+        &self,
+        epoch: Epoch,
+        signer: SignerWithStake,
+    ) -> Result<Option<SignerWithStake>, StoreError> {
         let connection = &*self.connection.lock().await;
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
-        connection
-            .execute("begin transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
+        let existing_record = SignerRegistrationRecordProvider::new(connection)
+            .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
+            .map_err(|e| AdapterError::QueryError(e))?
+            .next();
 
-        for signer_with_stake in record.values() {
-            let _signer_registration_record = provider
-                .persist(SignerRegistrationRecord::from_signer_with_stake(
-                    signer_with_stake.to_owned(),
-                    *key,
-                ))
-                .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let _updated_record = provider
+            .persist(SignerRegistrationRecord::from_signer_with_stake(
+                signer, epoch,
+            ))
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+
+        match existing_record {
+            None => Ok(None),
+            Some(previous_record) => Ok(Some(previous_record.into())),
         }
+    }
 
-        connection
-            .execute("commit transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
+    async fn get_verification_keys(
+        &self,
+        epoch: Epoch,
+    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignerRegistrationRecordProvider::new(connection);
+        let cursor = provider
+            .get_by_epoch(&epoch)
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+
+        let signer_with_stakes: HashMap<PartyId, Signer> =
+            HashMap::from_iter(cursor.map(|record| (record.signer_id.to_owned(), record.into())));
+
+        match signer_with_stakes.is_empty() {
+            true => Ok(None),
+            false => Ok(Some(signer_with_stakes)),
+        }
+    }
+
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError> {
+        let connection = &*self.connection.lock().await;
+        let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
+            // we want to prune including the given epoch (+1)
+            .prune(max_epoch_to_prune + 1)
+            .map_err(|e| AdapterError::QueryError(e))?
+            .collect::<Vec<_>>();
 
         Ok(())
-    }
-
-    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignerRegistrationRecordProvider::new(connection);
-        let cursor = provider
-            .get_by_epoch(key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let mut signer_with_stakes = HashMap::new();
-        for signer_registration_record in cursor {
-            signer_with_stakes.insert(
-                signer_registration_record.signer_id.to_string(),
-                signer_registration_record.into(),
-            );
-        }
-        if signer_with_stakes.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(signer_with_stakes))
-        }
-    }
-
-    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
-        Ok(self.get_record(key).await?.is_some())
-    }
-
-    async fn get_last_n_records(
-        &self,
-        how_many: usize,
-    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignerRegistrationRecordProvider::new(connection);
-        let cursor = provider
-            .get_all()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?
-            .collect::<Vec<_>>()
-            .into_iter()
-            .rev();
-        let signer_with_stake_by_epoch: BTreeMap<Self::Key, Self::Record> = cursor.fold(
-            BTreeMap::<Self::Key, Self::Record>::new(),
-            |mut acc, signer_registration_record| {
-                let epoch = signer_registration_record.epoch_setting_id;
-                let mut signer_with_stakes: Self::Record =
-                    if let Some(signer_with_stakes) = acc.get_mut(&epoch) {
-                        signer_with_stakes.to_owned()
-                    } else {
-                        HashMap::new()
-                    };
-                signer_with_stakes.insert(
-                    signer_registration_record.signer_id.to_string(),
-                    signer_registration_record.into(),
-                );
-                acc.insert(epoch, signer_with_stakes);
-                acc
-            },
-        );
-        Ok(signer_with_stake_by_epoch
-            .into_iter()
-            .rev()
-            .take(how_many)
-            .collect())
-    }
-
-    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = DeleteSignerRegistrationRecordProvider::new(connection);
-        let cursor = provider
-            .delete(*key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let mut signer_with_stakes = HashMap::new();
-        for signer_registration_record in cursor {
-            signer_with_stakes.insert(
-                signer_registration_record.signer_id.to_string(),
-                signer_registration_record.into(),
-            );
-        }
-
-        if signer_with_stakes.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(signer_with_stakes))
-        }
-    }
-
-    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-        let records = self.get_last_n_records(usize::MAX).await?;
-        Ok(Box::new(records.into_iter().map(|(_k, v)| v)))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{BTreeMap, HashMap};
+    use std::collections::HashMap;
 
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
     use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
+    use crate::store::test_verification_key_storer;
 
     use super::*;
 
@@ -849,63 +798,24 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn test_store_adapter() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let signer_with_stakes = fixture.signers_with_stake();
-        let signer_with_stakes_by_epoch: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> = (0..5)
-            .map(|e| {
-                (
-                    Epoch(e),
-                    signer_with_stakes
-                        .clone()
-                        .into_iter()
-                        .map(|s| (s.party_id.to_owned(), s))
-                        .collect(),
-                )
-            })
+    pub fn init_signer_registration_store(
+        initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
+    ) -> Arc<dyn VerificationKeyStorer> {
+        let connection = Connection::open(":memory:").unwrap();
+        let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
+            .into_iter()
+            .map(|(e, signers)| (e, signers.into_values().collect::<Vec<_>>()))
             .collect();
 
-        let connection = Connection::open(":memory:").unwrap();
-        setup_signer_registration_db(&connection, Vec::new()).unwrap();
+        setup_signer_registration_db(&connection, initial_data).unwrap();
 
-        let mut signer_registration_store_adapter =
-            SignerRegistrationStoreAdapter::new(Arc::new(Mutex::new(connection)));
-
-        for (epoch, signer_with_stakes) in &signer_with_stakes_by_epoch {
-            assert!(signer_registration_store_adapter
-                .store_record(epoch, signer_with_stakes)
-                .await
-                .is_ok());
-        }
-
-        for (epoch, signer_with_stakes) in &signer_with_stakes_by_epoch {
-            assert!(signer_registration_store_adapter
-                .record_exists(epoch)
-                .await
-                .unwrap());
-            assert_eq!(
-                Some(signer_with_stakes.to_owned()),
-                signer_registration_store_adapter
-                    .get_record(epoch)
-                    .await
-                    .unwrap()
-            );
-        }
-        assert_eq!(
-            signer_with_stakes_by_epoch
-                .clone()
-                .into_iter()
-                .map(|(k, v)| (k, BTreeMap::from_iter(v.into_iter())))
-                .collect::<Vec<(Epoch, BTreeMap<PartyId, SignerWithStake>)>>(),
-            signer_registration_store_adapter
-                .get_last_n_records(signer_with_stakes_by_epoch.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .rev()
-                .map(|(k, v)| (k, BTreeMap::from_iter(v.into_iter())))
-                .collect::<Vec<(Epoch, BTreeMap<PartyId, SignerWithStake>)>>()
-        )
+        Arc::new(SignerRegistrationStore::new(Arc::new(Mutex::new(
+            connection,
+        ))))
     }
+
+    test_verification_key_storer!(
+        test_signer_registration_store =>
+        crate::database::provider::signer_registration::tests::init_signer_registration_store
+    );
 }

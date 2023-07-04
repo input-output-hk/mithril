@@ -15,7 +15,7 @@ use mithril_common::{
 
 use crate::{
     entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStore,
-    ProtocolParametersStorer, VerificationKeyStore,
+    ProtocolParametersStorer,
 };
 
 #[cfg(test)]
@@ -194,7 +194,7 @@ pub struct MultiSignerImpl {
     current_beacon: Option<entities::Beacon>,
 
     /// Verification key store
-    verification_key_store: Arc<VerificationKeyStore>,
+    verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Stake store
     stake_store: Arc<dyn StakeStorer>,
@@ -206,7 +206,7 @@ pub struct MultiSignerImpl {
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
     pub fn new(
-        verification_key_store: Arc<VerificationKeyStore>,
+        verification_key_store: Arc<dyn VerificationKeyStorer>,
         stake_store: Arc<dyn StakeStorer>,
         protocol_parameters_store: Arc<ProtocolParametersStore>,
     ) -> Self {
@@ -587,7 +587,7 @@ mod tests {
     use crate::{store::VerificationKeyStore, ProtocolParametersStore};
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        entities::SignedEntityType,
+        entities::{PartyId, SignedEntityType},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
@@ -595,15 +595,9 @@ mod tests {
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
-        let verification_key_store = VerificationKeyStore::new(
-            Box::new(
-                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::SignerWithStake>>::new(
-                    None,
-                )
-                .unwrap(),
-            ),
-            None,
-        );
+        let verification_key_store = VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        ));
         let stake_store = StakeStore::new(
             Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
             None,
