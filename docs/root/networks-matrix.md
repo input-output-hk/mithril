@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 Here is an up to date list of all the **Mithril Networks**, their configurations and their status:
 
-> Last update: 02/28/2023
+> Last update: 07/05/2023
 
 <Tabs>
   <TabItem value="preview" label="Preview" default>
@@ -28,7 +28,7 @@ Here is an up to date list of all the **Mithril Networks**, their configurations
 | **Era Reader Adapter Type** | `cardano-chain`
 | **Era Reader Address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.addr)
 | **Era Reader Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey)
-| **Build From** |  **Latest Pre-Release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases?q=pre-release) 
+| **Build From** |  **Latest Pre-Release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases?q=pre) 
 
 <br/>
 

@@ -362,8 +362,8 @@ sudo bash -c 'cat > /etc/squid/squid.conf << EOF
 # Listening port (port 3128 is recommended)
 http_port **YOUR_RELAY_LISTENING_PORT**
 
-# ACL for internal IP of your relay node
-acl relay_internal_ip src **YOUR_RELAY_INTERNAL_IP**
+# ACL for internal IP of your block producer node
+acl relay_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP**
 
 # ACL for aggregator endpoint
 acl aggregator_domain dstdomain .mithril.network
@@ -380,7 +380,7 @@ EOF'
 ```
 
 With this configuration, the proxy will:
-- accept incoming traffic made to the internal IP of the relay machine
+- accept incoming traffic made from the internal IP of the block producing machine
 - accept incoming traffic made to the listening port of the proxy
 - accept incoming HTTPS traffic proxied to `mithril.network` domain hosts
 - deny all other traffic
