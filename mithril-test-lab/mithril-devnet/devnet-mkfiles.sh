@@ -734,7 +734,15 @@ echo ">> Query pending certificate"
 curl -sL \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
 echo
 
-echo ">> Query snapshots"
+echo ">> Query latest certificates"
+curl -sL \${AGGREGATOR_API_ENDPOINT}/certificates | jq '.[:2]'
+echo
+
+echo ">> Query latest mithril stake distributions"
+curl -sL \${AGGREGATOR_API_ENDPOINT}/artifact/mithril-stake-distributions | jq '.[:2]'
+echo
+
+echo ">> Query latest snapshots"
 curl -sL \${AGGREGATOR_API_ENDPOINT}/artifact/snapshots | jq '.[:2]'
 echo
 
@@ -746,7 +754,7 @@ cat >> query-cardano.sh <<EOF
 echo ">> Query chain tip"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
     --cardano-mode \\
-    --testnet-magic ${NETWORK_MAGIC}
+    --testnet-magic ${NETWORK_MAGIC} | jq .
 
 echo
 echo ">> Query whole utxo"
@@ -765,7 +773,7 @@ echo
 echo ">> Query stake distribution"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-snapshot --all-stake-pools \\
     --cardano-mode \\
-    --testnet-magic ${NETWORK_MAGIC}
+    --testnet-magic ${NETWORK_MAGIC} | jq .
 echo
 
 EOF
@@ -1341,25 +1349,10 @@ chmod u+x stop.sh
 cat >> log-mithril.sh <<EOF
 #!/usr/bin/env bash
 
-SEPARATOR="====================================================================="
-
-if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
-  export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
-  export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
-  export MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
-else
-  export MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
-  export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
-  export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
-fi
+SEPARATOR="---------------------------------------------------------------------"
 
 # Mithril nodes logs
-echo \${SEPARATOR}
-echo '-- ' docker compose logs --tail="\${LINES}"
-echo \${SEPARATOR}
-docker compose logs --tail="\${LINES}"
-echo 
-echo \${SEPARATOR}
+docker ps --format='{{.Names}}' | grep "mithril" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo docker logs -n '\${LINES}' {} && echo '\${SEPARATOR}' && docker logs -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
 
 EOF
 chmod u+x log-mithril.sh
@@ -1367,7 +1360,7 @@ chmod u+x log-mithril.sh
 cat >> log-cardano.sh <<EOF
 #!/usr/bin/env bash
 
-SEPARATOR="====================================================================="
+SEPARATOR="---------------------------------------------------------------------"
 
 # Cardano nodes logs
 find . -type f -print | grep "node.log" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
