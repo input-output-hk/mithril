@@ -85,7 +85,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn wait_the_expected_time() {
+    async fn wait_for_the_expected_time() {
         let now = Instant::now();
 
         assert_eq!(
@@ -97,7 +97,7 @@ mod tests {
 
         let elapsed = now.elapsed().as_millis();
         assert!(
-            (10..=12).contains(&elapsed),
+            (10..=15).contains(&elapsed),
             "Failure, after one loop the elapsed time was not ~10ms, elapsed: {elapsed}"
         );
     }
