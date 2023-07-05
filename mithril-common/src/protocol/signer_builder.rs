@@ -70,8 +70,13 @@ impl SignerBuilder {
         })
     }
 
+    /// Build a [MultiSigner] based on the registered parties
     pub fn build_multi_signer(&self) -> MultiSigner {
-        todo!()
+        let stm_parameters = self.protocol_parameters.clone().into();
+        let clerk =
+            ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
+
+        MultiSigner::new(clerk, stm_parameters)
     }
 }
 
