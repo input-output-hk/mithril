@@ -3,11 +3,12 @@ use thiserror::Error;
 
 use crate::{
     crypto_helper::{
-        key_decode_hex, OpCert, ProtocolClosedKeyRegistration, ProtocolKeyRegistration,
-        ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
-        ProtocolStakeDistribution,
+        key_decode_hex, OpCert, ProtocolClerk, ProtocolClosedKeyRegistration,
+        ProtocolKeyRegistration, ProtocolSignerVerificationKey,
+        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{ProtocolParameters, SignerWithStake},
+    protocol::MultiSigner,
 };
 
 /// Allow to build Single Or Multi signers to generate a single signature or aggregate them
@@ -67,6 +68,10 @@ impl SignerBuilder {
             protocol_parameters: protocol_parameters.clone(),
             closed_key_registration: closed_registration,
         })
+    }
+
+    pub fn build_multi_signer(&self) -> MultiSigner {
+        todo!()
     }
 }
 
