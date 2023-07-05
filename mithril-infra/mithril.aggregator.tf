@@ -58,7 +58,7 @@ EOT
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker-compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}.yaml --profile all up -d",
+      "docker compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}.yaml --profile all up -d",
     ]
   }
 }

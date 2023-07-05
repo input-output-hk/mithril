@@ -152,5 +152,5 @@ services:
 
 networks:
   default:
-    external:
-      name: mithril_network
+    name: mithril_network
+    external: true
