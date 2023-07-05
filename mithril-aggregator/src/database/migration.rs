@@ -549,7 +549,7 @@ alter table new_db_version rename to db_version;
             ",
         ),
         // Migration 16
-        // Update `signed_entity` to remove `certificate_hash` of `artifact` JSON.
+        // Update `signed_entity` table to remove `certificate_hash` and `created_at` from `artifact` JSON field.
         SqlMigration::new(
             16,
             r#"

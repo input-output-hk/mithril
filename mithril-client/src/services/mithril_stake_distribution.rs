@@ -152,7 +152,6 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         dirpath: &Path,
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
-        // 1 - retrieve stake distribution
         let stake_distribution_entity = self
             .stake_distribution_client
             .get(hash)
@@ -161,7 +160,6 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
                 MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(hash.to_owned())
             })?;
 
-        // 2 retrieve certificate
         let certificate = self
             .certificate_client
             .get(&stake_distribution_entity.certificate_id)
@@ -172,7 +170,6 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
                 )
             })?;
 
-        // 3 get and check genesis verification key
         let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
             .map_err(
                 |e| MithrilStakeDistributionServiceError::InvalidParameters {
@@ -190,7 +187,6 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
             )
             .await?;
 
-        // 4 Compute and check protocol message
         let clerk = self
             .create_clerk(&stake_distribution_entity.artifact)
             .await?
@@ -220,7 +216,6 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
             );
         }
 
-        // 5 save the JSON file
         if !dirpath.is_dir() {
             std::fs::create_dir_all(dirpath)?;
         }
