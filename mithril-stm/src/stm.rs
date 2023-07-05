@@ -168,10 +168,10 @@ pub struct StmInitializer {
 }
 
 /// Participant in the protocol can sign messages.
-/// * If the signer has closed_registration, then it can generate Stm certificate.
+/// * If the signer has `closed_reg`, then it can generate Stm certificate.
 ///     * This kind of signer can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 ///     * This ensures that a `MerkleTree` root is not computed before all participants have registered.
-/// * If the signer does not have closed_registration, then it is a core signer.
+/// * If the signer does not have `closed_reg`, then it is a core signer.
 ///     * This kind of signer cannot participate certificate generation.
 ///     * Signature generated can be verified by a full node verifier (core verifier).
 #[derive(Debug, Clone)]
@@ -709,7 +709,7 @@ impl StmSigRegParty {
 impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     ///
-    /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp'.
+    /// Indices and quorum are checked by `CoreVerifier::preliminary_verify` with `msgp`.
     /// It collects leaves from signatures and checks the batch proof.
     /// After batch proof is checked, it collects and returns the signatures and
     /// verification keys to be used by aggregate verification.
@@ -919,13 +919,13 @@ impl CoreVerifier {
             .collect() // todo: look into this conversion
     }
 
-    /// Given a slice of `sig_reg_list`, this function returns a new list of sig_reg_list with only valid indices.
+    /// Given a slice of `sig_reg_list`, this function returns a new list of `sig_reg_list` with only valid indices.
     /// In case of conflict (having several signatures for the same index)
     /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
     /// The function selects at least `self.k` indexes.
     ///  # Error
     /// If there is no sufficient signatures, then the function fails.
-    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
+    // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
     // todo: not good, because it only removes index if there is a conflict (see benches)
     fn dedup_sigs_for_indices(
         total_stake: &Stake,

@@ -82,7 +82,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     CoreVerificationError(CoreVerifierError),
 }
 
-/// Errors which can be output by Mithril aggregate verification.
+/// Errors which can be output by `CoreVerifier`.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum CoreVerifierError {
     /// No quorum was found
