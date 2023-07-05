@@ -1272,7 +1272,7 @@ if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
   cd mithril-signer && make docker-build > /dev/null && cd ..
   cd $PWD
 fi
-docker-compose rm -f
+
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
   export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
   export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
@@ -1282,7 +1282,8 @@ else
   export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
   export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
 fi
-docker-compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
+docker compose rm -f
+docker compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
 
 echo ">> List of Mithril signers"
     echo --------,--------------------------------------------------------,----------------------------------- | column -t -s,                                                 
@@ -1312,7 +1313,7 @@ do
 done
 
 echo ">> Bootstrap the Genesis certificate"
-docker-compose -f docker-compose.yaml --profile mithril-genesis run mithril-aggregator-genesis
+docker compose -f docker-compose.yaml --profile mithril-genesis run mithril-aggregator-genesis
 
 EOF
 chmod u+x start-mithril.sh
@@ -1333,7 +1334,7 @@ else
   export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
   export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
 fi
-docker-compose -f docker-compose.yaml --profile mithril down
+docker compose -f docker-compose.yaml --profile mithril down
 EOF
 chmod u+x stop.sh
 
@@ -1354,9 +1355,9 @@ fi
 
 # Mithril nodes logs
 echo \${SEPARATOR}
-echo '-- ' docker-compose logs --tail="\${LINES}"
+echo '-- ' docker compose logs --tail="\${LINES}"
 echo \${SEPARATOR}
-docker-compose logs --tail="\${LINES}"
+docker compose logs --tail="\${LINES}"
 echo 
 echo \${SEPARATOR}
 
