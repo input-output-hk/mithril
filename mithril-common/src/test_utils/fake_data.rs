@@ -178,20 +178,10 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             let beacon = beacon();
             let certificate_hash = "123".to_string();
             let size = snapshot_id * 100000;
-            let created_at = DateTime::parse_from_rfc3339("2006-01-02T15:04:05Z")
-                .unwrap()
-                .with_timezone(&Utc);
             let mut locations = Vec::new();
             locations.push(format!("http://{certificate_hash}"));
             locations.push(format!("http2://{certificate_hash}"));
-            entities::Snapshot::new(
-                digest,
-                beacon,
-                certificate_hash,
-                size,
-                created_at,
-                locations,
-            )
+            entities::Snapshot::new(digest, beacon, size, locations)
         })
         .collect::<Vec<entities::Snapshot>>()
 }
@@ -203,8 +193,6 @@ pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDist
             epoch: Epoch(epoch_idx),
             signers_with_stake: signers_with_stakes(5),
             hash: format!("hash-epoch-{epoch_idx}"),
-            certificate_hash: format!("certificate-hash-epoch-{epoch_idx}"),
-            created_at: DateTime::default(),
             protocol_parameters: self::protocol_parameters(),
         })
         .collect::<Vec<entities::MithrilStakeDistribution>>()

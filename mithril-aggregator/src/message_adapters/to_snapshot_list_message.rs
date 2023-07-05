@@ -1,10 +1,10 @@
 use mithril_common::entities::{SignedEntity, Snapshot};
-use mithril_common::messages::{MessageAdapter, SnapshotListItemMessage, SnapshotListMessage};
+use mithril_common::messages::{SnapshotListItemMessage, SnapshotListMessage, ToMessageAdapter};
 
 /// Adapter to convert a list of [Snapshot] to [SnapshotListMessage] instances
 pub struct ToSnapshotListMessageAdapter;
 
-impl MessageAdapter<Vec<SignedEntity<Snapshot>>, SnapshotListMessage>
+impl ToMessageAdapter<Vec<SignedEntity<Snapshot>>, SnapshotListMessage>
     for ToSnapshotListMessageAdapter
 {
     /// Method to trigger the conversion
@@ -16,7 +16,7 @@ impl MessageAdapter<Vec<SignedEntity<Snapshot>>, SnapshotListMessage>
                 beacon: entity.artifact.beacon,
                 certificate_hash: entity.certificate_id,
                 size: entity.artifact.size,
-                created_at: entity.artifact.created_at,
+                created_at: entity.created_at,
                 locations: entity.artifact.locations,
             })
             .collect()

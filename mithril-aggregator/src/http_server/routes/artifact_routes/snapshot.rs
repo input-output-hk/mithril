@@ -94,7 +94,7 @@ mod handlers {
     use crate::message_adapters::ToSnapshotListMessageAdapter;
     use crate::message_adapters::ToSnapshotMessageAdapter;
     use crate::{signed_entity_service::SignedEntityService, Configuration};
-    use mithril_common::messages::MessageAdapter;
+    use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;

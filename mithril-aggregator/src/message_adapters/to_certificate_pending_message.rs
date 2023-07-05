@@ -1,14 +1,16 @@
 use mithril_common::{
     entities::{CertificatePending, Signer},
-    messages::{CertificatePendingMessage, SignerMessage},
+    messages::{CertificatePendingMessage, SignerMessage, ToMessageAdapter},
 };
 
 /// Adapter to turn [CertificatePending] instances into [CertificatePendingMessage].
 pub struct ToCertificatePendingMessageAdapter;
 
-impl ToCertificatePendingMessageAdapter {
+impl ToMessageAdapter<CertificatePending, CertificatePendingMessage>
+    for ToCertificatePendingMessageAdapter
+{
     /// Method to trigger the conversion
-    pub fn adapt(certificate_pending: CertificatePending) -> CertificatePendingMessage {
+    fn adapt(certificate_pending: CertificatePending) -> CertificatePendingMessage {
         CertificatePendingMessage {
             beacon: certificate_pending.beacon,
             signed_entity_type: certificate_pending.signed_entity_type,
@@ -18,7 +20,9 @@ impl ToCertificatePendingMessageAdapter {
             next_signers: Self::adapt_signers(certificate_pending.next_signers),
         }
     }
+}
 
+impl ToCertificatePendingMessageAdapter {
     fn adapt_signers(signers: Vec<Signer>) -> Vec<SignerMessage> {
         signers
             .into_iter()

@@ -1,11 +1,14 @@
-use mithril_common::{entities::Signer, messages::RegisterSignerMessage};
+use mithril_common::{
+    entities::Signer,
+    messages::{FromMessageAdapter, RegisterSignerMessage},
+};
 
 /// Adapter to convert [RegisterSignerMessage] to [Signer] instances.
 pub struct FromRegisterSignerAdapter;
 
-impl FromRegisterSignerAdapter {
+impl FromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSignerAdapter {
     /// Method to trigger the conversion.
-    pub fn adapt(register_signer_message: RegisterSignerMessage) -> Signer {
+    fn adapt(register_signer_message: RegisterSignerMessage) -> Signer {
         Signer {
             party_id: register_signer_message.party_id,
             verification_key: register_signer_message.verification_key,

@@ -37,7 +37,7 @@ pub mod handlers {
         ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
     };
     use crate::signed_entity_service::SignedEntityService;
-    use mithril_common::messages::MessageAdapter;
+    use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;

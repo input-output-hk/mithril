@@ -8,13 +8,11 @@ use std::{
 use indicatif::ProgressBar;
 use mithril_common::{
     entities::Snapshot,
-    messages::{SnapshotListMessage, SnapshotMessage},
+    messages::{SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage},
     StdResult,
 };
 use slog_scope::warn;
 use thiserror::Error;
-
-use crate::{FromSnapshotListMessageAdapter, FromSnapshotMessageAdapter};
 
 use super::AggregatorClient;
 
@@ -44,23 +42,20 @@ impl SnapshotClient {
     }
 
     /// Return a list of available snapshots
-    pub async fn list(&self) -> StdResult<Vec<Snapshot>> {
+    pub async fn list(&self) -> StdResult<Vec<SnapshotListItemMessage>> {
         let url = "artifact/snapshots";
         let response = self.http_client.get_content(url).await?;
-        let message = serde_json::from_str::<SnapshotListMessage>(&response)?;
-        let snapshots = FromSnapshotListMessageAdapter::adapt(message);
-
-        Ok(snapshots)
+        let items = serde_json::from_str::<SnapshotListMessage>(&response)?;
+        Ok(items)
     }
 
     /// Return a snapshot based on the given digest (list to get the digests)
-    pub async fn show(&self, digest: &str) -> StdResult<Snapshot> {
+    pub async fn show(&self, digest: &str) -> StdResult<SnapshotMessage> {
         let url = format!("artifact/snapshot/{}", digest);
         let response = self.http_client.get_content(&url).await?;
         let message = serde_json::from_str::<SnapshotMessage>(&response)?;
-        let snapshot = FromSnapshotMessageAdapter::adapt(message);
 
-        Ok(snapshot)
+        Ok(message)
     }
 
     /// Download the snapshot identified by the given snapshot in the given directory

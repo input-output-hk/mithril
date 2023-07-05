@@ -27,6 +27,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::{ProtocolParametersStore, ProtocolParametersStorer, ToEpochSettingsMessageAdapter};
     use mithril_common::entities::EpochSettings;
+    use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;

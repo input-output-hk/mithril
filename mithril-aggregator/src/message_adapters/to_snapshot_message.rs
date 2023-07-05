@@ -1,10 +1,10 @@
 use mithril_common::entities::{SignedEntity, Snapshot};
-use mithril_common::messages::{MessageAdapter, SnapshotMessage};
+use mithril_common::messages::{SnapshotMessage, ToMessageAdapter};
 
 /// Adapter to convert [Snapshot] to [SnapshotMessage] instances
 pub struct ToSnapshotMessageAdapter;
 
-impl MessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMessageAdapter {
+impl ToMessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMessageAdapter {
     /// Method to trigger the conversion
     fn adapt(signed_entity: SignedEntity<Snapshot>) -> SnapshotMessage {
         SnapshotMessage {
@@ -12,7 +12,7 @@ impl MessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMessa
             beacon: signed_entity.artifact.beacon,
             certificate_hash: signed_entity.certificate_id,
             size: signed_entity.artifact.size,
-            created_at: signed_entity.artifact.created_at,
+            created_at: signed_entity.created_at,
             locations: signed_entity.artifact.locations,
         }
     }

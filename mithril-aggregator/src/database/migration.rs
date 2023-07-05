@@ -548,5 +548,18 @@ drop table db_version;
 alter table new_db_version rename to db_version;
             ",
         ),
+        // Migration 16
+        // Update `signed_entity` table to remove `certificate_hash` and `created_at` from `artifact` JSON field.
+        SqlMigration::new(
+            16,
+            r#"
+update signed_entity
+    set artifact = json_remove(
+        artifact, 
+        '$.certificate_hash',
+        '$.created_at'
+    );
+"#,
+        ),
     ]
 }

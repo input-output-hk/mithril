@@ -48,6 +48,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::message_adapters::{ToCertificateListMessageAdapter, ToCertificateMessageAdapter};
     use crate::{CertificatePendingStore, ToCertificatePendingMessageAdapter};
+    use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;

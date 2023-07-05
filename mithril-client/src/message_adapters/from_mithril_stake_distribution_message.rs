@@ -1,21 +1,29 @@
 use mithril_common::{
-    entities::MithrilStakeDistribution,
-    messages::{MessageAdapter, MithrilStakeDistributionMessage},
+    entities::{MithrilStakeDistribution, SignedEntity, SignedEntityType},
+    messages::{FromMessageAdapter, MithrilStakeDistributionMessage},
 };
 
 pub struct FromMithrilStakeDistributionMessageAdapter;
 
-impl MessageAdapter<MithrilStakeDistributionMessage, MithrilStakeDistribution>
+impl FromMessageAdapter<MithrilStakeDistributionMessage, SignedEntity<MithrilStakeDistribution>>
     for FromMithrilStakeDistributionMessageAdapter
 {
-    fn adapt(from: MithrilStakeDistributionMessage) -> MithrilStakeDistribution {
-        MithrilStakeDistribution {
+    fn adapt(from: MithrilStakeDistributionMessage) -> SignedEntity<MithrilStakeDistribution> {
+        let mithril_stake_distribution = MithrilStakeDistribution {
             epoch: from.epoch,
             signers_with_stake: from.signers_with_stake,
             hash: from.hash,
-            certificate_hash: from.certificate_hash,
-            created_at: from.created_at,
             protocol_parameters: from.protocol_parameters,
+        };
+
+        SignedEntity {
+            signed_entity_id: mithril_stake_distribution.hash.clone(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                mithril_stake_distribution.epoch,
+            ),
+            certificate_id: from.certificate_hash,
+            artifact: mithril_stake_distribution,
+            created_at: from.created_at,
         }
     }
 }
@@ -38,9 +46,9 @@ mod tests {
             protocol_parameters: fake_data::protocol_parameters(),
         };
 
-        let stake_distribution = FromMithrilStakeDistributionMessageAdapter::adapt(message);
+        let signed_entity = FromMithrilStakeDistributionMessageAdapter::adapt(message);
 
-        assert_eq!(2, stake_distribution.signers_with_stake.len());
-        assert_eq!("hash-123".to_string(), stake_distribution.hash);
+        assert_eq!(2, signed_entity.artifact.signers_with_stake.len());
+        assert_eq!("hash-123".to_string(), signed_entity.artifact.hash);
     }
 }

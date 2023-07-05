@@ -1,10 +1,10 @@
 use mithril_common::entities::{MithrilStakeDistribution, SignedEntity};
-use mithril_common::messages::{MessageAdapter, MithrilStakeDistributionMessage};
+use mithril_common::messages::{MithrilStakeDistributionMessage, ToMessageAdapter};
 
 /// Adapter to convert [MithrilStakeDistribution] to [MithrilStakeDistributionMessage] instances
 pub struct ToMithrilStakeDistributionMessageAdapter;
 
-impl MessageAdapter<SignedEntity<MithrilStakeDistribution>, MithrilStakeDistributionMessage>
+impl ToMessageAdapter<SignedEntity<MithrilStakeDistribution>, MithrilStakeDistributionMessage>
     for ToMithrilStakeDistributionMessageAdapter
 {
     /// Method to trigger the conversion
@@ -14,7 +14,7 @@ impl MessageAdapter<SignedEntity<MithrilStakeDistribution>, MithrilStakeDistribu
             signers_with_stake: from.artifact.signers_with_stake,
             hash: from.artifact.hash,
             certificate_hash: from.certificate_id,
-            created_at: from.artifact.created_at,
+            created_at: from.created_at,
             protocol_parameters: from.artifact.protocol_parameters,
         }
     }
@@ -36,8 +36,6 @@ mod tests {
             epoch: Epoch(1),
             signers_with_stake: fake_data::signers_with_stakes(2),
             hash: "hash-123".to_string(),
-            certificate_hash: "cert-hash-123".to_string(),
-            created_at: DateTime::<Utc>::default(),
             protocol_parameters: fake_data::protocol_parameters(),
         };
         let signed_entity = SignedEntity {
