@@ -41,9 +41,10 @@ impl MithrilStakeDistributionClient {
         match self.http_client.get_content(&url).await {
             Ok(content) => {
                 let message: MithrilStakeDistributionMessage = serde_json::from_str(&content)?;
-                let signed_entity = FromMithrilStakeDistributionMessageAdapter::adapt(message);
+                let stake_distribution_entity =
+                    FromMithrilStakeDistributionMessageAdapter::adapt(message);
 
-                Ok(Some(signed_entity))
+                Ok(Some(stake_distribution_entity))
             }
             Err(e) if matches!(e, AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
@@ -105,13 +106,16 @@ mod tests {
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = MithrilStakeDistributionClient::new(Arc::new(http_client));
-        let signed_entity = client
+        let stake_distribution_entity = client
             .get("hash")
             .await
             .unwrap()
             .expect("This test returns a stake distribution");
 
-        assert_eq!("hash".to_string(), signed_entity.artifact.hash);
-        assert_eq!(2, signed_entity.artifact.signers_with_stake.len(),);
+        assert_eq!("hash".to_string(), stake_distribution_entity.artifact.hash);
+        assert_eq!(
+            2,
+            stake_distribution_entity.artifact.signers_with_stake.len(),
+        );
     }
 }

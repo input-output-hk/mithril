@@ -153,7 +153,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         genesis_verification_key: &str,
     ) -> StdResult<PathBuf> {
         // 1 - retrieve stake distribution
-        let signed_entity = self
+        let stake_distribution_entity = self
             .stake_distribution_client
             .get(hash)
             .await?
@@ -164,11 +164,11 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         // 2 retrieve certificate
         let certificate = self
             .certificate_client
-            .get(&signed_entity.certificate_id)
+            .get(&stake_distribution_entity.certificate_id)
             .await?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CertificateNotFound(
-                    signed_entity.certificate_id.clone(),
+                    stake_distribution_entity.certificate_id.clone(),
                 )
             })?;
 
@@ -192,7 +192,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
 
         // 4 Compute and check protocol message
         let clerk = self
-            .create_clerk(&signed_entity.artifact)
+            .create_clerk(&stake_distribution_entity.artifact)
             .await?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CouldNotVerifyStakeDistribution {
@@ -227,7 +227,10 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         let filepath = PathBuf::new()
             .join(dirpath)
             .join(format!("mithril_stake_distribution-{hash}.json"));
-        std::fs::write(&filepath, serde_json::to_string(&signed_entity.artifact)?)?;
+        std::fs::write(
+            &filepath,
+            serde_json::to_string(&stake_distribution_entity.artifact)?,
+        )?;
 
         Ok(filepath)
     }
