@@ -98,7 +98,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            400,
+            201,
             result.status(),
             "text: {}",
             result.text().await.unwrap()
