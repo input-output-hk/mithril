@@ -10,20 +10,20 @@ pub fn generate_signer_data(number_of_signers: usize) -> MithrilFixture {
 }
 
 /// Generate signer registration
-pub fn generate_register_message(signers_fixture: &MithrilFixture) -> RegisterSignerMessage {
-    let signers = signers_fixture.signers();
-    let signer = signers.first().unwrap().to_owned();
-    // generate HTTP payload for POST /signers
+pub fn generate_register_message(signers_fixture: &MithrilFixture) -> Vec<RegisterSignerMessage> {
     let epoch = Epoch(2);
-
-    RegisterSignerMessage {
-        epoch: Some(epoch),
-        party_id: signer.party_id,
-        verification_key: signer.verification_key,
-        verification_key_signature: signer.verification_key_signature,
-        operational_certificate: signer.operational_certificate,
-        kes_period: signer.kes_period,
-    }
+    signers_fixture
+        .signers()
+        .into_iter()
+        .map(|signer| RegisterSignerMessage {
+            epoch: Some(epoch),
+            party_id: signer.party_id,
+            verification_key: signer.verification_key,
+            verification_key_signature: signer.verification_key_signature,
+            operational_certificate: signer.operational_certificate,
+            kes_period: signer.kes_period,
+        })
+        .collect::<Vec<_>>()
 }
 
 mod tests {
@@ -37,10 +37,27 @@ mod tests {
 
     use mithril_common::{digesters::DummyImmutablesDbBuilder, entities::ProtocolParameters};
     use slog::Drain;
+    use tokio::task::JoinSet;
 
     use crate::{devnet::BftNode, Aggregator};
 
     use super::*;
+
+    async fn send_registration(endpoint: &str, register_message: &RegisterSignerMessage) {
+        let result = reqwest::Client::new()
+            .post(format!("{}/register-signer", endpoint))
+            .json(&register_message)
+            .send()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            201,
+            result.status(),
+            "text: {}",
+            result.text().await.unwrap()
+        );
+    }
 
     // TODO
     // * start an aggregator in the context of the test
@@ -54,9 +71,9 @@ mod tests {
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
         let drain = slog_async::Async::new(drain).build().fuse();
         let _log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
-
-        let signers_fixture = generate_signer_data(1);
-        let register_message = generate_register_message(&signers_fixture);
+        let num_signers = 2;
+        let signers_fixture = generate_signer_data(num_signers);
+        let register_messages = generate_register_message(&signers_fixture);
 
         // configure a dummy immutable db
         let immutable_db = DummyImmutablesDbBuilder::new("load-tester")
@@ -91,18 +108,21 @@ mod tests {
         aggregator.serve().unwrap();
         tokio::time::sleep(Duration::from_secs(10)).await;
 
-        let result = reqwest::Client::new()
-            .post(format!("{}/register-signer", aggregator.endpoint()))
-            .json(&register_message)
-            .send()
-            .await
-            .unwrap();
-        assert_eq!(
-            201,
-            result.status(),
-            "text: {}",
-            result.text().await.unwrap()
-        );
+        let mut join_set = JoinSet::new();
+
+        for register in register_messages {
+            let endpoint = aggregator.endpoint();
+            join_set.spawn(async move { send_registration(&endpoint, &register).await });
+        }
+
+        let mut errors = 0;
+        while let Some(res) = join_set.join_next().await {
+            if let Err(_) = res {
+                errors += 1;
+            }
+        }
+
+        assert_eq!(num_signers - 1, errors);
 
         // ensure POSTing payload gives 200
         aggregator.stop().await.unwrap();
