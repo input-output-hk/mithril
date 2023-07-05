@@ -2,7 +2,9 @@
 use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
     certificate_chain::CertificateGenesisProducer,
-    entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake},
+    entities::{
+        Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake,
+    },
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
 
@@ -49,89 +51,104 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
     }
 }
 
+fn setup_protocol_initializer(
+    party_id: &str,
+    temp_dir: Option<PathBuf>,
+    stake: Stake,
+    protocol_parameters: &ProtocolParameters,
+) -> ProtocolInitializer {
+    let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
+    let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
+    let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
+    let kes_period = temp_dir.as_ref().map(|_| 0);
+    let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
+        *protocol_parameters,
+        kes_secret_key_path,
+        kes_period,
+        stake,
+        &mut protocol_initializer_rng,
+    )
+    .expect("protocol initializer setup should not fail");
+
+    protocol_initializer
+}
+
+fn setup_signer_with_stake(
+    party_id: &str,
+    stake: Stake,
+    protocol_initializer: &ProtocolInitializer,
+    operational_certificate: Option<OpCert>,
+    kes_period: u32,
+) -> SignerWithStake {
+    SignerWithStake::new(
+        party_id.to_owned(),
+        key_encode_hex(protocol_initializer.verification_key())
+            .expect("key_encode_hex of verification_key should not fail"),
+        protocol_initializer
+            .verification_key_signature()
+            .as_ref()
+            .map(|verification_key_signature| {
+                key_encode_hex(verification_key_signature)
+                    .expect("key_encode_hex of verification_key_signature should not fail")
+            }),
+        operational_certificate
+            .as_ref()
+            .map(|operational_certificate| {
+                key_encode_hex(operational_certificate)
+                    .expect("key_encode_hex of operational_certificate should not fail")
+            }),
+        operational_certificate.as_ref().map(|_| kes_period),
+        stake,
+    )
+}
+
+fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<OpCert> {
+    dir.as_ref().map(|dir| {
+        OpCert::from_file(dir.join("opcert.cert"))
+            .expect("operational certificate decoding should not fail")
+    })
+}
+
 /// Instantiate a list of protocol signers based on the given [ProtocolStakeDistribution] and [ProtocolParameters], use this for tests only.
 pub fn setup_signers_from_stake_distribution(
     stake_distribution: &ProtocolStakeDistribution,
     protocol_parameters: &ProtocolParameters,
 ) -> Vec<SignerFixture> {
-    let signers = stake_distribution
-        .iter()
-        .map(|(party_id, stake)| {
-            let temp_dir = setup_temp_directory_for_signer(party_id, false);
-            let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
-            let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
-            let kes_secret_key_path: Option<PathBuf> =
-                temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
-            let kes_period = temp_dir.as_ref().map(|_| 0);
-            let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
-                *protocol_parameters,
-                kes_secret_key_path,
-                kes_period,
-                *stake,
-                &mut protocol_initializer_rng,
-            )
-            .expect("protocol initializer setup should not fail");
-            (
-                party_id.clone() as ProtocolPartyId,
-                *stake as ProtocolStake,
-                protocol_initializer,
-            )
-        })
-        .collect::<Vec<_>>();
-
     let mut key_registration = ProtocolKeyRegistration::init(stake_distribution);
-    signers
-        .iter()
-        .for_each(|(party_id, _stake, protocol_initializer)| {
-            let temp_dir = setup_temp_directory_for_signer(party_id, false);
-            let operational_certificate = temp_dir.as_ref().map(|dir| {
-                OpCert::from_file(dir.join("opcert.cert"))
-                    .expect("operational certificate decoding should not fail")
-            });
-            let verification_key = protocol_initializer.verification_key();
-            let kes_signature = protocol_initializer.verification_key_signature();
-            let kes_period = 0;
-            key_registration
-                .register(
-                    Some(party_id.to_owned()),
-                    operational_certificate,
-                    kes_signature,
-                    Some(kes_period),
-                    verification_key,
-                )
-                .expect("key registration should have succeeded");
-        });
+    let mut signers: Vec<(SignerWithStake, ProtocolInitializer)> = vec![];
+
+    for (party_id, stake) in stake_distribution {
+        let kes_period = 0;
+        let temp_dir = setup_temp_directory_for_signer(party_id, false);
+        let protocol_initializer =
+            setup_protocol_initializer(party_id, temp_dir.clone(), *stake, protocol_parameters);
+        let operational_certificate = decode_op_cert_in_dir(temp_dir);
+        let signer_with_stake = setup_signer_with_stake(
+            party_id,
+            *stake,
+            &protocol_initializer,
+            operational_certificate.clone(),
+            kes_period,
+        );
+
+        key_registration
+            .register(
+                Some(signer_with_stake.party_id.to_owned()),
+                operational_certificate,
+                protocol_initializer.verification_key_signature(),
+                Some(kes_period),
+                protocol_initializer.verification_key(),
+            )
+            .expect("key registration should have succeeded");
+
+        signers.push((signer_with_stake, protocol_initializer));
+    }
+
     let closed_key_registration = key_registration.close();
+
     signers
         .into_iter()
-        .map(|(party_id, stake, protocol_initializer)| {
-            let temp_dir = setup_temp_directory_for_signer(&party_id, false);
-            let operational_certificate: Option<OpCert> = temp_dir.as_ref().map(|dir| {
-                OpCert::from_file(dir.join("opcert.cert"))
-                    .expect("operational certificate decoding should not fail")
-            });
-            let kes_period = 0;
-
-            let signer_with_stake = SignerWithStake::new(
-                party_id,
-                key_encode_hex(protocol_initializer.verification_key())
-                    .expect("key_encode_hex of verification_key should not fail"),
-                protocol_initializer
-                    .verification_key_signature()
-                    .as_ref()
-                    .map(|verification_key_signature| {
-                        key_encode_hex(verification_key_signature)
-                            .expect("key_encode_hex of verification_key_signature should not fail")
-                    }),
-                operational_certificate
-                    .as_ref()
-                    .map(|operational_certificate| {
-                        key_encode_hex(operational_certificate)
-                            .expect("key_encode_hex of operational_certificate should not fail")
-                    }),
-                operational_certificate.as_ref().map(|_| kes_period),
-                stake,
-            );
+        .map(|(signer_with_stake, protocol_initializer)| {
             let protocol_signer = protocol_initializer
                 .clone()
                 .new_signer(closed_key_registration.clone())
