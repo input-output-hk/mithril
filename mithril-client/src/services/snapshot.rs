@@ -13,7 +13,7 @@ use mithril_common::{
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::ImmutableDigester,
     entities::{Certificate, ProtocolMessagePartKey, SignedEntity, Snapshot},
-    messages::SnapshotListItemMessage,
+    messages::{SnapshotListItemMessage, SnapshotMessage},
     StdError, StdResult,
 };
 use slog_scope::{debug, warn};
@@ -67,13 +67,13 @@ pub trait SnapshotService: Sync + Send {
     async fn list(&self) -> StdResult<Vec<SnapshotListItemMessage>>;
 
     /// Show details of the snapshot identified by the given digest.
-    async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>>;
+    async fn show(&self, digest: &str) -> StdResult<SnapshotMessage>;
 
     /// Download and verify the snapshot identified by the given digest.
     /// The returned path is the location where the archive has been unpacked.
     async fn download(
         &self,
-        snapshot: &SignedEntity<Snapshot>,
+        snapshot_entity: &SignedEntity<Snapshot>,
         pathdir: &Path,
         genesis_verification_key: &str,
         progress_target: ProgressDrawTarget,
@@ -178,9 +178,9 @@ impl SnapshotService for MithrilClientSnapshotService {
         self.snapshot_client.list().await
     }
 
-    async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>> {
+    async fn show(&self, digest: &str) -> StdResult<SnapshotMessage> {
         debug!("Snapshot service: show.");
-        let signed_entity =
+        let snapshot_message =
             self.snapshot_client
                 .show(digest)
                 .await
@@ -194,12 +194,12 @@ impl SnapshotService for MithrilClientSnapshotService {
                     _ => e,
                 })?;
 
-        Ok(signed_entity)
+        Ok(snapshot_message)
     }
 
     async fn download(
         &self,
-        signed_entity: &SignedEntity<Snapshot>,
+        snapshot_entity: &SignedEntity<Snapshot>,
         pathdir: &Path,
         genesis_verification_key: &str,
         progress_target: ProgressDrawTarget,
@@ -211,17 +211,19 @@ impl SnapshotService for MithrilClientSnapshotService {
         progress_bar.println("1/7 - Checking local disk info…")?;
         let unpacker = SnapshotUnpacker::default();
 
-        if let Err(e) = unpacker.check_prerequisites(&unpack_dir, signed_entity.artifact.size) {
+        if let Err(e) = unpacker.check_prerequisites(&unpack_dir, snapshot_entity.artifact.size) {
             self.check_disk_space_error(e)?;
         }
 
         progress_bar.println("2/7 - Fetching the certificate's information…")?;
         let certificate = self
             .certificate_client
-            .get(&signed_entity.certificate_id)
+            .get(&snapshot_entity.certificate_id)
             .await?
             .ok_or_else(|| {
-                SnapshotServiceError::CouldNotFindCertificate(signed_entity.certificate_id.clone())
+                SnapshotServiceError::CouldNotFindCertificate(
+                    snapshot_entity.certificate_id.clone(),
+                )
             })?;
 
         progress_bar.println("3/7 - Verifying the certificate chain…")?;
@@ -229,14 +231,14 @@ impl SnapshotService for MithrilClientSnapshotService {
         self.wait_spinner(&progress_bar, verifier).await?;
 
         progress_bar.println("4/7 - Downloading the snapshot…")?;
-        let pb = progress_bar.add(ProgressBar::new(signed_entity.artifact.size));
+        let pb = progress_bar.add(ProgressBar::new(snapshot_entity.artifact.size));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
             .unwrap()
             .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
             .progress_chars("#>-"));
         let filepath = self
             .snapshot_client
-            .download(&signed_entity.artifact, pathdir, pb)
+            .download(&snapshot_entity.artifact, pathdir, pb)
             .await
             .map_err(|e| format!("Could not download file in '{}': {e}", pathdir.display()))?;
 
@@ -270,7 +272,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             }
 
             return Err(SnapshotServiceError::CouldNotVerifySnapshot {
-                digest: signed_entity.artifact.digest.clone(),
+                digest: snapshot_entity.artifact.digest.clone(),
                 path: filepath.canonicalize().unwrap(),
             }
             .into());
@@ -423,12 +425,7 @@ mod tests {
 
         assert_eq!(
             "digest-10".to_string(),
-            snapshot_service
-                .show("digest")
-                .await
-                .unwrap()
-                .artifact
-                .digest
+            snapshot_service.show("digest").await.unwrap().digest
         );
     }
 

@@ -7,14 +7,12 @@ use std::{
 
 use indicatif::ProgressBar;
 use mithril_common::{
-    entities::{SignedEntity, Snapshot},
-    messages::{FromMessageAdapter, SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage},
+    entities::Snapshot,
+    messages::{SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage},
     StdResult,
 };
 use slog_scope::warn;
 use thiserror::Error;
-
-use crate::FromSnapshotMessageAdapter;
 
 use super::AggregatorClient;
 
@@ -52,13 +50,12 @@ impl SnapshotClient {
     }
 
     /// Return a snapshot based on the given digest (list to get the digests)
-    pub async fn show(&self, digest: &str) -> StdResult<SignedEntity<Snapshot>> {
+    pub async fn show(&self, digest: &str) -> StdResult<SnapshotMessage> {
         let url = format!("artifact/snapshot/{}", digest);
         let response = self.http_client.get_content(&url).await?;
         let message = serde_json::from_str::<SnapshotMessage>(&response)?;
-        let signed_entity = FromSnapshotMessageAdapter::adapt(message);
 
-        Ok(signed_entity)
+        Ok(message)
     }
 
     /// Download the snapshot identified by the given snapshot in the given directory

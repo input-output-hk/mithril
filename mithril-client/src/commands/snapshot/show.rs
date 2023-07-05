@@ -3,10 +3,7 @@ use std::sync::Arc;
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
-use mithril_common::{
-    entities::{SignedEntity, Snapshot},
-    StdError,
-};
+use mithril_common::{messages::SnapshotMessage, StdError};
 
 use crate::{dependencies::DependenciesBuilder, SnapshotFieldItem};
 
@@ -30,12 +27,12 @@ impl SnapshotShowCommand {
         let config: Config = config_builder.build()?;
         let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let signed_entity = snapshot_service.show(&self.digest).await?;
+        let snapshot_message = snapshot_service.show(&self.digest).await?;
 
         if self.json {
-            println!("{}", serde_json::to_string(&signed_entity.artifact)?);
+            println!("{}", serde_json::to_string(&snapshot_message)?);
         } else {
-            print_stdout(convert_to_field_items(&signed_entity).with_title()).unwrap();
+            print_stdout(convert_to_field_items(&snapshot_message).with_title()).unwrap();
         }
 
         Ok(())
@@ -43,30 +40,24 @@ impl SnapshotShowCommand {
 }
 
 /// Convert Snapshot to SnapshotFieldItems routine
-fn convert_to_field_items(signed_entity: &SignedEntity<Snapshot>) -> Vec<SnapshotFieldItem> {
+fn convert_to_field_items(snapshot_message: &SnapshotMessage) -> Vec<SnapshotFieldItem> {
     let mut field_items = vec![
         SnapshotFieldItem::new(
             "Epoch".to_string(),
-            format!("{}", signed_entity.artifact.beacon.epoch),
+            format!("{}", snapshot_message.beacon.epoch),
         ),
         SnapshotFieldItem::new(
             "Immutable File Number".to_string(),
-            format!("{}", signed_entity.artifact.beacon.immutable_file_number),
+            format!("{}", snapshot_message.beacon.immutable_file_number),
         ),
         SnapshotFieldItem::new(
             "Network".to_string(),
-            signed_entity.artifact.beacon.network.to_owned(),
+            snapshot_message.beacon.network.to_owned(),
         ),
-        SnapshotFieldItem::new(
-            "Digest".to_string(),
-            signed_entity.artifact.digest.to_string(),
-        ),
-        SnapshotFieldItem::new(
-            "Size".to_string(),
-            format!("{}", signed_entity.artifact.size),
-        ),
+        SnapshotFieldItem::new("Digest".to_string(), snapshot_message.digest.to_string()),
+        SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot_message.size)),
     ];
-    for (idx, location) in signed_entity.artifact.locations.iter().enumerate() {
+    for (idx, location) in snapshot_message.locations.iter().enumerate() {
         field_items.push(SnapshotFieldItem::new(
             format!("Location {}", idx + 1),
             location.to_string(),
@@ -74,7 +65,7 @@ fn convert_to_field_items(signed_entity: &SignedEntity<Snapshot>) -> Vec<Snapsho
     }
     field_items.push(SnapshotFieldItem::new(
         "Created".to_string(),
-        signed_entity.created_at.to_string(),
+        snapshot_message.created_at.to_string(),
     ));
     field_items
 }

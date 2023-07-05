@@ -1,5 +1,7 @@
-use mithril_common::entities::{SignedEntity, SignedEntityType, Snapshot};
-use mithril_common::messages::{FromMessageAdapter, SnapshotMessage};
+use mithril_common::{
+    entities::{SignedEntity, SignedEntityType, Snapshot},
+    messages::{FromMessageAdapter, SnapshotMessage},
+};
 
 /// Adapter to convert [SnapshotMessage] to [`SignedEntity<Snapshot>`] instances
 pub struct FromSnapshotMessageAdapter;
@@ -36,8 +38,8 @@ mod tests {
             digest: "digest123".to_string(),
             ..Default::default()
         };
-        let snapshot = FromSnapshotMessageAdapter::adapt(snapshot_message);
+        let snapshot_item = FromSnapshotMessageAdapter::adapt(snapshot_message);
 
-        assert_eq!("digest123".to_string(), snapshot.signed_entity_id);
+        assert_eq!("digest123".to_string(), snapshot_item.artifact.digest);
     }
 }

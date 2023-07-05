@@ -3,9 +3,9 @@ use std::{path::PathBuf, sync::Arc};
 use clap::Parser;
 use config::{builder::DefaultState, Config, ConfigBuilder};
 use indicatif::ProgressDrawTarget;
-use mithril_common::StdResult;
+use mithril_common::{messages::FromMessageAdapter, StdResult};
 
-use crate::dependencies::DependenciesBuilder;
+use crate::{dependencies::DependenciesBuilder, FromSnapshotMessageAdapter};
 
 /// Clap command to download the snapshot and verify the certificate.
 #[derive(Parser, Debug, Clone)]
@@ -32,7 +32,8 @@ impl SnapshotDownloadCommand {
         let config = Arc::new(config);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let signed_entity = snapshot_service.show(&self.digest).await?;
+        let snapshot_entity =
+            FromSnapshotMessageAdapter::adapt(snapshot_service.show(&self.digest).await?);
         let progress_target = if self.json {
             ProgressDrawTarget::hidden()
         } else {
@@ -40,7 +41,7 @@ impl SnapshotDownloadCommand {
         };
         let filepath = snapshot_service
             .download(
-                &signed_entity,
+                &snapshot_entity,
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,
                 progress_target,
@@ -66,7 +67,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
                 &self.digest,
                 filepath.display(),
                 filepath.display(),
-                signed_entity.artifact.beacon.network,
+                snapshot_entity.artifact.beacon.network,
             );
         }
 
