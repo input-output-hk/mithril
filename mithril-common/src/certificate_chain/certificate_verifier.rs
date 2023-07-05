@@ -555,4 +555,12 @@ mod tests {
             "unexpected error type: {verify:?}"
         );
     }
+
+    #[tokio::test]
+    async fn test_verify_epoch_gap_certificate_chain() {
+        let total_certificates = 5;
+        let certificates_per_epoch = 2;
+        let (mut fake_certificates, genesis_verifier) =
+            setup_certificate_chain(total_certificates, certificates_per_epoch);
+    }
 }

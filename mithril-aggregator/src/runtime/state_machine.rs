@@ -169,16 +169,11 @@ impl AggregatorRuntime {
                     "new_beacon" => ?chain_beacon
                 );
 
-                if self
-                    .try_transition_from_idle_to_ready(state.current_beacon, chain_beacon.clone())
-                    .await?
-                {
-                    self.state = AggregatorState::Ready(ReadyState {
-                        current_beacon: chain_beacon,
-                    });
-                } else {
-                    info!(" ⋅ could not transition from IDLE to READY");
-                }
+                self.try_transition_from_idle_to_ready(state.current_beacon, chain_beacon.clone())
+                    .await?;
+                self.state = AggregatorState::Ready(ReadyState {
+                    current_beacon: chain_beacon,
+                });
             }
             AggregatorState::Ready(state) => {
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
@@ -262,7 +257,7 @@ impl AggregatorRuntime {
         &mut self,
         maybe_current_beacon: Option<Beacon>,
         new_beacon: Beacon,
-    ) -> Result<bool, RuntimeError> {
+    ) -> Result<(), RuntimeError> {
         trace!("trying transition from IDLE to READY state");
 
         self.runner.update_beacon(&new_beacon).await?;
@@ -286,11 +281,15 @@ impl AggregatorRuntime {
                 .await?;
         }
 
-        let is_chain_valid = self.runner.is_certificate_chain_valid().await?;
-        if !is_chain_valid {
-            warn!(" > the certificate chain is invalid");
-        }
-        Ok(is_chain_valid)
+        self.runner
+            .is_certificate_chain_valid(&new_beacon)
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: "certificate chain is invalid".to_string(),
+                nested_error: e.into(),
+            })?;
+
+        Ok(())
     }
 
     /// Perform a transition from `SIGNING` state to `READY` state when a new
@@ -442,7 +441,7 @@ mod tests {
         runner
             .expect_is_certificate_chain_valid()
             .once()
-            .returning(|| Ok(false));
+            .returning(|_| Err("error".into()));
         runner
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))
@@ -461,7 +460,14 @@ mod tests {
             runner,
         )
         .await;
-        runtime.cycle().await.unwrap();
+        let err = runtime.cycle().await.unwrap_err();
+        assert!(matches!(
+            err,
+            RuntimeError::KeepState {
+                message: _,
+                nested_error: _
+            }
+        ));
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
@@ -499,7 +505,7 @@ mod tests {
         runner
             .expect_is_certificate_chain_valid()
             .once()
-            .returning(|| Ok(true));
+            .returning(|_| Ok(()));
         runner
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))

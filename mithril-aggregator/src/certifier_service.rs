@@ -58,6 +58,10 @@ pub enum CertifierServiceError {
     /// Codec error.
     #[error("codec error: '{0}'")]
     Codec(String),
+
+    /// No certificate for this epoch
+    #[error("No certificate has been issued for Epoch {0:?} yet.")]
+    NoCertificateForEpoch(Epoch),
 }
 
 /// ## CertifierService
@@ -116,6 +120,9 @@ pub trait CertifierService: Sync + Send {
 
     /// Returns the list of the latest created certificates.
     async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>>;
+
+    /// Verify the certificate chain starting with the given certificate.
+    async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()>;
 }
 
 /// Mithril CertifierService implementation
@@ -356,6 +363,29 @@ impl CertifierService for MithrilCertifierService {
             .get_latest_certificates(last_n)
             .await
     }
+
+    async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()> {
+        if let Some(certificate) = self
+            .certificate_repository
+            .get_latest_certificates(1)
+            .await?
+            .first()
+        {
+            if certificate.beacon.epoch < epoch {
+                return Err(CertifierServiceError::NoCertificateForEpoch(epoch).into());
+            }
+
+            self.certificate_verifier
+                .verify_certificate_chain(
+                    certificate.to_owned(),
+                    self.certificate_repository.clone(),
+                    &self.genesis_verifier,
+                )
+                .await?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -366,7 +396,7 @@ mod tests {
     };
     use mithril_common::{
         entities::{Beacon, ProtocolMessagePartKey},
-        test_utils::{MithrilFixture, MithrilFixtureBuilder},
+        test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
     };
 
     use super::*;
@@ -672,5 +702,31 @@ mod tests {
             .await
             .unwrap();
         assert!(create_certificate_result.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_epoch_gap_certificate_chain() {
+        let builder = MithrilFixtureBuilder::default();
+        let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
+        let mut certificate = fake_data::certificate("one".to_string());
+        certificate.genesis_signature = "whatever".to_string();
+        certifier_service
+            .certificate_repository
+            .create_certificate(certificate)
+            .await
+            .unwrap();
+        let epoch = Epoch(11);
+        let error = certifier_service
+            .verify_certificate_chain(epoch)
+            .await
+            .unwrap_err();
+
+        if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
+            assert!(
+                matches!(err, CertifierServiceError::NoCertificateForEpoch(ep) if *ep == epoch)
+            );
+        } else {
+            panic!("Unexpected error {error:?}");
+        }
     }
 }
