@@ -119,16 +119,14 @@ Display the help menu
 You should see
 
 ```bash
-This program downloads, checks and restores certified blockchain snapshots.
+This program shows, downloads and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  list      List available snapshots
-  show      Show detailed informations about a snapshot
-  download  Download a snapshot
-  restore   Restore a snapshot
-  help      Print this message or the help of the given subcommand(s)
+  snapshot                    Snapshot commands
+  mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  help                        Print this message or the help of the given subcommand(s)
 
 Options:
       --run-mode <RUN_MODE>
@@ -140,9 +138,10 @@ Options:
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
           Override configuration Aggregator endpoint URL
   -h, --help
-          Print help information
+          Print help
   -V, --version
-          Print version information
+          Print version
+
 
 ```
 
@@ -169,7 +168,7 @@ GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) NETWO
 You can use the `--json` (or `-j`) option in order to display results in `JSON` format for the `list` and `show` commands:
 
 ```bash
-./mithril-client list --json
+./mithril-client snapshot list --json
 ```
 
 :::
@@ -221,20 +220,26 @@ mithril_client () {
 }
 ```
 
-Now you can use the `mithril_client` function:
+Now you can use the `mithril_client` functions:
 
 ```bash
 # 1- Help
 mithril_client help
 
 # 2- List snapshots
-mithril_client list
+mithril_client snapshot list
 
-# 3- Download latest snapshot
-mithril_client download $SNAPSHOT_DIGEST
+# 3- Show detailed informations about a snapshot
+mithril_client snapshot show $SNAPSHOT_DIGEST
 
-# 4- Restore latest snapshot
-mithril_client restore $SNAPSHOT_DIGEST
+# 4- Download the given snapshot and verify the certificate
+mithril_client snapshot download $SNAPSHOT_DIGEST
+
+# 5- List Mithril Stake Distributions
+mithril_client mithril-stake-distribution list
+
+# 6- Download and verify the given Mithril Stake Distribution
+mithril_client mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_ARTIFACT_HASH
 ```
 
 ### Local Image
@@ -255,13 +260,22 @@ make docker-run
 
 Here are the subcommands available:
 
+### Snapshot
+
 | Subcommand | Performed action |
 |------------|------------------|
-| **download** | Download a snapshot|
+| **download** | Download and restore a snapshot|
 | **help** | Print this message or the help of the given subcommand(s)|
 | **list** | List available snapshots|
-| **restore** | Restore a snapshot|
 | **show** | Informations about a snapshot|
+
+### Mithril Stake Distribution
+
+| Subcommand | Performed action |
+|------------|------------------|
+| **download** | Download and verify a Mithril Stake Distribution|
+| **help** | Print this message or the help of the given subcommand(s)|
+| **list** | List available Mithril Stake Distributions|
 
 ## Configuration parameters
 
@@ -272,6 +286,8 @@ The configuration parameters are set either:
 
 Here is a list of the available parameters:
 
+General parameters:
+
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
@@ -280,3 +296,23 @@ Here is a list of the available parameters:
 | `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
 | `json_output` | `--json` | `-j` | - | Enable JSON output | no | - | - |
+
+`snapshot show` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `digest` | `--digest` | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+
+`snapshot download` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `digest` | `--digest` | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+| `download_dir` | `--download-dir` | - | - | Directory where the snapshot will be downloaded | . | - | - |
+
+`mithril-stake-distribution download` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril Stake Distribution artifact | - | - | :heavy_check_mark: |
+| `download_dir` | `--download-dir` | - | - | Directory where the Mithril Stake Distribution will be downloaded | . | - | - |
