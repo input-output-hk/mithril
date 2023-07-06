@@ -329,7 +329,7 @@ The nodes will be queried every `1s` and will display as below
 =====================================================================
 
 =====================================================================
---  docker-compose logs --tail=5
+--  docker compose logs --tail=5
 =====================================================================
 Attaching to artifacts_mithril-signer-node-pool1_1, artifacts_mithril-signer-node-pool2_1, artifacts_mithril-aggregator_1
 mithril-aggregator_1         | {"msg":"Epoch computation is not final and needs to be fixed: 4","v":0,"name":"slog-rs","level":40,"time":"2022-07-05T11:29:32.726760492Z","hostname":"ba17593540ac","pid":1}

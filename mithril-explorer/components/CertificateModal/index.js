@@ -65,7 +65,7 @@ export default function CertificateModal(props) {
                 {certificate.genesis_signature !== ""
                   ?
                   <div>
-                    This is the chain Genesis Certificate, since it&aops;s manually created it doesn&apos;t contain any
+                    This is the chain Genesis Certificate, since it&apos;s manually created it doesn&apos;t contain any
                     Signers.
                   </div>
                   : certificate.metadata.signers.length === 0
