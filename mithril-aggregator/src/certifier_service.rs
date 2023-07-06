@@ -60,8 +60,18 @@ pub enum CertifierServiceError {
     Codec(String),
 
     /// No certificate for this epoch
-    #[error("No certificate has been issued for Epoch {0:?} yet.")]
-    NoCertificateForEpoch(Epoch),
+    #[error("There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})")]
+    CertificateEpochGap {
+        /// Epoch of the first certificate found
+        certificate_epoch: Epoch,
+
+        /// Given current epoch
+        current_epoch: Epoch,
+    },
+
+    /// Could not verify certificate chain because could not found last certificate.
+    #[error("No certificate found.")]
+    CouldNotFindLastCertificate,
 }
 
 /// ## CertifierService
@@ -121,7 +131,9 @@ pub trait CertifierService: Sync + Send {
     /// Returns the list of the latest created certificates.
     async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>>;
 
-    /// Verify the certificate chain starting with the given certificate.
+    /// Verify the certificate chain and epoch gap. This will return an error if
+    /// there is at least an epoch between the given epoch and the most recent
+    /// certificate.
     async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()>;
 }
 
@@ -371,8 +383,12 @@ impl CertifierService for MithrilCertifierService {
             .await?
             .first()
         {
-            if certificate.beacon.epoch < epoch {
-                return Err(CertifierServiceError::NoCertificateForEpoch(epoch).into());
+            if certificate.beacon.epoch < epoch.offset_by(-1).unwrap() {
+                return Err(CertifierServiceError::CertificateEpochGap {
+                    certificate_epoch: certificate.beacon.epoch,
+                    current_epoch: epoch,
+                }
+                .into());
             }
 
             self.certificate_verifier
@@ -382,9 +398,11 @@ impl CertifierService for MithrilCertifierService {
                     &self.genesis_verifier,
                 )
                 .await?;
-        }
 
-        Ok(())
+            Ok(())
+        } else {
+            Err(CertifierServiceError::CouldNotFindLastCertificate.into())
+        }
     }
 }
 
@@ -708,14 +726,13 @@ mod tests {
     async fn test_epoch_gap_certificate_chain() {
         let builder = MithrilFixtureBuilder::default();
         let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
-        let mut certificate = fake_data::certificate("one".to_string());
-        certificate.genesis_signature = "whatever".to_string();
+        let certificate = fake_data::genesis_certificate("whatever");
+        let epoch = certificate.beacon.epoch.offset_by(2).unwrap();
         certifier_service
             .certificate_repository
             .create_certificate(certificate)
             .await
             .unwrap();
-        let epoch = Epoch(11);
         let error = certifier_service
             .verify_certificate_chain(epoch)
             .await
@@ -723,10 +740,37 @@ mod tests {
 
         if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
             assert!(
-                matches!(err, CertifierServiceError::NoCertificateForEpoch(ep) if *ep == epoch)
+                matches!(err, CertifierServiceError::CertificateEpochGap {certificate_epoch: _, current_epoch} if *current_epoch == epoch)
             );
         } else {
             panic!("Unexpected error {error:?}");
+        }
+    }
+
+    #[tokio::test]
+    async fn test_epoch_gap_certificate_chain_ok() {
+        let builder = MithrilFixtureBuilder::default();
+        let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
+        let certificate = fake_data::genesis_certificate("whatever");
+        let epoch = certificate.beacon.epoch.offset_by(1).unwrap();
+        certifier_service
+            .certificate_repository
+            .create_certificate(certificate)
+            .await
+            .unwrap();
+        let error = certifier_service
+            .verify_certificate_chain(epoch)
+            .await
+            .unwrap_err();
+
+        if let Some(err) = error.downcast_ref::<CertifierServiceError>() {
+            assert!(!matches!(
+                err,
+                CertifierServiceError::CertificateEpochGap {
+                    certificate_epoch: _,
+                    current_epoch: _
+                }
+            ));
         }
     }
 }
