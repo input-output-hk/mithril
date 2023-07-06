@@ -448,30 +448,33 @@ AGGREGATOR_ENDPOINT=http://localhost:8080/aggregator
 SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
 ```
 
+You can pick an online test aggregator directly from the [Mithril explorer](https://mithril.network/explorer).
+
 ### Step 2: Select A Snapshot
 
 List the available snapshots with which you can bootstrap a Cardano node
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client list
+NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot list
 ```
 
 You will see a list of snapshots
 
 ```bash
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
-| Network | Digest                                                           | Size  | Locations | Created                        |
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
-| devnet  | 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917 | 11808 |         1 | 2022-07-04T16:47:00.258482685Z |
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
-| devnet  | 60d9c6e014d22335b34f55f83da728667f04fc1c63152ccff0bce7d217d08447 | 10793 |         1 | 2022-07-04T16:46:45.069646321Z |
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
-| devnet  | a3c4bb5f413f1b9648f0a086b3752d25ec62b540b8390917a5a7e78809896d92 |  7991 |         1 | 2022-07-04T16:46:09.817821220Z |
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
-| devnet  | b952adaa04dbb42206c69589b9951660f40c7262b088b13434b7a446ec90bc36 |  6746 |         1 | 2022-07-04T16:45:49.616260734Z |
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
-| devnet  | 46425fdcfe89ad5ba41a7822a4395e21b539e80c20e2b10546017b14cdcd4e4b |  6196 |         1 | 2022-07-04T16:45:29.425195132Z |
-+---------+------------------------------------------------------------------+-------+-----------+--------------------------------+
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+| Epoch | Immutable | Network | Digest                                                           | Size       | Locations | Created                        |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+| 219   | 4387      | preview | 83579cd3bd89438f86e626b102bab6132eef95d01b736ffa19e96d055ba6a596 | 2086080281 |         1 | 2023-06-01T12:43:23.782943645Z |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+| 219   | 4383      | preview | 7068029bee4996edf15b8f1e7120c3320ca50491ccbdc5841ac072e84bfe4c4d | 2084049995 |         1 | 2023-06-01T07:47:44.359699075Z |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+| 219   | 4382      | preview | da32d417c7fc6bbdbd780191c81f0264cea0af9dbb1bbd0fc7fdcf6e0976cb75 | 2084517087 |         1 | 2023-06-01T06:31:17.609437466Z |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+| 219   | 4381      | preview | a045b7b552c8412dbd0cfe4d418b7ac3a0cf39bfb5ad4d1a39a164217a394e40 | 2084235879 |         1 | 2023-06-01T05:10:52.039770378Z |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+| 219   | 4380      | preview | 9a88639bd59492c3cb67d9d1ac005998292e41faa7e116ff05c5de2d08a8374e | 2083904532 |         1 | 2023-06-01T03:56:43.834905913Z |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
+
 ```
 
 ### Step 3: Show Snapshot Details
@@ -479,54 +482,46 @@ You will see a list of snapshots
 Get some more details from a specific snapshot (Optional)
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show $SNAPSHOT_DIGEST
+NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot show $SNAPSHOT_DIGEST
 ```
 
 You will see more information about a snapshot
 
 ```bash
-+------------+-------------------------------------------------------------------------------------------------------------------+
-| Info       | Value                                                                                                             |
-+------------+-------------------------------------------------------------------------------------------------------------------+
-| Network    | devnet                                                                                                            |
-+------------+-------------------------------------------------------------------------------------------------------------------+
-| Digest     | 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917                                                  |
-+------------+-------------------------------------------------------------------------------------------------------------------+
-| Size       | 11808                                                                                                             |
-+------------+-------------------------------------------------------------------------------------------------------------------+
-| Location 1 | http://0.0.0.0:8080/aggregator/snapshot/85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/download |
-+------------+-------------------------------------------------------------------------------------------------------------------+
-| Created    | 2022-07-04T16:47:00.258482685Z                                                                                    |
-+------------+-------------------------------------------------------------------------------------------------------------------+
++-----------------------+-----------------------------------------------------------------------------------------+
+| Info                  | Value                                                                                   |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Epoch                 | 218                                                                                     |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Immutable File Number | 4367                                                                                    |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Network               | preview                                                                                 |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Digest                | 5f6e925144d9f6f425b79a0b2db92040738505a0b645ab5f3277f45f8879d2ac                        |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Size                  | 2080819008                                                                              |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Location 1            | https://storage.googleapis.com/mithril-pre-release-preview-cs/preview-e2…879d2ac.tar.gz |
++-----------------------+-----------------------------------------------------------------------------------------+
+| Created               | 2023-05-31T12:50:45.978711344Z                                                          |
++-----------------------+-----------------------------------------------------------------------------------------+
+
 ```
 
-### Step 4: Download Selected Snapshot
+### Step 4: Download and verify selected Snapshot
 
 Download the selected snapshot from the remote location to your remote location
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download $SNAPSHOT_DIGEST
+NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
 
-You will see that the selected snapshot archive has been downloaded locally
+You will see that the certificate chain is validated to ensure the issued certificate is genuine and then the selected snapshot archive is downloaded, unpacked and verified against the corresponding certificate.
 
 ```bash
 Download success 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917 #1
 from http://0.0.0.0:8080/aggregator/snapshot/85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/download
 to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/snapshot.archive.tar.gz
-```
-
-### Step 5: Restore Selected Snapshot
-
-Verify the Certificate of the snapshot and unpack its content in order to feed the Cardano node database
-
-```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
-```
-
-You will see that the snapshot archive is unpacked and that the associated certificate is valid
-
-```bash
 Unpacking snapshot...
 Unpack success 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917
 to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db

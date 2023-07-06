@@ -126,6 +126,7 @@ Commands:
   genesis  Genesis tools
   era      Era tools
   serve    Server runtime mode
+  tools    List of tools to upkeep the aggregator
   help     Print this message or the help of the given subcommand(s)
 
 Options:
@@ -323,6 +324,42 @@ You should see something like
 ./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
 ```
 
+## Release build and run binary 'tools' command
+
+Build in release with default configuration
+
+```bash
+make build
+```
+
+Display the help menu
+
+```bash
+./mithril-aggregator tools --help
+```
+
+You should see
+
+```bash
+List of tools to upkeep the aggregator
+
+Usage: mithril-aggregator tools <COMMAND>
+
+Commands:
+  recompute-certificates-hash  Load all certificates in the database to recompute their hash and update all related entities
+  help                         Print this message or the help of the given subcommand(s)
+
+Options:
+  -h, --help  Print help
+```
+
+Run 'tools recompute-certificates-hash' command in release with default configuration.
+This allows the Mithril Aggregator node to recompute all of its certificates hashes, useful to avoid a chain re-genesis after an update that changes the structure of the certificates.
+
+```bash
+./mithril-aggregator tools recompute-certificates-hash
+```
+
 :::tip
 
 If you want to dig deeper, you can get access to several level of logs from the Mithril Aggregator:
@@ -364,6 +401,7 @@ Here are the subcommands available:
 | **genesis bootstrap** | Bootstrap a genesis certificate (test only usage) |
 | **era list** | List the supported eras |
 | **era generate-tx-datum** | Generate era markers transaction datum to be stored on chain |
+| **tools recompute-certificates-hash** | Load all certificates in the database to recompute their hash and update all related entities |
 
 ## Configuration parameters
 
@@ -437,3 +475,5 @@ General parameters:
 | `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Epoch at which current era starts. | - | - | - | :heavy_check_mark: |
 | `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Epoch at which the next era starts. If not specified and an upcoming era is available, it will announce the next era. If specified, it must be strictly greater than `current-epoch-era` | - | - | - | - |
 | `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key that is used to verify the authenticity of the era markers on chain. | - | - | - | :heavy_check_mark: |
+
+`tools recompute-certificates-hash` command has no dedicated parameter
