@@ -53,14 +53,13 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
 
 fn setup_protocol_initializer(
     party_id: &str,
-    temp_dir: Option<PathBuf>,
+    kes_secret_key_path: Option<PathBuf>,
     stake: Stake,
     protocol_parameters: &ProtocolParameters,
 ) -> ProtocolInitializer {
     let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
     let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
-    let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
-    let kes_period = temp_dir.as_ref().map(|_| 0);
+    let kes_period = kes_secret_key_path.as_ref().map(|_| 0);
     let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
         *protocol_parameters,
         kes_secret_key_path,
@@ -115,13 +114,18 @@ pub fn setup_signers_from_stake_distribution(
     protocol_parameters: &ProtocolParameters,
 ) -> Vec<SignerFixture> {
     let mut key_registration = ProtocolKeyRegistration::init(stake_distribution);
-    let mut signers: Vec<(SignerWithStake, ProtocolInitializer)> = vec![];
+    let mut signers: Vec<(SignerWithStake, ProtocolInitializer, Option<PathBuf>)> = vec![];
 
     for (party_id, stake) in stake_distribution {
         let kes_period = 0;
         let temp_dir = setup_temp_directory_for_signer(party_id, false);
-        let protocol_initializer =
-            setup_protocol_initializer(party_id, temp_dir.clone(), *stake, protocol_parameters);
+        let kes_secret_key_path: Option<PathBuf> = temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
+        let protocol_initializer = setup_protocol_initializer(
+            party_id,
+            kes_secret_key_path.clone(),
+            *stake,
+            protocol_parameters,
+        );
         let operational_certificate = decode_op_cert_in_dir(temp_dir);
         let signer_with_stake = setup_signer_with_stake(
             party_id,
@@ -141,25 +145,28 @@ pub fn setup_signers_from_stake_distribution(
             )
             .expect("key registration should have succeeded");
 
-        signers.push((signer_with_stake, protocol_initializer));
+        signers.push((signer_with_stake, protocol_initializer, kes_secret_key_path));
     }
 
     let closed_key_registration = key_registration.close();
 
     signers
         .into_iter()
-        .map(|(signer_with_stake, protocol_initializer)| {
-            let protocol_signer = protocol_initializer
-                .clone()
-                .new_signer(closed_key_registration.clone())
-                .expect("creating a new protocol signer should not fail");
+        .map(
+            |(signer_with_stake, protocol_initializer, kes_secret_key_path)| {
+                let protocol_signer = protocol_initializer
+                    .clone()
+                    .new_signer(closed_key_registration.clone())
+                    .expect("creating a new protocol signer should not fail");
 
-            SignerFixture {
-                signer_with_stake,
-                protocol_signer,
-                protocol_initializer,
-            }
-        })
+                SignerFixture {
+                    signer_with_stake,
+                    protocol_signer,
+                    protocol_initializer,
+                    kes_secret_key_path,
+                }
+            },
+        )
         .collect::<_>()
 }
 

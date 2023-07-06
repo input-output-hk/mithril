@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{
     certificate_chain::CertificateGenesisProducer,
@@ -9,7 +12,7 @@ use crate::{
         ProtocolStakeDistribution,
     },
     entities::{
-        Beacon, Certificate, HexEncodedAgregateVerificationKey, ProtocolMessage,
+        Beacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
         ProtocolParameters, Signer, SignerWithStake, SingleSignatures, StakeDistribution,
     },
 };
@@ -33,6 +36,8 @@ pub struct SignerFixture {
     pub protocol_signer: ProtocolSigner,
     /// A [ProtocolSigner].
     pub protocol_initializer: ProtocolInitializer,
+    /// The path to this signer kes secret key file
+    pub kes_secret_key_path: Option<PathBuf>,
 }
 
 impl From<SignerFixture> for SignerWithStake {
@@ -171,6 +176,11 @@ impl SignerFixture {
             })
     }
 
+    /// Shortcut to get the party id from the inner signer with stake
+    pub fn party_id(&self) -> PartyId {
+        self.signer_with_stake.party_id.clone()
+    }
+
     /// Decode this signer operational certificate if any
     pub fn operational_certificate(&self) -> Option<OpCert> {
         match &self.signer_with_stake.operational_certificate {
@@ -190,5 +200,10 @@ impl SignerFixture {
             .verification_key_signature
             .as_ref()
             .map(|verification_key_signature| key_decode_hex(verification_key_signature).unwrap())
+    }
+
+    /// Get the path to this signer kes secret key
+    pub fn kes_secret_key_path(&self) -> Option<&Path> {
+        self.kes_secret_key_path.as_deref()
     }
 }
