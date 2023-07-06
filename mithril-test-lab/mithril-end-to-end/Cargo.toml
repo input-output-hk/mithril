@@ -1,6 +1,6 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.1.27"
+version = "0.1.28"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
