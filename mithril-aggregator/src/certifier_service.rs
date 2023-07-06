@@ -62,14 +62,14 @@ pub enum CertifierServiceError {
     /// No certificate for this epoch
     #[error("There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})")]
     CertificateEpochGap {
-        /// Epoch of the first certificate found
+        /// Epoch of the last issued certificate
         certificate_epoch: Epoch,
 
         /// Given current epoch
         current_epoch: Epoch,
     },
 
-    /// Could not verify certificate chain because could not found last certificate.
+    /// Could not verify certificate chain because could not find last certificate.
     #[error("No certificate found.")]
     CouldNotFindLastCertificate,
 }
@@ -383,7 +383,7 @@ impl CertifierService for MithrilCertifierService {
             .await?
             .first()
         {
-            if certificate.beacon.epoch < epoch.offset_by(-1).unwrap() {
+            if epoch.has_gap_with(&certificate.beacon.epoch) {
                 return Err(CertifierServiceError::CertificateEpochGap {
                     certificate_epoch: certificate.beacon.epoch,
                     current_epoch: epoch,
@@ -727,7 +727,7 @@ mod tests {
         let builder = MithrilFixtureBuilder::default();
         let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
         let certificate = fake_data::genesis_certificate("whatever");
-        let epoch = certificate.beacon.epoch.offset_by(2).unwrap();
+        let epoch = certificate.beacon.epoch + 2;
         certifier_service
             .certificate_repository
             .create_certificate(certificate)
@@ -752,7 +752,7 @@ mod tests {
         let builder = MithrilFixtureBuilder::default();
         let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
         let certificate = fake_data::genesis_certificate("whatever");
-        let epoch = certificate.beacon.epoch.offset_by(1).unwrap();
+        let epoch = certificate.beacon.epoch + 1;
         certifier_service
             .certificate_repository
             .create_certificate(certificate)
