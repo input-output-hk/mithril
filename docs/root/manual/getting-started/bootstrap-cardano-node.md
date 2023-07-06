@@ -109,16 +109,14 @@ Check that the Mithril Client binary is working fine by running its help
 You should see
 
 ```bash
-This program downloads, checks and restores certified blockchain snapshots.
+This program shows, downloads and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  list      List available snapshots
-  show      Show detailed informations about a snapshot
-  download  Download a snapshot
-  restore   Restore a snapshot
-  help      Print this message or the help of the given subcommand(s)
+  snapshot                    Snapshot commands
+  mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  help                        Print this message or the help of the given subcommand(s)
 
 Options:
       --run-mode <RUN_MODE>
@@ -130,9 +128,11 @@ Options:
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
           Override configuration Aggregator endpoint URL
   -h, --help
-          Print help information
+          Print help
   -V, --version
-          Print version information
+          Print version
+
+
 ```
 
 :::tip
@@ -140,7 +140,7 @@ Options:
 You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
 
 ```bash
-./mithril-client list --json
+./mithril-client snapshot list --json
 ```
 
 :::
@@ -187,7 +187,7 @@ Now you can use the `mithril_client` function:
 mithril_client help
 
 # 2- List snapshots
-mithril_client list
+mithril_client snapshot list
 ```
 
 :::tip
