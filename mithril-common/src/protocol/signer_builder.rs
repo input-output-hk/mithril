@@ -1,15 +1,20 @@
 use anyhow::{anyhow, Context, Result};
+use rand_chacha::ChaCha20Rng;
+use rand_core::{CryptoRng, RngCore, SeedableRng};
+use std::path::Path;
 use thiserror::Error;
 
 use crate::{
     crypto_helper::{
-        key_decode_hex, OpCert, ProtocolClerk, ProtocolClosedKeyRegistration,
+        key_decode_hex, OpCert, ProtocolClerk, ProtocolClosedKeyRegistration, ProtocolInitializer,
         ProtocolKeyRegistration, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
-    entities::{ProtocolParameters, SignerWithStake},
+    entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
 };
+
+use super::SingleSigner;
 
 /// Allow to build Single Or Multi signers to generate a single signature or aggregate them
 #[derive(Debug)]
@@ -43,8 +48,8 @@ impl SignerBuilder {
         let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
 
         for signer in registered_signers {
-            let signer_keys =
-                SignerCryptographicKeys::decode_from_signer(signer).with_context(|| {
+            let signer_keys = SignerCryptographicMaterial::decode_from_signer(signer)
+                .with_context(|| {
                     format!(
                         "Invalid signers in stake distribution: '{}'",
                         signer.party_id
@@ -78,16 +83,109 @@ impl SignerBuilder {
 
         MultiSigner::new(clerk, stm_parameters)
     }
+
+    fn build_single_signer_with_rng<R: RngCore + CryptoRng>(
+        &self,
+        signer_with_stake: SignerWithStake,
+        kes_secret_key_path: Option<&Path>,
+        rng: &mut R,
+    ) -> Result<(SingleSigner, ProtocolInitializer)> {
+        let protocol_initializer = ProtocolInitializer::setup(
+            self.protocol_parameters.clone().into(),
+            kes_secret_key_path,
+            signer_with_stake.kes_period,
+            signer_with_stake.stake,
+            rng,
+        )
+        .with_context(|| {
+            format!(
+                "Could not create a protocol initializer for party: '{}'",
+                signer_with_stake.party_id
+            )
+        })?;
+
+        let protocol_signer = protocol_initializer
+            .clone()
+            .new_signer(self.closed_key_registration.clone())
+            .with_context(|| {
+                format!(
+                    "Could not create a protocol signer for party: '{}'",
+                    signer_with_stake.party_id
+                )
+            })?;
+
+        Ok((
+            SingleSigner::new(signer_with_stake.party_id, protocol_signer),
+            protocol_initializer,
+        ))
+    }
+
+    /// Build non deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.
+    pub fn build_single_signer(
+        &self,
+        signer_with_stake: SignerWithStake,
+        kes_secret_key_path: Option<&Path>,
+    ) -> Result<(SingleSigner, ProtocolInitializer)> {
+        self.build_single_signer_with_rng(
+            signer_with_stake,
+            kes_secret_key_path,
+            &mut rand_core::OsRng,
+        )
+    }
+
+    /// Build deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.
+    ///
+    /// Use for **TEST ONLY**.
+    pub fn build_test_single_signer(
+        &self,
+        signer_with_stake: SignerWithStake,
+        kes_secret_key_path: Option<&Path>,
+    ) -> Result<(SingleSigner, ProtocolInitializer)> {
+        let protocol_initializer_seed: [u8; 32] = signer_with_stake.party_id.as_bytes()[..32]
+            .try_into()
+            .unwrap();
+
+        self.build_single_signer_with_rng(
+            signer_with_stake,
+            kes_secret_key_path,
+            &mut ChaCha20Rng::from_seed(protocol_initializer_seed),
+        )
+    }
+
+    /// Restore a [SingleSigner] based on the registered parties and the given
+    /// protocol_initializer.
+    ///
+    /// This is useful since each protocol initializer holds a unique secret key
+    /// that corresponds to a registration key sent to an aggregator.
+    ///
+    /// The actual signing of message is done at a later epoch.
+    ///
+    /// The [SignerBuilder] used must be tied to the key registration, stake distribution
+    /// and protocol parameters of the epoch during which the given protocol initializer
+    /// was created.
+    pub fn restore_signer_from_initializer(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: ProtocolInitializer,
+    ) -> Result<SingleSigner> {
+        let single_signer = protocol_initializer
+            .new_signer(self.closed_key_registration.clone())
+            .with_context(|| {
+                "Could not create a single signer from protocol initializer".to_string()
+            })?;
+
+        Ok(SingleSigner::new(party_id, single_signer))
+    }
 }
 
-struct SignerCryptographicKeys {
+struct SignerCryptographicMaterial {
     pub operational_certificate: Option<OpCert>,
     pub verification_key: ProtocolSignerVerificationKey,
     pub kes_signature: Option<ProtocolSignerVerificationKeySignature>,
     pub kes_period: Option<u32>,
 }
 
-impl SignerCryptographicKeys {
+impl SignerCryptographicMaterial {
     fn decode_from_signer(signer: &SignerWithStake) -> Result<Self> {
         let operational_certificate = match &signer.operational_certificate {
             Some(operational_certificate) => key_decode_hex(operational_certificate)
@@ -195,5 +293,88 @@ mod test {
             &fixture.protocol_parameters(),
         )
         .expect("We should be able to construct a signer builder with valid signers");
+    }
+
+    #[test]
+    fn cant_build_single_signer_for_unregistered_party() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let signers_from_another_fixture = MithrilFixtureBuilder::default()
+            .with_signers(1)
+            .with_party_id_seed([4u8; 32])
+            .build()
+            .signers_fixture();
+        let non_registered_signer = signers_from_another_fixture.first().unwrap();
+
+        let error = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .unwrap()
+        .build_test_single_signer(
+            non_registered_signer.signer_with_stake.clone(),
+            non_registered_signer.kes_secret_key_path(),
+        )
+        .expect_err(
+            "We should not be able to construct a single signer from a not registered party",
+        );
+
+        assert!(
+            error
+                .to_string()
+                .contains("Could not create a protocol signer for party"),
+            "Expected protocol signer creation error, got: {}, cause: {}",
+            error,
+            error.root_cause()
+        );
+    }
+
+    #[test]
+    fn should_build_single_signer_for_registered_party() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let signers = fixture.signers_fixture();
+        let signer = signers.first().unwrap();
+
+        let builder = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .unwrap();
+
+        builder
+            .build_test_single_signer(
+                signer.signer_with_stake.clone(),
+                signer.kes_secret_key_path(),
+            )
+            .expect("Should be able to build test single signer for a registered party");
+    }
+
+    #[test]
+    fn should_restore_single_signer_from_previous_initializer() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let signers = fixture.signers_fixture();
+        let signer = signers.first().unwrap();
+
+        let first_builder = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .unwrap();
+
+        let (_, initializer) = first_builder
+            .build_test_single_signer(
+                signer.signer_with_stake.clone(),
+                signer.kes_secret_key_path(),
+            )
+            .unwrap();
+
+        let second_builder = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .unwrap();
+
+        second_builder
+            .restore_signer_from_initializer(signer.party_id(), initializer)
+            .expect("Should be able to restore a single signer from a protocol initialized");
     }
 }
