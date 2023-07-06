@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::entities::Epoch;
@@ -16,6 +17,9 @@ pub struct MithrilStakeDistributionListItemMessage {
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
+
+    /// Date and time at which the Mithril Stake Distribution was created
+    pub created_at: DateTime<Utc>,
 }
 
 impl MithrilStakeDistributionListItemMessage {
@@ -25,6 +29,9 @@ impl MithrilStakeDistributionListItemMessage {
             epoch: Epoch(1),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
         }
     }
 }
@@ -38,6 +45,9 @@ mod tests {
             epoch: Epoch(1),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
         }]
     }
 
@@ -47,7 +57,8 @@ mod tests {
         let json = r#"[{
         "epoch": 1,
         "hash": "hash-123",
-        "certificate_hash": "certificate-hash-123"
+        "certificate_hash": "certificate-hash-123",
+        "created_at": "2023-01-19T13:43:05.618857482Z"
         }]"#;
         let message: MithrilStakeDistributionListMessage = serde_json::from_str(json).expect(
                     "This JSON is expected to be succesfully parsed into a MithrilStakeDistributionListMessage instance.",
