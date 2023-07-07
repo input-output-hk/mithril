@@ -147,15 +147,11 @@ fn batch_benches<H>(
     }
 }
 
-fn core_verifier_benches<H>(
-    c: &mut Criterion,
-    nr_parties: usize,
-    params: StmParameters,
-    hashing_alg: &str,
-) where
+fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters)
+where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
-    let mut group = c.benchmark_group(format!("Core verifier/{hashing_alg}"));
+    let mut group = c.benchmark_group(format!("Core verifier"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
@@ -236,7 +232,6 @@ fn core_verifier_benches_blake_300(c: &mut Criterion) {
             k: 25,
             phi_f: 0.2,
         },
-        "Blake2b",
     );
 }
 
@@ -276,7 +271,6 @@ fn core_verifier_benches_blake_2000(c: &mut Criterion) {
             k: 250,
             phi_f: 0.2,
         },
-        "Blake2b",
     );
 }
 

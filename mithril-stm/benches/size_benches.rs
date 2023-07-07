@@ -8,6 +8,7 @@ use mithril_stm::stm::{
     CoreVerifier, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
     StmVerificationKey,
 };
+use mithril_stm::AggregationError;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
@@ -102,18 +103,26 @@ where
 
     let sig_reg_list = CoreVerifier::map_sig_party(&core_verifier.eligible_parties, &signatures);
 
-    let unique_sigs = CoreVerifier::dedup_sigs_for_indices(
+    let dedup_result = CoreVerifier::dedup_sigs_for_indices(
         &core_verifier.total_stake,
         &params,
         &msg,
         &sig_reg_list,
-    )
-    .unwrap();
-
+    );
     let mut size_sigs: usize = 0;
-    for sig in unique_sigs {
-        size_sigs += sig.to_bytes().len();
+
+    match dedup_result {
+        Ok(_) => {
+            for sig in dedup_result.unwrap() {
+                size_sigs += sig.to_bytes().len();
+            }
+        }
+        Err(AggregationError::NotEnoughSignatures(nr_indices, _k)) => {
+            assert!((nr_indices) < params.k);
+        }
+        Err(AggregationError::UsizeConversionInvalid) => unreachable!(),
     }
+
     println!(
         "k = {} | m = {} | nr parties = {}; {} bytes",
         k, m, nparties, size_sigs,
