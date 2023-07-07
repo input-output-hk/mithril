@@ -23,6 +23,7 @@ resource "null_resource" "mithril_monitoring" {
 
   provisioner "remote-exec" {
     inline = [
+      "mkdir -p /home/curry/data/monitoring/{prometheus,loki}",
       <<-EOT
 # Setup prometheus targets configuration for Cardano nodes
 CARDANO_NODES=$(docker ps --format='{{.Names}}:12798,' | grep "cardano-node" | sort | tr -d '\n\t\r ' | sed 's/.$//')
