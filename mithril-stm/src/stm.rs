@@ -408,12 +408,12 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             .merkle_tree
             .to_commitment_batch_compat()
             .concat_with_msg(msg);
-        let signature = &self.core_sign(&msgp, closed_reg.total_stake)?;
+        let signature = self.core_sign(&msgp, closed_reg.total_stake)?;
 
         Some(StmSig {
             sigma: signature.sigma,
             signer_index: self.signer_index,
-            indexes: signature.indexes.clone(),
+            indexes: signature.indexes,
         })
     }
 
@@ -477,12 +477,12 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     pub fn from_signer(signer: &StmSigner<D>) -> Self {
         let closed_reg = signer
             .closed_reg
-            .as_ref()
+            .clone()
             .expect("Core signer does not include closed registration. StmClerk, and so, the Stm certificate cannot be built without closed registration!");
 
         Self {
             params: signer.params,
-            closed_reg: closed_reg.clone(),
+            closed_reg,
         }
     }
 
@@ -865,11 +865,10 @@ impl CoreVerifier {
         let mut total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
-            let (res, overflow) = total_stake.overflowing_add(signer.1);
+            let (total_stake, overflow) = total_stake.overflowing_add(signer.1);
             if overflow {
                 panic!("Total stake overflow");
             }
-            total_stake = res;
             unique_parties.insert(MTLeaf(signer.0, signer.1));
         }
 

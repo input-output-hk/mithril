@@ -11,7 +11,7 @@
 * Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
 * The API also includes *core verification*. This functionality allows a full node verifier (`CoreVerifier`) that is 
   able to verify the signatures that are generated without the registration information, i.e., `avk`. A 
-  `CoreVerifier` already has the identities of the signers, so, it does not need to check the registration. 
+  `CoreVerifier` is assumed to know identities of the signers, so, it does not need to check the registration. 
 
 
 * This library provides:
