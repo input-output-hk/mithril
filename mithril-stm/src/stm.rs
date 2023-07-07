@@ -862,10 +862,10 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 impl CoreVerifier {
     /// Setup a core verifier for given list of signers.
     pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
-        let mut total_stake: Stake = 0;
+        let total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
-            let (total_stake, overflow) = total_stake.overflowing_add(signer.1);
+            let (_, overflow) = total_stake.overflowing_add(signer.1);
             if overflow {
                 panic!("Total stake overflow");
             }
@@ -908,7 +908,9 @@ impl CoreVerifier {
         Ok(())
     }
 
-    fn map_sig_party(parties: &[RegParty], signatures: &[StmSig]) -> Vec<StmSigRegParty> {
+    /// Match the signature with its corresponding signer.
+    /// Return the vector of SigRegParty.
+    pub fn map_sig_party(parties: &[RegParty], signatures: &[StmSig]) -> Vec<StmSigRegParty> {
         signatures
             .iter()
             .map(|sig| StmSigRegParty {
@@ -926,7 +928,7 @@ impl CoreVerifier {
     /// If there is no sufficient signatures, then the function fails.
     // todo: We need to agree on a criteria to dedup (by default we use a BTreeMap that guarantees keys order)
     // todo: not good, because it only removes index if there is a conflict (see benches)
-    fn dedup_sigs_for_indices(
+    pub fn dedup_sigs_for_indices(
         total_stake: &Stake,
         params: &StmParameters,
         msg: &[u8],

@@ -63,13 +63,10 @@ where
     );
 }
 
-fn core_size<H>(k: u64, m: u64, nparties: usize, hash_name: &str)
+fn core_size<H>(k: u64, m: u64, nparties: usize)
 where
     H: Digest + Clone + Sync + Send + Default + FixedOutput,
 {
-    println!("+-------------------+");
-    println!("| Hash: {hash_name} |");
-    println!("+-------------------+");
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
@@ -96,14 +93,25 @@ where
 
     let core_verifier = CoreVerifier::setup(&public_signers);
 
-    let mut signatures: Vec<StmSig> = Vec::new();
+    let mut signatures: Vec<StmSig> = Vec::with_capacity(nparties);
     for s in signers {
         if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);
         }
     }
+
+    let sig_reg_list = CoreVerifier::map_sig_party(&core_verifier.eligible_parties, &signatures);
+
+    let unique_sigs = CoreVerifier::dedup_sigs_for_indices(
+        &core_verifier.total_stake,
+        &params,
+        &msg,
+        &sig_reg_list,
+    )
+    .unwrap();
+
     let mut size_sigs: usize = 0;
-    for sig in signatures {
+    for sig in unique_sigs {
         size_sigs += sig.to_bytes().len();
     }
     println!(
@@ -130,10 +138,8 @@ fn main() {
     println!("+-------------------------+");
     println!("+-------------------------+");
 
-    let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
     for (k, m, nparties) in params {
-        core_size::<Blake2b<U64>>(k, m, nparties, "Blake2b 512");
-        core_size::<Blake2b<U32>>(k, m, nparties, "Blake2b 256");
+        core_size::<Blake2b<U64>>(k, m, nparties);
     }
     println!("+-------------------------+");
 }
