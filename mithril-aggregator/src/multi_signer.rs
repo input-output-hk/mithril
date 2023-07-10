@@ -5,11 +5,12 @@ use thiserror::Error;
 
 use mithril_common::{
     crypto_helper::{
-        key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
-        ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
-        ProtocolRegistrationError, ProtocolSingleSignature, ProtocolStakeDistribution,
+        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
+        ProtocolMultiSignature, ProtocolParameters, ProtocolRegistrationError,
+        ProtocolStakeDistribution,
     },
     entities::{self, Epoch, SignerWithStake, StakeDistribution},
+    protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
     store::{StakeStorer, StoreError},
 };
 
@@ -119,42 +120,36 @@ pub trait MultiSigner: Sync + Send {
         &self,
         signers_with_stakes: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError>;
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError>;
 
     /// Compute stake distribution aggregate verification key
     async fn compute_stake_distribution_aggregate_verification_key(
         &self,
-    ) -> Result<Option<String>, ProtocolError> {
+    ) -> Result<String, ProtocolError> {
         let signers_with_stake = self.get_signers_with_stake().await?;
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        match self
+        let avk = self
             .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
-            .await?
-        {
-            Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
-            None => Ok(None),
-        }
+            .await?;
+        Ok(key_encode_hex(avk).map_err(ProtocolError::Codec)?)
     }
 
     /// Compute next stake distribution aggregate verification key
     async fn compute_next_stake_distribution_aggregate_verification_key(
         &self,
-    ) -> Result<Option<String>, ProtocolError> {
+    ) -> Result<String, ProtocolError> {
         let next_signers_with_stake = self.get_next_signers_with_stake().await?;
         let protocol_parameters = self
             .get_next_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        match self
+        let next_avk = self
             .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
-            .await?
-        {
-            Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
-            None => Ok(None),
-        }
+            .await?;
+        Ok(key_encode_hex(next_avk).map_err(ProtocolError::Codec)?)
     }
 
     /// Get signers
@@ -219,59 +214,20 @@ impl MultiSignerImpl {
         }
     }
 
-    /// Creates a clerk
-    pub async fn create_clerk(
+    /// Creates a protocol multi signer
+    pub fn create_protocol_multi_signer(
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<Option<ProtocolClerk>, ProtocolError> {
-        debug!("Create clerk");
-        let stake_distribution = signers_with_stake
-            .iter()
-            .map(|s| s.into())
-            .collect::<ProtocolStakeDistribution>();
-        let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
-        let mut total_signers = 0;
-        for signer in signers_with_stake {
-            let operational_certificate = match &signer.operational_certificate {
-                Some(operational_certificate) => {
-                    key_decode_hex(operational_certificate).map_err(ProtocolError::Codec)?
-                }
-                _ => None,
-            };
-            let verification_key =
-                key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?;
-            let kes_signature = match &signer.verification_key_signature {
-                Some(verification_key_signature) => {
-                    Some(key_decode_hex(verification_key_signature).map_err(ProtocolError::Codec)?)
-                }
-                _ => None,
-            };
-            let kes_period = signer.kes_period;
-            key_registration
-                .register(
-                    Some(signer.party_id.to_owned()),
-                    operational_certificate,
-                    kes_signature,
-                    kes_period,
-                    verification_key,
-                )
-                .map_err(|e| ProtocolError::Core(e.to_string()))?;
-            total_signers += 1;
-        }
-        match total_signers {
-            0 => {
-                debug!("could not create clerk: no registered signers");
-                Ok(None)
-            }
-            _ => {
-                let closed_registration = key_registration.close();
-                Ok(Some(ProtocolClerk::from_registration(
-                    protocol_parameters,
-                    &closed_registration,
-                )))
-            }
-        }
+    ) -> Result<ProtocolMultiSigner, ProtocolError> {
+        debug!("Create protocol_multi_signer");
+
+        let protocol_multi_signer =
+            SignerBuilder::new(signers_with_stake, &(*protocol_parameters).into())
+                .map_err(|error| ProtocolError::Core(error.to_string()))?
+                .build_multi_signer();
+
+        Ok(protocol_multi_signer)
     }
 
     /// Get the [stake distribution][ProtocolStakeDistribution] for the given `epoch`
@@ -418,14 +374,10 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         signers_with_stakes: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
-        match self
-            .create_clerk(signers_with_stakes, protocol_parameters)
-            .await?
-        {
-            Some(clerk) => Ok(Some(clerk.compute_avk())),
-            None => Ok(None),
-        }
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
+        let protocol_multi_signer =
+            self.create_protocol_multi_signer(signers_with_stakes, protocol_parameters)?;
+        Ok(protocol_multi_signer.compute_aggregate_verification_key())
     }
 
     async fn get_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError> {
@@ -496,11 +448,11 @@ impl MultiSigner for MultiSignerImpl {
     async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
-        signatures: &entities::SingleSignatures,
+        single_signature: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError> {
         debug!(
             "Verify single signature from {} at indexes {:?} for message {:?}",
-            signatures.party_id, signatures.won_indexes, message
+            single_signature.party_id, single_signature.won_indexes, message
         );
 
         let protocol_parameters = self
@@ -508,35 +460,14 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
 
-        let signature = signatures
-            .to_protocol_signature()
-            .map_err(ProtocolError::Codec)?;
-
         let signers_with_stakes = self.get_signers_with_stake().await?;
 
-        let clerk = self
-            .create_clerk(&signers_with_stakes, &protocol_parameters)
-            .await?
-            .ok_or_else(ProtocolError::UnavailableClerk)?;
+        let protocol_multi_signer =
+            self.create_protocol_multi_signer(&signers_with_stakes, &protocol_parameters)?;
 
-        let avk = clerk.compute_avk();
-
-        // If there is no reg_party, then we simply received a signature from a non-registered
-        // party, and we can ignore the request.
-        let (vk, stake) = clerk
-            .get_reg_party(&signature.signer_index)
-            .ok_or_else(ProtocolError::UnregisteredParty)?;
-        signature
-            .verify(
-                &protocol_parameters,
-                &vk,
-                &stake,
-                &avk,
-                message.compute_hash().as_bytes(),
-            )
-            .map_err(|e| ProtocolError::Core(e.to_string()))?;
-
-        Ok(())
+        protocol_multi_signer
+            .verify_single_signature(message, single_signature)
+            .map_err(|error| ProtocolError::Core(error.to_string()))
     }
 
     /// Creates a multi signature from single signatures
@@ -552,24 +483,12 @@ impl MultiSigner for MultiSignerImpl {
 
         let signers_with_stakes = self.get_signers_with_stake().await?;
 
-        let clerk = self
-            .create_clerk(&signers_with_stakes, &protocol_parameters)
-            .await?
-            .ok_or_else(ProtocolError::UnavailableClerk)?;
-        let signatures: Vec<ProtocolSingleSignature> = open_message
-            .single_signatures
-            .iter()
-            .filter_map(|single_signature| {
-                single_signature
-                    .to_protocol_signature()
-                    .map_err(ProtocolError::Codec)
-                    .ok()
-            })
-            .collect::<Vec<_>>();
+        let protocol_multi_signer =
+            self.create_protocol_multi_signer(&signers_with_stakes, &protocol_parameters)?;
 
-        match clerk.aggregate(
-            &signatures,
-            open_message.protocol_message.compute_hash().as_bytes(),
+        match protocol_multi_signer.aggregate_single_signatures(
+            &open_message.single_signatures,
+            &open_message.protocol_message,
         ) {
             Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
