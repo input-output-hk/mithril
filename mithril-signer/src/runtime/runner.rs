@@ -204,7 +204,7 @@ impl Runner for SignerRunner {
             ),
             None => None,
         };
-        let protocol_initializer = MithrilProtocolInitializerBuilder::new().build(
+        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             stake,
             protocol_parameters,
             self.config.kes_secret_key_path.clone(),
@@ -725,9 +725,13 @@ mod tests {
         let epoch = pending_certificate.beacon.epoch;
         let mut signer = &mut pending_certificate.signers[0];
 
-        let protocol_initializer = MithrilProtocolInitializerBuilder::new()
-            .build(&100, &fake_data::protocol_parameters(), None, None)
-            .expect("build protocol initializer should not fail");
+        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
+            &100,
+            &fake_data::protocol_parameters(),
+            None,
+            None,
+        )
+        .expect("build protocol initializer should not fail");
         signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
         protocol_initializer_store
             .save_protocol_initializer(
