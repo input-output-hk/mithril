@@ -5,13 +5,15 @@ authors:
 tags: [spo, mithril signer, deployment model, production]
 ---
 
+**Update 2023/07/07**: The Mithril Signer Deployment Models beta version is available on the `pre-release-preview` and `release-preprod` networks.
+
 ### The new Mithril Signer Deployment Models for SPOs will be introduced soon
 
 **Epic**: `Prepare Mithril Signer deployment model for SPO` [#862](https://github.com/input-output-hk/mithril/issues/862)
 
-:warning: The Mithril Signer Deployment Models is not deployed yet to the `pre-release-preview` and `release-preprod` network. A special announcement will be made on the **moria** Discord channel when a new release candidate distribution is ready.
+:warning: The Mithril Signer Deployment Models is not deployed yet to the `pre-release-preview` and `release-preprod` networks. A special announcement will be made on the **moria** Discord channel when a new release candidate distribution is ready.
 
-All these information will be available at the updated [`Run a Mithril Signer node (SPO)`](https://mithril.network/doc/manual/getting-started/run-signer-node) guide. In the mean time, a preview of the Mithril signer setup with the **production** deployment model is available [here](https://mithril.network/doc/next/manual/getting-started/run-signer-node). In the new **production** deployment model, a new **Mithril Relay** has been introduced and requires an extra setup effort versus the **naive** deployment model that is currently ran by the pioneer SPOs on the Mithril test networks.
+All these information will be available at the updated [`Run a Mithril Signer node (SPO)`](./manual/getting-started/run-signer-node) guide. In the mean time, a preview of the Mithril signer setup with the **production** deployment model is available [here](./manual/getting-started/run-signer-node). In the new **production** deployment model, a new **Mithril Relay** has been introduced and requires an extra setup effort versus the **naive** deployment model that is currently ran by the pioneer SPOs on the Mithril test networks.
 
 :::info
 
