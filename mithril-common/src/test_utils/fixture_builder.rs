@@ -17,6 +17,7 @@ pub struct MithrilFixtureBuilder {
     enable_signers_certification: bool,
     number_of_signers: usize,
     stake_distribution_generation_method: StakeDistributionGenerationMethod,
+    party_id_seed: [u8; 32],
 }
 
 impl Default for MithrilFixtureBuilder {
@@ -27,6 +28,7 @@ impl Default for MithrilFixtureBuilder {
             number_of_signers: 5,
             stake_distribution_generation_method:
                 StakeDistributionGenerationMethod::RandomDistribution { seed: [0u8; 32] },
+            party_id_seed: [0u8; 32],
         }
     }
 }
@@ -74,6 +76,12 @@ impl MithrilFixtureBuilder {
         stake_distribution_generation_method: StakeDistributionGenerationMethod,
     ) -> Self {
         self.stake_distribution_generation_method = stake_distribution_generation_method;
+        self
+    }
+
+    /// Set the seed used to generated the party ids
+    pub fn with_party_id_seed(mut self, seed: [u8; 32]) -> Self {
+        self.party_id_seed = seed;
         self
     }
 
@@ -125,7 +133,10 @@ impl MithrilFixtureBuilder {
                 let mut kes_keys_seed = [0u8; 32];
                 let signers_party_ids = (0..self.number_of_signers).map(|party_index| {
                     if self.enable_signers_certification {
-                        build_party_with_operational_certificate(party_index, &mut kes_keys_seed)
+                        self.build_party_with_operational_certificate(
+                            party_index,
+                            &mut kes_keys_seed,
+                        )
                     } else {
                         format!("{party_index:<032}")
                     }
@@ -134,34 +145,46 @@ impl MithrilFixtureBuilder {
             }
         }
     }
-}
 
-fn build_party_with_operational_certificate(
-    party_index: usize,
-    kes_key_seed: &mut [u8],
-) -> PartyId {
-    let keypair = ColdKeyGenerator::create_deterministic_keypair([party_index as u8; 32]);
-    let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
-    let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut dummy_buffer, kes_key_seed);
-    let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
-    kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
-    let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
-    let party_id = operational_certificate
-        .compute_protocol_party_id()
-        .expect("compute protocol party id should not fail");
-    let temp_dir = setup_temp_directory_for_signer(&party_id, true)
-        .expect("setup temp directory should return a value");
-    if !temp_dir.join("kes.sk").exists() {
-        kes_bytes
-            .to_file(temp_dir.join("kes.sk"))
-            .expect("KES secret key file export should not fail");
+    fn build_party_with_operational_certificate(
+        &self,
+        party_index: usize,
+        kes_key_seed: &mut [u8],
+    ) -> PartyId {
+        let cold_key_seed: Vec<u8> = self
+            .party_id_seed
+            .iter()
+            .copied()
+            .map(|s| {
+                s.saturating_mul(self.number_of_signers as u8)
+                    .saturating_add(party_index as u8)
+            })
+            .collect();
+        let keypair =
+            ColdKeyGenerator::create_deterministic_keypair(cold_key_seed.try_into().unwrap());
+        let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
+        let (kes_secret_key, kes_verification_key) =
+            Sum6Kes::keygen(&mut dummy_buffer, kes_key_seed);
+        let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
+        kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+        let party_id = operational_certificate
+            .compute_protocol_party_id()
+            .expect("compute protocol party id should not fail");
+        let temp_dir = setup_temp_directory_for_signer(&party_id, true)
+            .expect("setup temp directory should return a value");
+        if !temp_dir.join("kes.sk").exists() {
+            kes_bytes
+                .to_file(temp_dir.join("kes.sk"))
+                .expect("KES secret key file export should not fail");
+        }
+        if !temp_dir.join("opcert.cert").exists() {
+            operational_certificate
+                .to_file(temp_dir.join("opcert.cert"))
+                .expect("operational certificate file export should not fail");
+        }
+        party_id
     }
-    if !temp_dir.join("opcert.cert").exists() {
-        operational_certificate
-            .to_file(temp_dir.join("opcert.cert"))
-            .expect("operational certificate file export should not fail");
-    }
-    party_id
 }
 
 #[cfg(test)]
@@ -239,5 +262,23 @@ mod tests {
             .with_signers(5);
 
         assert_eq!(Vec::<PartyId>::new(), builder.generate_party_ids());
+    }
+
+    #[test]
+    fn changing_party_id_seed_change_all_builded_party_ids() {
+        let first_signers = MithrilFixtureBuilder::default()
+            .with_signers(100)
+            .build()
+            .signers_with_stake();
+        let different_party_id_seed_signers = MithrilFixtureBuilder::default()
+            .with_signers(100)
+            .with_party_id_seed([1u8; 32])
+            .build()
+            .signers_with_stake();
+        let first_party_ids: Vec<&PartyId> = first_signers.iter().map(|s| &s.party_id).collect();
+
+        for party_id in different_party_id_seed_signers.iter().map(|s| &s.party_id) {
+            assert!(!first_party_ids.contains(&party_id));
+        }
     }
 }
