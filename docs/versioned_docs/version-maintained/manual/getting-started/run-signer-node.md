@@ -415,10 +415,10 @@ We assume that the **Cardano Relay** machine is protected by a firewall, and tha
 
 We need to allow the incoming traffic on the listening port of the **Mithril Relay** on **Cardano Relay** machine that is originating from the **Cardano Block Producer** machine.
 
-Assuming you are using [`Uncomplicated Firewall`](https://en.wikipedia.org/wiki/Uncomplicated_Firewall), the command to run in order to open that traffic is:
+Assuming you are using [`Uncomplicated Firewall`](https://en.wikipedia.org/wiki/Uncomplicated_Firewall) (`0.36+`), the command to run in order to open that traffic is:
 
 ```bash
-sudo ufw allow tcp from **YOUR_BLOCK_PRODUCER_INTERNAL_IP** to any port **YOUR_RELAY_LISTENING_PORT**
+sudo ufw allow from **YOUR_BLOCK_PRODUCER_INTERNAL_IP** to any port **YOUR_RELAY_LISTENING_PORT** proto tcp
 ```
 
 ## Verify the Mithril Signer Deployment
