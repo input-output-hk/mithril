@@ -6,15 +6,15 @@ use std::{
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey, ProtocolClerk,
-        ProtocolGenesisSigner, ProtocolInitializer, ProtocolKeyRegistration, ProtocolSigner,
-        ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
-        ProtocolStakeDistribution,
+        key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey,
+        ProtocolGenesisSigner, ProtocolInitializer, ProtocolSigner, ProtocolSignerVerificationKey,
+        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
         Beacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
         ProtocolParameters, Signer, SignerWithStake, SingleSignatures, StakeDistribution,
     },
+    protocol::SignerBuilder,
 };
 
 /// A fixture of Mithril data types.
@@ -104,33 +104,13 @@ impl MithrilFixture {
         self.stake_distribution.clone()
     }
 
-    /// Create a [ProtocolClerk] based on this fixture protocol parameters & signers
-    pub fn create_clerk(&self) -> ProtocolClerk {
-        let mut key_registration = ProtocolKeyRegistration::init(&self.stake_distribution);
-
-        for signer in self.signers.clone() {
-            key_registration
-                .register(
-                    Some(signer.signer_with_stake.party_id.to_owned()),
-                    signer.operational_certificate(),
-                    signer.verification_key_signature(),
-                    signer.signer_with_stake.kes_period,
-                    signer.verification_key(),
-                )
-                .unwrap();
-        }
-        let closed_registration = key_registration.close();
-
-        ProtocolClerk::from_registration(
-            &self.protocol_parameters.clone().into(),
-            &closed_registration,
-        )
-    }
-
     /// Compute the Aggregate Verification Key for this fixture.
     pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
-        let clerk = self.create_clerk();
-        clerk.compute_avk()
+        let multi_signer =
+            SignerBuilder::new(&self.signers_with_stake(), &self.protocol_parameters)
+                .unwrap()
+                .build_multi_signer();
+        multi_signer.compute_aggregate_verification_key()
     }
 
     /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAgregateVerificationKey].
