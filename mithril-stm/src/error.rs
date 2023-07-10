@@ -185,7 +185,7 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::AggregateSignatureInvalid => {
-                Self::CoreVerificationError(CoreVerifierError::from(e))
+                Self::from(CoreVerifierError::from(e))
             }
             MultiSignatureError::BatchInvalid => Self::BatchInvalid,
             MultiSignatureError::SerializationError => unreachable!(),
