@@ -48,7 +48,7 @@ fn test_core_verifier() {
     ///// operation phase ////
     //////////////////////////
 
-    let mut signatures: Vec<StmSig> = Vec::new();
+    let mut signatures: Vec<StmSig> = Vec::with_capacity(nparties);
     for s in signers {
         if let Some(sig) = s.core_sign(&msg, core_verifier.total_stake) {
             signatures.push(sig);
