@@ -421,6 +421,14 @@ Assuming you are using [`Uncomplicated Firewall`](https://en.wikipedia.org/wiki/
 sudo ufw allow from **YOUR_BLOCK_PRODUCER_INTERNAL_IP** to any port **YOUR_RELAY_LISTENING_PORT** proto tcp
 ```
 
+Assuming you are using [`Iptables`](https://en.wikipedia.org/wiki/Iptables) (`1.8.7+`), the commands to run in order to open that traffic is:
+
+```bash
+sudo iptables -A INPUT -s **YOUR_BLOCK_PRODUCER_INTERNAL_IP** -p tcp --dport **YOUR_RELAY_LISTENING_PORT** -j ACCEPT
+sudo iptables -L -v
+sudo service netfilter-persistent save
+```
+
 ## Verify the Mithril Signer Deployment
 
 :::tip
