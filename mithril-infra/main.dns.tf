@@ -31,6 +31,14 @@ resource "google_dns_record_set" "prometheus-endpoint" {
   rrdatas      = [google_compute_address.mithril-external-address.address]
 }
 
+resource "google_dns_record_set" "loki-endpoint" {
+  name         = "loki.${google_dns_managed_zone.mithril-api-zone.dns_name}"
+  managed_zone = google_dns_managed_zone.mithril-api-zone.name
+  type         = "A"
+  ttl          = 300
+  rrdatas      = [google_compute_address.mithril-external-address.address]
+}
+
 locals {
   mithril_aggregator_host         = trimsuffix(google_dns_record_set.mithril-aggregator-endpoint.name, ".")
   mithril_aggregator_endpoint_url = format("https://%s%s/aggregator", local.mithril_aggregator_credentials, local.mithril_aggregator_host)
@@ -43,5 +51,6 @@ locals {
   ]
   prometheus_host         = trimsuffix(google_dns_record_set.prometheus-endpoint.name, ".")
   prometheus_endpoint_url = format("https://%s%s", local.prometheus_credentials, local.prometheus_host)
-
+  loki_host               = trimsuffix(google_dns_record_set.loki-endpoint.name, ".")
+  loki_endpoint_url       = format("https://%s%s", local.loki_credentials, local.loki_host)
 }

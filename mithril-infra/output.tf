@@ -14,6 +14,10 @@ output "prometheus_endpoint_url" {
   value = local.prometheus_endpoint_url
 }
 
+output "loki_endpoint_url" {
+  value = local.loki_endpoint_url
+}
+
 output "storage_bucket" {
   value = google_storage_bucket.cloud_storage.name
 }
