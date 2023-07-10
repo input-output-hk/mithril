@@ -154,6 +154,8 @@ jobs:
       ERA_READER_SECRET_KEY: ${{ secrets.ERA_READER_SECRET_KEY }}
       PROMETHEUS_AUTH_USERNAME: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
       PROMETHEUS_AUTH_PASSWORD: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
+      LOKI_AUTH_USERNAME: ${{ secrets.LOKI_AUTH_USERNAME }}
+      LOKI_AUTH_PASSWORD: ${{ secrets.LOKI_AUTH_PASSWORD }}
 
     defaults:
       run:
@@ -195,6 +197,8 @@ jobs:
           mithril_signers                         = ${{ matrix.mithril_signers }}
           prometheus_auth_username                = "${{ env.PROMETHEUS_AUTH_USERNAME }}"
           prometheus_auth_password                = "${{ env.PROMETHEUS_AUTH_PASSWORD }}"
+          loki_auth_username                      = "${{ env.LOKI_AUTH_USERNAME }}"
+          loki_auth_password                      = "${{ env.LOKI_AUTH_PASSWORD }}"
         EOF
         terraform fmt ./env.variables.tfvars
         cat ./env.variables.tfvars
