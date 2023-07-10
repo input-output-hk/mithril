@@ -10,13 +10,12 @@ type D = Blake2b<U32>;
 
 #[test]
 fn test_core_verifier() {
-    let nparties = 32;
+    let nparties: usize = 32;
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
-    let mut public_signers: Vec<(StmVerificationKey, Stake)> =
-        Vec::with_capacity(nparties as usize);
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
+    let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
+    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
 
     //////////////////////////
     // initialization phase //
