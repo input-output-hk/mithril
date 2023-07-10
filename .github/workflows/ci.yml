@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build-ubuntu-X64:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-20.04
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
