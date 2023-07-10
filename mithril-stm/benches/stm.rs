@@ -174,8 +174,8 @@ where
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
     let signers: Vec<StmSigner<H>> = initializers
-        .into_iter()
-        .map(|s| s.new_core_signer(&public_signers))
+        .into_par_iter()
+        .filter_map(|s| s.new_core_signer(&public_signers))
         .collect();
 
     let core_verifier = CoreVerifier::setup(&public_signers);

@@ -341,7 +341,7 @@ impl StmInitializer {
     pub fn new_core_signer<D: Digest + Clone>(
         self,
         eligible_parties: &[(VerificationKey, Stake)],
-    ) -> StmSigner<D> {
+    ) -> Option<StmSigner<D>> {
         let mut my_index = None;
         for (i, rp) in eligible_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -350,14 +350,14 @@ impl StmInitializer {
             }
         }
 
-        StmSigner {
+        Some(StmSigner {
             signer_index: my_index.unwrap(),
             stake: self.stake,
             params: self.params,
             sk: self.sk,
             vk: self.pk.vk,
             closed_reg: None,
-        }
+        })
     }
 
     /// Convert to bytes
@@ -879,6 +879,7 @@ impl CoreVerifier {
         }
     }
 
+    /// Preliminary verification that checks whether indices are unique and the quorum is achieved.
     fn preliminary_verify(
         total_stake: &Stake,
         signatures: &[StmSigRegParty],
@@ -1011,6 +1012,8 @@ impl CoreVerifier {
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 
+    /// Collect and return `Vec<Signature>, Vec<VerificationKey>` which will be used
+    /// by the aggregate verification.
     fn collect_sigs_vks(sig_reg_list: &[StmSigRegParty]) -> (Vec<Signature>, Vec<VerificationKey>) {
         let sigs = sig_reg_list
             .iter()
@@ -1062,6 +1065,7 @@ mod tests {
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+    use rayon::prelude::*;
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
@@ -1526,7 +1530,6 @@ mod tests {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
-        #[allow(clippy::needless_collect)]
         let ps = stake
             .into_iter()
             .map(|stake| StmInitializer::setup(params, stake, &mut rng))
@@ -1538,8 +1541,8 @@ mod tests {
             .collect::<Vec<(VerificationKey, Stake)>>();
 
         let signers = ps
-            .into_iter()
-            .map(|s| s.new_core_signer(&public_signers))
+            .into_par_iter()
+            .filter_map(|s| s.new_core_signer(&public_signers))
             .collect();
         (signers, public_signers)
     }
