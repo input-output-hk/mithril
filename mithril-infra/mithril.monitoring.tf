@@ -23,7 +23,8 @@ resource "null_resource" "mithril_monitoring" {
 
   provisioner "remote-exec" {
     inline = [
-      "mkdir -p /home/curry/data/monitoring/{prometheus,loki}",
+      "mkdir -p /home/curry/data/monitoring/prometheus",
+      "mkdir -p /home/curry/data/monitoring/loki",
       <<-EOT
 # Setup prometheus targets configuration for Cardano nodes
 CARDANO_NODES=$(docker ps --format='{{.Names}}:12798,' | grep "cardano-node" | sort | tr -d '\n\t\r ' | sed 's/.$//')
@@ -44,6 +45,7 @@ EOT
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export PROMETHEUS_HOST=${local.prometheus_host}",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",
+      "export CURRENT_UID=$(id -u)",
       "docker compose -f /home/curry/docker/docker-compose-monitoring.yaml --profile all up -d",
     ]
   }
