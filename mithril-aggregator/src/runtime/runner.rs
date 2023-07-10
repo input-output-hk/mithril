@@ -67,7 +67,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
 
     /// Check if a certificate chain is valid.
-    async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>>;
+    async fn is_certificate_chain_valid(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
     /// Update the multisigner with the given beacon.
     async fn update_beacon(
@@ -265,33 +268,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(None)
     }
 
-    async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>> {
+    async fn is_certificate_chain_valid(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: is_certificate_chain_valid");
-        let certificate_store = self.dependencies.certificate_store.clone();
-        let latest_certificates = certificate_store.get_list(1).await?;
-        let latest_certificate = latest_certificates.first();
-        if latest_certificate.is_none() {
-            return Ok(false);
-        }
+        self.dependencies
+            .certifier_service
+            .verify_certificate_chain(beacon.epoch)
+            .await?;
 
-        match self
-            .dependencies
-            .certificate_verifier
-            .verify_certificate_chain(
-                latest_certificate.unwrap().to_owned(),
-                certificate_store.clone(),
-                &self.dependencies.genesis_verifier,
-            )
-            .await
-        {
-            Ok(()) => Ok(true),
-            Err(error) => {
-                warn!(" > invalid certificate chain"; "error" => ?error);
-                Ok(false)
-            }
-        }
+        Ok(())
     }
 
+    // TODO: is this still useful?
     async fn update_beacon(
         &self,
         new_beacon: &Beacon,

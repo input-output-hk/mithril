@@ -67,6 +67,11 @@ impl Epoch {
     pub fn previous(&self) -> Result<Self, EpochError> {
         self.offset_by(-1)
     }
+
+    /// Check if there is a gap with another Epoch.
+    pub fn has_gap_with(&self, other: &Epoch) -> bool {
+        self.0.abs_diff(other.0) > 1
+    }
 }
 
 impl Add for Epoch {
@@ -220,5 +225,14 @@ mod tests {
         assert_eq!(&Epoch(4), 4);
         assert_eq!(5, Epoch(5));
         assert_eq!(6, &Epoch(6));
+    }
+
+    #[test]
+    fn test_has_gap_ok() {
+        assert!(Epoch(3).has_gap_with(&Epoch(5)));
+        assert!(!Epoch(3).has_gap_with(&Epoch(4)));
+        assert!(!Epoch(3).has_gap_with(&Epoch(3)));
+        assert!(!Epoch(3).has_gap_with(&Epoch(2)));
+        assert!(Epoch(3).has_gap_with(&Epoch(0)));
     }
 }
