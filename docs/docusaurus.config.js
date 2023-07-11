@@ -204,6 +204,9 @@ const config = {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
       },
+      mermaid: {
+        theme: { light: 'base', dark: 'base' },
+      },
     }),
   markdown: {
     mermaid: true,
