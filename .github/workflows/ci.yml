@@ -30,7 +30,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
+          cache-version: 20.04-${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-deb
 
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
