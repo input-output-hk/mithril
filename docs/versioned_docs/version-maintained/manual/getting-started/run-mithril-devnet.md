@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 4
 ---
 
 # Run a Private Mithril network
@@ -38,8 +38,6 @@ More information about this private Cardano/Mithril `devnet` is available [here]
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
-
-* Ensure SQLite3 library is installed on your system and its version is at least  `3.40`. Run `sqlite3 --version` to check your version.
 
 ## Download source
 

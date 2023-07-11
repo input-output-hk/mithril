@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 ---
 
 import NetworksMatrix from '../../networks-matrix.md';
@@ -81,8 +81,6 @@ This guide is working only on a Linux machine.
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure the SQLite3 version is at least `3.35` (released Apr. 2021)
-
 * Install a recent version of `jq` (version `1.6+`) `apt install jq`
 
 * Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version `5.2+`) `apt install squid`
@@ -140,6 +138,8 @@ Build executable
 ```bash
 make build
 ```
+
+### Download pre-built binary
 
 <CompiledBinaries />
 
