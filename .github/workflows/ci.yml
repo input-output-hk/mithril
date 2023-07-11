@@ -190,7 +190,7 @@ jobs:
       fail-fast: false
       matrix:
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        run_id: [1,2,3]
+        run_id: [1,2,3,4,5,6,7,8,9,10]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
