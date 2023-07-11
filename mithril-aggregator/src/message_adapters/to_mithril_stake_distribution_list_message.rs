@@ -22,6 +22,7 @@ impl
                 epoch: entity.artifact.epoch,
                 hash: entity.artifact.hash,
                 certificate_hash: entity.certificate_id,
+                created_at: entity.created_at,
             })
             .collect()
     }
@@ -50,7 +51,9 @@ mod tests {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(0)),
             certificate_id: "certificate-hash-123".to_string(),
             artifact: mithril_stake_distribution,
-            created_at: DateTime::<Utc>::default(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
         };
         let mithril_stake_distribution_list_message =
             ToMithrilStakeDistributionListMessageAdapter::adapt(vec![signed_entity]);
@@ -59,6 +62,9 @@ mod tests {
                 epoch: Epoch(1),
                 hash: "hash-123".to_string(),
                 certificate_hash: "certificate-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
             }];
 
         assert_eq!(

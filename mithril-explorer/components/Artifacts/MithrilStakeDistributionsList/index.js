@@ -51,7 +51,7 @@ export default function MithrilStakeDistributionsList(props) {
       <div className={props.className}>
         <h2>Mithril Stake Distribution <RawJsonButton href={`${aggregator}/artifact/mithril-stake-distributions`} variant="outline-light" size="sm"/></h2>
         {Object.entries(mithrilStakeDistributions).length === 0
-          ? <p>No snapshot available</p>
+          ? <p>No mithril stake distribution available</p>
           :
           <Container fluid>
             <Row xs={1} md={2} lg={3} xl={4}>

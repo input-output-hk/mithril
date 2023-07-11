@@ -67,11 +67,17 @@ mod tests {
                 epoch: Epoch(1),
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
             },
             MithrilStakeDistributionListItemMessage {
                 epoch: Epoch(2),
                 hash: "hash-456".to_string(),
                 certificate_hash: "cert-hash-456".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
             },
         ]
     }

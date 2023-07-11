@@ -114,6 +114,10 @@ pub struct MithrilStakeDistributionListItem {
     #[table(title = "Certificate Hash")]
     /// Hash of the associated certificate
     pub certificate_hash: String,
+
+    /// Date and time at which the Mithril Stake Distribution was created
+    #[table(title = "Created", justify = "Justify::Right")]
+    pub created_at: DateTime<Utc>,
 }
 
 impl From<MithrilStakeDistributionListItemMessage> for MithrilStakeDistributionListItem {
@@ -122,6 +126,7 @@ impl From<MithrilStakeDistributionListItemMessage> for MithrilStakeDistributionL
             epoch: value.epoch,
             hash: value.hash,
             certificate_hash: value.certificate_hash,
+            created_at: value.created_at,
         }
     }
 }

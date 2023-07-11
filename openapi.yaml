@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.7
+  version: 0.1.8
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1042,6 +1042,7 @@ components:
         required:
           - epoch
           - hash
+          - created_at
         properties:
           epoch:
             description: Cardano chain epoch number
@@ -1055,11 +1056,16 @@ components:
             description: Hash of the associated certificate
             type: string
             format: bytes
+          created_at:
+            description: Date and time at which the Mithril stake distribution was created
+            type: string
+            format: date-time,
         example:
           {
             "epoch": 123,
             "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-            "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572"
+            "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+            "created_at": "2022-06-14T10:52:31Z"
           }
 
     MithrilStakeDistributionMessage:
