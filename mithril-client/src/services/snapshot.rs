@@ -500,7 +500,11 @@ mod tests {
 
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
-        build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
+        build_dummy_snapshot(
+            "digest-10.tar.gz",
+            "1234567890".repeat(124).as_str(),
+            &test_path,
+        );
         let filepath = snapshot_service
             .download(
                 &snapshot,
@@ -551,7 +555,11 @@ mod tests {
 
         let (_, verifier) = setup_genesis();
         let genesis_verification_key = verifier.to_verification_key();
-        build_dummy_snapshot("digest-10", "1234567890".repeat(124).as_str(), &test_path);
+        build_dummy_snapshot(
+            "digest-10.tar.gz",
+            "1234567890".repeat(124).as_str(),
+            &test_path,
+        );
         let err = snapshot_service
             .download(
                 &signed_entity,
@@ -577,7 +585,7 @@ mod tests {
                 "Expected a SnapshotServiceError when snapshot can not be verified. Got {err:?}: '{err}'"
             );
         }
-        let filepath = test_path.join("snapshot-digest-10");
+        let filepath = test_path.join("snapshot-digest-10.tar.gz");
         assert!(filepath.exists());
         let unpack_dir = filepath
             .parent()
