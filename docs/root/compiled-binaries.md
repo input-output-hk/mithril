@@ -4,8 +4,6 @@ hide_title: true
 hide_table_of_contents: true
 ---
 
-## Download compiled binary
-
 Each Release / Pre-Release distribution comes with pre compiled binaries ready to use or wrapped in a debian package
 for linux¹.
 

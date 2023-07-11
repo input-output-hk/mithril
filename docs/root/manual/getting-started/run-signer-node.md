@@ -139,6 +139,8 @@ Build executable
 make build
 ```
 
+### Download pre-built binary
+
 <CompiledBinaries />
 
 ### Verify binary

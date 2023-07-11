@@ -156,6 +156,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 :::
 
+## Download pre-built binary
+
 <CompiledBinaries />
 
 ## Run Docker container
