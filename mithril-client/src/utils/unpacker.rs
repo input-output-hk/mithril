@@ -1,5 +1,6 @@
 use std::{
     fs::{create_dir_all, remove_dir, File},
+    io::{Seek, SeekFrom},
     path::{Path, PathBuf},
 };
 
@@ -90,12 +91,16 @@ impl SnapshotUnpacker {
 
     /// Unpack the snapshot pointed at the given filepath into the given directory.
     pub async fn unpack_snapshot(&self, filepath: &Path, unpack_dir: &Path) -> StdResult<()> {
-        let snapshot_file_tar_gz =
+        let mut snapshot_file_tar_gz =
             File::open(filepath).map_err(|e| SnapshotUnpackerError::UnpackFailed {
                 filepath: filepath.to_owned(),
                 dirpath: unpack_dir.to_owned(),
                 error: e.into(),
             })?;
+        // Try to force the file read to start at 0.
+        // This seems to fix a crash when the unpacker tries to iterate
+        // over archive content.
+        snapshot_file_tar_gz.seek(SeekFrom::Start(0))?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
         snapshot_archive

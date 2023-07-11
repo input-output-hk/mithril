@@ -67,7 +67,7 @@ impl SnapshotClient {
     ) -> StdResult<PathBuf> {
         let filepath = PathBuf::new()
             .join(download_dir)
-            .join(format!("snapshot-{}", snapshot.digest));
+            .join(format!("snapshot-{}.tar.gz", snapshot.digest));
 
         for url in snapshot.locations.as_slice() {
             if self.http_client.probe(url).await.is_ok() {
