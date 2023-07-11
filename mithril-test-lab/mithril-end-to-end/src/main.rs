@@ -1,6 +1,6 @@
 use clap::Parser;
-use mithril_end_to_end::Spec;
 use mithril_end_to_end::{Devnet, MithrilInfrastructure};
+use mithril_end_to_end::{RunOnly, Spec};
 use slog::{Drain, Logger};
 use slog_scope::error;
 use std::error::Error;
@@ -49,6 +49,10 @@ pub struct Args {
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
     mithril_era: String,
+
+    /// Enable run only mode
+    #[clap(long)]
+    run_only: bool,
 }
 
 #[tokio::main]
@@ -67,6 +71,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             work_dir.canonicalize().unwrap()
         }
     };
+    let run_only_mode = args.run_only;
 
     let devnet = Devnet::bootstrap(
         args.devnet_scripts_directory,
@@ -84,22 +89,44 @@ async fn main() -> Result<(), Box<dyn Error>> {
         &work_dir,
         &args.bin_directory,
         &args.mithril_era,
+        run_only_mode,
     )
     .await?;
 
-    let mut spec = Spec::new(infrastructure);
+    match run_only_mode {
+        true => {
+            let mut run_only = RunOnly::new(infrastructure);
 
-    match spec.run().await {
-        Ok(_) => {
-            devnet.stop().await?;
-            Ok(())
+            match run_only.run().await {
+                Ok(_) => {
+                    devnet.stop().await?;
+                    Ok(())
+                }
+                Err(error) => {
+                    let has_written_logs = run_only.tail_logs(20).await;
+                    error!("Mithril End to End test in run-only mode failed: {}", error);
+                    devnet.stop().await?;
+                    has_written_logs?;
+                    Err(error)
+                }
+            }
         }
-        Err(error) => {
-            let has_written_logs = spec.tail_logs(20).await;
-            error!("Mithril End to End test failed: {}", error);
-            devnet.stop().await?;
-            has_written_logs?;
-            Err(error)
+        false => {
+            let mut spec = Spec::new(infrastructure);
+
+            match spec.run().await {
+                Ok(_) => {
+                    devnet.stop().await?;
+                    Ok(())
+                }
+                Err(error) => {
+                    let has_written_logs = spec.tail_logs(20).await;
+                    error!("Mithril End to End test failed: {}", error);
+                    devnet.stop().await?;
+                    has_written_logs?;
+                    Err(error)
+                }
+            }
         }
     }
 }

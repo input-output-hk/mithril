@@ -1,13 +1,14 @@
 use crate::assertions;
 use crate::MithrilInfrastructure;
 use mithril_common::chain_observer::ChainObserver;
-use std::error::Error;
+use slog_scope::info;
+use std::{error::Error, thread::sleep, time::Duration};
 
-pub struct Spec {
+pub struct RunOnly {
     infrastructure: MithrilInfrastructure,
 }
 
-impl Spec {
+impl RunOnly {
     pub fn new(infrastructure: MithrilInfrastructure) -> Self {
         Self { infrastructure }
     }
@@ -64,47 +65,9 @@ impl Spec {
         )
         .await?;
 
-        // Verify that mithril stake distribution artifacts are produced and signed correctly
-        {
-            let hash =
-                assertions::assert_node_producing_mithril_stake_distribution(&aggregator_endpoint)
-                    .await?;
-            let certificate_hash = assertions::assert_signer_is_signing_mithril_stake_distribution(
-                &aggregator_endpoint,
-                &hash,
-                target_epoch - 2,
-            )
-            .await?;
-            assertions::assert_is_creating_certificate_with_enough_signers(
-                &aggregator_endpoint,
-                &certificate_hash,
-                self.infrastructure.signers().len(),
-            )
-            .await?;
-            let mut client = self.infrastructure.build_client()?;
-            assertions::assert_client_can_verify_mithril_stake_distribution(&mut client, &hash)
-                .await?;
-        }
-
-        // Verify that snapshot artifacts are produced and signed correctly
-        {
-            let digest = assertions::assert_node_producing_snapshot(&aggregator_endpoint).await?;
-            let certificate_hash = assertions::assert_signer_is_signing_snapshot(
-                &aggregator_endpoint,
-                &digest,
-                target_epoch - 2,
-            )
-            .await?;
-
-            assertions::assert_is_creating_certificate_with_enough_signers(
-                &aggregator_endpoint,
-                &certificate_hash,
-                self.infrastructure.signers().len(),
-            )
-            .await?;
-
-            let mut client = self.infrastructure.build_client()?;
-            assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
+        loop {
+            info!("Mithril end to end is running and will remain active until manually stopped...");
+            sleep(Duration::from_secs(5));
         }
 
         Ok(())
