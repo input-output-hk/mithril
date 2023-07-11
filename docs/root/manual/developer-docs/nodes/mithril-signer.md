@@ -41,8 +41,6 @@ This is the node of the **Mithril Network** responsible for producing individual
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure SQLite3 library is installed on your system and its version is at least `3.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
-
 ## Download source
 
 Download from GitHub (HTTPS)
