@@ -106,11 +106,9 @@ impl MithrilFixture {
 
     /// Compute the Aggregate Verification Key for this fixture.
     pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
-        let multi_signer =
-            SignerBuilder::new(&self.signers_with_stake(), &self.protocol_parameters)
-                .unwrap()
-                .build_multi_signer();
-        multi_signer.compute_aggregate_verification_key()
+        SignerBuilder::new(&self.signers_with_stake(), &self.protocol_parameters)
+            .unwrap()
+            .compute_aggregate_verification_key()
     }
 
     /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAgregateVerificationKey].

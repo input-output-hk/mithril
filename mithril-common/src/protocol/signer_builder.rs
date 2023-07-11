@@ -4,6 +4,7 @@ use rand_core::{CryptoRng, RngCore, SeedableRng};
 use std::path::Path;
 use thiserror::Error;
 
+use crate::crypto_helper::ProtocolAggregateVerificationKey;
 use crate::{
     crypto_helper::{
         key_decode_hex, OpCert, ProtocolClerk, ProtocolClosedKeyRegistration, ProtocolInitializer,
@@ -82,6 +83,15 @@ impl SignerBuilder {
             ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
 
         MultiSigner::new(clerk, stm_parameters)
+    }
+
+    /// Compute aggregate verification key from stake distribution
+    pub fn compute_aggregate_verification_key(&self) -> ProtocolAggregateVerificationKey {
+        let stm_parameters = self.protocol_parameters.clone().into();
+        let clerk =
+            ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
+
+        clerk.compute_avk()
     }
 
     fn build_single_signer_with_rng<R: RngCore + CryptoRng>(

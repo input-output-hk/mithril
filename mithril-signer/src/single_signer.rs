@@ -134,16 +134,15 @@ impl SingleSigner for MithrilSingleSigner {
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<String>, SingleSignerError> {
-        let multi_signer = SignerBuilder::new(
+        let signer_builder = SignerBuilder::new(
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
         )
         .map_err(|error| {
             SingleSignerError::AggregateVerificationKeyComputationFailed(error.into())
-        })?
-        .build_multi_signer();
+        })?;
 
-        let encoded_avk = key_encode_hex(multi_signer.compute_aggregate_verification_key())
+        let encoded_avk = key_encode_hex(signer_builder.compute_aggregate_verification_key())
             .map_err(SingleSignerError::Codec)?;
 
         Ok(Some(encoded_avk))

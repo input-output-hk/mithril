@@ -97,9 +97,7 @@ impl AppMithrilStakeDistributionService {
             &stake_distribution.protocol_parameters,
         )?;
 
-        Ok(signer_builder
-            .build_multi_signer()
-            .compute_aggregate_verification_key())
+        Ok(signer_builder.compute_aggregate_verification_key())
     }
 }
 
