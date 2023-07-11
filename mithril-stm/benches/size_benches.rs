@@ -88,7 +88,7 @@ where
     }
 
     let signers: Vec<StmSigner<H>> = initializers
-        .into_par_iter()
+        .into_iter()
         .filter_map(|s| s.new_core_signer(&public_signers))
         .collect();
 

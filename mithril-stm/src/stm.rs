@@ -349,15 +349,18 @@ impl StmInitializer {
                 break;
             }
         }
-
-        Some(StmSigner {
-            signer_index: my_index.unwrap(),
-            stake: self.stake,
-            params: self.params,
-            sk: self.sk,
-            vk: self.pk.vk,
-            closed_reg: None,
-        })
+        if let Some(index) = my_index {
+            Some(StmSigner {
+                signer_index: index,
+                stake: self.stake,
+                params: self.params,
+                sk: self.sk,
+                vk: self.pk.vk,
+                closed_reg: None,
+            })
+        } else {
+            None
+        }
     }
 
     /// Convert to bytes
@@ -1065,7 +1068,6 @@ mod tests {
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
-    use rayon::prelude::*;
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
@@ -1541,7 +1543,7 @@ mod tests {
             .collect::<Vec<(VerificationKey, Stake)>>();
 
         let signers = ps
-            .into_par_iter()
+            .into_iter()
             .filter_map(|s| s.new_core_signer(&public_signers))
             .collect();
         (signers, public_signers)

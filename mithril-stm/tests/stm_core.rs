@@ -7,7 +7,6 @@ use mithril_stm::CoreVerifierError;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 type D = Blake2b<U32>;
-use rayon::prelude::*;
 
 #[test]
 fn test_core_verifier() {
@@ -39,7 +38,7 @@ fn test_core_verifier() {
     }
 
     let signers: Vec<StmSigner<D>> = initializers
-        .into_par_iter()
+        .into_iter()
         .filter_map(|s| s.new_core_signer(&public_signers))
         .collect();
 
