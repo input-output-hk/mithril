@@ -1,7 +1,9 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM ubuntu:22.04 AS rustbuilder
+FROM ubuntu:20.04 AS rustbuilder
+
+ENV DEBIAN_FRONTEND noninteractive
 
 # Upgrade and install build base
 RUN apt-get update && apt-get install -y libssl-dev curl wget build-essential pkg-config make m4
@@ -37,10 +39,10 @@ RUN /app/target/release/mithril-client --version
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM ubuntu:22.04
+FROM debian:11-slim
 
 # Upgrade
-RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
 
 # Import the user and group files from the builder
 COPY --from=rustbuilder /etc/passwd /etc/passwd

@@ -1,10 +1,10 @@
 # Creates a docker image to run an executable built outside of the image
 # This relies on the fact the mithril-client executable has been built
 # on a debian-compatible x86-64 environment
-FROM ubuntu:22.04
+FROM debian:11-slim
 
 # Upgrade
-RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && rm -rf /var/lib/apt/lists/*
 
 # Create appuser
 RUN adduser --disabled-password appuser

@@ -1,13 +1,13 @@
 # Creates a docker image to run an executable built outside of the image
 # This relies on the fact the mithril-aggregator executable has been built
 # on a debian-compatible x86-64 environment
-FROM ubuntu:22.04
+FROM debian:11-slim
 
 # Args
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/8.1.1/cardano-node-8.1.1-linux.tar.gz
 
 # Upgrade
-RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && rm -rf /var/lib/apt/lists/*
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser

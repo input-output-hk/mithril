@@ -1,7 +1,9 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM ubuntu:22.04 AS rustbuilder
+FROM ubuntu:20.04 AS rustbuilder
+
+ENV DEBIAN_FRONTEND noninteractive
 
 # Upgrade and install build base
 RUN apt-get update && apt-get install -y libssl-dev curl wget build-essential pkg-config make m4
@@ -37,7 +39,7 @@ RUN /app/target/release/mithril-aggregator --version
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM ubuntu:22.04
+FROM debian:11-slim
 
 # Args
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/8.1.1/cardano-node-8.1.1-linux.tar.gz
