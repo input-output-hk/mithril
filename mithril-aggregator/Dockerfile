@@ -1,17 +1,7 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM ubuntu:20.04 AS rustbuilder
-
-ENV DEBIAN_FRONTEND noninteractive
-
-# Upgrade and install build base
-RUN apt-get update && apt-get install -y libssl-dev curl wget build-essential pkg-config make m4
-
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN cargo --version
+FROM rust:bullseye AS rustbuilder
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
