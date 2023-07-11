@@ -97,8 +97,9 @@ impl SnapshotUnpacker {
                 dirpath: unpack_dir.to_owned(),
                 error: e.into(),
             })?;
-        // Try to force the file read to start at 0. We need to determine if
-        // this fixes instabilities in CI.
+        // Try to force the file read to start at 0.
+        // This seems to fix a crash when the unpacker tries to iterate
+        // over archive content.
         snapshot_file_tar_gz.seek(SeekFrom::Start(0))?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
