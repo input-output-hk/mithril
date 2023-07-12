@@ -7,7 +7,7 @@ use crate::{
         tests_setup, tests_setup::setup_temp_directory_for_signer, ColdKeyGenerator, OpCert,
         ProtocolStakeDistribution, SerDeShelleyFileFormat, Sum6KesBytes,
     },
-    entities::{PartyId, ProtocolParameters, StakeDistribution},
+    entities::{PartyId, ProtocolParameters, Stake, StakeDistribution},
     test_utils::{fake_data, mithril_fixture::MithrilFixture},
 };
 
@@ -17,6 +17,7 @@ pub struct MithrilFixtureBuilder {
     enable_signers_certification: bool,
     number_of_signers: usize,
     stake_distribution_generation_method: StakeDistributionGenerationMethod,
+    party_id_seed: [u8; 32],
 }
 
 impl Default for MithrilFixtureBuilder {
@@ -27,6 +28,7 @@ impl Default for MithrilFixtureBuilder {
             number_of_signers: 5,
             stake_distribution_generation_method:
                 StakeDistributionGenerationMethod::RandomDistribution { seed: [0u8; 32] },
+            party_id_seed: [0u8; 32],
         }
     }
 }
@@ -40,7 +42,12 @@ pub enum StakeDistributionGenerationMethod {
     },
 
     /// Use a custom stake distribution
+    ///
+    /// Important: this will overwrite the number of signers set by with_signers.
     Custom(StakeDistribution),
+
+    /// Make a stake distribution where all parties will have the given stake
+    Uniform(Stake),
 }
 
 impl MithrilFixtureBuilder {
@@ -72,6 +79,12 @@ impl MithrilFixtureBuilder {
         self
     }
 
+    /// Set the seed used to generated the party ids
+    pub fn with_party_id_seed(mut self, seed: [u8; 32]) -> Self {
+        self.party_id_seed = seed;
+        self
+    }
+
     /// Transform the specified parameters to a [MithrilFixture].
     pub fn build(self) -> MithrilFixture {
         let protocol_stake_distribution = self.generate_stake_distribution();
@@ -88,20 +101,14 @@ impl MithrilFixtureBuilder {
     }
 
     fn generate_stake_distribution(&self) -> ProtocolStakeDistribution {
-        let mut kes_keys_seed = [0u8; 32];
-        let signers_party_ids = (0..self.number_of_signers).map(|party_index| {
-            if self.enable_signers_certification {
-                build_party_with_operational_certificate(party_index, &mut kes_keys_seed)
-            } else {
-                format!("{party_index:<032}")
-            }
-        });
+        let signers_party_ids = self.generate_party_ids();
 
         match &self.stake_distribution_generation_method {
             StakeDistributionGenerationMethod::RandomDistribution { seed } => {
                 let mut stake_rng = ChaCha20Rng::from_seed(*seed);
 
                 signers_party_ids
+                    .into_iter()
                     .map(|party_id| {
                         let stake = 1 + stake_rng.next_u64() % 999;
                         (party_id, stake)
@@ -112,36 +119,72 @@ impl MithrilFixtureBuilder {
                 .clone()
                 .into_iter()
                 .collect::<ProtocolStakeDistribution>(),
+            StakeDistributionGenerationMethod::Uniform(stake) => signers_party_ids
+                .into_iter()
+                .map(|party_id| (party_id, *stake))
+                .collect::<ProtocolStakeDistribution>(),
         }
     }
-}
 
-fn build_party_with_operational_certificate(
-    party_index: usize,
-    kes_key_seed: &mut [u8],
-) -> PartyId {
-    let keypair = ColdKeyGenerator::create_deterministic_keypair([party_index as u8; 32]);
-    let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
-    let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut dummy_buffer, kes_key_seed);
-    let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
-    kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
-    let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
-    let party_id = operational_certificate
-        .compute_protocol_party_id()
-        .expect("compute protocol party id should not fail");
-    let temp_dir = setup_temp_directory_for_signer(&party_id, true)
-        .expect("setup temp directory should return a value");
-    if !temp_dir.join("kes.sk").exists() {
-        kes_bytes
-            .to_file(temp_dir.join("kes.sk"))
-            .expect("KES secret key file export should not fail");
+    fn generate_party_ids(&self) -> Vec<PartyId> {
+        match self.stake_distribution_generation_method {
+            StakeDistributionGenerationMethod::Custom(_) => vec![],
+            _ => {
+                let mut kes_keys_seed = [0u8; 32];
+                let signers_party_ids = (0..self.number_of_signers).map(|party_index| {
+                    if self.enable_signers_certification {
+                        self.build_party_with_operational_certificate(
+                            party_index,
+                            &mut kes_keys_seed,
+                        )
+                    } else {
+                        format!("{party_index:<032}")
+                    }
+                });
+                signers_party_ids.collect::<Vec<_>>()
+            }
+        }
     }
-    if !temp_dir.join("opcert.cert").exists() {
-        operational_certificate
-            .to_file(temp_dir.join("opcert.cert"))
-            .expect("operational certificate file export should not fail");
+
+    fn build_party_with_operational_certificate(
+        &self,
+        party_index: usize,
+        kes_key_seed: &mut [u8],
+    ) -> PartyId {
+        let cold_key_seed: Vec<u8> = self
+            .party_id_seed
+            .iter()
+            .copied()
+            .map(|s| {
+                s.saturating_mul(self.number_of_signers as u8)
+                    .saturating_add(party_index as u8)
+            })
+            .collect();
+        let keypair =
+            ColdKeyGenerator::create_deterministic_keypair(cold_key_seed.try_into().unwrap());
+        let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
+        let (kes_secret_key, kes_verification_key) =
+            Sum6Kes::keygen(&mut dummy_buffer, kes_key_seed);
+        let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
+        kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+        let party_id = operational_certificate
+            .compute_protocol_party_id()
+            .expect("compute protocol party id should not fail");
+        let temp_dir = setup_temp_directory_for_signer(&party_id, true)
+            .expect("setup temp directory should return a value");
+        if !temp_dir.join("kes.sk").exists() {
+            kes_bytes
+                .to_file(temp_dir.join("kes.sk"))
+                .expect("KES secret key file export should not fail");
+        }
+        if !temp_dir.join("opcert.cert").exists() {
+            operational_certificate
+                .to_file(temp_dir.join("opcert.cert"))
+                .expect("operational certificate file export should not fail");
+        }
+        party_id
     }
-    party_id
 }
 
 #[cfg(test)]
@@ -179,6 +222,23 @@ mod tests {
     }
 
     #[test]
+    fn uniform_stake_distribution() {
+        let expected_stake = 10;
+        let stake_distribution = MithrilFixtureBuilder::default()
+            .with_stake_distribution(StakeDistributionGenerationMethod::Uniform(expected_stake))
+            .with_signers(5)
+            .build()
+            .stake_distribution();
+
+        assert!(
+            stake_distribution
+                .iter()
+                .all(|(_, stake)| *stake == expected_stake),
+            "Generated stake distribution doesn't have uniform stakes: {stake_distribution:?}"
+        );
+    }
+
+    #[test]
     fn each_parties_generated_with_random_stake_distribution_have_different_stakes() {
         let result = MithrilFixtureBuilder::default()
             .with_stake_distribution(StakeDistributionGenerationMethod::RandomDistribution {
@@ -190,5 +250,35 @@ mod tests {
 
         // BtreeSet dedup values
         assert_eq!(stakes.len(), BTreeSet::from_iter(stakes.values()).len());
+    }
+
+    #[test]
+    fn dont_generate_party_ids_for_custom_stake_distribution() {
+        let stake_distribution = StakeDistribution::from_iter([("party".to_owned(), 4)]);
+        let builder = MithrilFixtureBuilder::default()
+            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
+                stake_distribution,
+            ))
+            .with_signers(5);
+
+        assert_eq!(Vec::<PartyId>::new(), builder.generate_party_ids());
+    }
+
+    #[test]
+    fn changing_party_id_seed_change_all_builded_party_ids() {
+        let first_signers = MithrilFixtureBuilder::default()
+            .with_signers(100)
+            .build()
+            .signers_with_stake();
+        let different_party_id_seed_signers = MithrilFixtureBuilder::default()
+            .with_signers(100)
+            .with_party_id_seed([1u8; 32])
+            .build()
+            .signers_with_stake();
+        let first_party_ids: Vec<&PartyId> = first_signers.iter().map(|s| &s.party_id).collect();
+
+        for party_id in different_party_id_seed_signers.iter().map(|s| &s.party_id) {
+            assert!(!first_party_ids.contains(&party_id));
+        }
     }
 }

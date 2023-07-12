@@ -21,6 +21,7 @@ pub mod entities;
 #[macro_use]
 pub mod era;
 pub mod messages;
+pub mod protocol;
 pub mod signable_builder;
 pub mod sqlite;
 pub mod store;

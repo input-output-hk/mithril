@@ -1,17 +1,20 @@
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey, ProtocolClerk,
-        ProtocolGenesisSigner, ProtocolInitializer, ProtocolKeyRegistration, ProtocolSigner,
-        ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
-        ProtocolStakeDistribution,
+        key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey,
+        ProtocolGenesisSigner, ProtocolInitializer, ProtocolSigner, ProtocolSignerVerificationKey,
+        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
-        Beacon, Certificate, HexEncodedAgregateVerificationKey, ProtocolMessage,
+        Beacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
         ProtocolParameters, Signer, SignerWithStake, SingleSignatures, StakeDistribution,
     },
+    protocol::SignerBuilder,
 };
 
 /// A fixture of Mithril data types.
@@ -33,6 +36,8 @@ pub struct SignerFixture {
     pub protocol_signer: ProtocolSigner,
     /// A [ProtocolSigner].
     pub protocol_initializer: ProtocolInitializer,
+    /// The path to this signer kes secret key file
+    pub kes_secret_key_path: Option<PathBuf>,
 }
 
 impl From<SignerFixture> for SignerWithStake {
@@ -99,33 +104,11 @@ impl MithrilFixture {
         self.stake_distribution.clone()
     }
 
-    /// Create a [ProtocolClerk] based on this fixture protocol parameters & signers
-    pub fn create_clerk(&self) -> ProtocolClerk {
-        let mut key_registration = ProtocolKeyRegistration::init(&self.stake_distribution);
-
-        for signer in self.signers.clone() {
-            key_registration
-                .register(
-                    Some(signer.signer_with_stake.party_id.to_owned()),
-                    signer.operational_certificate(),
-                    signer.verification_key_signature(),
-                    signer.signer_with_stake.kes_period,
-                    signer.verification_key(),
-                )
-                .unwrap();
-        }
-        let closed_registration = key_registration.close();
-
-        ProtocolClerk::from_registration(
-            &self.protocol_parameters.clone().into(),
-            &closed_registration,
-        )
-    }
-
     /// Compute the Aggregate Verification Key for this fixture.
     pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
-        let clerk = self.create_clerk();
-        clerk.compute_avk()
+        SignerBuilder::new(&self.signers_with_stake(), &self.protocol_parameters)
+            .unwrap()
+            .compute_aggregate_verification_key()
     }
 
     /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAgregateVerificationKey].
@@ -171,6 +154,11 @@ impl SignerFixture {
             })
     }
 
+    /// Shortcut to get the party id from the inner signer with stake
+    pub fn party_id(&self) -> PartyId {
+        self.signer_with_stake.party_id.clone()
+    }
+
     /// Decode this signer operational certificate if any
     pub fn operational_certificate(&self) -> Option<OpCert> {
         match &self.signer_with_stake.operational_certificate {
@@ -190,5 +178,10 @@ impl SignerFixture {
             .verification_key_signature
             .as_ref()
             .map(|verification_key_signature| key_decode_hex(verification_key_signature).unwrap())
+    }
+
+    /// Get the path to this signer kes secret key
+    pub fn kes_secret_key_path(&self) -> Option<&Path> {
+        self.kes_secret_key_path.as_deref()
     }
 }

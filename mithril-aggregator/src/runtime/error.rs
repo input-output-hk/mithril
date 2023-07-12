@@ -76,8 +76,4 @@ pub enum RunnerError {
     /// Missing protocol parameters
     #[error("Missing protocol parameters: '{0}'.")]
     MissingProtocolParameters(String),
-
-    /// Missing next aggregate verification key
-    #[error("Missing next aggregate verification key: '{0}'.")]
-    MissingNextAggregateVerificationKey(String),
 }

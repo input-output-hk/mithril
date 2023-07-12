@@ -338,8 +338,7 @@ impl CertifierService for MithrilCertifierService {
             open_message.protocol_message.clone(),
             multi_signer
                 .compute_stake_distribution_aggregate_verification_key()
-                .await?
-                .unwrap(),
+                .await?,
             multi_signature,
             "".to_string(),
         );
