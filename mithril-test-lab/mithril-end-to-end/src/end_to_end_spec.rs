@@ -4,7 +4,7 @@ use mithril_common::chain_observer::ChainObserver;
 use std::error::Error;
 
 pub struct Spec {
-    infrastructure: MithrilInfrastructure,
+    pub infrastructure: MithrilInfrastructure,
 }
 
 impl Spec {
@@ -105,18 +105,6 @@ impl Spec {
 
             let mut client = self.infrastructure.build_client()?;
             assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
-        self.infrastructure
-            .aggregator()
-            .tail_logs(number_of_line)
-            .await?;
-        for signer in self.infrastructure.signers() {
-            signer.tail_logs(number_of_line).await?;
         }
 
         Ok(())

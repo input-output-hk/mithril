@@ -2,11 +2,12 @@ use clap::Parser;
 use mithril_end_to_end::{Devnet, MithrilInfrastructure};
 use mithril_end_to_end::{RunOnly, Spec};
 use slog::{Drain, Logger};
-use slog_scope::error;
-use std::error::Error;
-use std::fs;
+use slog_scope::{crit, error, info};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::{error::Error, fs};
+use std::{thread::sleep, time::Duration};
+use tokio::task::JoinSet;
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
@@ -97,13 +98,29 @@ async fn main() -> Result<(), Box<dyn Error>> {
         true => {
             let mut run_only = RunOnly::new(infrastructure);
 
-            match run_only.run().await {
+            match run_only.start().await {
                 Ok(_) => {
+                    let mut join_set = JoinSet::new();
+                    join_set.spawn(async move {
+                        loop {
+                            info!("Mithril end to end is running and will remain active until manually stopped...");
+                            sleep(Duration::from_secs(5));
+                        }
+                    });
+                    join_set
+                        .spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
+
+                    if let Err(e) = join_set.join_next().await.unwrap()? {
+                        crit!("A critical error occurred: {e}");
+                    }
+
                     devnet.stop().await?;
+                    join_set.shutdown().await;
+
                     Ok(())
                 }
                 Err(error) => {
-                    let has_written_logs = run_only.tail_logs(20).await;
+                    let has_written_logs = run_only.infrastructure.tail_logs(20).await;
                     error!("Mithril End to End test in run-only mode failed: {}", error);
                     devnet.stop().await?;
                     has_written_logs?;
@@ -120,7 +137,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     Ok(())
                 }
                 Err(error) => {
-                    let has_written_logs = spec.tail_logs(20).await;
+                    let has_written_logs = spec.infrastructure.tail_logs(20).await;
                     error!("Mithril End to End test failed: {}", error);
                     devnet.stop().await?;
                     has_written_logs?;

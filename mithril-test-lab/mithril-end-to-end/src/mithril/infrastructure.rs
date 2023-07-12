@@ -118,4 +118,13 @@ impl MithrilInfrastructure {
     pub fn run_only_mode(&self) -> bool {
         self.run_only_mode
     }
+
+    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+        self.aggregator().tail_logs(number_of_line).await?;
+        for signer in self.signers() {
+            signer.tail_logs(number_of_line).await?;
+        }
+
+        Ok(())
+    }
 }
