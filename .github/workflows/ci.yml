@@ -368,7 +368,7 @@ jobs:
           path: ./package-Windows-X64
 
       - name: Prepare distribution package
-        uses: ./.github/workflows/actions/toolchain-and-cache
+        uses: ./.github/workflows/actions/prepare-distribution
         with:
           version-name: unstable-${{ steps.slug.outputs.sha8 }}
           download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/unstable

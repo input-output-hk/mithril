@@ -57,7 +57,7 @@ jobs:
           echo ${{ github.ref_name }} >> ./package/VERSION
 
       - name: Prepare distribution package
-        uses: ./.github/workflows/actions/toolchain-and-cache
+        uses: ./.github/workflows/actions/prepare-distribution
         with:
           version-name: ${{ github.ref_name }}
           download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}
