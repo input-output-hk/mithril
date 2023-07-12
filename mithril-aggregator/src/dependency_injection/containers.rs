@@ -1,3 +1,7 @@
+use sqlite::Connection;
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::{Mutex, RwLock};
+
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
@@ -11,24 +15,18 @@ use mithril_common::{
     test_utils::MithrilFixture,
     BeaconProvider,
 };
-use sqlite::Connection;
 
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::{Mutex, RwLock};
-
-use crate::event_store::EventMessage;
 use crate::{
     certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
-    services::{SignedEntityService, TickerService},
+    event_store::{EventMessage, TransmitterService},
+    multi_signer::MultiSigner,
+    services::{SignedEntityService, StakeDistributionService, TickerService},
     signer_registerer::SignerRecorder,
+    snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
     SignerRegisterer, SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
-};
-use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
-use crate::{
-    snapshot_uploaders::SnapshotUploader, stake_distribution_service::StakeDistributionService,
 };
 
 /// MultiSignerWrapper wraps a MultiSigner

@@ -27,7 +27,6 @@ pub mod services;
 mod signer_registerer;
 mod snapshot_uploaders;
 mod snapshotter;
-pub mod stake_distribution_service;
 mod store;
 mod tools;
 
