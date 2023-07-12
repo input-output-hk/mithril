@@ -915,7 +915,7 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_storer.as_ref().cloned().unwrap())
     }
 
-    /// Return an unconfigured [DependencyManager]
+    /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
