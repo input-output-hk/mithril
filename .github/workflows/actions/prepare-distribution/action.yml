@@ -1,0 +1,77 @@
+name: prepare-distribution
+description: |
+  Package, add crates table, sign artifacts
+  
+  The artifacts for all supported environments must have been downloaded
+  in "package-{EnvName}-x64" subfolders before calling this action.
+inputs:
+  version-name:
+    description: Name of the version to package
+    required: true
+  download-url-base:
+    description: Base url where the released distribution will be downloadable
+    required: true
+  gpg-secret-key:
+    description: A GPG secret key to sign the distribution
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Package distribution (Linux-X64)
+      shell: bash
+      run: |
+        python3 ./.github/workflows/scripts/package-distribution.py \
+        --input package-Linux-X64/ \
+        --dest package/ \
+        --version "${{ inputs.version-name }}" \
+        --target "linux-x64"
+
+    - name: Package distribution (macOS-X64)
+      shell: bash
+      run: |
+        python3 ./.github/workflows/scripts/package-distribution.py \
+        --input package-macOS-X64/ \
+        --dest package/ \
+        --version "${{ inputs.version-name }}" \
+        --target "macos-x64"
+
+    - name: Package distribution (Windows-X64)
+      shell: bash
+      run: |
+        python3 ./.github/workflows/scripts/package-distribution.py \
+        --input package-Windows-X64/ \
+        --dest package/ \
+        --version "${{ inputs.version-name }}" \
+        --target "windows-x64"
+
+    - name: Prepare crates versions table
+      shell: bash
+      run: |
+        cat > ./release-notes-addon.txt << EOF
+
+        ## Crates Versions
+        |  Crate  |  Version  |
+        |---------- |-------------|
+        EOF
+
+        cargo metadata --quiet --no-deps | \
+          jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
+          >> ./release-notes-addon.txt
+
+    - name: Create and sign sha256 checksum
+      shell: bash
+      env:
+        GPG_SECRET_KEY: ${{ inputs.gpg-secret-key }}
+      run: ./.github/workflows/scripts/sign-distribution.sh
+
+    - name: Create a procedure to verify the distribution
+      shell: bash
+      env:
+        GPG_SECRET_KEY: ${{ inputs.gpg-secret-key }}
+        PROCEDURE_FILE_PATH: ./release-notes-addon.txt
+        DOWNLOAD_URL_BASE: ${{ inputs.download-url-base }}
+      run: ./.github/workflows/scripts/verify-distribution.sh
+
+    - name: List packaged assets
+      shell: bash
+      run: ls -al ./package
