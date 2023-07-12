@@ -1,5 +1,5 @@
 ---
-sidebar_position: 1
+sidebar_position: 2
 ---
 
 import NetworksMatrix from '../../networks-matrix.md';
@@ -155,6 +155,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+## Download pre-built binary
 
 <CompiledBinaries />
 
