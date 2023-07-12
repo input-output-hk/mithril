@@ -1,15 +1,7 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM ubuntu:22.04 AS rustbuilder
-
-# Upgrade and install build base
-RUN apt-get update && apt-get install -y libssl-dev curl wget build-essential pkg-config make m4
-
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-RUN cargo --version
+FROM rust:bullseye AS rustbuilder
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
@@ -38,7 +30,7 @@ RUN /app/target/release/mithril-signer --version
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM ubuntu:22.04
+FROM debian:11-slim
 
 # Args
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/8.1.1/cardano-node-8.1.1-linux.tar.gz
