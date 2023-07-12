@@ -17,12 +17,11 @@ use mithril_common::{
 };
 
 use crate::{
-    certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
-    services::{SignedEntityService, StakeDistributionService, TickerService},
+    services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,

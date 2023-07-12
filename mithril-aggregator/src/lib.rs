@@ -12,7 +12,6 @@
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
 
 mod artifact_builder;
-pub mod certifier_service;
 mod commands;
 mod configuration;
 pub mod database;

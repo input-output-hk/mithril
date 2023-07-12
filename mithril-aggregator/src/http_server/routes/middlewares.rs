@@ -1,7 +1,7 @@
 use crate::{
-    certifier_service::CertifierService,
     dependency_injection::MultiSignerWrapper,
     event_store::{EventMessage, TransmitterService},
+    services::CertifierService,
     services::{SignedEntityService, TickerService},
     CertificatePendingStore, Configuration, DependencyContainer, ProtocolParametersStore,
     SignerRegisterer,

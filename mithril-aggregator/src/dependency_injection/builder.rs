@@ -39,7 +39,6 @@ use crate::{
     artifact_builder::{
         CardanoImmutableFilesFullArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
-    certifier_service::{CertifierService, MithrilCertifierService},
     configuration::ExecutionEnvironment,
     database::{
         provider::SignerRegistrationStore,
@@ -52,8 +51,9 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        MithrilSignedEntityService, MithrilStakeDistributionService, MithrilTickerService,
-        SignedEntityService, StakeDistributionService, TickerService,
+        CertifierService, MithrilCertifierService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, MithrilTickerService, SignedEntityService,
+        StakeDistributionService, TickerService,
     },
     signer_registerer::SignerRecorder,
     tools::{GcpFileUploader, GenesisToolsDependency},

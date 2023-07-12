@@ -1,6 +1,7 @@
 use mithril_aggregator::{
-    certifier_service::CertifierService, dependency_injection::DependenciesBuilder,
-    entities::OpenMessage, services::TickerService,
+    dependency_injection::DependenciesBuilder,
+    entities::OpenMessage,
+    services::{CertifierService, TickerService},
 };
 use mithril_common::{
     entities::{Beacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants},

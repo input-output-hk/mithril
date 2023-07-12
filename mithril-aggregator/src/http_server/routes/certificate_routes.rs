@@ -44,10 +44,13 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use crate::certifier_service::CertifierService;
-    use crate::http_server::routes::reply;
-    use crate::message_adapters::{ToCertificateListMessageAdapter, ToCertificateMessageAdapter};
-    use crate::{CertificatePendingStore, ToCertificatePendingMessageAdapter};
+    use crate::{
+        http_server::routes::reply,
+        message_adapters::{ToCertificateListMessageAdapter, ToCertificateMessageAdapter},
+        services::CertifierService,
+        CertificatePendingStore, ToCertificatePendingMessageAdapter,
+    };
+
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
