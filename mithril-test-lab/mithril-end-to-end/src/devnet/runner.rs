@@ -59,6 +59,7 @@ impl Devnet {
         number_of_pool_nodes: u8,
         cardano_slot_length: f64,
         cardano_epoch_length: f64,
+        skip_cardano_bin_download: bool,
     ) -> Result<Devnet, String> {
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path = devnet_scripts_dir
@@ -79,6 +80,10 @@ impl Devnet {
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
+        bootstrap_command.env(
+            "SKIP_CARDANO_BIN_DOWNLOAD",
+            skip_cardano_bin_download.to_string(),
+        );
         let command_args = &[
             artifacts_target_dir.to_str().unwrap(),
             &number_of_bft_nodes.to_string(),

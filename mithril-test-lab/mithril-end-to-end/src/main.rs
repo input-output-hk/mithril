@@ -57,6 +57,10 @@ pub struct Args {
     /// Enable run only mode
     #[clap(long)]
     run_only: bool,
+
+    /// Skip cardano binaries download
+    #[clap(long)]
+    skip_cardano_bin_download: bool,
 }
 
 #[tokio::main]
@@ -84,6 +88,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         args.number_of_pool_nodes,
         args.cardano_slot_length,
         args.cardano_epoch_length,
+        args.skip_cardano_bin_download,
     )
     .await?;
 
