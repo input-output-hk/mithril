@@ -1,13 +1,16 @@
 use clap::Parser;
-use mithril_end_to_end::{Devnet, MithrilInfrastructure};
-use mithril_end_to_end::{RunOnly, Spec};
+use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
 use slog::{Drain, Logger};
-use slog_scope::{crit, error, info};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::{error::Error, fs};
-use std::{thread::sleep, time::Duration};
-use tokio::task::JoinSet;
+use slog_scope::{error, info};
+use std::{
+    error::Error,
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
+use tokio_util::sync::CancellationToken;
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
@@ -84,7 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    let infrastructure = MithrilInfrastructure::start(
+    let mut infrastructure = MithrilInfrastructure::start(
         server_port,
         devnet.clone(),
         &work_dir,
@@ -94,58 +97,51 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    match run_only_mode {
+    let runner: Result<(), Box<dyn Error>> = match run_only_mode {
         true => {
-            let mut run_only = RunOnly::new(infrastructure);
-
-            match run_only.start().await {
-                Ok(_) => {
-                    let mut join_set = JoinSet::new();
-                    join_set.spawn(async move {
-                        loop {
-                            info!("Mithril end to end is running and will remain active until manually stopped...");
-                            sleep(Duration::from_secs(5));
-                        }
-                    });
-                    join_set
-                        .spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
-
-                    if let Err(e) = join_set.join_next().await.unwrap()? {
-                        crit!("A critical error occurred: {e}");
-                    }
-
-                    devnet.stop().await?;
-                    join_set.shutdown().await;
-
-                    Ok(())
-                }
-                Err(error) => {
-                    let has_written_logs = run_only.infrastructure.tail_logs(20).await;
-                    error!("Mithril End to End test in run-only mode failed: {}", error);
-                    devnet.stop().await?;
-                    has_written_logs?;
-                    Err(error)
-                }
-            }
+            let mut run_only = RunOnly::new(&mut infrastructure);
+            run_only.start().await
         }
         false => {
-            let mut spec = Spec::new(infrastructure);
+            let mut spec = Spec::new(&mut infrastructure);
+            spec.run().await
+        }
+    };
 
-            match spec.run().await {
-                Ok(_) => {
-                    devnet.stop().await?;
-                    Ok(())
-                }
-                Err(error) => {
-                    let has_written_logs = spec.infrastructure.tail_logs(20).await;
-                    error!("Mithril End to End test failed: {}", error);
-                    devnet.stop().await?;
-                    has_written_logs?;
-                    Err(error)
-                }
-            }
+    match runner {
+        Ok(_) if run_only_mode => run_until_cancelled(devnet).await,
+        Ok(_) => {
+            devnet.stop().await?;
+            Ok(())
+        }
+        Err(error) => {
+            let has_written_logs = infrastructure.tail_logs(20).await;
+            error!("Mithril End to End test in failed: {}", error);
+            devnet.stop().await?;
+            has_written_logs?;
+            Err(error)
         }
     }
+}
+
+async fn run_until_cancelled(devnet: Devnet) -> Result<(), Box<dyn Error>> {
+    let cancellation_token = CancellationToken::new();
+    let cloned_token = cancellation_token.clone();
+
+    tokio::select! {
+        _ = tokio::spawn(async move {
+            while !cloned_token.is_cancelled() {
+                info!("Mithril end to end is running and will remain active until manually stopped...");
+                sleep(Duration::from_secs(5));
+            }
+        }) => {}
+        _ = tokio::signal::ctrl_c() => {
+            cancellation_token.cancel();
+            devnet.stop().await?;
+        }
+    }
+
+    Ok(())
 }
 
 fn build_logger() -> Logger {

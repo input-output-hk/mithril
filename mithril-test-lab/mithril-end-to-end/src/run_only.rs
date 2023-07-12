@@ -3,12 +3,12 @@ use crate::MithrilInfrastructure;
 use mithril_common::chain_observer::ChainObserver;
 use std::error::Error;
 
-pub struct RunOnly {
-    pub infrastructure: MithrilInfrastructure,
+pub struct RunOnly<'a> {
+    pub infrastructure: &'a mut MithrilInfrastructure,
 }
 
-impl RunOnly {
-    pub fn new(infrastructure: MithrilInfrastructure) -> Self {
+impl<'a> RunOnly<'a> {
+    pub fn new(infrastructure: &'a mut MithrilInfrastructure) -> Self {
         Self { infrastructure }
     }
 

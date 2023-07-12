@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 use tokio::process::Command;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Devnet {
     artifacts_dir: PathBuf,
     number_of_bft_nodes: u8,
