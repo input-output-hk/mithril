@@ -17,11 +17,11 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::event_store::EventMessage;
-use crate::signed_entity_service::SignedEntityService;
 use crate::{
     certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
+    services::SignedEntityService,
     signer_registerer::SignerRecorder,
     ticker_service::TickerService,
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,

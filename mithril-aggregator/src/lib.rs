@@ -23,7 +23,7 @@ mod http_server;
 mod message_adapters;
 mod multi_signer;
 mod runtime;
-pub mod signed_entity_service;
+pub mod services;
 mod signer_registerer;
 mod snapshot_uploaders;
 mod snapshotter;

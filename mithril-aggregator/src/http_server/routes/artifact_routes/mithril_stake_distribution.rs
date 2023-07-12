@@ -36,7 +36,8 @@ pub mod handlers {
     use crate::message_adapters::{
         ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
     };
-    use crate::signed_entity_service::SignedEntityService;
+    use crate::services::SignedEntityService;
+
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -96,8 +97,7 @@ pub mod handlers {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies,
-        signed_entity_service::MockSignedEntityService,
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockSignedEntityService,
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{

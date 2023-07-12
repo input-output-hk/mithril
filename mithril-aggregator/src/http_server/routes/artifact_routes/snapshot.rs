@@ -93,7 +93,7 @@ mod handlers {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::message_adapters::ToSnapshotListMessageAdapter;
     use crate::message_adapters::ToSnapshotMessageAdapter;
-    use crate::{signed_entity_service::SignedEntityService, Configuration};
+    use crate::{services::SignedEntityService, Configuration};
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -228,8 +228,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies,
-        signed_entity_service::MockSignedEntityService,
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockSignedEntityService,
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{
