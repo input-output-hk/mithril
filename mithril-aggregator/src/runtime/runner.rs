@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use crate::entities::OpenMessage;
 use crate::RuntimeError;
-use crate::{DependencyManager, ProtocolError};
+use crate::{DependencyContainer, ProtocolError};
 
 #[cfg(test)]
 use mockall::automock;
@@ -159,12 +159,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
-    dependencies: Arc<DependencyManager>,
+    dependencies: Arc<DependencyContainer>,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggrergator Runner.
-    pub fn new(dependencies: Arc<DependencyManager>) -> Self {
+    pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
         Self { dependencies }
     }
 }
@@ -581,7 +581,7 @@ pub mod tests {
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
     use crate::{
-        DependencyManager, MithrilSignerRegisterer, ProtocolParametersStorer,
+        DependencyContainer, MithrilSignerRegisterer, ProtocolParametersStorer,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -612,7 +612,7 @@ pub mod tests {
         }
     }
 
-    async fn init_runner_from_dependencies(deps: DependencyManager) -> AggregatorRunner {
+    async fn init_runner_from_dependencies(deps: DependencyContainer) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         deps.init_state_from_fixture(
             &fixture,

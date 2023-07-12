@@ -16,7 +16,6 @@ pub mod certifier_service;
 mod commands;
 mod configuration;
 pub mod database;
-mod dependency;
 pub mod dependency_injection;
 pub mod entities;
 pub mod event_store;
@@ -39,7 +38,7 @@ pub use crate::configuration::{
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use commands::MainOpts;
-pub use dependency::DependencyManager;
+pub use dependency_injection::DependencyContainer;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,
 };
@@ -60,4 +59,4 @@ pub use store::{
 };
 
 #[cfg(test)]
-pub use dependency::tests::initialize_dependencies;
+pub use dependency_injection::tests::initialize_dependencies;

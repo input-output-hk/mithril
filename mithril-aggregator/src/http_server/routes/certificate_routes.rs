@@ -1,10 +1,10 @@
 use crate::http_server::routes::middlewares;
-use crate::DependencyManager;
+use crate::DependencyContainer;
 use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     certificate_pending(dependency_manager.clone())
         .or(certificate_certificates(dependency_manager.clone()))
@@ -13,7 +13,7 @@ pub fn routes(
 
 /// GET /certificate-pending
 fn certificate_pending(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate-pending")
         .and(warp::get())
@@ -25,7 +25,7 @@ fn certificate_pending(
 
 /// GET /certificates
 fn certificate_certificates(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificates")
         .and(warp::get())
@@ -35,7 +35,7 @@ fn certificate_certificates(
 
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
@@ -138,7 +138,7 @@ mod tests {
     use crate::store::CertificateStore;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()

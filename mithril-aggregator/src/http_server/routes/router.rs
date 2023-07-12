@@ -2,7 +2,7 @@ use crate::http_server::routes::{
     artifact_routes, certificate_routes, epoch_routes, signatures_routes, signer_routes,
 };
 use crate::http_server::SERVER_BASE_PATH;
-use crate::DependencyManager;
+use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
@@ -26,7 +26,7 @@ impl Reject for VersionParseError {}
 
 /// Routes
 pub fn routes(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()

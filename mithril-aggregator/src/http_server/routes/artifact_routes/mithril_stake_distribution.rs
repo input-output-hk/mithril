@@ -1,10 +1,10 @@
 use crate::http_server::routes::middlewares;
-use crate::DependencyManager;
+use crate::DependencyContainer;
 use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     artifact_mithril_stake_distributions(dependency_manager.clone()).or(
         artifact_mithril_stake_distribution_by_id(dependency_manager),
@@ -13,7 +13,7 @@ pub fn routes(
 
 /// GET /artifact/mithril-stake-distributions
 fn artifact_mithril_stake_distributions(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distributions")
         .and(warp::get())
@@ -23,7 +23,7 @@ fn artifact_mithril_stake_distributions(
 
 /// GET /artifact/mithril-stake-distribution/:id
 fn artifact_mithril_stake_distribution_by_id(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::get())
@@ -112,7 +112,7 @@ pub mod tests {
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()

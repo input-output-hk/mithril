@@ -36,7 +36,7 @@ use crate::{
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
 
 /// DependencyManager handles the dependencies
-pub struct DependencyManager {
+pub struct DependencyContainer {
     /// Configuration structure.
     pub config: Configuration,
 
@@ -136,7 +136,7 @@ pub enum SimulateFromChainParams {
 }
 
 #[doc(hidden)]
-impl DependencyManager {
+impl DependencyContainer {
     /// `TEST METHOD ONLY`
     ///
     /// Get the first two epochs that will be used by a newly started aggregator
@@ -317,9 +317,9 @@ impl DependencyManager {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyManager};
+    use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyContainer};
 
-    pub async fn initialize_dependencies() -> DependencyManager {
+    pub async fn initialize_dependencies() -> DependencyContainer {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
 

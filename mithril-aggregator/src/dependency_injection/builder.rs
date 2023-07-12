@@ -57,7 +57,7 @@ use crate::{
     ticker_service::{MithrilTickerService, TickerService},
     tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
+    CertificateStore, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     GzipSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
     SnapshotUploaderType, Snapshotter, VerificationKeyStorer,
@@ -915,8 +915,8 @@ impl DependenciesBuilder {
     }
 
     /// Return an unconfigured [DependencyManager]
-    pub async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
-        let dependency_manager = DependencyManager {
+    pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
+        let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
             stake_store: self.get_stake_store().await?,
