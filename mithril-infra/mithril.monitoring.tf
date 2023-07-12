@@ -11,7 +11,9 @@ resource "null_resource" "mithril_monitoring" {
     image_id                 = var.mithril_image_id,
     vm_instance              = google_compute_instance.vm_instance.id,
     prometheus_auth_username = var.prometheus_auth_username,
-    prometheus_auth_password = var.prometheus_auth_password
+    prometheus_auth_password = var.prometheus_auth_password,
+    loki_auth_username       = var.loki_auth_username,
+    loki_auth_password       = var.loki_auth_password
   }
 
   connection {
@@ -44,7 +46,9 @@ EOT
     inline = [
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export PROMETHEUS_HOST=${local.prometheus_host}",
-      "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",
+      "export PROMETHEUS_AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",
+      "export LOKI_HOST=${local.loki_host}",
+      "export LOKI_AUTH_USER_PASSWORD=$(htpasswd -nb ${var.loki_auth_username} ${var.loki_auth_password})",
       "export CURRENT_UID=$(id -u)",
       "docker compose -f /home/curry/docker/docker-compose-monitoring.yaml --profile all up -d",
     ]

@@ -184,10 +184,23 @@ variable "prometheus_auth_password" {
   default     = ""
 }
 
+variable "loki_auth_username" {
+  type        = string
+  description = "The username for authentication on loki"
+  default     = ""
+}
+
+variable "loki_auth_password" {
+  type        = string
+  description = "The password for authentication on loki"
+  default     = ""
+}
+
 locals {
   mithril_aggregator_type        = var.mithril_aggregator_auth_username == "" ? "noauth" : "auth"
   mithril_aggregator_credentials = var.mithril_aggregator_auth_username == "" ? "" : format("%s:%s@", var.mithril_aggregator_auth_username, var.mithril_aggregator_auth_password)
   prometheus_credentials         = var.prometheus_auth_username == "" ? "" : format("%s:%s@", var.prometheus_auth_username, var.prometheus_auth_password)
+  loki_credentials               = var.loki_auth_username == "" ? "" : format("%s:%s@", var.loki_auth_username, var.loki_auth_password)
 }
 
 variable "mithril_genesis_verification_key_url" {

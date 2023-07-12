@@ -26,8 +26,8 @@ services:
       - 'traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)'
       - 'traefik.http.routers.prometheus.tls=true'
       - 'traefik.http.routers.prometheus.tls.certresolver=lets-encrypt'
-      - "traefik.http.routers.prometheus.middlewares=test-auth"
-      - "traefik.http.middlewares.test-auth.basicauth.users=${AUTH_USER_PASSWORD}"
+      - "traefik.http.routers.prometheus.middlewares=prometheus-auth"
+      - "traefik.http.middlewares.prometheus-auth.basicauth.users=${PROMETHEUS_AUTH_USER_PASSWORD}"
 
   node-exporter:
     image: prom/node-exporter:latest
@@ -69,6 +69,13 @@ services:
       driver: "${LOGGING_DRIVER}"
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.loki.rule=Host(`${LOKI_HOST}`)'
+      - 'traefik.http.routers.loki.tls=true'
+      - 'traefik.http.routers.loki.tls.certresolver=lets-encrypt'
+      - "traefik.http.routers.loki.middlewares=loki-auth"
+      - "traefik.http.middlewares.loki-auth.basicauth.users=${LOKI_AUTH_USER_PASSWORD}"
 
   promtail:
     image: grafana/promtail:2.8.0
