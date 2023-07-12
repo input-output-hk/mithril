@@ -29,7 +29,6 @@ mod snapshot_uploaders;
 mod snapshotter;
 pub mod stake_distribution_service;
 mod store;
-pub mod ticker_service;
 mod tools;
 
 pub use crate::artifact_builder::ArtifactBuilder;

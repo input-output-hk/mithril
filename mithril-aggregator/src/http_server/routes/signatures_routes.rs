@@ -27,7 +27,7 @@ mod handlers {
     use crate::certifier_service::{CertifierService, CertifierServiceError};
     use crate::http_server::routes::reply;
     use crate::message_adapters::FromRegisterSingleSignatureAdapter;
-    use crate::ticker_service::TickerService;
+    use crate::services::TickerService;
     use mithril_common::entities::SignedEntityType;
     use mithril_common::messages::{FromMessageAdapter, RegisterSignatureMessage};
     use slog_scope::{debug, warn};

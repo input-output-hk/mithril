@@ -51,10 +51,11 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
-    services::{MithrilSignedEntityService, SignedEntityService},
+    services::{
+        MithrilSignedEntityService, MithrilTickerService, SignedEntityService, TickerService,
+    },
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
-    ticker_service::{MithrilTickerService, TickerService},
     tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,

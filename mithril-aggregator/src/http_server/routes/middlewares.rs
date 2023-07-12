@@ -1,11 +1,12 @@
-use crate::certifier_service::CertifierService;
-use crate::event_store::{EventMessage, TransmitterService};
-use crate::services::SignedEntityService;
-use crate::ticker_service::TickerService;
 use crate::{
-    dependency_injection::MultiSignerWrapper, CertificatePendingStore, Configuration,
-    DependencyContainer, ProtocolParametersStore, SignerRegisterer,
+    certifier_service::CertifierService,
+    dependency_injection::MultiSignerWrapper,
+    event_store::{EventMessage, TransmitterService},
+    services::{SignedEntityService, TickerService},
+    CertificatePendingStore, Configuration, DependencyContainer, ProtocolParametersStore,
+    SignerRegisterer,
 };
+
 use mithril_common::BeaconProvider;
 use std::convert::Infallible;
 use std::sync::Arc;

@@ -21,9 +21,8 @@ use crate::{
     certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
-    services::SignedEntityService,
+    services::{SignedEntityService, TickerService},
     signer_registerer::SignerRecorder,
-    ticker_service::TickerService,
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
     SignerRegisterer, SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
 };
