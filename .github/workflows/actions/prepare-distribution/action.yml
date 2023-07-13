@@ -63,9 +63,8 @@ runs:
       run: |
         cat > ./release-notes-addon.txt << EOF
         ## Linux Requirements
-        The Linux binaries target `glibc`: to run them or install the `.deb` packages you must have `glibc`
-        version `2.31+` installed.
-        Compatible systems include, but are not limited to, `Ubuntu 20.04+` or `Debian 11+` (Bullseye)).
+        The Linux binaries target \`glibc\`: to run them or install the \`.deb\` packages you must have \`glibc\` version \`2.31+\` installed.
+        Compatible systems include, but are not limited to, \`Ubuntu 20.04+\` or \`Debian 11+\` (Bullseye)).
         EOF
 
     - name: Create and sign sha256 checksum
