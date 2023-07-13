@@ -39,7 +39,6 @@ use crate::{
     artifact_builder::{
         CardanoImmutableFilesFullArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
-    certifier_service::{CertifierService, MithrilCertifierService},
     configuration::ExecutionEnvironment,
     database::{
         provider::SignerRegistrationStore,
@@ -51,13 +50,15 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
-    signed_entity_service::{MithrilSignedEntityService, SignedEntityService},
+    services::{
+        CertifierService, MithrilCertifierService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, MithrilTickerService, SignedEntityService,
+        StakeDistributionService, TickerService,
+    },
     signer_registerer::SignerRecorder,
-    stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
-    ticker_service::{MithrilTickerService, TickerService},
     tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
+    CertificateStore, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     GzipSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
     SnapshotUploaderType, Snapshotter, VerificationKeyStorer,
@@ -914,9 +915,9 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_storer.as_ref().cloned().unwrap())
     }
 
-    /// Return an unconfigured [DependencyManager]
-    pub async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
-        let dependency_manager = DependencyManager {
+    /// Return an unconfigured [DependencyContainer]
+    pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
+        let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
             stake_store: self.get_stake_store().await?,

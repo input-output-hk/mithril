@@ -12,11 +12,9 @@
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
 
 mod artifact_builder;
-pub mod certifier_service;
 mod commands;
 mod configuration;
 pub mod database;
-mod dependency;
 pub mod dependency_injection;
 pub mod entities;
 pub mod event_store;
@@ -24,13 +22,11 @@ mod http_server;
 mod message_adapters;
 mod multi_signer;
 mod runtime;
-pub mod signed_entity_service;
+pub mod services;
 mod signer_registerer;
 mod snapshot_uploaders;
 mod snapshotter;
-pub mod stake_distribution_service;
 mod store;
-pub mod ticker_service;
 mod tools;
 
 pub use crate::artifact_builder::ArtifactBuilder;
@@ -39,7 +35,7 @@ pub use crate::configuration::{
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use commands::MainOpts;
-pub use dependency::DependencyManager;
+pub use dependency_injection::DependencyContainer;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,
 };
@@ -60,4 +56,4 @@ pub use store::{
 };
 
 #[cfg(test)]
-pub use dependency::tests::initialize_dependencies;
+pub use dependency_injection::tests::initialize_dependencies;

@@ -1,17 +1,17 @@
 use crate::http_server::routes::middlewares;
-use crate::DependencyManager;
+use crate::DependencyContainer;
 use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     register_signatures(dependency_manager)
 }
 
 /// POST /register-signatures
 fn register_signatures(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
@@ -24,16 +24,21 @@ fn register_signatures(
 }
 
 mod handlers {
-    use crate::certifier_service::{CertifierService, CertifierServiceError};
-    use crate::http_server::routes::reply;
-    use crate::message_adapters::FromRegisterSingleSignatureAdapter;
-    use crate::ticker_service::TickerService;
-    use mithril_common::entities::SignedEntityType;
-    use mithril_common::messages::{FromMessageAdapter, RegisterSignatureMessage};
+    use mithril_common::{
+        entities::SignedEntityType,
+        messages::{FromMessageAdapter, RegisterSignatureMessage},
+    };
+
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
+
+    use crate::{
+        http_server::routes::reply,
+        message_adapters::FromRegisterSingleSignatureAdapter,
+        services::{CertifierService, CertifierServiceError, TickerService},
+    };
 
     /// Register Signatures
     pub async fn register_signatures(
@@ -85,20 +90,25 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-
-    use crate::http_server::SERVER_BASE_PATH;
-    use mithril_common::entities::SignedEntityType;
-    use mithril_common::messages::RegisterSignatureMessage;
-    use mithril_common::test_utils::apispec::APISpec;
     use warp::http::Method;
     use warp::test::request;
 
+    use mithril_common::{
+        entities::SignedEntityType, messages::RegisterSignatureMessage,
+        test_utils::apispec::APISpec,
+    };
+
+    use crate::{
+        http_server::SERVER_BASE_PATH,
+        initialize_dependencies,
+        services::{CertifierServiceError, MockCertifierService},
+        ProtocolError,
+    };
+
     use super::*;
-    use crate::certifier_service::{CertifierServiceError, MockCertifierService};
-    use crate::{initialize_dependencies, ProtocolError};
 
     fn setup_router(
-        dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()

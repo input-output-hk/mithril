@@ -12,7 +12,9 @@
 //! The Builder ensure every services has required dependencies to build and
 //! provide services containers for each sub process.
 mod builder;
+mod containers;
 mod error;
 
 pub use builder::*;
+pub use containers::*;
 pub use error::*;

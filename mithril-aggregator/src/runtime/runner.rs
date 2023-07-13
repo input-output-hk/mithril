@@ -17,7 +17,7 @@ use std::sync::Arc;
 
 use crate::entities::OpenMessage;
 use crate::RuntimeError;
-use crate::{DependencyManager, ProtocolError};
+use crate::{DependencyContainer, ProtocolError};
 
 #[cfg(test)]
 use mockall::automock;
@@ -159,12 +159,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
-    dependencies: Arc<DependencyManager>,
+    dependencies: Arc<DependencyContainer>,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggrergator Runner.
-    pub fn new(dependencies: Arc<DependencyManager>) -> Self {
+    pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
         Self { dependencies }
     }
 }
@@ -574,26 +574,25 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::certifier_service::MockCertifierService;
-    use crate::entities::OpenMessage;
     use crate::{
+        entities::OpenMessage,
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
-    };
-    use crate::{
-        DependencyManager, MithrilSignerRegisterer, ProtocolParametersStorer,
+        services::MockCertifierService,
+        DependencyContainer, MithrilSignerRegisterer, ProtocolParametersStorer,
         SignerRegistrationRound,
     };
     use async_trait::async_trait;
-    use mithril_common::chain_observer::FakeObserver;
-    use mithril_common::digesters::DumbImmutableFileObserver;
-    use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
+    use mithril_common::{
+        chain_observer::FakeObserver,
+        digesters::DumbImmutableFileObserver,
+        entities::{
+            Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
+        },
+        signable_builder::SignableBuilderService,
+        store::StakeStorer,
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
-    use mithril_common::signable_builder::SignableBuilderService;
-    use mithril_common::store::StakeStorer;
-    use mithril_common::test_utils::fake_data;
-    use mithril_common::test_utils::MithrilFixtureBuilder;
     use mithril_common::{BeaconProviderImpl, CardanoNetwork, StdResult};
     use mockall::{mock, predicate::eq};
     use std::sync::Arc;
@@ -612,7 +611,7 @@ pub mod tests {
         }
     }
 
-    async fn init_runner_from_dependencies(deps: DependencyManager) -> AggregatorRunner {
+    async fn init_runner_from_dependencies(deps: DependencyContainer) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         deps.init_state_from_fixture(
             &fixture,

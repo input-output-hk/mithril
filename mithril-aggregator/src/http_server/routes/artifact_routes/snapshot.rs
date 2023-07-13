@@ -1,12 +1,12 @@
 use crate::http_server::routes::middlewares;
 use crate::http_server::SERVER_BASE_PATH;
-use crate::DependencyManager;
+use crate::DependencyContainer;
 use std::sync::Arc;
 use warp::hyper::Uri;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     artifact_cardano_full_immutable_snapshots(dependency_manager.clone())
         .or(artifact_cardano_full_immutable_snapshot_by_id(
@@ -20,7 +20,7 @@ pub fn routes(
 
 /// GET /artifact/snapshots
 fn artifact_cardano_full_immutable_snapshots(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
@@ -30,7 +30,7 @@ fn artifact_cardano_full_immutable_snapshots(
 
 /// GET /artifact/snapshot/:id
 fn artifact_cardano_full_immutable_snapshot_by_id(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
@@ -40,7 +40,7 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 
 /// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
@@ -50,7 +50,7 @@ fn snapshot_download(
 }
 
 fn serve_snapshots_dir(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let config = dependency_manager.config.clone();
 
@@ -93,7 +93,7 @@ mod handlers {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::message_adapters::ToSnapshotListMessageAdapter;
     use crate::message_adapters::ToSnapshotMessageAdapter;
-    use crate::{signed_entity_service::SignedEntityService, Configuration};
+    use crate::{services::SignedEntityService, Configuration};
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -228,8 +228,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies,
-        signed_entity_service::MockSignedEntityService,
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockSignedEntityService,
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{
@@ -244,7 +243,7 @@ mod tests {
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()

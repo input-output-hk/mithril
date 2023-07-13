@@ -1,17 +1,17 @@
 use crate::http_server::routes::middlewares;
-use crate::DependencyManager;
+use crate::DependencyContainer;
 use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     epoch_settings(dependency_manager)
 }
 
 /// GET /epoch-settings
 fn epoch_settings(
-    dependency_manager: Arc<DependencyManager>,
+    dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch-settings")
         .and(warp::get())
@@ -23,7 +23,7 @@ fn epoch_settings(
 }
 
 mod handlers {
-    use crate::dependency::MultiSignerWrapper;
+    use crate::dependency_injection::MultiSignerWrapper;
     use crate::http_server::routes::reply;
     use crate::{ProtocolParametersStore, ProtocolParametersStorer, ToEpochSettingsMessageAdapter};
     use mithril_common::entities::EpochSettings;
@@ -94,7 +94,7 @@ mod tests {
     use crate::initialize_dependencies;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
