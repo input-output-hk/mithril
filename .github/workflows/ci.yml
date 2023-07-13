@@ -367,57 +367,12 @@ jobs:
           name: mithril-distribution-Windows-X64
           path: ./package-Windows-X64
 
-      - name: Package distribution (Linux-X64)
-        run: |
-          python3 ./.github/workflows/scripts/package-distribution.py \
-          --input package-Linux-X64/ \
-          --dest package/ \
-          --version "unstable-${{ steps.slug.outputs.sha8 }}" \
-          --target "linux-x64"
-
-      - name: Package distribution (macOS-X64)
-        run: |
-          python3 ./.github/workflows/scripts/package-distribution.py \
-          --input package-macOS-X64/ \
-          --dest package/ \
-          --version "unstable-${{ steps.slug.outputs.sha8 }}" \
-          --target "macos-x64"
-
-      - name: Package distribution (Windows-X64)
-        run: |
-          python3 ./.github/workflows/scripts/package-distribution.py \
-          --input package-Windows-X64/ \
-          --dest package/ \
-          --version "unstable-${{ steps.slug.outputs.sha8 }}" \
-          --target "windows-x64"
-
-      - name: Prepare crates versions table
-        run: |
-          cat > ./release-notes-addon.txt << EOF
-
-          ## Crates Versions
-          |  Crate  |  Version  |
-          |---------- |-------------|
-          EOF
-
-          cargo metadata --quiet --no-deps | \
-            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
-            >> ./release-notes-addon.txt
-
-      - name: Create and sign sha256 checksum
-        env:
-          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-        run: ./.github/workflows/scripts/sign-distribution.sh
-
-      - name: Create a procedure to verify the distribution
-        env:
-          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          PROCEDURE_FILE_PATH: ./release-notes-addon.txt
-          DOWNLOAD_URL_BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/unstable
-        run: ./.github/workflows/scripts/verify-distribution.sh
-
-      - name: List packaged assets
-        run: ls -al ./package
+      - name: Prepare distribution package
+        uses: ./.github/workflows/actions/prepare-distribution
+        with:
+          version-name: unstable-${{ steps.slug.outputs.sha8 }}
+          download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/unstable
+          gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
 
       - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest

@@ -52,61 +52,16 @@ jobs:
           workflow: ci.yml
           workflow_conclusion: success
 
-      - name: Package distribution (Linux-X64)
-        run: |
-          python3 ./.github/workflows/scripts/package-distribution.py \
-          --input package-Linux-X64/ \
-          --dest package/ \
-          --version "${{ github.ref_name }}" \
-          --target "linux-x64"
-
-      - name: Package distribution (macOS-X64)
-        run: |
-          python3 ./.github/workflows/scripts/package-distribution.py \
-          --input package-macOS-X64/ \
-          --dest package/ \
-          --version "${{ github.ref_name }}" \
-          --target "macos-x64"
-
-      - name: Package distribution (Windows-X64)
-        run: |
-          python3 ./.github/workflows/scripts/package-distribution.py \
-          --input package-Windows-X64/ \
-          --dest package/ \
-          --version "${{ github.ref_name }}" \
-          --target "windows-x64"
-      
       - name: Append VERSION file
         run: |
           echo ${{ github.ref_name }} >> ./package/VERSION
-      
-      - name: Prepare crates versions table
-        run: |
-          cat > ./release-notes-addon.txt << EOF
 
-          ## Crates Versions
-          |  Crate  |  Version  |
-          |---------- |-------------|
-          EOF
-
-          cargo metadata --quiet --no-deps | \
-            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
-            >> ./release-notes-addon.txt
-
-      - name: Create and sign sha256 checksum
-        env:
-          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-        run: ./.github/workflows/scripts/sign-distribution.sh
-
-      - name: Create a procedure to verify the distribution
-        env:
-          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
-          PROCEDURE_FILE_PATH: ./release-notes-addon.txt
-          DOWNLOAD_URL_BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}
-        run: ./.github/workflows/scripts/verify-distribution.sh
-          
-      - name: List packaged assets
-        run: ls -al ./package
+      - name: Prepare distribution package
+        uses: ./.github/workflows/actions/prepare-distribution
+        with:
+          version-name: ${{ github.ref_name }}
+          download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}
+          gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
 
       - name: Create pre-release ${{ github.ref_name }}
         uses: marvinpinto/action-automatic-releases@latest
