@@ -2212,7 +2212,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.1.28"
+version = "0.1.29"
 dependencies = [
  "async-trait",
  "clap",
