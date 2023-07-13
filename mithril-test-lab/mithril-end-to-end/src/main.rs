@@ -1,12 +1,16 @@
 use clap::Parser;
-use mithril_end_to_end::Spec;
-use mithril_end_to_end::{Devnet, MithrilInfrastructure};
+use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
 use slog::{Drain, Logger};
-use slog_scope::error;
-use std::error::Error;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use slog_scope::{error, info};
+use std::{
+    error::Error,
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+    thread::sleep,
+    time::Duration,
+};
+use tokio_util::sync::CancellationToken;
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
@@ -49,6 +53,14 @@ pub struct Args {
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
     mithril_era: String,
+
+    /// Enable run only mode
+    #[clap(long)]
+    run_only: bool,
+
+    /// Skip cardano binaries download
+    #[clap(long)]
+    skip_cardano_bin_download: bool,
 }
 
 #[tokio::main]
@@ -67,6 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             work_dir.canonicalize().unwrap()
         }
     };
+    let run_only_mode = args.run_only;
 
     let devnet = Devnet::bootstrap(
         args.devnet_scripts_directory,
@@ -75,33 +88,65 @@ async fn main() -> Result<(), Box<dyn Error>> {
         args.number_of_pool_nodes,
         args.cardano_slot_length,
         args.cardano_epoch_length,
+        args.skip_cardano_bin_download,
     )
     .await?;
 
-    let infrastructure = MithrilInfrastructure::start(
+    let mut infrastructure = MithrilInfrastructure::start(
         server_port,
         devnet.clone(),
         &work_dir,
         &args.bin_directory,
         &args.mithril_era,
+        run_only_mode,
     )
     .await?;
 
-    let mut spec = Spec::new(infrastructure);
+    let runner: Result<(), Box<dyn Error>> = match run_only_mode {
+        true => {
+            let mut run_only = RunOnly::new(&mut infrastructure);
+            run_only.start().await
+        }
+        false => {
+            let mut spec = Spec::new(&mut infrastructure);
+            spec.run().await
+        }
+    };
 
-    match spec.run().await {
+    match runner {
+        Ok(_) if run_only_mode => run_until_cancelled(devnet).await,
         Ok(_) => {
             devnet.stop().await?;
             Ok(())
         }
         Err(error) => {
-            let has_written_logs = spec.tail_logs(20).await;
-            error!("Mithril End to End test failed: {}", error);
+            let has_written_logs = infrastructure.tail_logs(20).await;
+            error!("Mithril End to End test in failed: {}", error);
             devnet.stop().await?;
             has_written_logs?;
             Err(error)
         }
     }
+}
+
+async fn run_until_cancelled(devnet: Devnet) -> Result<(), Box<dyn Error>> {
+    let cancellation_token = CancellationToken::new();
+    let cloned_token = cancellation_token.clone();
+
+    tokio::select! {
+        _ = tokio::spawn(async move {
+            while !cloned_token.is_cancelled() {
+                info!("Mithril end to end is running and will remain active until manually stopped...");
+                sleep(Duration::from_secs(5));
+            }
+        }) => {}
+        _ = tokio::signal::ctrl_c() => {
+            cancellation_token.cancel();
+            devnet.stop().await?;
+        }
+    }
+
+    Ok(())
 }
 
 fn build_logger() -> Logger {

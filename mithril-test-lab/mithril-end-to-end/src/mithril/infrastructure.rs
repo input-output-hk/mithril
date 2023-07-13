@@ -13,6 +13,7 @@ pub struct MithrilInfrastructure {
     aggregator: Aggregator,
     signers: Vec<Signer>,
     cardano_chain_observer: Arc<CardanoCliChainObserver>,
+    run_only_mode: bool,
 }
 
 impl MithrilInfrastructure {
@@ -22,6 +23,7 @@ impl MithrilInfrastructure {
         work_dir: &Path,
         bin_dir: &Path,
         mithril_era: &str,
+        run_only_mode: bool,
     ) -> Result<Self, String> {
         devnet.run().await?;
         let devnet_topology = devnet.topology();
@@ -81,6 +83,7 @@ impl MithrilInfrastructure {
             aggregator,
             signers,
             cardano_chain_observer,
+            run_only_mode,
         })
     }
 
@@ -110,5 +113,18 @@ impl MithrilInfrastructure {
 
     pub fn build_client(&self) -> Result<Client, String> {
         Client::new(self.aggregator.endpoint(), &self.work_dir, &self.bin_dir)
+    }
+
+    pub fn run_only_mode(&self) -> bool {
+        self.run_only_mode
+    }
+
+    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+        self.aggregator().tail_logs(number_of_line).await?;
+        for signer in self.signers() {
+            signer.tail_logs(number_of_line).await?;
+        }
+
+        Ok(())
     }
 }

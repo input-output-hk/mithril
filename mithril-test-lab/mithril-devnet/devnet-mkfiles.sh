@@ -41,6 +41,12 @@ NUM_POOL_NODES=$3
 SLOT_LENGTH=$4
 EPOCH_LENGTH=$5
 
+if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" = "true" ]]; then
+  SKIP_CARDANO_BIN_DOWNLOAD=true
+else
+  SKIP_CARDANO_BIN_DOWNLOAD=false
+fi
+
 SUPPLY=100000000000
 NETWORK_MAGIC=42
 SECURITY_PARAM=2
@@ -105,10 +111,12 @@ if ! mkdir -p "${ROOT}"; then
   exit
 fi
 
-# download cardano-cli & cardano-node
-curl -sL ${CARDANO_BINARY_URL} --output cardano-bin.tar.gz
-tar xzf cardano-bin.tar.gz ./cardano-cli ./cardano-node 
-rm -f cardano-bin.tar.gz
+# download cardano-cli & cardano-node if enabled (default: yes)
+if [ "$SKIP_CARDANO_BIN_DOWNLOAD" = false ]; then
+  curl -sL ${CARDANO_BINARY_URL} --output cardano-bin.tar.gz
+  tar xzf cardano-bin.tar.gz ./cardano-cli ./cardano-node 
+  rm -f cardano-bin.tar.gz
+fi
 
 # and copy cardano-cli & cardano-node
 cp cardano-cli ${ROOT}/cardano-cli
