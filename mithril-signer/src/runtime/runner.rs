@@ -723,7 +723,7 @@ mod tests {
         let runner = init_runner(Some(services), None).await;
         let mut pending_certificate = fake_data::certificate_pending();
         let epoch = pending_certificate.beacon.epoch;
-        let mut signer = &mut pending_certificate.signers[0];
+        let signer = &mut pending_certificate.signers[0];
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,

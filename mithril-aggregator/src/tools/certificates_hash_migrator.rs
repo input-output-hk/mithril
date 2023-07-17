@@ -129,7 +129,7 @@ impl CertificatesHashMigrator {
             .await?;
 
         debug!("🔧 Certificate Hash Migrator: updating signed entities certificate_ids to new computed hash");
-        for mut signed_entity_record in records_to_migrate.iter_mut() {
+        for signed_entity_record in records_to_migrate.iter_mut() {
             let new_certificate_hash =
                 old_and_new_certificate_hashes
                     .get(&signed_entity_record.certificate_id)

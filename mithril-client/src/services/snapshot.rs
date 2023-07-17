@@ -209,7 +209,7 @@ impl SnapshotService for MithrilClientSnapshotService {
         let unpack_dir = pathdir.join("db");
         let progress_bar = MultiProgress::with_draw_target(progress_target);
         progress_bar.println("1/7 - Checking local disk info…")?;
-        let unpacker = SnapshotUnpacker::default();
+        let unpacker = SnapshotUnpacker;
 
         if let Err(e) = unpacker.check_prerequisites(&unpack_dir, snapshot_entity.artifact.size) {
             self.check_disk_space_error(e)?;

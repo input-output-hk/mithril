@@ -132,7 +132,7 @@ impl<'a> TryFrom<&'a mut Sum6KesBytes> for Sum6Kes<'a> {
     }
 }
 
-#[cfg(all(test))]
+#[cfg(test)]
 mod test {
     use super::*;
 
