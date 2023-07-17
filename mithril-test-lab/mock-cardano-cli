@@ -9,32 +9,18 @@ if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 cd "$(dirname "$0")"
 
 main () {
-	command_to_run="default"
+    command_to_run="default"
 
-	while [[ "$#" -gt 0 ]]; do
-		case $1 in
-			stake-distribution) command_to_run="stake-distribution"; break ;;
-			stake-snapshot) command_to_run="stake-snapshot"; break ;;
-			tip) command_to_run="chain-tip"; break ;;
-		esac
-		shift
-	done
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            stake-snapshot) command_to_run="stake-snapshot"; break ;;
+            tip) command_to_run="chain-tip"; break ;;
+        esac
+        shift
+    done
 
-	case $command_to_run in
-		stake-distribution) cat <<EOF
-	PoolId                                 Stake frac
-------------------------------------------------------------------------------
-pool1reveeljzl7klh6fhgh8t9xvtvxycx88u5zvnzw0m49srxzrjtu5   2.493e-3
-pool1qqfnw2fwajdnam7xsqhhrje5cgd8jcltzfrx655rd23eqlxjfef   2.164e-5
-pool1qqnjh80kudcjphrxftj74x22q3a4uvw8wknlxptgs7gdqtstqad   8.068e-7
-pool1qquwwu6680fr72y4779r2kpc7mxtch8rp2uhuqcc7v9p6q4f7ph   7.073e-7
-pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8   2.474e-11
-pool1qptl80vq84xm28pt3t2lhpfzqag28csjhktxz5k6a74n260clmt   5.600e-7
-pool1wp86cljzqwzh70yjz7k80v04fcfq7vqfy8tuqsnm2lytjhgdwf7   5.161e-5
-pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
-EOF
-			;;
-		stake-snapshot) cat <<EOF
+    case $command_to_run in
+        stake-snapshot) cat <<EOF
 {
     "pools": {
         "d9899c574fd7a710732391706b59e878bfd416214c49d2b3841c5c8b": {
@@ -50,8 +36,8 @@ EOF
     }
 }
 EOF
-			;;
-		chain-tip) cat <<EOF
+            ;;
+        chain-tip) cat <<EOF
 {
     "era": "Babbage",
     "syncProgress": "100.00",
@@ -61,9 +47,9 @@ EOF
     "block": 0
 }
 EOF
-			;;
-		default | *) echo "{}" ;;
-	esac
+            ;;
+        default | *) echo "{}" ;;
+    esac
 }
 
 main "$@"

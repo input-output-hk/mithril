@@ -973,12 +973,12 @@ impl DependenciesBuilder {
                 .get_current_epoch()
                 .await
                 .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: "cannot create aggregator runner".to_string(),
+                    message: "cannot create aggregator runner: failed to retrieve current epoch."
+                        .to_string(),
                     error: Some(e.into()),
                 })?
                 .ok_or(DependenciesBuilderError::Initialization {
-                    message: "cannot build aggregator runner: impossible to retrieve current epoch"
-                        .to_string(),
+                    message: "cannot build aggregator runner: no epoch returned.".to_string(),
                     error: None,
                 })?;
             let (work_epoch, epoch_to_sign, next_epoch_to_sign) = match current_epoch {

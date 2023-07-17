@@ -22,12 +22,16 @@ impl MithrilCommand {
         env_vars: HashMap<&str, &str>,
         default_args: &[&str],
     ) -> Result<MithrilCommand, String> {
+        let current_dir = std::env::current_dir().unwrap();
         let process_path = bin_dir
             .canonicalize()
-            .expect(&format!(
-                "expected '{}/{name}' to be an existing executable",
-                bin_dir.display()
-            ))
+            .unwrap_or_else(|_| {
+                panic!(
+                    "expected '{}/{name}' to be an existing executable. Current dir: {}",
+                    bin_dir.display(),
+                    current_dir.display(),
+                )
+            })
             .join(name);
         let log_path = work_dir.join(format!("{name}.log"));
 

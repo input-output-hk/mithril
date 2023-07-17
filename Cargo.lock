@@ -2224,10 +2224,12 @@ dependencies = [
 name = "mithril-end-to-end"
 version = "0.1.31"
 dependencies = [
+ "anyhow",
  "async-trait",
  "clap",
  "glob",
  "hex",
+ "indicatif",
  "mithril-common",
  "reqwest",
  "serde",

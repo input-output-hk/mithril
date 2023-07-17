@@ -2,7 +2,6 @@ mod aggregator;
 mod client;
 mod infrastructure;
 mod signer;
-mod load;
 
 pub use aggregator::Aggregator;
 pub use client::{Client, ClientCommand, MithrilStakeDistributionCommand, SnapshotCommand};
