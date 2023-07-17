@@ -15,6 +15,7 @@ use mithril_common::{
 use mithril_end_to_end::{Aggregator, BftNode};
 use reqwest::StatusCode;
 use slog::Level;
+use slog_scope::info;
 use thiserror::Error;
 use tokio::{select, task::JoinSet, time::sleep};
 
@@ -40,6 +41,7 @@ fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
     slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()))
 }
 
+/// Generate signer data
 pub fn generate_signer_data(number_of_signers: usize) -> MithrilFixture {
     MithrilFixtureBuilder::default()
         .with_signers(number_of_signers)
@@ -61,6 +63,28 @@ pub fn generate_register_message(signers_fixture: &MithrilFixture) -> Vec<Regist
             kes_period: signer.kes_period,
         })
         .collect::<Vec<_>>()
+}
+
+/// Wait for http response until timeout
+pub async fn wait_for_http_response(url: &str, timeout: Duration, message: &str) -> StdResult<()> {
+    let progress_bar = ProgressBar::new_spinner().with_message(message.to_owned());
+    let spinner = async move {
+        loop {
+            progress_bar.tick();
+            sleep(Duration::from_millis(50)).await;
+        }
+    };
+    let probe = async move {
+        while reqwest::get(url).await.is_err() {
+            sleep(Duration::from_millis(300)).await;
+        }
+    };
+
+    select! {
+        _ = spinner => Err(String::new().into()),
+        _ = sleep(timeout) => Err(format!("Aggregator did not get a response after {timeout:?} from '{url}'").into()),
+        _ = probe => Ok(())
+    }
 }
 
 #[derive(Debug, Parser)]
@@ -180,9 +204,13 @@ async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
     let _logger = init_logger(&opts);
     let args = AggregatorParameters::new(&opts)?;
-    println!("OPTIONS={opts:?}");
+    info!(">> Starting stress test with options: {opts:?}");
+
+    info!(">> Creation of the Signer Key Registrations payloads");
     let signers_fixture = generate_signer_data(opts.num_signers);
     let register_messages = generate_register_message(&signers_fixture);
+
+    info!(">> Launch Aggregator");
     let mut aggregator = Aggregator::new(
         args.server_port as u64,
         &args.bft_node,
@@ -192,25 +220,22 @@ async fn main() -> StdResult<()> {
         &args.mithril_era,
     )
     .unwrap();
-    let progress_bar = ProgressBar::new_spinner().with_message("starting Aggregator process…");
+
     aggregator.set_protocol_parameters(&ProtocolParameters::default());
     aggregator.serve().unwrap();
-    let spinner = async move {
-        loop {
-            progress_bar.tick();
-            sleep(Duration::from_millis(50)).await;
-        }
-    };
 
-    select! {
-        _ = spinner => (),
-        _ = sleep(Duration::from_secs(10)) => (),
-    }
+    wait_for_http_response(
+        &format!("{}/epoch-settings", aggregator.endpoint()),
+        Duration::from_secs(10),
+        "Waiting for the aggregator to start",
+    )
+    .await?;
 
     let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
     let progress_bar =
         ProgressBar::with_draw_target(Some(opts.num_signers as u64), ProgressDrawTarget::stdout());
 
+    info!(">> Send the Signer Key Registrations payloads");
     for register in register_messages {
         let endpoint = aggregator.endpoint();
         join_set.spawn(async move {
