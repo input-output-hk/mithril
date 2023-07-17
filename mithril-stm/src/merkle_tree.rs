@@ -416,7 +416,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             nodes,
             n,
             leaf_off: num_nodes - n,
-            hasher: PhantomData::default(),
+            hasher: PhantomData,
         }
     }
 
@@ -583,7 +583,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             nodes,
             leaf_off: num_nodes - n,
             n,
-            hasher: PhantomData::default(),
+            hasher: PhantomData,
         })
     }
 }
@@ -725,7 +725,7 @@ mod tests {
                             .map(|x|  Blake2b::<U32>::digest(x).to_vec())
                             .collect(),
                 index,
-                hasher: PhantomData::<Blake2b<U32>>::default()
+                hasher: PhantomData::<Blake2b<U32>>
                 };
             assert!(t.to_commitment().check(&values[0], &path).is_err());
         }
@@ -744,7 +744,7 @@ mod tests {
                             .map(|x|  Blake2b::<U32>::digest(x).to_vec())
                             .collect(),
                 indices,
-                hasher: PhantomData::<Blake2b<U32>>::default()
+                hasher: PhantomData::<Blake2b<U32>>
                 };
             assert!(t.to_commitment_batch_compat().check(&batch_values, &path).is_err());
         }
