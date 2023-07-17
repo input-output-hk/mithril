@@ -83,7 +83,7 @@ mod tests {
     }
     #[tokio::test]
     async fn compute_signable() {
-        let digester = ImmutableDigesterImpl::default();
+        let digester = ImmutableDigesterImpl;
         let signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
             Arc::new(digester),
             Path::new(""),

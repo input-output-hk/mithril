@@ -102,8 +102,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::borrow::Borrow;
-
     use super::*;
 
     fn init_adapter(nb: u64) -> MemoryAdapter<u64, String> {
@@ -232,7 +230,7 @@ mod tests {
     async fn check_get_last_n_modified_records() {
         let mut adapter = init_adapter(3);
         adapter
-            .store_record(&1, "updated record".to_string().borrow())
+            .store_record(&1, &"updated record".to_string())
             .await
             .unwrap();
         let values = adapter.get_last_n_records(2).await.unwrap();

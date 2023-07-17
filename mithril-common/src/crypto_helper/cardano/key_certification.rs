@@ -291,7 +291,7 @@ impl KeyRegWrapper {
     }
 }
 
-#[cfg(all(test))]
+#[cfg(test)]
 mod test {
 
     use super::*;
