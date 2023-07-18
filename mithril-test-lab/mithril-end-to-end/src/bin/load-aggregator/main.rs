@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::Context;
 use clap::Parser;
@@ -103,7 +103,7 @@ pub struct MainOpts {
     pub aggregator_dir: PathBuf,
 
     /// Number of concurrent signers
-    #[arg(long, default_value = "2")]
+    #[arg(long, default_value = "100")]
     pub num_signers: usize,
 
     /// Mithril technical Era
@@ -204,6 +204,7 @@ async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
     let _logger = init_logger(&opts);
     let args = AggregatorParameters::new(&opts)?;
+    let mock_stake_distribution_file_path = args.work_dir.join("stake_distribution.json");
     info!(">> Starting stress test with options: {opts:?}");
 
     info!(">> Creation of the Signer Key Registrations payloads");
@@ -221,6 +222,15 @@ async fn main() -> StdResult<()> {
     )
     .unwrap();
 
+    let mock_stake_distribution_file = File::create(&mock_stake_distribution_file_path).unwrap();
+    serde_json::to_writer(
+        &mock_stake_distribution_file,
+        &signers_fixture.cardano_cli_stake_distribution(),
+    )
+    .expect("Writing the stake distribution into a file for the mock cardano cli failed");
+
+    aggregator.change_run_interval(Duration::from_secs(6));
+    aggregator.set_mock_cardano_cli_stake_distribution_file(&mock_stake_distribution_file_path);
     aggregator.set_protocol_parameters(&ProtocolParameters::default());
     aggregator.serve().unwrap();
 
@@ -270,7 +280,7 @@ async fn main() -> StdResult<()> {
         }
     }
 
-    assert_eq!(opts.num_signers - 1, errors);
+    assert_eq!(0, errors);
 
     // ensure POSTing payload gives 200
     aggregator.stop().await.unwrap();

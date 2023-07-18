@@ -1,7 +1,10 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
+
+use serde::{Deserialize, Serialize};
 
 use crate::{
     certificate_chain::CertificateGenesisProducer,
@@ -12,7 +15,7 @@ use crate::{
     },
     entities::{
         Beacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
-        ProtocolParameters, Signer, SignerWithStake, SingleSignatures, StakeDistribution,
+        ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
     },
     protocol::SignerBuilder,
 };
@@ -50,6 +53,25 @@ impl From<&SignerFixture> for SignerWithStake {
     fn from(fixture: &SignerFixture) -> Self {
         fixture.signer_with_stake.clone()
     }
+}
+
+/// Represent the output of the `stake-snapshot` command of the cardano-cli
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardanoCliStakeDistribution {
+    #[serde(rename = "pools")]
+    pub signers: HashMap<String, CardanoCliSignerStake>,
+}
+
+/// Represent the stakes of a party in the output of the `stake-snapshot`
+/// command of the cardano-cli
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CardanoCliSignerStake {
+    #[serde(rename = "stakeMark")]
+    actual_stake: Stake,
+    #[serde(rename = "stakeSet")]
+    previous_stake: Stake,
+    #[serde(rename = "stakeGo")]
+    penultimate_stake: Stake,
 }
 
 impl MithrilFixture {
@@ -102,6 +124,24 @@ impl MithrilFixture {
     /// Get the fixture protocol stake distribution.
     pub fn protocol_stake_distribution(&self) -> ProtocolStakeDistribution {
         self.stake_distribution.clone()
+    }
+
+    /// Get the stake distribution formated as a cardano-cli `stake-snapshot` output.
+    ///
+    /// Note: will fail if the signers certification was disabled
+    pub fn cardano_cli_stake_distribution(&self) -> CardanoCliStakeDistribution {
+        let signers = HashMap::from_iter(self.signers_fixture().into_iter().map(|signer| {
+            (
+                signer.compute_protocol_party_id_as_hash(),
+                CardanoCliSignerStake {
+                    actual_stake: signer.signer_with_stake.stake,
+                    previous_stake: signer.signer_with_stake.stake,
+                    penultimate_stake: signer.signer_with_stake.stake,
+                },
+            )
+        }));
+
+        CardanoCliStakeDistribution { signers }
     }
 
     /// Compute the Aggregate Verification Key for this fixture.
@@ -165,6 +205,20 @@ impl SignerFixture {
             Some(operational_certificate) => key_decode_hex(operational_certificate).unwrap(),
             _ => None,
         }
+    }
+
+    /// Compute the party id hash
+    ///
+    /// Note: will fail if the signers certification was disabled
+    pub fn compute_protocol_party_id_as_hash(&self) -> String {
+        self.operational_certificate()
+            .unwrap()
+            .compute_protocol_party_id_as_hash()
+    }
+
+    /// Decode this signer verification key certificate
+    pub fn verification_key(&self) -> ProtocolSignerVerificationKey {
+        key_decode_hex(&self.signer_with_stake.verification_key).unwrap()
     }
 
     /// Decode this signer verification key signature certificate if any

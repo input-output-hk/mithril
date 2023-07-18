@@ -20,23 +20,7 @@ main () {
     done
 
     case $command_to_run in
-        stake-snapshot) cat <<EOF
-{
-    "pools": {
-        "d9899c574fd7a710732391706b59e878bfd416214c49d2b3841c5c8b": {
-            "stakeGo": 300000000000,
-            "stakeMark": 300000000001,
-            "stakeSet": 300000000002
-        }
-    },
-    "total": {
-            "stakeGo": 300000000000,
-            "stakeMark": 300000000001,
-            "stakeSet": 300000000002
-    }
-}
-EOF
-            ;;
+        stake-snapshot) cat $STAKE_DISTRIBUTION_FILE ;;
         chain-tip) cat <<EOF
 {
     "era": "Babbage",

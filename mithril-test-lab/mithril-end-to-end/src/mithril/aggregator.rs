@@ -4,6 +4,7 @@ use crate::DEVNET_MAGIC_ID;
 use mithril_common::entities;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tokio::process::Child;
 
 #[derive(Debug)]
@@ -121,6 +122,17 @@ impl Aggregator {
             "PROTOCOL_PARAMETERS__PHI_F",
             &format!("{}", protocol_parameters.phi_f),
         );
+    }
+
+    pub fn set_mock_cardano_cli_stake_distribution_file(&mut self, file_path: &Path) {
+        self.command
+            .set_env_var("STAKE_DISTRIBUTION_FILE", file_path.to_str().unwrap())
+    }
+
+    /// Change the run interval of the aggregator state machine (default: 400ms)
+    pub fn change_run_interval(&mut self, interval: Duration) {
+        self.command
+            .set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
