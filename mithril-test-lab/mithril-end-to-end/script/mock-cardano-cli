@@ -20,13 +20,15 @@ main () {
     done
 
     case $command_to_run in
-        stake-snapshot) cat $STAKE_DISTRIBUTION_FILE ;;
-        chain-tip) cat <<EOF
+        stake-snapshot) cat $MOCK_STAKE_DISTRIBUTION_FILE ;;
+        chain-tip) epoch=$(cat $MOCK_EPOCH_FILE) 
+        
+        cat <<EOF
 {
     "era": "Babbage",
     "syncProgress": "100.00",
     "hash": "f6d1b8c328697c7a4a8e7f718c79510acbcd411ff4ca19401ded13534d45a38d",
-    "epoch": 1,
+    "epoch": $epoch,
     "slot": 0,
     "block": 0
 }

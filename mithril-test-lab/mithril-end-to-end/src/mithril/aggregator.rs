@@ -124,9 +124,17 @@ impl Aggregator {
         );
     }
 
-    pub fn set_mock_cardano_cli_stake_distribution_file(&mut self, file_path: &Path) {
+    pub fn set_mock_cardano_cli_file_path(
+        &mut self,
+        stake_distribution_file: &Path,
+        epoch_file_path: &Path,
+    ) {
+        self.command.set_env_var(
+            "MOCK_STAKE_DISTRIBUTION_FILE",
+            stake_distribution_file.to_str().unwrap(),
+        );
         self.command
-            .set_env_var("STAKE_DISTRIBUTION_FILE", file_path.to_str().unwrap())
+            .set_env_var("MOCK_EPOCH_FILE", epoch_file_path.to_str().unwrap());
     }
 
     /// Change the run interval of the aggregator state machine (default: 400ms)

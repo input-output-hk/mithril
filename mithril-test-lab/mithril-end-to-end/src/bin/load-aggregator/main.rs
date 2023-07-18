@@ -1,4 +1,10 @@
-use std::{fs::File, path::PathBuf, sync::Arc, time::Duration};
+use std::{
+    fs::File,
+    io::Write,
+    path::{Path, PathBuf},
+    sync::Arc,
+    time::Duration,
+};
 
 use anyhow::Context;
 use clap::Parser;
@@ -85,6 +91,24 @@ pub async fn wait_for_http_response(url: &str, timeout: Duration, message: &str)
         _ = sleep(timeout) => Err(format!("Aggregator did not get a response after {timeout:?} from '{url}'").into()),
         _ = probe => Ok(())
     }
+}
+
+pub fn write_stake_distribution(
+    mock_stake_distribution_file_path: &Path,
+    signers_fixture: &MithrilFixture,
+) {
+    let mock_stake_distribution_file = File::create(mock_stake_distribution_file_path).unwrap();
+    serde_json::to_writer(
+        &mock_stake_distribution_file,
+        &signers_fixture.cardano_cli_stake_distribution(),
+    )
+    .expect("Writing the stake distribution into a file for the mock cardano cli failed");
+}
+
+pub fn write_epoch(mock_epoch_file_path: &Path, epoch: Epoch) {
+    let mock_epoch_file = File::create(mock_epoch_file_path).unwrap();
+    write!(&mock_epoch_file, "{}", *epoch)
+        .expect("Writing the epoch into a file for the mock cardano cli failed");
 }
 
 #[derive(Debug, Parser)]
@@ -205,6 +229,7 @@ async fn main() -> StdResult<()> {
     let _logger = init_logger(&opts);
     let args = AggregatorParameters::new(&opts)?;
     let mock_stake_distribution_file_path = args.work_dir.join("stake_distribution.json");
+    let mock_epoch_file_path = args.work_dir.join("epoch.txt");
     info!(">> Starting stress test with options: {opts:?}");
 
     info!(">> Creation of the Signer Key Registrations payloads");
@@ -222,15 +247,12 @@ async fn main() -> StdResult<()> {
     )
     .unwrap();
 
-    let mock_stake_distribution_file = File::create(&mock_stake_distribution_file_path).unwrap();
-    serde_json::to_writer(
-        &mock_stake_distribution_file,
-        &signers_fixture.cardano_cli_stake_distribution(),
-    )
-    .expect("Writing the stake distribution into a file for the mock cardano cli failed");
+    write_epoch(&mock_epoch_file_path, Epoch(26));
+    write_stake_distribution(&mock_stake_distribution_file_path, &signers_fixture);
 
     aggregator.change_run_interval(Duration::from_secs(6));
-    aggregator.set_mock_cardano_cli_stake_distribution_file(&mock_stake_distribution_file_path);
+    aggregator
+        .set_mock_cardano_cli_file_path(&mock_stake_distribution_file_path, &mock_epoch_file_path);
     aggregator.set_protocol_parameters(&ProtocolParameters::default());
     aggregator.serve().unwrap();
 
