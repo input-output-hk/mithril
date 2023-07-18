@@ -17,7 +17,7 @@ TODO: revert this modification when it is possible
 ```mermaid
 timeline
 section Preview testing environment
-SPO Pioneer Program : Optional : SPOs test Mithril distribution pre-releases with IOG : Run Mithril Signer in `pre-release-preview` network : Naive or Production deployment : ~2-3 days
+SPO Pioneer Program : Optional : SPOs test Mithril pre-releases with IOG : Run Mithril Signer in `pre-release-preview` network : Naive or Production deployment : ~2-3 days
 section Pre-production testing environment
 SPO beta mainnet preparation : Mandatory : SPOs validate that Mithril is working in the test environment : Run Mithril Signer in `release-preprod` network : Production deployment : ~10-15 days
 section Cardano mainnet
