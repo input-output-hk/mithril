@@ -13,7 +13,7 @@ use indicatif::{ProgressBar, ProgressDrawTarget};
 use mithril_common::{
     digesters::DummyImmutablesDbBuilder,
     entities::{Epoch, PartyId, ProtocolParameters},
-    messages::RegisterSignerMessage,
+    messages::{EpochSettingsMessage, RegisterSignerMessage},
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
 };
@@ -21,7 +21,7 @@ use mithril_common::{
 use mithril_end_to_end::{Aggregator, BftNode};
 use reqwest::StatusCode;
 use slog::Level;
-use slog_scope::info;
+use slog_scope::{info, warn};
 use thiserror::Error;
 use tokio::{select, task::JoinSet, time::sleep};
 
@@ -93,6 +93,50 @@ pub async fn wait_for_http_response(url: &str, timeout: Duration, message: &str)
     }
 }
 
+/// Wait for a given epoch in the epoch settings until timeout
+pub async fn wait_for_epoch_settings_at_epoch(
+    url: &str,
+    timeout: Duration,
+    epoch: Epoch,
+) -> StdResult<()> {
+    let progress_bar =
+        ProgressBar::new_spinner().with_message(format!("Waiting for epoch {epoch}"));
+    let spinner = async move {
+        loop {
+            progress_bar.tick();
+            sleep(Duration::from_millis(50)).await;
+        }
+    };
+    let probe = async move {
+        while let Ok(response) = reqwest::get(url).await {
+            match response.status() {
+                StatusCode::OK => {
+                    let epoch_settings = response.json::<EpochSettingsMessage>().await.unwrap();
+
+                    if epoch_settings.epoch >= epoch {
+                        break;
+                    }
+                    sleep(Duration::from_millis(300)).await
+                }
+                s if s.is_server_error() => {
+                    warn!(
+                        "Server error while waiting for the Aggregator, http code: {}",
+                        s
+                    );
+                    break;
+                }
+                _ => sleep(Duration::from_millis(300)).await,
+            }
+        }
+    };
+
+    select! {
+        _ = spinner => Err(String::new().into()),
+        _ = sleep(timeout) => Err(format!("Aggregator did not get a response after {timeout:?} from '{url}'").into()),
+        _ = probe => Ok(())
+    }
+}
+
 pub fn write_stake_distribution(
     mock_stake_distribution_file_path: &Path,
     signers_fixture: &MithrilFixture,
@@ -127,7 +171,7 @@ pub struct MainOpts {
     pub aggregator_dir: PathBuf,
 
     /// Number of concurrent signers
-    #[arg(long, default_value = "100")]
+    #[arg(long, default_value = "20")]
     pub num_signers: usize,
 
     /// Mithril technical Era
@@ -247,7 +291,7 @@ async fn main() -> StdResult<()> {
     )
     .unwrap();
 
-    write_epoch(&mock_epoch_file_path, Epoch(26));
+    write_epoch(&mock_epoch_file_path, Epoch(1));
     write_stake_distribution(&mock_stake_distribution_file_path, &signers_fixture);
 
     aggregator.change_run_interval(Duration::from_secs(6));
@@ -303,6 +347,14 @@ async fn main() -> StdResult<()> {
     }
 
     assert_eq!(0, errors);
+
+    write_epoch(&mock_epoch_file_path, Epoch(2));
+    wait_for_epoch_settings_at_epoch(
+        &format!("{}/epoch-settings", aggregator.endpoint()),
+        Duration::from_secs(10),
+        Epoch(2),
+    )
+    .await?;
 
     // ensure POSTing payload gives 200
     aggregator.stop().await.unwrap();
