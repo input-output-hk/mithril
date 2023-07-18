@@ -36,7 +36,7 @@ This step is **optional**, but recommended as it helps us deliver quality softwa
 
 To participate in the Pioneer Program, you will need to:
 - Register for the **Mithril SPO Pioneer Program** using this [form](https://contact.mithril.network/).
-- Run an active SPO on the Cardano preview network for at least one epoch or one day. 
+- Run an active SPO on the Cardano `preview` network for at least one epoch or one day. 
 - Set up a **Mithril Signer** node on the `pre-release-preview` Mithril network by following the [**Run a Mithril Signer node (SPO)**](run-signer-node.md) guide.
 - You can choose between the **Naive** (easier to set up) or the **Production** deployment models.
 - Wait for two epochs (or two days) before your **Mithril Signer** is eligible to contribute.
