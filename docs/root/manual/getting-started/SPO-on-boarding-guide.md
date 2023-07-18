@@ -55,7 +55,7 @@ This step is **mandatory**. You must complete it before moving forward to **Step
 :::
 
 To get ready for `mainnet`, you need to:
-- Be an active SPO on the Cardano `pre-production` network for at least one epoch or five days.
+- Be an active SPO on the Cardano `preprod` network for at least one epoch or five days.
 - Set up a **Mithril Signer** node on Mithril's `release-preprod` network by following the [**Run a Mithril Signer node (SPO)**](run-signer-node.md) guide.
 - You **must** run the **Production** deployment model.
 - Wait for two epochs (or ten days) before your **Mithril Signer** is eligible to contribute.
