@@ -117,6 +117,13 @@ impl OpCert {
             .map_err(|_| OpCertError::PoolAddressEncoding)
     }
 
+    /// Compute protocol party id as hash
+    pub fn compute_protocol_party_id_as_hash(&self) -> String {
+        let mut hasher = Blake2b::<U28>::new();
+        hasher.update(self.cold_vk.as_bytes());
+        hex::encode(hasher.finalize())
+    }
+
     /// Compute the hash of an OpCert
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
@@ -206,6 +213,12 @@ mod tests {
         assert_eq!(
             "pool1mxyec46067n3querj9cxkk0g0zlag93pf3ya9vuyr3wgkq2e6t7".to_string(),
             party_id
+        );
+
+        let party_id_as_hash = operational_certificate.compute_protocol_party_id_as_hash();
+        assert_eq!(
+            "d9899c574fd7a710732391706b59e878bfd416214c49d2b3841c5c8b".to_string(),
+            party_id_as_hash
         );
     }
 }
