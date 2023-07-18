@@ -16,6 +16,7 @@ use mithril_common::{
     BeaconProvider,
 };
 
+use crate::database::provider::CertificateRepository;
 use crate::{
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
@@ -24,8 +25,8 @@ use crate::{
     services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
-    CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
-    SignerRegisterer, SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
+    CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
+    SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
 };
 
 /// MultiSignerWrapper wraps a MultiSigner
@@ -55,7 +56,7 @@ pub struct DependencyContainer {
     pub certificate_pending_store: Arc<CertificatePendingStore>,
 
     /// Certificate store.
-    pub certificate_store: Arc<CertificateStore>,
+    pub certificate_repository: Arc<CertificateRepository>,
 
     /// Verification key store.
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
@@ -218,12 +219,10 @@ impl DependencyContainer {
             self.fill_stakes_store(epoch, params.0.to_vec()).await;
         }
 
-        for certificate in certificate_chain {
-            self.certificate_store
-                .save(certificate.to_owned())
-                .await
-                .expect("certificate_store::save should not fail");
-        }
+        self.certificate_repository
+            .create_many_certificates(certificate_chain)
+            .await
+            .expect("certificate_repository::create_many_certificates should not fail");
 
         if additional_params.contains(&SimulateFromChainParams::SetupMultiSigner) {
             let mut multi_signer = self.multi_signer.write().await;

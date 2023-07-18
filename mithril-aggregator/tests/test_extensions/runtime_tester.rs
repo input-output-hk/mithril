@@ -183,10 +183,10 @@ impl RuntimeTester {
         let genesis_certificate = fixture.create_genesis_certificate(&beacon);
         debug!("genesis_certificate: {genesis_certificate:?}");
         self.deps_builder
-            .get_certificate_store()
+            .get_certificate_repository()
             .await
             .unwrap()
-            .save(genesis_certificate)
+            .create_certificate(genesis_certificate)
             .await
             .map_err(|e| format!("Saving the genesis certificate should not fail: {e:?}"))?;
         Ok(())
@@ -299,10 +299,10 @@ impl RuntimeTester {
     ) -> Result<(Vec<Certificate>, Vec<Snapshot>), String> {
         let certificates = self
             .deps_builder
-            .get_certificate_store()
+            .get_certificate_repository()
             .await
             .unwrap()
-            .get_list(1000) // Arbitrary high number to get all of them in store
+            .get_latest_certificates(1000) // Arbitrary high number to get all of them in store
             .await
             .map_err(|e| format!("Querying certificate store should not fail {e:?}"))?;
         let signed_entities = self

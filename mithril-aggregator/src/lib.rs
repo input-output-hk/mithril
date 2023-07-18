@@ -51,7 +51,7 @@ pub use snapshot_uploaders::{
 };
 pub use snapshotter::{DumbSnapshotter, GzipSnapshotter, SnapshotError, Snapshotter};
 pub use store::{
-    CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
+    CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer,
     VerificationKeyStore, VerificationKeyStorer,
 };
 

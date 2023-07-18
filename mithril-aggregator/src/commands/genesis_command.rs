@@ -78,8 +78,13 @@ impl ExportGenesisSubCommand {
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let dependencies = dependencies_builder.create_genesis_container().await?;
 
-        let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
-        genesis_tools.export_payload_to_sign(&self.target_path)
+        let genesis_tools = GenesisTools::from_dependencies(dependencies)
+            .await
+            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
+        genesis_tools
+            .export_payload_to_sign(&self.target_path)
+            .map_err(|err| format!("genesis-tools: export error: {err}"))?;
+        Ok(())
     }
 }
 
@@ -108,10 +113,14 @@ impl ImportGenesisSubCommand {
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let dependencies = dependencies_builder.create_genesis_container().await?;
 
-        let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
+        let genesis_tools = GenesisTools::from_dependencies(dependencies)
+            .await
+            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
         genesis_tools
             .import_payload_signature(&self.signed_payload_path)
             .await
+            .map_err(|err| format!("genesis-tools: import error: {err}"))?;
+        Ok(())
     }
 }
 
@@ -137,11 +146,15 @@ impl BootstrapGenesisSubCommand {
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let dependencies = dependencies_builder.create_genesis_container().await?;
 
-        let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
+        let genesis_tools = GenesisTools::from_dependencies(dependencies)
+            .await
+            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
         let genesis_secret_key = key_decode_hex(&self.genesis_secret_key)?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await
+            .map_err(|err| format!("genesis-tools: bootstrap error: {err}"))?;
+        Ok(())
     }
 }
