@@ -69,7 +69,7 @@ Note that this guide works on a Linux machine only.
 
 * To access the file system of the **Cardano block producer** node for **production** deployment (or of the **Cardano relay** node for **naive** deployment), you will need the following permissions:
   * Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
-  * Read or write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
+  * Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
 * Install a recent version of [`cardano-cli`](https://github.com/input-output-hk/cardano-node/releases/tag/8.1.1) (version 8.1.1+).
 
