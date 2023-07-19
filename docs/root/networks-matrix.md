@@ -9,10 +9,48 @@ import TabItem from '@theme/TabItem';
 
 Here is an updated list of all **Mithril networks**, including their configurations and current statuses:
 
-> Last update: 07/05/2023
+> Last update: 07/21/2023
 
 <Tabs>
-  <TabItem value="preview" label="Preview" default>
+  <TabItem value="mainnet" label="Mainnet" default>
+
+## `release-mainnet`
+
+| Information | -
+|------------|------------
+| **Mithril network** | `release-mainnet`
+| **Cardano network** | `mainnet` 
+| **Cardano magic id** |   `-`
+| **Supported** | Yes :heavy_check_mark:
+| **Status** | Beta 🟢
+| **Aggregator endpoint** | `https://aggregator.release-mainnet.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.release-mainnet.api.mithril.network/aggregator)  
+| **Genesis verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/genesis.vkey)  
+| **Era reader adapter type** | `cardano-chain`
+| **Era reader address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr)
+| **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey)
+| **Build from** |  **Latest release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases/latest) 
+
+  </TabItem>
+  <TabItem value="preprod" label="Preprod">
+
+## `release-preprod`
+
+| Information | -
+|------------|------------
+| **Mithril network** | `release-preprod` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.release-preprod.api.mithril.network%2Faggregator)
+| **Cardano network** | `preprod` 
+| **Cardano magic Id** |   `1`
+| **Supported** | Yes :heavy_check_mark:
+| **Status** | Release 🟢
+| **Aggregator endpoint** | `https://aggregator.release-preprod.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.release-preprod.api.mithril.network/aggregator)  
+| **Genesis verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)  
+| **Era reader adapter type** | `cardano-chain`
+| **Era reader address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr)
+| **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey)
+| **Build from** |  **Latest release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases/latest) 
+
+  </TabItem>
+  <TabItem value="preview" label="Preview">
 
 ## `pre-release-preview`
 
@@ -48,44 +86,6 @@ Here is an updated list of all **Mithril networks**, including their configurati
 | **Era reader address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr)
 | **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey)
 | **Build from** |  **Main branch** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main) 
-
-  </TabItem>
-  <TabItem value="preprod" label="Preprod">
-
-## `release-preprod`
-
-| Information | -
-|------------|------------
-| **Mithril network** | `release-preprod` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.release-preprod.api.mithril.network%2Faggregator)
-| **Cardano network** | `preprod` 
-| **Cardano magic Id** |   `1`
-| **Supported** | Yes :heavy_check_mark:
-| **Status** | Release 🟢
-| **Aggregator endpoint** | `https://aggregator.release-preprod.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.release-preprod.api.mithril.network/aggregator)  
-| **Genesis verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)  
-| **Era reader adapter type** | `cardano-chain`
-| **Era reader address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr)
-| **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey)
-| **Build from** |  **Latest release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases/latest) 
-
-  </TabItem>
-  <TabItem value="mainnet" label="Mainnet">
-
-## `release-mainnet`
-
-| Information | -
-|------------|------------
-| **Mithril network** | `release-mainnet`
-| **Cardano network** | `mainnet` 
-| **Cardano magic Id** |   `-`
-| **Supported** | No :x:
-| **Status** | -
-| **Aggregator endpoint** | - 
-| **Genesis verification key** | -  
-| **Era reader adapter type** | -
-| **Era reader address** | -
-| **Era reader verification key** | -
-| **Build From** |  -
 
   </TabItem>
 </Tabs>
