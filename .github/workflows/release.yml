@@ -113,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ release-preprod ]
+        environment: [ release-preprod, release-mainnet ]
         include:
         - environment: release-preprod
           environment_prefix: release
@@ -136,7 +136,26 @@ jobs:
           google_region: europe-west1
           google_zone: europe-west1-b
           google_machine_type: e2-highmem-2
+          google_compute_instance_boot_disk_size: 200
           google_compute_instance_data_disk_size: 250
+        - environment: release-mainnet
+          environment_prefix: release
+          cardano_network: mainnet
+          mithril_api_domain: api.mithril.network
+          mithril_protocol_parameters: |
+            {
+              k     = 2422
+              m     = 20973
+              phi_f = 0.20
+            }
+          mithril_signers: |
+            {}
+          terraform_backend_bucket: mithril-terraform-prod
+          google_region: europe-west1
+          google_zone: europe-west1-b
+          google_machine_type: e2-highmem-8
+          google_compute_instance_boot_disk_size: 250
+          google_compute_instance_data_disk_size: 1000
           
     runs-on: ubuntu-22.04
 
@@ -183,6 +202,7 @@ jobs:
           google_region                           = "${{ matrix.google_region }}"
           google_zone                             = "${{ matrix.google_zone }}"
           google_machine_type                     = "${{ matrix.google_machine_type }}"
+          google_compute_instance_boot_disk_size  = "${{ matrix.google_compute_instance_boot_disk_size }}"
           google_compute_instance_data_disk_size  = "${{ matrix.google_compute_instance_data_disk_size }}"
           google_service_credentials_json_file    = "./google-application-credentials.json"
           mithril_api_domain                      = "${{ matrix.mithril_api_domain }}"
