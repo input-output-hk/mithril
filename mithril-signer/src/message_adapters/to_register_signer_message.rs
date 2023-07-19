@@ -29,7 +29,8 @@ mod tests {
     #[test]
     fn adapt_ok() {
         let epoch = Epoch(1);
-        let signer = fake_data::signers(1)[0].to_owned();
+        let mut signer = fake_data::signers(1)[0].to_owned();
+        signer.party_id = "0".to_string();
         let message = ToRegisterSignerMessageAdapter::adapt((epoch, signer));
 
         assert_eq!("0".to_string(), message.party_id);

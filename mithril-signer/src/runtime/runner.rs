@@ -526,7 +526,11 @@ mod tests {
 
     async fn init_services() -> SignerServices {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
-        let chain_observer = Arc::new(FakeObserver::default());
+        let stake_distribution_signers = fake_data::signers_with_stakes(2);
+        let party_id = stake_distribution_signers[1].party_id.clone();
+        let fake_observer = FakeObserver::default();
+        fake_observer.set_signers(stake_distribution_signers).await;
+        let chain_observer = Arc::new(fake_observer);
         let beacon_provider = Arc::new(BeaconProviderImpl::new(
             chain_observer.clone(),
             Arc::new(DumbImmutableFileObserver::default()),
@@ -562,7 +566,7 @@ mod tests {
             certificate_handler: Arc::new(DumbAggregatorClient::default()),
             chain_observer,
             digester,
-            single_signer: Arc::new(MithrilSingleSigner::new("1".to_string())),
+            single_signer: Arc::new(MithrilSingleSigner::new(party_id)),
             beacon_provider,
             protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
                 Box::new(adapter),
@@ -718,12 +722,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_i_sign() {
-        let services = init_services().await;
-        let protocol_initializer_store = services.protocol_initializer_store.clone();
-        let runner = init_runner(Some(services), None).await;
         let mut pending_certificate = fake_data::certificate_pending();
         let epoch = pending_certificate.beacon.epoch;
         let signer = &mut pending_certificate.signers[0];
+        let mut services = init_services().await;
+        let protocol_initializer_store = services.protocol_initializer_store.clone();
+        services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
+        let runner = init_runner(Some(services), None).await;
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,

@@ -6,6 +6,7 @@ mod certificate_metadata;
 mod certificate_pending;
 mod epoch_settings;
 mod interface;
+mod message_parts;
 mod mithril_stake_distribution;
 mod mithril_stake_distribution_list;
 mod register_signature;
@@ -20,8 +21,8 @@ pub use certificate_list::{
 pub use certificate_metadata::CertificateMetadataMessage;
 pub use certificate_pending::{CertificatePendingMessage, SignerMessage};
 pub use epoch_settings::EpochSettingsMessage;
-pub use interface::FromMessageAdapter;
-pub use interface::ToMessageAdapter;
+pub use interface::*;
+pub use message_parts::*;
 pub use mithril_stake_distribution::MithrilStakeDistributionMessage;
 pub use mithril_stake_distribution_list::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage,

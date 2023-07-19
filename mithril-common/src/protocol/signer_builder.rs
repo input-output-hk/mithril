@@ -203,9 +203,7 @@ impl SignerCryptographicMaterial {
                 .with_context(|| "Could not decode operational certificate".to_string())?,
             _ => None,
         };
-        let verification_key = key_decode_hex(&signer.verification_key)
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "Could not decode verification key".to_string())?;
+        let verification_key = signer.verification_key.clone();
         let kes_signature = match &signer.verification_key_signature {
             Some(verification_key_signature) => Some(
                 key_decode_hex(verification_key_signature)

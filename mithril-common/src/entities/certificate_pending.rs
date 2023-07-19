@@ -56,11 +56,21 @@ impl CertificatePending {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     use crate::test_utils::fake_data;
 
     #[test]
     fn certificate_pending_get_signers() {
-        let certificate_pending = fake_data::certificate_pending();
+        let certificate_pending = {
+            let mut signers = fake_data::signers(3);
+            signers[0].party_id = "1".to_string();
+            CertificatePending {
+                signers,
+                ..fake_data::certificate_pending()
+            }
+        };
+
         assert!(certificate_pending.get_signer("1".to_string()).is_some());
         assert!(certificate_pending.get_signer("5".to_string()).is_none());
     }

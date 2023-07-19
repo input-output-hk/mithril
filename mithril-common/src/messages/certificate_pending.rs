@@ -55,6 +55,7 @@ impl CertificatePendingMessage {
     }
 }
 
+// todo: move to message_parts
 /// Signer Message
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerMessage {

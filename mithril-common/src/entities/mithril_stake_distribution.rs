@@ -48,9 +48,11 @@ impl MithrilStakeDistribution {
     fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.epoch.0.to_be_bytes());
+
         for signer_with_stake in &self.signers_with_stake {
             hasher.update(signer_with_stake.compute_hash().as_bytes());
         }
+
         hex::encode(hasher.finalize())
     }
 }
@@ -59,5 +61,65 @@ impl MithrilStakeDistribution {
 impl Artifact for MithrilStakeDistribution {
     fn get_id(&self) -> String {
         self.hash.clone()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_utils::{fake_data, MithrilFixtureBuilder};
+
+    use super::*;
+
+    const EXPECTED_HASH: &str = "093b4b8044c9b0f33ed678ac34096f4d5071768c8804bf98e9f239af0bbbfeeb";
+
+    #[test]
+    fn test_compute_hash() {
+        let fixtures = MithrilFixtureBuilder::default().with_signers(100).build();
+        let stake_distribution = MithrilStakeDistribution::new(
+            Epoch(1),
+            fixtures.signers_with_stake(),
+            &fake_data::protocol_parameters(),
+        );
+
+        assert_eq!(EXPECTED_HASH.to_owned(), stake_distribution.compute_hash());
+    }
+
+    #[test]
+    fn test_hash_fail_for_different_stake() {
+        let fixtures = MithrilFixtureBuilder::default().with_signers(100).build();
+        let mut signers = fixtures.signers_with_stake();
+        signers[0].stake += 1;
+        let stake_distribution =
+            MithrilStakeDistribution::new(Epoch(1), signers, &fake_data::protocol_parameters());
+
+        assert_ne!(EXPECTED_HASH.to_owned(), stake_distribution.compute_hash());
+    }
+
+    #[test]
+    fn test_hash_fail_for_different_epoch() {
+        let fixtures = MithrilFixtureBuilder::default().with_signers(100).build();
+        let stake_distribution = MithrilStakeDistribution::new(
+            Epoch(2),
+            fixtures.signers_with_stake(),
+            &fake_data::protocol_parameters(),
+        );
+
+        assert_ne!(EXPECTED_HASH.to_owned(), stake_distribution.compute_hash());
+    }
+
+    #[test]
+    fn test_independence_protocol_parameters() {
+        let signers = MithrilFixtureBuilder::default()
+            .with_signers(100)
+            .build()
+            .signers_with_stake();
+        let protocol_parameters = ProtocolParameters {
+            k: 100,
+            ..Default::default()
+        };
+        let stake_distribution =
+            MithrilStakeDistribution::new(Epoch(1), signers, &protocol_parameters);
+
+        assert_eq!(EXPECTED_HASH.to_owned(), stake_distribution.compute_hash());
     }
 }

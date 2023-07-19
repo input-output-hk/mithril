@@ -81,8 +81,7 @@ fn setup_signer_with_stake(
 ) -> SignerWithStake {
     SignerWithStake::new(
         party_id.to_owned(),
-        key_encode_hex(protocol_initializer.verification_key())
-            .expect("key_encode_hex of verification_key should not fail"),
+        protocol_initializer.verification_key().into(),
         protocol_initializer
             .verification_key_signature()
             .as_ref()
@@ -141,7 +140,7 @@ pub fn setup_signers_from_stake_distribution(
                 operational_certificate,
                 protocol_initializer.verification_key_signature(),
                 Some(kes_period),
-                protocol_initializer.verification_key(),
+                protocol_initializer.verification_key().into(),
             )
             .expect("key registration should have succeeded");
 
