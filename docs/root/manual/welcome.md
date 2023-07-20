@@ -27,7 +27,7 @@ This node verifies and restores a snapshot, facilitating lightning-fast bootstra
 
 :::tip
 
-For more information about the **Mithril protocol**, see the section [About Mithril](../../mithril/intro.md).
+For more information about the **Mithril protocol**, see the section [About Mithril](../mithril/intro.md).
 
 :::
 
