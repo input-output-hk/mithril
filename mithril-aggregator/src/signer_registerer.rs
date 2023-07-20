@@ -44,7 +44,7 @@ pub enum SignerRegistrationError {
 
     /// Signer is already registered.
     #[error("signer already registered")]
-    ExistingSigner(SignerWithStake),
+    ExistingSigner(Box<SignerWithStake>),
 
     /// Store error.
     #[error("store error: {0}")]
@@ -224,8 +224,6 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             "" => None,
             party_id => Some(party_id.to_string()),
         };
-        let verification_key =
-            key_decode_hex(&signer.verification_key).map_err(SignerRegistrationError::Codec)?;
         let verification_key_signature = match &signer.verification_key_signature {
             Some(verification_key_signature) => Some(
                 key_decode_hex(verification_key_signature)
@@ -255,7 +253,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             operational_certificate,
             verification_key_signature,
             kes_period,
-            verification_key,
+            signer.verification_key.clone(),
         )?;
         let mut signer_save = SignerWithStake::from_signer(
             signer.to_owned(),
@@ -276,7 +274,9 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             .save_verification_key(registration_round.epoch, signer_save.clone())
             .await?
         {
-            Some(_) => Err(SignerRegistrationError::ExistingSigner(signer_save)),
+            Some(_) => Err(SignerRegistrationError::ExistingSigner(Box::new(
+                signer_save,
+            ))),
             None => Ok(signer_save),
         }
     }

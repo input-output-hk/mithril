@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 use mithril_common::{
-    crypto_helper::KESPeriod,
+    crypto_helper::{KESPeriod, ProtocolSignerVerificationKey},
     entities::{
         Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature,
         PartyId, Signer, SignerWithStake, Stake,
@@ -53,7 +53,7 @@ impl SignerRegistrationRecord {
         SignerRegistrationRecord {
             signer_id: other.party_id,
             epoch_setting_id: epoch,
-            verification_key: other.verification_key,
+            verification_key: other.verification_key.to_json_hex().unwrap(),
             verification_key_signature: other.verification_key_signature,
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,
@@ -67,7 +67,8 @@ impl From<SignerRegistrationRecord> for Signer {
     fn from(other: SignerRegistrationRecord) -> Self {
         Self {
             party_id: other.signer_id,
-            verification_key: other.verification_key,
+            verification_key: ProtocolSignerVerificationKey::from_json_hex(&other.verification_key)
+                .unwrap(),
             verification_key_signature: other.verification_key_signature,
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,
@@ -79,7 +80,8 @@ impl From<SignerRegistrationRecord> for SignerWithStake {
     fn from(other: SignerRegistrationRecord) -> Self {
         Self {
             party_id: other.signer_id,
-            verification_key: other.verification_key,
+            verification_key: ProtocolSignerVerificationKey::from_json_hex(&other.verification_key)
+                .unwrap(),
             verification_key_signature: other.verification_key_signature,
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,

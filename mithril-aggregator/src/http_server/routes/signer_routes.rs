@@ -35,7 +35,7 @@ mod handlers {
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
-    use mithril_common::messages::{FromMessageAdapter, RegisterSignerMessage};
+    use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use mithril_common::BeaconProvider;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -67,7 +67,17 @@ mod handlers {
             },
         };
 
-        let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
+        let signer = match FromRegisterSignerAdapter::try_adapt(register_signer_message) {
+            Ok(signer) => signer,
+            Err(err) => {
+                warn!("register_signer::payload decoding error"; "error" => ?err);
+                return Ok(reply::bad_request(
+                    "Could not decode signer payload".to_string(),
+                    err.to_string(),
+                ));
+            }
+        };
+
         let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
             Some(version) => vec![("signer-node-version", version)],
             None => Vec::new(),
@@ -199,7 +209,11 @@ mod tests {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_, _| Err(SignerRegistrationError::ExistingSigner(signer_with_stake)));
+            .return_once(|_, _| {
+                Err(SignerRegistrationError::ExistingSigner(Box::new(
+                    signer_with_stake,
+                )))
+            });
         mock_signer_registerer
             .expect_get_current_round()
             .return_once(|| None);

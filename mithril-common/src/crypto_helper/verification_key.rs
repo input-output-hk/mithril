@@ -43,6 +43,14 @@ impl TryInto<ProtocolSignerVerificationKey> for String {
     }
 }
 
+impl TryInto<String> for ProtocolSignerVerificationKey {
+    type Error = anyhow::Error;
+
+    fn try_into(self) -> Result<String, Self::Error> {
+        self.to_json_hex()
+    }
+}
+
 impl ProtocolSignerVerificationKey {
     /// create an instance from a JSON hash representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {

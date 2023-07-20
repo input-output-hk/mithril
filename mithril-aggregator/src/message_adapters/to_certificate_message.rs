@@ -1,5 +1,7 @@
 use mithril_common::entities::Certificate;
-use mithril_common::messages::{CertificateMessage, CertificateMetadataMessage, ToMessageAdapter};
+use mithril_common::messages::{
+    CertificateMessage, CertificateMetadataMessage, SignerWithStakeMessagePart, ToMessageAdapter,
+};
 
 /// Adapter to convert [Certificate] to [CertificateMessage] instances
 pub struct ToCertificateMessageAdapter;
@@ -12,7 +14,7 @@ impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageA
             protocol_parameters: certificate.metadata.protocol_parameters,
             initiated_at: certificate.metadata.initiated_at,
             sealed_at: certificate.metadata.sealed_at,
-            signers: certificate.metadata.signers,
+            signers: SignerWithStakeMessagePart::from_signers(certificate.metadata.signers),
         };
 
         CertificateMessage {
