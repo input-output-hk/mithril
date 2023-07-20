@@ -12,8 +12,10 @@ use clap::Parser;
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use mithril_common::{
     digesters::DummyImmutablesDbBuilder,
-    entities::{Epoch, PartyId, ProtocolParameters},
-    messages::{EpochSettingsMessage, RegisterSignerMessage},
+    entities::{
+        Epoch, PartyId, ProtocolMessage, ProtocolParameters, SignedEntityType, SingleSignatures,
+    },
+    messages::{EpochSettingsMessage, RegisterSignatureMessage, RegisterSignerMessage},
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
 };
@@ -54,6 +56,13 @@ pub enum LoadError {
         got_http_code: u32,
         error_message: String,
     },
+    #[error("Registering signatures for party_id={party_id}, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
+    SignaturesRegistrationError {
+        party_id: PartyId,
+        expected_http_code: u32,
+        got_http_code: u32,
+        error_message: String,
+    },
 }
 
 fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
@@ -68,14 +77,18 @@ fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
 }
 
 /// Generate signer data
-pub fn generate_signer_data(number_of_signers: usize) -> MithrilFixture {
+pub fn generate_signer_data(
+    number_of_signers: usize,
+    protocol_parameters: ProtocolParameters,
+) -> MithrilFixture {
     MithrilFixtureBuilder::default()
         .with_signers(number_of_signers)
+        .with_protocol_parameters(protocol_parameters)
         .build()
 }
 
-/// Generate signer registration
-pub fn generate_register_message(
+/// Generate signer registration message
+pub fn generate_register_signer_message(
     signers_fixture: &MithrilFixture,
     epoch: Epoch,
 ) -> Vec<RegisterSignerMessage> {
@@ -89,6 +102,22 @@ pub fn generate_register_message(
             verification_key_signature: signer.verification_key_signature,
             operational_certificate: signer.operational_certificate,
             kes_period: signer.kes_period,
+        })
+        .collect::<Vec<_>>()
+}
+
+/// Generate register signature message
+pub fn generate_register_signature_message(
+    signatures: &[SingleSignatures],
+    signed_entity_type: SignedEntityType,
+) -> Vec<RegisterSignatureMessage> {
+    signatures
+        .iter()
+        .map(|s| RegisterSignatureMessage {
+            signed_entity_type: Some(signed_entity_type.clone()),
+            party_id: s.party_id.clone(),
+            signature: s.signature.clone().to_json_hex().unwrap(),
+            won_indexes: s.won_indexes.clone(),
         })
         .collect::<Vec<_>>()
 }
@@ -178,7 +207,7 @@ pub async fn register_signers_to_aggregator(
     signers_fixture: &MithrilFixture,
     epoch: Epoch,
 ) -> StdResult<usize> {
-    let register_messages = generate_register_message(signers_fixture, epoch);
+    let register_messages = generate_register_signer_message(signers_fixture, epoch);
 
     let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
     let progress_bar = ProgressBar::with_draw_target(
@@ -214,7 +243,56 @@ pub async fn register_signers_to_aggregator(
         progress_bar.inc(1);
 
         if res.is_err() {
-            // eprintln!("Signer error caught: {res:?}");
+            warn!("Signer Registration error caught: {res:?}");
+            errors += 1;
+        }
+    }
+
+    Ok(errors)
+}
+
+pub async fn register_signatures_to_aggregator(
+    aggregator: &Aggregator,
+    signatures: &[SingleSignatures],
+    signed_entity_type: SignedEntityType,
+) -> StdResult<usize> {
+    let register_messages = generate_register_signature_message(signatures, signed_entity_type);
+
+    let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
+    let progress_bar = ProgressBar::with_draw_target(
+        Some(register_messages.len() as u64),
+        ProgressDrawTarget::stdout(),
+    );
+    for register in register_messages {
+        let endpoint = aggregator.endpoint();
+        join_set.spawn(async move {
+            let response = reqwest::Client::new()
+                .post(format!("{}/register-signatures", endpoint))
+                .json(&register)
+                .send()
+                .await
+                .unwrap();
+
+            match response.status() {
+                StatusCode::CREATED => Ok(()),
+                status => Err(LoadError::SignaturesRegistrationError {
+                    expected_http_code: 201,
+                    got_http_code: status.as_u16() as u32,
+                    party_id: register.party_id,
+                    error_message: response.text().await.unwrap(),
+                }
+                .into()),
+            }
+        });
+    }
+    let mut errors = 0;
+
+    while let Some(res) = join_set.join_next().await {
+        let res = res.expect("Tokio task join failed!");
+        progress_bar.inc(1);
+
+        if res.is_err() {
+            warn!("Signer Signature Registration error caught: {res:?}");
             errors += 1;
         }
     }
@@ -363,7 +441,25 @@ async fn main() -> StdResult<()> {
     info!(">> Starting stress test with options: {opts:?}");
 
     info!(">> Creation of the Signer Key Registrations payloads");
-    let signers_fixture = generate_signer_data(opts.num_signers);
+    let signers_fixture =
+        generate_signer_data(opts.num_signers, ProtocolParameters::new(5, 100, 0.65));
+
+    info!(">> Precompute message & signatures for MithrilStakeDistribution signed entity");
+    let mithril_stake_distribution_message = {
+        let mut message = ProtocolMessage::new();
+        message.set_message_part(
+            mithril_common::entities::ProtocolMessagePartKey::NextAggregateVerificationKey,
+            signers_fixture.compute_and_encode_avk(),
+        );
+
+        message
+    };
+    let mithril_stake_distribution_signatures: Vec<SingleSignatures> = signers_fixture
+        .signers_fixture()
+        .iter()
+        // filter map to exclude signers that could not sign because they lost the lottery
+        .filter_map(|s| s.sign(&mithril_stake_distribution_message))
+        .collect();
 
     info!(">> Launch Aggregator");
     let mut aggregator = Aggregator::new(
@@ -382,7 +478,7 @@ async fn main() -> StdResult<()> {
     aggregator.change_run_interval(Duration::from_secs(6));
     aggregator
         .set_mock_cardano_cli_file_path(&mock_stake_distribution_file_path, &mock_epoch_file_path);
-    aggregator.set_protocol_parameters(&ProtocolParameters::default());
+    aggregator.set_protocol_parameters(&signers_fixture.protocol_parameters());
     aggregator.serve().unwrap();
 
     wait_for_http_response(
@@ -429,6 +525,18 @@ async fn main() -> StdResult<()> {
 
     info!(">> Wait for pending certificate to be available");
     wait_for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
+
+    info!(
+        ">> Send the Signer Signatures Registrations payloads for MithrilStakeDistribution({:?})",
+        current_epoch
+    );
+    let errors = register_signatures_to_aggregator(
+        &aggregator,
+        &mithril_stake_distribution_signatures,
+        SignedEntityType::MithrilStakeDistribution(current_epoch),
+    )
+    .await?;
+    assert_eq!(0, errors);
 
     info!(">> All steps executed successfully, stopping all tasks...");
 
