@@ -61,6 +61,15 @@ impl Aggregator {
         })
     }
 
+    pub fn copy_configuration(other: &Aggregator) -> Self {
+        Self {
+            server_port: other.server_port,
+            db_directory: other.db_directory.clone(),
+            command: other.command.clone(),
+            process: None,
+        }
+    }
+
     pub fn endpoint(&self) -> String {
         format!("http://localhost:{}/aggregator", &self.server_port)
     }

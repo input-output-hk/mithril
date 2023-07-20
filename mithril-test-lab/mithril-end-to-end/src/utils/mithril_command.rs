@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::process::{Child, Command};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MithrilCommand {
     name: String,
     process_path: PathBuf,

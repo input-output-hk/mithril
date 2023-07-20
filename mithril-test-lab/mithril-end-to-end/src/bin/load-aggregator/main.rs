@@ -25,6 +25,26 @@ use slog_scope::{info, warn};
 use thiserror::Error;
 use tokio::{select, task::JoinSet, time::sleep};
 
+macro_rules! spin_while_waiting {
+    ($block:block, $timeout:expr, $wait_message:expr, $timeout_message:expr) => {{
+        let progress_bar = ProgressBar::new_spinner().with_message($wait_message);
+
+        let spinner = async move {
+            loop {
+                progress_bar.tick();
+                sleep(Duration::from_millis(50)).await;
+            }
+        };
+        let probe = async move { $block };
+
+        select! {
+            _ = spinner => Err(String::new().into()),
+            _ = sleep($timeout) => Err($timeout_message.into()),
+            _ = probe => Ok(())
+        }
+    }};
+}
+
 #[derive(Debug, Error)]
 pub enum LoadError {
     #[error("Registering signer party_id={party_id}, expected HTTP code {expected_http_code} got {got_http_code} with the message: {error_message}.")]
@@ -55,8 +75,10 @@ pub fn generate_signer_data(number_of_signers: usize) -> MithrilFixture {
 }
 
 /// Generate signer registration
-pub fn generate_register_message(signers_fixture: &MithrilFixture) -> Vec<RegisterSignerMessage> {
-    let epoch = Epoch(2);
+pub fn generate_register_message(
+    signers_fixture: &MithrilFixture,
+    epoch: Epoch,
+) -> Vec<RegisterSignerMessage> {
     signers_fixture
         .signers()
         .into_iter()
@@ -73,68 +95,131 @@ pub fn generate_register_message(signers_fixture: &MithrilFixture) -> Vec<Regist
 
 /// Wait for http response until timeout
 pub async fn wait_for_http_response(url: &str, timeout: Duration, message: &str) -> StdResult<()> {
-    let progress_bar = ProgressBar::new_spinner().with_message(message.to_owned());
-    let spinner = async move {
-        loop {
-            progress_bar.tick();
-            sleep(Duration::from_millis(50)).await;
-        }
-    };
-    let probe = async move {
-        while reqwest::get(url).await.is_err() {
-            sleep(Duration::from_millis(300)).await;
-        }
-    };
-
-    select! {
-        _ = spinner => Err(String::new().into()),
-        _ = sleep(timeout) => Err(format!("Aggregator did not get a response after {timeout:?} from '{url}'").into()),
-        _ = probe => Ok(())
-    }
+    spin_while_waiting!(
+        {
+            while reqwest::get(url).await.is_err() {
+                sleep(Duration::from_millis(300)).await;
+            }
+        },
+        timeout,
+        message.to_owned(),
+        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
+    )
 }
 
 /// Wait for a given epoch in the epoch settings until timeout
 pub async fn wait_for_epoch_settings_at_epoch(
-    url: &str,
+    aggregator: &Aggregator,
     timeout: Duration,
     epoch: Epoch,
 ) -> StdResult<()> {
-    let progress_bar =
-        ProgressBar::new_spinner().with_message(format!("Waiting for epoch {epoch}"));
-    let spinner = async move {
-        loop {
-            progress_bar.tick();
-            sleep(Duration::from_millis(50)).await;
-        }
-    };
-    let probe = async move {
-        while let Ok(response) = reqwest::get(url).await {
-            match response.status() {
-                StatusCode::OK => {
-                    let epoch_settings = response.json::<EpochSettingsMessage>().await.unwrap();
+    let url = &format!("{}/epoch-settings", aggregator.endpoint());
+    spin_while_waiting!(
+        {
+            while let Ok(response) = reqwest::get(url).await {
+                match response.status() {
+                    StatusCode::OK => {
+                        let epoch_settings = response.json::<EpochSettingsMessage>().await.unwrap();
 
-                    if epoch_settings.epoch >= epoch {
+                        if epoch_settings.epoch >= epoch {
+                            break;
+                        }
+                        sleep(Duration::from_millis(300)).await
+                    }
+                    s if s.is_server_error() => {
+                        warn!(
+                            "Server error while waiting for the Aggregator, http code: {}",
+                            s
+                        );
                         break;
                     }
-                    sleep(Duration::from_millis(300)).await
+                    _ => sleep(Duration::from_millis(300)).await,
                 }
-                s if s.is_server_error() => {
-                    warn!(
-                        "Server error while waiting for the Aggregator, http code: {}",
-                        s
-                    );
-                    break;
-                }
-                _ => sleep(Duration::from_millis(300)).await,
             }
-        }
-    };
+        },
+        timeout,
+        format!("Waiting for epoch {epoch}"),
+        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
+    )
+}
 
-    select! {
-        _ = spinner => Err(String::new().into()),
-        _ = sleep(timeout) => Err(format!("Aggregator did not get a response after {timeout:?} from '{url}'").into()),
-        _ = probe => Ok(())
+/// Wait for pending certificate
+pub async fn wait_for_pending_certificate(
+    aggregator: &Aggregator,
+    timeout: Duration,
+) -> StdResult<()> {
+    let url = &format!("{}/certificate-pending", aggregator.endpoint());
+    spin_while_waiting!(
+        {
+            while let Ok(response) = reqwest::get(url).await {
+                match response.status() {
+                    StatusCode::OK => {
+                        break;
+                    }
+                    s if s.is_server_error() => {
+                        warn!(
+                            "Server error while waiting for the Aggregator, http code: {}",
+                            s
+                        );
+                        break;
+                    }
+                    _ => sleep(Duration::from_millis(300)).await,
+                }
+            }
+        },
+        timeout,
+        format!("Waiting for pending certificate"),
+        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
+    )
+}
+
+pub async fn register_signers_to_aggregator(
+    aggregator: &Aggregator,
+    signers_fixture: &MithrilFixture,
+    epoch: Epoch,
+) -> StdResult<usize> {
+    let register_messages = generate_register_message(signers_fixture, epoch);
+
+    let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
+    let progress_bar = ProgressBar::with_draw_target(
+        Some(register_messages.len() as u64),
+        ProgressDrawTarget::stdout(),
+    );
+    for register in register_messages {
+        let endpoint = aggregator.endpoint();
+        join_set.spawn(async move {
+            let response = reqwest::Client::new()
+                .post(format!("{}/register-signer", endpoint))
+                .json(&register)
+                .send()
+                .await
+                .unwrap();
+
+            match response.status() {
+                StatusCode::CREATED => Ok(()),
+                status => Err(LoadError::SignerRegistrationError {
+                    expected_http_code: 201,
+                    got_http_code: status.as_u16() as u32,
+                    party_id: register.party_id,
+                    error_message: response.text().await.unwrap(),
+                }
+                .into()),
+            }
+        });
     }
+    let mut errors = 0;
+
+    while let Some(res) = join_set.join_next().await {
+        let res = res.expect("Tokio task join failed!");
+        progress_bar.inc(1);
+
+        if res.is_err() {
+            // eprintln!("Signer error caught: {res:?}");
+            errors += 1;
+        }
+    }
+
+    Ok(errors)
 }
 
 pub fn write_stake_distribution(
@@ -274,11 +359,11 @@ async fn main() -> StdResult<()> {
     let args = AggregatorParameters::new(&opts)?;
     let mock_stake_distribution_file_path = args.work_dir.join("stake_distribution.json");
     let mock_epoch_file_path = args.work_dir.join("epoch.txt");
+    let mut current_epoch = Epoch(1);
     info!(">> Starting stress test with options: {opts:?}");
 
     info!(">> Creation of the Signer Key Registrations payloads");
     let signers_fixture = generate_signer_data(opts.num_signers);
-    let register_messages = generate_register_message(&signers_fixture);
 
     info!(">> Launch Aggregator");
     let mut aggregator = Aggregator::new(
@@ -291,7 +376,7 @@ async fn main() -> StdResult<()> {
     )
     .unwrap();
 
-    write_epoch(&mock_epoch_file_path, Epoch(1));
+    write_epoch(&mock_epoch_file_path, current_epoch);
     write_stake_distribution(&mock_stake_distribution_file_path, &signers_fixture);
 
     aggregator.change_run_interval(Duration::from_secs(6));
@@ -307,56 +392,46 @@ async fn main() -> StdResult<()> {
     )
     .await?;
 
-    let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
-    let progress_bar =
-        ProgressBar::with_draw_target(Some(opts.num_signers as u64), ProgressDrawTarget::stdout());
-
     info!(">> Send the Signer Key Registrations payloads");
-    for register in register_messages {
-        let endpoint = aggregator.endpoint();
-        join_set.spawn(async move {
-            let response = reqwest::Client::new()
-                .post(format!("{}/register-signer", endpoint))
-                .json(&register)
-                .send()
-                .await
-                .unwrap();
-
-            match response.status() {
-                StatusCode::CREATED => Ok(()),
-                status => Err(LoadError::SignerRegistrationError {
-                    expected_http_code: 201,
-                    got_http_code: status.as_u16() as u32,
-                    party_id: register.party_id,
-                    error_message: response.text().await.unwrap(),
-                }
-                .into()),
-            }
-        });
-    }
-    let mut errors = 0;
-
-    while let Some(res) = join_set.join_next().await {
-        let res = res.expect("Tokio task join failed!");
-        progress_bar.inc(1);
-
-        if res.is_err() {
-            // eprintln!("Signer error caught: {res:?}");
-            errors += 1;
-        }
-    }
-
+    let errors =
+        register_signers_to_aggregator(&aggregator, &signers_fixture, current_epoch + 1).await?;
     assert_eq!(0, errors);
 
-    write_epoch(&mock_epoch_file_path, Epoch(2));
-    wait_for_epoch_settings_at_epoch(
-        &format!("{}/epoch-settings", aggregator.endpoint()),
-        Duration::from_secs(10),
-        Epoch(2),
-    )
-    .await?;
+    info!(">> Move one epoch forward in order to issue the genesis certificate");
+    current_epoch += 1;
+    write_epoch(&mock_epoch_file_path, current_epoch);
+    wait_for_epoch_settings_at_epoch(&aggregator, Duration::from_secs(10), current_epoch).await?;
+    {
+        info!(">> Compute genesis certificate");
+        let mut genesis_aggregator = Aggregator::copy_configuration(&aggregator);
+        genesis_aggregator
+            .bootstrap_genesis()
+            .await
+            .expect("Genesis aggregator should be able to bootstrap genesis");
 
-    // ensure POSTing payload gives 200
+        sleep(Duration::from_secs(10)).await;
+    }
+
+    info!(">> Send the Signer Key Registrations payloads");
+    let errors =
+        register_signers_to_aggregator(&aggregator, &signers_fixture, current_epoch + 1).await?;
+    assert_eq!(0, errors);
+
+    info!(">> Move one epoch forward in order to start creating certificates");
+    current_epoch += 1;
+    write_epoch(&mock_epoch_file_path, current_epoch);
+    wait_for_epoch_settings_at_epoch(&aggregator, Duration::from_secs(10), current_epoch).await?;
+
+    info!(">> Send the Signer Key Registrations payloads");
+    let errors =
+        register_signers_to_aggregator(&aggregator, &signers_fixture, current_epoch + 1).await?;
+    assert_eq!(0, errors);
+
+    info!(">> Wait for pending certificate to be available");
+    wait_for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
+
+    info!(">> All steps executed successfully, stopping all tasks...");
+
     aggregator.stop().await.unwrap();
     Ok(())
 }
