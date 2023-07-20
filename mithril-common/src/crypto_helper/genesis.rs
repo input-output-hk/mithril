@@ -18,7 +18,8 @@ pub enum ProtocolGenesisError {
 /// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProtocolGenesisSigner {
-    pub(crate) secret_key: ProtocolGenesisSecretKey,
+    /// Protocol Genesis secret key
+    pub secret_key: ProtocolGenesisSecretKey,
 }
 
 impl ProtocolGenesisSigner {
