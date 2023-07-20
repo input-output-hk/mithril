@@ -27,7 +27,7 @@ impl Reject for VersionParseError {}
 /// Routes
 pub fn routes(
     dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["content-type"])

@@ -9,10 +9,7 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::{
-        adapter::{AdapterError, StoreAdapter},
-        StoreError,
-    },
+    store::{adapter::AdapterError, StoreError},
 };
 
 use crate::ProtocolParametersStorer;
@@ -259,94 +256,6 @@ impl EpochSettingStore {
     /// Create a new EpochSetting service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
-    }
-}
-
-#[async_trait]
-impl StoreAdapter for EpochSettingStore {
-    type Key = Epoch;
-    type Record = ProtocolParameters;
-
-    async fn store_record(
-        &mut self,
-        key: &Self::Key,
-        record: &Self::Record,
-    ) -> Result<(), AdapterError> {
-        let epoch = *key;
-        let connection = &*self.connection.lock().await;
-        let provider = UpdateEpochSettingProvider::new(connection);
-        connection
-            .execute("begin transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-
-        let _epoch_setting_record = provider
-            .persist(epoch, record.to_owned())
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-
-        // Clean useless old epoch settings if needed.
-        if epoch > EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD {
-            let _ = DeleteEpochSettingProvider::new(connection)
-                .prune(epoch - EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD)
-                .map_err(AdapterError::InitializationError)?;
-        }
-        connection
-            .execute("commit transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-
-        Ok(())
-    }
-
-    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
-        let mut cursor = provider
-            .get_by_epoch(key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let epoch_setting_record = cursor.next();
-
-        Ok(epoch_setting_record.map(|es| es.protocol_parameters))
-    }
-
-    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
-        Ok(self.get_record(key).await?.is_some())
-    }
-
-    async fn get_last_n_records(
-        &self,
-        how_many: usize,
-    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
-        let cursor = provider
-            .get_all()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let protocol_parameters: Vec<(Epoch, ProtocolParameters)> = cursor
-            .map(|es| (es.epoch_setting_id, es.protocol_parameters))
-            .take(how_many)
-            .collect();
-        Ok(protocol_parameters)
-    }
-
-    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = DeleteEpochSettingProvider::new(connection);
-        let mut cursor = provider
-            .delete(*key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let epoch_setting_record = cursor.next();
-
-        Ok(epoch_setting_record.map(|es| es.protocol_parameters))
-    }
-
-    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
-        let cursor = provider
-            .get_all()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let protocol_parameters: Vec<ProtocolParameters> =
-            cursor.map(|es| es.protocol_parameters).collect();
-        Ok(Box::new(protocol_parameters.into_iter()))
     }
 }
 
@@ -604,71 +513,5 @@ mod tests {
         let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
 
         assert_eq!(1, cursor.count());
-    }
-
-    #[tokio::test]
-    async fn test_store_adapter() {
-        let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
-
-        let epoch_settings: Vec<(Epoch, ProtocolParameters)> = vec![
-            (Epoch(1), ProtocolParameters::new(1, 20, 1.0)),
-            (Epoch(2), ProtocolParameters::new(2, 30, 1.0)),
-            (Epoch(3), ProtocolParameters::new(3, 40, 1.0)),
-            (Epoch(4), ProtocolParameters::new(4, 50, 1.0)),
-            (Epoch(5), ProtocolParameters::new(5, 60, 1.0)),
-        ];
-
-        let mut epoch_setting_store_adapter =
-            EpochSettingStore::new(Arc::new(Mutex::new(connection)));
-
-        for epoch_setting in &epoch_settings {
-            assert!(epoch_setting_store_adapter
-                .store_record(&epoch_setting.0, &epoch_setting.1)
-                .await
-                .is_ok());
-        }
-
-        for epoch_setting in &epoch_settings {
-            assert!(epoch_setting_store_adapter
-                .record_exists(&epoch_setting.0)
-                .await
-                .unwrap());
-            assert_eq!(
-                Some(epoch_setting.1.to_owned()),
-                epoch_setting_store_adapter
-                    .get_record(&epoch_setting.0)
-                    .await
-                    .unwrap()
-            );
-        }
-
-        assert_eq!(
-            epoch_settings,
-            epoch_setting_store_adapter
-                .get_last_n_records(epoch_settings.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .rev()
-                .collect::<Vec<(Epoch, ProtocolParameters)>>()
-        );
-
-        for epoch_setting in &epoch_settings {
-            assert!(epoch_setting_store_adapter
-                .remove(&epoch_setting.0)
-                .await
-                .is_ok());
-        }
-
-        assert_eq!(
-            0,
-            epoch_setting_store_adapter
-                .get_last_n_records(epoch_settings.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .len()
-        );
     }
 }

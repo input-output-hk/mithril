@@ -579,8 +579,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::MockCertifierService,
-        DependencyContainer, MithrilSignerRegisterer, ProtocolParametersStorer,
-        SignerRegistrationRound,
+        DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
     use mithril_common::{

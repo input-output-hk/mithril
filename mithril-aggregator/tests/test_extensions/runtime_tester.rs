@@ -1,8 +1,8 @@
 use mithril_aggregator::database::provider::SignedEntityRecord;
 use mithril_aggregator::{
     dependency_injection::DependenciesBuilder, event_store::EventMessage, AggregatorRuntime,
-    Configuration, DumbSnapshotUploader, DumbSnapshotter, ProtocolParametersStorer,
-    SignerRegisterer, SignerRegistrationError,
+    Configuration, DumbSnapshotUploader, DumbSnapshotter, SignerRegisterer,
+    SignerRegistrationError,
 };
 use mithril_common::{
     chain_observer::FakeObserver,

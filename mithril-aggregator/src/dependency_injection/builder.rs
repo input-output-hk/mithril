@@ -57,8 +57,8 @@ use crate::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore, Configuration,
     DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, GzipSnapshotter,
     LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
-    SnapshotUploaderType, Snapshotter, VerificationKeyStorer,
+    ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
+    Snapshotter, VerificationKeyStorer,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -103,7 +103,7 @@ pub struct DependenciesBuilder {
     pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
     /// Protocol parameter store.
-    pub protocol_parameters_store: Option<Arc<ProtocolParametersStore>>,
+    pub protocol_parameters_store: Option<Arc<dyn ProtocolParametersStorer>>,
 
     /// Cardano CLI Runner for the [ChainObserver]
     pub cardano_cli_runner: Option<Box<CardanoCliRunner>>,
@@ -414,15 +414,18 @@ impl DependenciesBuilder {
         Ok(self.verification_key_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
-        Ok(Arc::new(ProtocolParametersStore::new(
-            Box::new(EpochSettingStore::new(self.get_sqlite_connection().await?)),
-            self.configuration.store_retention_limit,
+    async fn build_protocol_parameters_store(
+        &mut self,
+    ) -> Result<Arc<dyn ProtocolParametersStorer>> {
+        Ok(Arc::new(EpochSettingStore::new(
+            self.get_sqlite_connection().await?,
         )))
     }
 
-    /// Get a configured [ProtocolParametersStore].
-    pub async fn get_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
+    /// Get a configured [ProtocolParametersStorer].
+    pub async fn get_protocol_parameters_store(
+        &mut self,
+    ) -> Result<Arc<dyn ProtocolParametersStorer>> {
         if self.protocol_parameters_store.is_none() {
             self.protocol_parameters_store = Some(self.build_protocol_parameters_store().await?);
         }

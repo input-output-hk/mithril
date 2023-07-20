@@ -25,7 +25,7 @@ fn epoch_settings(
 mod handlers {
     use crate::dependency_injection::MultiSignerWrapper;
     use crate::http_server::routes::reply;
-    use crate::{ProtocolParametersStore, ProtocolParametersStorer, ToEpochSettingsMessageAdapter};
+    use crate::{ProtocolParametersStorer, ToEpochSettingsMessageAdapter};
     use mithril_common::entities::EpochSettings;
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
@@ -35,7 +35,7 @@ mod handlers {
 
     /// Epoch Settings
     pub async fn epoch_settings(
-        protocol_parameters_store: Arc<ProtocolParametersStore>,
+        protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: epoch_settings");

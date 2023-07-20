@@ -12,7 +12,7 @@ use mithril_common::{
 };
 
 use crate::database::provider::CertificateRepository;
-use crate::{MultiSigner, ProtocolParametersStore, ProtocolParametersStorer};
+use crate::{MultiSigner, ProtocolParametersStorer};
 
 pub struct GenesisToolsDependency {
     /// Multisigner service.
@@ -28,7 +28,7 @@ pub struct GenesisToolsDependency {
     pub certificate_verifier: Arc<dyn CertificateVerifier>,
 
     /// Protocol parameter store.
-    pub protocol_parameters_store: Arc<ProtocolParametersStore>,
+    pub protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
 
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,

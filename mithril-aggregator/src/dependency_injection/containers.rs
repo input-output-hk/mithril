@@ -25,7 +25,7 @@ use crate::{
     services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
-    CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
+    CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
 };
 
@@ -62,7 +62,7 @@ pub struct DependencyContainer {
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Protocol parameter store.
-    pub protocol_parameters_store: Arc<ProtocolParametersStore>,
+    pub protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
 
     /// Chain observer service.
     pub chain_observer: Arc<dyn ChainObserver>,

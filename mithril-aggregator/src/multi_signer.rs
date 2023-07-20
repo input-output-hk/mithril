@@ -14,10 +14,7 @@ use mithril_common::{
     store::{StakeStorer, StoreError},
 };
 
-use crate::{
-    entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStore,
-    ProtocolParametersStorer,
-};
+use crate::{entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStorer};
 
 #[cfg(test)]
 use mockall::automock;
@@ -195,7 +192,7 @@ pub struct MultiSignerImpl {
     stake_store: Arc<dyn StakeStorer>,
 
     /// Protocol parameters store
-    protocol_parameters_store: Arc<ProtocolParametersStore>,
+    protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
 }
 
 impl MultiSignerImpl {
@@ -203,7 +200,7 @@ impl MultiSignerImpl {
     pub fn new(
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         stake_store: Arc<dyn StakeStorer>,
-        protocol_parameters_store: Arc<ProtocolParametersStore>,
+        protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
