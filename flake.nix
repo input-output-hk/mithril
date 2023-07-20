@@ -28,7 +28,7 @@
 
         clean = root:
           lib.cleanSourceWith {
-            src = lib.cleanSource root;
+            src = lib.cleanSource (craneLib.path root);
             filter = orig_path: type: let
               path = builtins.toString orig_path;
               base = builtins.baseNameOf path;
@@ -54,30 +54,59 @@
             pkgs.darwin.libiconv
           ];
 
-        buildPackage = name: cargoToml:
-          craneLib.buildPackage {
+        commonsArgs = {
+          pname = "mithril";
+          version = "0.0.1";
+          src = clean ./.;
+          inherit buildInputs;
+          CARGO_TERM_VERBOSE = "true";
+        };
+
+        buildDeps = cargoToml: cargoArtifacts:
+          (craneLib.buildDepsOnly (commonsArgs // lib.optionalAttrs (cargoToml != null) rec {
             inherit (craneLib.crateNameFromCargoToml {inherit cargoToml;}) pname version;
-            cargoExtraArgs = "-p ${name}";
-            src = clean ./.;
-            inherit buildInputs;
-            CARGO_TERM_VERBOSE = "true";
-          };
+            cargoExtraArgs = "-p ${pname}";
+          })).overrideAttrs (_: {
+            inherit cargoArtifacts;
+            # Need to remove mithril-stm and mithril-common dummy builds to avoid later conflicts
+            preInstall = ''
+              rm ''${CARGO_TARGET_DIR:-target}/release/deps/*mithril*
+              rm -r ''${CARGO_TARGET_DIR:-target}/release/*mithril*
+              rm -r ''${CARGO_TARGET_DIR:-target}/release/build/*mithril*
+              rm -r ''${CARGO_TARGET_DIR:-target}/release/.fingerprint/*mithril*
+            '';
+          });
+
+        buildPackage = cargoToml: baseCargoArtifacts: args:
+          craneLib.buildPackage (commonsArgs // lib.optionalAttrs (cargoToml != null) rec {
+            inherit (craneLib.crateNameFromCargoToml {inherit cargoToml;}) pname version;
+            cargoExtraArgs = "-p ${pname}";
+          } // {
+            cargoArtifacts = buildDeps cargoToml baseCargoArtifacts;
+          } // args);
+
+        mithril-stm-deps = buildDeps ./mithril-stm/Cargo.toml null;
+
+        mithril-common-deps = buildDeps ./mithril-common/Cargo.toml mithril-stm-deps;
+
+        mithril-deps = buildDeps null mithril-common-deps;
+
+        mithril = buildPackage null null {
+          cargoArtifacts = mithril-deps;
+          doCheck = false;
+        };
+
       in {
         packages = {
-          default = craneLib.buildPackage {
-            pname = "mithril";
-            version = "0.0.1";
-            src = clean ./.;
-            doCheck = false; # some tests require cardano-cli
-            inherit buildInputs;
-            CARGO_TERM_VERBOSE = "true";
-          };
-
-          mithril-client = buildPackage "mithril-client" ./mithril-client/Cargo.toml;
-          mithril-aggregator = buildPackage "mithril-aggregator" ./mithril-aggregator/Cargo.toml;
-          mithril-signer = buildPackage "mithril-signer" ./mithril-signer/Cargo.toml;
-          mithrildemo = buildPackage "mithrildemo" ./demo/protocol-demo/Cargo.toml;
-          mithril-end-to-end = buildPackage "mithril-end-to-end" ./mithril-test-lab/mithril-end-to-end/Cargo.toml;
+          default = mithril;
+          inherit mithril;
+          mithril-stm = buildPackage ./mithril-stm/Cargo.toml mithril-stm-deps {};
+          mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-common-deps {};
+          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril-deps {};
+          mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril-deps {};
+          mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril-deps {};
+          mithrildemo = buildPackage ./demo/protocol-demo/Cargo.toml mithril-deps {};
+          mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml mithril-deps {};
         };
 
         devShells.default = pkgs.mkShell {

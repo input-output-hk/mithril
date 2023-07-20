@@ -4,7 +4,8 @@
 .DS_Store
 .direnv/
 .tmp/
-target/
+target
+target-*
 test-results.xml
 mithril-stm/c-tests/tests
 mithril-stm/c-tests/tests.dSYM/
