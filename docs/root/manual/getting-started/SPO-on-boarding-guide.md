@@ -71,8 +71,6 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 This step is **mandatory**. You must have completed **Step 2** before.
 
-The `release-mainnet` is not yet available. You will be notified when the service is open.
-
 :::
 
 To run **Mithril** on `mainnet`, you need to:
