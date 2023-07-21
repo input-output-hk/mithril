@@ -17,9 +17,6 @@ use mithril_common::{
 use mithril_common::StdError;
 use tokio::sync::Mutex;
 
-/// Delete stake pools for Epoch older than this.
-const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(10);
-
 /// Stake pool as read from Chain.
 #[derive(Debug, PartialEq)]
 pub struct StakePool {
@@ -234,12 +231,19 @@ impl<'conn> DeleteStakePoolProvider<'conn> {
 /// Service to deal with stake pools (read & write).
 pub struct StakePoolStore {
     connection: Arc<Mutex<Connection>>,
+
+    /// Number of epochs before previous records will be pruned at the next call to
+    /// [save_protocol_parameters][StakePoolStore::save_stakes].
+    retention_limit: Option<u64>,
 }
 
 impl StakePoolStore {
     /// Create a new StakePool service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
-        Self { connection }
+    pub fn new(connection: Arc<Mutex<Connection>>, retention_limit: Option<u64>) -> Self {
+        Self {
+            connection,
+            retention_limit,
+        }
     }
 }
 
@@ -265,10 +269,12 @@ impl StakeStorer for StakePoolStore {
         }
 
         // Prune useless old stake distributions.
-        let _ = DeleteStakePoolProvider::new(connection)
-            .prune(epoch - STAKE_POOL_PRUNE_EPOCH_THRESHOLD)
-            .map_err(AdapterError::QueryError)?
-            .count();
+        if let Some(threshold) = self.retention_limit {
+            let _ = DeleteStakePoolProvider::new(connection)
+                .prune(epoch - threshold)
+                .map_err(AdapterError::QueryError)?
+                .count();
+        }
 
         connection
             .execute("commit transaction")
@@ -471,8 +477,12 @@ mod tests {
     #[tokio::test]
     async fn save_protocol_parameters_prune_older_epoch_settings() {
         let connection = Connection::open(":memory:").unwrap();
+        const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 10;
         setup_stake_db(&connection, &[1, 2]).unwrap();
-        let store = StakePoolStore::new(Arc::new(Mutex::new(connection)));
+        let store = StakePoolStore::new(
+            Arc::new(Mutex::new(connection)),
+            Some(STAKE_POOL_PRUNE_EPOCH_THRESHOLD),
+        );
 
         store
             .save_stakes(

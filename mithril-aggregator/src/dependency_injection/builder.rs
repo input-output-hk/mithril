@@ -273,7 +273,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
-        let stake_pool_store = Arc::new(StakePoolStore::new(self.get_sqlite_connection().await?));
+        let stake_pool_store = Arc::new(StakePoolStore::new(
+            self.get_sqlite_connection().await?,
+            self.configuration.store_retention_limit.map(|l| l as u64),
+        ));
 
         Ok(stake_pool_store)
     }
@@ -419,6 +422,7 @@ impl DependenciesBuilder {
     ) -> Result<Arc<dyn ProtocolParametersStorer>> {
         Ok(Arc::new(EpochSettingStore::new(
             self.get_sqlite_connection().await?,
+            self.configuration.store_retention_limit.map(|l| l as u64),
         )))
     }
 
