@@ -1,4 +1,5 @@
 use mithril_common::{
+    crypto_helper::ProtocolSignerVerificationKey,
     entities::{CertificatePending, Signer},
     messages::{CertificatePendingMessage, SignerMessage, TryFromMessageAdapter},
     StdResult,
@@ -6,6 +7,23 @@ use mithril_common::{
 
 /// Adapter to turn [CertificatePendingMessage] instances into [CertificatePending].
 pub struct FromPendingCertificateMessageAdapter;
+
+fn to_signers(messages: &[SignerMessage]) -> StdResult<Vec<Signer>> {
+    let mut signers: Vec<Signer> = Vec::new();
+
+    for msg in messages {
+        let signer = Signer::new(
+            msg.party_id.to_owned(),
+            ProtocolSignerVerificationKey::from_json_hex(&msg.verification_key)?,
+            msg.verification_key_signature.to_owned(),
+            msg.operational_certificate.to_owned(),
+            msg.kes_period,
+        );
+        signers.push(signer);
+    }
+
+    Ok(signers)
+}
 
 impl TryFromMessageAdapter<CertificatePendingMessage, CertificatePending>
     for FromPendingCertificateMessageAdapter
@@ -17,30 +35,11 @@ impl TryFromMessageAdapter<CertificatePendingMessage, CertificatePending>
             signed_entity_type: message.signed_entity_type,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
-            signers: Self::adapt_signers(message.signers)?,
-            next_signers: Self::adapt_signers(message.next_signers)?,
+            signers: to_signers(&message.signers)?,
+            next_signers: to_signers(&message.next_signers)?,
         };
 
         Ok(certificate)
-    }
-}
-
-impl FromPendingCertificateMessageAdapter {
-    fn adapt_signers(signer_messages: Vec<SignerMessage>) -> StdResult<Vec<Signer>> {
-        let mut signers: Vec<Signer> = Vec::new();
-
-        for msg in signer_messages {
-            let value = Signer {
-                party_id: msg.party_id,
-                verification_key: msg.verification_key.try_into()?,
-                verification_key_signature: msg.verification_key_signature,
-                kes_period: msg.kes_period,
-                operational_certificate: msg.operational_certificate,
-            };
-            signers.push(value);
-        }
-
-        Ok(signers)
     }
 }
 

@@ -52,12 +52,12 @@ impl TryInto<String> for ProtocolSignerVerificationKey {
 }
 
 impl ProtocolSignerVerificationKey {
-    /// create an instance from a JSON hash representation
+    /// create an instance from a JSON hex representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
         key_decode_hex(&hex_string.to_owned())
             .map_err(|e| anyhow!(e))
             .with_context(|| {
-                "Could not build a ProtocolSignerVerificationKey from hexadecimal key string."
+                "Could not deserialize a ProtocolSignerVerificationKey from JSON hex string."
             })
     }
 
@@ -66,7 +66,7 @@ impl ProtocolSignerVerificationKey {
         key_encode_hex(self.clone())
             .map_err(|e| anyhow!(e))
             .with_context(|| {
-                "Could not export a ProtocolSignerVerificationKey to hexadecimal key string."
+                "Could not serialize a ProtocolSignerVerificationKey to JSON hex key string."
             })
     }
 

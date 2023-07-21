@@ -92,7 +92,6 @@ pub struct SignerWithStake {
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    #[serde()]
     pub verification_key: ProtocolSignerVerificationKey,
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)

@@ -1,21 +1,26 @@
 use mithril_common::entities::{Certificate, CertificateMetadata};
-use mithril_common::messages::{CertificateMessage, FromMessageAdapter};
+use mithril_common::messages::{
+    CertificateMessage, SignerWithStakeMessagePart, TryFromMessageAdapter,
+};
+use mithril_common::StdResult;
 
 /// Adapter to convert [CertificateMessage] to [Certificate] instances
 pub struct FromCertificateMessageAdapter;
 
-impl FromMessageAdapter<CertificateMessage, Certificate> for FromCertificateMessageAdapter {
+impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateMessageAdapter {
     /// Method to trigger the conversion
-    fn adapt(certificate_message: CertificateMessage) -> Certificate {
+    fn try_adapt(certificate_message: CertificateMessage) -> StdResult<Certificate> {
         let metadata = CertificateMetadata {
             protocol_version: certificate_message.metadata.protocol_version,
             protocol_parameters: certificate_message.metadata.protocol_parameters,
             initiated_at: certificate_message.metadata.initiated_at,
             sealed_at: certificate_message.metadata.sealed_at,
-            signers: certificate_message.metadata.signers,
+            signers: SignerWithStakeMessagePart::try_into_signers(
+                certificate_message.metadata.signers,
+            )?,
         };
 
-        Certificate {
+        let certificate = Certificate {
             hash: certificate_message.hash,
             previous_hash: certificate_message.previous_hash,
             beacon: certificate_message.beacon,
@@ -25,7 +30,9 @@ impl FromMessageAdapter<CertificateMessage, Certificate> for FromCertificateMess
             aggregate_verification_key: certificate_message.aggregate_verification_key,
             multi_signature: certificate_message.multi_signature,
             genesis_signature: certificate_message.genesis_signature,
-        }
+        };
+
+        Ok(certificate)
     }
 }
 
@@ -39,7 +46,7 @@ mod tests {
             hash: "hash123".to_string(),
             ..Default::default()
         };
-        let certificate = FromCertificateMessageAdapter::adapt(certificate_message);
+        let certificate = FromCertificateMessageAdapter::try_adapt(certificate_message).unwrap();
 
         assert_eq!("hash123".to_string(), certificate.hash);
     }

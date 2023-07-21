@@ -67,8 +67,7 @@ impl From<SignerRegistrationRecord> for Signer {
     fn from(other: SignerRegistrationRecord) -> Self {
         Self {
             party_id: other.signer_id,
-            verification_key: ProtocolSignerVerificationKey::from_json_hex(&other.verification_key)
-                .unwrap(),
+            verification_key: other.verification_key.try_into().unwrap(),
             verification_key_signature: other.verification_key_signature,
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,
@@ -80,8 +79,7 @@ impl From<SignerRegistrationRecord> for SignerWithStake {
     fn from(other: SignerRegistrationRecord) -> Self {
         Self {
             party_id: other.signer_id,
-            verification_key: ProtocolSignerVerificationKey::from_json_hex(&other.verification_key)
-                .unwrap(),
+            verification_key: other.verification_key.try_into().unwrap(),
             verification_key_signature: other.verification_key_signature,
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,

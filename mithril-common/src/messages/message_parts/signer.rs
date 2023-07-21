@@ -4,6 +4,7 @@ use crate::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         SignerWithStake, Stake,
     },
+    StdResult,
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +58,25 @@ impl SignerWithStakeMessagePart {
     /// Convert a set of signers into message parts
     pub fn from_signers(signers: Vec<SignerWithStake>) -> Vec<Self> {
         signers.into_iter().map(|signer| signer.into()).collect()
+    }
+
+    /// Convert a set of signer message parts into a set of signers with stake
+    pub fn try_into_signers(messages: Vec<Self>) -> StdResult<Vec<SignerWithStake>> {
+        let mut signers: Vec<SignerWithStake> = Vec::new();
+
+        for message in messages {
+            let value = SignerWithStake {
+                party_id: message.party_id,
+                verification_key: message.verification_key.try_into()?,
+                verification_key_signature: message.verification_key_signature,
+                kes_period: message.kes_period,
+                operational_certificate: message.operational_certificate,
+                stake: message.stake,
+            };
+            signers.push(value);
+        }
+
+        Ok(signers)
     }
 }
 
