@@ -12,5 +12,5 @@ are targeting.
 
 These links are available in the **Build From** column of the above **Mithril Networks** table.
 
-¹ The Linux binaries target `glibc`, and have a minimum requirement of `glibc 2.35` (compatible with `Ubuntu 22.04`
-or `Debian Bookworm`). 
+¹ The Linux binaries target `glibc`, and have a minimum requirement of `glibc 2.31` (compatible with `Ubuntu 20.04`
+or `Debian Bullseye`). 
