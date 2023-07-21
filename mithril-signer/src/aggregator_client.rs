@@ -11,6 +11,7 @@ use mithril_common::{
     },
     messages::{
         CertificatePendingMessage, EpochSettingsMessage, FromMessageAdapter, ToMessageAdapter,
+        TryFromMessageAdapter,
     },
     MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
@@ -204,7 +205,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CertificatePendingMessage>().await {
-                    Ok(message) => Ok(Some(FromPendingCertificateMessageAdapter::adapt(message))),
+                    Ok(message) => Ok(Some(
+                        FromPendingCertificateMessageAdapter::try_adapt(message)
+                            .map_err(|e| AggregatorClientError::JsonParseFailed(e.to_string()))?,
+                    )),
                     Err(err) => Err(AggregatorClientError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
@@ -396,6 +400,7 @@ mod tests {
     use httpmock::prelude::*;
     use mithril_common::entities::{ClientError, Epoch};
     use mithril_common::era::{EraChecker, SupportedEra};
+    use mithril_common::messages::TryFromMessageAdapter;
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
@@ -509,7 +514,7 @@ mod tests {
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         pending_certificate.as_ref().expect("unexpected error");
         assert_eq!(
-            FromPendingCertificateMessageAdapter::adapt(pending_certificate_expected),
+            FromPendingCertificateMessageAdapter::try_adapt(pending_certificate_expected).unwrap(),
             pending_certificate.unwrap().unwrap()
         );
     }

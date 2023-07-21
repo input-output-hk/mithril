@@ -12,7 +12,7 @@ impl ToMessageAdapter<(Epoch, Signer), RegisterSignerMessage> for ToRegisterSign
         RegisterSignerMessage {
             epoch: Some(epoch),
             party_id: signer.party_id,
-            verification_key: signer.verification_key,
+            verification_key: signer.verification_key.try_into().unwrap(),
             verification_key_signature: signer.verification_key_signature,
             operational_certificate: signer.operational_certificate,
             kes_period: signer.kes_period,
