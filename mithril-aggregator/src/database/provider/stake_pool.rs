@@ -1,3 +1,4 @@
+use std::ops::Not;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -262,12 +263,13 @@ impl StakeStorer for StakePoolStore {
                 .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
             new_stakes.insert(pool_id.to_string(), stake_pool.stake);
         }
-        // Clean useless old stake distributions if needed.
-        if epoch > STAKE_POOL_PRUNE_EPOCH_THRESHOLD {
-            let _ = DeleteStakePoolProvider::new(connection)
-                .prune(epoch - STAKE_POOL_PRUNE_EPOCH_THRESHOLD)
-                .map_err(AdapterError::InitializationError)?;
-        }
+
+        // Prune useless old stake distributions.
+        let _ = DeleteStakePoolProvider::new(connection)
+            .prune(epoch - STAKE_POOL_PRUNE_EPOCH_THRESHOLD)
+            .map_err(AdapterError::QueryError)?
+            .count();
+
         connection
             .execute("commit transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -287,7 +289,10 @@ impl StakeStorer for StakePoolStore {
             stake_distribution.insert(stake_pool.stake_pool_id, stake_pool.stake);
         }
 
-        Ok(Some(stake_distribution))
+        Ok(stake_distribution
+            .is_empty()
+            .not()
+            .then_some(stake_distribution))
     }
 }
 
@@ -296,7 +301,10 @@ mod tests {
     use super::*;
     use crate::database::provider::apply_all_migrations_to_db;
 
-    pub fn setup_stake_db(connection: &Connection) -> Result<(), StdError> {
+    pub fn setup_stake_db(
+        connection: &Connection,
+        epoch_to_insert_settings: &[i64],
+    ) -> Result<(), StdError> {
         apply_all_migrations_to_db(connection)?;
 
         let query = {
@@ -309,24 +317,21 @@ mod tests {
 
             format!("insert into stake_pool {sql_values}")
         };
-        let stake_distribution: &[(&str, i64, i64); 9] = &[
-            ("pool1", 1, 1000),
-            ("pool2", 1, 1100),
-            ("pool3", 1, 1300),
-            ("pool1", 2, 1230),
-            ("pool2", 2, 1090),
-            ("pool3", 2, 1300),
-            ("pool1", 3, 1250),
-            ("pool2", 3, 1370),
-            ("pool3", 3, 1300),
-        ];
-        for (pool_id, epoch, stake) in stake_distribution {
+
+        // Note: decreasing stakes for pool3 so we can test that the order has changed
+        for (pool_id, epoch, stake) in epoch_to_insert_settings.iter().flat_map(|epoch| {
+            [
+                ("pool1", *epoch, 1000 + (epoch - 1) * 40),
+                ("pool2", *epoch, 1100 + (epoch - 1) * 45),
+                ("pool3", *epoch, 1200 - (epoch - 1) * 50),
+            ]
+        }) {
             let mut statement = connection.prepare(&query)?;
             statement
                 .bind::<&[(_, Value)]>(&[
                     (1, pool_id.to_string().into()),
-                    (2, Value::Integer(*epoch)),
-                    (3, Value::Integer(*stake)),
+                    (2, Value::Integer(epoch)),
+                    (3, Value::Integer(stake)),
                     (4, Utc::now().to_rfc3339().into()),
                 ])
                 .unwrap();
@@ -396,23 +401,25 @@ mod tests {
     #[test]
     fn test_get_stake_pools() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_stake_db(&connection).unwrap();
+        setup_stake_db(&connection, &[1, 2, 3]).unwrap();
 
         let provider = StakePoolProvider::new(&connection);
         let mut cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
 
-        let stake_pool = cursor.next().expect("Should have a stake pool 'pool1'.");
-        assert_eq!("pool3".to_string(), stake_pool.stake_pool_id);
-        assert_eq!(Epoch(1), stake_pool.epoch);
-        assert_eq!(1300, stake_pool.stake);
+        let stake_pool = cursor.next().expect("Should have a stake pool 'pool3'.");
+        assert_eq!(
+            ("pool3".to_string(), Epoch(1), 1200),
+            (stake_pool.stake_pool_id, stake_pool.epoch, stake_pool.stake)
+        );
         assert_eq!(2, cursor.count());
 
         let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
 
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool2'.");
-        assert_eq!("pool2".to_string(), stake_pool.stake_pool_id);
-        assert_eq!(Epoch(3), stake_pool.epoch);
-        assert_eq!(1370, stake_pool.stake);
+        assert_eq!(
+            ("pool2".to_string(), Epoch(3), 1190),
+            (stake_pool.stake_pool_id, stake_pool.epoch, stake_pool.stake)
+        );
         assert_eq!(2, cursor.count());
 
         let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
@@ -422,7 +429,7 @@ mod tests {
     #[test]
     fn test_update_stakes() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_stake_db(&connection).unwrap();
+        setup_stake_db(&connection, &[3]).unwrap();
 
         let provider = InsertOrReplaceStakePoolProvider::new(&connection);
         let stake_pool = provider.persist("pool4", Epoch(3), 9999).unwrap();
@@ -444,7 +451,7 @@ mod tests {
     #[test]
     fn test_prune() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_stake_db(&connection).unwrap();
+        setup_stake_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteStakePoolProvider::new(&connection);
         let cursor = provider.prune(Epoch(2)).unwrap();
@@ -459,5 +466,31 @@ mod tests {
         let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
 
         assert_eq!(3, cursor.count());
+    }
+
+    #[tokio::test]
+    async fn save_protocol_parameters_prune_older_epoch_settings() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_stake_db(&connection, &[1, 2]).unwrap();
+        let store = StakePoolStore::new(Arc::new(Mutex::new(connection)));
+
+        store
+            .save_stakes(
+                Epoch(2) + STAKE_POOL_PRUNE_EPOCH_THRESHOLD,
+                StakeDistribution::from_iter([("pool1".to_string(), 100)]),
+            )
+            .await
+            .expect("saving stakes should not fails");
+        let epoch1_stakes = store.get_stakes(Epoch(1)).await.unwrap();
+        let epoch2_stakes = store.get_stakes(Epoch(2)).await.unwrap();
+
+        assert_eq!(
+            None, epoch1_stakes,
+            "Stakes at epoch 1 should have been pruned",
+        );
+        assert!(
+            epoch2_stakes.is_some(),
+            "Stakes at epoch 2 should still exist",
+        );
     }
 }

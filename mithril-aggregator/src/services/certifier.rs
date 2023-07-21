@@ -480,7 +480,7 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
-        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
+        let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
@@ -589,7 +589,7 @@ mod tests {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
-        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
+        let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service
