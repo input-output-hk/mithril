@@ -18,7 +18,7 @@ use mithril_common::StdError;
 use tokio::sync::Mutex;
 
 /// Delete stake pools for Epoch older than this.
-const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(2);
+const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(10);
 
 /// Stake pool as read from Chain.
 #[derive(Debug, PartialEq)]
