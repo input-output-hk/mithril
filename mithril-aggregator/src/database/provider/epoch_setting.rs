@@ -276,12 +276,12 @@ impl ProtocolParametersStorer for EpochSettingStore {
             .persist(epoch, protocol_parameters)
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
 
-        // Clean useless old epoch settings if needed.
-        if epoch > EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD {
-            let _ = DeleteEpochSettingProvider::new(connection)
-                .prune(epoch - EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD)
-                .map_err(AdapterError::InitializationError)?;
-        }
+        // Prune useless old epoch settings.
+        let _ = DeleteEpochSettingProvider::new(connection)
+            .prune(epoch - EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD)
+            .map_err(AdapterError::QueryError)?
+            .count();
+
         connection
             .execute("commit transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -313,7 +313,10 @@ mod tests {
 
     use super::*;
 
-    pub fn setup_epoch_setting_db(connection: &Connection) -> Result<(), StdError> {
+    pub fn setup_epoch_setting_db(
+        connection: &Connection,
+        epoch_to_insert_settings: &[u64],
+    ) -> Result<(), StdError> {
         apply_all_migrations_to_db(connection)?;
 
         let query = {
@@ -327,19 +330,17 @@ mod tests {
             format!("insert into epoch_setting {sql_values}")
         };
 
-        let epoch_settings: &[(i64, ProtocolParameters); 3] = &[
-            (1, ProtocolParameters::new(1, 2, 1.0)),
-            (2, ProtocolParameters::new(2, 3, 1.0)),
-            (3, ProtocolParameters::new(3, 4, 1.0)),
-        ];
-        for (epoch, protocol_parameters) in epoch_settings {
+        for (epoch, protocol_parameters) in epoch_to_insert_settings
+            .iter()
+            .map(|epoch| (epoch, ProtocolParameters::new(*epoch, epoch + 1, 1.0)))
+        {
             let mut statement = connection.prepare(&query)?;
             statement
                 .bind::<&[(_, Value)]>(&[
-                    (1, Value::Integer(*epoch)),
+                    (1, Value::Integer(*epoch as i64)),
                     (
                         2,
-                        serde_json::to_string(protocol_parameters).unwrap().into(),
+                        serde_json::to_string(&protocol_parameters).unwrap().into(),
                     ),
                 ])
                 .unwrap();
@@ -417,7 +418,7 @@ mod tests {
     #[test]
     fn test_get_epoch_settings() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2, 3]).unwrap();
 
         let provider = EpochSettingProvider::new(&connection);
 
@@ -448,7 +449,7 @@ mod tests {
     #[test]
     fn test_update_epoch_setting() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[3]).unwrap();
 
         let provider = UpdateEpochSettingProvider::new(&connection);
         let epoch_setting_record = provider
@@ -478,7 +479,7 @@ mod tests {
     #[test]
     fn test_delete() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
         let cursor = provider.delete(Epoch(2)).unwrap();
@@ -498,7 +499,7 @@ mod tests {
     #[test]
     fn test_prune() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
         let cursor = provider.prune(Epoch(2)).unwrap();
@@ -513,5 +514,31 @@ mod tests {
         let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
 
         assert_eq!(1, cursor.count());
+    }
+
+    #[tokio::test]
+    async fn save_protocol_parameters_prune_older_epoch_settings() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
+        let store = EpochSettingStore::new(Arc::new(Mutex::new(connection)));
+
+        store
+            .save_protocol_parameters(
+                Epoch(2) + EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD,
+                fake_data::protocol_parameters(),
+            )
+            .await
+            .expect("saving protocol parameters should not fails");
+        let epoch1_params = store.get_protocol_parameters(Epoch(1)).await.unwrap();
+        let epoch2_params = store.get_protocol_parameters(Epoch(2)).await.unwrap();
+
+        assert!(
+            epoch1_params.is_none(),
+            "Protocol parameters at epoch 1 should have been pruned",
+        );
+        assert!(
+            epoch2_params.is_some(),
+            "Protocol parameters at epoch 2 should still exist",
+        );
     }
 }
