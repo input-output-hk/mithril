@@ -190,6 +190,8 @@ SUBCOMMANDS:
     import       Import payload signed with genesis secret key and create & import a genesis certificate
 ```
 
+### bootstrap sub-command (test-only)
+
 Run 'genesis bootstrap' command in release with default configuration, **only in test mode**.
 This allows the Mithril Aggregator node to bootstrap a `Genesis Certificate`. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
 
@@ -203,27 +205,28 @@ Or with a specific `Genesis Secret Key`, **only in test mode**.
 ./mithril-aggregator genesis bootstrap --genesis-secret-key **YOUR_SECRET_KEY*
 ```
 
-Run 'genesis export' command in release with default configuration.
+### export sub-command
+
+Run 'genesis export' command in release.
 This allows the Mithril Aggregator node to export the `Genesis Payload` that needs to be signed (and later reimported) of the `Genesis Certificate`. The signature of the `Genesis Payload` must be done manually with the owner of the `Genesis Secret Key`.
-
-```bash
-./mithril-aggregator genesis export
-```
-
-Or with a custom export path (to override the default value `./mithril-genesis-payload.txt`)
 
 ```bash
 ./mithril-aggregator genesis export --target-path **YOUR_TARGET_PATH**
 ```
 
-Run 'genesis import' command in release with default configuration.
-This allows the Mithril Aggregator node to import the signed payload of the `Genesis Certificate` and create it in the store. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
+### sign sub-command
+
+Run 'genesis sign' command in release.
+This allows the Mithril Aggregator node to sign the `Genesis Payload` that needs to be reimported. The signature of the `Genesis Payload` must be done manually by the owner of the `Genesis Secret Key`.
 
 ```bash
-./mithril-aggregator genesis import
+./mithril-aggregator genesis sign --to-sign-payload-path **TO_SIGN_PAYLOAD_PATH** --target-signed-payload-path **TARGET_SIGNED_PAYLOAD_PATH** --genesis-secret-key-path **GENESIS_SECRET_KEY_PATH**
 ```
 
-Or with a custom export path (to override the default value `./mithril-genesis-signed-payload.txt`)
+### import sub-command
+
+Run 'genesis import' command in release.
+This allows the Mithril Aggregator node to import the signed payload of the `Genesis Certificate` and create it in the store. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
 
 ```bash
 ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
@@ -397,6 +400,7 @@ Here are the subcommands available:
 | **serve** | Aggregator runs its HTTP server in nominal mode and orchestrates multi signatures production |
 | **help** | Print this message or the help of the given subcommand(s) |
 | **genesis export** | Export genesis payload to sign with genesis secret key |
+| **genesis sign** | Sign genesis payload with genesis secret key |
 | **genesis import** | Import genesis signature (payload signed with genesis secret key) and create & import a genesis certificate in the store |
 | **genesis bootstrap** | Bootstrap a genesis certificate (test only usage) |
 | **era list** | List the supported eras |
@@ -450,17 +454,25 @@ General parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `genesis_secret_key` | - | - | `GENESIS_SECRET_KEY` | Genesis secret key, :warning: for test only | - | - | - |
 
+`genesis export` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `target_path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |
+
 `genesis import` command:
 
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `signed_payload_path` | `--signed-payload-path` | - | - | Path of the payload to import. | - | - | - | - |
 
-`genesis export` command:
+`genesis sign` command:
 
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `target_path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |
+| `to_sign_payload_path` | `--to-sign-payload-path` | - | - | Path of the payload to sign. | - | - | - | - |
+| `target_signed_payload_path` | `--target-signed-payload-path` | - | - | Path of the signed payload to export. | - | - | - | - |
+| `genesis_secret_key_path` | `--genesis-secret-key-path` | - | - | Path of the Genesis secret key. | - | - | - |
 
 `era list` command:
 
