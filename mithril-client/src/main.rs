@@ -122,6 +122,9 @@ async fn main() -> Result<(), String> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger());
 
+    #[cfg(feature = "bundle_openssl")]
+    openssl_probe::init_ssl_cert_env_vars();
+
     args.execute()
         .await
         .map_err(|e| format!("An error occured: {e}"))

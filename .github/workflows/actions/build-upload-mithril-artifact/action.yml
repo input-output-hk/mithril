@@ -8,14 +8,19 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Add commit short sha to Cargo.tomls version
+    - name: Get label to append to crate versions
+      id: label
       shell: bash
+      run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+    
+    - name: Add commit short sha to Cargo.tomls version
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: |
         pip3 install toml
-        python3 ./.github/workflows/scripts/edit-cargo-toml-version.py -l $(echo ${{ github.sha }} | cut -c1-7)
+        python3 ./.github/workflows/scripts/edit-cargo-toml-version.py -l "${{ steps.label.outputs.short_sha }}"
 
     - name: Cargo build - Distribution
-      shell: bash
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: cargo build --release ${{ inputs.build-args }}
         
     - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})

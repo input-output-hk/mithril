@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.3.54"
+version = "0.3.55"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2108,6 +2108,8 @@ dependencies = [
  "httpmock",
  "mithril-common",
  "mockall",
+ "openssl",
+ "openssl-probe",
  "reqwest",
  "semver",
  "serde",
@@ -2132,7 +2134,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.3.21"
+version = "0.3.22"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2150,6 +2152,8 @@ dependencies = [
  "indicatif",
  "mithril-common",
  "mockall",
+ "openssl",
+ "openssl-probe",
  "reqwest",
  "semver",
  "serde",
@@ -2234,7 +2238,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.62"
+version = "0.2.63"
 dependencies = [
  "async-trait",
  "clap",
@@ -2243,6 +2247,8 @@ dependencies = [
  "httpmock",
  "mithril-common",
  "mockall",
+ "openssl",
+ "openssl-probe",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "reqwest",
@@ -2562,6 +2568,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff011a302c396a5197692431fc1948019154afc178baf7d8e37367442a4601cf"
 
 [[package]]
+name = "openssl-src"
+version = "111.26.0+1.1.1u"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efc62c9f12b22b8f5208c23a7200a442b2e5999f8bdf80233852122b5a4f6f37"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.90"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2569,6 +2584,7 @@ checksum = "374533b0e45f3a7ced10fcaeccca020e66656bc03dac384f852e4e5a7a8104a6"
 dependencies = [
  "cc",
  "libc",
+ "openssl-src",
  "pkg-config",
  "vcpkg",
 ]
