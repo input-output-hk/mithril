@@ -7,6 +7,7 @@ use std::{
 };
 
 use anyhow::Context;
+use async_recursion::async_recursion;
 use clap::Parser;
 
 use indicatif::{ProgressBar, ProgressDrawTarget};
@@ -15,13 +16,17 @@ use mithril_common::{
     entities::{
         Epoch, PartyId, ProtocolMessage, ProtocolParameters, SignedEntityType, SingleSignatures,
     },
-    messages::{EpochSettingsMessage, RegisterSignatureMessage, RegisterSignerMessage},
+    messages::{
+        CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
+        RegisterSignatureMessage, RegisterSignerMessage,
+    },
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
 };
 
 use mithril_end_to_end::{Aggregator, BftNode};
 use reqwest::StatusCode;
+use serde::Deserialize;
 use slog::Level;
 use slog_scope::{info, warn};
 use thiserror::Error;
@@ -40,9 +45,9 @@ macro_rules! spin_while_waiting {
         let probe = async move { $block };
 
         select! {
-            _ = spinner => Err(String::new().into()),
-            _ = sleep($timeout) => Err($timeout_message.into()),
-            _ = probe => Ok(())
+        _ = spinner => Err(String::new().into()),
+        _ = sleep($timeout) => Err($timeout_message.into()),
+        res = probe => res
         }
     }};
 }
@@ -129,6 +134,7 @@ pub async fn wait_for_http_response(url: &str, timeout: Duration, message: &str)
             while reqwest::get(url).await.is_err() {
                 sleep(Duration::from_millis(300)).await;
             }
+            Ok(())
         },
         timeout,
         message.to_owned(),
@@ -165,6 +171,7 @@ pub async fn wait_for_epoch_settings_at_epoch(
                     _ => sleep(Duration::from_millis(300)).await,
                 }
             }
+            Ok(())
         },
         timeout,
         format!("Waiting for epoch {epoch}"),
@@ -195,9 +202,77 @@ pub async fn wait_for_pending_certificate(
                     _ => sleep(Duration::from_millis(300)).await,
                 }
             }
+            Ok(())
         },
         timeout,
         format!("Waiting for pending certificate"),
+        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
+    )
+}
+
+#[async_recursion]
+async fn request_first_list_item<I>(url: &str) -> Result<I, String>
+where
+    for<'a> I: Deserialize<'a> + Sync + Send + Clone,
+{
+    sleep(Duration::from_millis(300)).await;
+
+    match reqwest::get(url).await {
+        Ok(response) => match response.status() {
+            StatusCode::OK => match response.json::<Vec<I>>().await.as_deref() {
+                Ok([first_item, ..]) => Ok(first_item.to_owned()),
+                Ok(&[]) => request_first_list_item::<I>(url).await,
+                Err(err) => Err(format!("Invalid list body : {err}")),
+            },
+            s if s.is_server_error() => {
+                let message = format!(
+                    "Server error while waiting for the Aggregator, http code: {}",
+                    s
+                );
+                warn!("{message}");
+                Err(message)
+            }
+            _ => request_first_list_item::<I>(url).await,
+        },
+        Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+    }
+}
+
+/// Wait for certificates
+pub async fn wait_for_certificates(
+    aggregator: &Aggregator,
+    timeout: Duration,
+) -> StdResult<CertificateListItemMessage> {
+    let url = &format!("{}/certificates", aggregator.endpoint());
+    spin_while_waiting!(
+        {
+            request_first_list_item::<CertificateListItemMessage>(url)
+                .await
+                .map_err(|e| e.into())
+        },
+        timeout,
+        format!("Waiting for certificates"),
+        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
+    )
+}
+
+/// Wait for Mithril Stake Distribution artifacts
+pub async fn wait_for_mithril_stake_distribution_artifacts(
+    aggregator: &Aggregator,
+    timeout: Duration,
+) -> StdResult<MithrilStakeDistributionListItemMessage> {
+    let url = &format!(
+        "{}/artifact/mithril-stake-distributions",
+        aggregator.endpoint()
+    );
+    spin_while_waiting!(
+        {
+            request_first_list_item::<MithrilStakeDistributionListItemMessage>(url)
+                .await
+                .map_err(|e| e.into())
+        },
+        timeout,
+        format!("Waiting for mithril stake distribution artifacts"),
         format!("Aggregator did not get a response after {timeout:?} from '{url}'")
     )
 }
@@ -537,6 +612,12 @@ async fn main() -> StdResult<()> {
     )
     .await?;
     assert_eq!(0, errors);
+
+    info!(">> Wait for certificates to be available...");
+    wait_for_certificates(&aggregator, Duration::from_secs(30)).await?;
+
+    info!(">> Wait for artifacts to be available...");
+    wait_for_mithril_stake_distribution_artifacts(&aggregator, Duration::from_secs(30)).await?;
 
     info!(">> All steps executed successfully, stopping all tasks...");
 

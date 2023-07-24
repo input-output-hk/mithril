@@ -15,6 +15,7 @@ bench = false
 
 [dependencies]
 anyhow = "1.0.71"
+async-recursion = "1.0.4"
 async-trait = "0.1.52"
 clap = { version = "4.0.18", features = ["derive"] }
 glob = "0.3"

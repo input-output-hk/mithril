@@ -2225,6 +2225,7 @@ name = "mithril-end-to-end"
 version = "0.1.31"
 dependencies = [
  "anyhow",
+ "async-recursion",
  "async-trait",
  "clap",
  "glob",
