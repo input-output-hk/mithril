@@ -179,7 +179,7 @@ mod tests {
     use crate::database::provider::apply_all_migrations_to_db;
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
-        crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner},
+        crypto_helper::{ProtocolClerk, ProtocolGenesisSigner},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use sqlite::Connection;
@@ -251,15 +251,10 @@ mod tests {
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
             build_tools(&genesis_signer);
-        let mut genesis_secret_key_file = File::create(&genesis_secret_key_path).unwrap();
-        genesis_secret_key_file
-            .write_all(
-                key_encode_hex(genesis_signer.secret_key.as_bytes())
-                    .unwrap()
-                    .as_bytes(),
-            )
-            .unwrap();
 
+        genesis_signer
+            .export_to_file(&genesis_secret_key_path)
+            .expect("exporting the secret key should not fail");
         genesis_tools
             .export_payload_to_sign(&payload_path)
             .expect("export_payload_to_sign should not fail");
