@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 use mithril_common::{
-    crypto_helper::{KESPeriod, ProtocolSignerVerificationKey},
+    crypto_helper::KESPeriod,
     entities::{
         Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature,
         PartyId, Signer, SignerWithStake, Stake,
