@@ -10,7 +10,7 @@ use crate::{
 
 era_deprecate!("make epoch of RegisterSignerMessage not optional");
 /// Register Signer Message
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegisterSignerMessage {
     /// Epoch at which registration is sent
     /// #[serde(skip_serializing_if = "Option::is_none")]

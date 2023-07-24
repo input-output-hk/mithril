@@ -34,11 +34,4 @@ pub use signed_entity_type::*;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::SingleSignatures;
 pub use snapshot::Snapshot;
-pub use type_alias::{
-    HexEncodedAgregateVerificationKey, HexEncodedDigest, HexEncodedEraMarkersSecretKey,
-    HexEncodedEraMarkersSignature, HexEncodedEraMarkersVerificationKey, HexEncodedGenesisSecretKey,
-    HexEncodedGenesisSignature, HexEncodedGenesisVerificationKey, HexEncodedKey,
-    HexEncodedMultiSignature, HexEncodedOpCert, HexEncodedSingleSignature,
-    HexEncodedVerificationKey, HexEncodedVerificationKeySignature, ImmutableFileName,
-    ImmutableFileNumber, LotteryIndex, MagicId, PartyId, ProtocolVersion, Stake, StakeDistribution,
-};
+pub use type_alias::*;

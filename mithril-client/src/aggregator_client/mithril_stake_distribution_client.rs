@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{MithrilStakeDistribution, SignedEntity},
-    messages::{FromMessageAdapter, MithrilStakeDistributionMessage},
     messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage},
+    messages::{MithrilStakeDistributionMessage, TryFromMessageAdapter},
     StdResult,
 };
 
@@ -42,7 +42,7 @@ impl MithrilStakeDistributionClient {
             Ok(content) => {
                 let message: MithrilStakeDistributionMessage = serde_json::from_str(&content)?;
                 let stake_distribution_entity =
-                    FromMithrilStakeDistributionMessageAdapter::adapt(message);
+                    FromMithrilStakeDistributionMessageAdapter::try_adapt(message)?;
 
                 Ok(Some(stake_distribution_entity))
             }
@@ -55,7 +55,9 @@ impl MithrilStakeDistributionClient {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-    use mithril_common::{entities::Epoch, test_utils::fake_data};
+    use mithril_common::{
+        entities::Epoch, messages::SignerWithStakeMessagePart, test_utils::fake_data,
+    };
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
 
@@ -103,7 +105,9 @@ mod tests {
         let message = MithrilStakeDistributionMessage {
             certificate_hash: "certificate-hash-123".to_string(),
             epoch: Epoch(1),
-            signers_with_stake: fake_data::signers_with_stakes(2),
+            signers_with_stake: SignerWithStakeMessagePart::from_signers(
+                fake_data::signers_with_stakes(2),
+            ),
             hash: "hash".to_string(),
             created_at: DateTime::<Utc>::default(),
             protocol_parameters: fake_data::protocol_parameters(),

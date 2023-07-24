@@ -7,6 +7,7 @@ mod era;
 mod genesis;
 pub mod tests_setup;
 mod types;
+mod verification_key;
 
 pub use cardano::{
     ColdKeyGenerator, KESPeriod, OpCert, ProtocolInitializerErrorWrapper,
@@ -19,6 +20,7 @@ pub use era::{
 };
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use types::*;
+pub use verification_key::*;
 
 /// The current protocol version
 pub const PROTOCOL_VERSION: ProtocolVersion = "0.1.0";

@@ -194,7 +194,7 @@ mod tests {
         entities::{Epoch, SignerWithStake},
         messages::{
             CertificateMessage, MithrilStakeDistributionListMessage,
-            MithrilStakeDistributionMessage,
+            MithrilStakeDistributionMessage, SignerWithStakeMessagePart,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
@@ -214,7 +214,9 @@ mod tests {
     ) -> MithrilStakeDistributionMessage {
         MithrilStakeDistributionMessage {
             epoch: Epoch(1),
-            signers_with_stake: signers_with_stake.to_owned(),
+            signers_with_stake: SignerWithStakeMessagePart::from_signers(
+                signers_with_stake.to_owned(),
+            ),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::<Utc>::default(),

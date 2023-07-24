@@ -6,9 +6,10 @@
 use crate::crypto_helper::{
     cardano::{OpCert, ParseError, SerDeShelleyFileFormat},
     types::{
-        ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
-        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+        ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKeySignature,
+        ProtocolStakeDistribution,
     },
+    verification_key::ProtocolSignerVerificationKey,
 };
 
 use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
@@ -277,7 +278,7 @@ impl KeyRegWrapper {
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             self.stm_key_reg
-                .register(stake, pk)
+                .register(stake, pk.into())
                 .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)?;
             return Ok(pool_id_bech32);
         }
@@ -364,7 +365,7 @@ mod test {
             Some(opcert1),
             initializer_1.kes_signature,
             Some(0),
-            initializer_1.stm_initializer.verification_key(),
+            initializer_1.stm_initializer.verification_key().into(),
         );
         assert!(key_registration_1.is_ok());
 
@@ -385,7 +386,7 @@ mod test {
             Some(opcert2),
             initializer_2.kes_signature,
             Some(0),
-            initializer_2.stm_initializer.verification_key(),
+            initializer_2.stm_initializer.verification_key().into(),
         );
         assert!(key_registration_2.is_ok())
     }

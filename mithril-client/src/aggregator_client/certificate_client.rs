@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::Certificate,
-    messages::{CertificateMessage, FromMessageAdapter},
+    messages::{CertificateMessage, TryFromMessageAdapter},
     StdResult,
 };
 use slog_scope::{crit, debug};
@@ -41,7 +41,7 @@ impl CertificateClient {
                         e
                     })?;
 
-                Ok(Some(FromCertificateMessageAdapter::adapt(message)))
+                Ok(Some(FromCertificateMessageAdapter::try_adapt(message)?))
             }
         }
     }
@@ -66,7 +66,7 @@ impl CertificateRetriever for CertificateClient {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::messages::CertificateMetadataMessage;
+    use mithril_common::messages::{CertificateMetadataMessage, SignerWithStakeMessagePart};
     use mithril_common::test_utils::fake_data;
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
@@ -92,7 +92,9 @@ mod tests {
                         protocol_parameters: certificate.metadata.protocol_parameters.clone(),
                         initiated_at: certificate.metadata.initiated_at,
                         sealed_at: certificate.metadata.sealed_at,
-                        signers: certificate.metadata.signers.clone(),
+                        signers: SignerWithStakeMessagePart::from_signers(
+                            certificate.metadata.signers.clone(),
+                        ),
                     },
                     protocol_message: certificate.protocol_message.clone(),
                     signed_message: certificate.signed_message.clone(),

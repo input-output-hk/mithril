@@ -29,6 +29,9 @@ impl From<&entities::SignerWithStake> for (types::ProtocolPartyId, types::Protoc
 
 #[cfg(test)]
 pub mod tests {
+
+    use crate::test_utils::MithrilFixtureBuilder;
+
     use super::*;
 
     #[test]
@@ -62,8 +65,20 @@ pub mod tests {
             "1".to_string() as types::ProtocolPartyId,
             100 as types::ProtocolStake,
         );
-        let signer_with_stake_expected =
-            &entities::SignerWithStake::new("1".to_string(), "".to_string(), None, None, None, 100);
+        let verification_key = MithrilFixtureBuilder::default()
+            .with_signers(1)
+            .build()
+            .signers_with_stake()[0]
+            .verification_key
+            .clone();
+        let signer_with_stake_expected = &entities::SignerWithStake::new(
+            "1".to_string(),
+            verification_key,
+            None,
+            None,
+            None,
+            100,
+        );
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
             signer_with_stake_expected.into();

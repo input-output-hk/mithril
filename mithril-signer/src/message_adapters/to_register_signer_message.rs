@@ -12,7 +12,7 @@ impl ToMessageAdapter<(Epoch, Signer), RegisterSignerMessage> for ToRegisterSign
         RegisterSignerMessage {
             epoch: Some(epoch),
             party_id: signer.party_id,
-            verification_key: signer.verification_key,
+            verification_key: signer.verification_key.try_into().unwrap(),
             verification_key_signature: signer.verification_key_signature,
             operational_certificate: signer.operational_certificate,
             kes_period: signer.kes_period,
@@ -29,7 +29,8 @@ mod tests {
     #[test]
     fn adapt_ok() {
         let epoch = Epoch(1);
-        let signer = fake_data::signers(1)[0].to_owned();
+        let mut signer = fake_data::signers(1)[0].to_owned();
+        signer.party_id = "0".to_string();
         let message = ToRegisterSignerMessageAdapter::adapt((epoch, signer));
 
         assert_eq!("0".to_string(), message.party_id);

@@ -6,9 +6,7 @@ use thiserror::Error;
 #[cfg(test)]
 use mockall::automock;
 
-use mithril_common::crypto_helper::{
-    key_decode_hex, KESPeriod, OpCert, ProtocolSignerVerificationKey, SerDeShelleyFileFormat,
-};
+use mithril_common::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityType};
 use mithril_common::{
     crypto_helper::key_encode_hex,
@@ -210,7 +208,6 @@ impl Runner for SignerRunner {
             self.config.kes_secret_key_path.clone(),
             kes_period,
         )?;
-        let verification_key_encoded = key_encode_hex(protocol_initializer.verification_key())?;
         let verification_key_signature_encoded =
             match protocol_initializer.verification_key_signature() {
                 Some(verification_signature) => Some(key_encode_hex(verification_signature)?),
@@ -218,7 +215,7 @@ impl Runner for SignerRunner {
             };
         let signer = Signer::new(
             self.services.single_signer.get_party_id(),
-            verification_key_encoded,
+            protocol_initializer.verification_key().into(),
             verification_key_signature_encoded,
             operational_certificate_encoded,
             kes_period,
@@ -292,10 +289,8 @@ impl Runner for SignerRunner {
                     " > got protocol initializer for this epoch ({})",
                     pending_certificate.beacon.epoch
                 );
-                let recorded_verification_key =
-                    key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key)?;
 
-                if recorded_verification_key == protocol_initializer.verification_key() {
+                if signer.verification_key == protocol_initializer.verification_key().into() {
                     debug!("verification keys match, we can sign");
 
                     return Ok(true);
@@ -526,7 +521,11 @@ mod tests {
 
     async fn init_services() -> SignerServices {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
-        let chain_observer = Arc::new(FakeObserver::default());
+        let stake_distribution_signers = fake_data::signers_with_stakes(2);
+        let party_id = stake_distribution_signers[1].party_id.clone();
+        let fake_observer = FakeObserver::default();
+        fake_observer.set_signers(stake_distribution_signers).await;
+        let chain_observer = Arc::new(fake_observer);
         let beacon_provider = Arc::new(BeaconProviderImpl::new(
             chain_observer.clone(),
             Arc::new(DumbImmutableFileObserver::default()),
@@ -562,7 +561,7 @@ mod tests {
             certificate_handler: Arc::new(DumbAggregatorClient::default()),
             chain_observer,
             digester,
-            single_signer: Arc::new(MithrilSingleSigner::new("1".to_string())),
+            single_signer: Arc::new(MithrilSingleSigner::new(party_id)),
             beacon_provider,
             protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
                 Box::new(adapter),
@@ -718,12 +717,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_i_sign() {
-        let services = init_services().await;
-        let protocol_initializer_store = services.protocol_initializer_store.clone();
-        let runner = init_runner(Some(services), None).await;
         let mut pending_certificate = fake_data::certificate_pending();
         let epoch = pending_certificate.beacon.epoch;
         let signer = &mut pending_certificate.signers[0];
+        let mut services = init_services().await;
+        let protocol_initializer_store = services.protocol_initializer_store.clone();
+        services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
+        let runner = init_runner(Some(services), None).await;
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,
@@ -732,7 +732,7 @@ mod tests {
             None,
         )
         .expect("build protocol initializer should not fail");
-        signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
+        signer.verification_key = protocol_initializer.verification_key().into();
         protocol_initializer_store
             .save_protocol_initializer(
                 epoch

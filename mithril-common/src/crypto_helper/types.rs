@@ -7,7 +7,7 @@ use mithril_stm::{
     key_reg::ClosedKeyReg,
     stm::{
         Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSig,
-        StmSigner, StmVerificationKeyPoP,
+        StmSigner,
     },
     AggregationError,
 };
@@ -57,9 +57,6 @@ pub type ProtocolSingleSignature = StmSig;
 
 /// Alias of [MithrilStm:StmAggrSig](struct@mithril_stm::stm::StmAggrSig).
 pub type ProtocolMultiSignature = StmAggrSig<D>;
-
-/// Alias of [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::stm::StmVerificationKeyPoP).
-pub type ProtocolSignerVerificationKey = StmVerificationKeyPoP;
 
 /// Alias of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs).
 pub type ProtocolSignerVerificationKeySignature = Sum6KesSig;
