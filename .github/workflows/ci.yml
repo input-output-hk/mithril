@@ -131,7 +131,11 @@ jobs:
         shell: bash
         run: |
           cargo nextest run --profile ci ${{ matrix.test-args }}
-          # Rename junit file to include runner info
+          
+      - name: Rename junit file to include runner info
+        shell: bash
+        if: success() || failure()
+        run: |
           mv target/nextest/ci/tests-result.junit.xml test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml
 
       - name: Upload Tests Results
