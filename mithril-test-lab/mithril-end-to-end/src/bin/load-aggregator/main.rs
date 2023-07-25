@@ -14,7 +14,8 @@ use indicatif::{ProgressBar, ProgressDrawTarget};
 use mithril_common::{
     digesters::DummyImmutablesDbBuilder,
     entities::{
-        Epoch, PartyId, ProtocolMessage, ProtocolParameters, SignedEntityType, SingleSignatures,
+        Epoch, PartyId, ProtocolMessage, ProtocolParameters, SignedEntityType, Signer,
+        SingleSignatures,
     },
     messages::{
         CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
@@ -28,12 +29,13 @@ use mithril_end_to_end::{Aggregator, BftNode};
 use reqwest::StatusCode;
 use serde::Deserialize;
 use slog::Level;
-use slog_scope::{info, warn};
+use slog_scope::{debug, info, warn};
 use thiserror::Error;
 use tokio::{select, task::JoinSet, time::sleep};
 
 macro_rules! spin_while_waiting {
     ($block:block, $timeout:expr, $wait_message:expr, $timeout_message:expr) => {{
+        info!("⇄ {}", $wait_message);
         let progress_bar = ProgressBar::new_spinner().with_message($wait_message);
 
         let spinner = async move {
@@ -94,12 +96,12 @@ pub fn generate_signer_data(
 
 /// Generate signer registration message
 pub fn generate_register_signer_message(
-    signers_fixture: &MithrilFixture,
+    signers: &[Signer],
     epoch: Epoch,
 ) -> Vec<RegisterSignerMessage> {
-    signers_fixture
-        .signers()
-        .into_iter()
+    signers
+        .iter()
+        .cloned()
         .map(|signer| RegisterSignerMessage {
             epoch: Some(epoch),
             party_id: signer.party_id,
@@ -279,10 +281,10 @@ pub async fn wait_for_mithril_stake_distribution_artifacts(
 
 pub async fn register_signers_to_aggregator(
     aggregator: &Aggregator,
-    signers_fixture: &MithrilFixture,
+    signers: &[Signer],
     epoch: Epoch,
 ) -> StdResult<usize> {
-    let register_messages = generate_register_signer_message(signers_fixture, epoch);
+    let register_messages = generate_register_signer_message(signers, epoch);
 
     let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
     let progress_bar = ProgressBar::with_draw_target(
@@ -391,6 +393,7 @@ pub fn write_epoch(mock_epoch_file_path: &Path, epoch: Epoch) {
     let mock_epoch_file = File::create(mock_epoch_file_path).unwrap();
     write!(&mock_epoch_file, "{}", *epoch)
         .expect("Writing the epoch into a file for the mock cardano cli failed");
+    debug!("New Epoch: {epoch}");
 }
 
 #[derive(Debug, Parser)]
@@ -417,7 +420,7 @@ pub struct MainOpts {
     pub mithril_era: String,
 
     /// Aggregator HTTP port
-    #[arg(short = 'p', long, default_value = "8888")]
+    #[arg(short = 'p', long, default_value = "8080")]
     server_port: u32,
 
     /// Log level
@@ -503,15 +506,121 @@ impl AggregatorParameters {
 
         Ok(aggregator_parameters)
     }
+
+    fn mock_stake_distribution_file_path(&self) -> PathBuf {
+        self.work_dir.join("stake_distribution.json")
+    }
+
+    fn mock_epoch_file_path(&self) -> PathBuf {
+        self.work_dir.join("epoch.txt")
+    }
 }
 
-#[tokio::main]
+/// Bootstrap an aggregator and made it compute its genesis certificate
+async fn bootstrap_aggregator(
+    args: &AggregatorParameters,
+    signers_fixture: &MithrilFixture,
+    current_epoch: &mut Epoch,
+) -> StdResult<Aggregator> {
+    // let genesis_signers = {
+    //     let mut signers = signers_fixture.signers();
+    //     // Up to 100 signers for the genesis certificate to avoid registration round errors
+    //     signers.truncate(100);
+    //     signers
+    // };
+
+    info!(">> Launch Aggregator");
+    let mut aggregator = Aggregator::new(
+        args.server_port as u64,
+        &args.bft_node,
+        &args.cardano_cli_path,
+        &args.work_dir,
+        &args.bin_dir,
+        &args.mithril_era,
+    )
+    .unwrap();
+
+    write_epoch(&args.mock_epoch_file_path(), *current_epoch);
+    write_stake_distribution(&args.mock_stake_distribution_file_path(), signers_fixture);
+
+    // Extremely large interval since for the two following start only the http_server part
+    // of the aggregator is relevant since we need to send signer registrations.
+    aggregator.change_run_interval(Duration::from_secs(20000));
+    aggregator.set_mock_cardano_cli_file_path(
+        &args.mock_stake_distribution_file_path(),
+        &args.mock_epoch_file_path(),
+    );
+    aggregator.set_protocol_parameters(&signers_fixture.protocol_parameters());
+
+    info!(
+        ">> Starting the aggregator with a large run interval to call the http_server\
+    without being bothered by the state machine cycles"
+    );
+    aggregator.serve().unwrap();
+    wait_for_http_response(
+        &format!("{}/epoch-settings", aggregator.endpoint()),
+        Duration::from_secs(10),
+        "Waiting for the aggregator to start",
+    )
+    .await?;
+
+    info!(">> Send the Signer Key Registrations payloads for the genesis signers");
+    let errors =
+        register_signers_to_aggregator(&aggregator, &signers_fixture.signers(), *current_epoch + 1)
+            .await?;
+    assert_eq!(0, errors);
+    aggregator.stop().await.unwrap();
+
+    info!(">> Move one epoch forward in order to issue the genesis certificate");
+    *current_epoch += 1;
+    write_epoch(&args.mock_epoch_file_path(), *current_epoch);
+
+    info!(">> Restarting the aggregator still with a large run interval");
+    aggregator.serve().unwrap();
+    wait_for_http_response(
+        &format!("{}/epoch-settings", aggregator.endpoint()),
+        Duration::from_secs(10),
+        "Waiting for the aggregator to start",
+    )
+    .await?;
+
+    info!(">> Send the Signer Key Registrations payloads for next genesis signers");
+    let errors =
+        register_signers_to_aggregator(&aggregator, &signers_fixture.signers(), *current_epoch + 1)
+            .await?;
+    assert_eq!(0, errors);
+    aggregator.stop().await.unwrap();
+
+    {
+        info!(">> Compute genesis certificate");
+        let mut genesis_aggregator = Aggregator::copy_configuration(&aggregator);
+        genesis_aggregator
+            .bootstrap_genesis()
+            .await
+            .expect("Genesis aggregator should be able to bootstrap genesis");
+    }
+
+    info!(">> Restart aggregator with a normal run interval");
+    aggregator.change_run_interval(Duration::from_secs(3));
+    aggregator.serve().unwrap();
+
+    wait_for_http_response(
+        &format!("{}/epoch-settings", aggregator.endpoint()),
+        Duration::from_secs(10),
+        "Waiting for the aggregator to restart",
+    )
+    .await?;
+
+    info!(">> Aggregator bootrapped");
+
+    Ok(aggregator)
+}
+
+#[tokio::main(flavor = "multi_thread", worker_threads = 20)]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
     let _logger = init_logger(&opts);
     let args = AggregatorParameters::new(&opts)?;
-    let mock_stake_distribution_file_path = args.work_dir.join("stake_distribution.json");
-    let mock_epoch_file_path = args.work_dir.join("epoch.txt");
     let mut current_epoch = Epoch(1);
     info!(">> Starting stress test with options: {opts:?}");
 
@@ -536,73 +645,24 @@ async fn main() -> StdResult<()> {
         .filter_map(|s| s.sign(&mithril_stake_distribution_message))
         .collect();
 
-    info!(">> Launch Aggregator");
-    let mut aggregator = Aggregator::new(
-        args.server_port as u64,
-        &args.bft_node,
-        &args.cardano_cli_path,
-        &args.work_dir,
-        &args.bin_dir,
-        &args.mithril_era,
-    )
-    .unwrap();
-
-    write_epoch(&mock_epoch_file_path, current_epoch);
-    write_stake_distribution(&mock_stake_distribution_file_path, &signers_fixture);
-
-    aggregator.change_run_interval(Duration::from_secs(6));
-    aggregator
-        .set_mock_cardano_cli_file_path(&mock_stake_distribution_file_path, &mock_epoch_file_path);
-    aggregator.set_protocol_parameters(&signers_fixture.protocol_parameters());
-    aggregator.serve().unwrap();
-
-    wait_for_http_response(
-        &format!("{}/epoch-settings", aggregator.endpoint()),
-        Duration::from_secs(10),
-        "Waiting for the aggregator to start",
-    )
-    .await?;
-
-    info!(">> Send the Signer Key Registrations payloads");
-    let errors =
-        register_signers_to_aggregator(&aggregator, &signers_fixture, current_epoch + 1).await?;
-    assert_eq!(0, errors);
-
-    info!(">> Move one epoch forward in order to issue the genesis certificate");
-    current_epoch += 1;
-    write_epoch(&mock_epoch_file_path, current_epoch);
-    wait_for_epoch_settings_at_epoch(&aggregator, Duration::from_secs(10), current_epoch).await?;
-    {
-        info!(">> Compute genesis certificate");
-        let mut genesis_aggregator = Aggregator::copy_configuration(&aggregator);
-        genesis_aggregator
-            .bootstrap_genesis()
-            .await
-            .expect("Genesis aggregator should be able to bootstrap genesis");
-
-        sleep(Duration::from_secs(10)).await;
-    }
-
-    info!(">> Send the Signer Key Registrations payloads");
-    let errors =
-        register_signers_to_aggregator(&aggregator, &signers_fixture, current_epoch + 1).await?;
-    assert_eq!(0, errors);
+    let mut aggregator = bootstrap_aggregator(&args, &signers_fixture, &mut current_epoch).await?;
 
     info!(">> Move one epoch forward in order to start creating certificates");
     current_epoch += 1;
-    write_epoch(&mock_epoch_file_path, current_epoch);
+    write_epoch(&args.mock_epoch_file_path(), current_epoch);
     wait_for_epoch_settings_at_epoch(&aggregator, Duration::from_secs(10), current_epoch).await?;
 
     info!(">> Send the Signer Key Registrations payloads");
     let errors =
-        register_signers_to_aggregator(&aggregator, &signers_fixture, current_epoch + 1).await?;
+        register_signers_to_aggregator(&aggregator, &signers_fixture.signers(), current_epoch + 1)
+            .await?;
     assert_eq!(0, errors);
 
     info!(">> Wait for pending certificate to be available");
     wait_for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
 
     info!(
-        ">> Send the Signer Signatures Registrations payloads for MithrilStakeDistribution({:?})",
+        ">> Send the Signer Signatures payloads for MithrilStakeDistribution({:?})",
         current_epoch
     );
     let errors = register_signatures_to_aggregator(

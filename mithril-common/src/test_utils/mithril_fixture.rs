@@ -178,6 +178,24 @@ impl MithrilFixture {
     }
 }
 
+impl From<MithrilFixture> for Vec<Signer> {
+    fn from(fixture: MithrilFixture) -> Self {
+        fixture.signers()
+    }
+}
+
+impl From<MithrilFixture> for Vec<SignerWithStake> {
+    fn from(fixture: MithrilFixture) -> Self {
+        fixture.signers_with_stake()
+    }
+}
+
+impl From<MithrilFixture> for Vec<SignerFixture> {
+    fn from(fixture: MithrilFixture) -> Self {
+        fixture.signers_fixture()
+    }
+}
+
 impl SignerFixture {
     /// Sign the given protocol message.
     pub fn sign(&self, protocol_message: &ProtocolMessage) -> Option<SingleSignatures> {
