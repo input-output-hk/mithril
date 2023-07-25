@@ -2,86 +2,82 @@
 sidebar_position: 4
 ---
 
-# Run a Private Mithril network
+# Run a private Mithril network
 
 :::info
 
-In this guide, you will learn how to run a demonstration of a **Mithril Network** working on top of a private `devnet` **Cardano Network**. This network is completely autonomous and setup to produce Mithril snapshots every 1 minute.
+In this guide, you will learn how to run a demonstration of a **Mithril network** working on top of a private Cardano `devnet` network. This network is completely autonomous and set up to produce Mithril snapshots every minute.
 
 :::
 
-The network will be launched with the following topology:
+You can launch a private Mithril network using the following topology:
 
-* `2` **Cardano Nodes** configured as **Stake Pool Operators (SPO)** with a **Mithril Signer** on top
-* `1` **Cardano Node** configured as **BFT node** with a **Mithril Aggregator** on top
+* `2` **Cardano nodes** configured as **stake pool operators (SPOs)** with a **Mithril Signer** on top
+* `1` **Cardano node** configured as a **BFT node** with a **Mithril Aggregator** on top
 
 ![Devnet Topology](images/devnet-topology.png)
 
 :::danger
 
-This demonstration is working only on a Linux machine.
+This demonstration works exclusively on Linux machines.
 
 :::
 
 :::tip
 
-More information about this private Cardano/Mithril `devnet` is available [here](https://github.com/input-output-hk/mithril/blob/main/mithril-test-lab/mithril-devnet/README.md).
+More information about the private Cardano/Mithril `devnet` is available [here](https://github.com/input-output-hk/mithril/blob/main/mithril-test-lab/mithril-devnet/README.md).
 
 :::
 
-# Video demonstration
+## Video demonstration
 
 <iframe style={{width: '100%', height: '480px'}} src="https://www.youtube.com/embed/qu3GoO1UwYI" title="Run a Private Mithril network" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="true"></iframe>
 
 ## Pre-requisites
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+* Install the latest stable version of a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
-* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
+* Install the OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
-## Download source
+## Download the source file
 
-Download from GitHub (HTTPS)
+Download the source file from GitHub (HTTPS):
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
 ```
 
-Or (SSH)
+Or (SSH):
 
 ```bash
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
-## Change directory
+## Change the directory
 
-Go to the devnet folder
+To change the directory, go to the devnet folder:
 
 ```bash
 cd mithril-test-lab/mithril-devnet
 ```
 
-## Run a Private Mithril/Cardano network locally (`devnet`)
+## Run a private Mithril/Cardano network (`devnet`) locally 
 
 ### Step 1: Launch the devnet
 
-Open a first terminal window.
+Open a terminal window. Run a devnet with one BTF and two SPO Cardano nodes.
 
-Run a devnet with 1 BTF and 2 SPO Cardano nodes.
+**Option 1**: Use remote Docker images
 
-**Option 1**: Remote Docker images
-
-The network will be ready faster with remote Docker images.
+The network setup will be quicker when using remote Docker images:
 
 ```bash
 MITHRIL_IMAGE_ID=latest NUM_BFT_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
 ```
 
-Or
+**Option 2**: Use local Docker images
 
-**Option 2**: Local Docker images
-
-This takes more time to build local Docker images of the Mithril nodes
+Note that using local Docker images to build Mithril nodes may take more time:
 
 ```bash
 NUM_BFT_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
@@ -89,15 +85,15 @@ NUM_BFT_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
 
 :::info
 
-You will see that the devnet is launched with the following steps:
+Throughout the devnet launch process, you will encounter the following steps:
 
-* **Bootstraping the devnet**: generates the artifacts of the devnet depending on the configuration parameters (cryptographic keys, network topology, transactions to setup pool nodes, ...)
-* **Start Cardano Network**: run the nodes of the **Cardano Network**, waits for it to be ready and activate the pool nodes
-* **Start Mithril Network**: run the nodes of the **Mithril Network** that works on top of the **Cardano Network**
+* **Bootstrapping the devnet**: generate the artifacts of the devnet, depending on the configuration parameters (cryptographic keys, network topology, transactions to set up pool nodes, etc)
+* **Starting the Cardano network**: run the nodes of the **Cardano network**, wait for it to be ready, and activate the pool nodes.
+* **Starting the Mithril network**: run the nodes of the **Mithril network**, which will work on top of the **Cardano network**.
 
 :::
 
-You should see the following information displayed
+You should see the following information displayed:
 
 ```bash
 =====================================================================
@@ -184,7 +180,7 @@ Creating artifacts_mithril-aggregator-genesis_run ... done
 Verify genesis certificate #86a4c56d957636740a75c250fdd9d3b9a9f1539dc93449b1f80fcab49e279d6d @ epoch #10
 
 =====================================================================
- Schedule Cardano Stake Delegation
+ Schedule Cardano stake delegation
 =====================================================================
 
 >> Begin scheduled delegation
@@ -207,18 +203,16 @@ Transaction successfully submitted.
 
 ### Step 2: Query the devnet
 
-Open a second terminal window.
-
-Watch the state queried from the devnet
+Open a second terminal window. Watch the state queried from the devnet:
 
 ```bash
 watch -n 1 ./devnet-query.sh
 ```
 
-The networks will be queried every `1s` and will display:
+The networks will be queried every second and will display:
 
-* Certificate production informations gathered from the **Mithril Network**
-* Utxo, Stake Pools, Stake Distribution from the **Cardano Network**
+- Certificate production information gathered from the **Mithril network**
+- UTXO, stake pools, and stake distribution from the **Cardano network**
 
 ```bash
 =====================================================================
@@ -226,7 +220,7 @@ The networks will be queried every `1s` and will display:
 =====================================================================
 
 =====================================================================
-=== Mithril Network
+=== Mithril network
 =====================================================================
 
 >> Query pending certificate
@@ -276,7 +270,7 @@ The networks will be queried every `1s` and will display:
 ]
 
 =====================================================================
-=== Cardano Network
+=== Cardano network
 =====================================================================
 
 >> Query chain tip
@@ -289,7 +283,7 @@ The networks will be queried every `1s` and will display:
     "block": 9
 }
 
->> Query whole utxo
+>> Query the whole UTXO
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
 4980fb7c90bc003f6af65778008732cd1b1a8c0873b7d622bfb7442f1312c9b5     0        447999157 lovelace + TxOutDatumNone
@@ -311,15 +305,13 @@ pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav   5.258e-4
 
 ### Step 3: Observe the devnet
 
-Open a third terminal window.
-
-Watch the logs of each node of the devnet
+Open a third terminal window. Watch the logs of each devnet node:
 
 ```bash
 watch -n 1 LINES=5 ./devnet-log.sh
 ```
 
-The nodes will be queried every `1s` and will display as below
+The nodes will be queried every second and will display thus:
 
 ```bash
 =====================================================================
@@ -446,17 +438,17 @@ AGGREGATOR_ENDPOINT=http://localhost:8080/aggregator
 SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
 ```
 
-You can pick an online test aggregator directly from the [Mithril explorer](https://mithril.network/explorer).
+You can pick an online test aggregator directly from the [Mithril Explorer](https://mithril.network/explorer).
 
-### Step 2: Select A Snapshot
+### Step 2: Select a snapshot
 
-List the available snapshots with which you can bootstrap a Cardano node
+List the available snapshots with which you can bootstrap a Cardano node:
 
 ```bash
 NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot list
 ```
 
-You will see a list of snapshots
+You will see a list of snapshots:
 
 ```bash
 +-------+-----------+---------+------------------------------------------------------------------+------------+-----------+--------------------------------+
@@ -475,15 +467,15 @@ You will see a list of snapshots
 
 ```
 
-### Step 3: Show Snapshot Details
+### Step 3: Show snapshot details
 
-Get some more details from a specific snapshot (Optional)
+To get more details from a specific snapshot (optional), run:
 
 ```bash
 NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot show $SNAPSHOT_DIGEST
 ```
 
-You will see more information about a snapshot
+You will see more information about the snapshot:
 
 ```bash
 +-----------------------+-----------------------------------------------------------------------------------------+
@@ -506,9 +498,9 @@ You will see more information about a snapshot
 
 ```
 
-### Step 4: Download and verify selected Snapshot
+### Step 4: Download and verify the selected snapshot
 
-Download the selected snapshot from the remote location to your remote location
+To download the selected snapshot from the remote location to your remote location, run:
 
 ```bash
 NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot download $SNAPSHOT_DIGEST
@@ -524,7 +516,7 @@ Unpacking snapshot...
 Unpack success 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917
 to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db
 
-Restore a Cardano Node with:
+To restore a Cardano node, run:
 
 docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data \
   --mount type=bind,source="./data/devnet/85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db",target=/data/db/ \
