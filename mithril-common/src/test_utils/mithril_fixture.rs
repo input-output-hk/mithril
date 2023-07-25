@@ -10,7 +10,7 @@ use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
         key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey,
-        ProtocolGenesisSigner, ProtocolInitializer, ProtocolSigner,
+        ProtocolGenesisSigner, ProtocolInitializer, ProtocolSigner, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
@@ -218,7 +218,7 @@ impl SignerFixture {
 
     /// Decode this signer verification key certificate
     pub fn verification_key(&self) -> ProtocolSignerVerificationKey {
-        key_decode_hex(&self.signer_with_stake.verification_key).unwrap()
+        self.signer_with_stake.verification_key.clone()
     }
 
     /// Decode this signer verification key signature certificate if any

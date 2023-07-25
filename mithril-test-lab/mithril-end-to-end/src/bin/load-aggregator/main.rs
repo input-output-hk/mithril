@@ -103,7 +103,7 @@ pub fn generate_register_signer_message(
         .map(|signer| RegisterSignerMessage {
             epoch: Some(epoch),
             party_id: signer.party_id,
-            verification_key: signer.verification_key,
+            verification_key: signer.verification_key.to_json_hex().unwrap(),
             verification_key_signature: signer.verification_key_signature,
             operational_certificate: signer.operational_certificate,
             kes_period: signer.kes_period,
