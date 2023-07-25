@@ -146,33 +146,22 @@ pub struct SignGenesisSubCommand {
 impl SignGenesisSubCommand {
     pub async fn execute(
         &self,
-        config_builder: ConfigBuilder<DefaultState>,
+        _config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: Configuration = config_builder
-            .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
-        debug!("SIGN GENESIS command"; "config" => format!("{config:?}"));
+        debug!("SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
             self.to_sign_payload_path.to_string_lossy(),
             self.target_signed_payload_path.to_string_lossy()
         );
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let dependencies = dependencies_builder.create_genesis_container().await?;
 
-        let genesis_tools = GenesisTools::from_dependencies(dependencies)
-            .await
-            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
-        genesis_tools
-            .sign_genesis_certificate(
-                &self.to_sign_payload_path,
-                &self.target_signed_payload_path,
-                &self.genesis_secret_key_path,
-            )
-            .await
-            .map_err(|err| format!("genesis-tools: sign error: {err}"))?;
+        GenesisTools::sign_genesis_certificate(
+            &self.to_sign_payload_path,
+            &self.target_signed_payload_path,
+            &self.genesis_secret_key_path,
+        )
+        .await
+        .map_err(|err| format!("genesis-tools: sign error: {err}"))?;
 
         Ok(())
     }

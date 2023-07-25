@@ -129,7 +129,6 @@ impl GenesisTools {
 
     /// Sign the genesis certificate
     pub async fn sign_genesis_certificate(
-        &self,
         to_sign_payload_path: &Path,
         target_signed_payload_path: &Path,
         genesis_secret_key_path: &Path,
@@ -138,7 +137,7 @@ impl GenesisTools {
         let mut genesis_secret_key_serialized = String::new();
         genesis_secret_key_file.read_to_string(&mut genesis_secret_key_serialized)?;
 
-        let genesis_secret_key = key_decode_hex(&genesis_secret_key_serialized)?;
+        let genesis_secret_key = key_decode_hex(&genesis_secret_key_serialized.trim().to_string())?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();
@@ -258,14 +257,13 @@ mod tests {
         genesis_tools
             .export_payload_to_sign(&payload_path)
             .expect("export_payload_to_sign should not fail");
-        genesis_tools
-            .sign_genesis_certificate(
-                &payload_path,
-                &signed_payload_path,
-                &genesis_secret_key_path,
-            )
-            .await
-            .expect("sign_genesis_certificate should not fail");
+        GenesisTools::sign_genesis_certificate(
+            &payload_path,
+            &signed_payload_path,
+            &genesis_secret_key_path,
+        )
+        .await
+        .expect("sign_genesis_certificate should not fail");
         genesis_tools
             .import_payload_signature(&signed_payload_path)
             .await
