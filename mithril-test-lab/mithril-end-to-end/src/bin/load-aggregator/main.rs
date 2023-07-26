@@ -240,6 +240,37 @@ where
     }
 }
 
+/// Precompute all signers single signatures for the given fixture
+pub async fn precompute_mithril_stake_distribution_signatures(
+    signers_fixture: &MithrilFixture,
+    timeout: Duration,
+) -> StdResult<Vec<SingleSignatures>> {
+    spin_while_waiting!(
+        {
+            let signers_fixture = signers_fixture.clone();
+            let signatures = tokio::task::spawn_blocking(move || -> Vec<SingleSignatures> {
+                let mithril_stake_distribution_message = {
+                    let mut message = ProtocolMessage::new();
+                    message.set_message_part(
+                    mithril_common::entities::ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    signers_fixture.compute_and_encode_avk(),
+                );
+
+                    message
+                };
+
+                signers_fixture.sign_all(&mithril_stake_distribution_message)
+            })
+            .await?;
+
+            Ok(signatures)
+        },
+        timeout,
+        format!("Precompute signatures for MithrilStakeDistribution signed entity"),
+        format!("Precomputing signatures timeout after {timeout:?}")
+    )
+}
+
 /// Wait for certificates
 pub async fn wait_for_certificates(
     aggregator: &Aggregator,
@@ -291,15 +322,17 @@ pub async fn register_signers_to_aggregator(
         Some(register_messages.len() as u64),
         ProgressDrawTarget::stdout(),
     );
+
+    let http_client = reqwest::Client::new();
+
     for register in register_messages {
         let endpoint = aggregator.endpoint();
+        let http_request = http_client
+            .post(format!("{}/register-signer", endpoint))
+            .json(&register);
+
         join_set.spawn(async move {
-            let response = reqwest::Client::new()
-                .post(format!("{}/register-signer", endpoint))
-                .json(&register)
-                .send()
-                .await
-                .unwrap();
+            let response = http_request.send().await.unwrap();
 
             match response.status() {
                 StatusCode::CREATED => Ok(()),
@@ -340,15 +373,17 @@ pub async fn register_signatures_to_aggregator(
         Some(register_messages.len() as u64),
         ProgressDrawTarget::stdout(),
     );
+
+    let http_client = reqwest::Client::new();
+
     for register in register_messages {
         let endpoint = aggregator.endpoint();
+        let http_request = http_client
+            .post(format!("{}/register-signatures", endpoint))
+            .json(&register);
+
         join_set.spawn(async move {
-            let response = reqwest::Client::new()
-                .post(format!("{}/register-signatures", endpoint))
-                .json(&register)
-                .send()
-                .await
-                .unwrap();
+            let response = http_request.send().await.unwrap();
 
             match response.status() {
                 StatusCode::CREATED => Ok(()),
@@ -522,13 +557,6 @@ async fn bootstrap_aggregator(
     signers_fixture: &MithrilFixture,
     current_epoch: &mut Epoch,
 ) -> StdResult<Aggregator> {
-    // let genesis_signers = {
-    //     let mut signers = signers_fixture.signers();
-    //     // Up to 100 signers for the genesis certificate to avoid registration round errors
-    //     signers.truncate(100);
-    //     signers
-    // };
-
     info!(">> Launch Aggregator");
     let mut aggregator = Aggregator::new(
         args.server_port as u64,
@@ -616,34 +644,23 @@ async fn bootstrap_aggregator(
     Ok(aggregator)
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 20)]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
-    let _logger = init_logger(&opts);
+    let _logger_guard = init_logger(&opts);
     let args = AggregatorParameters::new(&opts)?;
     let mut current_epoch = Epoch(1);
+    let protocol_parameters = ProtocolParameters::new(2422, 20973, 0.20);
     info!(">> Starting stress test with options: {opts:?}");
 
     info!(">> Creation of the Signer Key Registrations payloads");
-    let signers_fixture =
-        generate_signer_data(opts.num_signers, ProtocolParameters::new(5, 100, 0.65));
+    let signers_fixture = generate_signer_data(opts.num_signers, protocol_parameters);
 
-    info!(">> Precompute message & signatures for MithrilStakeDistribution signed entity");
-    let mithril_stake_distribution_message = {
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(
-            mithril_common::entities::ProtocolMessagePartKey::NextAggregateVerificationKey,
-            signers_fixture.compute_and_encode_avk(),
-        );
-
-        message
-    };
-    let mithril_stake_distribution_signatures: Vec<SingleSignatures> = signers_fixture
-        .signers_fixture()
-        .iter()
-        // filter map to exclude signers that could not sign because they lost the lottery
-        .filter_map(|s| s.sign(&mithril_stake_distribution_message))
-        .collect();
+    let mithril_stake_distribution_signatures = precompute_mithril_stake_distribution_signatures(
+        &signers_fixture,
+        Duration::from_secs(180),
+    )
+    .await?;
 
     let mut aggregator = bootstrap_aggregator(&args, &signers_fixture, &mut current_epoch).await?;
 

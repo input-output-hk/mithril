@@ -1,10 +1,10 @@
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
-
-use serde::{Deserialize, Serialize};
 
 use crate::{
     certificate_chain::CertificateGenesisProducer,
@@ -175,6 +175,15 @@ impl MithrilFixture {
             genesis_signature,
         )
         .unwrap()
+    }
+
+    /// Make all underlying signers sign the given message, filter the resulting list to remove
+    /// the signers that did not sign because they loosed the lottery.
+    pub fn sign_all(&self, message: &ProtocolMessage) -> Vec<SingleSignatures> {
+        self.signers
+            .par_iter()
+            .filter_map(|s| s.sign(message))
+            .collect()
     }
 }
 
