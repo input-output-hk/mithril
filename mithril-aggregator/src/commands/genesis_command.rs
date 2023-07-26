@@ -35,6 +35,9 @@ pub enum GenesisSubCommand {
     /// Genesis certificate import command.
     Import(ImportGenesisSubCommand),
 
+    /// Genesis certificate sign command.
+    Sign(SignGenesisSubCommand),
+
     /// Genesis certificate bootstrap command.
     Bootstrap(BootstrapGenesisSubCommand),
 }
@@ -48,6 +51,7 @@ impl GenesisSubCommand {
             Self::Bootstrap(cmd) => cmd.execute(config_builder).await,
             Self::Export(cmd) => cmd.execute(config_builder).await,
             Self::Import(cmd) => cmd.execute(config_builder).await,
+            Self::Sign(cmd) => cmd.execute(config_builder).await,
         }
     }
 }
@@ -124,6 +128,44 @@ impl ImportGenesisSubCommand {
     }
 }
 
+#[derive(Parser, Debug, Clone)]
+pub struct SignGenesisSubCommand {
+    /// To Sign Payload Path
+    #[clap(long)]
+    to_sign_payload_path: PathBuf,
+
+    /// Target Signed Payload Path
+    #[clap(long)]
+    target_signed_payload_path: PathBuf,
+
+    /// Genesis Secret Key Path
+    #[clap(long)]
+    genesis_secret_key_path: PathBuf,
+}
+
+impl SignGenesisSubCommand {
+    pub async fn execute(
+        &self,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), Box<dyn Error>> {
+        debug!("SIGN GENESIS command");
+        println!(
+            "Genesis sign payload from {} to {}",
+            self.to_sign_payload_path.to_string_lossy(),
+            self.target_signed_payload_path.to_string_lossy()
+        );
+
+        GenesisTools::sign_genesis_certificate(
+            &self.to_sign_payload_path,
+            &self.target_signed_payload_path,
+            &self.genesis_secret_key_path,
+        )
+        .await
+        .map_err(|err| format!("genesis-tools: sign error: {err}"))?;
+
+        Ok(())
+    }
+}
 #[derive(Parser, Debug, Clone)]
 pub struct BootstrapGenesisSubCommand {
     /// Genesis Secret Key (test only)

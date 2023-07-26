@@ -1,10 +1,15 @@
+use crate::StdResult;
 use ed25519_dalek::{ExpandedSecretKey, SignatureError};
 use rand_chacha_dalek_compat::rand_core::{self, CryptoRng, RngCore, SeedableRng};
 use rand_chacha_dalek_compat::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
+use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;
 
-use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisVerificationKey};
+use super::{
+    key_encode_hex, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
+    ProtocolGenesisVerificationKey,
+};
 
 #[derive(Error, Debug)]
 /// [ProtocolGenesisSigner] and [ProtocolGenesisVerifier] related errors.
@@ -18,6 +23,7 @@ pub enum ProtocolGenesisError {
 /// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProtocolGenesisSigner {
+    /// Protocol Genesis secret key
     pub(crate) secret_key: ProtocolGenesisSecretKey,
 }
 
@@ -74,6 +80,19 @@ impl ProtocolGenesisSigner {
         let expanded_secret_key = self.create_expanded_secret_key();
         let verification_key = self.create_verification_key(&expanded_secret_key);
         expanded_secret_key.sign(message, &verification_key)
+    }
+
+    /// Export the secret key from the genesis verifier to a file. TEST ONLY
+    #[doc(hidden)]
+    pub fn export_to_file(&self, secret_key_path: &Path) -> StdResult<()> {
+        let mut genesis_secret_key_file = File::create(secret_key_path)?;
+        genesis_secret_key_file.write_all(
+            key_encode_hex(self.secret_key.as_bytes())
+                .unwrap()
+                .as_bytes(),
+        )?;
+
+        Ok(())
     }
 }
 
