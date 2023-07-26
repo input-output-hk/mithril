@@ -5,12 +5,12 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use mithril_common::{
-    entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignatures},
+    entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignature, SingleSignatures},
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    StdError,
+    StdError, StdResult,
 };
 
 use super::OpenMessageRecord;
@@ -38,30 +38,39 @@ pub struct SingleSignatureRecord {
 }
 
 impl SingleSignatureRecord {
-    fn from_single_signatures(
+    fn try_from_single_signatures(
         other: &SingleSignatures,
         open_message_id: &Uuid,
         registration_epoch_setting_id: Epoch,
-    ) -> Self {
-        SingleSignatureRecord {
+    ) -> StdResult<Self> {
+        let record = SingleSignatureRecord {
             open_message_id: open_message_id.to_owned(),
             signer_id: other.party_id.to_owned(),
             registration_epoch_setting_id,
             lottery_indexes: other.won_indexes.to_owned(),
-            signature: other.signature.to_owned(),
+            signature: other.signature.to_json_hex()?,
             created_at: Utc::now(),
-        }
+        };
+
+        Ok(record)
     }
 }
 
-impl From<SingleSignatureRecord> for SingleSignatures {
-    fn from(other: SingleSignatureRecord) -> SingleSignatures {
-        SingleSignatures {
-            party_id: other.signer_id,
-            won_indexes: other.lottery_indexes,
-            signature: other.signature,
-        }
+impl TryFrom<SingleSignatureRecord> for SingleSignatures {
+    type Error = StdError;
+
+    fn try_from(value: SingleSignatureRecord) -> Result<Self, Self::Error> {
+        let signatures = SingleSignatures {
+            party_id: value.signer_id,
+            won_indexes: value.lottery_indexes,
+            signature: SingleSignature::from_json_hex(&value.signature)?,
+        };
+
+        Ok(signatures)
     }
+
+    // fn try_from(other: SingleSignatureRecord) -> SingleSignatures {
+    // }
 }
 
 impl SqLiteEntity for SingleSignatureRecord {
@@ -293,11 +302,11 @@ impl SingleSignatureRepository {
         open_message: &OpenMessageRecord,
     ) -> Result<SingleSignatureRecord, StdError> {
         let connection = self.connection.lock().await;
-        let single_signature = SingleSignatureRecord::from_single_signatures(
+        let single_signature = SingleSignatureRecord::try_from_single_signatures(
             single_signature,
             &open_message.open_message_id,
             open_message.epoch.offset_to_signer_retrieval_epoch()?,
-        );
+        )?;
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
 
         provider.persist(single_signature)
@@ -319,13 +328,14 @@ mod tests {
     fn test_convert_single_signatures() {
         let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
         let open_message_id = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
-
-        let single_signature_record = SingleSignatureRecord::from_single_signatures(
+        let single_signature_record = SingleSignatureRecord::try_from_single_signatures(
             &single_signature,
             &open_message_id,
             Epoch(1),
-        );
-        let single_signature_returned = single_signature_record.into();
+        )
+        .unwrap();
+        let single_signature_returned = single_signature_record.try_into().unwrap();
+
         assert_eq!(single_signature, single_signature_returned);
     }
 
@@ -387,11 +397,12 @@ mod tests {
     #[test]
     fn update_single_signature_record() {
         let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
-        let single_signature_record = SingleSignatureRecord::from_single_signatures(
+        let single_signature_record = SingleSignatureRecord::try_from_single_signatures(
             &single_signature,
             &Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
             Epoch(1),
-        );
+        )
+        .unwrap();
         let connection = Connection::open(":memory:").unwrap();
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
         let condition = provider.get_update_condition(&single_signature_record);

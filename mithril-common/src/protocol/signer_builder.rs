@@ -70,6 +70,7 @@ impl SignerBuilder {
         }
 
         let closed_registration = key_registration.close();
+
         Ok(Self {
             protocol_parameters: protocol_parameters.clone(),
             closed_key_registration: closed_registration,

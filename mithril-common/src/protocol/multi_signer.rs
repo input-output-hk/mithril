@@ -133,29 +133,6 @@ mod test {
     }
 
     #[test]
-    fn cant_aggregate_if_no_valid_signatures_given() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let multi_signer = build_multi_signer(&fixture);
-        let message = ProtocolMessage::default();
-        let mut sig = fixture
-            .signers_fixture()
-            .first()
-            .unwrap()
-            .sign(&message)
-            .unwrap();
-        sig.signature = "invalid".to_string();
-
-        let error = multi_signer
-            .aggregate_single_signatures(&[sig], &message)
-            .expect_err("Multi-signature should not be created if no valid signatures given");
-
-        assert!(
-            matches!(error, ProtocolAggregationError::NotEnoughSignatures(_, _)),
-            "Expected ProtocolAggregationError::NotEnoughSignatures, got: {error:?}"
-        )
-    }
-
-    #[test]
     fn can_aggregate_if_valid_signatures_and_quorum_reached() {
         let fixture = MithrilFixtureBuilder::default().with_signers(10).build();
         let multi_signer = build_multi_signer(&fixture);
@@ -185,38 +162,14 @@ mod test {
             .iter()
             .map(|s| s.sign(&message).unwrap())
             .collect();
-        signatures[4].signature = "invalid".to_string();
+        signatures[4].signature = "7b227369676d61223a5b3133302c32382c3134332c31372c38302c31302c3231352c3138382c3230352c3132322c31312c3233392c34362c3234352c32312c3139332c32382c3232312c3133302c34302c3131362c39322c3139362c33352c3235342c34332c3138382c362c38372c3136392c37312c3134352c3130342c3137382c392c3136362c39342c31332c3234372c3139302c3130322c37312c3232362c3230392c312c3230392c3235312c3137305d2c22696e6465786573223a5b302c312c382c31322c31332c31342c31382c31392c32332c32352c32362c32372c32382c33322c33332c33342c33352c33372c33382c33392c34312c34322c34332c34342c34352c34362c34372c34382c34392c35302c35312c35322c35332c35342c35352c35362c35372c35382c35392c36302c36312c36332c36342c36352c36372c36382c37302c37312c37352c37362c37372c37392c38302c38312c38322c38342c38352c38392c39302c39312c39332c39352c39372c39382c39395d2c227369676e65725f696e646578223a337d"
+            .to_string()
+            .try_into()
+            .unwrap();
 
         multi_signer
             .aggregate_single_signatures(&signatures, &message)
             .expect("Multi-signature should be created even with one invalid signature");
-    }
-
-    #[test]
-    fn verify_single_signature_fail_if_given_signature_is_invalid() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let multi_signer = build_multi_signer(&fixture);
-        let message = ProtocolMessage::default();
-        let mut single_signature = fixture
-            .signers_fixture()
-            .first()
-            .unwrap()
-            .sign(&message)
-            .unwrap();
-
-        single_signature.signature = "invalid".to_string();
-
-        let error = multi_signer
-            .verify_single_signature(&message, &single_signature)
-            .expect_err("Verify single signature should fail");
-
-        assert!(
-            error
-                .to_string()
-                .contains("Error while decoding single signature for party"),
-            "Expected decoding single signature error, got: {error}, cause: {}",
-            error.root_cause()
-        )
     }
 
     #[test]

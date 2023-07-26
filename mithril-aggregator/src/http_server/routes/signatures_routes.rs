@@ -26,7 +26,7 @@ fn register_signatures(
 mod handlers {
     use mithril_common::{
         entities::SignedEntityType,
-        messages::{FromMessageAdapter, RegisterSignatureMessage},
+        messages::{RegisterSignatureMessage, TryFromMessageAdapter},
     };
 
     use slog_scope::{debug, warn};
@@ -58,7 +58,15 @@ mod handlers {
 
         match signed_entity_type {
             Ok(signed_entity_type) => {
-                let signature = FromRegisterSingleSignatureAdapter::adapt(message);
+                let signature = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
+                    Err(err) => {
+                        warn!("Could not parse single signature message.");
+
+                        return Ok(reply::internal_server_error(err.to_string()));
+                    }
+                    Ok(signature) => signature,
+                };
+
                 match certifier_service
                     .register_single_signature(&signed_entity_type, &signature)
                     .await
