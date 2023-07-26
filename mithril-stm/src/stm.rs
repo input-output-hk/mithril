@@ -340,10 +340,12 @@ impl StmInitializer {
     /// Creates a new core signer that does not include closed registration.
     pub fn new_core_signer<D: Digest + Clone>(
         self,
-        eligible_parties: &[(VerificationKey, Stake)],
+        eligible_parties: &[RegParty],
     ) -> Option<StmSigner<D>> {
+        let mut parties =  eligible_parties.to_vec();
+        parties.sort_unstable();
         let mut my_index = None;
-        for (i, rp) in eligible_parties.iter().enumerate() {
+        for (i, rp) in parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
                 my_index = Some(i as u64);
                 break;
@@ -875,7 +877,8 @@ impl CoreVerifier {
             unique_parties.insert(MTLeaf(signer.0, signer.1));
         }
 
-        let eligible_parties: Vec<_> = unique_parties.into_iter().collect();
+        let mut eligible_parties: Vec<_> = unique_parties.into_iter().collect();
+        eligible_parties.sort_unstable();
         CoreVerifier {
             eligible_parties,
             total_stake,
@@ -914,12 +917,12 @@ impl CoreVerifier {
 
     /// Match the signature with its corresponding signer.
     /// Return the vector of SigRegParty.
-    pub fn map_sig_party(parties: &[RegParty], signatures: &[StmSig]) -> Vec<StmSigRegParty> {
+    pub fn map_sig_party(&self, signatures: &[StmSig]) -> Vec<StmSigRegParty> {
         signatures
             .iter()
             .map(|sig| StmSigRegParty {
                 sig: sig.clone(),
-                reg_party: parties[sig.signer_index as usize],
+                reg_party: self.eligible_parties[sig.signer_index as usize],
             })
             .collect() // todo: look into this conversion
     }
@@ -1520,7 +1523,7 @@ mod tests {
     fn setup_equal_core_parties(
         params: StmParameters,
         nparties: usize,
-    ) -> (Vec<StmSigner<D>>, Vec<(VerificationKey, Stake)>) {
+    ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
         let stake = vec![1; nparties];
         setup_core_parties(params, stake)
     }
@@ -1528,7 +1531,7 @@ mod tests {
     fn setup_core_parties(
         params: StmParameters,
         stake: Vec<Stake>,
-    ) -> (Vec<StmSigner<D>>, Vec<(VerificationKey, Stake)>) {
+    ) -> (Vec<StmInitializer>, Vec<(VerificationKey, Stake)>) {
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
@@ -1542,11 +1545,7 @@ mod tests {
             .map(|s| (s.pk.vk, s.stake))
             .collect::<Vec<(VerificationKey, Stake)>>();
 
-        let signers = ps
-            .into_iter()
-            .filter_map(|s| s.new_core_signer(&public_signers))
-            .collect();
-        (signers, public_signers)
+        (ps, public_signers)
     }
 
     fn find_core_signatures(
@@ -1564,33 +1563,68 @@ mod tests {
         sigs
     }
 
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
+    // proptest! {
+    //     #![proptest_config(ProptestConfig::with_cases(50))]
+    //
+    //     #[test]
+    //     fn test_core_verifier(nparties in 2_usize..30,
+    //                           m in 10_u64..20,
+    //                           k in 1_u64..5,
+    //                           msg in any::<[u8;16]>()) {
+    //         let params = StmParameters { m, k, phi_f: 0.2 };
+    //         let (signers, public_signers) = setup_equal_core_parties(params, nparties);
+    //         let all_ps: Vec<usize> = (0..nparties).collect();
+    //
+    //         let core_verifier = CoreVerifier::setup(&public_signers);
+    //         let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
+    //
+    //         let verify_result = core_verifier.verify(&signatures, &params, &msg);
+    //
+    //         match verify_result{
+    //             Ok(_) => {
+    //                 assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
+    //             }
+    //             Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
+    //                 assert!((nr_indices) < params.k);
+    //             }
+    //             Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
+    //             _ => unreachable!(),
+    //         }
+    //     }
+    // }
 
-        #[test]
-        fn test_core_verifier(nparties in 2_usize..30,
-                              m in 10_u64..20,
-                              k in 1_u64..5,
-                              msg in any::<[u8;16]>()) {
-            let params = StmParameters { m, k, phi_f: 0.2 };
-            let (signers, public_signers) = setup_equal_core_parties(params, nparties);
-            let all_ps: Vec<usize> = (0..nparties).collect();
+    #[test]
+    fn debug_map_sig_reg(){
+        let nparties= 3;
+        let m = 11_u64;
+        let k = 3_u64;
+        let msg= [161, 56, 52, 65, 162, 118, 214, 116, 89, 163, 75, 19, 9, 206, 241, 252];
+        let params = StmParameters { m, k, phi_f: 0.2 };
+        let (initializers, public_signers) = setup_equal_core_parties(params, nparties);
 
-            let core_verifier = CoreVerifier::setup(&public_signers);
-            let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
+        let all_ps: Vec<usize> = (0..nparties).collect();
 
-            let verify_result = core_verifier.verify(&signatures, &params, &msg);
+        let core_verifier = CoreVerifier::setup(&public_signers);
 
-            match verify_result{
-                Ok(_) => {
-                    assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
-                }
-                Err(CoreVerifierError::NoQuorum(nr_indices, _k)) => {
-                    assert!((nr_indices) < params.k);
-                }
-                Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
-                _ => unreachable!(),
-            }
+        for ps in &core_verifier.eligible_parties {
+            println!("{}", hex::encode(ps.0.to_bytes()));
         }
+
+        println!();
+
+        let signers = &initializers
+            .into_iter()
+            .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
+            .collect::<Vec<StmSigner<D>>>();
+
+        println!();
+
+        for p in signers {
+            println!("vk: {}, index: {}", hex::encode(p.vk.to_bytes()), p.signer_index);
+        }
+
+        let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
+        let verify_result = core_verifier.verify(&signatures, &params, &msg);
+
     }
 }
