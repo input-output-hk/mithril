@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.3.56"
+version = "0.3.57"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
