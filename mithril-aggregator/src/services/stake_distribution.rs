@@ -169,10 +169,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
             .get_stakes(epoch)
             .await
             .map_err(|e| StakePoolDistributionServiceError::technical_subsystem(e.into()))?
-            .ok_or_else(|| StakePoolDistributionServiceError::Technical {
-                message: "The stake distribution should be at least an empty list.".to_string(),
-                error: None,
-            })?;
+            .unwrap_or_default();
 
         if !stake_distribution.is_empty() {
             Ok(stake_distribution)

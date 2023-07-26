@@ -128,17 +128,15 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use crate::http_server::SERVER_BASE_PATH;
-    use mithril_common::store::adapter::FailStoreAdapter;
-    use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::{entities, test_utils::fake_data};
+    use mithril_common::test_utils::{apispec::APISpec, fake_data};
     use serde_json::Value::Null;
-    use warp::http::Method;
-    use warp::test::request;
+    use warp::{http::Method, test::request};
+
+    use crate::{
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockCertifierService,
+    };
 
     use super::*;
-    use crate::initialize_dependencies;
-    use crate::store::CertificateStore;
 
     fn setup_router(
         dependency_manager: Arc<DependencyContainer>,
@@ -224,8 +222,8 @@ mod tests {
     async fn test_certificate_certificates_get_ok() {
         let dependency_manager = initialize_dependencies().await;
         dependency_manager
-            .certificate_store
-            .save(fake_data::genesis_certificate("{certificate_hash}"))
+            .certificate_repository
+            .create_certificate(fake_data::genesis_certificate("{certificate_hash}"))
             .await
             .expect("certificate store save should have succeeded");
 
@@ -251,11 +249,11 @@ mod tests {
     #[tokio::test]
     async fn test_certificate_certificates_get_ko() {
         let mut dependency_manager = initialize_dependencies().await;
-        let certificate_store = CertificateStore::new(Box::new(FailStoreAdapter::<
-            String,
-            entities::Certificate,
-        >::new()));
-        dependency_manager.certificate_store = Arc::new(certificate_store);
+        let mut certifier_service = MockCertifierService::new();
+        certifier_service
+            .expect_get_latest_certificates()
+            .returning(|_| Err("an error".into()));
+        dependency_manager.certifier_service = Arc::new(certifier_service);
 
         let method = Method::GET.as_str();
         let path = "/certificates";
@@ -280,8 +278,8 @@ mod tests {
     async fn test_certificate_certificate_hash_get_ok() {
         let dependency_manager = initialize_dependencies().await;
         dependency_manager
-            .certificate_store
-            .save(fake_data::genesis_certificate("{certificate_hash}"))
+            .certificate_repository
+            .create_certificate(fake_data::genesis_certificate("{certificate_hash}"))
             .await
             .expect("certificate store save should have succeeded");
 
@@ -330,11 +328,11 @@ mod tests {
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ko() {
         let mut dependency_manager = initialize_dependencies().await;
-        let certificate_store = CertificateStore::new(Box::new(FailStoreAdapter::<
-            String,
-            entities::Certificate,
-        >::new()));
-        dependency_manager.certificate_store = Arc::new(certificate_store);
+        let mut certifier_service = MockCertifierService::new();
+        certifier_service
+            .expect_get_certificate_by_hash()
+            .returning(|_| Err("an error".into()));
+        dependency_manager.certifier_service = Arc::new(certifier_service);
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";

@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
-use std::iter::repeat;
-use std::sync::Arc;
+use std::{iter::repeat, sync::Arc};
 use tokio::sync::Mutex;
 
 use mithril_common::{
@@ -15,8 +14,7 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::adapter::{AdapterError, StoreAdapter},
-    StdError, StdResult,
+    StdResult,
 };
 
 /// Certificate record is the representation of a stored certificate.
@@ -306,17 +304,14 @@ impl<'client> CertificateRecordProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_certificate_id(
-        &self,
-        certificate_id: &str,
-    ) -> Result<WhereCondition, StdError> {
+    fn condition_by_certificate_id(&self, certificate_id: &str) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "certificate_id = ?*",
             vec![Value::String(certificate_id.to_owned())],
         ))
     }
 
-    fn condition_by_epoch(&self, epoch: &Epoch) -> Result<WhereCondition, StdError> {
+    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
         let epoch: i64 = i64::try_from(epoch.0)?;
 
         Ok(WhereCondition::new(
@@ -329,7 +324,7 @@ impl<'client> CertificateRecordProvider<'client> {
     pub fn get_by_certificate_id(
         &self,
         certificate_id: &str,
-    ) -> Result<EntityCursor<CertificateRecord>, StdError> {
+    ) -> StdResult<EntityCursor<CertificateRecord>> {
         let filters = self.condition_by_certificate_id(certificate_id)?;
         let certificate_record = self.find(filters)?;
 
@@ -337,7 +332,7 @@ impl<'client> CertificateRecordProvider<'client> {
     }
 
     /// Get CertificateRecords for a given Epoch.
-    pub fn get_by_epoch(&self, epoch: &Epoch) -> Result<EntityCursor<CertificateRecord>, StdError> {
+    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<CertificateRecord>> {
         let filters = self.condition_by_epoch(epoch)?;
         let certificate_record = self.find(filters)?;
 
@@ -345,7 +340,7 @@ impl<'client> CertificateRecordProvider<'client> {
     }
 
     /// Get all CertificateRecords.
-    pub fn get_all(&self) -> Result<EntityCursor<CertificateRecord>, StdError> {
+    pub fn get_all(&self) -> StdResult<EntityCursor<CertificateRecord>> {
         let filters = WhereCondition::default();
         let certificate_record = self.find(filters)?;
 
@@ -428,10 +423,7 @@ protocol_message, signers, initiated_at, sealed_at)";
         )
     }
 
-    fn persist(
-        &self,
-        certificate_record: CertificateRecord,
-    ) -> Result<CertificateRecord, StdError> {
+    fn persist(&self, certificate_record: CertificateRecord) -> StdResult<CertificateRecord> {
         let filters = self.get_insert_condition(&certificate_record);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -446,7 +438,7 @@ protocol_message, signers, initiated_at, sealed_at)";
     fn persist_many(
         &self,
         certificates_records: Vec<CertificateRecord>,
-    ) -> Result<Vec<CertificateRecord>, StdError> {
+    ) -> StdResult<Vec<CertificateRecord>> {
         let filters = self.get_insert_many_condition(&certificates_records);
 
         Ok(self.find(filters)?.collect())
@@ -556,7 +548,7 @@ impl<'conn> DeleteCertificateProvider<'conn> {
     }
 
     /// Delete the certificates with with the given ids.
-    pub fn delete_by_ids(&self, ids: &[&str]) -> Result<EntityCursor<CertificateRecord>, StdError> {
+    pub fn delete_by_ids(&self, ids: &[&str]) -> StdResult<EntityCursor<CertificateRecord>> {
         let filters = self.get_delete_by_ids_condition(ids);
 
         self.find(filters)
@@ -569,7 +561,7 @@ pub struct CertificateRepository {
 }
 
 impl CertificateRepository {
-    /// Instanciate a new repository
+    /// Instantiate a new repository
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
     }
@@ -610,14 +602,8 @@ impl CertificateRepository {
     pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
         let lock = self.connection.lock().await;
         let provider = InsertCertificateRecordProvider::new(&lock);
-        let mut cursor = provider.find(provider.get_insert_condition(&certificate.into()))?;
 
-        let new_certificate = cursor
-            .next()
-            .ok_or_else(|| panic!("Insert certificate query should always return a record."))
-            .unwrap();
-
-        Ok(new_certificate.into())
+        provider.persist(certificate.into()).map(|r| r.into())
     }
 
     /// Create many certificates at once in the database.
@@ -667,81 +653,6 @@ impl CertificateRetriever for CertificateRepository {
     }
 }
 
-/// Service to deal with certificate (read & write).
-pub struct CertificateStoreAdapter {
-    connection: Arc<Mutex<Connection>>,
-}
-
-impl CertificateStoreAdapter {
-    /// Create a new CertificateStoreAdapter service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
-        Self { connection }
-    }
-}
-
-#[async_trait]
-impl StoreAdapter for CertificateStoreAdapter {
-    type Key = String;
-    type Record = Certificate;
-
-    async fn store_record(
-        &mut self,
-        _key: &Self::Key,
-        record: &Self::Record,
-    ) -> Result<(), AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = InsertCertificateRecordProvider::new(connection);
-        let _certificate_record = provider
-            .persist(record.to_owned().into())
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-
-        Ok(())
-    }
-
-    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = CertificateRecordProvider::new(connection);
-        let mut cursor = provider
-            .get_by_certificate_id(key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let certificate = cursor
-            .next()
-            .map(|certificate_record| certificate_record.into());
-
-        Ok(certificate)
-    }
-
-    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
-        Ok(self.get_record(key).await?.is_some())
-    }
-
-    async fn get_last_n_records(
-        &self,
-        how_many: usize,
-    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        Ok(self
-            .get_iter()
-            .await?
-            .take(how_many)
-            .map(|c| (c.hash.to_owned(), c))
-            .collect())
-    }
-
-    async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        unimplemented!()
-    }
-
-    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = CertificateRecordProvider::new(connection);
-        let cursor = provider
-            .get_all()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let certificates: Vec<Certificate> = cursor.map(|c| c.into()).collect();
-        Ok(Box::new(certificates.into_iter()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::database::provider::disable_foreign_key_support;
@@ -756,7 +667,7 @@ mod tests {
     pub fn setup_certificate_db(
         connection: &Connection,
         certificates: Vec<Certificate>,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
         disable_foreign_key_support(connection)?;
 
@@ -1091,50 +1002,6 @@ protocol_message, signers, initiated_at, sealed_at) values \
             .expect("saving many records should not fail");
 
         assert_eq!(certificates_records, certificates_records_saved);
-    }
-
-    #[tokio::test]
-    async fn test_store_adapter() {
-        let (certificates, _) = setup_certificate_chain(5, 2);
-
-        let connection = Connection::open(":memory:").unwrap();
-        setup_certificate_db(&connection, Vec::new()).unwrap();
-
-        let mut certificate_store_adapter =
-            CertificateStoreAdapter::new(Arc::new(Mutex::new(connection)));
-
-        for certificate in &certificates {
-            assert!(certificate_store_adapter
-                .store_record(&certificate.hash, certificate)
-                .await
-                .is_ok());
-        }
-
-        for certificate in &certificates {
-            assert!(certificate_store_adapter
-                .record_exists(&certificate.hash)
-                .await
-                .unwrap());
-            assert_eq!(
-                Some(certificate.to_owned()),
-                certificate_store_adapter
-                    .get_record(&certificate.hash)
-                    .await
-                    .unwrap()
-            );
-        }
-
-        assert_eq!(
-            certificates,
-            certificate_store_adapter
-                .get_last_n_records(certificates.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .map(|(_k, v)| v)
-                .rev()
-                .collect::<Vec<Certificate>>()
-        )
     }
 
     #[tokio::test]

@@ -3,7 +3,7 @@ use crate::{
     event_store::{EventMessage, TransmitterService},
     services::CertifierService,
     services::{SignedEntityService, TickerService},
-    CertificatePendingStore, Configuration, DependencyContainer, ProtocolParametersStore,
+    CertificatePendingStore, Configuration, DependencyContainer, ProtocolParametersStorer,
     SignerRegisterer,
 };
 
@@ -22,7 +22,7 @@ pub(crate) fn with_certificate_pending_store(
 /// With protocol parameters store
 pub(crate) fn with_protocol_parameters_store(
     dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<ProtocolParametersStore>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn ProtocolParametersStorer>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.protocol_parameters_store.clone())
 }
 

@@ -193,6 +193,16 @@ impl Configuration {
 
         self.data_stores_directory.clone()
     }
+
+    /// Same as the [store retention limit][Configuration::store_retention_limit] but will never
+    /// yield a value lower than 3.
+    ///
+    /// This is in order to avoid pruning data that will be used in future epochs (like the protocol
+    /// parameters).
+    pub fn safe_epoch_retention_limit(&self) -> Option<u64> {
+        self.store_retention_limit
+            .map(|limit| if limit > 3 { limit as u64 } else { 3 })
+    }
 }
 
 /// Default configuration with all the default values for configurations.
@@ -321,5 +331,41 @@ impl Source for DefaultConfiguration {
         );
 
         Ok(result)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn safe_epoch_retention_limit_wont_change_a_value_higher_than_three() {
+        for limit in 4..=10u64 {
+            let configuration = Configuration {
+                store_retention_limit: Some(limit as usize),
+                ..Configuration::new_sample()
+            };
+            assert_eq!(configuration.safe_epoch_retention_limit(), Some(limit));
+        }
+    }
+
+    #[test]
+    fn safe_epoch_retention_limit_wont_change_a_none_value() {
+        let configuration = Configuration {
+            store_retention_limit: None,
+            ..Configuration::new_sample()
+        };
+        assert_eq!(configuration.safe_epoch_retention_limit(), None);
+    }
+
+    #[test]
+    fn safe_epoch_retention_limit_wont_yield_a_value_lower_than_three() {
+        for limit in 0..=3 {
+            let configuration = Configuration {
+                store_retention_limit: Some(limit),
+                ..Configuration::new_sample()
+            };
+            assert_eq!(configuration.safe_epoch_retention_limit(), Some(3));
+        }
     }
 }

@@ -9,19 +9,13 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::{
-        adapter::{AdapterError, StoreAdapter},
-        StoreError,
-    },
+    store::{adapter::AdapterError, StoreError},
 };
 
 use crate::ProtocolParametersStorer;
 
 use mithril_common::StdError;
 use tokio::sync::Mutex;
-
-/// Delete epoch settings for Epoch older than this.
-const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(10);
 
 /// Settings for an epoch, including the protocol parameters.
 #[derive(Debug, PartialEq)]
@@ -253,100 +247,19 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
 /// Service to deal with epoch settings (read & write).
 pub struct EpochSettingStore {
     connection: Arc<Mutex<Connection>>,
+
+    /// Number of epochs before previous records will be pruned at the next call to
+    /// [save_protocol_parameters][EpochSettingStore::save_protocol_parameters].
+    retention_limit: Option<u64>,
 }
 
 impl EpochSettingStore {
     /// Create a new EpochSetting service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
-        Self { connection }
-    }
-}
-
-#[async_trait]
-impl StoreAdapter for EpochSettingStore {
-    type Key = Epoch;
-    type Record = ProtocolParameters;
-
-    async fn store_record(
-        &mut self,
-        key: &Self::Key,
-        record: &Self::Record,
-    ) -> Result<(), AdapterError> {
-        let epoch = *key;
-        let connection = &*self.connection.lock().await;
-        let provider = UpdateEpochSettingProvider::new(connection);
-        connection
-            .execute("begin transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-
-        let _epoch_setting_record = provider
-            .persist(epoch, record.to_owned())
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-
-        // Clean useless old epoch settings if needed.
-        if epoch > EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD {
-            let _ = DeleteEpochSettingProvider::new(connection)
-                .prune(epoch - EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD)
-                .map_err(AdapterError::InitializationError)?;
+    pub fn new(connection: Arc<Mutex<Connection>>, retention_limit: Option<u64>) -> Self {
+        Self {
+            connection,
+            retention_limit,
         }
-        connection
-            .execute("commit transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-
-        Ok(())
-    }
-
-    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
-        let mut cursor = provider
-            .get_by_epoch(key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let epoch_setting_record = cursor.next();
-
-        Ok(epoch_setting_record.map(|es| es.protocol_parameters))
-    }
-
-    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
-        Ok(self.get_record(key).await?.is_some())
-    }
-
-    async fn get_last_n_records(
-        &self,
-        how_many: usize,
-    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
-        let cursor = provider
-            .get_all()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let protocol_parameters: Vec<(Epoch, ProtocolParameters)> = cursor
-            .map(|es| (es.epoch_setting_id, es.protocol_parameters))
-            .take(how_many)
-            .collect();
-        Ok(protocol_parameters)
-    }
-
-    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = DeleteEpochSettingProvider::new(connection);
-        let mut cursor = provider
-            .delete(*key)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let epoch_setting_record = cursor.next();
-
-        Ok(epoch_setting_record.map(|es| es.protocol_parameters))
-    }
-
-    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
-        let cursor = provider
-            .get_all()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let protocol_parameters: Vec<ProtocolParameters> =
-            cursor.map(|es| es.protocol_parameters).collect();
-        Ok(Box::new(protocol_parameters.into_iter()))
     }
 }
 
@@ -367,12 +280,14 @@ impl ProtocolParametersStorer for EpochSettingStore {
             .persist(epoch, protocol_parameters)
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
 
-        // Clean useless old epoch settings if needed.
-        if epoch > EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD {
+        // Prune useless old epoch settings.
+        if let Some(threshold) = self.retention_limit {
             let _ = DeleteEpochSettingProvider::new(connection)
-                .prune(epoch - EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD)
-                .map_err(AdapterError::InitializationError)?;
+                .prune(epoch - threshold)
+                .map_err(AdapterError::QueryError)?
+                .count();
         }
+
         connection
             .execute("commit transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -404,7 +319,10 @@ mod tests {
 
     use super::*;
 
-    pub fn setup_epoch_setting_db(connection: &Connection) -> Result<(), StdError> {
+    pub fn setup_epoch_setting_db(
+        connection: &Connection,
+        epoch_to_insert_settings: &[u64],
+    ) -> Result<(), StdError> {
         apply_all_migrations_to_db(connection)?;
 
         let query = {
@@ -418,19 +336,17 @@ mod tests {
             format!("insert into epoch_setting {sql_values}")
         };
 
-        let epoch_settings: &[(i64, ProtocolParameters); 3] = &[
-            (1, ProtocolParameters::new(1, 2, 1.0)),
-            (2, ProtocolParameters::new(2, 3, 1.0)),
-            (3, ProtocolParameters::new(3, 4, 1.0)),
-        ];
-        for (epoch, protocol_parameters) in epoch_settings {
+        for (epoch, protocol_parameters) in epoch_to_insert_settings
+            .iter()
+            .map(|epoch| (epoch, ProtocolParameters::new(*epoch, epoch + 1, 1.0)))
+        {
             let mut statement = connection.prepare(&query)?;
             statement
                 .bind::<&[(_, Value)]>(&[
-                    (1, Value::Integer(*epoch)),
+                    (1, Value::Integer(*epoch as i64)),
                     (
                         2,
-                        serde_json::to_string(protocol_parameters).unwrap().into(),
+                        serde_json::to_string(&protocol_parameters).unwrap().into(),
                     ),
                 ])
                 .unwrap();
@@ -508,7 +424,7 @@ mod tests {
     #[test]
     fn test_get_epoch_settings() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2, 3]).unwrap();
 
         let provider = EpochSettingProvider::new(&connection);
 
@@ -539,7 +455,7 @@ mod tests {
     #[test]
     fn test_update_epoch_setting() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[3]).unwrap();
 
         let provider = UpdateEpochSettingProvider::new(&connection);
         let epoch_setting_record = provider
@@ -569,7 +485,7 @@ mod tests {
     #[test]
     fn test_delete() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
         let cursor = provider.delete(Epoch(2)).unwrap();
@@ -589,7 +505,7 @@ mod tests {
     #[test]
     fn test_prune() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
+        setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
         let cursor = provider.prune(Epoch(2)).unwrap();
@@ -607,68 +523,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_store_adapter() {
+    async fn save_protocol_parameters_prune_older_epoch_settings() {
         let connection = Connection::open(":memory:").unwrap();
-        setup_epoch_setting_db(&connection).unwrap();
-
-        let epoch_settings: Vec<(Epoch, ProtocolParameters)> = vec![
-            (Epoch(1), ProtocolParameters::new(1, 20, 1.0)),
-            (Epoch(2), ProtocolParameters::new(2, 30, 1.0)),
-            (Epoch(3), ProtocolParameters::new(3, 40, 1.0)),
-            (Epoch(4), ProtocolParameters::new(4, 50, 1.0)),
-            (Epoch(5), ProtocolParameters::new(5, 60, 1.0)),
-        ];
-
-        let mut epoch_setting_store_adapter =
-            EpochSettingStore::new(Arc::new(Mutex::new(connection)));
-
-        for epoch_setting in &epoch_settings {
-            assert!(epoch_setting_store_adapter
-                .store_record(&epoch_setting.0, &epoch_setting.1)
-                .await
-                .is_ok());
-        }
-
-        for epoch_setting in &epoch_settings {
-            assert!(epoch_setting_store_adapter
-                .record_exists(&epoch_setting.0)
-                .await
-                .unwrap());
-            assert_eq!(
-                Some(epoch_setting.1.to_owned()),
-                epoch_setting_store_adapter
-                    .get_record(&epoch_setting.0)
-                    .await
-                    .unwrap()
-            );
-        }
-
-        assert_eq!(
-            epoch_settings,
-            epoch_setting_store_adapter
-                .get_last_n_records(epoch_settings.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .rev()
-                .collect::<Vec<(Epoch, ProtocolParameters)>>()
+        const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: u64 = 5;
+        setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
+        let store = EpochSettingStore::new(
+            Arc::new(Mutex::new(connection)),
+            Some(EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD),
         );
 
-        for epoch_setting in &epoch_settings {
-            assert!(epoch_setting_store_adapter
-                .remove(&epoch_setting.0)
-                .await
-                .is_ok());
-        }
+        store
+            .save_protocol_parameters(
+                Epoch(2) + EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD,
+                fake_data::protocol_parameters(),
+            )
+            .await
+            .expect("saving protocol parameters should not fails");
+        let epoch1_params = store.get_protocol_parameters(Epoch(1)).await.unwrap();
+        let epoch2_params = store.get_protocol_parameters(Epoch(2)).await.unwrap();
 
-        assert_eq!(
-            0,
-            epoch_setting_store_adapter
-                .get_last_n_records(epoch_settings.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .len()
+        assert!(
+            epoch1_params.is_none(),
+            "Protocol parameters at epoch 1 should have been pruned",
+        );
+        assert!(
+            epoch2_params.is_some(),
+            "Protocol parameters at epoch 2 should still exist",
         );
     }
 }

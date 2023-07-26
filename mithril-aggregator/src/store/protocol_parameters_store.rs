@@ -6,9 +6,9 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
-/// Trait for mocking `ProtocolParameterStore`.
+/// Store and get [protocol parameters][ProtocolParameters] for given epoch.
 #[async_trait]
-pub trait ProtocolParametersStorer {
+pub trait ProtocolParametersStorer: Sync + Send {
     /// Save the given `ProtocolParameter` for the given [Epoch].
     async fn save_protocol_parameters(
         &self,
