@@ -46,8 +46,8 @@ sha2 = "0.10.2"
 slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
 slog-scope = "4.4.0"
 sqlite = { version = "0.31.0", features = ["bundled"] }
-strum = "0.24.1"
-strum_macros = "0.24.1"
+strum = "0.25.0"
+strum_macros = "0.25.1"
 thiserror = "1.0.31"
 tokio = { version = "1.17.0", features = ["full"] }
 typetag = "0.2.8"
