@@ -61,7 +61,7 @@ Files in the directory '{}' can be used to run a Cardano node.
 
 If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:8.1.1
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:8.1.2
 
 "###,
                 &self.digest,
