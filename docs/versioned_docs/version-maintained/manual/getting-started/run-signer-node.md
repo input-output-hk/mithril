@@ -370,6 +370,35 @@ acl SSL_port port 443
 # Allowed traffic
 http_access allow relay_internal_ip aggregator_domain SSL_port
 
+# Do not disclose block producer internal IP
+forwarded_for delete
+
+# Turn off via header
+via off
+ 
+# Deny request for original source of a request
+follow_x_forwarded_for deny all
+ 
+# Anonymize request headers
+request_header_access Authorization allow all
+request_header_access Proxy-Authorization allow all
+request_header_access Cache-Control allow all
+request_header_access Content-Length allow all
+request_header_access Content-Type allow all
+request_header_access Date allow all
+request_header_access Host allow all
+request_header_access If-Modified-Since allow all
+request_header_access Pragma allow all
+request_header_access Accept allow all
+request_header_access Accept-Charset allow all
+request_header_access Accept-Encoding allow all
+request_header_access Accept-Language allow all
+request_header_access Connection allow all
+request_header_access All deny all
+
+# Disable cache
+cache deny all
+
 # Deny everything else
 http_access deny all
 EOF'
@@ -379,6 +408,7 @@ With this configuration, the proxy will:
 - accept incoming traffic originating from the internal IP of the block-producing machine
 - accept incoming traffic directed to the listening port of the proxy
 - accept incoming HTTPS traffic proxied to `mithril.network` domain hosts
+- anonymize completely the traffic and avoid disclosing any information about the block-producing machine
 - deny all other traffic
 
 Restart the service:
