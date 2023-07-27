@@ -873,6 +873,9 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
 
 impl CoreVerifier {
     /// Setup a core verifier for given list of signers.
+    ///     * Collect the unique signers in a hash set,
+    ///     * Calculate the total stake of the eligible signers,
+    ///     * Sort the eligible signers.
     pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
         let total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
@@ -1587,7 +1590,7 @@ mod tests {
 
             let core_verifier = CoreVerifier::setup(&public_signers);
 
-            let signers = &initializers
+            let signers = initializers
                 .into_iter()
                 .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
                 .collect::<Vec<StmSigner<D>>>();
@@ -1608,5 +1611,4 @@ mod tests {
             }
         }
     }
-
 }

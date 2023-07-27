@@ -71,7 +71,7 @@ pub struct MerkleTree<D: Digest> {
     /// Number of leaves cached in the merkle tree.
     n: usize,
     /// Phantom type to link the tree with its hasher
-    hasher: PhantomData<D>,
+    _hasher: PhantomData<D>,
 }
 
 impl MTLeaf {
@@ -416,7 +416,8 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             nodes,
             n,
             leaf_off: num_nodes - n,
-            hasher: PhantomData,
+            _hasher: PhantomData,
+
         }
     }
 
@@ -424,7 +425,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment {
             root: self.nodes[0].clone(),
-            hasher: self.hasher,
+            hasher: self._hasher,
         }
     }
 
@@ -434,7 +435,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         MerkleTreeCommitmentBatchCompat {
             root: self.nodes[0].clone(),
             nr_leaves: self.n,
-            hasher: self.hasher,
+            hasher: self._hasher,
         }
     }
 
@@ -583,7 +584,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             nodes,
             leaf_off: num_nodes - n,
             n,
-            hasher: PhantomData,
+            _hasher: PhantomData,
         })
     }
 }
