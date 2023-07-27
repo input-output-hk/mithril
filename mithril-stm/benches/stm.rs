@@ -151,7 +151,7 @@ fn core_verifier_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmPar
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
-    let mut group = c.benchmark_group(format!("Core verifier"));
+    let mut group = c.benchmark_group("Core verifier");
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
