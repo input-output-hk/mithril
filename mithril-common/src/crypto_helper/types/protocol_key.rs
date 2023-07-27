@@ -1,5 +1,4 @@
 use anyhow::{anyhow, Context, Result as StdResult};
-use mithril_stm::stm::StmVerificationKeyPoP;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::any::type_name;
 
@@ -14,7 +13,7 @@ pub struct ProtocolKey<T>
 where
     T: Serialize + DeserializeOwned,
 {
-    key: T,
+    pub(crate) key: T,
 }
 
 impl<T> ProtocolKey<T>
@@ -132,18 +131,18 @@ where
     }
 }
 
-// Macro to batch define the From<ProtocolKey> to StmType and vis versa
+/// Macro to batch define the From<ProtocolKey> to StmType and vis versa
 macro_rules! impl_from_to_stm_types_for_protocol_key {
-    ($($stm_type:ty)+) => {
+    ($($stm_type:ty),+) => {
         $(
             impl From<ProtocolKey<$stm_type>> for $stm_type {
-                fn from(value: ProtocolKey<StmVerificationKeyPoP>) -> Self {
-                    *value.key()
+                fn from(value: ProtocolKey<$stm_type>) -> Self {
+                    value.key
                 }
             }
 
             impl From<$stm_type> for ProtocolKey<$stm_type> {
-                fn from(value: StmVerificationKeyPoP) -> Self {
+                fn from(value: $stm_type) -> Self {
                     Self::new(value)
                 }
             }
@@ -151,4 +150,7 @@ macro_rules! impl_from_to_stm_types_for_protocol_key {
     };
 }
 
-impl_from_to_stm_types_for_protocol_key!(StmVerificationKeyPoP);
+impl_from_to_stm_types_for_protocol_key!(
+    mithril_stm::stm::StmVerificationKeyPoP,
+    mithril_stm::stm::StmSig
+);
