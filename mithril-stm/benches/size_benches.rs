@@ -5,10 +5,9 @@ use blake2::{
 };
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{
-    CoreVerifier, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
-    StmVerificationKey,
+    CoreVerifier, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigRegParty,
+    StmSigner, StmVerificationKey,
 };
-use mithril_stm::AggregationError;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;
@@ -87,12 +86,12 @@ where
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
 
+    let core_verifier = CoreVerifier::setup(&public_signers);
+
     let signers: Vec<StmSigner<H>> = initializers
         .into_iter()
-        .filter_map(|s| s.new_core_signer(&public_signers))
+        .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
         .collect();
-
-    let core_verifier = CoreVerifier::setup(&public_signers);
 
     let mut signatures: Vec<StmSig> = Vec::with_capacity(nparties);
     for s in signers {
@@ -101,26 +100,25 @@ where
         }
     }
 
-    let sig_reg_list = CoreVerifier::map_sig_party(&core_verifier.eligible_parties, &signatures);
+    let sig_reg_list = signatures
+        .iter()
+        .map(|sig| StmSigRegParty {
+            sig: sig.clone(),
+            reg_party: core_verifier.eligible_parties[sig.signer_index as usize],
+        })
+        .collect::<Vec<StmSigRegParty>>();
 
-    let dedup_result = CoreVerifier::dedup_sigs_for_indices(
+    let dedup_sigs = CoreVerifier::dedup_sigs_for_indices(
         &core_verifier.total_stake,
         &params,
         &msg,
         &sig_reg_list,
-    );
-    let mut size_sigs: usize = 0;
+    )
+    .unwrap();
 
-    match dedup_result {
-        Ok(_) => {
-            for sig in dedup_result.unwrap() {
-                size_sigs += sig.to_bytes().len();
-            }
-        }
-        Err(AggregationError::NotEnoughSignatures(nr_indices, _k)) => {
-            assert!((nr_indices) < params.k);
-        }
-        Err(AggregationError::UsizeConversionInvalid) => unreachable!(),
+    let mut size_sigs: usize = 0;
+    for sig in dedup_sigs {
+        size_sigs += sig.to_bytes().len();
     }
 
     println!(

@@ -173,12 +173,13 @@ where
         initializers.push(initializer.clone());
         public_signers.push((initializer.verification_key().vk, initializer.stake));
     }
-    let signers: Vec<StmSigner<H>> = initializers
-        .into_iter()
-        .filter_map(|s| s.new_core_signer(&public_signers))
-        .collect();
 
     let core_verifier = CoreVerifier::setup(&public_signers);
+
+    let signers: Vec<StmSigner<H>> = initializers
+        .into_iter()
+        .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
+        .collect();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         b.iter(|| {
