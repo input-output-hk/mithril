@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context, Result as StdResult};
 use mithril_stm::stm::StmVerificationKeyPoP;
 use serde::{Deserialize, Serialize};
 
-use super::{key_decode_hex, key_encode_hex};
+use crate::crypto_helper::{key_decode_hex, key_encode_hex};
 
 /// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::stm::StmVerificationKeyPoP)
 /// to add serialization utilities.

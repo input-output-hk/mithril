@@ -26,7 +26,7 @@ fn register_signatures(
 mod handlers {
     use mithril_common::{
         entities::SignedEntityType,
-        messages::{FromMessageAdapter, RegisterSignatureMessage},
+        messages::{RegisterSignatureMessage, TryFromMessageAdapter},
     };
 
     use slog_scope::{debug, warn};
@@ -58,9 +58,20 @@ mod handlers {
 
         match signed_entity_type {
             Ok(signed_entity_type) => {
-                let signature = FromRegisterSingleSignatureAdapter::adapt(message);
+                let signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
+                    Ok(signature) => signature,
+                    Err(err) => {
+                        warn!("register_signatures::payload decoding error"; "error" => ?err);
+
+                        return Ok(reply::bad_request(
+                            "Could not decode signature payload".to_string(),
+                            err.to_string(),
+                        ));
+                    }
+                };
+
                 match certifier_service
-                    .register_single_signature(&signed_entity_type, &signature)
+                    .register_single_signature(&signed_entity_type, &signatures)
                     .await
                 {
                     Err(err) => match err.downcast_ref::<CertifierServiceError>() {

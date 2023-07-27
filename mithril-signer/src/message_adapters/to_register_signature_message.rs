@@ -12,7 +12,7 @@ impl ToMessageAdapter<(SignedEntityType, SingleSignatures), RegisterSignatureMes
         RegisterSignatureMessage {
             signed_entity_type: Some(signed_entity_type),
             party_id: single_signature.party_id,
-            signature: single_signature.signature,
+            signature: single_signature.signature.try_into().unwrap(),
             won_indexes: single_signature.won_indexes,
         }
     }

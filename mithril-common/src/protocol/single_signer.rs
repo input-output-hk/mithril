@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::Result;
 
 use crate::{
-    crypto_helper::{key_encode_hex, ProtocolSigner},
+    crypto_helper::ProtocolSigner,
     entities::{PartyId, ProtocolMessage, SingleSignatures},
 };
 
@@ -27,18 +27,10 @@ impl SingleSigner {
         match self.protocol_signer.sign(message.compute_hash().as_bytes()) {
             Some(signature) => {
                 let won_indexes = signature.indexes.clone();
-                let encoded_signature = key_encode_hex(signature)
-                    .map_err(|err| anyhow!(err))
-                    .with_context(|| {
-                        format!(
-                            "Could not encode protocol signature issued by party: {}",
-                            self.party_id
-                        )
-                    })?;
 
                 Ok(Some(SingleSignatures::new(
                     self.party_id.to_owned(),
-                    encoded_signature,
+                    signature.into(),
                     won_indexes,
                 )))
             }

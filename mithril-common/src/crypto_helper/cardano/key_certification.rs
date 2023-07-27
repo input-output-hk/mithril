@@ -6,10 +6,9 @@
 use crate::crypto_helper::{
     cardano::{OpCert, ParseError, SerDeShelleyFileFormat},
     types::{
-        ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKeySignature,
-        ProtocolStakeDistribution,
+        ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
+        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
-    verification_key::ProtocolSignerVerificationKey,
 };
 
 use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};

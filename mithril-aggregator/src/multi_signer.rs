@@ -692,7 +692,7 @@ mod tests {
 
                 signatures.push(entities::SingleSignatures::new(
                     signer_fixture.signer_with_stake.party_id.to_owned(),
-                    key_encode_hex(signature).unwrap(),
+                    signature.into(),
                     won_indexes,
                 ));
 

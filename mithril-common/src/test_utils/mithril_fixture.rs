@@ -148,7 +148,7 @@ impl SignerFixture {
 
                 SingleSignatures::new(
                     self.signer_with_stake.party_id.to_owned(),
-                    key_encode_hex(signature).unwrap(),
+                    signature.into(),
                     won_indexes,
                 )
             })
