@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context, Result as StdResult};
+use mithril_stm::stm::StmVerificationKeyPoP;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::any::type_name;
 
@@ -130,3 +131,24 @@ where
         value.to_json_hex()
     }
 }
+
+// Macro to batch define the From<ProtocolKey> to StmType and vis versa
+macro_rules! impl_from_to_stm_types_for_protocol_key {
+    ($($stm_type:ty)+) => {
+        $(
+            impl From<ProtocolKey<$stm_type>> for $stm_type {
+                fn from(value: ProtocolKey<StmVerificationKeyPoP>) -> Self {
+                    *value.key()
+                }
+            }
+
+            impl From<$stm_type> for ProtocolKey<$stm_type> {
+                fn from(value: StmVerificationKeyPoP) -> Self {
+                    Self::new(value)
+                }
+            }
+        )*
+    };
+}
+
+impl_from_to_stm_types_for_protocol_key!(StmVerificationKeyPoP);

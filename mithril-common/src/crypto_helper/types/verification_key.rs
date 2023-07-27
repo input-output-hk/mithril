@@ -1,7 +1,7 @@
 use crate::crypto_helper::ProtocolKey;
 use mithril_stm::stm::StmVerificationKeyPoP;
 
-/// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@mithril_stm::stm::StmVerificationKeyPoP)
+/// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP)
 /// to add serialization utilities.
 pub type ProtocolSignerVerificationKey = ProtocolKey<StmVerificationKeyPoP>;
 
@@ -9,18 +9,6 @@ impl ProtocolSignerVerificationKey {
     /// Output the key's bytes in memory
     pub fn to_bytes(&self) -> [u8; 192] {
         self.key().to_bytes()
-    }
-}
-
-impl From<ProtocolKey<StmVerificationKeyPoP>> for StmVerificationKeyPoP {
-    fn from(value: ProtocolKey<StmVerificationKeyPoP>) -> Self {
-        *value.key()
-    }
-}
-
-impl From<StmVerificationKeyPoP> for ProtocolKey<StmVerificationKeyPoP> {
-    fn from(value: StmVerificationKeyPoP) -> Self {
-        Self::new(value)
     }
 }
 
