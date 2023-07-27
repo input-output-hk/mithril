@@ -21,4 +21,4 @@ pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVe
 pub use types::*;
 
 /// The current protocol version
-pub const PROTOCOL_VERSION: types::ProtocolVersion = "0.1.0";
+pub const PROTOCOL_VERSION: ProtocolVersion = "0.1.0";
