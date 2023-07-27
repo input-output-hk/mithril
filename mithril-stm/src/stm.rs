@@ -1609,37 +1609,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn debug_map_sig_reg() {
-        let nparties = 3;
-        let m = 11_u64;
-        let k = 3_u64;
-        let msg = [
-            161, 56, 52, 65, 162, 118, 214, 116, 89, 163, 75, 19, 9, 206, 241, 252,
-        ];
-        let params = StmParameters { m, k, phi_f: 0.2 };
-        let (initializers, public_signers) = setup_equal_core_parties(params, nparties);
-
-        let all_ps: Vec<usize> = (0..nparties).collect();
-
-        let core_verifier = CoreVerifier::setup(&public_signers);
-
-        let signers = &initializers
-            .into_iter()
-            .filter_map(|s| s.new_core_signer(&core_verifier.eligible_parties))
-            .collect::<Vec<StmSigner<D>>>();
-
-        println!();
-
-        for p in signers {
-            println!(
-                "vk: {}, index: {}",
-                hex::encode(p.vk.to_bytes()),
-                p.signer_index
-            );
-        }
-
-        let signatures = find_core_signatures(&msg, &signers, core_verifier.total_stake, &all_ps);
-        assert!(core_verifier.verify(&signatures, &params, &msg).is_ok());
-    }
 }
