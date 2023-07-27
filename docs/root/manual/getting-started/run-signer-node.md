@@ -29,6 +29,12 @@ In this guide, you will learn how to set up a **Mithril Signer** within the stak
 
 :::
 
+:::info
+
+In the current setup, you don't need to install a Mithril Aggregator.
+
+:::
+
 :::caution
 
 The **production** deployment model is currently in the beta version.
@@ -231,6 +237,24 @@ Replace this value with the correct user. We assume that the user used to run th
   * `RELAY_ENDPOINT=http://192.168.1.50:3128` **(optional)**: this is the endpoint of the **Mithril relay**, which is required for **production** deployment only. For **naive** deployment, do not set this variable in your environment file.
 :::
 
+:::tip
+
+Here is an **example** set of values for **release-preprod** that will be used in this guide in the **tip** boxes to illustrate some commands:  
+
+* ****YOUR_KES_SECRET_KEY_PATH****: `/cardano/keys/kes.skey`
+* ****YOUR_OPERATIONAL_CERTIFICATE_PATH****: `/cardano/keys/node.cert`
+* ****YOUR_CARDANO_NETWORK****: `preprod`
+* ****YOUR_AGGREGATOR_ENDPOINT****: `https://aggregator.release-preprod.api.mithril.network/aggregator`
+* ****YOUR_ERA_READER_ADAPTER_TYPE****: `cardano-chain`
+* ****YOUR_ERA_READER_ADAPTER_PARAMS****: `{"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}`
+* ****YOUR_RELAY_ENDPOINT****: `192.168.1.50`
+* ****YOUR_RELAY_LISTENING_PORT****: `3128`
+* ****YOUR_BLOCK_PRODUCER_INTERNAL_IP****: `192.168.1.75`
+* ****YOUR_SIGNER_LOGS_PATH****: `/var/log/syslog`
+* ****YOUR_PARTY_ID****: `pool1hp72sauk0g0yqm4dzllz0pz6j93gewhllkzphn4hykkfmne43y`
+
+:::
+
 First, create an environment file that will be used by the service:
 
 - for **production** deployment:
@@ -252,6 +276,30 @@ RELAY_ENDPOINT=**YOUR_RELAY_ENDPOINT**
 EOF'
 ```
 
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `release-preprod`:
+
+```bash
+sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
+KES_SECRET_KEY_PATH=/cardano/keys/kes.skey
+OPERATIONAL_CERTIFICATE_PATH=/cardano/keys/node.cert
+NETWORK=preprod
+AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+RUN_INTERVAL=60000
+DB_DIRECTORY=/cardano/db
+CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
+CARDANO_CLI_PATH=/app/bin/cardano-cli
+DATA_STORES_DIRECTORY=/opt/mithril/stores
+STORE_RETENTION_LIMIT=5
+ERA_READER_ADAPTER_TYPE=cardano-chain
+ERA_READER_ADAPTER_PARAMS={"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}
+RELAY_ENDPOINT=http://192.168.1.50:3128
+EOF'
+```
+
+:::
+
 - for **naive** deployment:
 ```bash
 sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
@@ -269,6 +317,29 @@ ERA_READER_ADAPTER_TYPE=**YOUR_ERA_READER_ADAPTER_TYPE**
 ERA_READER_ADAPTER_PARAMS=**YOUR_ERA_READER_ADAPTER_PARAMS**
 EOF'
 ```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `release-preprod`:
+
+```bash
+sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
+KES_SECRET_KEY_PATH=/cardano/keys/kes.skey
+OPERATIONAL_CERTIFICATE_PATH=/cardano/keys/node.cert
+NETWORK=preprod
+AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+RUN_INTERVAL=60000
+DB_DIRECTORY=/cardano/db
+CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
+CARDANO_CLI_PATH=/app/bin/cardano-cli
+DATA_STORES_DIRECTORY=/opt/mithril/stores
+STORE_RETENTION_LIMIT=5
+ERA_READER_ADAPTER_TYPE=cardano-chain
+ERA_READER_ADAPTER_PARAMS={"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}
+EOF'
+```
+
+:::
 
 Then, create a `/etc/systemd/system/mithril-signer.service` description file for the service:
 
@@ -404,6 +475,63 @@ http_access deny all
 EOF'
 ```
 
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `release-preprod`:
+
+```bash
+sudo bash -c 'cat > /etc/squid/squid.conf << EOF
+# Listening port (port 3128 is recommended)
+http_port 3128
+
+# ACL for internal IP of your block producer node
+acl relay_internal_ip src 192.168.1.75
+
+# ACL for aggregator endpoint
+acl aggregator_domain dstdomain .mithril.network
+
+# ACL for SSL port only
+acl SSL_port port 443
+
+# Allowed traffic
+http_access allow relay_internal_ip aggregator_domain SSL_port
+
+# Do not disclose block producer internal IP
+forwarded_for delete
+
+# Turn off via header
+via off
+ 
+# Deny request for original source of a request
+follow_x_forwarded_for deny all
+ 
+# Anonymize request headers
+request_header_access Authorization allow all
+request_header_access Proxy-Authorization allow all
+request_header_access Cache-Control allow all
+request_header_access Content-Length allow all
+request_header_access Content-Type allow all
+request_header_access Date allow all
+request_header_access Host allow all
+request_header_access If-Modified-Since allow all
+request_header_access Pragma allow all
+request_header_access Accept allow all
+request_header_access Accept-Charset allow all
+request_header_access Accept-Encoding allow all
+request_header_access Accept-Language allow all
+request_header_access Connection allow all
+request_header_access All deny all
+
+# Disable cache
+cache deny all
+
+# Deny everything else
+http_access deny all
+EOF'
+```
+
+:::
+
 With this configuration, the proxy will:
 - accept incoming traffic originating from the internal IP of the block-producing machine
 - accept incoming traffic directed to the listening port of the proxy
@@ -429,6 +557,16 @@ Finally, monitor service logs:
 tail /var/log/syslog
 ```
 
+:::info
+
+Here is the command to see squid access logs:
+
+```bash
+tail /var/log/squid/access.log
+```
+
+:::
+
 ### Firewall configuration
 
 :::info
@@ -446,6 +584,16 @@ Assuming you are using [`Uncomplicated Firewall`](https://en.wikipedia.org/wiki/
 sudo ufw allow from **YOUR_BLOCK_PRODUCER_INTERNAL_IP** to any port **YOUR_RELAY_LISTENING_PORT** proto tcp
 ```
 
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `release-preprod`:
+
+```bash
+sudo ufw allow from 192.168.1.75 to any port 3128 proto tcp
+```
+
+:::
+
 Assuming you are using [`Iptables`](https://en.wikipedia.org/wiki/Iptables) (`1.8.7+`), the command to open that traffic is:
 
 ```bash
@@ -454,6 +602,18 @@ sudo iptables -L -v
 sudo service netfilter-persistent save
 ```
 
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `release-preprod`:
+
+```bash
+sudo iptables -A INPUT -s 192.168.1.75 -p tcp --dport 3128 -j ACCEPT
+sudo iptables -L -v
+sudo service netfilter-persistent save
+```
+
+:::
+
 ## Verify the Mithril Signer deployment
 
 :::tip
@@ -461,3 +621,85 @@ There is a delay of `2` epochs between the registration of the signer node and i
 
 Once this delay has passed, you should be able to observe your `PoolId` listed in some of the certificates accessible on the [`Mithril Explorer`](https://mithril.network/explorer).
 :::
+
+### Verify your signer is registered
+
+After installing the Mithril Signer, you can verify that your node is registered by checking your Mithril Signer node logs.  
+
+First, download the script into the desired directory:
+
+```bash
+wget https://mithril.network/doc/scripts/verify_signer_registration.sh
+```
+
+Make the script executable:
+
+```bash
+chmod +x verify_signer_registration.sh
+```
+
+Finally, execute the script:
+```bash
+SIGNER_LOGS_PATH=**YOUR_SIGNER_LOGS_PATH** ./verify_signer_registration.sh
+```
+
+:::tip
+
+Here is an example command:
+
+```bash
+SIGNER_LOGS_PATH=/var/log/syslog ./verify_signer_registration.sh
+```
+
+:::
+
+If your signer is registered, you should see this message:
+```bash
+>> Congrats, your signer node is registered!
+```
+
+Otherwise, you should see this error message:
+```bash
+>> Oops, your signer node is not registered. Check your configuration.
+```
+
+### Verify your signer contributes with individual signatures
+
+After waiting for two epochs, you will be able to verify that your signer is contributing with individual signatures.
+
+First, download the script into the desired directory:
+
+```bash
+wget https://mithril.network/doc/scripts/verify_signer_signature.sh
+```
+
+Make the script executable:
+
+```bash
+chmod +x verify_signer_signature.sh
+```
+
+Finally, execute the script:
+```bash
+PARTY_ID=**YOUR_PARTY_ID** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./verify_signer_signature.sh
+```
+
+:::tip
+
+Here is an example of the aforementioned command created with the example set for `release-preprod`:
+
+```bash
+PARTY_ID=pool1hp72sauk0g0yqm4dzllz0pz6j93gewhllkzphn4hykkfmne43y AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator ./verify_signer_signature.sh
+```
+
+:::
+
+If your signer is contributing, you should see this message:
+```bash
+>> Congrats, you have signed this certificate: https://aggregator.release-preprod.api.mithril.network/aggregator/certificate/el3p289b03a223244285b2ls10839846ae7a69f1e8362824a383f376f93f723f !
+```
+
+Otherwise, you should see this error message:
+```bash
+>> Oops, your party id was not found in the last 20 certificates. Please try again later.
+```
