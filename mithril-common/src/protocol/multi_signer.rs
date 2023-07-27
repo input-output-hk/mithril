@@ -4,7 +4,7 @@ use mithril_stm::stm::StmParameters;
 use crate::{
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolClerk,
-        ProtocolMultiSignature, ProtocolSingleSignature,
+        ProtocolMultiSignature,
     },
     entities::{ProtocolMessage, SingleSignatures},
 };
@@ -29,10 +29,10 @@ impl MultiSigner {
         single_signatures: &[SingleSignatures],
         protocol_message: &ProtocolMessage,
     ) -> Result<ProtocolMultiSignature, ProtocolAggregationError> {
-        let protocol_signatures: Vec<ProtocolSingleSignature> = single_signatures
+        let protocol_signatures: Vec<_> = single_signatures
             .iter()
-            .filter_map(|single_signature| single_signature.to_protocol_signature().ok())
-            .collect::<Vec<_>>();
+            .map(|single_signature| single_signature.to_protocol_signature())
+            .collect();
 
         self.protocol_clerk.aggregate(
             &protocol_signatures,
@@ -51,15 +51,7 @@ impl MultiSigner {
         message: &ProtocolMessage,
         single_signature: &SingleSignatures,
     ) -> Result<()> {
-        let protocol_signature = single_signature
-            .to_protocol_signature()
-            .map_err(|e| anyhow!(e))
-            .with_context(|| {
-                format!(
-                    "Error while decoding single signature for party: '{}'",
-                    single_signature.party_id
-                )
-            })?;
+        let protocol_signature = single_signature.to_protocol_signature();
 
         let avk = self.compute_aggregate_verification_key();
 

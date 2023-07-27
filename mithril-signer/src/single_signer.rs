@@ -159,8 +159,7 @@ mod tests {
     use super::*;
 
     use mithril_common::{
-        crypto_helper::{ProtocolClerk, ProtocolSingleSignature},
-        entities::ProtocolMessagePartKey,
+        crypto_helper::ProtocolClerk, entities::ProtocolMessagePartKey,
         test_utils::MithrilFixtureBuilder,
     };
 
@@ -186,7 +185,7 @@ mod tests {
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");
 
-        let decoded_sig: ProtocolSingleSignature = sign_result.signature.into();
+        let decoded_sig = sign_result.to_protocol_signature();
         assert!(
             decoded_sig
                 .verify(

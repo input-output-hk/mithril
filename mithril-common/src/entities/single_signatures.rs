@@ -1,92 +1,10 @@
-use anyhow::{anyhow, Context, Result as StdResult};
+use mithril_stm::stm::StmSig;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    crypto_helper::{key_decode_hex, key_encode_hex, ProtocolSingleSignature},
+    crypto_helper::ProtocolSingleSignature,
     entities::{LotteryIndex, PartyId},
 };
-
-/// Single Signature
-#[derive(Debug, Clone, Eq)]
-pub struct SingleSignature {
-    signature: ProtocolSingleSignature,
-}
-
-impl SingleSignature {
-    /// Create a signature from a JSON Hex representation
-    pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
-        let signature = key_decode_hex::<ProtocolSingleSignature>(&hex_string.to_owned())
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "Could not deserialize a SingleSignature from JSON hex string.")?;
-
-        Ok(Self { signature })
-    }
-
-    /// Dump a JSON Hex representation of the signature
-    pub fn to_json_hex(&self) -> StdResult<String> {
-        key_encode_hex(&self.signature)
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "Could not serialize a SingleSignature to JSON hex key string.")
-    }
-}
-
-impl From<SingleSignature> for ProtocolSingleSignature {
-    fn from(value: SingleSignature) -> Self {
-        value.signature
-    }
-}
-
-impl From<ProtocolSingleSignature> for SingleSignature {
-    fn from(value: ProtocolSingleSignature) -> Self {
-        SingleSignature { signature: value }
-    }
-}
-
-impl TryFrom<String> for SingleSignature {
-    type Error = anyhow::Error;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        SingleSignature::from_json_hex(&value)
-    }
-}
-
-impl TryInto<String> for SingleSignature {
-    type Error = anyhow::Error;
-
-    fn try_into(self) -> Result<String, Self::Error> {
-        self.to_json_hex()
-    }
-}
-
-impl Serialize for SingleSignature {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        use serde::ser::Error;
-        let hex = self.to_json_hex().map_err(Error::custom)?;
-
-        hex.serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for SingleSignature {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        use serde::de::Error;
-        let string = String::deserialize(deserializer)?;
-
-        Self::from_json_hex(&string).map_err(Error::custom)
-    }
-}
-
-impl PartialEq for SingleSignature {
-    fn eq(&self, other: &Self) -> bool {
-        self.to_json_hex().unwrap() == other.to_json_hex().unwrap()
-    }
-}
 
 /// SingleSignatures represent single signatures originating from a participant in the network
 /// for a digest at won lottery indexes
@@ -96,7 +14,7 @@ pub struct SingleSignatures {
     pub party_id: PartyId,
 
     /// The single signature of the digest
-    pub signature: SingleSignature,
+    pub signature: ProtocolSingleSignature,
 
     /// The indexes of the won lotteries that lead to the single signatures
     #[serde(rename = "indexes")]
@@ -107,7 +25,7 @@ impl SingleSignatures {
     /// SingleSignature factory
     pub fn new(
         party_id: PartyId,
-        signature: SingleSignature,
+        signature: ProtocolSingleSignature,
         won_indexes: Vec<LotteryIndex>,
     ) -> SingleSignatures {
         SingleSignatures {
@@ -117,9 +35,9 @@ impl SingleSignatures {
         }
     }
 
-    /// Convert this [SingleSignatures] to its corresponding [MithrilStm Signature][ProtocolSingleSignature].
-    pub fn to_protocol_signature(&self) -> Result<ProtocolSingleSignature, String> {
-        Ok(self.signature.clone().into())
+    /// Convert this [SingleSignatures] to its corresponding [MithrilStm Signature][StmSig].
+    pub fn to_protocol_signature(&self) -> StmSig {
+        self.signature.clone().into()
     }
 }
 
@@ -144,6 +62,6 @@ mod tests {
             protocol_sigs.indexes.clone(),
         );
 
-        assert_eq!(protocol_sigs, signature.to_protocol_signature().unwrap());
+        assert_eq!(protocol_sigs, signature.to_protocol_signature());
     }
 }

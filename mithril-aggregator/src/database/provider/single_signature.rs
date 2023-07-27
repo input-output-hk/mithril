@@ -5,7 +5,7 @@ use tokio::sync::Mutex;
 use uuid::Uuid;
 
 use mithril_common::{
-    entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignature, SingleSignatures},
+    entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignatures},
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
@@ -63,14 +63,11 @@ impl TryFrom<SingleSignatureRecord> for SingleSignatures {
         let signatures = SingleSignatures {
             party_id: value.signer_id,
             won_indexes: value.lottery_indexes,
-            signature: SingleSignature::from_json_hex(&value.signature)?,
+            signature: value.signature.try_into()?,
         };
 
         Ok(signatures)
     }
-
-    // fn try_from(other: SingleSignatureRecord) -> SingleSignatures {
-    // }
 }
 
 impl SqLiteEntity for SingleSignatureRecord {
