@@ -99,6 +99,21 @@ impl AppMithrilStakeDistributionService {
 
         Ok(signer_builder.compute_aggregate_verification_key())
     }
+
+    async fn expand_eventual_artifact_hash_alias(&self, hash: &str) -> StdResult<String> {
+        if hash.to_lowercase() == "latest" {
+            let last_mithril_stake_distribution = self.list().await?;
+            let last_mithril_stake_distribution =
+                last_mithril_stake_distribution.first().ok_or_else(|| {
+                    MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(
+                        hash.to_string(),
+                    )
+                })?;
+            Ok(last_mithril_stake_distribution.hash.to_owned())
+        } else {
+            Ok(hash.to_owned())
+        }
+    }
 }
 
 #[async_trait]
@@ -115,7 +130,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
     ) -> StdResult<PathBuf> {
         let stake_distribution_entity = self
             .stake_distribution_client
-            .get(hash)
+            .get(&self.expand_eventual_artifact_hash_alias(hash).await?)
             .await?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(hash.to_owned())
@@ -170,9 +185,10 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         if !dirpath.is_dir() {
             std::fs::create_dir_all(dirpath)?;
         }
-        let filepath = PathBuf::new()
-            .join(dirpath)
-            .join(format!("mithril_stake_distribution-{hash}.json"));
+        let filepath = PathBuf::new().join(dirpath).join(format!(
+            "mithril_stake_distribution-{}.json",
+            stake_distribution_entity.artifact.hash
+        ));
         std::fs::write(
             &filepath,
             serde_json::to_string(&stake_distribution_entity.artifact)?,
@@ -203,7 +219,13 @@ mod tests {
     use super::*;
 
     fn get_stake_distribution_list_message() -> MithrilStakeDistributionListMessage {
-        vec![MithrilStakeDistributionListItemMessage::dummy()]
+        vec![
+            MithrilStakeDistributionListItemMessage::dummy(),
+            MithrilStakeDistributionListItemMessage {
+                hash: "hash-456".to_string(),
+                ..MithrilStakeDistributionListItemMessage::dummy()
+            },
+        ]
     }
 
     fn get_stake_distribution_message(
@@ -242,7 +264,7 @@ mod tests {
         );
         let list = service.list().await.unwrap();
 
-        assert_eq!(1, list.len());
+        assert_eq!(2, list.len());
     }
 
     #[tokio::test]
@@ -347,5 +369,101 @@ mod tests {
             )
             .await
             .unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_artifact_hash_alias_should_returns_hash() {
+        let http_client = MockAggregatorHTTPClient::new();
+        let http_client = Arc::new(http_client);
+        let service = AppMithrilStakeDistributionService::new(
+            Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
+            Arc::new(CertificateClient::new(http_client.clone())),
+            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+        );
+
+        let hash = service
+            .expand_eventual_artifact_hash_alias("hash-123")
+            .await
+            .unwrap();
+
+        assert_eq!("hash-123", hash);
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_artifact_hash_alias_should_returns_latest_lowercase() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_get_content().returning(|_| {
+            Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
+        });
+        let http_client = Arc::new(http_client);
+        let service = AppMithrilStakeDistributionService::new(
+            Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
+            Arc::new(CertificateClient::new(http_client.clone())),
+            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+        );
+
+        let hash = service
+            .expand_eventual_artifact_hash_alias("latest")
+            .await
+            .unwrap();
+
+        assert_eq!("hash-123", hash);
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_artifact_hash_alias_should_returns_latest_uppercase() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_get_content().returning(|_| {
+            Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
+        });
+        let http_client = Arc::new(http_client);
+        let service = AppMithrilStakeDistributionService::new(
+            Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
+            Arc::new(CertificateClient::new(http_client.clone())),
+            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+        );
+
+        let hash = service
+            .expand_eventual_artifact_hash_alias("LATEST")
+            .await
+            .unwrap();
+
+        assert_eq!("hash-123", hash);
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_artifact_hash_alias_should_error() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .returning(|_| Ok("[]".to_string()));
+        let http_client = Arc::new(http_client);
+        let service = AppMithrilStakeDistributionService::new(
+            Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
+            Arc::new(CertificateClient::new(http_client.clone())),
+            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+        );
+
+        let err = service
+            .expand_eventual_artifact_hash_alias("latest")
+            .await
+            .expect_err(
+            "expand_eventual_artifact_hash_alias should returns an error if there is no latest.",
+        );
+
+        if let Some(e) = err.downcast_ref::<MithrilStakeDistributionServiceError>() {
+            match e {
+                MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(hash) => {
+                    assert_eq!("latest", hash.as_str());
+                }
+                _ => panic!(
+                    "Wrong error type when Mithril Stake Sistribution could not be found {e:?}."
+                ),
+            }
+        } else {
+            panic!(
+                    "Expected a MithrilStakeDistributionServiceError when Mithril Stake Sistribution can not be found. Got {err:?}: '{err}'"
+                );
+        }
     }
 }
