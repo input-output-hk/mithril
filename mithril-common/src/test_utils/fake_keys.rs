@@ -168,6 +168,23 @@ pub const fn signer_verification_key_signature<'a>() -> [&'a str; 1] {
     ]
 }
 
+/// A list of pre json hex encoded [OpCert][crate::crypto_helper::OpCert]
+pub const fn operational_certificate<'a>() -> [&'a str; 1] {
+    [
+        "5b5b5b3230332c3130392c34302c32382c3235312c39342c35322c32342c3231322c3131362c3134392c38302c\
+        3138332c3136322c312c36322c352c3133332c35372c3230342c31352c3137322c3134372c38362c3132352c353\
+        92c31322c3235332c3130312c3138342c32332c31355d2c322c3132382c5b3133382c3131302c3139322c35302c\
+        38362c332c3136382c33342c3137322c31392c39312c3133392c3139302c3134302c31382c3137372c33312c343\
+        62c3132322c3130362c3233342c3137372c3130382c3232352c3230372c342c302c35392c3233372c3133352c31\
+        30342c39382c3133332c3133312c32392c3231322c3137312c3139342c3234342c3139312c3137392c3131392c3\
+        4322c37352c3135302c36312c3232362c3132312c35342c3232332c3139332c3133382c3139302c32372c313832\
+        2c3135322c35362c32312c3136302c3230372c33352c3233372c3130322c31325d5d2c5b3230372c31322c31363\
+        82c3139302c34362c3131362c3139362c3133332c3139362c3233312c3132342c3235302c3134372c33372c3137\
+        352c3231312c3234372c3139382c3134302c3133392c3234362c3130342c3132342c3232372c34392c352c32353\
+        32c3232382c3130372c39332c3133362c3134345d5d",
+    ]
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -176,7 +193,7 @@ mod test {
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 
-    use crate::crypto_helper::key_decode_hex;
+    use crate::crypto_helper::{key_decode_hex, OpCert};
 
     fn assert_encoded_are_still_matching_concrete_type<T: Serialize + DeserializeOwned>(
         encoded_types: &[&str],
@@ -222,5 +239,10 @@ mod test {
         assert_encoded_are_still_matching_concrete_type::<Sum6KesSig>(
             &signer_verification_key_signature(),
         );
+    }
+
+    #[test]
+    fn assert_encoded_operational_certificate_are_still_matching_concrete_type() {
+        assert_encoded_are_still_matching_concrete_type::<OpCert>(&operational_certificate());
     }
 }
