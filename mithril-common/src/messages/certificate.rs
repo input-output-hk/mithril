@@ -137,7 +137,6 @@ mod tests {
     #[test]
     fn test_v1() {
         let json = r#"{
-    
             "hash": "hash",
             "previous_hash": "previous_hash",
             "beacon": {
