@@ -15,6 +15,8 @@ pub struct SnapshotDownloadCommand {
     json: bool,
 
     /// Digest of the snapshot to download. Use the `list` command to get that information.
+    ///
+    /// If `latest` is specified as digest, the command will return the latest snapshot.
     digest: String,
 
     /// Directory where the snapshot will be downloaded. By default, a
