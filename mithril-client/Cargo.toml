@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.3.23"
+version = "0.3.24"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -30,7 +30,10 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
+slog = { version = "2.7.0", features = [
+    "max_level_trace",
+    "release_max_level_debug",
+] }
 slog-async = "2.7.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"

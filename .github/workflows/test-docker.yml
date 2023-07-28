@@ -13,7 +13,7 @@ on:
         description: The url of the archive of the Cardano binaries
         required: true
         type: string
-        default: https://github.com/input-output-hk/cardano-node/releases/download/8.1.1/cardano-node-8.1.1-linux.tar.gz
+        default: https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz
       dry_run:
         description: Dry run will not push the Docker images to the registry
         required: true

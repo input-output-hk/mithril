@@ -54,7 +54,7 @@ SECURITY_PARAM=2
 NODE_PORT_START=3000
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
-CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/8.1.1/cardano-node-8.1.1-linux.tar.gz"
+CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/8.1.2/cardano-node-8.1.2-linux.tar.gz"
 ALONZO_GENESIS_URL="https://book.world.dev.cardano.org/environments/private/alonzo-genesis.json"
 CONWAY_GENESIS_URL="https://book.world.dev.cardano.org/environments/private/conway-genesis.json"
 
