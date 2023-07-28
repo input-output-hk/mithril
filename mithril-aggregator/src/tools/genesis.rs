@@ -137,7 +137,7 @@ impl GenesisTools {
         let mut genesis_secret_key_serialized = String::new();
         genesis_secret_key_file.read_to_string(&mut genesis_secret_key_serialized)?;
 
-        let genesis_secret_key = key_decode_hex(&genesis_secret_key_serialized.trim().to_string())?;
+        let genesis_secret_key = key_decode_hex(genesis_secret_key_serialized.trim())?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();

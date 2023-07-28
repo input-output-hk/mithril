@@ -32,7 +32,7 @@ where
 
     /// Create an instance from a JSON hex representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
-        let key = key_decode_hex::<T>(&hex_string.to_owned())
+        let key = key_decode_hex::<T>(hex_string)
             .map_err(|e| anyhow!(e))
             .with_context(|| {
                 format!(
