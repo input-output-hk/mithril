@@ -1,7 +1,8 @@
 mod alias;
-mod single_signature;
-mod verification_key;
+#[macro_use]
+mod protocol_key;
+mod wrappers;
 
 pub use alias::*;
-pub use single_signature::*;
-pub use verification_key::*;
+pub use protocol_key::*;
+pub use wrappers::*;
