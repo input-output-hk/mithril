@@ -417,7 +417,6 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             n,
             leaf_off: num_nodes - n,
             _hasher: PhantomData,
-
         }
     }
 
