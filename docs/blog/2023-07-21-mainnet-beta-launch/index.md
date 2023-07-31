@@ -5,7 +5,9 @@ authors:
 tags: [spo, mithril signer, mainnet, production, beta]
 ---
 
-**Update 2023/07/25**: The Genesis certificate of the `release-mainnet` has been successfully created.
+**Update 2023/07/30**: The first certificates and snapshots have been produced by the `release-mainnet` network!
+
+**Update 2023/07/25**: The Genesis certificate of the `release-mainnet` network has been successfully created.
 
 ### Mithril Protocol’s Mainnet Beta is launched :rocket:
 
@@ -15,7 +17,7 @@ Here are the next steps that we will follow in order to get the `release-mainnet
 
 1. [x] Open the first signers registrations on the `release-mainnet` network (1 epoch).
 1. [x] Create the genesis certificate of the `release-mainnet` network (1 epoch).
-1. [ ] Wait for the first certificates to be produced by the `release-mainnet` network.
+1. [x] Wait for the first certificates to be produced by the `release-mainnet` network.
 
 <!---
 This diagram randomly crashes. We replace it with a screenshot until a fix is available
