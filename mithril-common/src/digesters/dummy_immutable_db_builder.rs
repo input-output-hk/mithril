@@ -24,6 +24,16 @@ pub struct DummyImmutableDb {
     pub non_immutables_files: Vec<PathBuf>,
 }
 
+impl DummyImmutableDb {
+    /// Add an immutable chunk file and its primary & secondary to the dummy DB.
+    pub fn add_immutable_file(&mut self) {
+        let last_file_number = self.immutables_files.last().map(|f| f.number).unwrap_or(1);
+        let mut new_files = write_immutable_trio(None, &self.dir, last_file_number + 1);
+
+        self.immutables_files.append(&mut new_files);
+    }
+}
+
 impl DummyImmutablesDbBuilder {
     /// [DummyImmutablesDbBuilder] factory, will create a folder with the given `dirname` in the
     /// system temp directory, if it exists already it will be cleaned.
@@ -73,21 +83,25 @@ impl DummyImmutablesDbBuilder {
         immutable_numbers.sort();
 
         if self.append_uncompleted_trio {
-            self.write_immutable_trio(match immutable_numbers.last() {
-                None => 0,
-                Some(last) => last + 1,
-            });
+            write_immutable_trio(
+                self.file_size,
+                &self.dir,
+                match immutable_numbers.last() {
+                    None => 0,
+                    Some(last) => last + 1,
+                },
+            );
         }
 
         for non_immutable in &self.non_immutables_to_write {
-            non_immutables_files.push(self.write_dummy_file(non_immutable));
+            non_immutables_files.push(write_dummy_file(self.file_size, &self.dir, non_immutable));
         }
 
         DummyImmutableDb {
             dir: self.dir.clone(),
             immutables_files: immutable_numbers
                 .into_iter()
-                .flat_map(|ifn| self.write_immutable_trio(ifn))
+                .flat_map(|ifn| write_immutable_trio(self.file_size, &self.dir, ifn))
                 .collect::<Vec<_>>(),
             non_immutables_files,
         }
@@ -108,37 +122,41 @@ impl DummyImmutablesDbBuilder {
 
         parent_dir
     }
+}
 
-    fn write_immutable_trio(&self, immutable: ImmutableFileNumber) -> Vec<ImmutableFile> {
-        let mut result = vec![];
-        for filename in [
-            format!("{immutable:05}.chunk"),
-            format!("{immutable:05}.primary"),
-            format!("{immutable:05}.secondary"),
-        ] {
-            let file = self.write_dummy_file(&filename);
-            result.push(ImmutableFile {
-                number: immutable.to_owned(),
-                path: file,
-                filename: filename.to_string(),
-            });
-        }
-        result
+fn write_immutable_trio(
+    optional_size: Option<u64>,
+    dir: &Path,
+    immutable: ImmutableFileNumber,
+) -> Vec<ImmutableFile> {
+    let mut result = vec![];
+    for filename in [
+        format!("{immutable:05}.chunk"),
+        format!("{immutable:05}.primary"),
+        format!("{immutable:05}.secondary"),
+    ] {
+        let file = write_dummy_file(optional_size, dir, &filename);
+        result.push(ImmutableFile {
+            number: immutable.to_owned(),
+            path: file,
+            filename: filename.to_string(),
+        });
+    }
+    result
+}
+
+/// Create a file with the given name in the given dir, write some text to it, and then
+/// return its path.
+fn write_dummy_file(optional_size: Option<u64>, dir: &Path, filename: &str) -> PathBuf {
+    let file = dir.join(Path::new(filename));
+    let mut source_file = File::create(&file).unwrap();
+
+    write!(source_file, "This is a test file named '{filename}'").unwrap();
+
+    if let Some(file_size) = optional_size {
+        writeln!(source_file).unwrap();
+        source_file.set_len(file_size).unwrap();
     }
 
-    /// Create a file with the given name in the given dir, write some text to it, and then
-    /// return its path.
-    fn write_dummy_file(&self, filename: &str) -> PathBuf {
-        let file = self.dir.join(Path::new(filename));
-        let mut source_file = File::create(&file).unwrap();
-
-        write!(source_file, "This is a test file named '{filename}'").unwrap();
-
-        if let Some(file_size) = self.file_size {
-            writeln!(source_file).unwrap();
-            source_file.set_len(file_size).unwrap();
-        }
-
-        file
-    }
+    file
 }

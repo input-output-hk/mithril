@@ -486,15 +486,9 @@ pub struct AggregatorParameters {
 }
 
 impl AggregatorParameters {
-    fn new(opts: &MainOpts) -> StdResult<Self> {
-        // configure a dummy immutable db
-        let immutable_db = DummyImmutablesDbBuilder::new("load-tester")
-            .with_immutables(&[1, 2, 3])
-            .append_immutable_trio()
-            .build();
-
+    fn new(opts: &MainOpts, immutable_db_path: &Path) -> StdResult<Self> {
         let bft_node = BftNode {
-            db_path: immutable_db.dir,
+            db_path: immutable_db_path.to_path_buf(),
             socket_path: PathBuf::new(),
         };
         let tmp_dir = opts
@@ -644,11 +638,21 @@ async fn bootstrap_aggregator(
     Ok(aggregator)
 }
 
+fn add_new_immutable_file(aggregator: &Aggregator) -> StdResult<()> {
+    todo!()
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
+    // configure a dummy immutable db
+    let mut immutable_db = DummyImmutablesDbBuilder::new("load-tester")
+        .with_immutables(&[1, 2, 3])
+        .append_immutable_trio()
+        .build();
+
     let _logger_guard = init_logger(&opts);
-    let args = AggregatorParameters::new(&opts)?;
+    let args = AggregatorParameters::new(&opts, &immutable_db.dir)?;
     let mut current_epoch = Epoch(1);
     let protocol_parameters = ProtocolParameters::new(2422, 20973, 0.20);
     info!(">> Starting stress test with options: {opts:?}");
@@ -695,6 +699,12 @@ async fn main() -> StdResult<()> {
 
     info!(">> Wait for artifacts to be available...");
     wait_for_mithril_stake_distribution_artifacts(&aggregator, Duration::from_secs(30)).await?;
+
+    info!(">> Add new immutable file");
+    immutable_db.add_immutable_file();
+
+    info!(">> Wait for pending certificate to be available");
+    wait_for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
 
     info!(">> All steps executed successfully, stopping all tasks...");
 
