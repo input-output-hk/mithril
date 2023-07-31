@@ -12,14 +12,16 @@ use clap::Parser;
 
 use indicatif::{ProgressBar, ProgressDrawTarget};
 use mithril_common::{
-    digesters::DummyImmutablesDbBuilder,
+    digesters::{
+        CardanoImmutableDigester, DummyImmutableDb, DummyImmutablesDbBuilder, ImmutableDigester,
+    },
     entities::{
-        Epoch, PartyId, ProtocolMessage, ProtocolParameters, SignedEntityType, Signer,
-        SingleSignatures,
+        Beacon, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+        SignedEntityType, Signer, SingleSignatures,
     },
     messages::{
         CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
-        RegisterSignatureMessage, RegisterSignerMessage,
+        RegisterSignatureMessage, RegisterSignerMessage, SnapshotListItemMessage,
     },
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
@@ -213,7 +215,10 @@ pub async fn wait_for_pending_certificate(
 }
 
 #[async_recursion]
-async fn request_first_list_item<I>(url: &str) -> Result<I, String>
+async fn request_first_list_item_with_expected_size<I>(
+    url: &str,
+    expected_size: usize,
+) -> Result<I, String>
 where
     for<'a> I: Deserialize<'a> + Sync + Send + Clone,
 {
@@ -222,8 +227,12 @@ where
     match reqwest::get(url).await {
         Ok(response) => match response.status() {
             StatusCode::OK => match response.json::<Vec<I>>().await.as_deref() {
-                Ok([first_item, ..]) => Ok(first_item.to_owned()),
-                Ok(&[]) => request_first_list_item::<I>(url).await,
+                Ok(list) if list.len() == expected_size => Ok(list.first().unwrap().clone()),
+                Ok(list) if list.len() > expected_size => Err(format!(
+                    "Invalid size, expected {expected_size}, got {}",
+                    list.len()
+                )),
+                Ok(_) => request_first_list_item_with_expected_size::<I>(url, expected_size).await,
                 Err(err) => Err(format!("Invalid list body : {err}")),
             },
             s if s.is_server_error() => {
@@ -234,7 +243,7 @@ where
                 warn!("{message}");
                 Err(message)
             }
-            _ => request_first_list_item::<I>(url).await,
+            _ => request_first_list_item_with_expected_size::<I>(url, expected_size).await,
         },
         Err(err) => Err(format!("Request to `{url}` failed: {err}")),
     }
@@ -271,15 +280,59 @@ pub async fn precompute_mithril_stake_distribution_signatures(
     )
 }
 
-/// Wait for certificates
+/// Compute all signers single signatures for the given fixture
+pub async fn compute_immutable_files_signatures(
+    immutable_db: &DummyImmutableDb,
+    epoch: Epoch,
+    signers_fixture: &MithrilFixture,
+    timeout: Duration,
+) -> StdResult<(Beacon, Vec<SingleSignatures>)> {
+    spin_while_waiting!(
+        {
+            let beacon = Beacon::new(
+                "devnet".to_string(),
+                *epoch,
+                // Minus one because the last immutable isn't "finished"
+                immutable_db.last_immutable_number().unwrap() - 1,
+            );
+            let digester = CardanoImmutableDigester::new(None, slog_scope::logger());
+            let digest = digester.compute_digest(&immutable_db.dir, &beacon).await?;
+            let signers_fixture = signers_fixture.clone();
+
+            let signatures = tokio::task::spawn_blocking(move || -> Vec<SingleSignatures> {
+                let mithril_stake_distribution_message = {
+                    let mut message = ProtocolMessage::new();
+                    message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+                    message.set_message_part(
+                        ProtocolMessagePartKey::NextAggregateVerificationKey,
+                        signers_fixture.compute_and_encode_avk(),
+                    );
+
+                    message
+                };
+
+                signers_fixture.sign_all(&mithril_stake_distribution_message)
+            })
+            .await?;
+
+            Ok((beacon, signatures))
+        },
+        timeout,
+        format!("Precompute signatures for CardanoImmutableFiles signed entity"),
+        format!("Precomputing signatures timeout after {timeout:?}")
+    )
+}
+
+/// Wait for the given number of certificates, return the latest certificate
 pub async fn wait_for_certificates(
     aggregator: &Aggregator,
+    total: usize,
     timeout: Duration,
 ) -> StdResult<CertificateListItemMessage> {
     let url = &format!("{}/certificates", aggregator.endpoint());
     spin_while_waiting!(
         {
-            request_first_list_item::<CertificateListItemMessage>(url)
+            request_first_list_item_with_expected_size::<CertificateListItemMessage>(url, total)
                 .await
                 .map_err(|e| e.into())
         },
@@ -300,12 +353,32 @@ pub async fn wait_for_mithril_stake_distribution_artifacts(
     );
     spin_while_waiting!(
         {
-            request_first_list_item::<MithrilStakeDistributionListItemMessage>(url)
+            request_first_list_item_with_expected_size::<MithrilStakeDistributionListItemMessage>(
+                url, 1,
+            )
+            .await
+            .map_err(|e| e.into())
+        },
+        timeout,
+        format!("Waiting for mithril stake distribution artifacts"),
+        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
+    )
+}
+
+/// Wait for Cardano Immutable Files artifacts
+pub async fn wait_for_immutable_files_artifacts(
+    aggregator: &Aggregator,
+    timeout: Duration,
+) -> StdResult<SnapshotListItemMessage> {
+    let url = &format!("{}/artifact/snapshots", aggregator.endpoint());
+    spin_while_waiting!(
+        {
+            request_first_list_item_with_expected_size::<SnapshotListItemMessage>(url, 1)
                 .await
                 .map_err(|e| e.into())
         },
         timeout,
-        format!("Waiting for mithril stake distribution artifacts"),
+        format!("Waiting for immutable files artifacts"),
         format!("Aggregator did not get a response after {timeout:?} from '{url}'")
     )
 }
@@ -638,10 +711,6 @@ async fn bootstrap_aggregator(
     Ok(aggregator)
 }
 
-fn add_new_immutable_file(aggregator: &Aggregator) -> StdResult<()> {
-    todo!()
-}
-
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
@@ -695,7 +764,7 @@ async fn main() -> StdResult<()> {
     assert_eq!(0, errors);
 
     info!(">> Wait for certificates to be available...");
-    wait_for_certificates(&aggregator, Duration::from_secs(30)).await?;
+    wait_for_certificates(&aggregator, 1, Duration::from_secs(30)).await?;
 
     info!(">> Wait for artifacts to be available...");
     wait_for_mithril_stake_distribution_artifacts(&aggregator, Duration::from_secs(30)).await?;
@@ -705,6 +774,34 @@ async fn main() -> StdResult<()> {
 
     info!(">> Wait for pending certificate to be available");
     wait_for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
+
+    info!(">> Compute the immutable files signature");
+    let (current_beacon, immutable_files_signatures) = compute_immutable_files_signatures(
+        &immutable_db,
+        current_epoch,
+        &signers_fixture,
+        Duration::from_secs(30),
+    )
+    .await
+    .unwrap();
+
+    info!(
+        ">> Send the Signer Signatures payloads for CardanoImmutableFiles({:?})",
+        current_beacon
+    );
+    let errors = register_signatures_to_aggregator(
+        &aggregator,
+        &immutable_files_signatures,
+        SignedEntityType::CardanoImmutableFilesFull(current_beacon),
+    )
+    .await?;
+    assert_eq!(0, errors);
+
+    info!(">> Wait for certificates to be available...");
+    wait_for_certificates(&aggregator, 2, Duration::from_secs(30)).await?;
+
+    info!(">> Wait for artifacts to be available...");
+    wait_for_immutable_files_artifacts(&aggregator, Duration::from_secs(30)).await?;
 
     info!(">> All steps executed successfully, stopping all tasks...");
 

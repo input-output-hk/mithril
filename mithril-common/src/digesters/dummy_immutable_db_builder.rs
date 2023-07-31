@@ -26,11 +26,18 @@ pub struct DummyImmutableDb {
 
 impl DummyImmutableDb {
     /// Add an immutable chunk file and its primary & secondary to the dummy DB.
-    pub fn add_immutable_file(&mut self) {
-        let last_file_number = self.immutables_files.last().map(|f| f.number).unwrap_or(1);
-        let mut new_files = write_immutable_trio(None, &self.dir, last_file_number + 1);
+    pub fn add_immutable_file(&mut self) -> ImmutableFileNumber {
+        let new_file_number = self.last_immutable_number().unwrap_or(0) + 1;
+        let mut new_files = write_immutable_trio(None, &self.dir, new_file_number);
 
         self.immutables_files.append(&mut new_files);
+
+        new_file_number
+    }
+
+    /// Return the file number of the last immutable
+    pub fn last_immutable_number(&self) -> Option<ImmutableFileNumber> {
+        self.immutables_files.last().map(|f| f.number)
     }
 }
 
