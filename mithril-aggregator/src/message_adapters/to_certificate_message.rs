@@ -19,7 +19,9 @@ impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageA
 
         let (multi_signature, genesis_signature) = match certificate.signature {
             CertificateSignature::GenesisSignature(signature) => (String::new(), signature),
-            CertificateSignature::MultiSignature(signature) => (signature, String::new()),
+            CertificateSignature::MultiSignature(signature) => {
+                (signature.to_json_hex().unwrap(), String::new())
+            }
         };
 
         CertificateMessage {

@@ -104,7 +104,7 @@ impl From<Certificate> for CertificateRecord {
         let (signature, parent_certificate_id) = match other.signature {
             CertificateSignature::GenesisSignature(signature) => (signature, None),
             CertificateSignature::MultiSignature(signature) => {
-                (signature, Some(other.previous_hash))
+                (signature.to_json_hex().unwrap(), Some(other.previous_hash))
             }
         };
 
@@ -127,7 +127,7 @@ impl From<Certificate> for CertificateRecord {
 }
 
 impl From<CertificateRecord> for Certificate {
-    fn from(other: CertificateRecord) -> Certificate {
+    fn from(other: CertificateRecord) -> Self {
         let certificate_metadata = CertificateMetadata::new(
             other.protocol_version,
             other.protocol_parameters,
@@ -135,32 +135,26 @@ impl From<CertificateRecord> for Certificate {
             other.sealed_at,
             other.signers,
         );
-        let signed_message = other.protocol_message.compute_hash();
+        let (previous_hash, signature) = match other.parent_certificate_id {
+            None => (
+                String::new(),
+                CertificateSignature::GenesisSignature(other.signature),
+            ),
+            Some(parent_certificate_id) => (
+                parent_certificate_id,
+                CertificateSignature::MultiSignature(other.signature.try_into().unwrap()),
+            ),
+        };
 
-        if other.parent_certificate_id.is_none() {
-            // Genesis certificate
-            Certificate {
-                hash: other.certificate_id,
-                previous_hash: "".to_string(),
-                beacon: other.beacon,
-                metadata: certificate_metadata,
-                protocol_message: other.protocol_message,
-                signed_message,
-                aggregate_verification_key: other.aggregate_verification_key,
-                signature: CertificateSignature::GenesisSignature(other.signature),
-            }
-        } else {
-            // Multi-signature certificate
-            Certificate {
-                hash: other.certificate_id,
-                previous_hash: other.parent_certificate_id.unwrap(),
-                beacon: other.beacon,
-                metadata: certificate_metadata,
-                protocol_message: other.protocol_message,
-                signed_message,
-                aggregate_verification_key: other.aggregate_verification_key,
-                signature: CertificateSignature::MultiSignature(other.signature),
-            }
+        Certificate {
+            hash: other.certificate_id,
+            previous_hash,
+            beacon: other.beacon,
+            metadata: certificate_metadata,
+            signed_message: other.protocol_message.compute_hash(),
+            protocol_message: other.protocol_message,
+            aggregate_verification_key: other.aggregate_verification_key,
+            signature,
         }
     }
 }

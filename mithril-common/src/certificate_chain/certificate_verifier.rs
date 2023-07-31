@@ -72,15 +72,6 @@ pub enum CertificateVerifierError {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertificateVerifier: Send + Sync {
-    /// Verify a multi signature
-    fn verify_multi_signature(
-        &self,
-        message: &[u8],
-        multi_signature: &str,
-        aggregate_verification_key: &str,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), CertificateVerifierError>;
-
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(
         &self,
@@ -147,11 +138,37 @@ impl MithrilCertificateVerifier {
         Self { logger }
     }
 
+    /// Verify a multi signature
+    fn verify_multi_signature(
+        &self,
+        message: &[u8],
+        multi_signature: &ProtocolMultiSignature,
+        aggregate_verification_key: &str,
+        protocol_parameters: &ProtocolParameters,
+    ) -> Result<(), CertificateVerifierError> {
+        debug!(
+            self.logger,
+            "Verify multi signature for {:?}",
+            message.encode_hex::<String>()
+        );
+        let aggregate_verification_key =
+            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
+
+        multi_signature
+            .key()
+            .verify(
+                message,
+                &aggregate_verification_key,
+                &protocol_parameters.to_owned().into(),
+            )
+            .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
+    }
+
     /// Verify Standard certificate
     async fn verify_standard_certificate(
         &self,
         certificate: &Certificate,
-        signature: &str,
+        signature: &ProtocolMultiSignature,
         certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<Option<Certificate>, CertificateVerifierError> {
         self.verify_multi_signature(
@@ -205,32 +222,6 @@ impl MithrilCertificateVerifier {
 
 #[async_trait]
 impl CertificateVerifier for MithrilCertificateVerifier {
-    /// Verify a multi signature
-    fn verify_multi_signature(
-        &self,
-        message: &[u8],
-        multi_signature: &str,
-        aggregate_verification_key: &str,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), CertificateVerifierError> {
-        debug!(
-            self.logger,
-            "Verify multi signature for {:?}",
-            message.encode_hex::<String>()
-        );
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(CertificateVerifierError::Codec)?;
-        let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
-        multi_signature
-            .verify(
-                message,
-                &aggregate_verification_key,
-                &protocol_parameters.to_owned().into(),
-            )
-            .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
-    }
-
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(
         &self,
@@ -339,7 +330,10 @@ mod tests {
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_avk();
-        let multi_signature = clerk.aggregate(&single_signatures, &message_hash).unwrap();
+        let multi_signature = clerk
+            .aggregate(&single_signatures, &message_hash)
+            .unwrap()
+            .into();
 
         let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let message_tampered = message_hash[1..].to_vec();
@@ -347,7 +341,7 @@ mod tests {
             verifier
                 .verify_multi_signature(
                     &message_tampered,
-                    &key_encode_hex(&multi_signature).unwrap(),
+                    &multi_signature,
                     &key_encode_hex(&aggregate_verification_key).unwrap(),
                     &fixture.protocol_parameters(),
                 )
@@ -357,7 +351,7 @@ mod tests {
         verifier
             .verify_multi_signature(
                 &message_hash,
-                &key_encode_hex(&multi_signature).unwrap(),
+                &multi_signature,
                 &key_encode_hex(&aggregate_verification_key).unwrap(),
                 &fixture.protocol_parameters(),
             )

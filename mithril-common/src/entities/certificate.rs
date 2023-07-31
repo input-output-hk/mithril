@@ -1,6 +1,7 @@
+use crate::crypto_helper::ProtocolMultiSignature;
 use crate::entities::{
-    Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, HexEncodedGenesisSignature,
-    HexEncodedMultiSignature, ProtocolMessage,
+    Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, HexEncodedMultiSignature,
+    ProtocolMessage,
 };
 use std::cmp::Ordering;
 
@@ -15,7 +16,7 @@ pub enum CertificateSignature {
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
-    MultiSignature(HexEncodedGenesisSignature),
+    MultiSignature(ProtocolMultiSignature),
 }
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
@@ -57,17 +58,6 @@ pub struct Certificate {
     pub signature: CertificateSignature,
 }
 
-impl CertificateSignature {
-    /// Returns a byte slice of this signature contents.
-    pub fn as_bytes(&self) -> &[u8] {
-        let signature = match self {
-            CertificateSignature::GenesisSignature(signature) => signature,
-            CertificateSignature::MultiSignature(signature) => signature,
-        };
-        signature.as_bytes()
-    }
-}
-
 impl Certificate {
     /// Certificate factory
     pub fn new(
@@ -102,7 +92,14 @@ impl Certificate {
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
         hasher.update(self.aggregate_verification_key.as_bytes());
-        hasher.update(self.signature.as_bytes());
+        match &self.signature {
+            CertificateSignature::GenesisSignature(signature) => {
+                hasher.update(signature.as_bytes());
+            }
+            CertificateSignature::MultiSignature(signature) => {
+                hasher.update(&signature.to_json_hex().unwrap());
+            }
+        };
         hex::encode(hasher.finalize())
     }
 
@@ -203,7 +200,9 @@ mod tests {
             ),
             get_protocol_message(),
             "aggregate_verification_key".to_string(),
-            CertificateSignature::MultiSignature(fake_keys::multi_signature()[0].to_string()),
+            CertificateSignature::MultiSignature(
+                fake_keys::multi_signature()[0].try_into().unwrap(),
+            ),
         );
 
         assert_eq!(HASH_EXPECTED, certificate.compute_hash());
@@ -268,7 +267,7 @@ mod tests {
             HASH_EXPECTED,
             Certificate {
                 signature: CertificateSignature::MultiSignature(
-                    fake_keys::multi_signature()[1].to_string()
+                    fake_keys::multi_signature()[1].try_into().unwrap()
                 ),
                 ..certificate.clone()
             }
@@ -298,7 +297,9 @@ mod tests {
             ),
             get_protocol_message(),
             "aggregate_verification_key".to_string(),
-            CertificateSignature::GenesisSignature(fake_keys::genesis_signature()[0].to_string()),
+            CertificateSignature::GenesisSignature(
+                fake_keys::genesis_signature()[0].try_into().unwrap(),
+            ),
         );
 
         assert_eq!(HASH_EXPECTED, genesis_certificate.compute_hash());
@@ -307,7 +308,7 @@ mod tests {
             HASH_EXPECTED,
             Certificate {
                 signature: CertificateSignature::GenesisSignature(
-                    fake_keys::genesis_signature()[1].to_string()
+                    fake_keys::genesis_signature()[1].try_into().unwrap()
                 ),
                 ..genesis_certificate.clone()
             }

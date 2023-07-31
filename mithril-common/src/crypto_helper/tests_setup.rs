@@ -275,9 +275,8 @@ pub fn setup_certificate_chain(
                             fake_certificate.signed_message.as_bytes(),
                         )
                         .unwrap();
-                    fake_certificate.signature = CertificateSignature::MultiSignature(
-                        key_encode_hex(multi_signature).unwrap(),
-                    );
+                    fake_certificate.signature =
+                        CertificateSignature::MultiSignature(multi_signature.into());
                 }
             }
             fake_certificate

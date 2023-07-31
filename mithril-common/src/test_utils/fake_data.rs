@@ -135,7 +135,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     // Certificate
     let previous_hash = format!("{certificate_hash}0");
     let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
-    let multi_signature = fake_keys::multi_signature()[0].to_string();
+    let multi_signature = fake_keys::multi_signature()[0].try_into().unwrap();
 
     entities::Certificate {
         hash: certificate_hash,
