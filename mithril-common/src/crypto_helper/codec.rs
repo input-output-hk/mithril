@@ -1,4 +1,4 @@
-use crate::entities::HexEncodedKey;
+use crate::entities::{HexEncodedKey, HexEncodedKeySlice};
 
 use hex::{FromHex, ToHex};
 use serde::de::DeserializeOwned;
@@ -15,7 +15,7 @@ where
 }
 
 /// Decode key from hex helper
-pub fn key_decode_hex<T>(from: &HexEncodedKey) -> Result<T, String>
+pub fn key_decode_hex<T>(from: HexEncodedKeySlice) -> Result<T, String>
 where
     T: DeserializeOwned,
 {

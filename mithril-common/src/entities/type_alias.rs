@@ -27,6 +27,9 @@ pub type ProtocolVersion = String;
 /// Hex encoded key
 pub type HexEncodedKey = String;
 
+/// Hex encoded key slice
+pub type HexEncodedKeySlice<'a> = &'a str;
+
 /// Hex encoded Single Signature
 pub type HexEncodedSingleSignature = HexEncodedKey;
 

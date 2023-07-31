@@ -131,15 +131,12 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
                 )
             })?;
 
-        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
-            .map_err(
-                |e| MithrilStakeDistributionServiceError::InvalidParameters {
-                    context: format!(
-                        "Invalid genesis verification key '{genesis_verification_key}'"
-                    ),
-                    error: e.into(),
-                },
-            )?;
+        let genesis_verification_key = key_decode_hex(genesis_verification_key).map_err(|e| {
+            MithrilStakeDistributionServiceError::InvalidParameters {
+                context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
+                error: e.into(),
+            }
+        })?;
         self.certificate_verifier
             .verify_certificate_chain(
                 certificate.clone(),

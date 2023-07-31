@@ -131,11 +131,12 @@ impl MithrilClientSnapshotService {
         genesis_verification_key: &str,
         certificate: &Certificate,
     ) -> StdResult<()> {
-        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())
-            .map_err(|e| SnapshotServiceError::InvalidParameters {
+        let genesis_verification_key = key_decode_hex(genesis_verification_key).map_err(|e| {
+            SnapshotServiceError::InvalidParameters {
                 context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
                 error: e.into(),
-            })?;
+            }
+        })?;
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 

@@ -163,10 +163,10 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             "Verify multi signature for {:?}",
             message.encode_hex::<String>()
         );
-        let multi_signature: ProtocolMultiSignature = key_decode_hex(&multi_signature.to_string())
-            .map_err(CertificateVerifierError::Codec)?;
-        let aggregate_verification_key = key_decode_hex(&aggregate_verification_key.to_string())
-            .map_err(CertificateVerifierError::Codec)?;
+        let multi_signature: ProtocolMultiSignature =
+            key_decode_hex(multi_signature).map_err(CertificateVerifierError::Codec)?;
+        let aggregate_verification_key =
+            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
         multi_signature
             .verify(
                 message,
