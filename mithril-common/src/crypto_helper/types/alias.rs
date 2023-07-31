@@ -17,7 +17,7 @@ use kes_summed_ed25519::kes::Sum6KesSig;
 pub type ProtocolVersion<'a> = &'a str;
 
 // Protocol types alias
-type D = Blake2b<U32>;
+pub(crate) type D = Blake2b<U32>;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;

@@ -17,6 +17,9 @@ use mithril_common::{
     StdResult,
 };
 
+#[cfg(test)]
+use mithril_common::test_utils::fake_keys;
+
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
 pub struct CertificateRecord {
@@ -67,6 +70,7 @@ impl CertificateRecord {
     pub fn dummy_genesis(id: &str, beacon: Beacon) -> Self {
         let mut record = Self::dummy(id, "", beacon);
         record.parent_certificate_id = None;
+        record.signature = fake_keys::genesis_signature()[0].to_owned();
         record
     }
 
@@ -76,7 +80,7 @@ impl CertificateRecord {
             certificate_id: id.to_string(),
             parent_certificate_id: Some(parent_id.to_string()),
             message: "message".to_string(),
-            signature: "signature".to_string(),
+            signature: fake_keys::multi_signature()[0].to_owned(),
             aggregate_verification_key: "avk".to_string(),
             epoch: beacon.epoch,
             beacon,

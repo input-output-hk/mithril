@@ -44,7 +44,7 @@ mod tests {
     fn adapt_ok() {
         let certificate_message = CertificateMessage {
             hash: "hash123".to_string(),
-            ..Default::default()
+            ..CertificateMessage::dummy()
         };
         let certificate = FromCertificateMessageAdapter::try_adapt(certificate_message).unwrap();
 

@@ -3,10 +3,11 @@ use crate::{
     messages::certificate_metadata::CertificateMetadataMessage,
 };
 
+use crate::test_utils::fake_keys;
 use serde::{Deserialize, Serialize};
 
 /// Message structure of a certificate
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificateMessage {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -69,8 +70,8 @@ impl CertificateMessage {
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
-            multi_signature: "multi_signature".to_string(),
-            genesis_signature: "genesis_signature".to_string(),
+            multi_signature: fake_keys::multi_signature()[0].to_owned(),
+            genesis_signature: String::new(),
         }
     }
 }

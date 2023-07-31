@@ -105,7 +105,7 @@ mod tests {
         entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake},
         test_utils::fake_keys,
     };
-    use chrono::{Duration, TimeZone, Timelike, Utc};
+    use chrono::{DateTime, Duration, Utc};
 
     fn get_signers_with_stake() -> Vec<SignerWithStake> {
         vec![
@@ -128,17 +128,7 @@ mod tests {
         ]
     }
 
-    #[test]
-    fn test_certificate_compute_hash() {
-        const HASH_EXPECTED: &str =
-            "3b5cabc1ddc73c5dfd30064f6b9aef55c464b8359acc1649cb82fc4492be6a15";
-
-        let initiated_at = Utc
-            .with_ymd_and_hms(2024, 2, 12, 13, 11, 47)
-            .unwrap()
-            .with_nanosecond(123043)
-            .unwrap();
-        let sealed_at = initiated_at + Duration::seconds(100);
+    fn get_protocol_message() -> ProtocolMessage {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -148,169 +138,139 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
-        assert_eq!(
+
+        protocol_message
+    }
+
+    #[test]
+    fn test_certificate_compute_hash() {
+        const HASH_EXPECTED: &str =
+            "255d59cef74aae5bc2e83e87612dea41309551dde0c770d46bf6607971bb9765";
+
+        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let sealed_at = initiated_at + Duration::seconds(100);
+
+        let certificate = Certificate::new(
+            "previous_hash".to_string(),
+            Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
+                ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at,
+                sealed_at,
+                get_signers_with_stake(),
+            ),
+            get_protocol_message(),
+            "aggregate_verification_key".to_string(),
+            fake_keys::multi_signature()[0].to_string(),
+            String::new(),
+        );
+
+        assert_eq!(HASH_EXPECTED, certificate.compute_hash());
+
+        assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
+            Certificate {
+                previous_hash: "previous_hash-modified".to_string(),
+                ..certificate.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash-modified".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
+            Certificate {
+                beacon: Beacon::new("testnet-modified".to_string(), 10, 100),
+                ..certificate.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet-modified".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
+            Certificate {
+                metadata: CertificateMetadata {
+                    protocol_version: "0.1.0-modified".to_string(),
+                    ..certificate.metadata.clone()
+                },
+                ..certificate.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0-modified".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
-        );
+            Certificate {
+                protocol_message: {
+                    let mut protocol_message_modified = certificate.protocol_message.clone();
+                    protocol_message_modified.set_message_part(
+                        ProtocolMessagePartKey::NextAggregateVerificationKey,
+                        "next-avk-456".to_string(),
+                    );
 
-        let mut protocol_message_modified = protocol_message.clone();
-        protocol_message_modified.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-456".to_string(),
-        );
-        assert_ne!(
-            HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message_modified.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
+                    protocol_message_modified
+                },
+                ..certificate.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key-modified".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
+            Certificate {
+                aggregate_verification_key: "aggregate_verification_key-modified".to_string(),
+                ..certificate.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature-modified".to_string(),
-                "genesis_signature".to_string(),
-            )
-            .compute_hash()
+            Certificate {
+                multi_signature: fake_keys::multi_signature()[1].to_string(),
+                ..certificate.clone()
+            }
+            .compute_hash(),
         );
+    }
+
+    #[test]
+    fn test_genesis_certificate_compute_hash() {
+        const HASH_EXPECTED: &str =
+            "bbb265e74082896873d3fbe568e4b0118ddcf9a63b4f4b369b92773439e80159";
+
+        let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
+            .unwrap()
+            .with_timezone(&Utc);
+        let sealed_at = initiated_at + Duration::seconds(100);
+
+        let genesis_certificate = Certificate::new(
+            "previous_hash".to_string(),
+            Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
+                ProtocolParameters::new(1000, 100, 0.123),
+                initiated_at,
+                sealed_at,
+                get_signers_with_stake(),
+            ),
+            get_protocol_message(),
+            "aggregate_verification_key".to_string(),
+            String::new(),
+            fake_keys::genesis_signature()[0].to_string(),
+        );
+
+        assert_eq!(HASH_EXPECTED, genesis_certificate.compute_hash());
 
         assert_ne!(
             HASH_EXPECTED,
-            Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                CertificateMetadata::new(
-                    "0.1.0".to_string(),
-                    ProtocolParameters::new(1000, 100, 0.123),
-                    initiated_at,
-                    sealed_at,
-                    get_signers_with_stake(),
-                ),
-                protocol_message.clone(),
-                "aggregate_verification_key".to_string(),
-                "multi_signature".to_string(),
-                "genesis_signature-modified".to_string(),
-            )
-            .compute_hash()
+            Certificate {
+                genesis_signature: fake_keys::genesis_signature()[1].to_string(),
+                ..genesis_certificate.clone()
+            }
+            .compute_hash(),
         );
     }
 }
