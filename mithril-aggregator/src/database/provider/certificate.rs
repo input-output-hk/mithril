@@ -7,8 +7,9 @@ use tokio::sync::Mutex;
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{
-        Beacon, Certificate, CertificateMetadata, Epoch, HexEncodedAgregateVerificationKey,
-        HexEncodedKey, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignerWithStake,
+        Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
+        HexEncodedAgregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
+        ProtocolVersion, SignerWithStake,
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -100,40 +101,27 @@ impl CertificateRecord {
 
 impl From<Certificate> for CertificateRecord {
     fn from(other: Certificate) -> Self {
-        if !other.genesis_signature.is_empty() {
-            // Genesis certificate
-            CertificateRecord {
-                certificate_id: other.hash,
-                parent_certificate_id: None,
-                message: other.signed_message,
-                signature: other.genesis_signature,
-                aggregate_verification_key: other.aggregate_verification_key,
-                epoch: other.beacon.epoch,
-                beacon: other.beacon,
-                protocol_version: other.metadata.protocol_version,
-                protocol_parameters: other.metadata.protocol_parameters,
-                protocol_message: other.protocol_message,
-                signers: other.metadata.signers,
-                initiated_at: other.metadata.initiated_at,
-                sealed_at: other.metadata.sealed_at,
+        let (signature, parent_certificate_id) = match other.signature {
+            CertificateSignature::GenesisSignature(signature) => (signature, None),
+            CertificateSignature::MultiSignature(signature) => {
+                (signature, Some(other.previous_hash))
             }
-        } else {
-            // Multi-signature certificate
-            CertificateRecord {
-                certificate_id: other.hash,
-                parent_certificate_id: Some(other.previous_hash),
-                message: other.signed_message,
-                signature: other.multi_signature,
-                aggregate_verification_key: other.aggregate_verification_key,
-                epoch: other.beacon.epoch,
-                beacon: other.beacon,
-                protocol_version: other.metadata.protocol_version,
-                protocol_parameters: other.metadata.protocol_parameters,
-                protocol_message: other.protocol_message,
-                signers: other.metadata.signers,
-                initiated_at: other.metadata.initiated_at,
-                sealed_at: other.metadata.sealed_at,
-            }
+        };
+
+        CertificateRecord {
+            certificate_id: other.hash,
+            parent_certificate_id,
+            message: other.signed_message,
+            signature,
+            aggregate_verification_key: other.aggregate_verification_key,
+            epoch: other.beacon.epoch,
+            beacon: other.beacon,
+            protocol_version: other.metadata.protocol_version,
+            protocol_parameters: other.metadata.protocol_parameters,
+            protocol_message: other.protocol_message,
+            signers: other.metadata.signers,
+            initiated_at: other.metadata.initiated_at,
+            sealed_at: other.metadata.sealed_at,
         }
     }
 }
@@ -159,8 +147,7 @@ impl From<CertificateRecord> for Certificate {
                 protocol_message: other.protocol_message,
                 signed_message,
                 aggregate_verification_key: other.aggregate_verification_key,
-                multi_signature: "".to_string(),
-                genesis_signature: other.signature,
+                signature: CertificateSignature::GenesisSignature(other.signature),
             }
         } else {
             // Multi-signature certificate
@@ -172,8 +159,7 @@ impl From<CertificateRecord> for Certificate {
                 protocol_message: other.protocol_message,
                 signed_message,
                 aggregate_verification_key: other.aggregate_verification_key,
-                multi_signature: other.signature,
-                genesis_signature: "".to_string(),
+                signature: CertificateSignature::MultiSignature(other.signature),
             }
         }
     }

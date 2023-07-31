@@ -2,12 +2,24 @@ use crate::entities::{
     Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, HexEncodedGenesisSignature,
     HexEncodedMultiSignature, ProtocolMessage,
 };
-use std::ops::Not;
+use std::cmp::Ordering;
 
 use sha2::{Digest, Sha256};
 
+/// The signature of a [Certificate]
+#[derive(Clone, Debug)]
+pub enum CertificateSignature {
+    /// Genesis signature created from the original stake distribution
+    /// aka GENESIS_SIG(AVK(-1))
+    GenesisSignature(HexEncodedMultiSignature),
+
+    /// STM multi signature created from a quorum of single signatures from the signers
+    /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
+    MultiSignature(HexEncodedGenesisSignature),
+}
+
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug)]
 pub struct Certificate {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -41,14 +53,19 @@ pub struct Certificate {
     /// aka AVK(n-2)
     pub aggregate_verification_key: HexEncodedAgregateVerificationKey,
 
-    /// STM multi signature created from a quorum of single signatures from the signers
-    /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
-    pub multi_signature: HexEncodedMultiSignature,
+    /// Certificate signature
+    pub signature: CertificateSignature,
+}
 
-    // @todo: Should we change this to an option since it's only filled for genesis certificates ?
-    /// Genesis signature created from the original stake distribution
-    /// aka GENESIS_SIG(AVK(-1))
-    pub genesis_signature: HexEncodedGenesisSignature,
+impl CertificateSignature {
+    /// Returns a byte slice of this signature contents.
+    pub fn as_bytes(&self) -> &[u8] {
+        let signature = match self {
+            CertificateSignature::GenesisSignature(signature) => signature,
+            CertificateSignature::MultiSignature(signature) => signature,
+        };
+        signature.as_bytes()
+    }
 }
 
 impl Certificate {
@@ -59,8 +76,7 @@ impl Certificate {
         metadata: CertificateMetadata,
         protocol_message: ProtocolMessage,
         aggregate_verification_key: HexEncodedAgregateVerificationKey,
-        multi_signature: HexEncodedMultiSignature,
-        genesis_signature: HexEncodedGenesisSignature,
+        signature: CertificateSignature,
     ) -> Certificate {
         let signed_message = protocol_message.compute_hash();
         let mut certificate = Certificate {
@@ -71,8 +87,7 @@ impl Certificate {
             protocol_message,
             signed_message,
             aggregate_verification_key,
-            multi_signature,
-            genesis_signature,
+            signature,
         };
         certificate.hash = certificate.compute_hash();
         certificate
@@ -87,14 +102,38 @@ impl Certificate {
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
         hasher.update(self.aggregate_verification_key.as_bytes());
-        hasher.update(self.multi_signature.as_bytes());
-        hasher.update(self.genesis_signature.as_bytes());
+        hasher.update(self.signature.as_bytes());
         hex::encode(hasher.finalize())
     }
 
     /// Tell if the certificate is a genesis certificate
     pub fn is_genesis(&self) -> bool {
-        self.genesis_signature.is_empty().not()
+        matches!(self.signature, CertificateSignature::GenesisSignature(_))
+    }
+
+    /// Return true if the certificate is chaining into itself (meaning that its hash and previous
+    /// hash are equal).
+    pub fn is_chaining_to_itself(&self) -> bool {
+        self.hash == self.previous_hash
+    }
+}
+
+impl PartialEq for Certificate {
+    fn eq(&self, other: &Self) -> bool {
+        self.beacon.eq(&other.beacon) && self.hash.eq(&other.hash)
+    }
+}
+
+impl PartialOrd for Certificate {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // Order by beacon first then per hash
+        match self.beacon.partial_cmp(&other.beacon) {
+            Some(ordering) if ordering == Ordering::Equal => self.hash.partial_cmp(&other.hash),
+            Some(other) => Some(other),
+            // Beacons may be not comparable (most likely because the network isn't the same) in
+            // that case we can still order per hash
+            None => self.hash.partial_cmp(&other.hash),
+        }
     }
 }
 
@@ -164,8 +203,7 @@ mod tests {
             ),
             get_protocol_message(),
             "aggregate_verification_key".to_string(),
-            fake_keys::multi_signature()[0].to_string(),
-            String::new(),
+            CertificateSignature::MultiSignature(fake_keys::multi_signature()[0].to_string()),
         );
 
         assert_eq!(HASH_EXPECTED, certificate.compute_hash());
@@ -229,7 +267,9 @@ mod tests {
         assert_ne!(
             HASH_EXPECTED,
             Certificate {
-                multi_signature: fake_keys::multi_signature()[1].to_string(),
+                signature: CertificateSignature::MultiSignature(
+                    fake_keys::multi_signature()[1].to_string()
+                ),
                 ..certificate.clone()
             }
             .compute_hash(),
@@ -258,8 +298,7 @@ mod tests {
             ),
             get_protocol_message(),
             "aggregate_verification_key".to_string(),
-            String::new(),
-            fake_keys::genesis_signature()[0].to_string(),
+            CertificateSignature::GenesisSignature(fake_keys::genesis_signature()[0].to_string()),
         );
 
         assert_eq!(HASH_EXPECTED, genesis_certificate.compute_hash());
@@ -267,7 +306,9 @@ mod tests {
         assert_ne!(
             HASH_EXPECTED,
             Certificate {
-                genesis_signature: fake_keys::genesis_signature()[1].to_string(),
+                signature: CertificateSignature::GenesisSignature(
+                    fake_keys::genesis_signature()[1].to_string()
+                ),
                 ..genesis_certificate.clone()
             }
             .compute_hash(),

@@ -260,7 +260,7 @@ mod tests {
             Arc::new(mock_mithril_stake_distribution_artifact_builder),
             Arc::new(mock_cardano_immutable_files_full_artifact_builder),
         );
-        let certificate = Certificate::default();
+        let certificate = fake_data::certificate("hash".to_string());
 
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
         let artifact = artifact_builder_service
@@ -297,7 +297,7 @@ mod tests {
             Arc::new(mock_mithril_stake_distribution_artifact_builder),
             Arc::new(mock_cardano_immutable_files_full_artifact_builder),
         );
-        let certificate = Certificate::default();
+        let certificate = fake_data::certificate("hash".to_string());
 
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(Beacon::default());
         let artifact = artifact_builder_service

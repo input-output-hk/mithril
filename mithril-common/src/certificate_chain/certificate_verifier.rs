@@ -11,7 +11,9 @@ use crate::crypto_helper::{
     key_decode_hex, ProtocolGenesisError, ProtocolGenesisSignature, ProtocolGenesisVerifier,
     ProtocolMultiSignature,
 };
-use crate::entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters};
+use crate::entities::{
+    Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -58,6 +60,11 @@ pub enum CertificateVerifierError {
     /// Error raised when validating the certificate chain if the chain loops.
     #[error("certificate chain infinite loop error")]
     CertificateChainInfiniteLoop,
+
+    /// Error raised when [CertificateVerifier::verify_genesis_certificate] was called with a
+    /// certificate that's not a genesis certificate.
+    #[error("can't validate genesis certificate: given certificate isn't a genesis certificate")]
+    InvalidGenesisCertificateProvided,
 }
 
 /// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and
@@ -77,20 +84,13 @@ pub trait CertificateVerifier: Send + Sync {
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(
         &self,
-        certificate: &Certificate,
+        genesis_certificate: &Certificate,
         genesis_verifier: &ProtocolGenesisVerifier,
     ) -> Result<(), CertificateVerifierError>;
 
-    /// Verify Standard certificate
-    async fn verify_standard_certificate(
-        &self,
-        certificate: &Certificate,
-        certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<Option<Certificate>, CertificateVerifierError>;
-
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
     /// Step 1: Check if the hash is valid (i.e. the Certificate has not been tampered by modifying its content)
-    /// Step 2: Check that the multi signature is valid if it is a Standard Certificate (i.e verifiction of the Mithril multi signature)
+    /// Step 2: Check that the multi signature is valid if it is a Standard Certificate (i.e verification of the Mithril multi signature)
     /// Step 3: Check that the aggregate verification key of the Certificate is registered in the previous Certificate in the chain
     async fn verify_certificate(
         &self,
@@ -146,60 +146,17 @@ impl MithrilCertificateVerifier {
         debug!(logger, "New MithrilCertificateVerifier created");
         Self { logger }
     }
-}
-
-#[async_trait]
-impl CertificateVerifier for MithrilCertificateVerifier {
-    /// Verify a multi signature
-    fn verify_multi_signature(
-        &self,
-        message: &[u8],
-        multi_signature: &str,
-        aggregate_verification_key: &str,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), CertificateVerifierError> {
-        debug!(
-            self.logger,
-            "Verify multi signature for {:?}",
-            message.encode_hex::<String>()
-        );
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(CertificateVerifierError::Codec)?;
-        let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
-        multi_signature
-            .verify(
-                message,
-                &aggregate_verification_key,
-                &protocol_parameters.to_owned().into(),
-            )
-            .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
-    }
-
-    /// Verify Genesis certificate
-    async fn verify_genesis_certificate(
-        &self,
-        certificate: &Certificate,
-        genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<(), CertificateVerifierError> {
-        let genesis_signature = ProtocolGenesisSignature::from_bytes(
-            &Vec::from_hex(&certificate.genesis_signature)
-                .map_err(|e| CertificateVerifierError::Codec(e.to_string()))?,
-        )
-        .map_err(|e| CertificateVerifierError::CodecGenesis(e.to_string()))?;
-        genesis_verifier.verify(certificate.signed_message.as_bytes(), &genesis_signature)?;
-        Ok(())
-    }
 
     /// Verify Standard certificate
     async fn verify_standard_certificate(
         &self,
         certificate: &Certificate,
+        signature: &str,
         certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<Option<Certificate>, CertificateVerifierError> {
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
-            &certificate.multi_signature,
+            signature,
             &certificate.aggregate_verification_key,
             &certificate.metadata.protocol_parameters,
         )?;
@@ -244,6 +201,60 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             }
         }
     }
+}
+
+#[async_trait]
+impl CertificateVerifier for MithrilCertificateVerifier {
+    /// Verify a multi signature
+    fn verify_multi_signature(
+        &self,
+        message: &[u8],
+        multi_signature: &str,
+        aggregate_verification_key: &str,
+        protocol_parameters: &ProtocolParameters,
+    ) -> Result<(), CertificateVerifierError> {
+        debug!(
+            self.logger,
+            "Verify multi signature for {:?}",
+            message.encode_hex::<String>()
+        );
+        let multi_signature: ProtocolMultiSignature =
+            key_decode_hex(multi_signature).map_err(CertificateVerifierError::Codec)?;
+        let aggregate_verification_key =
+            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
+        multi_signature
+            .verify(
+                message,
+                &aggregate_verification_key,
+                &protocol_parameters.to_owned().into(),
+            )
+            .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
+    }
+
+    /// Verify Genesis certificate
+    async fn verify_genesis_certificate(
+        &self,
+        genesis_certificate: &Certificate,
+        genesis_verifier: &ProtocolGenesisVerifier,
+    ) -> Result<(), CertificateVerifierError> {
+        let genesis_signature = match &genesis_certificate.signature {
+            CertificateSignature::GenesisSignature(signature) => {
+                let raw_signature_bytes = &Vec::from_hex(signature)
+                    .map_err(|e| CertificateVerifierError::Codec(e.to_string()))?;
+
+                ProtocolGenesisSignature::from_bytes(raw_signature_bytes)
+                    .map_err(|e| CertificateVerifierError::CodecGenesis(e.to_string()))
+            }
+            _ => Err(CertificateVerifierError::InvalidGenesisCertificateProvided),
+        }?;
+
+        genesis_verifier.verify(
+            genesis_certificate.signed_message.as_bytes(),
+            &genesis_signature,
+        )?;
+
+        Ok(())
+    }
 
     /// Verify a certificate
     async fn verify_certificate(
@@ -265,18 +276,20 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             .eq(&certificate.compute_hash())
             .then(|| certificate.hash.clone())
             .ok_or(CertificateVerifierError::CertificateHashUnmatch)?;
-        match certificate.previous_hash.as_str() {
-            "" => {
-                self.verify_genesis_certificate(certificate, genesis_verifier)
-                    .await?;
-                Ok(None)
-            }
-            previous_hash if previous_hash == certificate.hash => {
-                Err(CertificateVerifierError::CertificateChainInfiniteLoop)
-            }
-            _ => {
-                self.verify_standard_certificate(certificate, certificate_retriever)
-                    .await
+
+        if certificate.is_chaining_to_itself() {
+            Err(CertificateVerifierError::CertificateChainInfiniteLoop)
+        } else {
+            match &certificate.signature {
+                CertificateSignature::GenesisSignature(_signature) => {
+                    self.verify_genesis_certificate(certificate, genesis_verifier)
+                        .await?;
+                    Ok(None)
+                }
+                CertificateSignature::MultiSignature(signature) => {
+                    self.verify_standard_certificate(certificate, signature, certificate_retriever)
+                        .await
+                }
             }
         }
     }

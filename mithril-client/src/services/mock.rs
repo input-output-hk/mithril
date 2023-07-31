@@ -38,15 +38,9 @@ mock! {
 
         async fn verify_genesis_certificate(
             &self,
-            certificate: &Certificate,
+            genesis_certificate: &Certificate,
             genesis_verifier: &ProtocolGenesisVerifier,
         ) -> Result<(), CertificateVerifierError>;
-
-        async fn verify_standard_certificate(
-            &self,
-            certificate: &Certificate,
-            certificate_retriever: Arc<dyn CertificateRetriever>,
-        ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
         async fn verify_certificate(
             &self,

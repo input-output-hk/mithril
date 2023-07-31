@@ -6,6 +6,7 @@ use chrono::prelude::*;
 use hex::ToHex;
 use thiserror::Error;
 
+use crate::entities::CertificateSignature;
 use crate::{
     crypto_helper::{
         key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
@@ -86,7 +87,6 @@ impl CertificateGenesisProducer {
             signers,
         );
         let previous_hash = "".to_string();
-        let multi_signature = "".to_string();
         let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
         let genesis_avk =
             key_encode_hex(&genesis_avk).map_err(CertificateGenesisProducerError::Codec)?;
@@ -97,8 +97,7 @@ impl CertificateGenesisProducer {
             metadata,
             genesis_protocol_message,
             genesis_avk,
-            multi_signature,
-            genesis_signature,
+            CertificateSignature::GenesisSignature(genesis_signature),
         ))
     }
 }

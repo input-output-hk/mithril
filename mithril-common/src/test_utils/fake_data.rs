@@ -3,10 +3,10 @@
 use chrono::{DateTime, Utc};
 
 use crate::{
-    crypto_helper, entities,
+    crypto_helper,
     entities::{
-        CertificateMetadata, Epoch, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey,
-        SignedEntityType, SingleSignatures,
+        self, CertificateMetadata, CertificateSignature, Epoch, LotteryIndex, ProtocolMessage,
+        ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -86,12 +86,13 @@ pub fn certificate_pending() -> entities::CertificatePending {
 
 /// Fake Genesis Certificate
 pub fn genesis_certificate(certificate_hash: &str) -> entities::Certificate {
-    let mut certificate = certificate(certificate_hash.to_string());
-    certificate.previous_hash = String::new();
-    certificate.genesis_signature = certificate.multi_signature;
-    certificate.multi_signature = String::new();
+    let multi_signature = fake_keys::multi_signature()[1].to_string();
 
-    certificate
+    entities::Certificate {
+        previous_hash: String::new(),
+        signature: CertificateSignature::GenesisSignature(multi_signature),
+        ..certificate(certificate_hash.to_string())
+    }
 }
 
 /// Fake Certificate
@@ -134,19 +135,18 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     // Certificate
     let previous_hash = format!("{certificate_hash}0");
     let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
-    let multi_signature = format!("MSIG{}", beacon.immutable_file_number).repeat(200);
-    let genesis_signature = String::new();
-    let mut certificate = entities::Certificate::new(
+    let multi_signature = fake_keys::multi_signature()[0].to_string();
+
+    entities::Certificate {
+        hash: certificate_hash,
         previous_hash,
         beacon,
         metadata,
         protocol_message,
+        signed_message: "".to_string(),
         aggregate_verification_key,
-        multi_signature,
-        genesis_signature,
-    );
-    certificate.hash = certificate_hash;
-    certificate
+        signature: CertificateSignature::MultiSignature(multi_signature),
+    }
 }
 
 /// Fake SignersWithStake
@@ -198,7 +198,7 @@ pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDist
             epoch: Epoch(epoch_idx),
             signers_with_stake: signers.clone(),
             hash: format!("hash-epoch-{epoch_idx}"),
-            protocol_parameters: self::protocol_parameters(),
+            protocol_parameters: protocol_parameters(),
         })
         .collect::<Vec<entities::MithrilStakeDistribution>>()
 }

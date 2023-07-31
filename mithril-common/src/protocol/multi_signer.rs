@@ -34,10 +34,12 @@ impl MultiSigner {
             .map(|single_signature| single_signature.to_protocol_signature())
             .collect();
 
-        self.protocol_clerk.aggregate(
-            &protocol_signatures,
-            protocol_message.compute_hash().as_bytes(),
-        )
+        self.protocol_clerk
+            .aggregate(
+                &protocol_signatures,
+                protocol_message.compute_hash().as_bytes(),
+            )
+            .map(|multi_sig| multi_sig.into())
     }
 
     /// Compute aggregate verification key from stake distribution

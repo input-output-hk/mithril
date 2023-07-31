@@ -11,7 +11,8 @@ use chrono::Utc;
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisVerifier, PROTOCOL_VERSION};
 use mithril_common::entities::{
-    Certificate, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType, SingleSignatures,
+    Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
+    SignedEntityType, SingleSignatures,
 };
 use mithril_common::StdResult;
 use slog::Logger;
@@ -339,8 +340,7 @@ impl CertifierService for MithrilCertifierService {
             multi_signer
                 .compute_stake_distribution_aggregate_verification_key()
                 .await?,
-            multi_signature,
-            "".to_string(),
+            CertificateSignature::MultiSignature(multi_signature),
         );
 
         self.certificate_verifier
