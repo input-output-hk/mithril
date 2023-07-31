@@ -5,23 +5,23 @@ sidebar_position: 1
 import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
-# Mithril Aggregator Node
+# Mithril Aggregator node
 
 :::info
 
-This is the node of the **Mithril Network** responsible for collecting individual signatures from the **Mithril Signers** and aggregate them into a multi-signature. The **Mithril Aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
+Mithril Aggregator is responsible for collecting individual signatures from the Mithril Signers and aggregating them into a multi-signature. With this capability, the Mithril Aggregator can provide certified snapshots of the Cardano blockchain.
 
 :::
 
 :::tip
 
-* For more information about the **Mithril Network**, please refer to the [Architecture](../../../mithril/mithril-network/architecture.md) page.
+* For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril Aggregator**, please refer to the [Aggregator Node](../../../mithril/mithril-network/aggregator.md) page.
+* For more information about the **Mithril Aggregator**, please see the [Aggregator node](../../../mithril/mithril-network/aggregator.md) overview.
 
 :::
 
-:::note Mithril Networks
+:::note Mithril networks
 
 <NetworksMatrix />
 
@@ -35,85 +35,85 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 ## Pre-requisites
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version)
+* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain
 
-* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
+* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
-## Download source
+## Download the source file
 
-Download from GitHub (HTTPS)
+Download from GitHub (HTTPS):
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
 ```
 
-Or (SSH)
+Or (SSH):
 
 ```bash
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
-Switch to build branch / tag
+Switch to the desired branch/tag:
 
 ```bash
-# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
-# please refer to the **Build From** column of the above **Mithril Networks** table
+# Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
+# Please refer to the **Build from** column of the **Mithril networks** table above
 git switch **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
-Change directory
+Change the directory:
 
 ```bash
 cd mithril/mithril-aggregator
 ```
 
-## Development test and build
+## Development testing and building
 
-Run tests
+Run tests:
 
 ```bash
 make test
 ```
 
-Create the help menu
+Create the help menu:
 
 ```bash
 make help
 ```
 
-Generate the Rust documentation
+Generate the Rust documentation:
 
 ```bash
 make doc
 ```
 
-Run in debug mode with default configuration
+To run in debug mode with the default configuration, use the following command:
 
 ```bash
 make debug
 ```
 
-## Release build and run binary 'serve' command
+## Release the build and run the binary 'serve' command
 
-Build and run in release with default configuration
+To build and run in release mode with the default configuration:
 
 ```bash
 make run
 ```
 
-Or, build only in release
+Or, build only in release mode:
 
 ```bash
 make build
 ```
 
-Display the help menu
+Display the help menu:
 
 ```bash
 ./mithril-aggregator --help
 ```
 
-You should see
+You should see:
 
 ```bash
 Mithril Aggregator Node
@@ -142,39 +142,39 @@ Options:
           Print version
 ```
 
-Run 'serve' command in release with default configuration
+Run the 'serve' command in release mode with the default configuration:
 
 ```bash
 ./mithril-aggregator serve
 ```
 
-Run 'serve' command in release with a specific mode
+Run the 'serve' command in release with a specific mode:
 
 ```bash
 ./mithril-aggregator -r preview serve
 ```
 
-Run 'serve' command in release with a custom configuration via env vars
+Run the 'serve' command in release mode with a custom configuration using environment variables:
 
 ```bash
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator serve
 ```
 
-## Release build and run binary 'genesis' command
+## Release the build and run the binary 'genesis' command
 
-Build in release with default configuration
+Build in release mode with the default configuration:
 
 ```bash
 make build
 ```
 
-Display the help menu
+Display the help menu:
 
 ```bash
 ./mithril-aggregator genesis --help
 ```
 
-You should see
+You should see:
 
 ```bash
 mithril-aggregator-genesis 
@@ -190,69 +190,65 @@ SUBCOMMANDS:
     import       Import payload signed with genesis secret key and create & import a genesis certificate
 ```
 
-### bootstrap sub-command (test-only)
+### Bootstrap sub-command (test-only)
 
-Run 'genesis bootstrap' command in release with default configuration, **only in test mode**.
-This allows the Mithril Aggregator node to bootstrap a `Genesis Certificate`. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
+You can run the 'genesis bootstrap' command in release mode with the default configuration, but **only in test mode**. This will enable the Mithril Aggregator node to bootstrap a `Genesis Certificate`. After completing this operation, the Mithril Aggregator will be capable of producing new snapshots and certificates.
 
 ```bash
 ./mithril-aggregator genesis bootstrap
 ```
 
-Or with a specific `Genesis Secret Key`, **only in test mode**.
+You can use a specific `genesis secret key` (only in test mode):
 
 ```bash
 ./mithril-aggregator genesis bootstrap --genesis-secret-key **YOUR_SECRET_KEY*
 ```
 
-### export sub-command
+### Export sub-command
 
-Run 'genesis export' command in release.
-This allows the Mithril Aggregator node to export the `Genesis Payload` that needs to be signed (and later reimported) of the `Genesis Certificate`. The signature of the `Genesis Payload` must be done manually with the owner of the `Genesis Secret Key`.
+You can run the 'genesis export' command in release mode. This allows the Mithril Aggregator node to export the `Genesis Payload` that needs to be signed (and later reimported) for the `genesis certificate`. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
 
 ```bash
 ./mithril-aggregator genesis export --target-path **YOUR_TARGET_PATH**
 ```
 
-### sign sub-command
+### Sign sub-command
 
-Run 'genesis sign' command in release.
-This allows the Mithril Aggregator node to sign the `Genesis Payload` that needs to be reimported. The signature of the `Genesis Payload` must be done manually by the owner of the `Genesis Secret Key`.
+You can run the 'genesis sign' command in release mode. This allows the Mithril Aggregator node to sign the `genesis payload` that needs to be reimported. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
 
 ```bash
 ./mithril-aggregator genesis sign --to-sign-payload-path **TO_SIGN_PAYLOAD_PATH** --target-signed-payload-path **TARGET_SIGNED_PAYLOAD_PATH** --genesis-secret-key-path **GENESIS_SECRET_KEY_PATH**
 ```
 
-### import sub-command
+### Import sub-command
 
-Run 'genesis import' command in release.
-This allows the Mithril Aggregator node to import the signed payload of the `Genesis Certificate` and create it in the store. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
+Run the 'genesis import' command in release mode. This allows the Mithril Aggregator node to import the signed payload of the `genesis certificate` and store it. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
 
 ```bash
 ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
 ```
 
-Run 'genesis import' command in release with a custom configuration via env vars
+Run the 'genesis import' command in release mode with a custom configuration using environment variables: 
 
 ```bash
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import
 ```
 
-## Release build and run binary 'era' command
+## Release the build and run the binary 'era' command
 
-Build in release with default configuration
+Build in release mode using the default configuration:
 
 ```bash
 make build
 ```
 
-Display the help menu
+Display the help menu:
 
 ```bash
 ./mithril-aggregator era --help
 ```
 
-You should see
+You should see:
 
 ```bash
 Era tools
@@ -268,13 +264,13 @@ Options:
   -h, --help  Print help
 ```
 
-Run 'era list' to list the supported eras embedded in the binary
+Run the 'era list' command to list the supported eras embedded in the binary:
 
 ```bash
 ./mithril-aggregator era list
 ```
 
-You should see something like
+You should see something like:
 
 ```bash
 Supported Eras:
@@ -285,13 +281,13 @@ Supported Eras:
 
 :::tip
 
-You can use the `--json` option in order to display results in `JSON` format for the `list` command:
+To display results in `JSON` format for the `list` command, simply use the `--json` option:
 
 ```bash
 ./mithril-aggregator era list --json
 ```
 
-You should see something like
+You should see something like:
 
 ```bash
 ["thales"]
@@ -299,47 +295,47 @@ You should see something like
 
 :::
 
-Run 'era generate-tx-datum' to generate the transaction datum file to be stored on the Cardano chain that will provide era markers to the 'cardano-chain' era reader adapter
+You can run 'era generate-tx-datum' to create the transaction datum file that will be stored on the Cardano chain, providing era markers to the 'cardano-chain' era reader adapter.
 
-**Case 1**: There is only one supported era in the code, create the datum file with
+**Case 1**: If there is only one supported era in the code, create the datum file:
 
 ```bash
 ./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
 ```
 
-You should see something like
+You should see something like:
 
 ```bash
 {"constructor":0,"fields":[{"bytes":"5b7b226e223a227468616c6573222c2265223a317d5d"},{"bytes":"a58fe8e336f465ded3bba7c5a7afe5b5a26f2fb65b7c4e6e742e680645f13df28bf2b63a61cc72d9c826be490e2c1f1098d955df503580a4e899b5173884e30e"}]}
 ```
 
-**Case 2**: There are two supported era in the code, in order to announce the upcoming era (i.e. the activation epoch of this era is not known yet), run the command
+**Case 2**: If there are two supported eras in the code and the activation epoch of the upcoming era is not yet known, run the command:
 
 ```bash
 ./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
 ```
 
-**Case 3**: There are two supported era in the code, in order to activate the era switch at a following epoch (i.e. the activation epoch of this era known), run the command
+**Case 3**: If there are two supported eras in the code and the activation epoch of the era switch is known to be at the following epoch, run the command:
 
 ```bash
 ./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
 ```
 
-## Release build and run binary 'tools' command
+## Release the build and run the binary 'tools' command
 
-Build in release with default configuration
+Build in release mode using the default configuration:
 
 ```bash
 make build
 ```
 
-Display the help menu
+Display the help menu:
 
 ```bash
 ./mithril-aggregator tools --help
 ```
 
-You should see
+You should see:
 
 ```bash
 List of tools to upkeep the aggregator
@@ -354,8 +350,7 @@ Options:
   -h, --help  Print help
 ```
 
-Run 'tools recompute-certificates-hash' command in release with default configuration.
-This allows the Mithril Aggregator node to recompute all of its certificates hashes, useful to avoid a chain re-genesis after an update that changes the structure of the certificates.
+Run the 'tools recompute-certificates-hash' command in release mode with the default configuration. This allows the Mithril Aggregator node to recompute all of its certificate hashes, which is useful to avoid a chain re-genesis after an update that changes the structure of the certificates.
 
 ```bash
 ./mithril-aggregator tools recompute-certificates-hash
@@ -363,7 +358,7 @@ This allows the Mithril Aggregator node to recompute all of its certificates has
 
 :::tip
 
-If you want to dig deeper, you can get access to several level of logs from the Mithril Aggregator:
+If you wish to delve deeper and access several levels of logs from the Mithril Aggregator, use the following:
 
 * Add `-v` for some logs (WARN)
 * Add `-vv` for more logs (INFO)
@@ -373,19 +368,19 @@ If you want to dig deeper, you can get access to several level of logs from the 
 :::
 
 
-## Download pre-built binary
+## Download the pre-built binary
 
 <CompiledBinaries />
 
-## Build and run Docker container
+## Build and run the Docker container
 
-Build a local Docker image
+Build a local Docker image:
 
 ```bash
 make docker-build
 ```
 
-Run a local Docker container
+Run a local Docker container:
 
 ```bash
 make docker-run
@@ -393,32 +388,31 @@ make docker-run
 
 ## Subcommands
 
-Here are the subcommands available:
+Here are the available subcommands:
 
 | Subcommand | Performed action |
 |------------|------------------|
-| **serve** | Aggregator runs its HTTP server in nominal mode and orchestrates multi signatures production |
-| **help** | Print this message or the help of the given subcommand(s) |
-| **genesis export** | Export genesis payload to sign with genesis secret key |
-| **genesis sign** | Sign genesis payload with genesis secret key |
-| **genesis import** | Import genesis signature (payload signed with genesis secret key) and create & import a genesis certificate in the store |
-| **genesis bootstrap** | Bootstrap a genesis certificate (test only usage) |
-| **era list** | List the supported eras |
-| **era generate-tx-datum** | Generate era markers transaction datum to be stored on chain |
-| **tools recompute-certificates-hash** | Load all certificates in the database to recompute their hash and update all related entities |
+| **serve** | The Aggregator runs its HTTP server in nominal mode and orchestrates multi-signature production |
+| **help** | Prints this message or the help of the given subcommand(s) |
+| **genesis export** | Exports genesis payload to sign with genesis secret key |
+| **genesis sign** | Signs the genesis payload with the genesis secret key |
+| **genesis import** | Imports the genesis signature (the payload signed with the genesis secret key) and creates and imports a genesis certificate in the store |
+| **genesis bootstrap** | Bootstraps a genesis certificate (test only usage) |
+| **era list** | Lists the supported eras |
+| **era generate-tx-datum** | Generates the era markers transaction datum to be stored on-chain |
+| **tools recompute-certificates-hash** | Loads all certificates in the database, recomputing their hash, and updating all related entities |
 
 ## Configuration parameters
 
-The configuration parameters are set either:
+The configuration parameters can be set in either of the following ways:
 
-* In a configuration file (depending on the `--run-mode` parameter). If runtime mode is `testnet` the file is located in `./conf/testnet.json`.
-* The value can be overridden by an environment variable whose name is the parameter name uppercased.
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
 
-Here is a list of the available parameters.
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-General parameters:
+Here is a list of the available parameters:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
 | `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
@@ -435,7 +429,7 @@ General parameters:
 
 `serve` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `server_ip` | `--server-ip` | - | `SERVER_IP` | Listening server IP | `0.0.0.0` | - | :heavy_check_mark: |  
 | `server_port` | `--server-port` | - | `SERVER_PORT` | Listening server port | `8080` | - | :heavy_check_mark: |
@@ -450,25 +444,25 @@ General parameters:
 
 `genesis bootstrap` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `genesis_secret_key` | - | - | `GENESIS_SECRET_KEY` | Genesis secret key, :warning: for test only | - | - | - |
 
 `genesis export` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `target_path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |
 
 `genesis import` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `signed_payload_path` | `--signed-payload-path` | - | - | Path of the payload to import. | - | - | - | - |
 
 `genesis sign` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `to_sign_payload_path` | `--to-sign-payload-path` | - | - | Path of the payload to sign. | - | - | - | - |
 | `target_signed_payload_path` | `--target-signed-payload-path` | - | - | Path of the signed payload to export. | - | - | - | - |
@@ -476,16 +470,16 @@ General parameters:
 
 `era list` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` | - | - | Export the supported era list to JSON format. | - | - | - | - |
 
 `era generate-tx-datum` command:
 
-| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Epoch at which current era starts. | - | - | - | :heavy_check_mark: |
 | `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Epoch at which the next era starts. If not specified and an upcoming era is available, it will announce the next era. If specified, it must be strictly greater than `current-epoch-era` | - | - | - | - |
 | `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key that is used to verify the authenticity of the era markers on chain. | - | - | - | :heavy_check_mark: |
 
-`tools recompute-certificates-hash` command has no dedicated parameter
+The `tools recompute-certificates-hash` command has no dedicated parameters. 
