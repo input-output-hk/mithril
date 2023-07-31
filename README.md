@@ -1,4 +1,4 @@
-# <p align="center">Mithril - Proof of Concept (POC)</p>
+# <p align="center">Mithril :shield:</p>
 
 <div align="center">
   <a href='https://github.com/input-output-hk/mithril/actions'>
@@ -20,53 +20,61 @@
 
 ## :sunny: Introduction
 
-**Mithril** is a research project which goal is to provide [Stake-based Threshold Multisignatures](https://iohk.io/en/research/library/papers/mithrilstake-based-threshold-multisignatures/) on top of the **Cardano Network**.
+**Mithril** is a research project which goal is to provide [Stake-based Threshold Multisignatures](https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/) on top of the **Cardano network**.
 
 In a nutshell, **Mithril** can be summarized as:
 
-> A protocol that allows **stakeholders** in a **Proof-of-Stake** blockchain network to individually **sign messages** that are aggregated into a **multi signature** which guarantees that they represent a minimum share of the total stakes.
+> A protocol that allows **stakeholders** in a **Proof-of-stake (PoS)** blockchain network to individually **sign messages** that are aggregated into a **multi-signature** which guarantees that they represent a minimum share of the total stakes.
 
-In other words, an adversarial participant with less than this share of the total stakes will not be able to produce valid multi signatures :closed_lock_with_key:.
+In other words, an adversarial participant with less than this share of the total stakes will not be able to produce valid multi-signatures :closed_lock_with_key:.
 
-We have worked on a first implementation of the protocol with the **Mithril Network** which goal is to provide a way to bootstrap fast a fully operating **Cardano Node**, in less than **4 hours** , whereas it used to take days before.
+We have worked on a first implementation of the protocol with the **Mithril network** which goal is to provide a way to fast bootstrap a fully operating **Cardano node**, in less than **2 hours**, whereas it used to take days before.
 
-## :construction: Under construction
+In order to unleash the power of Mithril, and leverage new use cases, we have also implemented a framework in the **Mithril network** that allows the certification of multiple types of data, provided they can be computed deterministically. 
 
-> :warning: :warning: :warning:
+## :shield: Mainnet availability
+
+> :construction: **Mithril** is currently a work in progress, and is generally available in [**Beta**](https://mithril.network/doc/dev-blog/2023/07/21/mainnet-beta-launch) version.
 >
-> **Mithril** is currently a work in progress and is still a prototype.
->
-> It is **NOT** yet ready for production and mainnet.
+> It is **NOT** yet completely ready for production and **Cardano** mainnet.
 
-## :satellite: Getting Started with Mithril
 
-:new: Get access to tutorials, user manual, guides and plenty of documentation on our brand [new website](https://mithril.network/doc)!
+## :rocket: Getting started with Mithril
+
+If you are a **Cardano SPO**, a good entrypoint is the [SPO onboarding guide](https://mithril.network/doc/manual/getting-started/SPO-on-boarding-guide). 
+Additionally, you can find detailed instructions for running a **Mithril signer** in the [Run a Mithril Signer as an SPO](https://mithril.network/doc/manual/getting-started/run-signer-node) guide.
+
+If you are interested in **fast bootstrapping** a Cardano node, please refer to this [Bootstrap a Cardano node](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) guide.
+
+Get access to tutorials, user manual, guides and plenty of documentation on our [website](https://mithril.network/doc)!
 
 Our wiki is also available [here](https://github.com/input-output-hk/mithril/wiki)
 
+## :satellite: Structure of the repository
+
 This repository is sliced in the following parts:
 
-* [**Protocol Demonstration**](./demo/protocol-demo): a simple cli that helps understand how the **Mithril** protocol works and the role of its **protocol parameters**.
+* [**Mithril aggregator**](./mithril-aggregator): the node of the **Mithril network** responsible for collecting individual signatures from the **Mithril signers** and aggregate them into a multi-signature. The **Mithril aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
 
-* [**Mithril Aggregator**](./mithril-aggregator): the node of the **Mithril Network** responsible for collecting individual signatures from the **Mithril Signers** and aggregate them into a multisignature. The **Mithril Aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
+* [**Mithril client**](./mithril-client): the node of the **Mithril network** responsible for retrieving the certified artifacts produced by the **Mithril network**, e.g. the **Cardano** chain certified snapshots used to securely restore a **Cardano node**.
 
-* [**Mithril Client**](./mithril-client): the node of the **Mithril Network** responsible for restoring the **Cardano** blockchain on an empty node from a certified snapshot.
-
-* [**Mithril Common**](./mithril-common): this is the **common** library that is used by the **Mithril Network** nodes.
+* [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
 
 * [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
 
-* [**Mithril Explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril Aggregator** and displays its **Certificate Chain**.
+* [**Mithril explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril aggregator** and displays its **Certificate chain**.
 
-* [**Mithril Infra**](./mithril-infra): the infrastructure used to host a **Mithril Aggregator** in the cloud.
+* [**Mithril infrastructure**](./mithril-infra): the infrastructure used to power a **Mithril network** in the cloud.
 
-* [**Mithril Signer**](./mithril-signer): the node of the **Mithril Network** responsible for producing individual signatures that are collected and aggregated by the **Mithril Aggregator**.
+* [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
 
-* [**Mithril Test Lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
+* [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
 
-  * [**Mithril Devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano Network** that we use to scaffold a **Mithril Network** on top of a **Cardano Network**.
+  * [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** that we use to scaffold a **Mithril network** on top of a **Cardano network**.
 
-  * [**Mithril End To End**](./mithril-test-lab/mithril-end-to-end): the tool that we use to run tests scenari against a **Mithril Devnet**.
+  * [**Mithril end to end**](./mithril-test-lab/mithril-end-to-end): the tool that we use to run tests scenari against a **Mithril devnet**.
+
+* [**Protocol demonstration**](./demo/protocol-demo): a simple cli that helps understand how the **Mithril** protocol works and the role of its **protocol parameters**.
 
 ## :bridge_at_night: Contributing
 
