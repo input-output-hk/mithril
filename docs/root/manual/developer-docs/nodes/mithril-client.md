@@ -277,7 +277,7 @@ Here are the subcommands available:
 |------------|------------------|
 | **download** | Downloads and verifies Mithril stake distribution|
 | **help** | Prints this message or the help for the given subcommand(s)|
-| **list** | Lists available Mithril stake distribution|
+| **list** | Lists available Mithril stake distributions|
 
 ## Configuration parameters
 
