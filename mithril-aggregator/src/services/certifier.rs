@@ -4,27 +4,32 @@
 //! messages and turn them into [Certificate]. To do so, it registers
 //! single signatures and deal with the multi_signer for aggregate signature
 //! creation.
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
-use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisVerifier, PROTOCOL_VERSION};
-use mithril_common::entities::{
-    Certificate, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType, SingleSignatures,
+use mithril_common::{
+    certificate_chain::CertificateVerifier,
+    crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION},
+    entities::{
+        Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
+        SignedEntityType, SingleSignatures,
+    },
+    StdResult,
 };
-use mithril_common::StdResult;
 use slog::Logger;
 use slog_scope::{debug, error, info, warn};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::database::provider::{
-    CertificateRepository, OpenMessageRecord, OpenMessageRepository,
-    OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
+use crate::{
+    database::provider::{
+        CertificateRepository, OpenMessageRecord, OpenMessageRepository,
+        OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
+    },
+    entities::OpenMessage,
+    MultiSigner,
 };
-use crate::entities::OpenMessage;
-use crate::MultiSigner;
 
 #[cfg(test)]
 use mockall::automock;
@@ -289,16 +294,17 @@ impl CertifierService for MithrilCertifierService {
         }
 
         let multi_signer = self.multi_signer.write().await;
-        let signature = multi_signer.create_multi_signature(&open_message).await?;
+        let multi_signature = match multi_signer.create_multi_signature(&open_message).await? {
+            None => {
+                debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
+                return Ok(None);
+            }
+            Some(signature) => {
+                info!("CertifierService::create_certificate: multi-signature created for open message {signed_entity_type:?}");
+                signature
+            }
+        };
 
-        if signature.is_some() {
-            info!("CertifierService::create_certificate: multi-signature created for open message {signed_entity_type:?}");
-        } else {
-            debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
-
-            return Ok(None);
-        }
-        let signature = signature.unwrap();
         let signer_ids = open_message.get_signers_id();
         let signers = multi_signer
             .get_signers_with_stake()
@@ -322,7 +328,6 @@ impl CertifierService for MithrilCertifierService {
             sealed_at,
             signers,
         );
-        let multi_signature = key_encode_hex(signature).map_err(CertifierServiceError::Codec)?;
         let parent_certificate_hash = self
             .certificate_repository
             .get_master_certificate_for_epoch(open_message.epoch)
@@ -339,8 +344,7 @@ impl CertifierService for MithrilCertifierService {
             multi_signer
                 .compute_stake_distribution_aggregate_verification_key()
                 .await?,
-            multi_signature,
-            "".to_string(),
+            CertificateSignature::MultiSignature(multi_signature),
         );
 
         self.certificate_verifier

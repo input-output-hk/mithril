@@ -79,7 +79,7 @@ impl ProtocolGenesisSigner {
     pub fn sign(&self, message: &[u8]) -> ProtocolGenesisSignature {
         let expanded_secret_key = self.create_expanded_secret_key();
         let verification_key = self.create_verification_key(&expanded_secret_key);
-        expanded_secret_key.sign(message, &verification_key)
+        expanded_secret_key.sign(message, &verification_key).into()
     }
 
     /// Export the secret key from the genesis verifier to a file. TEST ONLY

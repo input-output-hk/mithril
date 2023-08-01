@@ -1,4 +1,4 @@
-use mithril_common::entities::{Certificate, CertificateMetadata};
+use mithril_common::entities::{Certificate, CertificateMetadata, CertificateSignature};
 use mithril_common::messages::{
     CertificateMessage, SignerWithStakeMessagePart, TryFromMessageAdapter,
 };
@@ -28,8 +28,15 @@ impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateM
             protocol_message: certificate_message.protocol_message,
             signed_message: certificate_message.signed_message,
             aggregate_verification_key: certificate_message.aggregate_verification_key,
-            multi_signature: certificate_message.multi_signature,
-            genesis_signature: certificate_message.genesis_signature,
+            signature: if certificate_message.genesis_signature.is_empty() {
+                CertificateSignature::MultiSignature(
+                    certificate_message.multi_signature.try_into()?,
+                )
+            } else {
+                CertificateSignature::GenesisSignature(
+                    certificate_message.genesis_signature.try_into()?,
+                )
+            },
         };
 
         Ok(certificate)
@@ -44,7 +51,7 @@ mod tests {
     fn adapt_ok() {
         let certificate_message = CertificateMessage {
             hash: "hash123".to_string(),
-            ..Default::default()
+            ..CertificateMessage::dummy()
         };
         let certificate = FromCertificateMessageAdapter::try_adapt(certificate_message).unwrap();
 

@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result as StdResult};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::any::type_name;
+use std::ops::Deref;
 
 use crate::crypto_helper::{key_decode_hex, key_encode_hex};
 
@@ -16,6 +17,21 @@ where
     pub(crate) key: T,
 }
 
+/// The codec used to serialize/deserialize a [ProtocolKey].
+///
+/// Default to json hex.
+pub trait ProtocolKeyCodec<T: Serialize + DeserializeOwned>: Sized {
+    /// Do the decoding of the given key
+    fn decode_key(encoded: &str) -> StdResult<ProtocolKey<T>> {
+        ProtocolKey::from_json_hex(encoded)
+    }
+
+    /// Do the encoding of the given key
+    fn encode_key(key: &T) -> StdResult<String> {
+        ProtocolKey::key_to_json_hex(key)
+    }
+}
+
 impl<T> ProtocolKey<T>
 where
     T: Serialize + DeserializeOwned,
@@ -23,11 +39,6 @@ where
     /// Create a ProtocolKey from the given key
     pub fn new(key: T) -> Self {
         Self { key }
-    }
-
-    /// Get the inner key
-    pub fn key(&self) -> &T {
-        &self.key
     }
 
     /// Create an instance from a JSON hex representation
@@ -46,7 +57,12 @@ where
 
     /// Create a JSON hash representation of the key
     pub fn to_json_hex(&self) -> StdResult<String> {
-        key_encode_hex(&self.key)
+        Self::key_to_json_hex(&self.key)
+    }
+
+    /// Create a JSON hash representation of the given key
+    pub fn key_to_json_hex(key: &T) -> StdResult<String> {
+        key_encode_hex(key)
             .map_err(|e| anyhow!(e))
             .with_context(|| {
                 format!(
@@ -57,24 +73,35 @@ where
     }
 }
 
-impl<T> Serialize for ProtocolKey<T>
+impl<T> Deref for ProtocolKey<T>
 where
     T: Serialize + DeserializeOwned,
 {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.key
+    }
+}
+
+impl<T> Serialize for ProtocolKey<T>
+where
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer,
+        S: Serializer,
     {
         use serde::ser::Error;
-        let hex = self.to_json_hex().map_err(Error::custom)?;
+        let encoded = &T::encode_key(&self.key).map_err(Error::custom)?;
 
-        hex.serialize(serializer)
+        encoded.serialize(serializer)
     }
 }
 
 impl<'de, T> Deserialize<'de> for ProtocolKey<T>
 where
-    T: Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -83,66 +110,84 @@ where
         use serde::de::Error;
         let string = String::deserialize(deserializer)?;
 
-        Self::from_json_hex(&string).map_err(Error::custom)
+        T::decode_key(&string).map_err(Error::custom)
     }
 }
 
 impl<T> TryFrom<String> for ProtocolKey<T>
 where
-    T: Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
 {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        Self::from_json_hex(&value)
+        T::decode_key(&value)
     }
 }
 
 impl<T> TryFrom<&str> for ProtocolKey<T>
 where
-    T: Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
 {
     type Error = anyhow::Error;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::from_json_hex(value)
+        T::decode_key(value)
     }
 }
 
 impl<T> TryFrom<ProtocolKey<T>> for String
 where
-    T: Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
 {
     type Error = anyhow::Error;
 
     fn try_from(value: ProtocolKey<T>) -> Result<Self, Self::Error> {
-        value.to_json_hex()
+        T::encode_key(&value.key)
     }
 }
 
 impl<T> TryFrom<&ProtocolKey<T>> for String
 where
-    T: Serialize + DeserializeOwned,
+    T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,
 {
     type Error = anyhow::Error;
 
     fn try_from(value: &ProtocolKey<T>) -> Result<Self, Self::Error> {
-        value.to_json_hex()
+        T::encode_key(&value.key)
     }
 }
 
-/// Macro to batch define the From<ProtocolKey> to StmType and vis versa
-macro_rules! impl_from_to_stm_types_for_protocol_key {
-    ($($stm_type:ty),+) => {
+/// Macro to batch define a [ProtocolKeyCodec] implementation and conversions From<ProtocolKey> / To
+/// the given type and vis versa.
+macro_rules! impl_codec_and_type_conversions_for_protocol_key {
+    (json_hex_codec => $($key_type:ty),+) => {
         $(
-            impl From<ProtocolKey<$stm_type>> for $stm_type {
-                fn from(value: ProtocolKey<$stm_type>) -> Self {
+            impl crate::crypto_helper::ProtocolKeyCodec<$key_type> for $key_type {}
+
+            impl From<ProtocolKey<$key_type >> for $key_type {
+                fn from(value: ProtocolKey<$key_type>) -> Self {
                     value.key
                 }
             }
 
-            impl From<$stm_type> for ProtocolKey<$stm_type> {
-                fn from(value: $stm_type) -> Self {
+            impl From<$key_type> for ProtocolKey<$key_type> {
+                fn from(value: $key_type) -> Self {
+                    Self::new(value)
+                }
+            }
+        )*
+    };
+    (no_default_codec => $($key_type:ty),+) => {
+        $(
+            impl From<ProtocolKey<$key_type >> for $key_type {
+                fn from(value: ProtocolKey<$key_type>) -> Self {
+                    value.key
+                }
+            }
+
+            impl From<$key_type> for ProtocolKey<$key_type> {
+                fn from(value: $key_type) -> Self {
                     Self::new(value)
                 }
             }

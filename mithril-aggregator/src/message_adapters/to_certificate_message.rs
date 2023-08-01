@@ -1,4 +1,4 @@
-use mithril_common::entities::Certificate;
+use mithril_common::entities::{Certificate, CertificateSignature};
 use mithril_common::messages::{
     CertificateMessage, CertificateMetadataMessage, SignerWithStakeMessagePart, ToMessageAdapter,
 };
@@ -17,6 +17,15 @@ impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageA
             signers: SignerWithStakeMessagePart::from_signers(certificate.metadata.signers),
         };
 
+        let (multi_signature, genesis_signature) = match certificate.signature {
+            CertificateSignature::GenesisSignature(signature) => {
+                (String::new(), signature.to_bytes_hex())
+            }
+            CertificateSignature::MultiSignature(signature) => {
+                (signature.to_json_hex().unwrap(), String::new())
+            }
+        };
+
         CertificateMessage {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
@@ -25,8 +34,8 @@ impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageA
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
             aggregate_verification_key: certificate.aggregate_verification_key,
-            multi_signature: certificate.multi_signature,
-            genesis_signature: certificate.genesis_signature,
+            multi_signature,
+            genesis_signature,
         }
     }
 }

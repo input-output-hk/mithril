@@ -3,7 +3,8 @@ use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     entities::{
-        Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake,
+        Certificate, CertificateSignature, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+        SignerWithStake, Stake,
     },
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
@@ -274,8 +275,8 @@ pub fn setup_certificate_chain(
                             fake_certificate.signed_message.as_bytes(),
                         )
                         .unwrap();
-                    fake_certificate.multi_signature = key_encode_hex(multi_signature).unwrap();
-                    fake_certificate.genesis_signature = "".to_string()
+                    fake_certificate.signature =
+                        CertificateSignature::MultiSignature(multi_signature.into());
                 }
             }
             fake_certificate

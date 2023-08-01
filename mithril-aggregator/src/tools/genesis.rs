@@ -15,7 +15,7 @@ use crate::database::provider::CertificateRepository;
 use crate::{MultiSigner, ProtocolParametersStorer};
 
 pub struct GenesisToolsDependency {
-    /// Multisigner service.
+    /// Multi-signer service.
     pub multi_signer: Arc<RwLock<dyn MultiSigner>>,
 
     /// Beacon provider service.

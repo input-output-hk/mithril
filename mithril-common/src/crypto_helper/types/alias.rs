@@ -5,7 +5,7 @@ use crate::crypto_helper::cardano::{
 
 use mithril_stm::{
     key_reg::ClosedKeyReg,
-    stm::{Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSigner},
+    stm::{Index, Stake, StmAggrVerificationKey, StmClerk, StmParameters, StmSigner},
     AggregationError,
 };
 
@@ -17,7 +17,7 @@ use kes_summed_ed25519::kes::Sum6KesSig;
 pub type ProtocolVersion<'a> = &'a str;
 
 // Protocol types alias
-type D = Blake2b<U32>;
+pub(crate) type D = Blake2b<U32>;
 
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;
@@ -49,9 +49,6 @@ pub type ProtocolKeyRegistration = KeyRegWrapper;
 /// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::key_reg::KeyReg).
 pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
 
-/// Alias of [MithrilStm:StmAggrSig](struct@mithril_stm::stm::StmAggrSig).
-pub type ProtocolMultiSignature = StmAggrSig<D>;
-
 /// Alias of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs).
 pub type ProtocolSignerVerificationKeySignature = Sum6KesSig;
 
@@ -63,9 +60,6 @@ pub type ProtocolGenesisVerificationKey = ed25519_dalek::PublicKey;
 
 /// Alias of [Ed25519:SecretKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SecretKey.html).
 pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
-
-/// Alias of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
-pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).

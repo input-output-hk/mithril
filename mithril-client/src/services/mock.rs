@@ -7,7 +7,7 @@ use mithril_common::certificate_chain::{
 };
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-use mithril_common::entities::{Beacon, Certificate, ProtocolMessage, ProtocolParameters};
+use mithril_common::entities::{Beacon, Certificate, ProtocolMessage};
 use mockall::mock;
 
 mock! {
@@ -28,25 +28,11 @@ mock! {
 
     #[async_trait]
     impl CertificateVerifier for CertificateVerifierImpl {
-        fn verify_multi_signature(
-            &self,
-            message: &[u8],
-            multi_signature: &str,
-            aggregate_verification_key: &str,
-            protocol_parameters: &ProtocolParameters,
-        ) -> Result<(), CertificateVerifierError>;
-
         async fn verify_genesis_certificate(
             &self,
-            certificate: &Certificate,
+            genesis_certificate: &Certificate,
             genesis_verifier: &ProtocolGenesisVerifier,
         ) -> Result<(), CertificateVerifierError>;
-
-        async fn verify_standard_certificate(
-            &self,
-            certificate: &Certificate,
-            certificate_retriever: Arc<dyn CertificateRetriever>,
-        ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
         async fn verify_certificate(
             &self,

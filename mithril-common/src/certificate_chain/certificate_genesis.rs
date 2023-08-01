@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use chrono::prelude::*;
-use hex::ToHex;
 use thiserror::Error;
 
 use crate::{
@@ -12,8 +11,8 @@ use crate::{
         ProtocolGenesisSigner, PROTOCOL_VERSION,
     },
     entities::{
-        Beacon, Certificate, CertificateMetadata, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters,
+        Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters,
     },
 };
 
@@ -86,19 +85,16 @@ impl CertificateGenesisProducer {
             signers,
         );
         let previous_hash = "".to_string();
-        let multi_signature = "".to_string();
         let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
         let genesis_avk =
             key_encode_hex(&genesis_avk).map_err(CertificateGenesisProducerError::Codec)?;
-        let genesis_signature = genesis_signature.to_bytes().encode_hex::<String>();
         Ok(Certificate::new(
             previous_hash,
             beacon,
             metadata,
             genesis_protocol_message,
             genesis_avk,
-            multi_signature,
-            genesis_signature,
+            CertificateSignature::GenesisSignature(genesis_signature),
         ))
     }
 }

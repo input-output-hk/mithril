@@ -9,8 +9,8 @@ use mithril_common::{
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
-        Beacon, Certificate, Epoch, ImmutableFileNumber, SignedEntityTypeDiscriminants, Snapshot,
-        StakeDistribution,
+        Beacon, Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
+        SignedEntityTypeDiscriminants, Snapshot, StakeDistribution,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -389,19 +389,20 @@ impl RuntimeTester {
             .ok_or("No certificate have been produced by the aggregator")?
             .clone();
 
-        let signed_entity = if certificate.genesis_signature.is_empty() {
-            let record = self
-                .deps_builder
-                .get_signed_entity_storer()
-                .await
-                .unwrap()
-                .get_signed_entity_by_certificate_id(&certificate.hash)
-                .await
-                .unwrap()
-                .ok_or("A signed entity must exist for non genesis certificate")?;
-            Some(record)
-        } else {
-            None
+        let signed_entity = match &certificate.signature {
+            CertificateSignature::GenesisSignature(_) => None,
+            CertificateSignature::MultiSignature(_) => {
+                let record = self
+                    .deps_builder
+                    .get_signed_entity_storer()
+                    .await
+                    .unwrap()
+                    .get_signed_entity_by_certificate_id(&certificate.hash)
+                    .await
+                    .unwrap()
+                    .ok_or("A signed entity must exist for non genesis certificate")?;
+                Some(record)
+            }
         };
 
         Ok((certificate, signed_entity))
@@ -413,7 +414,7 @@ impl RuntimeTester {
             self.get_last_certificate_with_signed_entity().await?;
 
         let expected_certificate = match signed_entity_record {
-            None if !certificate.genesis_signature.is_empty() => ExpectedCertificate::new_genesis(
+            None if certificate.is_genesis() => ExpectedCertificate::new_genesis(
                 certificate.beacon,
                 certificate.aggregate_verification_key,
             ),

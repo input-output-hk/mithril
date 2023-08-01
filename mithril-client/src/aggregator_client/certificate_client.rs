@@ -66,6 +66,7 @@ impl CertificateRetriever for CertificateClient {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::CertificateSignature;
     use mithril_common::messages::{CertificateMetadataMessage, SignerWithStakeMessagePart};
     use mithril_common::test_utils::fake_data;
 
@@ -83,6 +84,15 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| {
+                let (multi_signature, genesis_signature) = match certificate.signature {
+                    CertificateSignature::GenesisSignature(signature) => {
+                        (String::new(), signature.try_into().unwrap())
+                    }
+                    CertificateSignature::MultiSignature(signature) => {
+                        (signature.to_json_hex().unwrap(), String::new())
+                    }
+                };
+
                 let message = CertificateMessage {
                     hash: certificate_hash.clone(),
                     previous_hash: previous_hash.clone(),
@@ -99,8 +109,8 @@ mod tests {
                     protocol_message: certificate.protocol_message.clone(),
                     signed_message: certificate.signed_message.clone(),
                     aggregate_verification_key: certificate.aggregate_verification_key.clone(),
-                    multi_signature: certificate.multi_signature.clone(),
-                    genesis_signature: certificate.genesis_signature,
+                    multi_signature,
+                    genesis_signature,
                 };
                 Ok(serde_json::to_string(&message).unwrap())
             })
