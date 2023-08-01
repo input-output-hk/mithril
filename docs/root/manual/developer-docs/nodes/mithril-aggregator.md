@@ -29,7 +29,7 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 
 ## Resources
 
-| Node | Source Repository | Rust Documentation | Docker Packages | REST API
+| Node | Source repository | Rust documentation | Docker packages | REST API
 |:-:|:-----------------:|:------------------:|:---------------:|
 **Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/aggregator-api)
 
@@ -417,15 +417,15 @@ Here is a list of the available parameters:
 | `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
 | `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
 | `config_directory` | `--config-directory` | - | - | Directory of the configuration file | `./config` | - | - |
-| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
-| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the **Cardano Node** stores | `/db` | - | :heavy_check_mark: |
+| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store aggregator data (certificates, snapshots, protocol parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
+| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the **Cardano node** stores | `/db` | - | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
-| `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
-| `protocol_parameters` | - | - | `PROTOCOL_PARAMETERS__K`, `PROTOCOL_PARAMETERS__M`, and `PROTOCOL_PARAMETERS__PHI_F` | Mithril Protocol Parameters | - | `{ k: 5, m: 100, phi_f: 0.65 }` | :heavy_check_mark: |
+| `network_magic` | - | - | `NETWORK_MAGIC` | Cardano network magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
+| `protocol_parameters` | - | - | `PROTOCOL_PARAMETERS__K`, `PROTOCOL_PARAMETERS__M`, and `PROTOCOL_PARAMETERS__PHI_F` | Mithril protocol parameters | - | `{ k: 5, m: 100, phi_f: 0.65 }` | :heavy_check_mark: |
 | `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
 | `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
 
 `serve` command:
 
@@ -433,7 +433,7 @@ Here is a list of the available parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `server_ip` | `--server-ip` | - | `SERVER_IP` | Listening server IP | `0.0.0.0` | - | :heavy_check_mark: |  
 | `server_port` | `--server-port` | - | `SERVER_PORT` | Listening server port | `8080` | - | :heavy_check_mark: |
-| `snapshot_directory` | `--snapshot-directory` | - | `SNAPSHOT_DIRECTORY` | Directory to store local snapshots of the **Cardano Node** | `.` | - | :heavy_check_mark: |
+| `snapshot_directory` | `--snapshot-directory` | - | `SNAPSHOT_DIRECTORY` | Directory to store local snapshots of the **Cardano node** | `.` | - | :heavy_check_mark: |
 | `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `snapshot_bucket_name` | - | - | `SNAPSHOT_BUCKET_NAME` | Name of the bucket where the snapshots are stored  | - | `snapshot-bucket` | :heavy_check_mark: | Required if `snapshot_uploader_type` is `gcp`
@@ -466,7 +466,7 @@ Here is a list of the available parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `to_sign_payload_path` | `--to-sign-payload-path` | - | - | Path of the payload to sign. | - | - | - | - |
 | `target_signed_payload_path` | `--target-signed-payload-path` | - | - | Path of the signed payload to export. | - | - | - | - |
-| `genesis_secret_key_path` | `--genesis-secret-key-path` | - | - | Path of the Genesis secret key. | - | - | - |
+| `genesis_secret_key_path` | `--genesis-secret-key-path` | - | - | Path of the genesis secret key. | - | - | - |
 
 `era list` command:
 
@@ -480,6 +480,6 @@ Here is a list of the available parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Epoch at which current era starts. | - | - | - | :heavy_check_mark: |
 | `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Epoch at which the next era starts. If not specified and an upcoming era is available, it will announce the next era. If specified, it must be strictly greater than `current-epoch-era` | - | - | - | - |
-| `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key that is used to verify the authenticity of the era markers on chain. | - | - | - | :heavy_check_mark: |
+| `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era markers secret key that is used to verify the authenticity of the era markers on the chain. | - | - | - | :heavy_check_mark: |
 
 The `tools recompute-certificates-hash` command has no dedicated parameters. 
