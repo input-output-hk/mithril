@@ -58,8 +58,8 @@ git clone git@github.com:input-output-hk/mithril.git
 Switch to the desired branch/tag:
 
 ```bash
-# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
-# please refer to the **Build From** column of the above **Mithril Networks** table
+# Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
+# Please refer to the **Build from** column of the **Mithril networks** table above
 git switch **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
