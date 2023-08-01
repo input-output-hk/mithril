@@ -12,8 +12,8 @@ In this guide, you will learn how to run a demonstration of a **Mithril network*
 
 You can launch a private Mithril network using the following topology:
 
-* `2` **Cardano nodes** configured as **stake pool operators (SPOs)** with a **Mithril Signer** on top
-* `1` **Cardano node** configured as a **BFT node** with a **Mithril Aggregator** on top
+* `2` **Cardano nodes** configured as **stake pool operators (SPOs)** with a **Mithril signer** on top
+* `1` **Cardano node** configured as a **BFT node** with a **Mithril aggregator** on top
 
 ![Devnet Topology](images/devnet-topology.png)
 
@@ -103,8 +103,8 @@ You should see the following information displayed:
 >> Directory: artifacts
 >> Cardano BFT nodes: 1
 >> Cardano SPO nodes: 2
->> Info: Mithril Aggregator will be attached to the first Cardano BFT node
->> Info: Mithril Signers will be attached to each Cardano SPO node
+>> Info: Mithril aggregator will be attached to the first Cardano BFT node
+>> Info: Mithril signers will be attached to each Cardano SPO node
 
 =====================================================================
  Start Cardano nodes
@@ -155,9 +155,9 @@ Transaction successfully submitted.
 
 >> Start Mithril network
 >> Build Mithril node Docker images
->>>> Building Mithril Aggregator node Docker image
->>>> Building Mithril Client node Docker image
->>>> Building Mithril Signer node Docker image
+>>>> Building Mithril aggregator node Docker image
+>>>> Building Mithril client node Docker image
+>>>> Building Mithril signer node Docker image
 No stopped containers
 Creating network "artifacts_cardano_network" with driver "bridge"
 Creating network "artifacts_mithril_network" with driver "bridge"
@@ -422,7 +422,7 @@ tail -n 22 ./node-pool2/node.log
 
 ```
 
-## Interact with the Mithril Aggregator by using the Mithril Client
+## Interact with the Mithril aggregator by using the Mithril client
 
 ### Step 1: Prepare some useful variables
 
