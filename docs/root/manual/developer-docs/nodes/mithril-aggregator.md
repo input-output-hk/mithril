@@ -5,11 +5,11 @@ sidebar_position: 1
 import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
-# Mithril Aggregator node
+# Mithril aggregator node
 
 :::info
 
-Mithril Aggregator is responsible for collecting individual signatures from the Mithril Signers and aggregating them into a multi-signature. With this capability, the Mithril Aggregator can provide certified snapshots of the Cardano blockchain.
+Mithril aggregator is responsible for collecting individual signatures from the Mithril signers and aggregating them into a multi-signature. With this capability, the Mithril aggregator can provide certified snapshots of the Cardano blockchain.
 
 :::
 
@@ -17,7 +17,7 @@ Mithril Aggregator is responsible for collecting individual signatures from the 
 
 * For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril Aggregator**, please see the [Aggregator node](../../../mithril/mithril-network/aggregator.md) overview.
+* For more information about the **Mithril aggregator**, please see the [aggregator node](../../../mithril/mithril-network/aggregator.md) overview.
 
 :::
 
@@ -31,17 +31,17 @@ Mithril Aggregator is responsible for collecting individual signatures from the 
 
 | Node | Source Repository | Rust Documentation | Docker Packages | REST API
 |:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril Aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/aggregator-api)
+**Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/aggregator-api)
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain
+* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
-* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
+* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
 
-Download from GitHub (HTTPS):
+Download the source file from GitHub (HTTPS):
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
@@ -116,7 +116,7 @@ Display the help menu:
 You should see:
 
 ```bash
-Mithril Aggregator Node
+Mithril aggregator Node
 
 Usage: mithril-aggregator [OPTIONS] <COMMAND>
 
@@ -178,7 +178,7 @@ You should see:
 
 ```bash
 mithril-aggregator-genesis 
-Aggregator runs in Genesis tools mode
+The aggregator runs in Genesis tools mode
 USAGE:
     mithril-aggregator genesis <SUBCOMMAND>
 OPTIONS:
@@ -192,7 +192,7 @@ SUBCOMMANDS:
 
 ### Bootstrap sub-command (test-only)
 
-You can run the 'genesis bootstrap' command in release mode with the default configuration, but **only in test mode**. This will enable the Mithril Aggregator node to bootstrap a `Genesis Certificate`. After completing this operation, the Mithril Aggregator will be capable of producing new snapshots and certificates.
+You can run the 'genesis bootstrap' command in release mode with the default configuration, but **only in test mode**. This will enable the Mithril aggregator node to bootstrap a `genesis certificate`. After completing this operation, the Mithril aggregator will be capable of producing new snapshots and certificates.
 
 ```bash
 ./mithril-aggregator genesis bootstrap
@@ -206,7 +206,7 @@ You can use a specific `genesis secret key` (only in test mode):
 
 ### Export sub-command
 
-You can run the 'genesis export' command in release mode. This allows the Mithril Aggregator node to export the `Genesis Payload` that needs to be signed (and later reimported) for the `genesis certificate`. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
+You can run the 'genesis export' command in release mode. This allows the Mithril aggregator node to export the `genesis payload` that needs to be signed (and later reimported) for the `genesis certificate`. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
 
 ```bash
 ./mithril-aggregator genesis export --target-path **YOUR_TARGET_PATH**
@@ -214,7 +214,7 @@ You can run the 'genesis export' command in release mode. This allows the Mithri
 
 ### Sign sub-command
 
-You can run the 'genesis sign' command in release mode. This allows the Mithril Aggregator node to sign the `genesis payload` that needs to be reimported. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
+You can run the 'genesis sign' command in release mode. This allows the Mithril aggregator node to sign the `genesis payload` that needs to be reimported. The signature of the `genesis payload` must be done manually by the owner of the `genesis secret key`.
 
 ```bash
 ./mithril-aggregator genesis sign --to-sign-payload-path **TO_SIGN_PAYLOAD_PATH** --target-signed-payload-path **TARGET_SIGNED_PAYLOAD_PATH** --genesis-secret-key-path **GENESIS_SECRET_KEY_PATH**
@@ -222,7 +222,7 @@ You can run the 'genesis sign' command in release mode. This allows the Mithril 
 
 ### Import sub-command
 
-Run the 'genesis import' command in release mode. This allows the Mithril Aggregator node to import the signed payload of the `genesis certificate` and store it. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
+Run the 'genesis import' command in release mode. This allows the aggregator node to import the signed payload of the `genesis certificate` and store it. After this operation, the  aggregator will be able to produce new snapshots and certificates.
 
 ```bash
 ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
@@ -350,7 +350,7 @@ Options:
   -h, --help  Print help
 ```
 
-Run the 'tools recompute-certificates-hash' command in release mode with the default configuration. This allows the Mithril Aggregator node to recompute all of its certificate hashes, which is useful to avoid a chain re-genesis after an update that changes the structure of the certificates.
+Run the 'tools recompute-certificates-hash' command in release mode with the default configuration. This allows the Mithril aggregator node to recompute all of its certificate hashes, which is useful to avoid a chain re-genesis after an update that changes the structure of the certificates.
 
 ```bash
 ./mithril-aggregator tools recompute-certificates-hash
@@ -358,7 +358,7 @@ Run the 'tools recompute-certificates-hash' command in release mode with the def
 
 :::tip
 
-If you wish to delve deeper and access several levels of logs from the Mithril Aggregator, use the following:
+If you wish to delve deeper and access several levels of logs from the Mithril aggregator, use the following:
 
 * Add `-v` for some logs (WARN)
 * Add `-vv` for more logs (INFO)
@@ -392,7 +392,7 @@ Here are the available subcommands:
 
 | Subcommand | Performed action |
 |------------|------------------|
-| **serve** | The Aggregator runs its HTTP server in nominal mode and orchestrates multi-signature production |
+| **serve** | The aggregator runs its HTTP server in nominal mode and orchestrates multi-signature production |
 | **help** | Prints this message or the help of the given subcommand(s) |
 | **genesis export** | Exports genesis payload to sign with genesis secret key |
 | **genesis sign** | Signs the genesis payload with the genesis secret key |
@@ -417,7 +417,7 @@ Here is a list of the available parameters:
 | `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
 | `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
 | `config_directory` | `--config-directory` | - | - | Directory of the configuration file | `./config` | - | - |
-| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store Aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
+| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
 | `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the **Cardano Node** stores | `/db` | - | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
