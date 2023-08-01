@@ -13,21 +13,21 @@ Let's discover **Mithril in less than five minutes**.
 
 A **Mithril network** consists of three main components:
 
-* **Mithril Aggregator**:
+* **Mithril aggregator**:
 
-This node coordinates the production of the Cardano snapshot archives, working alongside Mithril Signer and Cardano nodes to generate associated certificates using Mithril multi-signatures.
+This node coordinates the production of the Cardano snapshot archives, working alongside Mithril signer and Cardano nodes to generate associated certificates using Mithril multi-signatures.
 
-* **Mithril Signer**:
+* **Mithril signer**:
 
-This node is responsible for producing individual signatures, which are then combined into a multi-signature by the Mithril Aggregator. It operates in conjunction with a Cardano node (run by a stake pool operator (SPO)) holding stake in the network.
+This node is responsible for producing individual signatures, which are then combined into a multi-signature by the Mithril aggregator. It operates in conjunction with a Cardano node (run by a stake pool operator (SPO)) holding stake in the network.
 
-* **Mithril Client**:
+* **Mithril client**:
 
 This node verifies and restores a snapshot, facilitating lightning-fast bootstrapping of a Cardano full node. It plays a crucial role in ensuring the efficiency of the network.
 
 :::tip
 
-For more information about the **Mithril protocol**, see the section [About Mithril](../mithril/intro.md).
+For more information about the **Mithril protocol**, see this section [about Mithril](../mithril/intro.md).
 
 :::
 
@@ -53,16 +53,16 @@ In the [**Getting started**](/doc/category/getting-started) guide in the user ma
 
 * :new: [Bootstrapping a Cardano node](./getting-started/bootstrap-cardano-node.md) on `testnet`
 
-* [Running a Mithril Signer node as an SPO](./getting-started/run-signer-node.md) on `testnet`
+* [Running a Mithril signer node as an SPO](./getting-started/run-signer-node.md) on `testnet`
 
 * [Running a private Mithril network](./getting-started/run-mithril-devnet.md) on `devnet`
 
 In the [**Developer docs**](/doc/category/developer-docs), you will find documentation for:
 
 * The **Mithril network nodes**:
-  * [**Mithril Aggregator node**](./developer-docs/nodes/mithril-aggregator.md) developer documentation
-  * [**Mithril Signer node**](./developer-docs/nodes/mithril-signer.md) developer documentation
-  * [**Mithril Client node**](./developer-docs/nodes/mithril-client.md) developer documentation
+  * [**Mithril aggregator node**](./developer-docs/nodes/mithril-aggregator.md) developer documentation
+  * [**Mithril signer node**](./developer-docs/nodes/mithril-signer.md) developer documentation
+  * [**Mithril client node**](./developer-docs/nodes/mithril-client.md) developer documentation
 
 * The [API reference](./developer-docs/references.md) guide.
 

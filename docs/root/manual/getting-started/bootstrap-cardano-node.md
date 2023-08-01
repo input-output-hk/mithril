@@ -9,7 +9,7 @@ import CompiledBinaries from '../../compiled-binaries.md'
 
 :::info
 
-With the **Mithril Client** connected to a **Mithril Aggregator**, you can restore a full Cardano node in less than two hours!
+With the **Mithril client** connected to a **Mithril aggregator**, you can restore a full Cardano node in less than two hours!
 
 :::
 
@@ -58,9 +58,9 @@ Or (SSH):
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
-## Build the Mithril Client binary
+## Build the Mithril client binary
 
-To build the Mithril Client binary, switch to the desired branch/tag:
+To build the Mithril client binary, switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
@@ -90,7 +90,7 @@ make build
 
 ### Verify the version
 
-To check if the version of the Mithril Signer binary is correct, use the following command:
+To check if the version of the Mithril signer binary is correct, use the following command:
 
 ```bash
 ./mithril-client -V
@@ -106,7 +106,7 @@ mithril-client 0.2.0
 
 ### Verify the build
 
-To verify that the Mithril Client binary is functioning correctly, run the following command to display its help menu:
+To verify that the Mithril client binary is functioning correctly, run the following command to display its help menu:
 
 ```bash
 ./mithril-client -h
@@ -132,7 +132,7 @@ Options:
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL
+          Override configuration aggregator endpoint URL
   -h, --help
           Print help
   -V, --version
@@ -143,7 +143,7 @@ Options:
 
 :::tip
 
-To display results in JSON format for the `list` and `show` commands of the Mithril Client, you can use the `--json` option:
+To display results in JSON format for the `list` and `show` commands of the Mithril client, you can use the `--json` option:
 
 ```bash
 ./mithril-client snapshot list --json
@@ -153,7 +153,7 @@ To display results in JSON format for the `list` and `show` commands of the Mith
 
 :::tip
 
-If you wish to delve deeper and access several levels of logs from the Mithril Client, you can use the following:
+If you wish to delve deeper and access several levels of logs from the Mithril client, you can use the following:
 
 * Add `-v` for some logs (WARN)
 * Add `-vv` for more logs (INFO)
@@ -182,7 +182,7 @@ Here is an example configuration for the `latest` stable Docker image:
 export MITHRIL_IMAGE_ID=latest
 ```
 
-Then, create a shell function for the Mithril Client:
+Then, create a shell function for the Mithril client:
 
 ```bash
 mithril_client () {
