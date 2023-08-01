@@ -234,7 +234,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
         genesis_verifier.verify(
             genesis_certificate.signed_message.as_bytes(),
-            genesis_signature.key(),
+            genesis_signature,
         )?;
 
         Ok(())

@@ -1,4 +1,4 @@
-use crate::crypto_helper::{ProtocolGenesisSignature2, ProtocolMultiSignature};
+use crate::crypto_helper::{ProtocolGenesisSignature, ProtocolMultiSignature};
 use crate::entities::{
     Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, ProtocolMessage,
 };
@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 pub enum CertificateSignature {
     /// Genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
-    GenesisSignature(ProtocolGenesisSignature2),
+    GenesisSignature(ProtocolGenesisSignature),
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))

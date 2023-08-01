@@ -253,7 +253,7 @@ pub fn setup_certificate_chain(
                         fake_certificate.metadata.protocol_parameters,
                         fake_certificate.beacon,
                         next_avk,
-                        genesis_signature.into(),
+                        genesis_signature,
                     )
                     .unwrap()
                 }

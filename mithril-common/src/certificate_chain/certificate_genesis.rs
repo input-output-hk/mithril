@@ -7,10 +7,8 @@ use thiserror::Error;
 
 use crate::{
     crypto_helper::{
-        key_encode_hex, ProtocolAggregateVerificationKey,
-        ProtocolGenesisSignature as ProtocolGenesisSignatureOld,
-        ProtocolGenesisSignature2 as ProtocolGenesisSignature, ProtocolGenesisSigner,
-        PROTOCOL_VERSION,
+        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
+        ProtocolGenesisSigner, PROTOCOL_VERSION,
     },
     entities::{
         Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
@@ -60,7 +58,7 @@ impl CertificateGenesisProducer {
     pub fn sign_genesis_protocol_message(
         &self,
         genesis_protocol_message: ProtocolMessage,
-    ) -> Result<ProtocolGenesisSignatureOld, CertificateGenesisProducerError> {
+    ) -> Result<ProtocolGenesisSignature, CertificateGenesisProducerError> {
         Ok(self
             .genesis_signer
             .as_ref()

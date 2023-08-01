@@ -284,7 +284,6 @@ pub const fn operational_certificate<'a>() -> [&'a str; 1] {
 #[cfg(test)]
 mod test {
     use super::*;
-    use hex::FromHex;
     use kes_summed_ed25519::kes::Sum6KesSig;
     use mithril_stm::stm::{StmAggrSig, StmSig, StmVerificationKeyPoP};
     use serde::{de::DeserializeOwned, Serialize};
@@ -356,8 +355,7 @@ mod test {
     #[test]
     fn assert_encoded_genesis_signatures_are_still_matching_concrete_type() {
         assert_decode_all(&genesis_signature(), |encoded_sig| {
-            let raw_bytes = Vec::from_hex(encoded_sig).map_err(|e| e.to_string())?;
-            ProtocolGenesisSignature::from_bytes(&raw_bytes).map_err(|e| e.to_string())?;
+            ProtocolGenesisSignature::from_bytes_hex(encoded_sig).map_err(|e| e.to_string())?;
             Ok(())
         });
 

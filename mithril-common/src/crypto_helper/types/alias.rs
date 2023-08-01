@@ -61,9 +61,6 @@ pub type ProtocolGenesisVerificationKey = ed25519_dalek::PublicKey;
 /// Alias of [Ed25519:SecretKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SecretKey.html).
 pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 
-/// Alias of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
-pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
-
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).
 pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
