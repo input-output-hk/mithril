@@ -132,7 +132,7 @@ impl MithrilFixture {
             self.protocol_parameters.clone(),
             beacon.clone(),
             genesis_avk,
-            genesis_signature,
+            genesis_signature.into(),
         )
         .unwrap()
     }

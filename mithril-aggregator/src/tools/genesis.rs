@@ -161,7 +161,7 @@ impl GenesisTools {
             self.protocol_parameters.clone(),
             self.beacon.clone(),
             self.genesis_avk.clone(),
-            genesis_signature,
+            genesis_signature.into(),
         )?;
         self.certificate_verifier
             .verify_genesis_certificate(&genesis_certificate, &self.genesis_verifier)

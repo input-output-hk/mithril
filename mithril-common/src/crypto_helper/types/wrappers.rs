@@ -21,22 +21,43 @@ pub type ProtocolSingleSignature = ProtocolKey<StmSig>;
 /// Wrapper of [MithrilStm:StmAggrSig](struct@StmAggrSig) to add serialization utilities.
 pub type ProtocolMultiSignature = ProtocolKey<StmAggrSig<D>>;
 
-impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
-    fn decode_key(encoded: &str) -> StdResult<ProtocolKey<ed25519_dalek::Signature>> {
-        let hex_bytes = Vec::from_hex(encoded).with_context(|| {
+/// Wrapper of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
+pub type ProtocolGenesisSignature2 = ProtocolKey<ed25519_dalek::Signature>;
+
+impl ProtocolGenesisSignature2 {
+    /// Create an instance from a bytes hex representation
+    pub fn from_bytes_hex(hex_string: &str) -> StdResult<Self> {
+        let hex_bytes = Vec::from_hex(hex_string).with_context(|| {
             "Could not deserialize a ProtocolGenesisSignature from bytes hex string:\
             could not convert the encoded string to bytes."
         })?;
-        let signature = ed25519_dalek::Signature::from_bytes(&hex_bytes).with_context(|| {
+        let key = ed25519_dalek::Signature::from_bytes(&hex_bytes).with_context(|| {
             "Could not deserialize a ProtocolGenesisSignature from bytes hex string:\
             invalid bytes"
                 .to_string()
         })?;
-        Ok(ProtocolKey::new(signature))
+
+        Ok(Self { key })
+    }
+
+    /// Create a bytes hash representation of the key
+    pub fn to_bytes_hex(&self) -> String {
+        Self::key_to_bytes_hex(&self.key)
+    }
+
+    /// Create a bytes hash representation of the given key
+    pub fn key_to_bytes_hex(key: &ed25519_dalek::Signature) -> String {
+        key.to_bytes().encode_hex::<String>()
+    }
+}
+
+impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
+    fn decode_key(encoded: &str) -> StdResult<ProtocolKey<ed25519_dalek::Signature>> {
+        ProtocolGenesisSignature2::from_bytes_hex(encoded)
     }
 
     fn encode_key(key: &ed25519_dalek::Signature) -> StdResult<String> {
-        Ok(key.to_bytes().encode_hex::<String>())
+        Ok(ProtocolGenesisSignature2::key_to_bytes_hex(key))
     }
 }
 

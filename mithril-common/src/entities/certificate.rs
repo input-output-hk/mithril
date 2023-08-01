@@ -1,7 +1,6 @@
-use crate::crypto_helper::ProtocolMultiSignature;
+use crate::crypto_helper::{ProtocolGenesisSignature2, ProtocolMultiSignature};
 use crate::entities::{
-    Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, HexEncodedMultiSignature,
-    ProtocolMessage,
+    Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, ProtocolMessage,
 };
 use std::cmp::Ordering;
 
@@ -12,7 +11,7 @@ use sha2::{Digest, Sha256};
 pub enum CertificateSignature {
     /// Genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
-    GenesisSignature(HexEncodedMultiSignature),
+    GenesisSignature(ProtocolGenesisSignature2),
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
@@ -94,7 +93,7 @@ impl Certificate {
         hasher.update(self.aggregate_verification_key.as_bytes());
         match &self.signature {
             CertificateSignature::GenesisSignature(signature) => {
-                hasher.update(signature.as_bytes());
+                hasher.update(signature.to_bytes_hex());
             }
             CertificateSignature::MultiSignature(signature) => {
                 hasher.update(&signature.to_json_hex().unwrap());

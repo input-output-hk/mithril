@@ -1,15 +1,14 @@
 //! A module used to validate the Certificate Chain created by an aggregator
 //!
 use async_trait::async_trait;
-use hex::{FromHex, ToHex};
+use hex::ToHex;
 use slog::{debug, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
 use super::{CertificateRetriever, CertificateRetrieverError};
 use crate::crypto_helper::{
-    key_decode_hex, ProtocolGenesisError, ProtocolGenesisSignature, ProtocolGenesisVerifier,
-    ProtocolMultiSignature,
+    key_decode_hex, ProtocolGenesisError, ProtocolGenesisVerifier, ProtocolMultiSignature,
 };
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
@@ -229,19 +228,13 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         genesis_verifier: &ProtocolGenesisVerifier,
     ) -> Result<(), CertificateVerifierError> {
         let genesis_signature = match &genesis_certificate.signature {
-            CertificateSignature::GenesisSignature(signature) => {
-                let raw_signature_bytes = &Vec::from_hex(signature)
-                    .map_err(|e| CertificateVerifierError::Codec(e.to_string()))?;
-
-                ProtocolGenesisSignature::from_bytes(raw_signature_bytes)
-                    .map_err(|e| CertificateVerifierError::CodecGenesis(e.to_string()))
-            }
+            CertificateSignature::GenesisSignature(signature) => Ok(signature),
             _ => Err(CertificateVerifierError::InvalidGenesisCertificateProvided),
         }?;
 
         genesis_verifier.verify(
             genesis_certificate.signed_message.as_bytes(),
-            &genesis_signature,
+            genesis_signature.key(),
         )?;
 
         Ok(())

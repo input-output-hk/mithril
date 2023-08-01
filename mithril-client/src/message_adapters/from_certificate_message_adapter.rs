@@ -33,7 +33,9 @@ impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateM
                     certificate_message.multi_signature.try_into()?,
                 )
             } else {
-                CertificateSignature::GenesisSignature(certificate_message.genesis_signature)
+                CertificateSignature::GenesisSignature(
+                    certificate_message.genesis_signature.try_into()?,
+                )
             },
         };
 

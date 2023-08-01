@@ -86,11 +86,11 @@ pub fn certificate_pending() -> entities::CertificatePending {
 
 /// Fake Genesis Certificate
 pub fn genesis_certificate(certificate_hash: &str) -> entities::Certificate {
-    let multi_signature = fake_keys::multi_signature()[1].to_string();
+    let multi_signature = fake_keys::genesis_signature()[1].to_string();
 
     entities::Certificate {
         previous_hash: String::new(),
-        signature: CertificateSignature::GenesisSignature(multi_signature),
+        signature: CertificateSignature::GenesisSignature(multi_signature.try_into().unwrap()),
         ..certificate(certificate_hash.to_string())
     }
 }

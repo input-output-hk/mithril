@@ -102,7 +102,7 @@ impl CertificateRecord {
 impl From<Certificate> for CertificateRecord {
     fn from(other: Certificate) -> Self {
         let (signature, parent_certificate_id) = match other.signature {
-            CertificateSignature::GenesisSignature(signature) => (signature, None),
+            CertificateSignature::GenesisSignature(signature) => (signature.to_bytes_hex(), None),
             CertificateSignature::MultiSignature(signature) => {
                 (signature.to_json_hex().unwrap(), Some(other.previous_hash))
             }
@@ -138,7 +138,7 @@ impl From<CertificateRecord> for Certificate {
         let (previous_hash, signature) = match other.parent_certificate_id {
             None => (
                 String::new(),
-                CertificateSignature::GenesisSignature(other.signature),
+                CertificateSignature::GenesisSignature(other.signature.try_into().unwrap()),
             ),
             Some(parent_certificate_id) => (
                 parent_certificate_id,

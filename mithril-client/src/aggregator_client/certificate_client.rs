@@ -85,7 +85,9 @@ mod tests {
             .expect_get_content()
             .return_once(move |_| {
                 let (multi_signature, genesis_signature) = match certificate.signature {
-                    CertificateSignature::GenesisSignature(signature) => (String::new(), signature),
+                    CertificateSignature::GenesisSignature(signature) => {
+                        (String::new(), signature.try_into().unwrap())
+                    }
                     CertificateSignature::MultiSignature(signature) => {
                         (signature.to_json_hex().unwrap(), String::new())
                     }
