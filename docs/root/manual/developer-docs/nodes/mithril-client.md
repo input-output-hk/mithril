@@ -237,7 +237,7 @@ mithril_client snapshot show $SNAPSHOT_DIGEST
 # 4- Download the given snapshot and verify the certificate
 mithril_client snapshot download $SNAPSHOT_DIGEST
 
-# 5- List Mithril stake distribution
+# 5- List Mithril stake distributions
 mithril_client mithril-stake-distribution list
 
 # 6- Download and verify the given Mithril stake distribution
