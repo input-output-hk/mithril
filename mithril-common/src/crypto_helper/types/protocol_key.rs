@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result as StdResult};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::any::type_name;
+use std::ops::Deref;
 
 use crate::crypto_helper::{key_decode_hex, key_encode_hex};
 
@@ -40,11 +41,6 @@ where
         Self { key }
     }
 
-    /// Get the inner key
-    pub fn key(&self) -> &T {
-        &self.key
-    }
-
     /// Create an instance from a JSON hex representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
         let key = key_decode_hex::<T>(hex_string)
@@ -74,6 +70,17 @@ where
                     type_name::<T>()
                 )
             })
+    }
+}
+
+impl<T> Deref for ProtocolKey<T>
+where
+    T: Serialize + DeserializeOwned,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.key
     }
 }
 

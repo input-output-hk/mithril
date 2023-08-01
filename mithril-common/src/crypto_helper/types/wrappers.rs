@@ -8,13 +8,6 @@ use crate::crypto_helper::{ProtocolKey, ProtocolKeyCodec, D};
 /// utilities.
 pub type ProtocolSignerVerificationKey = ProtocolKey<StmVerificationKeyPoP>;
 
-impl ProtocolSignerVerificationKey {
-    /// Output the key's bytes in memory
-    pub fn to_bytes(&self) -> [u8; 192] {
-        self.key().to_bytes()
-    }
-}
-
 /// Wrapper of [MithrilStm:StmSig](type@StmSig) to add serialization utilities.
 pub type ProtocolSingleSignature = ProtocolKey<StmSig>;
 

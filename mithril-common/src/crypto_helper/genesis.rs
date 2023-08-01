@@ -120,9 +120,7 @@ impl ProtocolGenesisVerifier {
         message: &[u8],
         signature: &ProtocolGenesisSignature,
     ) -> Result<(), ProtocolGenesisError> {
-        Ok(self
-            .verification_key
-            .verify_strict(message, signature.key())?)
+        Ok(self.verification_key.verify_strict(message, signature)?)
     }
 }
 

@@ -154,7 +154,6 @@ impl MithrilCertificateVerifier {
             key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
 
         multi_signature
-            .key()
             .verify(
                 message,
                 &aggregate_verification_key,

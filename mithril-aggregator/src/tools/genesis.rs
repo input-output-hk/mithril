@@ -145,7 +145,7 @@ impl GenesisTools {
         to_sign_payload_file.read_to_end(&mut to_sign_payload_buffer)?;
 
         let genesis_signature = genesis_signer.sign(&to_sign_payload_buffer);
-        let signed_payload = genesis_signature.key().to_bytes();
+        let signed_payload = genesis_signature.to_bytes();
 
         let mut target_signed_payload_file = File::create(target_signed_payload_path)?;
         target_signed_payload_file.write_all(&signed_payload)?;
