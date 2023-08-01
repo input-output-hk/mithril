@@ -82,7 +82,7 @@ impl<'client> EpochSettingProvider<'client> {
     }
 
     fn condition_by_epoch(&self, epoch: &Epoch) -> Result<WhereCondition, StdError> {
-        let epoch_setting_id: i64 = i64::try_from(epoch.0)?;
+        let epoch_setting_id: i64 = epoch.try_into()?;
 
         Ok(WhereCondition::new(
             "epoch_setting_id = ?*",
@@ -140,7 +140,7 @@ impl<'conn> UpdateEpochSettingProvider<'conn> {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> WhereCondition {
-        let epoch_setting_id = i64::try_from(epoch.0).unwrap();
+        let epoch_setting_id: i64 = epoch.try_into().unwrap();
 
         WhereCondition::new(
             "(epoch_setting_id, protocol_parameters) values (?1, ?2)",
@@ -214,7 +214,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
 
     /// Create the SQL condition to delete a record given the Epoch.
     fn get_delete_condition_by_epoch(&self, epoch: Epoch) -> WhereCondition {
-        let epoch_setting_id_value = Value::Integer(i64::try_from(epoch.0).unwrap());
+        let epoch_setting_id_value = Value::Integer(epoch.try_into().unwrap());
 
         WhereCondition::new("epoch_setting_id = ?*", vec![epoch_setting_id_value])
     }
@@ -228,7 +228,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
 
     /// Create the SQL condition to prune data older than the given Epoch.
     fn get_prune_condition(&self, epoch_threshold: Epoch) -> WhereCondition {
-        let epoch_setting_id_value = Value::Integer(i64::try_from(epoch_threshold.0).unwrap());
+        let epoch_setting_id_value = Value::Integer(epoch_threshold.try_into().unwrap());
 
         WhereCondition::new("epoch_setting_id < ?*", vec![epoch_setting_id_value])
     }

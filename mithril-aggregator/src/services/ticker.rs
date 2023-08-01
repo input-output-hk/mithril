@@ -76,7 +76,7 @@ impl TickerService for MithrilTickerService {
 
         Ok(Beacon::new(
             self.network.to_string(),
-            epoch.0,
+            *epoch,
             immutable_file_number,
         ))
     }

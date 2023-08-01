@@ -174,7 +174,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
         &self,
         registration_epoch: &Epoch,
     ) -> Result<WhereCondition, StdError> {
-        let epoch: i64 = i64::try_from(registration_epoch.0)?;
+        let epoch: i64 = registration_epoch.try_into()?;
 
         Ok(WhereCondition::new(
             "registration_epoch_setting_id = ?*",
@@ -237,7 +237,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
                 Value::String(single_signature_record.open_message_id.to_string()),
                 Value::String(single_signature_record.signer_id.to_owned()),
                 Value::Integer(
-                    i64::try_from(single_signature_record.registration_epoch_setting_id.0).unwrap(),
+                    single_signature_record.registration_epoch_setting_id.try_into().unwrap(),
                 ),
                 Value::String(serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()),
                 Value::String(single_signature_record.signature.to_owned()),
@@ -413,7 +413,7 @@ mod tests {
             vec![
                 Value::String(single_signature_record.open_message_id.to_string()),
                 Value::String(single_signature_record.signer_id),
-                Value::Integer(single_signature_record.registration_epoch_setting_id.0 as i64),
+                Value::Integer(*single_signature_record.registration_epoch_setting_id as i64),
                 Value::String(
                     serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()
                 ),

@@ -82,9 +82,7 @@ pub fn insert_single_signatures_in_db(
                 (2, single_signature_record.signer_id.into()),
                 (
                     3,
-                    i64::try_from(single_signature_record.registration_epoch_setting_id.0)
-                        .unwrap()
-                        .into(),
+                    Value::Integer(*single_signature_record.registration_epoch_setting_id as i64),
                 ),
                 (
                     4,

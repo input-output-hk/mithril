@@ -89,11 +89,9 @@ impl<'client> StakePoolProvider<'client> {
     }
 
     fn condition_by_epoch(&self, epoch: &Epoch) -> Result<WhereCondition, StdError> {
-        let epoch: i64 = i64::try_from(epoch.0)?;
-
         Ok(WhereCondition::new(
             "epoch = ?*",
-            vec![Value::Integer(epoch)],
+            vec![Value::Integer(epoch.try_into()?)],
         ))
     }
 
@@ -138,7 +136,7 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
         epoch: Epoch,
         stake: Stake,
     ) -> WhereCondition {
-        let epoch = i64::try_from(epoch.0).unwrap();
+        let epoch = epoch.try_into().unwrap();
         let stake = i64::try_from(stake).unwrap();
 
         WhereCondition::new(
@@ -215,9 +213,10 @@ impl<'conn> DeleteStakePoolProvider<'conn> {
 
     /// Create the SQL condition to prune data older than the given Epoch.
     fn get_prune_condition(&self, epoch_threshold: Epoch) -> WhereCondition {
-        let epoch_value = Value::Integer(i64::try_from(epoch_threshold.0).unwrap());
-
-        WhereCondition::new("epoch < ?*", vec![epoch_value])
+        WhereCondition::new(
+            "epoch < ?*",
+            vec![Value::Integer(epoch_threshold.try_into().unwrap())],
+        )
     }
 
     /// Prune the stake pools data older than the given epoch.

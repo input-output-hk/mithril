@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use std::num::TryFromIntError;
+use std::ops::{Deref, DerefMut};
 use std::{
     fmt::{Display, Formatter},
     ops::{Add, AddAssign, Sub, SubAssign},
@@ -71,6 +73,20 @@ impl Epoch {
     /// Check if there is a gap with another Epoch.
     pub fn has_gap_with(&self, other: &Epoch) -> bool {
         self.0.abs_diff(other.0) > 1
+    }
+}
+
+impl Deref for Epoch {
+    type Target = u64;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Epoch {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -161,6 +177,22 @@ impl Display for Epoch {
 }
 
 impl SignableBeacon for Epoch {}
+
+impl TryInto<i64> for Epoch {
+    type Error = TryFromIntError;
+
+    fn try_into(self) -> Result<i64, Self::Error> {
+        self.0.try_into()
+    }
+}
+
+impl TryInto<i64> for &Epoch {
+    type Error = TryFromIntError;
+
+    fn try_into(self) -> Result<i64, Self::Error> {
+        self.0.try_into()
+    }
+}
 
 /// EpochError is an error triggerred by an [Epoch]
 #[derive(Error, Debug)]
