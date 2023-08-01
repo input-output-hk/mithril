@@ -290,12 +290,11 @@ mod test {
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 
-    use crate::crypto_helper::{key_decode_hex, OpCert, ProtocolGenesisSignature, D};
+    use crate::crypto_helper::{
+        key_decode_hex, OpCert, ProtocolGenesisSignature, ProtocolKey, ProtocolKeyCodec, D,
+    };
 
-    fn assert_encoded_are_still_matching_concrete_type<T: Fn(&str) -> Result<(), String>>(
-        encoded_types: &[&str],
-        decode_fun: T,
-    ) {
+    fn assert_decode_all<T: Fn(&str) -> Result<(), String>>(encoded_types: &[&str], decode_fun: T) {
         let errors: Vec<String> = encoded_types
             .iter()
             .filter_map(|encoded_type| match decode_fun(encoded_type) {
@@ -320,57 +319,69 @@ mod test {
         );
     }
 
-    fn assert_encoded_are_still_matching_concrete_type_using_key_decode_hex<
-        T: Serialize + DeserializeOwned,
-    >(
+    fn assert_can_deserialize_using_key_decode_hex<T: Serialize + DeserializeOwned>(
         encoded_types: &[&str],
     ) {
-        assert_encoded_are_still_matching_concrete_type(encoded_types, |encoded_type| {
+        assert_decode_all(encoded_types, |encoded_type| {
             key_decode_hex::<T>(encoded_type).map(|_| ())
         })
     }
 
+    fn assert_can_convert_to_protocol_key<T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned>(
+        encoded_types: &[&str],
+    ) {
+        assert_decode_all(
+            encoded_types,
+            |encoded_type| match ProtocolKey::<T>::try_from(encoded_type) {
+                Ok(_) => Ok(()),
+                Err(error) => Err(format!("{error:?}")),
+            },
+        )
+    }
+
     #[test]
     fn assert_encoded_single_signatures_are_still_matching_concrete_type() {
-        assert_encoded_are_still_matching_concrete_type_using_key_decode_hex::<StmSig>(
-            &single_signature(),
-        );
+        assert_can_deserialize_using_key_decode_hex::<StmSig>(&single_signature());
+
+        assert_can_convert_to_protocol_key::<StmSig>(&single_signature());
     }
 
     #[test]
     fn assert_encoded_multi_signatures_are_still_matching_concrete_type() {
-        assert_encoded_are_still_matching_concrete_type_using_key_decode_hex::<StmAggrSig<D>>(
-            &multi_signature(),
-        );
+        assert_can_deserialize_using_key_decode_hex::<StmAggrSig<D>>(&multi_signature());
+
+        assert_can_convert_to_protocol_key::<StmAggrSig<D>>(&multi_signature());
     }
 
     #[test]
     fn assert_encoded_genesis_signatures_are_still_matching_concrete_type() {
-        assert_encoded_are_still_matching_concrete_type(&genesis_signature(), |encoded_sig| {
+        assert_decode_all(&genesis_signature(), |encoded_sig| {
             let raw_bytes = Vec::from_hex(encoded_sig).map_err(|e| e.to_string())?;
             ProtocolGenesisSignature::from_bytes(&raw_bytes).map_err(|e| e.to_string())?;
             Ok(())
         });
+
+        assert_can_convert_to_protocol_key::<ed25519_dalek::Signature>(&genesis_signature());
     }
 
     #[test]
     fn assert_encoded_signer_verification_key_are_still_matching_concrete_type() {
-        assert_encoded_are_still_matching_concrete_type_using_key_decode_hex::<StmVerificationKeyPoP>(
+        assert_can_deserialize_using_key_decode_hex::<StmVerificationKeyPoP>(
             &signer_verification_key(),
         );
+
+        assert_can_convert_to_protocol_key::<StmVerificationKeyPoP>(&signer_verification_key());
     }
 
     #[test]
     fn assert_encoded_signer_verification_key_signature_are_still_matching_concrete_type() {
-        assert_encoded_are_still_matching_concrete_type_using_key_decode_hex::<Sum6KesSig>(
+        assert_can_deserialize_using_key_decode_hex::<Sum6KesSig>(
             &signer_verification_key_signature(),
         );
     }
 
     #[test]
     fn assert_encoded_operational_certificate_are_still_matching_concrete_type() {
-        assert_encoded_are_still_matching_concrete_type_using_key_decode_hex::<OpCert>(
-            &operational_certificate(),
-        );
+        assert_can_deserialize_using_key_decode_hex::<OpCert>(&operational_certificate());
     }
 }
