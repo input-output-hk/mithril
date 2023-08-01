@@ -1077,10 +1077,18 @@ mod tests {
                 let sigs = find_signatures(&msg, &ps, &all_ps);
                 let msig = clerk.aggregate(&sigs, &msg);
 
-                aggr_avks.push(clerk.compute_avk());
-                aggr_stms.push(msig.unwrap());
-                batch_msgs.push(msg.to_vec());
-                batch_params.push(params);
+                match msig {
+                    Ok(aggr) => {
+                        aggr_avks.push(clerk.compute_avk());
+                        aggr_stms.push(aggr);
+                        batch_msgs.push(msg.to_vec());
+                        batch_params.push(params);
+                    }
+                    Err(AggregationError::NotEnoughSignatures(_n, _k)) => {
+                        assert!(sigs.len() < params.k as usize)
+                    }
+                    Err(AggregationError::UsizeConversionInvalid) => unreachable!(),
+                }
             }
 
             assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
