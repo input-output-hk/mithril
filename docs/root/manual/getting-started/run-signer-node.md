@@ -5,7 +5,7 @@ sidebar_position: 3
 import NetworksMatrix from '../../networks-matrix.md';
 import CompiledBinaries from '../../compiled-binaries.md'
 
-# Run a Mithril Signer as an SPO
+# Run a Mithril signer as an SPO
 
 :::note Mithril networks
 
@@ -19,19 +19,19 @@ For more information about the **Mithril protocol**, see the section [About Mith
 
 :::
 
-## Mithril Signer deployment model
+## Mithril signer deployment model
 
 :::info
 
-In this guide, you will learn how to set up a **Mithril Signer** within the stake pool operator (SPO) infrastructure both on Cardano `mainnet` and `testnet` environments:
-- On `mainnet`, you **must** run the **production** deployment where the **Mithril Signer** runs on the **Cardano block producer** machine and the **Mithril relay** runs on the **Cardano relay** machine. **Note** that you can run the **production** deployment on `testnet`.
-- You can also run **naive** deployment, where the **Mithril Signer** runs on the **Cardano relay** machine. This is possible in the testnet environment only, and does not require setting up a **Mithril relay**.
+In this guide, you will learn how to set up a **Mithril signer** within the stake pool operator (SPO) infrastructure both on Cardano `mainnet` and `testnet` environments:
+- On `mainnet`, you **must** run the **production** deployment where the **Mithril signer** runs on the **Cardano block producer** machine and the **Mithril relay** runs on the **Cardano relay** machine. **Note** that you can run the **production** deployment on `testnet`.
+- You can also run **naive** deployment, where the **Mithril signer** runs on the **Cardano relay** machine. This is possible in the testnet environment only, and does not require setting up a **Mithril relay**.
 
 :::
 
 :::info
 
-In the current setup, you don't need to install a Mithril Aggregator.
+In the current setup, you don't need to install a Mithril aggregator.
 
 :::
 
@@ -55,11 +55,11 @@ On `mainnet`, you must **never** copy the `KES secret key` from the **Cardano bl
 
 ## Mithril keys certification
 
-The **Mithril Signer** uses your Cardano `operational certificate` and `KES secret key` files which enable:
+The **Mithril signer** uses your Cardano `operational certificate` and `KES secret key` files which enable:
 
 * Automatic computation of the `PoolId`
 * Verification of your `PoolId` ownership and the associated stake used by the Mithril protocol
-* Verification of your Mithril `Signer secret key` ownership, which allows you to participate in the multi-signature process for certificate production on the Mithril network
+* Verification of your Mithril `signer secret key` ownership, which allows you to participate in the multi-signature process for certificate production on the Mithril network
 
 ## Pre-requisites
 
@@ -87,13 +87,13 @@ Note that this guide works on a Linux machine only.
 
 * Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version 5.2+). You can install it by running `apt install squid`.
 
-## Set up the Mithril Signer node
+## Set up the Mithril signer node
 
 :::caution
 
-- For **production** deployment, the **Mithril Signer** setup is performed on the **Cardano block producer** machine.
+- For **production** deployment, the **Mithril signer** setup is performed on the **Cardano block producer** machine.
 
-- For **naive** deployment, the **Mithril Signer** setup is performed on the **Cardano relay** machine.
+- For **naive** deployment, the **Mithril signer** setup is performed on the **Cardano relay** machine.
 
 :::
 
@@ -113,7 +113,7 @@ Or (SSH):
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
-#### Build the Mithril Signer binary
+#### Build the Mithril signer binary
 
 First, switch to build a branch/tag:
 
@@ -149,7 +149,7 @@ make build
 
 #### Verify the version of the binary
 
-You can check that the Mithril Signer binary is running the correct version by running:
+You can check that the Mithril signer binary is running the correct version by running:
 
 ```bash
 ./mithril-signer -V
@@ -165,7 +165,7 @@ mithril-signer 0.2.0
 
 #### Verify the build
 
-Check that the Mithril Signer binary is working correctly by running the help function:
+Check that the Mithril signer binary is working correctly by running the help function:
 
 ```bash
 ./mithril-signer -h
@@ -174,7 +174,7 @@ Check that the Mithril Signer binary is working correctly by running the help fu
 You should see:
 
 ```bash
-An implementation of a Mithril Signer
+An implementation of a Mithril signer
 
 Usage: mithril-signer [OPTIONS]
 
@@ -197,7 +197,7 @@ Options:
 
 :::tip
 
-If you wish to delve deeper, you can access logs at various levels from the Mithril Signer:
+If you wish to delve deeper, you can access logs at various levels from the Mithril signer:
 
 * Add `-v` for some logs (WARN)
 * Add `-vv` for more logs (INFO)
@@ -222,7 +222,7 @@ sudo mv mithril-signer /opt/mithril
 :::caution
 
 * `User=cardano`:
-Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **Mithril Signer** must imperatively run with the same user.
+Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **Mithril signer** must imperatively run with the same user.
 
 * In the `/opt/mithril/mithril-signer/service.env` env file:
   * `KES_SECRET_KEY_PATH=/cardano/keys/kes.skey`: replace `/cardano/keys/kes.skey` with the path to your Cardano `KES secret key` file
@@ -230,7 +230,7 @@ Replace this value with the correct user. We assume that the user used to run th
   * `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano node** (the one in `--database-path`)
   * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
-  * `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/stores` e.g.)
+  * `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril signer** will store its data (`/opt/mithril/stores` e.g.)
   * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
   * `ERA_READER_ADAPTER_TYPE=cardano-chain`: replace `cardano-chain` with the era reader adapter type used in your Mithril network
   * `ERA_READER_ADAPTER_PARAMS={"address": "...", "verification_key": "..."}`: replace `{"address": "...", "verification_key": "..."}` with the era reader parameters that you need to compute by running the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'`
@@ -346,7 +346,7 @@ Then, create a `/etc/systemd/system/mithril-signer.service` description file for
 ```bash
 sudo bash -c 'cat > /etc/systemd/system/mithril-signer.service << EOF
 [Unit]
-Description=Mithril Signer service
+Description=Mithril signer service
 StartLimitIntervalSec=0
 
 [Service]
@@ -406,7 +406,7 @@ tail /var/log/syslog
 
 :::info
 
-The **Mithril relay** node serves as a forward proxy, relaying traffic between the **Mithril Signer** and the **Mithril Aggregator**. When appropriately configured, it facilitates the security of the **block-producing** node. You can use `squid` to operate this forward proxy, and this section presents a recommended configuration.
+The **Mithril relay** node serves as a forward proxy, relaying traffic between the **Mithril signer** and the **Mithril aggregator**. When appropriately configured, it facilitates the security of the **block-producing** node. You can use `squid` to operate this forward proxy, and this section presents a recommended configuration.
 
 :::
 
@@ -614,7 +614,7 @@ sudo service netfilter-persistent save
 
 :::
 
-## Verify the Mithril Signer deployment
+## Verify the Mithril signer deployment
 
 :::tip
 There is a delay of `2` epochs between the registration of the signer node and its ability to generate individual signatures. This delay is further explained in the [Mithril certificate chain in depth](https://mithril.network/doc/mithril/mithril-protocol/certificates) documentation.
@@ -624,7 +624,7 @@ Once this delay has passed, you should be able to observe your `PoolId` listed i
 
 ### Verify your signer is registered
 
-After installing the Mithril Signer, you can verify that your node is registered by checking your Mithril Signer node logs.  
+After installing the Mithril signer, you can verify that your node is registered by checking your Mithril signer node logs.  
 
 First, download the script into the desired directory:
 
