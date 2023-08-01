@@ -338,6 +338,9 @@ impl StmInitializer {
     }
 
     /// Creates a new core signer that does not include closed registration.
+    /// Takes `eligible_parties` as a parameter and determines the signer's index in the parties.
+    /// `eligible_parties` is verified and trusted which is only run by a full-node
+    /// that has already verified the parties.
     pub fn new_core_signer<D: Digest + Clone>(
         self,
         eligible_parties: &[RegParty],
