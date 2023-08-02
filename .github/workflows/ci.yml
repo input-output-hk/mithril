@@ -453,8 +453,14 @@ jobs:
       ERA_READER_SECRET_KEY: ${{ secrets.ERA_READER_SECRET_KEY }}
       PROMETHEUS_AUTH_USERNAME: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
       PROMETHEUS_AUTH_PASSWORD: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
+      PROMETHEUS_INGEST_HOST: ${{ vars.PROMETHEUS_INGEST_HOST }}
+      PROMETHEUS_INGEST_USERNAME: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
+      PROMETHEUS_INGEST_PASSWORD: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
       LOKI_AUTH_USERNAME: ${{ secrets.LOKI_AUTH_USERNAME }}
       LOKI_AUTH_PASSWORD: ${{ secrets.LOKI_AUTH_PASSWORD }}
+      LOKI_INGEST_HOST: ${{ vars.LOKI_INGEST_HOST }}
+      LOKI_INGEST_USERNAME: ${{ secrets.LOKI_INGEST_USERNAME }}
+      LOKI_INGEST_PASSWORD: ${{ secrets.LOKI_INGEST_PASSWORD }}
 
     defaults:
       run:
@@ -496,8 +502,14 @@ jobs:
           mithril_signers                         = ${{ matrix.mithril_signers }}
           prometheus_auth_username                = "${{ env.PROMETHEUS_AUTH_USERNAME }}"
           prometheus_auth_password                = "${{ env.PROMETHEUS_AUTH_PASSWORD }}"
+          prometheus_ingest_host                  = "${{ env.PROMETHEUS_INGEST_HOST }}"
+          prometheus_ingest_username              = "${{ env.PROMETHEUS_INGEST_USERNAME }}"
+          prometheus_ingest_password              = "${{ env.PROMETHEUS_INGEST_PASSWORD }}"
           loki_auth_username                      = "${{ env.LOKI_AUTH_USERNAME }}"
           loki_auth_password                      = "${{ env.LOKI_AUTH_PASSWORD }}"
+          loki_ingest_host                        = "${{ env.LOKI_INGEST_HOST }}"
+          loki_ingest_username                    = "${{ env.LOKI_INGEST_USERNAME }}"
+          loki_ingest_password                    = "${{ env.LOKI_INGEST_PASSWORD }}"
         EOF
         terraform fmt ./env.variables.tfvars
         cat ./env.variables.tfvars
