@@ -201,7 +201,7 @@ pub fn setup_certificate_chain(
                 epoch,
                 MithrilFixtureBuilder::default()
                     .with_protocol_parameters(protocol_parameters.into())
-                    .with_signers(min(2 + epoch.0 as usize, 5))
+                    .with_signers(min(2 + *epoch as usize, 5))
                     .build(),
             )
         })

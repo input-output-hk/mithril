@@ -296,11 +296,9 @@ impl<'client> CertificateRecordProvider<'client> {
     }
 
     fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
-        let epoch: i64 = i64::try_from(epoch.0)?;
-
         Ok(WhereCondition::new(
             "epoch = ?*",
-            vec![Value::Integer(epoch)],
+            vec![Value::Integer(epoch.try_into()?)],
         ))
     }
 
@@ -385,7 +383,7 @@ protocol_message, signers, initiated_at, sealed_at)";
                     Value::String(certificate_record.message.to_owned()),
                     Value::String(certificate_record.signature.to_owned()),
                     Value::String(certificate_record.aggregate_verification_key.to_owned()),
-                    Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
+                    Value::Integer(certificate_record.epoch.try_into().unwrap()),
                     Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
                     Value::String(certificate_record.protocol_version.to_owned()),
                     Value::String(
@@ -456,7 +454,7 @@ impl<'conn> MasterCertificateProvider<'conn> {
     }
 
     pub fn get_master_certificate_condition(&self, epoch: Epoch) -> WhereCondition {
-        let epoch_i64: i64 = epoch.0.try_into().unwrap();
+        let epoch_i64: i64 = epoch.try_into().unwrap();
         WhereCondition::new(
             "certificate.epoch between ?* and ?*",
             vec![Value::Integer(epoch_i64 - 1), Value::Integer(epoch_i64)],
@@ -685,7 +683,7 @@ mod tests {
                     (3, certificate_record.message.into()),
                     (4, certificate_record.signature.into()),
                     (5, certificate_record.aggregate_verification_key.into()),
-                    (6, i64::try_from(certificate_record.epoch.0).unwrap().into()),
+                    (6, Value::Integer(*certificate_record.epoch as i64)),
                     (
                         7,
                         serde_json::to_string(&certificate_record.beacon)
@@ -878,7 +876,7 @@ mod tests {
                 Value::String(certificate_record.message),
                 Value::String(certificate_record.signature),
                 Value::String(certificate_record.aggregate_verification_key),
-                Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
+                Value::Integer(*certificate_record.epoch as i64),
                 Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
                 Value::String(certificate_record.protocol_version),
                 Value::String(
@@ -925,7 +923,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
                         Value::String(certificate_record.message),
                         Value::String(certificate_record.signature),
                         Value::String(certificate_record.aggregate_verification_key),
-                        Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
+                        Value::Integer(*certificate_record.epoch as i64),
                         Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
                         Value::String(certificate_record.protocol_version),
                         Value::String(

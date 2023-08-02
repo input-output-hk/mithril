@@ -108,7 +108,7 @@ impl Beacon {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.network.as_bytes());
-        hasher.update(self.epoch.0.to_be_bytes());
+        hasher.update(self.epoch.to_be_bytes());
         hasher.update(self.immutable_file_number.to_be_bytes());
         hex::encode(hasher.finalize())
     }

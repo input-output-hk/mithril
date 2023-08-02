@@ -58,7 +58,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             })?;
         let snapshot_name = format!(
             "{}-e{}-i{}.{}.tar.gz",
-            beacon.network, beacon.epoch.0, beacon.immutable_file_number, snapshot_digest
+            beacon.network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest
         );
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot =
@@ -237,7 +237,7 @@ mod tests {
             Path::new(
                 format!(
                     "{}-e{}-i{}.{}.tar.gz",
-                    beacon.network, beacon.epoch.0, beacon.immutable_file_number, "test+digest"
+                    beacon.network, *beacon.epoch, beacon.immutable_file_number, "test+digest"
                 )
                 .as_str()
             ),

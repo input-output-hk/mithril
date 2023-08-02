@@ -164,10 +164,7 @@ impl<'client> OpenMessageProvider<'client> {
     }
 
     fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
-        WhereCondition::new(
-            "epoch_setting_id = ?*",
-            vec![Value::Integer(epoch.0 as i64)],
-        )
+        WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(*epoch as i64)])
     }
 
     fn get_signed_entity_type_condition(
@@ -231,7 +228,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
         let beacon_str = signed_entity_type.get_json_beacon()?;
         let parameters = vec![
             Value::String(Uuid::new_v4().to_string()),
-            Value::Integer(epoch.0 as i64),
+            Value::Integer(epoch.try_into()?),
             Value::String(beacon_str),
             Value::Integer(signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(protocol_message)?),
@@ -271,7 +268,7 @@ signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?* \
 where open_message_id = ?*";
         let beacon_str = open_message.signed_entity_type.get_json_beacon()?;
         let parameters = vec![
-            Value::Integer(open_message.epoch.0 as i64),
+            Value::Integer(open_message.epoch.try_into()?),
             Value::String(beacon_str),
             Value::Integer(open_message.signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(&open_message.protocol_message)?),
@@ -308,10 +305,7 @@ impl<'client> DeleteOpenMessageProvider<'client> {
     }
 
     fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
-        WhereCondition::new(
-            "epoch_setting_id < ?*",
-            vec![Value::Integer(epoch.0 as i64)],
-        )
+        WhereCondition::new("epoch_setting_id < ?*", vec![Value::Integer(*epoch as i64)])
     }
 }
 
@@ -434,10 +428,7 @@ impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
     }
 
     fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
-        WhereCondition::new(
-            "epoch_setting_id = ?*",
-            vec![Value::Integer(epoch.0 as i64)],
-        )
+        WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(*epoch as i64)])
     }
 
     fn get_signed_entity_type_condition(
@@ -448,7 +439,6 @@ impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
             "signed_entity_type_id = ?* and beacon = ?*",
             vec![
                 Value::Integer(signed_entity_type.index() as i64),
-                // TODO!: Remove this ugly unwrap, should this method returns a result ?
                 Value::String(signed_entity_type.get_json_beacon().unwrap()),
             ],
         )
@@ -807,7 +797,7 @@ else json_group_array( \
         );
         assert_eq!(
             vec![
-                Value::Integer(open_message.epoch.0 as i64),
+                Value::Integer(*open_message.epoch as i64),
                 Value::String(open_message.signed_entity_type.get_json_beacon().unwrap()),
                 Value::Integer(open_message.signed_entity_type.index() as i64),
                 Value::String(serde_json::to_string(&open_message.protocol_message).unwrap()),
