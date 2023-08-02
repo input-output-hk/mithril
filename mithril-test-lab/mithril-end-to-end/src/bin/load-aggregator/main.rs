@@ -33,7 +33,11 @@ use serde::Deserialize;
 use slog::Level;
 use slog_scope::{debug, info, warn};
 use thiserror::Error;
-use tokio::{select, task::JoinSet, time::sleep};
+use tokio::{
+    select,
+    task::JoinSet,
+    time::{sleep, Instant},
+};
 
 macro_rules! spin_while_waiting {
     ($block:block, $timeout:expr, $wait_message:expr, $timeout_message:expr) => {{
@@ -711,9 +715,59 @@ async fn bootstrap_aggregator(
     Ok(aggregator)
 }
 
+struct Timing {
+    phase: String,
+    duration: Duration,
+}
+
+struct Reporter {
+    number_of_signers: usize,
+    timings: Vec<Timing>,
+    current_timing: Option<(String, Instant)>,
+}
+
+impl Reporter {
+    fn new(number_of_signers: usize) -> Self {
+        Self {
+            number_of_signers,
+            timings: vec![],
+            current_timing: None,
+        }
+    }
+
+    fn start(&mut self, phase: &str) {
+        self.current_timing = Some((phase.to_owned(), Instant::now()));
+    }
+
+    fn stop(&mut self) {
+        match &self.current_timing {
+            Some((phase, instant)) => {
+                let timing = Timing {
+                    phase: phase.clone(),
+                    duration: instant.elapsed(),
+                };
+
+                self.timings.push(timing);
+                self.current_timing = None;
+            }
+            None => (),
+        }
+    }
+
+    fn print_report(&self) {
+        println!("number_of_signers\t{}", self.number_of_signers);
+        println!("phase\tduration/ms");
+        for t in &self.timings {
+            println!("{}\t{}", t.phase, t.duration.as_millis());
+        }
+    }
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
+    let mut reporter: Reporter = Reporter::new(opts.num_signers);
+    reporter.start("stress tests bootstrap");
     // configure a dummy immutable db
     let mut immutable_db = DummyImmutablesDbBuilder::new("load-tester")
         .with_immutables(&[1, 2, 3])
@@ -726,6 +780,7 @@ async fn main() -> StdResult<()> {
     let protocol_parameters = ProtocolParameters::new(2422, 20973, 0.20);
     info!(">> Starting stress test with options: {opts:?}");
 
+    reporter.start("stress bootstrap");
     info!(">> Creation of the Signer Key Registrations payloads");
     let signers_fixture = generate_signer_data(opts.num_signers, protocol_parameters);
 
@@ -736,6 +791,7 @@ async fn main() -> StdResult<()> {
     .await?;
 
     let mut aggregator = bootstrap_aggregator(&args, &signers_fixture, &mut current_epoch).await?;
+    reporter.stop();
 
     info!(">> Move one epoch forward in order to start creating certificates");
     current_epoch += 1;
@@ -743,9 +799,11 @@ async fn main() -> StdResult<()> {
     wait_for_epoch_settings_at_epoch(&aggregator, Duration::from_secs(10), current_epoch).await?;
 
     info!(">> Send the Signer Key Registrations payloads");
+    reporter.start("signers registration");
     let errors =
         register_signers_to_aggregator(&aggregator, &signers_fixture.signers(), current_epoch + 1)
             .await?;
+    reporter.stop();
     assert_eq!(0, errors);
 
     info!(">> Wait for pending certificate to be available");
@@ -755,12 +813,14 @@ async fn main() -> StdResult<()> {
         ">> Send the Signer Signatures payloads for MithrilStakeDistribution({:?})",
         current_epoch
     );
+    reporter.start("signatures registration");
     let errors = register_signatures_to_aggregator(
         &aggregator,
         &mithril_stake_distribution_signatures,
         SignedEntityType::MithrilStakeDistribution(current_epoch),
     )
     .await?;
+    reporter.stop();
     assert_eq!(0, errors);
 
     info!(">> Wait for certificates to be available...");
@@ -789,12 +849,14 @@ async fn main() -> StdResult<()> {
         ">> Send the Signer Signatures payloads for CardanoImmutableFiles({:?})",
         current_beacon
     );
+    reporter.start("signatures registration");
     let errors = register_signatures_to_aggregator(
         &aggregator,
         &immutable_files_signatures,
         SignedEntityType::CardanoImmutableFilesFull(current_beacon),
     )
     .await?;
+    reporter.stop();
     assert_eq!(0, errors);
 
     info!(">> Wait for certificates to be available...");
@@ -803,8 +865,11 @@ async fn main() -> StdResult<()> {
     info!(">> Wait for artifacts to be available...");
     wait_for_immutable_files_artifacts(&aggregator, Duration::from_secs(30)).await?;
 
-    info!(">> All steps executed successfully, stopping all tasks...");
+    info!(">> Display execution timings:");
+    reporter.print_report();
 
+    info!(">> All steps executed successfully, stopping all tasks...");
     aggregator.stop().await.unwrap();
+
     Ok(())
 }
