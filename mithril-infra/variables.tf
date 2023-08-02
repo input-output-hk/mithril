@@ -174,25 +174,61 @@ variable "mithril_aggregator_auth_password" {
 
 variable "prometheus_auth_username" {
   type        = string
-  description = "The username for authentication on prometheus"
+  description = "The username for authentication on local prometheus endpoint"
   default     = ""
 }
 
 variable "prometheus_auth_password" {
   type        = string
-  description = "The password for authentication on prometheus"
+  description = "The password for authentication on local prometheus endpoint"
+  default     = ""
+}
+
+variable "prometheus_ingest_host" {
+  type        = string
+  description = "The host to ingest on remote prometheus endpoint"
+  default     = ""
+}
+
+variable "prometheus_ingest_username" {
+  type        = string
+  description = "The username to ingest on remote prometheus endpoint"
+  default     = ""
+}
+
+variable "prometheus_ingest_password" {
+  type        = string
+  description = "The password to ingest on remote prometheus endpoint"
   default     = ""
 }
 
 variable "loki_auth_username" {
   type        = string
-  description = "The username for authentication on loki"
+  description = "The username for authentication on local loki endpoint"
   default     = ""
 }
 
 variable "loki_auth_password" {
   type        = string
-  description = "The password for authentication on loki"
+  description = "The password for authentication on local loki endpoint"
+  default     = ""
+}
+
+variable "loki_ingest_host" {
+  type        = string
+  description = "The host to ingest on remote loki endpoint"
+  default     = ""
+}
+
+variable "loki_ingest_username" {
+  type        = string
+  description = "The username to ingest on remote loki endpoint"
+  default     = ""
+}
+
+variable "loki_ingest_password" {
+  type        = string
+  description = "The password to ingest on remote loki endpoint"
   default     = ""
 }
 
