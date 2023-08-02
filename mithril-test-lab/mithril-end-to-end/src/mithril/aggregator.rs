@@ -4,6 +4,7 @@ use crate::DEVNET_MAGIC_ID;
 use mithril_common::entities;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use tokio::process::Child;
 
 #[derive(Debug)]
@@ -25,7 +26,7 @@ impl Aggregator {
     ) -> Result<Self, String> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = server_port.to_string();
-        let era_reader_adapater_params =
+        let era_reader_adapter_params =
             format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
@@ -46,7 +47,7 @@ impl Aggregator {
             ("GENESIS_VERIFICATION_KEY", "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d"),
             ("GENESIS_SECRET_KEY", "5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d"),
             ("ERA_READER_ADAPTER_TYPE", "dummy"),
-            ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapater_params),
+            ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
         ]);
         let args = vec!["--db-directory", bft_node.db_path.to_str().unwrap(), "-vvv"];
 
@@ -58,6 +59,15 @@ impl Aggregator {
             command,
             process: None,
         })
+    }
+
+    pub fn copy_configuration(other: &Aggregator) -> Self {
+        Self {
+            server_port: other.server_port,
+            db_directory: other.db_directory.clone(),
+            command: other.command.clone(),
+            process: None,
+        }
     }
 
     pub fn endpoint(&self) -> String {
@@ -121,6 +131,25 @@ impl Aggregator {
             "PROTOCOL_PARAMETERS__PHI_F",
             &format!("{}", protocol_parameters.phi_f),
         );
+    }
+
+    pub fn set_mock_cardano_cli_file_path(
+        &mut self,
+        stake_distribution_file: &Path,
+        epoch_file_path: &Path,
+    ) {
+        self.command.set_env_var(
+            "MOCK_STAKE_DISTRIBUTION_FILE",
+            stake_distribution_file.to_str().unwrap(),
+        );
+        self.command
+            .set_env_var("MOCK_EPOCH_FILE", epoch_file_path.to_str().unwrap());
+    }
+
+    /// Change the run interval of the aggregator state machine (default: 400ms)
+    pub fn change_run_interval(&mut self, interval: Duration) {
+        self.command
+            .set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {

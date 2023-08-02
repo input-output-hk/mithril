@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
+
+cd "$(dirname "$0")"
+
+main () {
+    command_to_run="default"
+
+    while [[ "$#" -gt 0 ]]; do
+        case $1 in
+            stake-snapshot) command_to_run="stake-snapshot"; break ;;
+            tip) command_to_run="chain-tip"; break ;;
+        esac
+        shift
+    done
+
+    case $command_to_run in
+        stake-snapshot) cat $MOCK_STAKE_DISTRIBUTION_FILE ;;
+        chain-tip) epoch=$(cat $MOCK_EPOCH_FILE) 
+        
+        cat <<EOF
+{
+    "era": "Babbage",
+    "syncProgress": "100.00",
+    "hash": "f6d1b8c328697c7a4a8e7f718c79510acbcd411ff4ca19401ded13534d45a38d",
+    "epoch": $epoch,
+    "slot": 0,
+    "block": 0
+}
+EOF
+            ;;
+        default | *) echo "{}" ;;
+    esac
+}
+
+main "$@"

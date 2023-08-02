@@ -33,3 +33,16 @@ make build
 # Run
 ./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release
 ```
+
+## build and run the stress tester
+
+```bash
+# Build
+make build
+
+# Help
+./load-aggregator --help
+
+# Run with 100 signers
+./load-aggregator -vvv --cardano-cli-path script/mock-cardano-cli --aggregator-dir ../../target/release --num-signers=100
+```

@@ -151,15 +151,13 @@ impl MithrilFixtureBuilder {
         party_index: usize,
         kes_key_seed: &mut [u8],
     ) -> PartyId {
-        let cold_key_seed: Vec<u8> = self
-            .party_id_seed
+        let mut cold_key_seed: Vec<u8> = (party_index)
+            .to_le_bytes()
             .iter()
-            .copied()
-            .map(|s| {
-                s.saturating_mul(self.number_of_signers as u8)
-                    .saturating_add(party_index as u8)
-            })
+            .zip(self.party_id_seed)
+            .map(|(v1, v2)| v1 + v2)
             .collect();
+        cold_key_seed.resize(32, 0);
         let keypair =
             ColdKeyGenerator::create_deterministic_keypair(cold_key_seed.try_into().unwrap());
         let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];

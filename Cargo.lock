@@ -2102,7 +2102,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.3.64"
+version = "0.3.65"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2175,7 +2175,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.87"
+version = "0.2.88"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2198,6 +2198,7 @@ dependencies = [
  "rand_chacha 0.2.2",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+ "rayon",
  "semver",
  "serde",
  "serde_bytes",
@@ -2222,12 +2223,15 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.1.31"
+version = "0.2.0"
 dependencies = [
+ "anyhow",
+ "async-recursion",
  "async-trait",
  "clap",
  "glob",
  "hex",
+ "indicatif",
  "mithril-common",
  "reqwest",
  "serde",

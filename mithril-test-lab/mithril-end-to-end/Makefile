@@ -12,6 +12,7 @@ all: test build
 build:
 	${CARGO} build --release
 	cp ../../target/release/mithril-end-to-end .
+	cp ../../target/release/load-aggregator .
 
 test:
 	${CARGO} test

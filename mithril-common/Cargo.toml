@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.2.87"
+version = "0.2.88"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -28,13 +28,17 @@ glob = "0.3"
 hex = "0.4.3"
 http = "0.2.6"
 jsonschema = "0.17.0"
-kes-summed-ed25519 = { version = "0.2.0", features = ["serde_enabled", "sk_clone_enabled"] }
+kes-summed-ed25519 = { version = "0.2.0", features = [
+    "serde_enabled",
+    "sk_clone_enabled",
+] }
 lazy_static = "1.4.0"
 mockall = "0.11.0"
 nom = "7.1"
 rand-chacha-dalek-compat = { package = "rand_chacha", version = "0.2" }
 rand_chacha = "0.3.1"
-rand_core   = "0.6.3"
+rand_core = "0.6.3"
+rayon = "1.7.0"
 semver = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_bytes = "0.11.7"
@@ -43,7 +47,10 @@ serde_json = "1.0"
 serde_with = "3.0.0"
 serde_yaml = "0.9.10"
 sha2 = "0.10.2"
-slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
+slog = { version = "2.7.0", features = [
+    "max_level_trace",
+    "release_max_level_debug",
+] }
 slog-scope = "4.4.0"
 sqlite = { version = "0.31.0", features = ["bundled"] }
 strum = "0.25.0"
@@ -60,7 +67,9 @@ mithril-stm = { path = "../mithril-stm" }
 
 [target.'cfg(windows)'.dependencies]
 # Windows doesn't support rug backend, fallback to num-integer
-mithril-stm = { path = "../mithril-stm", default-features = false, features = ["num-integer-backend"] }
+mithril-stm = { path = "../mithril-stm", default-features = false, features = [
+    "num-integer-backend",
+] }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
@@ -76,5 +85,7 @@ serde_yaml = "0.9.10"
 
 [features]
 default = []
-portable = ["mithril-stm/portable"] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
+portable = [
+    "mithril-stm/portable",
+] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
 allow_skip_signer_certification = []

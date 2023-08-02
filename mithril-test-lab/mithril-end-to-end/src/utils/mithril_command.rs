@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::process::{Child, Command};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MithrilCommand {
     name: String,
     process_path: PathBuf,
@@ -22,7 +22,17 @@ impl MithrilCommand {
         env_vars: HashMap<&str, &str>,
         default_args: &[&str],
     ) -> Result<MithrilCommand, String> {
-        let process_path = bin_dir.canonicalize().unwrap().join(name);
+        let current_dir = std::env::current_dir().unwrap();
+        let process_path = bin_dir
+            .canonicalize()
+            .unwrap_or_else(|_| {
+                panic!(
+                    "expected '{}/{name}' to be an existing executable. Current dir: {}",
+                    bin_dir.display(),
+                    current_dir.display(),
+                )
+            })
+            .join(name);
         let log_path = work_dir.join(format!("{name}.log"));
 
         // ugly but it's far easier for callers to manipulate string literals

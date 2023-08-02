@@ -1,4 +1,5 @@
 data/
 target/
 mithril-end-to-end
+load-aggregator
 .DS_Store
