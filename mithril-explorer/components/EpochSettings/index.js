@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { Card, ListGroup } from "react-bootstrap";
+import React, {useEffect, useState} from 'react';
+import {Card, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
-import { useSelector } from "react-redux";
+import {useSelector} from "react-redux";
 import ProtocolParameters from "../ProtocolParameters";
 
 export default function EpochSettings(props) {
@@ -36,7 +36,7 @@ export default function EpochSettings(props) {
     <div>
       <h2>
         Epoch Settings
-        <RawJsonButton href={`${aggregator}/epoch-settings`} variant="outline-light" size="sm" />
+        <RawJsonButton href={`${aggregator}/epoch-settings`} variant="outline-light" size="sm"/>
       </h2>
 
       <Card>
@@ -46,9 +46,9 @@ export default function EpochSettings(props) {
             <ListGroup.Item>{epochSettings.epoch}</ListGroup.Item>
           </ListGroup>
           <Card.Title>Protocol Parameters</Card.Title>
-          <ProtocolParameters protocolParameters={epochSettings.protocol} />
+          <ProtocolParameters protocolParameters={epochSettings.protocol}/>
           <Card.Title>Next Protocol Parameters</Card.Title>
-          <ProtocolParameters protocolParameters={epochSettings.next_protocol} />
+          <ProtocolParameters protocolParameters={epochSettings.next_protocol}/>
         </Card.Body>
       </Card>
     </div>

@@ -49,7 +49,8 @@ export default function MithrilStakeDistributionsList(props) {
         onHashChange={handleCertificateHashChange}/>
 
       <div className={props.className}>
-        <h2>Mithril Stake Distribution <RawJsonButton href={`${aggregator}/artifact/mithril-stake-distributions`} variant="outline-light" size="sm"/></h2>
+        <h2>Mithril Stake Distribution <RawJsonButton href={`${aggregator}/artifact/mithril-stake-distributions`}
+                                                      variant="outline-light" size="sm"/></h2>
         {Object.entries(mithrilStakeDistributions).length === 0
           ? <p>No mithril stake distribution available</p>
           :
@@ -62,12 +63,13 @@ export default function MithrilStakeDistributionsList(props) {
                       <Card.Title>{mithrilStakeDistribution.hash}</Card.Title>
                       <ListGroup variant="flush" className="data-list-group">
                         <ListGroup.Item>Epoch: {mithrilStakeDistribution.epoch}</ListGroup.Item>
-		        {mithrilStakeDistribution.created_at &&
-			  <ListGroup.Item>Created: {new Date(mithrilStakeDistribution.created_at).toLocaleString()}</ListGroup.Item>
-			}
+                        {mithrilStakeDistribution.created_at &&
+                          <ListGroup.Item>Created: {new Date(mithrilStakeDistribution.created_at).toLocaleString()}</ListGroup.Item>
+                        }
                         <ListGroup.Item>Certificate hash: <br/>
                           {mithrilStakeDistribution.certificate_hash}{' '}
-                          <Button size="sm" onClick={() => showCertificate(mithrilStakeDistribution.certificate_hash)}>Show</Button>
+                          <Button size="sm"
+                                  onClick={() => showCertificate(mithrilStakeDistribution.certificate_hash)}>Show</Button>
                         </ListGroup.Item>
                       </ListGroup>
                     </Card.Body>
@@ -77,8 +79,10 @@ export default function MithrilStakeDistributionsList(props) {
                           <><Badge bg="primary">Latest</Badge>{' '}</>
                         }
 
-                        <RawJsonButton href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`} size="sm"
-                                       className="ms-auto"/>
+                        <RawJsonButton
+                          href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`}
+                          size="sm"
+                          className="ms-auto"/>
                       </Stack>
                     </Card.Footer>
                   </Card>

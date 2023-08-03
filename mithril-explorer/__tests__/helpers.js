@@ -37,7 +37,7 @@ function setLocation(url) {
 
 /**
  * Set the window.location search/query aggregator param to the given aggregator
- * 
+ *
  * If you use it define a beforeEach with resetLocation else the new location will persist between tests.
  * @param aggregatorUrl The target aggregator
  */
