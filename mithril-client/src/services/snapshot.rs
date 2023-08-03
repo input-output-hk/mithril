@@ -1,5 +1,6 @@
 use std::{
     fmt::Write,
+    fs::File,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
@@ -251,6 +252,14 @@ impl SnapshotService for MithrilClientSnapshotService {
         progress_bar.println("5/7 - Unpacking the snapshot…")?;
         let unpacker = unpacker.unpack_snapshot(&snapshot_path, &db_dir);
         self.wait_spinner(&progress_bar, unpacker).await?;
+
+        // Append 'clean' file to speedup node bootstrap
+        if let Err(error) = File::create(db_dir.join("clean")) {
+            warn!(
+                "Could not create clean shutdown marker file in directory {}: {error}",
+                db_dir.display()
+            );
+        };
 
         progress_bar.println("6/7 - Computing the snapshot digest…")?;
         let unpacked_snapshot_digest = self
@@ -549,6 +558,51 @@ mod tests {
             "Unpacked location must be in a directory."
         );
         assert_eq!(Some(OsStr::new("db")), filepath.file_name());
+    }
+
+    #[tokio::test]
+    async fn test_download_snapshot_ok_add_clean_file_allowing_node_bootstrap_speedup() {
+        let test_path = std::env::temp_dir()
+            .join("test_download_snapshot_ok_add_clean_file_allowing_node_bootstrap_speedup");
+        let _ = std::fs::remove_dir_all(&test_path);
+
+        let (http_client, certificate_verifier, digester) =
+            get_mocks_for_snapshot_service_configured_to_make_download_succeed();
+
+        let mut builder = get_dep_builder(Arc::new(http_client));
+        builder.certificate_verifier = Some(Arc::new(certificate_verifier));
+        builder.immutable_digester = Some(Arc::new(digester));
+        let snapshot_service = builder.get_snapshot_service().await.unwrap();
+
+        let snapshot = FromSnapshotMessageAdapter::adapt(get_snapshot_message());
+        build_dummy_snapshot(
+            "digest-10.tar.gz",
+            "1234567890".repeat(124).as_str(),
+            &test_path,
+        );
+
+        let (_, verifier) = setup_genesis();
+        let genesis_verification_key = verifier.to_verification_key();
+
+        let filepath = snapshot_service
+            .download(
+                &snapshot,
+                &test_path,
+                &key_encode_hex(genesis_verification_key).unwrap(),
+                ProgressDrawTarget::hidden(),
+            )
+            .await
+            .expect("Snapshot download should succeed.");
+
+        let clean_file = filepath.join("clean");
+
+        assert!(
+            clean_file.is_file(),
+            "'clean' file should exist and be a file"
+        );
+
+        let clean_file_metadata = clean_file.metadata().unwrap();
+        assert_eq!(clean_file_metadata.len(), 0, "'clean' file should be empty")
     }
 
     #[tokio::test]
