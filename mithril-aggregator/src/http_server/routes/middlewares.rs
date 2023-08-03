@@ -4,7 +4,7 @@ use crate::{
     services::CertifierService,
     services::{SignedEntityService, TickerService},
     CertificatePendingStore, Configuration, DependencyContainer, ProtocolParametersStorer,
-    SignerRegisterer,
+    SignerRegisterer, VerificationKeyStorer,
 };
 
 use mithril_common::BeaconProvider;
@@ -80,4 +80,11 @@ pub fn with_signed_entity_service(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<dyn SignedEntityService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.signed_entity_service.clone())
+}
+
+/// With verification key store
+pub fn with_verification_key_store(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (Arc<dyn VerificationKeyStorer>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.verification_key_store.clone())
 }

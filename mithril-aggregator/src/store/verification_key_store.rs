@@ -5,12 +5,16 @@ use tokio::sync::RwLock;
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake, StakeDistribution};
 use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
+#[cfg(test)]
+use mockall::automock;
+
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>>;
 
 /// Store and get signers verification keys for given epoch.
 ///
 /// Important note: This store works on the **recording** epoch, the epoch at which the signers
 /// are signed into a certificate so they can sign single signatures at the next epoch.
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait VerificationKeyStorer: Sync + Send {
     /// Save the verification key, for the given [Signer] for the given [Epoch], returns the

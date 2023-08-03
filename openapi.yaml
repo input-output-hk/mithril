@@ -45,6 +45,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  
   /certificate-pending:
     get:
       summary: Get current pending certificate information
@@ -71,6 +72,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /certificates:
     get:
       summary: Get most recent certificates
@@ -91,6 +93,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /certificate/{certificate_hash}:
     get:
       summary: Get certificate by hash
@@ -122,6 +125,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /artifact/snapshots:
     get:
       summary: Get most recent snapshots
@@ -142,6 +146,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /artifact/snapshot/{digest}:
     get:
       summary: Get snapshot information
@@ -173,6 +178,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /artifact/snapshot/{digest}/download:
     get:
       summary: Download the snapshot
@@ -205,6 +211,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /artifact/mithril-stake-distributions:
     get:
       summary: Get most recent Mithril stake distributions
@@ -225,6 +232,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /artifact/mithril-stake-distribution/{hash}:
     get:
       summary: Get Mithril stake distribution information
@@ -256,6 +264,39 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  
+  /signers/registered/{epoch}:
+    get:
+      summary: Get registered signers for an epoch
+      description: |
+        Returns the signers that registered at a given Epoch
+      parameters:
+        - name: epoch
+          in: path
+          description: Cardano Epoch at which the signer registrations are registered
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 419
+      responses:
+        "200":
+          description: Registered Signers found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignerRegistrationsMessage"
+        "404":
+          description: Registed Signers not found
+        "412":
+          description: API version mismatch
+        default:
+          description: Registered Signers retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  
   /register-signer:
     post:
       summary: Registers signer
@@ -285,6 +326,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
   /register-signatures:
     post:
       summary: Registers signatures
@@ -318,8 +360,14 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
 components:
   schemas:
+    Epoch:
+      description: Cardano chain epoch number
+      type: integer
+      format: int64
+    
     EpochSettingsMessage:
       description: Epoch settings
       type: object
@@ -330,9 +378,7 @@ components:
         - next_protocol
       properties:
         epoch:
-          description: Cardano chain epoch number
-          type: integer
-          format: int64
+          $ref: "#/components/schemas/Epoch"
         protocol:
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
@@ -379,9 +425,7 @@ components:
           description: Cardano network
           type: string
         epoch:
-          description: Cardano chain epoch number
-          type: integer
-          format: int64
+          $ref: "#/components/schemas/Epoch"
         immutable_file_number:
           description: Number of the last immutable file that should be included the snapshot
           type: integer
@@ -525,9 +569,7 @@ components:
       additionalProperties: true
       properties:
         epoch:
-          description: Cardano chain epoch number
-          type: integer
-          format: int64
+          $ref: "#/components/schemas/Epoch"
       allOf:
         - $ref: "#/components/schemas/Signer"
       example:
@@ -555,6 +597,43 @@ components:
           "kes_period": 123,
           "stake": 1234
         }
+      
+    SignerRegistrationsMessage:
+      description: |
+        This message holds the registered signers at a given epoch.
+      type: object
+      additionalProperties: false
+      properties:
+        registered_at:
+          $ref: "#/components/schemas/Epoch"
+        signing_at:
+          $ref: "#/components/schemas/Epoch"
+        registrations:
+          type: array
+          items: 
+            $ref: "#/components/schemas/SignerRegistrationsListItemMessage" 
+      example:
+        {
+          "registered_at": 420,
+          "signing_at": 422,
+          "registrations": [
+            {
+              "party_id": "1234567890",
+              "stake": 1234
+            }
+          ]
+        }
+    
+    SignerRegistrationsListItemMessage:
+      description: represents an item of a SignerRegistrationsMessage registration
+      type: object
+      additionalProperties: true
+      allOf:
+        - $ref: "#/components/schemas/Stake"
+      properties:
+        party_id:
+          description: The unique identifier of the signer
+          type: string
 
     RegisterSingleSignatureMessage:
       description: |
@@ -731,7 +810,6 @@ components:
         metadata:
           $ref: "#/components/schemas/CertificateListItemMessageMetadata"
         protocol_message:
-          description: Protocol message
           $ref: "#/components/schemas/ProtocolMessage"
         signed_message:
           description: Hash of the protocol message that is signed by the signer participants
@@ -856,7 +934,6 @@ components:
         metadata:
           $ref: "#/components/schemas/CertificateMetadata"
         protocol_message:
-          description: Protocol message
           $ref: "#/components/schemas/ProtocolMessage"
         signed_message:
           description: Hash of the protocol message that is signed by the signer participants
@@ -1045,9 +1122,7 @@ components:
           - created_at
         properties:
           epoch:
-            description: Cardano chain epoch number
-            type: integer
-            format: int64
+            $ref: "#/components/schemas/Epoch"
           hash:
             description: Hash of the Mithril stake distribution
             type: string
@@ -1080,9 +1155,7 @@ components:
         - protocol_parameters
       properties:
         epoch:
-          description: Cardano chain epoch number
-          type: integer
-          format: int64
+          $ref: "#/components/schemas/Epoch"
         hash:
           description: Hash of the Mithril stake distribution
           type: string
