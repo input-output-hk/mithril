@@ -1,7 +1,7 @@
 %:
     @:
 
-.PHONY: all build test checkclean doc
+.PHONY: all build test check clean doc monitor
 
 args = `arg="$(filter-out $@,$(MAKECMDGOALS))" && echo $${arg:-${1}}`
 
@@ -27,3 +27,6 @@ clean:
 
 doc:
 	${CARGO} doc --no-deps --open
+
+monitor:
+	docker compose -f monitor/docker-compose.yaml --profile monitoring up --remove-orphans --force-recreate
