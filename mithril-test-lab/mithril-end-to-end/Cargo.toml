@@ -1,12 +1,13 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.2.0"
+version = "0.2.1"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+default-run = "mithril-end-to-end"
 
 [[bin]]
 name = "load-aggregator"

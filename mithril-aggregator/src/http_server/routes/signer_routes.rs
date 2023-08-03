@@ -8,7 +8,7 @@ const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 pub fn routes(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    register_signer(dependency_manager)
+    register_signer(dependency_manager.clone()).or(registered_signers(dependency_manager))
 }
 
 /// POST /register-signer
@@ -31,10 +31,22 @@ fn register_signer(
         .and_then(handlers::register_signer)
 }
 
+/// Get /signers/registered/:epoch
+fn registered_signers(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("signers" / "registered" / String)
+        .and(warp::get())
+        .and(middlewares::with_verification_key_store(dependency_manager))
+        .and_then(handlers::registered_signers)
+}
+
 mod handlers {
+    use crate::entities::SignerRegistrationsMessage;
     use crate::event_store::{EventMessage, TransmitterService};
-    use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
+    use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
+    use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use mithril_common::BeaconProvider;
     use slog_scope::{debug, warn};
@@ -139,21 +151,68 @@ mod handlers {
             }
         }
     }
+
+    /// Get Registered Signers for a given epoch
+    pub async fn registered_signers(
+        registered_at: String,
+        verification_key_store: Arc<dyn VerificationKeyStorer>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: signers/registered/{:?}", registered_at);
+
+        let registered_at = match registered_at.parse::<u64>() {
+            Ok(epoch) => Epoch(epoch),
+            Err(err) => {
+                warn!("registered_signers::invalid_epoch"; "error" => ?err);
+                return Ok(reply::bad_request(
+                    "invalid_epoch".to_string(),
+                    err.to_string(),
+                ));
+            }
+        };
+
+        // The given epoch is the epoch at which the signer registered, the store works on
+        // the recording epoch so we need to offset.
+        match verification_key_store
+            .get_stake_distribution_for_epoch(registered_at.offset_to_recording_epoch())
+            .await
+        {
+            Ok(Some(stake_distribution)) => {
+                let message = SignerRegistrationsMessage::new(registered_at, stake_distribution);
+                Ok(reply::json(&message, StatusCode::OK))
+            }
+            Ok(None) => {
+                warn!("registered_signers::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
+            Err(err) => {
+                warn!("registered_signers::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::crypto_helper::ProtocolRegistrationError;
-    use mithril_common::messages::RegisterSignerMessage;
-    use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::test_utils::fake_data;
-    use warp::http::Method;
-    use warp::test::request;
+    use mithril_common::entities::Epoch;
+    use mithril_common::{
+        crypto_helper::ProtocolRegistrationError,
+        entities::StakeDistribution,
+        messages::RegisterSignerMessage,
+        store::adapter::AdapterError,
+        test_utils::{apispec::APISpec, fake_data},
+    };
+    use mockall::predicate::eq;
+    use serde_json::Value::Null;
+    use warp::{http::Method, test::request};
+
+    use crate::{
+        http_server::SERVER_BASE_PATH, initialize_dependencies,
+        signer_registerer::MockSignerRegisterer, store::MockVerificationKeyStorer,
+        SignerRegistrationError,
+    };
 
     use super::*;
-    use crate::http_server::SERVER_BASE_PATH;
-    use crate::signer_registerer::MockSignerRegisterer;
-    use crate::{initialize_dependencies, SignerRegistrationError};
 
     fn setup_router(
         dependency_manager: Arc<DependencyContainer>,
@@ -313,6 +372,130 @@ mod tests {
             path,
             "application/json",
             &signer,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_registered_signers_get_offset_given_epoch_to_registration_epoch() {
+        let asked_epoch = Epoch(1);
+        let expected_retrieval_epoch = asked_epoch.offset_to_recording_epoch();
+        let stake_distribution = StakeDistribution::from_iter(
+            fake_data::signers_with_stakes(3)
+                .into_iter()
+                .map(|s| (s.party_id, s.stake)),
+        );
+        let mut mock_verification_key_store = MockVerificationKeyStorer::new();
+        mock_verification_key_store
+            .expect_get_stake_distribution_for_epoch()
+            .with(eq(expected_retrieval_epoch))
+            .return_once(|_| Ok(Some(stake_distribution)))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
+
+        let method = Method::GET.as_str();
+        let base_path = "/signers/registered";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{base_path}/{}", asked_epoch))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        assert!(
+            response.status().is_success(),
+            "expected the response to succeed, was: {response:#?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_registered_signers_get_ok() {
+        let stake_distribution = StakeDistribution::from_iter(
+            fake_data::signers_with_stakes(3)
+                .into_iter()
+                .map(|s| (s.party_id, s.stake)),
+        );
+        let mut mock_verification_key_store = MockVerificationKeyStorer::new();
+        mock_verification_key_store
+            .expect_get_stake_distribution_for_epoch()
+            .return_once(|_| Ok(Some(stake_distribution)))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
+
+        let base_path = "/signers/registered";
+        let method = Method::GET.as_str();
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{base_path}/1"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            &format!("{base_path}/{{epoch}}"),
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_registered_signers_get_ok_noregistration() {
+        let mut mock_verification_key_store = MockVerificationKeyStorer::new();
+        mock_verification_key_store
+            .expect_get_stake_distribution_for_epoch()
+            .return_once(|_| Ok(None))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
+
+        let method = Method::GET.as_str();
+        let base_path = "/signers/registered";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{base_path}/3"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            &format!("{base_path}/{{epoch}}"),
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_registered_signers_get_ko() {
+        let mut mock_verification_key_store = MockVerificationKeyStorer::new();
+        mock_verification_key_store
+            .expect_get_stake_distribution_for_epoch()
+            .return_once(|_| Err(AdapterError::GeneralError("invalid query".to_string()).into()));
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
+
+        let method = Method::GET.as_str();
+        let base_path = "/signers/registered";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{base_path}/1"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            &format!("{base_path}/{{epoch}}"),
+            "application/json",
+            &Null,
             &response,
         );
     }
