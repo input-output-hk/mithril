@@ -28,6 +28,20 @@ resource "null_resource" "mithril_monitoring" {
       "mkdir -p /home/curry/data/monitoring/prometheus",
       "mkdir -p /home/curry/data/monitoring/loki",
       <<-EOT
+set -e
+# Copy prometheus base configuration
+cp /home/curry/docker/prometheus/prometheus-base.yml /home/curry/docker/prometheus/prometheus.yml
+# Setup prometheus remote write
+if [ -n "${var.prometheus_ingest_host}" ] ; then 
+cat >> /home/curry/docker/prometheus/prometheus.yml << EOF
+
+remote_write:
+- url: https://${var.prometheus_ingest_host}/api/prom/push
+  basic_auth:
+    username: ${var.prometheus_ingest_username}
+    password: ${var.prometheus_ingest_password}
+EOF
+fi
 # Setup prometheus targets configuration for Cardano nodes
 CARDANO_NODES=$(docker ps --format='{{.Names}}:12798,' | grep "cardano-node" | sort | tr -d '\n\t\r ' | sed 's/.$//')
 cat /home/curry/docker/prometheus/cardano.json | jq --arg CARDANO_NODES "$CARDANO_NODES" '. += [{
@@ -38,6 +52,19 @@ cat /home/curry/docker/prometheus/cardano.json | jq --arg CARDANO_NODES "$CARDAN
 }]' | jq '. | map(try(.targets |= split(",")) // .)' > /home/curry/docker/prometheus/cardano.json.new
 rm -f /home/curry/docker/prometheus/cardano.json
 mv /home/curry/docker/prometheus/cardano.json.new docker/prometheus/cardano.json
+EOT
+      ,
+      <<-EOT
+set -e
+# Copy promtail base configuration
+cp /home/curry/docker/promtail/promtail-config-base.yml /home/curry/docker/promtail/promtail-config.yml
+# Setup promtail remote client
+if [ -n "${var.loki_ingest_host}" ] ; then 
+cat >> /home/curry/docker/promtail/promtail-config.yml << EOF
+
+  - url: https://${var.loki_ingest_username}:${var.loki_ingest_password}@${var.loki_ingest_host}/loki/api/v1/push
+EOF
+fi
 EOT
     ]
   }
