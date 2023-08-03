@@ -7,6 +7,7 @@ documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+default-run = "mithril-end-to-end"
 
 [[bin]]
 name = "load-aggregator"
