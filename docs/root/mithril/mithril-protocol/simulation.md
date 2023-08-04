@@ -3,17 +3,17 @@ sidebar_position: 3
 sidebar_label: Simulation 
 ---
 
-# Mithril Protocol Simulation
+# Mithril protocol simulation
 
 :::info
 
-* Thanks to this demo you will get a better understanding of the **Mithril Protocol**. You will hopefully visualize how the participants interact to create a multi signature and what's the impact of the protocol parameters.
+* This demo you will improve your understanding of the **Mithril Protocol**. You will hopefully visualize how the participants interact to create a multi signature and understand the impact of the protocol parameters.
 
-* This simulation is ran by a CLI that you will build and run, and that will ultimately generate **real** Mithril multi signatures!
+* This simulation is run by a CLI that you will build and run, and that will ultimately generate real Mithril multi signatures.
 
-* For the purpose of reproducibility of the results, the simulation uses a deterministic source of randomness.
+* For reproducibility of the results, the simulation uses a deterministic source of randomness.
 
-* During the simulation some artifacts will be written to an `artifacts` folder, such as `verification keys`, `individual signatures` and `multi signatures`.
+* During the simulation, some artifacts will be written to an `artifacts` folder, such as `verification keys`, `individual signatures` and `multi signatures`.
 
 :::
 
@@ -37,7 +37,7 @@ Or (SSH)
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
-## Build Mithril Protocol demo binary
+## Build Mithril protocol demo binary
 
 Change directory
 
@@ -59,7 +59,7 @@ make build
 
 ## Verify build
 
-Check that the Mithril Client binary is working fine by running its help
+Check that the Mithril Client binary is working correctly by running its help
 
 ```bash
 ./mithrildemo -h
@@ -91,8 +91,8 @@ OPTIONS:
 A friendly reminder about the protocol parameters:
 
 * `k`: the `Quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi signature.
-* `m`: the `Security` parameter represents the total number of `lotteries` in which each participant can participate in order to individually sign the message.
-* `phi-f`: the parameter on which depends the probability of a particpant to win a `lottery`. It variates between `0.0` (less chance) and `1.0` (more chance).
+* `m`: the `Security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message.
+* `phi-f`: the parameter thst controls the probability of a participant winning a `lottery`. It varies between `0.0` (less chance) and `1.0` (more chance).
 
 :::
 
@@ -100,11 +100,11 @@ A friendly reminder about the protocol parameters:
 
 The `security level` of the protocol is highly dependent on the value of the `protocol parameters`.
 
-Therefore they will be carefully selected by the Mithril cryptographers and researchers in order to guarantee that only legit stakeholders representing a sufficient threshold of the total stakes can combine their individual signatures in a valid multi signature.
+Therefore they will be carefully selected by the Mithril cryptographers and researchers to guarantee that only genuine stakeholders representing a sufficient threshold of the total stakes can combine their individual signatures in a valid multi signature.
 
 :::
 
-### Case 1: Produce a multi signature
+### Case 1: produce a multi signature
 
 Run the simulation wih `5` participants
 
@@ -112,7 +112,7 @@ Run the simulation wih `5` participants
 ./mithrildemo -k 5 -m 50 --phi-f 0.65 --nparties 5
 ```
 
-The simulation should succeed and produce (or aggregate) a multi signature!
+The simulation should succeed and produce (or aggregate) a multi signature.
 
 ```bash
 >> Launch Mithril protocol demonstrator with configuration: 
@@ -223,18 +223,18 @@ Verifier: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f4
 Party #4: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f41518a11c!
 Verifier: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f41518a11c!
 
->> Congrats, protocol terminated with success!
+>> Congratulations, protocol terminated with success.
 ```
 
-### Case 2: Does not produce a multi signature
+### Case 2: does not produce a multi signature
 
-Run the simulation wih `5` participants
+Run the simulation with `5` participants
 
 ```bash
 ./mithrildemo -k 5 -m 5 --phi-f 0.25 --nparties 5
 ```
 
-The simulation should fail and not produce (or aggregate) any multi signature!
+The simulation should fail and not produce (or aggregate) any multi signature.
 
 ```bash
 >> Launch Mithril protocol demonstrator with configuration: 
@@ -294,6 +294,6 @@ Party #0: aggregate signature not found 7724e03fb8d84a376a43b8f41518a11c
 
 :::tip
 
-For more information about the **Mithril Protocol**, please refer to the [About Mithril](../mithril-protocol/protocol.md) section.
+For more information about the Mithril Protocol, please refer to the [About Mithril](../mithril-protocol/protocol.md) section.
 
 :::
