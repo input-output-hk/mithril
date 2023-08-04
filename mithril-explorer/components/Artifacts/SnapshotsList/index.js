@@ -32,9 +32,7 @@ export default function SnapshotsList(props) {
     }
 
     let fetchSnapshots = () => {
-      // todo: update this to the new route (`${aggregator}/artifact/snapshots`) when all of our aggregators are updated
-      // also update both <RawJsonButton> href below.
-      fetch(`${aggregator}/snapshots`)
+      fetch(`${aggregator}/artifact/snapshots`)
         .then(response => response.json())
         .then(data => setSnapshots(data))
         .catch(error => {
@@ -66,7 +64,7 @@ export default function SnapshotsList(props) {
         onHashChange={handleCertificateHashChange}/>
 
       <div className={props.className}>
-        <h2>Snapshots <RawJsonButton href={`${aggregator}/snapshots`} variant="outline-light" size="sm"/></h2>
+        <h2>Snapshots <RawJsonButton href={`${aggregator}/artifact/snapshots`} variant="outline-light" size="sm"/></h2>
         {Object.entries(snapshots).length === 0
           ? <p>No snapshot available</p>
           :
