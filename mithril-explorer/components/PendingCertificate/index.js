@@ -4,10 +4,11 @@ import {useSelector} from "react-redux";
 import RawJsonButton from "../RawJsonButton";
 import SignedEntityType from "../SignedEntityType";
 import VerifiedBadge from '../VerifiedBadge';
+import {selectedAggregator} from "../../store/settingsSlice";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
-  const aggregator = useSelector((state) => state.settings.selectedAggregator);
+  const pendingCertificateEndpoint = useSelector((state) => `${selectedAggregator(state)}/certificate-pending`);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -17,7 +18,7 @@ export default function PendingCertificate(props) {
     }
 
     let fetchPendingCertificate = () => {
-      fetch(`${aggregator}/certificate-pending`)
+      fetch(pendingCertificateEndpoint)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setPendingCertificate(data))
         .catch(error => {
@@ -31,7 +32,7 @@ export default function PendingCertificate(props) {
 
     const interval = setInterval(fetchPendingCertificate, updateInterval);
     return () => clearInterval(interval);
-  }, [aggregator, updateInterval, autoUpdate]);
+  }, [pendingCertificateEndpoint, updateInterval, autoUpdate]);
 
   return (
     <div className={props.className}>
@@ -39,7 +40,7 @@ export default function PendingCertificate(props) {
         Pending Certificate
         {Object.entries(pendingCertificate).length !== 0 &&
           <RawJsonButton
-            href={`${aggregator}/certificate-pending`}
+            href={pendingCertificateEndpoint}
             variant="outline-light"
             size="sm"/>
         }

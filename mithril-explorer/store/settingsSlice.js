@@ -59,4 +59,6 @@ export const {
   removeSelectedAggregator
 } = settingsSlice.actions;
 
+export const selectedAggregator = (state) => state.settings.selectedAggregator;
+
 export default settingsSlice.reducer;

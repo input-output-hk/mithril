@@ -11,10 +11,11 @@ import IntervalSetter from "../components/IntervalSetter";
 import PendingCertificate from '../components/PendingCertificate';
 import SnapshotsList from '../components/Artifacts/SnapshotsList';
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
+import {selectedAggregator as currentlySelectedAggregator} from "../store/settingsSlice";
 
 export default function Explorer() {
   const router = useRouter();
-  const selectedAggregator = useSelector((state) => state.settings.selectedAggregator);
+  const selectedAggregator = useSelector(currentlySelectedAggregator);
 
   useEffect(() => {
     router.push({query: {aggregator: selectedAggregator}}).then(() => {
