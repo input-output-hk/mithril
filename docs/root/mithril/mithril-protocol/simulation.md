@@ -7,9 +7,9 @@ sidebar_label: Simulation
 
 :::info
 
-* This demo you will improve your understanding of the **Mithril Protocol**. You will hopefully visualize how the participants interact to create a multi signature and understand the impact of the protocol parameters.
+* This demo will improve your understanding of the **Mithril protocol**. By engaging with it, you will gain insights into how participants interact to create a multi-signature and understand the impact of the protocol parameters.
 
-* This simulation is run by a CLI that you will build and run, and that will ultimately generate real Mithril multi signatures.
+* This simulation is run by a CLI that you will build and run, and that will ultimately generate real Mithril multi-signatures.
 
 * For reproducibility of the results, the simulation uses a deterministic source of randomness.
 
@@ -17,55 +17,56 @@ sidebar_label: Simulation
 
 :::
 
-## What you'll need
+## Prerequisites
 
-* A Linux (preferred) or a macOS computer.
+Ensure you have the following:
 
-* A [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+* A computer running Linux (preferred) or macOS
+* The latest stable version of the correctly configured [Rust toolchain](https://www.rust-lang.org/learn/get-started).
 
-## Download source
+## Download the source 
 
-Download from GitHub (HTTPS)
+You can download the source file from GitHub (HTTPS):
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
 ```
 
-Or (SSH)
+Or (SSH):
 
 ```bash
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
-## Build Mithril protocol demo binary
+## Build the Mithril protocol demo binary
 
-Change directory
+Change the directory:
 
 ```bash
 cd mithril/demo/protocol-demo
 ```
 
-Run tests (Optional)
+Run tests (optional):
 
 ```bash
 make test
 ```
 
-Build executable
+Build the executable:
 
 ```bash
 make build
 ```
 
-## Verify build
+## Verify the build
 
-Check that the Mithril Client binary is working correctly by running its help
+Check that the Mithril client binary is working correctly by running its help function:
 
 ```bash
 ./mithrildemo -h
 ```
 
-You should see
+You should see:
 
 ```bash
 mithrildemo 
@@ -90,9 +91,9 @@ OPTIONS:
 
 A friendly reminder about the protocol parameters:
 
-* `k`: the `Quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi signature.
-* `m`: the `Security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message.
-* `phi-f`: the parameter thst controls the probability of a participant winning a `lottery`. It varies between `0.0` (less chance) and `1.0` (more chance).
+* `k`: the `quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi-signature.
+* `m`: the `security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message.
+* `phi-f`: the parameter that controls the probability of a participant winning a `lottery`. It varies between `0.0` (less chance) and `1.0` (more chance).
 
 :::
 
@@ -100,19 +101,19 @@ A friendly reminder about the protocol parameters:
 
 The `security level` of the protocol is highly dependent on the value of the `protocol parameters`.
 
-Therefore they will be carefully selected by the Mithril cryptographers and researchers to guarantee that only genuine stakeholders representing a sufficient threshold of the total stakes can combine their individual signatures in a valid multi signature.
+Therefore, these protocol parameters will be carefully selected by Mithril cryptographers and researchers to guarantee that only genuine stakeholders representing a sufficient threshold of the total stake can combine their individual signatures in a valid multi-signature.
 
 :::
 
-### Case 1: produce a multi signature
+### Case 1: produce a multi-signature
 
-Run the simulation wih `5` participants
+Run the simulation with `5` participants:
 
 ```bash
 ./mithrildemo -k 5 -m 50 --phi-f 0.65 --nparties 5
 ```
 
-The simulation should succeed and produce (or aggregate) a multi signature.
+The simulation should succeed and produce (or aggregate) a multi-signature:
 
 ```bash
 >> Launch Mithril protocol demonstrator with configuration: 
@@ -124,7 +125,7 @@ Config {
     nmessages: 1,
 }
 
->> Protocol establish phase
+>> Protocol establishment phase
 Party #0: party created with 826 stakes
 Party #1: party created with 741 stakes
 Party #2: party created with 144 stakes
@@ -132,7 +133,7 @@ Party #3: party created with 734 stakes
 Party #4: party created with 41 stakes
 Protocol established to StmParameters { m: 50, k: 5, phi_f: 0.65 }
 
->> Protocol initialize phase:
+>> Protocol initialization phase:
 Verifier: verifier created
 Verifier: protocol params updated to StmParameters { m: 50, k: 5, phi_f: 0.65 }
 Party #0: protocol params updated to StmParameters { m: 50, k: 5, phi_f: 0.65 }
@@ -148,7 +149,7 @@ Party #3: protocol keys registration from [("0", 826), ("1", 741), ("2", 144), (
 Party #4: protocol keys registration from [("0", 826), ("1", 741), ("2", 144), ("3", 734), ("4", 41)]
 Artifacts written to artifacts/parties-keys.json
 
->> Protocol issue certificates phase:
+>> Protocol operations phase:
 Message #0 to sign: [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
 Party #0: sign message 7724e03fb8d84a376a43b8f41518a11c
 Party #0: lottery #2 won
@@ -210,7 +211,7 @@ Party #4: aggregate signature computed
 Artifacts written to artifacts/single-signatures.json
 Artifacts written to artifacts/multi-signatures.json
 
->> Protocol verify certificates phase:
+>> Protocol certificate verification phase:
 Message #0 to verify: 7724e03fb8d84a376a43b8f41518a11c
 Party #0: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f41518a11c!
 Verifier: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f41518a11c!
@@ -223,18 +224,18 @@ Verifier: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f4
 Party #4: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f41518a11c!
 Verifier: aggregate signature successfully verified for 7724e03fb8d84a376a43b8f41518a11c!
 
->> Congratulations, protocol terminated with success.
+>> Congratulations, the protocol terminated with success.
 ```
 
-### Case 2: does not produce a multi signature
+### Case 2: does not produce a multi-signature
 
-Run the simulation with `5` participants
+Run the simulation with `5` participants:
 
 ```bash
 ./mithrildemo -k 5 -m 5 --phi-f 0.25 --nparties 5
 ```
 
-The simulation should fail and not produce (or aggregate) any multi signature.
+The simulation should fail and not produce (or aggregate) any multi-signature:
 
 ```bash
 >> Launch Mithril protocol demonstrator with configuration: 
@@ -246,7 +247,7 @@ Config {
     nmessages: 1,
 }
 
->> Protocol establish phase
+>> Protocol establishment phase:
 Party #0: party created with 826 stakes
 Party #1: party created with 741 stakes
 Party #2: party created with 144 stakes
@@ -254,7 +255,7 @@ Party #3: party created with 734 stakes
 Party #4: party created with 41 stakes
 Protocol established to StmParameters { m: 5, k: 5, phi_f: 0.25 }
 
->> Protocol initialize phase:
+>> Protocol initialization phase:
 Verifier: verifier created
 Verifier: protocol params updated to StmParameters { m: 5, k: 5, phi_f: 0.25 }
 Party #0: protocol params updated to StmParameters { m: 5, k: 5, phi_f: 0.25 }
@@ -270,7 +271,7 @@ Party #3: protocol keys registration from [("0", 826), ("1", 741), ("2", 144), (
 Party #4: protocol keys registration from [("0", 826), ("1", 741), ("2", 144), ("3", 734), ("4", 41)]
 Artifacts written to artifacts/parties-keys.json
 
->> Protocol issue certificates phase:
+>> Protocol operations phase:
 Message #0 to sign: [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
 Party #0: sign message 7724e03fb8d84a376a43b8f41518a11c
 Party #1: sign message 7724e03fb8d84a376a43b8f41518a11c
@@ -285,15 +286,15 @@ Party #4: not enough signatures to compute aggregate
 Artifacts written to artifacts/single-signatures.json
 Artifacts written to artifacts/multi-signatures.json
 
->> Protocol verify certificates phase:
+>> Protocol certificate verification phase:
 Message #0 to verify: 7724e03fb8d84a376a43b8f41518a11c
 Party #0: aggregate signature not found 7724e03fb8d84a376a43b8f41518a11c
 
->> Certificate verification failed: aggregate signature not found
+>> Certificate verification failed: aggregate signature not found.
 ```
 
 :::tip
 
-For more information about the Mithril Protocol, please refer to the [About Mithril](../mithril-protocol/protocol.md) section.
+For more information about the Mithril protocol, refer to the [about Mithril](../mithril-protocol/protocol.md) section.
 
 :::
