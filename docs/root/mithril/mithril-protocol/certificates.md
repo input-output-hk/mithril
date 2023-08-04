@@ -13,22 +13,22 @@ The **Mithril protocol** can be summarized as:
   
 The **certificate chain** is a Mithril component that certifies the **stake distribution** used to create the multi-signature. Its primary purpose is to prevent adversaries from executing an **eclipse attack** on the blockchain.  
 
-Without the certificate, the stake distribution can't be trusted. A malicious actor could relatively easily create a **fake stake distribution** and use it to produce a valid multi-signature, which would be embedded in a **valid but non-genuine certificate**. This certificate could be served by a dishonest **Mithril aggregator** node, leading an honest **Mithril client** to restore a non-genuine snapshot. That is an eclipse attack.  
+Without the certificate, the stake distribution can't be trusted. A malicious actor could relatively easily create a fake stake distribution and use it to produce a valid multi-signature, which would be embedded in a valid but non-genuine certificate. This certificate could be served by a dishonest Mithril aggregator node, leading an honest Mithril client to restore a non-genuine snapshot. That is an eclipse attack.  
 
 ## The certificate chain design
 
 :::danger
 
-The **stake distribution** of an epoch is computed by **Cardano nodes** at the end of each epoch. It becomes usable from the beginning of the following epoch.
+The stake distribution of an epoch is computed by **Cardano nodes** at the end of each epoch. It becomes usable from the beginning of the following epoch.
 
 :::
-The way to certify the **stake distribution** used to create a multi-signature is by verifying that it has been previously signed in an earlier certificate. Then, one can recursively verify that the earlier certificate is valid in the same manner. This process can be structured as a **chain** of certificates, known as the **Mithril certificate chain**. The first certificate in the chain is discussed below.
+The way to certify the stake distribution used to create a multi-signature is by verifying that it has been previously signed in an earlier certificate. Then, one can recursively verify that the earlier certificate is valid in the same manner. This process can be structured as a chain of certificates, known as the Mithril certificate chain. The first certificate in the chain is discussed below.
 
 Since multiple certificates can be created during the same epoch using the same stake distribution, it is not necessary to link to all of them for verification. Instead, it is sufficient to link to only one certificate from the previous epoch. By doing so, the verification process becomes faster and helps avoid network congestion. 
 
-The first certificate in the **certificate chain** is known as the **genesis certificate**. Validating the stake distribution embedded in the **genesis certificate** is only possible by signing it with a private key linked to a widely accessible public key called the **genesis key**. These keys are responsible for signing the hard forks used during the era transitions of the Cardano blockchain. The use of these specific keys ensures the integrity and security of the initial stake distribution and subsequent transitions within the blockchain network.
+The first certificate in the certificate chain is known as the **genesis certificate**. Validating the stake distribution embedded in the genesis certificate is only possible by signing it with a private key linked to a widely accessible public key called the **genesis key**. These keys are responsible for signing the hard forks used during the era transitions of the Cardano blockchain. The use of these specific keys ensures the integrity and security of the initial stake distribution and subsequent transitions within the blockchain network.
 
-The diagram below presents the **certificate chain** design:
+The diagram below presents the certificate chain design:
 [![Certificate Chain Design](images/certificate-chain.jpg)](images/certificate-chain.jpg)
 
 Where the following notations have been used:
@@ -47,7 +47,7 @@ Where the following notations have been used:
 * `MULTI_SIG(p,n)`: Multi-signature created to the message `H(MSG(p,n) || AVK(n-1))`
 * `GENESIS_SIG(MSG)`: Genesis signature, the signature of `MSG` with the genesis keys
 
-The hash of a **certificate** `H(C(p,n))` is computed as the concatenation (`||`) of all its fields. Therefore, if one field is modified, its hash is different.
+The hash of a certificate `H(C(p,n))` is computed as the concatenation (`||`) of all its fields. Therefore, if one field is modified, its hash is different.
 
 Information embedded in the `METADATA(p,n)` field:
 
@@ -67,12 +67,12 @@ The **trigger** represents the instant at which a certificate should be created.
 
 :::info
 
-The `AVK` or **aggregate verification key** is the root of the Merkle tree where each leaf is filled with `H(STAKE(signer) || VK(signer))`. It represents the corresponding **stake distribution** in a condensed way.
+The **aggregate verification key** (`AVK`) is the root of the Merkle tree where each leaf is filled with `H(STAKE(signer) || VK(signer))`. It represents the corresponding stake distribution in a condensed way.
 :::
 
 ## The verification algorithm
 
-**Certificate chain** verification can be stated as:
+Certificate chain verification can be stated as:
 
 ```
 CHAIN_VERIFY[C(p,n(p))] = CERT_VERIFY[C(p,n(p)] ^ CERT_VERIFY[FC(n(p))] ^ CERT_VERIFY[FC(n(p)-1)] ^ ... ^ CERT_VERIFY[FC(1)] ^ CERT_VERIFY[GC]
@@ -84,11 +84,11 @@ Where the following notations have been used:
 * `CHAIN_VERIFY[]`: verify all the chain backward from a certificate
 * `CERT_VERIFY[]`: verify a specific certificate.
 
-A **certificate chain** is considered valid when there is at least one valid certificate per epoch, starting from a **certificate** and going all the way up to the **genesis certificate** of the chain.
+A certificate chain is considered valid when there is at least one valid certificate per epoch, starting from a certificate and going all the way up to the genesis certificate of the chain.
 
-A **non-genesis certificate** is valid **if and only if** the `AVK` used to verify the multi-signature is also part of the signed message used to create a valid multi-signature in a previously sealed certificate.
+A **non-genesis certificate** is valid if and only if the `AVK` used to verify the multi-signature is also part of the signed message used to create a valid multi-signature in a previously sealed certificate.
 
-The **genesis certificate** is valid **if and only if** its **genesis signature** is verified with the advertised **public genesis key**.
+The genesis certificate is valid if and only if its genesis signature is verified with the advertised public genesis key.
 
 An implementation of the algorithm would work as follows for a certificate:
 
@@ -111,15 +111,15 @@ An implementation of the algorithm would work as follows for a certificate:
 
 ## The coexistence of multiple certificate chains
 
-What would happen if some **Mithril aggregator** claims that not enough signatures were received? This doesn’t really matter, as there will be a different **Mithril aggregator** that would collect sufficient signatures and aggregate them into a valid certificate.
+What would happen if some **Mithril aggregator** claims that not enough signatures were received? This doesn’t really matter, as there will be a different Mithril aggregator that would collect sufficient signatures and aggregate them into a valid certificate.
 
-Similarly, different **Mithril aggregators** might have different views of the **individual signatures** submitted (one aggregator might receive 10 signatures, and a different one could receive 11), which would result in different **certificates** signing the same message.
+Similarly, different Mithril aggregators might have different views of the individual signatures submitted (one aggregator might receive 10 signatures, and a different one could receive 11), which would result in different certificates signing the same message.
 
-This would result in different **certificate chains** that would all link back to the **genesis certificate**. Indeed they would be represented by a tree of certificates where each traversal path from the root to a leaf represents a valid **certificate chain**.
+This would result in different certificate chains that would all link back to the genesis certificate. Indeed they would be represented by a tree of certificates where each traversal path from the root to a leaf represents a valid certificate chain.
 
 ## The need for backward compatibility
 
-The **certificate chain** is designed to last. At a certain point, a multi-signature from legacy versions of the **Mithril** cryptographic library will require certification.
+The certificate chain is designed to last. At a certain point, a multi-signature from legacy versions of the Mithril cryptographic library will require certification.
 
 To achieve this backward compatibility, some options are available:
 
