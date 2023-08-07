@@ -52,7 +52,7 @@ The hash of a certificate `H(C(p,n))` is computed as the concatenation (`||`) of
 Information embedded in the `METADATA(p,n)` field:
 
 * The version of the Mithril protocol
-* The parameter of the Mithril protocol (`k`, `m`, and `phi_f`)
+* The parameters of the Mithril protocol (`k`, `m`, and `phi_f`)
 * The date and time at which the multi-signature creation was initiated
 * The date and time at which the certificate was sealed
 * The list of the signers that actively contributed to the multi-signature.
