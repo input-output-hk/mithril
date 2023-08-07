@@ -93,7 +93,7 @@ The genesis certificate is valid if and only if its genesis signature is verifie
 An implementation of the algorithm would work as follows for a certificate:
 
 * **Step 1**: Use this certificate as the `current_certificate`
-* **Step 2**: Verify (or fail) that the `current_hash` of the `current_certificate` is valid by computing it and comparing it with the `hash`` field of the certificate
+* **Step 2**: Verify (or fail) that the `current_hash` of the `current_certificate` is valid by computing it and comparing it with the `hash` field of the certificate
 * **Step 3**: Get the `previous_hash` of the `previous_certificate` by reading its value in the `current_certificate`
 * **Step 4**: Verify (or fail) that the `multi_signature` of the `current_certificate` is valid
 * **Step 5**: Retrieve the `previous_certificate` that has the hash `previous_hash`:
