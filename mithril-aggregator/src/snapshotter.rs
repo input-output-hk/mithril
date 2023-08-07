@@ -1,12 +1,13 @@
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::{read::GzDecoder, write::GzEncoder};
 use mithril_common::StdResult;
 use slog_scope::{info, warn};
 use std::error::Error as StdError;
 use std::fs::File;
-use std::io;
+use std::io::{self, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
+use tar::Archive;
 use thiserror::Error;
 
 use crate::dependency_injection::DependenciesBuilderError;
@@ -53,6 +54,10 @@ pub enum SnapshotError {
     #[error("Create archive error: {0}")]
     CreateArchiveError(#[from] io::Error),
 
+    /// Set when the snapshotter creates an invalid snapshot.
+    #[error("Invalid archive error: {0}")]
+    InvalidArchiveError(String),
+
     /// Set when the snapshotter fails at uploading the snapshot.
     #[error("Upload file error: `{0}`")]
     UploadFileError(String),
@@ -65,7 +70,7 @@ pub enum SnapshotError {
 impl Snapshotter for GzipSnapshotter {
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
-        let filesize = self.create_archive(&archive_path).map_err(|err| {
+        let filesize = self.create_and_verify_archive(&archive_path).map_err(|err| {
             if archive_path.exists() {
                 if let Err(remove_error) = std::fs::remove_file(&archive_path) {
                     warn!(
@@ -142,6 +147,32 @@ impl GzipSnapshotter {
 
         Ok(filesize)
     }
+
+    fn create_and_verify_archive(&self, archive_path: &Path) -> Result<u64, SnapshotError> {
+        let filesize = self.create_archive(archive_path)?;
+        self.verify_archive(archive_path)?;
+
+        Ok(filesize)
+    }
+
+    // Verify if an archive is corrupted (i.e. at least one entry is invalid)
+    fn verify_archive(&self, archive_path: &Path) -> Result<(), SnapshotError> {
+        info!("verifying archive: {}", archive_path.display());
+
+        let mut snapshot_file_tar_gz = File::open(archive_path)
+            .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;
+
+        snapshot_file_tar_gz.seek(SeekFrom::Start(0))?;
+        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
+        let mut snapshot_archive = Archive::new(snapshot_file_tar);
+
+        match snapshot_archive.entries()?.find(|e| e.is_err()) {
+            Some(Err(e)) => Err(SnapshotError::InvalidArchiveError(format!(
+                "invalid entry with error: '{e:?}'"
+            ))),
+            _ => Ok(()),
+        }
+    }
 }
 
 /// Snapshotter that does nothing. It is mainly used for test purposes.
@@ -197,6 +228,8 @@ impl Snapshotter for DumbSnapshotter {
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+
+    use mithril_common::digesters::DummyImmutablesDbBuilder;
 
     use super::*;
 
@@ -288,5 +321,37 @@ mod tests {
             .collect();
 
         assert_eq!(vec!["other-process.file".to_string()], remaining_files);
+    }
+
+    #[test]
+    fn should_create_a_valid_archive_with_gzip_snapshotter() {
+        let test_dir = get_test_directory("should_create_a_valid_archive_with_gzip_snapshotter");
+        let pending_snapshot_directory = test_dir.join("pending_snapshot");
+        let pending_snapshot_archive_file = "archive.tar.gz";
+        let db_directory = test_dir.join("db");
+
+        DummyImmutablesDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
+            .with_immutables(&[1, 2, 3])
+            .append_immutable_trio()
+            .build();
+
+        let snapshotter = Arc::new(
+            GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap(),
+        );
+
+        snapshotter
+            .create_archive(
+                &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+            )
+            .expect("create_archive should not fail");
+        snapshotter
+            .verify_archive(
+                &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+            )
+            .expect("verify_archive should not fail");
+
+        snapshotter
+            .snapshot(pending_snapshot_archive_file)
+            .expect("Snapshotter::snapshot should not fail.");
     }
 }
