@@ -61,7 +61,7 @@ The message `MSG(p,n)` is a map of multiple values associated with their respect
 
 :::note
 
-The **trigger** represents the instant at which a certificate should be created. It is combined with at least the associated **epoch** to create a [**beacon**](../../glossary.md#beacon) of the certificate. In the current implementation, this trigger is a new [**immutable file number**](../../glossary.md#immutable-file-number). The epoch creation and the trigger creation processes may be uncorrelated.
+The **trigger** represents the instant at which a certificate should be created. It is combined with at least the associated **epoch** to create a [**beacon**](../../glossary.md#beacon) of the certificate. In the current implementation of the Cardano node database snapshot, this trigger is a new [**immutable file number**](../../glossary.md#immutable-file-number). 
 
 :::
 
