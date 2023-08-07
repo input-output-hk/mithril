@@ -105,7 +105,7 @@ An implementation of the algorithm would work as follows for a certificate:
     * **Step 5.1.3**: Verify (or fail) that the `multi_signature` of the `previous_certificate` is valid
     * **Step 5.1.4**: Use the `previous_certificate` as `current_certificate` and start again at **Step 2**
   * **Step 5.2**: If it is a `genesis_certificate`:
-    * **Step 5.2.1**: Verify (or fail) that the `previous_hash` of the `previous_certificate` is valid by computing it and comparing it with the `hash`` field of the certificate
+    * **Step 5.2.1**: Verify (or fail) that the `previous_hash` of the `previous_certificate` is valid by computing it and comparing it with the `hash` field of the certificate
     * **Step 5.2.2**: Verify (or fail) that the `current_avk` of the `current_certificate` is part of the message signed by the genesis signature of the `previous_certificate`
     * **Step 5.2.3**: The certificate is valid (success).
 
