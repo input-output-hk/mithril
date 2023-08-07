@@ -26,7 +26,7 @@ The way to certify the stake distribution used to create a multi-signature is by
 
 Since multiple certificates can be created during the same epoch using the same stake distribution, it is not necessary to link to all of them for verification. Instead, it is sufficient to link to only one certificate from the previous epoch. By doing so, the verification process becomes faster and helps avoid network congestion. 
 
-The first certificate in the certificate chain is known as the **genesis certificate**. Validating the stake distribution embedded in the genesis certificate is only possible by signing it with a private key linked to a widely accessible public key called the **genesis key**. These keys are responsible for signing the hard forks used during the era transitions of the Cardano blockchain. The use of these specific keys ensures the integrity and security of the initial stake distribution and subsequent transitions within the blockchain network.
+The first certificate in the certificate chain is known as the **genesis certificate**. Validating the stake distribution embedded in the genesis certificate is only possible by signing it with a private key linked to a widely accessible public key called the **genesis key**. The use of these specific keys ensures the integrity and security of the initial stake distribution and subsequent transitions within the blockchain network.
 
 The diagram below presents the certificate chain design:
 [![Certificate Chain Design](images/certificate-chain.jpg)](images/certificate-chain.jpg)
