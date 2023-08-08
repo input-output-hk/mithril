@@ -68,10 +68,10 @@ jobs:
         with:
           node-version: 16
           cache: 'yarn'
-          cache-dependency-path: docs/yarn.lock
+          cache-dependency-path: docs/website/yarn.lock
 
       - name: Build Docusaurus site
-        working-directory: docs
+        working-directory: docs/website
         run: |
           yarn && yarn build
 
@@ -81,7 +81,7 @@ jobs:
           name: docusaurus-build
           if-no-files-found: error
           path: |
-            docs/build/*
+            docs/website/build/*
   
   build-test-explorer:
     runs-on: ubuntu-22.04

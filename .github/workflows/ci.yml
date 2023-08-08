@@ -190,6 +190,7 @@ jobs:
         run: cargo sort -w -c
       
       - name: Dependency & Vulnerabilities Review
+        if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v3
         with:
           base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
