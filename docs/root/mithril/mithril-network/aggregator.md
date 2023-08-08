@@ -1,111 +1,104 @@
 ---
 sidebar_position: 2
-sidebar_label: Mithril Aggregator
+sidebar_label: Mithril aggregator
 ---
 
-# Mithril Aggregator Node
-
-Welcome to the Mithril Aggregator Node guide!
-
-## Introduction
+# Mithril aggregator node
 
 :::info
 
-The **Mithril Aggregator** is a trustless node that orchestrates the work of the **Mithril Signer** nodes and that gathers their individual signatures to produce **Mithril** multi signatures and their associated certificates. It is also in charge of creating and storing the ledger state snapshot archive.
+A **Mithril aggregator** is a trustless node responsible for coordinating the activities of **Mithril signer** nodes. It gathers the individual signatures from the signer nodes to generate Mithril multi-signatures along with their corresponding certificates. Additionally, the aggregator is in charge of creating and maintaining the archive for the ledger state snapshot.
 
 :::
 
 :::tip
 
-* For more information about the **Mithril Protocol**, please refer to the [Protocol in depth](../mithril-protocol/protocol.md) page.
+* For more information about the **Mithril protocol**, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-* For more information about the **Mithril Aggregator**, please refer to the [Developer Documentation](../../manual/developer-docs/nodes/mithril-aggregator.md) page.
+* For more information about the **Mithril aggregator**, see the [developer manual](../../manual/developer-docs/nodes/mithril-aggregator.md).
 
 :::
 
-## Trustless Orchestration
+## Trustless orchestration
 
-The primary goal of the **Mithril Aggregator** is to orchestrate and synchronize the **Mithril multi signatures** production:
+The primary objective of the Mithril aggregator is to coordinate and synchronize the production of Mithril multi-signatures:
 
-* When a new snapshot is ready to be produced (and certified), the **Mithril Aggregator** creates and broadcasts a new **Beacon** that indicates to the **Mithril Signers** which point in time they should use to compute the message (or digest) to sign.
+* When a new snapshot is ready to be produced (and certified), the Mithril aggregator generates and broadcasts a fresh **beacon** to inform Mithril signers of the specific time reference to employ in computing the message (or digest) for signing
 
-* It is also responsible for advertising the **Verification Keys** (Mithril public keys) of all the registered **Mithril Signers**.
+* It is also responsible for advertising the **verification keys** (Mithril public keys) of all the registered Mithril signers
 
-* The **Beacon**, the current **Protocol Parameters** and the available **Verification Keys** are gathered and advertised in a **Pending Certificate**.
+* The beacon, the current protocol parameters, and the available verification keys are compiled and shared in a **pending certificate**
 
-* The **Mithril Signers** can register with it, in order to be able to later participate in the signature process.
+* Mithril signers can register with it to participate in the signature process later on.
 
-An important fact is that the **Mithril Aggregator** is trustless:
+An important point to note is that the Mithril aggregator operates in a trustless manner:
 
-* Anyone could run an aggregator on the network.
+* Anyone on the network can run an aggregator
 
-* It does not broadcast any _sensitive_ information (such as the _message_ that needs to be signed). The signer nodes are responsible for computing these information directy from a **Cardano Node** on top of which they run.
+* The aggregator doesn't broadcast any _sensitive_ information, such as the _message_ requiring signing. The signer nodes handle the direct computation of this information from a **Cardano node** on which they operate.
 
-Also, in order to aggregate single signatures into **Mithril multi signatures**, the *_Mithril Aggregator_ does not need to represent any share of the total stakes of the **Cardano Network**.
+Additionally, when it comes to aggregating individual signatures into Mithril multi-signatures, the aggregator doesn't need to represent a portion of the total stake within the Cardano network.
 
-## Multi Signature and Certificate Production
+## Multi-signature and certificate production
 
-The **Mithril Aggregator** is in charge of producing the **Mithril multi signatures** and their associated certificates for a part and/or all of the ledger state (the snapshots):
+The Mithril aggregator oversees the creation of Mithril multi-signatures along with their associated certificates for a part and/or the entirety of the ledger state (snapshots):
 
-* The previously registered **Mithril Signers** are able to produce individual signatures. They send these individual signatures to the **Mithril Aggregator** that checks their validity and then store them.
+* Previously registered Mithril signers generate individual signatures. These signatures are then sent to the Mithril aggregator for validation and storage.
 
-* Once the **quorum** of individual signatures has been reached, the **Mithril Aggregator** is able to produce a multi signature.
+* Once the **quorum** of individual signatures has been reached, the Mithril aggregator can generate a multi-signature.
 
-* The **Mithril Aggregator** combines the multi signature and some metadata into a **Mithril Certificate** that will be later used by the **Mithril Client** to verify the authenticity of a snapshot.
+* Subsequently, the Mithril aggregator combines the multi-signature with relevant metadata to create a **Mithril certificate**. This certificate will later be utilized by the **Mithril client** to authenticate a snapshot's legitimacy.
 
 :::tip
 
-For more information about the **Mithril Certificate Chain**, please refer to the [Certificate Chain](../mithril-protocol/certificates.md) page.
+For more information about the **Mithril certificate chain**, see the [certificate chain](../mithril-protocol/certificates.md) overview.
 
 :::
 
-## Snapshot Artifacts Production
+## Snapshot artifacts production
 
-In its first version, the **Mithril Aggregator** also takes care of producing the artifacts associated to the snapshot (e.g. the snapshot archive that will be later used by a **Mithril Client**).
+In its initial version, the Mithril aggregator also handles the production of artifacts associated with the snapshot (such as the snapshot archive, which will be used later by a Mithril client).
 
 :::note
 
-It is worthy to mention that this role is endorsed only for convenience at the moment, and that on the long run the artifacts production will be delegated to a separate **Mithril Snapshotter** node.
+It's important to note that this role is presently undertaken for the sake of convenience. However, it's planned that in the long run, the production of artifacts will be assigned to a distinct **Mithril snapshotter** node.
 
 :::
 
-Once the snapshot artifact is created, it can be synchronized anywhere:
+Once the snapshot artifact is created, it can be synchronized on various locations:
 
-* On the **Mithril Aggregator** itself.
+* On the Mithril aggregator itself
+* On any cloud platform that offers a CDN
+* On a distinct peer-to-peer network, such as **IPFS** or **BitTorrent**.
 
-* On any cloud platform that provides a CDN.
+The Mithril certificate is part of a chain of certificates that are essential for snapshot authenticity verification and is stored in either of the following ways:
 
-* On a separate peer to peer network (such as **IPFS** or **Bittorrent**).
+* On the Mithril aggregator itself
+* On any accessible storage, such as cloud storage, for instance.
 
-The **Mithril Certificate** is part of a chain of certificates that are involved in the snapshot authenticity verification and is stored:
+## Distribution of snapshot artifacts and certificates
 
-* On the **Mithril Aggregator** itself
-
-* Or on any accessible storage (as a cloud storage for example)
-
-## Snapshot Artifacts and Certificate Distribution
-
-In case the **Mithril Aggregator** stores the snapshot artifacts and/or the certificates, it can be used to distribute these data to remote clients. These clients can use them according to their need and verify that are genuine.
+If the Mithril aggregator stores the snapshot artifacts and/or the certificates, it can function as a distribution point for this data to remote clients. The clients can then use the artifacts as needed and verify their authenticity.
 
 ## Under the hood
 
-In its first version, the **Mithril Aggregator** is composed of two main components:
+In its initial version, the Mithril aggregator comprises two main components:
 
-* A REST API, that enables the **Mithril Signers** to:
-  * Retrieve other registered signers **Verification Keys**.
-  * Register their **Verification Keys**.
-  * Register their **Individual Signatures**.
+* A REST API that allows Mithril signers to:
+  * Retrieve **verification keys** of other registered signers
+  * Register their own verification keys
+  * Register their **individual signatures**.
 
 :::tip
 
-The documentation of the REST API of the **Mithril Aggregator** is available [here](/aggregator-api).
+The Mithril aggregator's **REST API** documentation can be found [here](/aggregator-api).
 
 :::
 
-* A runtime that is powered by a state machine:
-  * The runtime is synchronous and is scheduled to execute at regular intervals.
-  * There are three possible states: **IDLE** , **READY** and **SIGNING**.
-  * The runtime handles state transitions.
-  * The runtime is summarized in the diagram below:
+* A runtime powered by a state machine:
+  * The runtime operates synchronously and is scheduled to execute at regular intervals
+  * It encompasses three potential states: **IDLE**, **READY**, and **SIGNING**
+  * The runtime effectively manages state transitions
+  * The runtime structure is illustrated in the diagram below:
 
 ![Aggregator Runtime](images/aggregator-runtime.jpg)
