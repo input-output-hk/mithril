@@ -5,10 +5,6 @@ sidebar_label: Mithril client
 
 # Mithril client node
 
-Welcome to the Mithril client node guide.
-
-## Introduction
-
 :::info
 
 The Mithril client node is used to list, show or verify artifacts certified by Mithril certificates:
@@ -20,43 +16,43 @@ The Mithril client node is used to list, show or verify artifacts certified by M
 
 :::tip
 
-* For more information about the Mithril protocol, please refer to the [Protocol in depth](../mithril-protocol/protocol.md) page.
+* For more information about the Mithril protocol, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-* For more information about the Mithril client, please refer to the [Developer Documentation](../../manual/developer-docs/nodes/mithril-client.md) page.
+* For more information about the Mithril client, see the [developer manual](../../manual/developer-docs/nodes/mithril-client.md).
 
 :::
 
 ## Wallet restoration
 
-A Mithril client can be used by anyone that needs to rapidly restore and bootstrap a Cardano full node:
+A Mithril client can be used by anyone who needs to rapidly restore and bootstrap a Cardano full node:
 
 * A full-node wallet such as Daedalus
-* A node operator (SPO, Exchange, Dapp).
+* A node operator (SPO, exchange, DApp).
 
-In the long run, the Mithril client will be incorporated in light clients and Wallets.
+In the long run, the Mithril client will be incorporated in light clients and wallets.
 
 ### Certificate chain verification
 
-The first thing the Mithril client does is to download the associated certificate chain and for each Mithril certificate verify that (in the following order):
+The initial action of the Mithril client involves downloading the corresponding certificate chain. For each Mithril certificate, the client proceeds to verify the following in the given order:
 
-1. The certificate has not been tampered with (by computing its hash and verifying that it is the same as the one used for downloading it).
-2. The locally computed message is the same as in the certificate.
-3. The multi-signature of the certificate is valid and computed with the certificate message.
+1. The certificate has not been tampered with (by computing its hash and verifying that it is the same as the one used for downloading it)
+2. The locally computed message is the same as in the certificate
+3. The multi-signature of the certificate is valid and computed with the certificate message
 4. The stake distribution used to compute the multi-signature is signed:
-    * By a multi-signature of a previous certificate of the chain (if there is one available).
-    * Or by a valid Genesis Certificate (in case this is the first certificate of the chain).
+    * By a multi-signature of a previous certificate of the chain (if there is one available)
+    * Or by a valid genesis certificate (in case this is the first certificate of the chain).
 
 The Mithril aggregator is used as a provider for the certificate chain.
 
 :::tip
 
-For more information about the Mithril certificate chain, please refer to the [Certificate chain](../mithril-protocol/certificates.md) page.
+For more information about the Mithril certificate chain, see the [certificate chain](../mithril-protocol/certificates.md) overview.
 
 :::
 
 ### Snapshot artifacts retrieval
 
-Once the certificate chain is verified, the Mithril client will try to download a full Cardano node snapshot. The Mithril aggregator is used as a provider for the snapshot locations. The snapshots might be stored at several locations, the client will try the given locations until it finds one that responds OK. 
+Once the certificate chain is verified, the Mithril client will try to download a full Cardano node snapshot. The Mithril aggregator is used as a provider for the snapshot locations. The snapshots might be stored at several locations, the client will try the given locations until it finds one that responds well. 
 
 These artifacts are downloaded locally in a temporary directory and then uncompressed in the location given on the command line. The uncompressed files are used to compute the message that is then compared with the one that is signed by the Mithril signers. If the verification fails, the uncompressed files are removed from the disk.
 
