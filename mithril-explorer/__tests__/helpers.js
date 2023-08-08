@@ -1,4 +1,5 @@
 import {saveToLocalStorage, storeBuilder} from "../src/store/store";
+import * as mockRouter from 'next-router-mock';
 
 const baseLocation = 'http://localhost';
 
@@ -9,11 +10,28 @@ function initStore(default_state = undefined) {
   return storeBuilder();
 }
 
+const mockNextNavigation = {
+  ...mockRouter,
+  notFound: jest.fn(),
+  redirect: jest.fn().mockImplementation((url) => {
+    mockRouter.memoryRouter.setCurrentUrl(url);
+  }),
+  usePathname: () => {
+    const router = mockRouter.useRouter();
+    return router.asPath;
+  },
+  useSearchParams: () => {
+    const router = mockRouter.useRouter();
+    return new URLSearchParams(router.query);
+  },
+};
+
 /**
  * Reset the windows location api to `http://localhost`
  */
 function resetLocation() {
   setLocation(new URL(baseLocation));
+  mockRouter.memoryRouter.setCurrentUrl('/');
 }
 
 /**
@@ -47,6 +65,7 @@ function setLocationToAggregator(aggregatorUrl) {
 
 module.exports = {
   initStore,
+  mockNextNavigation,
   setLocation,
   setLocationToAggregator,
   resetLocation,
