@@ -19,41 +19,36 @@ function loadFromLocalStorage() {
   return undefined;
 }
 
-export function initStore() {
+export function initStore(initialAggregator) {
   let state = loadFromLocalStorage();
 
-  if (location?.search) {
-    const params = new URLSearchParams(location.search);
-    const aggregator = params.get('aggregator');
-
-    if (aggregator && checkUrl(aggregator)) {
-      const baseState = (state)
-        ? state
-        : {
-          settings: settingsInitialState
-        };
-
-      state = {
-        ...baseState,
-        settings: {
-          ...baseState.settings,
-          selectedAggregator: aggregator,
-          availableAggregators:
-            !baseState.settings.availableAggregators.includes(aggregator)
-              ? [...baseState.settings.availableAggregators, aggregator]
-              : baseState.settings.availableAggregators,
-          canRemoveSelected: !default_available_aggregators.includes(aggregator),
-        }
+  if (initialAggregator && checkUrl(initialAggregator)) {
+    const baseState = (state)
+      ? state
+      : {
+        settings: settingsInitialState
       };
-    }
+
+    state = {
+      ...baseState,
+      settings: {
+        ...baseState.settings,
+        selectedAggregator: initialAggregator,
+        availableAggregators:
+          !baseState.settings.availableAggregators.includes(initialAggregator)
+            ? [...baseState.settings.availableAggregators, initialAggregator]
+            : baseState.settings.availableAggregators,
+        canRemoveSelected: !default_available_aggregators.includes(initialAggregator),
+      }
+    };
   }
 
   return state;
 }
 
-export const storeBuilder = () => configureStore({
+export const storeBuilder = (initialAggregator) => configureStore({
   reducer: {
     settings: settingsSlice.reducer,
   },
-  preloadedState: initStore(),
+  preloadedState: initStore(initialAggregator),
 });

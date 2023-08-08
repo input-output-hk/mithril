@@ -7,13 +7,9 @@ import {
   toggleAutoUpdate
 } from "../src/store/settingsSlice";
 import default_available_aggregators from "../src/aggregators-list";
-import {initStore, resetLocation, setLocationToAggregator} from "./helpers";
+import {initStore} from "./helpers";
 
 describe('Store Initialization', () => {
-  beforeEach(() => {
-    resetLocation();
-  });
-
   it('init with settings initialState without local storage', () => {
     const store = initStore();
 
@@ -36,9 +32,8 @@ describe('Store Initialization', () => {
     expect(store.getState()).toEqual(expected);
   });
 
-  it('init with local storage and default aggregator in url', () => {
-    const aggregatorInUrl = default_available_aggregators.at(1);
-    setLocationToAggregator(aggregatorInUrl);
+  it('init with local storage and initial aggregator', () => {
+    const initialAggregator = default_available_aggregators.at(1);
     let aggregators = [...default_available_aggregators, "https://aggregator.test"];
     let expected = {
       settings: {
@@ -49,8 +44,8 @@ describe('Store Initialization', () => {
       }
     };
     saveToLocalStorage(expected);
-    expected.settings.selectedAggregator = aggregatorInUrl;
-    const store = storeBuilder();
+    expected.settings.selectedAggregator = initialAggregator;
+    const store = storeBuilder(initialAggregator);
 
     expect(store.getState()).toEqual(expected);
   });
