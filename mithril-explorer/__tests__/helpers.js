@@ -1,4 +1,4 @@
-import {saveToLocalStorage, storeBuilder} from "../store/store";
+import {saveToLocalStorage, storeBuilder} from "../src/store/store";
 
 const baseLocation = 'http://localhost';
 

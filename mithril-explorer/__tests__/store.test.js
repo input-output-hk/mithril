@@ -1,12 +1,12 @@
-import {saveToLocalStorage, storeBuilder} from "../store/store";
+import {saveToLocalStorage, storeBuilder} from "../src/store/store";
 import {
   removeSelectedAggregator,
   selectAggregator,
   settingsSlice,
   setUpdateInterval,
   toggleAutoUpdate
-} from "../store/settingsSlice";
-import default_available_aggregators from "../aggregators-list";
+} from "../src/store/settingsSlice";
+import default_available_aggregators from "../src/aggregators-list";
 import {initStore, resetLocation, setLocationToAggregator} from "./helpers";
 
 describe('Store Initialization', () => {

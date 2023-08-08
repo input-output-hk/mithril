@@ -1,10 +1,10 @@
 import {render, screen} from '@testing-library/react'
 import '@testing-library/jest-dom'
-import AggregatorSetter from "../components/AggregatorSetter";
+import AggregatorSetter from "../src/components/AggregatorSetter";
 import {initStore} from "./helpers";
 import {Provider} from "react-redux";
-import default_available_aggregators from "../aggregators-list";
-import {settingsSlice} from "../store/settingsSlice";
+import default_available_aggregators from "../src/aggregators-list";
+import {settingsSlice} from "../src/store/settingsSlice";
 
 function renderAggregatorSetter(default_state = undefined) {
   const store = initStore(default_state);

@@ -1,10 +1,12 @@
-import React, {useEffect} from 'react';
-import {useRouter} from "next/router";
+"use client";
+
+import React, {useCallback, useEffect} from 'react';
 import {useSelector} from "react-redux";
 import Head from "next/head";
 import Image from "next/image";
+import {usePathname, useRouter, useSearchParams} from "next/navigation";
 import {Col, Form, Row, Stack, Tab, Tabs} from "react-bootstrap";
-import styles from "../styles/Home.module.css";
+import styles from "./explorer.module.css";
 import AggregatorSetter from "../components/AggregatorSetter";
 import EpochSettings from "../components/EpochSettings";
 import IntervalSetter from "../components/IntervalSetter";
@@ -15,12 +17,18 @@ import {selectedAggregator as currentlySelectedAggregator} from "../store/settin
 
 export default function Explorer() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const selectedAggregator = useSelector(currentlySelectedAggregator);
 
   useEffect(() => {
-    router.push({query: {aggregator: selectedAggregator}}).then(() => {
-    });
-  }, [selectedAggregator]);
+    const params = new URLSearchParams(searchParams);
+    params.set("aggregator", selectedAggregator);
+    let new_path = pathname + "?" + params.toString();
+    
+    router.prefetch(new_path);
+    router.push(new_path);
+  }, [router, searchParams, pathname, selectedAggregator]);
 
   return (
     <>
