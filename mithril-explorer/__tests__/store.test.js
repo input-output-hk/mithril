@@ -11,7 +11,7 @@ import {initStore} from "./helpers";
 
 describe('Store Initialization', () => {
   it('init with settings initialState without local storage', () => {
-    const store = initStore();
+    const store = storeBuilder();
 
     expect(store.getState().settings).toEqual(settingsSlice.getInitialState());
   });
@@ -104,5 +104,36 @@ describe('Store Initialization', () => {
 
     store.dispatch(removeSelectedAggregator());
     expect(store.getState().settings.availableAggregators).not.toContain(customAggregator);
+  });
+
+  it('loading state from local storage should sort default aggregators', () => {
+    const oldDefaultAggregators = [...default_available_aggregators, "http://aggregator.test"];
+    oldDefaultAggregators.reverse();
+    let expected = [...default_available_aggregators, "http://aggregator.test"];
+    
+    saveToLocalStorage({
+      settings: {
+        ...settingsSlice.getInitialState(),
+        availableAggregators: oldDefaultAggregators,
+      }
+    });
+    const store = storeBuilder();
+
+    expect(store.getState().settings.availableAggregators).toEqual(expected);
+  });
+
+  it('loading state from local storage should add new default aggregators', () => {
+    const oldDefaultAggregators = [...default_available_aggregators];
+    const newDefaultAggregator = oldDefaultAggregators.shift();
+    
+    saveToLocalStorage({
+      settings: {
+        ...settingsSlice.getInitialState(),
+        availableAggregators: oldDefaultAggregators,
+      }
+    });
+    const store = storeBuilder();
+
+    expect(store.getState().settings.availableAggregators).toContain(newDefaultAggregator);
   });
 });

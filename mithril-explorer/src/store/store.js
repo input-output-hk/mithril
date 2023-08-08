@@ -15,40 +15,56 @@ function loadFromLocalStorage() {
   if (typeof window !== 'undefined' && localStorage) {
     const serialisedState = localStorage.getItem(SAVED_STATE_KEY);
     return serialisedState ? JSON.parse(serialisedState) : undefined;
+  } else {
+    return undefined;
   }
-  return undefined;
 }
 
-export function initStore(initialAggregator) {
-  let state = loadFromLocalStorage();
+function reorderAggregatorAndAddMissingDefaults(currentList, defaultAggregators) {
+  let not_default_aggregators = currentList.filter(a => !defaultAggregators.includes(a));
+  return [...defaultAggregators, ...not_default_aggregators];
+}
+
+function getSettings(defaultSettings, initialAggregator) {
+  let settings = defaultSettings ?? settingsInitialState;
+  const aggregators =
+    reorderAggregatorAndAddMissingDefaults(settings.availableAggregators, default_available_aggregators);
 
   if (initialAggregator && checkUrl(initialAggregator)) {
-    const baseState = (state)
-      ? state
-      : {
-        settings: settingsInitialState
-      };
+    if (!aggregators.includes(initialAggregator)) {
+      aggregators.push(initialAggregator);
+    }
 
-    state = {
-      ...baseState,
-      settings: {
-        ...baseState.settings,
-        selectedAggregator: initialAggregator,
-        availableAggregators:
-          !baseState.settings.availableAggregators.includes(initialAggregator)
-            ? [...baseState.settings.availableAggregators, initialAggregator]
-            : baseState.settings.availableAggregators,
-        canRemoveSelected: !default_available_aggregators.includes(initialAggregator),
-      }
+    settings = {
+      ...settings,
+      selectedAggregator: initialAggregator,
+      availableAggregators: aggregators,
+      canRemoveSelected: !default_available_aggregators.includes(initialAggregator),
+    };
+  } else {
+    settings = {
+      ...settings,
+      availableAggregators: aggregators,
     };
   }
+  
+  return settings;
+}
 
-  return state;
+function initStore(defaultState, initialAggregator) {
+  return {
+    ...defaultState,
+    settings: getSettings(defaultState?.settings, initialAggregator),
+  };
+}
+
+export function initStoreFromLocalStorage(initialAggregator) {
+  return initStore(loadFromLocalStorage(), initialAggregator);
 }
 
 export const storeBuilder = (initialAggregator) => configureStore({
   reducer: {
     settings: settingsSlice.reducer,
   },
-  preloadedState: initStore(initialAggregator),
+  preloadedState: initStoreFromLocalStorage(initialAggregator),
 });
