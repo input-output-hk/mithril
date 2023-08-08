@@ -30,7 +30,20 @@ clean:
 	rm yarn.lock || true
 
 upgrade: clean install
-	yarn upgrade next@latest react@latest react-bootstrap@latest react-dom@latest bootstrap@latest \
-	     bootstrap-icons@latest eslint@latest eslint-config-next@latest @reduxjs/toolkit@latest \
-	     next-redux-wrapper@latest react-redux@latest @popperjs/core@latest \
-	     jest@latest jest-environment-jsdom@latest @testing-library/react@latest @testing-library/jest-dom@latest
+	yarn upgrade \
+		@popperjs/core@latest \
+		@reduxjs/toolkit@latest \
+		bootstrap@latest \
+		bootstrap-icons@latest \
+		next@latest \
+		react@latest \
+		react-bootstrap@latest \
+		react-dom@latest \
+		react-redux@latest \
+		@testing-library/jest-dom@latest \
+		@testing-library/react@latest \
+		eslint@latest \
+		eslint-config-next@latest \
+		jest@latest \
+		jest-environment-jsdom@latest \
+		next-router-mock@latest \
