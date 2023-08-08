@@ -7,25 +7,25 @@ sidebar_label: Introduction
 
 :::info New
 
-:new: Interact with the **Mithril Protocol** by experiencing with our [protocol simulation](./mithril-protocol/simulation.md). This will help you understand how the participants interact to create a multi signature and what's the impact of the protocol parameters.
+:new: Interact with the Mithril Protocol by experimenting with our [protocol simulation](./mithril-protocol/simulation.md). This will help you understand how the participants interact to create a **multi-signature** and the impact of the protocol parameters.
 
 :::
 
 ## Mithril in a nutshell
 
-**Mithril** is a research project which goal is to provide [Stake-based Threshold Multisignatures](https://iohk.io/en/research/library/papers/mithrilstake-based-threshold-multisignatures/) on top of the **Cardano Network**.
+Mithril is a research project whose goal is to provide [Stake-based Threshold Multisignatures](https://iohk.io/en/research/library/papers/mithrilstake-based-threshold-multisignatures/) on top of the Cardano Network.
 
-In a nutshell, **Mithril** can be summarized as:
+In a nutshell, Mithril can be summarized as:
 
-> A protocol that allows **stakeholders** in a **Proof-of-Stake** blockchain network to individually **sign messages** that are aggregated into a **multi signature** which guarantees that they represent a minimum share of the total stakes.
+> A protocol that allows stakeholders in a Proof-of-Stake blockchain network to individually sign messages that are aggregated into a multi-signature, which guarantees that they represent a minimum share of the total stake.
 
-In other words, an adversarial participant with less than this share of the total stakes will not be able to produce valid multi signatures :closed_lock_with_key:.
+In other words, an adversarial participant with less than this share of the total stake will not be able to produce valid multi-signatures :closed_lock_with_key:.
 
 ## What you'll find in this guide
 
-In this **About Mithril** guide, you will find:
+In this About Mithril guide, you will find:
 
-* Documentation on the **Mithril Protocol**:
+* Documentation on the Mithril Protocol:
 
   * The [Mithril Protocol in depth](./mithril-protocol/protocol.md)
 
@@ -33,7 +33,7 @@ In this **About Mithril** guide, you will find:
 
   * :new: An interactive discovery of the protocol with the [Mithril Simulation](./mithril-protocol/simulation.md)
 
-* Documentation on the **Mithril Network**:
+* Documentation on the Mithril Network:
 
   * The [Mithril Network architecture](./mithril-network/architecture.md)
 
@@ -45,7 +45,7 @@ In this **About Mithril** guide, you will find:
 
 :::tip
 
-If you need help, feel free to reach the **Mithril** team:
+If you need help, feel free to reach the Mithril team:
 
 * [GitHub Discussions](https://github.com/input-output-hk/mithril/discussions)
 
