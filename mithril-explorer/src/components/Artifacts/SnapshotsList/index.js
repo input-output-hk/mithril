@@ -4,6 +4,7 @@ import CertificateModal from '../../CertificateModal';
 import RawJsonButton from "../../RawJsonButton";
 import {useSelector} from "react-redux";
 import {selectedAggregator} from "../../../store/settingsSlice";
+import LocalDateTime from "../../LocalDateTime";
 
 /*
  * Code from: https://stackoverflow.com/a/18650828
@@ -83,7 +84,8 @@ export default function SnapshotsList(props) {
                           {snapshot.certificate_hash}{' '}
                           <Button size="sm" onClick={() => showCertificate(snapshot.certificate_hash)}>Show</Button>
                         </ListGroup.Item>
-                        <ListGroup.Item>Created at: <br/> {new Date(snapshot.created_at).toLocaleString()}
+                        <ListGroup.Item>
+                          Created: <LocalDateTime datetime={snapshot.created_at}/>
                         </ListGroup.Item>
                         <ListGroup.Item>Size: {formatBytes(snapshot.size)}</ListGroup.Item>
                       </ListGroup>

@@ -4,6 +4,7 @@ import CertificateModal from '../../CertificateModal';
 import RawJsonButton from "../../RawJsonButton";
 import {useSelector} from "react-redux";
 import {selectedAggregator} from "../../../store/settingsSlice";
+import LocalDateTime from "../../LocalDateTime";
 
 export default function MithrilStakeDistributionsList(props) {
   const [mithrilStakeDistributions, setMithrilStakeDistributions] = useState([]);
@@ -66,7 +67,9 @@ export default function MithrilStakeDistributionsList(props) {
                       <ListGroup variant="flush" className="data-list-group">
                         <ListGroup.Item>Epoch: {mithrilStakeDistribution.epoch}</ListGroup.Item>
                         {mithrilStakeDistribution.created_at &&
-                          <ListGroup.Item>Created: {new Date(mithrilStakeDistribution.created_at).toLocaleString()}</ListGroup.Item>
+                          <ListGroup.Item>
+                            Created: <LocalDateTime datetime={mithrilStakeDistribution.created_at}/>
+                          </ListGroup.Item>
                         }
                         <ListGroup.Item>Certificate hash: <br/>
                           {mithrilStakeDistribution.certificate_hash}{' '}
