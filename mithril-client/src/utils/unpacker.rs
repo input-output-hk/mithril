@@ -49,7 +49,7 @@ pub enum SnapshotUnpackerError {
     UnpackDirectoryIsNotWritable(PathBuf, StdError),
 
     /// Unpacking error
-    #[error("Could not unpack '{filepath}' in directory '{dirpath}'. Error: « {error} ».")]
+    #[error("Could not unpack '{filepath}' in directory '{dirpath}'. Error: « {error:#?} ».")]
     UnpackFailed {
         /// Location of the packed archive.
         filepath: PathBuf,
