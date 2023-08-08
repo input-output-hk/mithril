@@ -120,7 +120,7 @@ impl SignedEntityService for MithrilSignedEntityService {
             "certificate_hash" => &certificate.hash
         );
 
-        let mut remaining_retries = 3;
+        let mut remaining_retries = 2;
         let artifact = loop {
             remaining_retries -= 1;
 
