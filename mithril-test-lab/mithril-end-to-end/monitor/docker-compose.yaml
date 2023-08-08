@@ -6,7 +6,13 @@ services:
     container_name: grafana
     profiles:
       - monitoring
+      - dashboards
       - all
+    volumes:
+      - ./config/grafana/provisioning/:/etc/grafana/provisioning/
+    environment:
+      - GF_SECURITY_ADMIN_USER=mithril
+      - GF_SECURITY_ADMIN_PASSWORD=mithril
     restart: unless-stopped
     ports:
      - '3000:3000'
@@ -16,13 +22,14 @@ services:
     container_name: prometheus
     profiles:
       - monitoring
+      - metrics
       - all
     ports:
       - "9090:9090"
     command:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     logging:
       driver: json-file
       options:
@@ -33,6 +40,7 @@ services:
     container_name: node-exporter
     profiles:
       - monitoring
+      - metrics
       - all
     restart: unless-stopped
     volumes:
@@ -55,13 +63,14 @@ services:
     container_name: process-exporter
     profiles:
       - monitoring
+      - metrics
       - all
     restart: unless-stopped
     ports:
       - "9256:9256"
     volumes:
       - /proc:/host/proc:ro
-      - ./config/process.yml:/config/process.yml:ro
+      - ./config/process_exporter/process.yml:/config/process.yml:ro
     command:
       - '-procfs=/host/proc'
       - '-config.path=/config/process.yml'
