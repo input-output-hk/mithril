@@ -1,5 +1,4 @@
 import {configureStore} from "@reduxjs/toolkit";
-import {createWrapper} from "next-redux-wrapper";
 import {initialState as settingsInitialState, settingsSlice} from "./settingsSlice";
 import default_available_aggregators from "../aggregators-list";
 import {checkUrl} from "../utils";
@@ -58,5 +57,3 @@ export const storeBuilder = () => configureStore({
   },
   preloadedState: initStore(),
 });
-
-export const storeWrapper = createWrapper(storeBuilder);
