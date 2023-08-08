@@ -33,7 +33,7 @@ In the long run, the Mithril client will be incorporated in light clients and wa
 
 ### Certificate chain verification
 
-The initial action of the Mithril client involves downloading the corresponding certificate chain. For each Mithril certificate, the client proceeds to verify the following in the given order:
+The initial action of the Mithril client involves downloading the corresponding certificate chain. For each Mithril certificate, the client proceeds to verify the following:
 
 1. The certificate has not been tampered with (by computing its hash and verifying that it is the same as the one used for downloading it)
 2. The locally computed message is the same as in the certificate
