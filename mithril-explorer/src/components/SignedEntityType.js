@@ -4,7 +4,7 @@ import {ListGroup} from "react-bootstrap";
 export default function SignedEntityType({signedEntityType}) {
   const [entityName, setEntityName] = useState("");
   const [beacon, setBeacon] = useState({});
-  
+
   useEffect(() => {
     let type_name = Object.keys(signedEntityType).at(0);
     setEntityName(type_name);
@@ -17,7 +17,7 @@ export default function SignedEntityType({signedEntityType}) {
       setBeacon(signedEntityType[type_name] ?? {});
     }
   }, [signedEntityType]);
-  
+
   return (
     <ListGroup>
       <ListGroup.Item>

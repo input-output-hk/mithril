@@ -1,21 +1,17 @@
-import {saveToLocalStorage, storeBuilder} from "../store/store";
+import {saveToLocalStorage, storeBuilder} from "../src/store/store";
 import {
   removeSelectedAggregator,
   selectAggregator,
   settingsSlice,
   setUpdateInterval,
   toggleAutoUpdate
-} from "../store/settingsSlice";
-import default_available_aggregators from "../aggregators-list";
-import {initStore, resetLocation, setLocationToAggregator} from "./helpers";
+} from "../src/store/settingsSlice";
+import default_available_aggregators from "../src/aggregators-list";
+import {initStore} from "./helpers";
 
 describe('Store Initialization', () => {
-  beforeEach(() => {
-    resetLocation();
-  });
-
   it('init with settings initialState without local storage', () => {
-    const store = initStore();
+    const store = storeBuilder();
 
     expect(store.getState().settings).toEqual(settingsSlice.getInitialState());
   });
@@ -36,9 +32,8 @@ describe('Store Initialization', () => {
     expect(store.getState()).toEqual(expected);
   });
 
-  it('init with local storage and default aggregator in url', () => {
-    const aggregatorInUrl = default_available_aggregators.at(1);
-    setLocationToAggregator(aggregatorInUrl);
+  it('init with local storage and initial aggregator', () => {
+    const initialAggregator = default_available_aggregators.at(1);
     let aggregators = [...default_available_aggregators, "https://aggregator.test"];
     let expected = {
       settings: {
@@ -49,8 +44,8 @@ describe('Store Initialization', () => {
       }
     };
     saveToLocalStorage(expected);
-    expected.settings.selectedAggregator = aggregatorInUrl;
-    const store = storeBuilder();
+    expected.settings.selectedAggregator = initialAggregator;
+    const store = storeBuilder(initialAggregator);
 
     expect(store.getState()).toEqual(expected);
   });
@@ -109,5 +104,36 @@ describe('Store Initialization', () => {
 
     store.dispatch(removeSelectedAggregator());
     expect(store.getState().settings.availableAggregators).not.toContain(customAggregator);
+  });
+
+  it('loading state from local storage should sort default aggregators', () => {
+    const oldDefaultAggregators = [...default_available_aggregators, "http://aggregator.test"];
+    oldDefaultAggregators.reverse();
+    let expected = [...default_available_aggregators, "http://aggregator.test"];
+    
+    saveToLocalStorage({
+      settings: {
+        ...settingsSlice.getInitialState(),
+        availableAggregators: oldDefaultAggregators,
+      }
+    });
+    const store = storeBuilder();
+
+    expect(store.getState().settings.availableAggregators).toEqual(expected);
+  });
+
+  it('loading state from local storage should add new default aggregators', () => {
+    const oldDefaultAggregators = [...default_available_aggregators];
+    const newDefaultAggregator = oldDefaultAggregators.shift();
+    
+    saveToLocalStorage({
+      settings: {
+        ...settingsSlice.getInitialState(),
+        availableAggregators: oldDefaultAggregators,
+      }
+    });
+    const store = storeBuilder();
+
+    expect(store.getState().settings.availableAggregators).toContain(newDefaultAggregator);
   });
 });

@@ -1,12 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { Card, ListGroup } from "react-bootstrap";
+import React, {useEffect, useState} from 'react';
+import {Card, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
-import { useSelector } from "react-redux";
+import {useSelector} from "react-redux";
 import ProtocolParameters from "../ProtocolParameters";
+import {selectedAggregator} from "../../store/settingsSlice";
 
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});
-  const aggregator = useSelector((state) => state.settings.selectedAggregator);
+  const epochSettingsEndpoint = useSelector((state) => `${selectedAggregator(state)}/epoch-settings`);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -16,7 +17,7 @@ export default function EpochSettings(props) {
     }
 
     let fetchEpochSettings = () => {
-      fetch(`${aggregator}/epoch-settings`)
+      fetch(epochSettingsEndpoint)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setEpochSettings(data))
         .catch(error => {
@@ -30,13 +31,13 @@ export default function EpochSettings(props) {
 
     const interval = setInterval(fetchEpochSettings, updateInterval);
     return () => clearInterval(interval);
-  }, [aggregator, updateInterval, autoUpdate]);
+  }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
 
   return (
     <div>
       <h2>
         Epoch Settings
-        <RawJsonButton href={`${aggregator}/epoch-settings`} variant="outline-light" size="sm" />
+        <RawJsonButton href={epochSettingsEndpoint} variant="outline-light" size="sm"/>
       </h2>
 
       <Card>
@@ -46,9 +47,9 @@ export default function EpochSettings(props) {
             <ListGroup.Item>{epochSettings.epoch}</ListGroup.Item>
           </ListGroup>
           <Card.Title>Protocol Parameters</Card.Title>
-          <ProtocolParameters protocolParameters={epochSettings.protocol} />
+          <ProtocolParameters protocolParameters={epochSettings.protocol}/>
           <Card.Title>Next Protocol Parameters</Card.Title>
-          <ProtocolParameters protocolParameters={epochSettings.next_protocol} />
+          <ProtocolParameters protocolParameters={epochSettings.next_protocol}/>
         </Card.Body>
       </Card>
     </div>

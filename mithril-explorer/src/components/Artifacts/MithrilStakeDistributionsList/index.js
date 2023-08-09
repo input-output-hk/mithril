@@ -3,11 +3,14 @@ import {Badge, Button, Card, Col, Container, ListGroup, Row, Stack} from "react-
 import CertificateModal from '../../CertificateModal';
 import RawJsonButton from "../../RawJsonButton";
 import {useSelector} from "react-redux";
+import {selectedAggregator} from "../../../store/settingsSlice";
+import LocalDateTime from "../../LocalDateTime";
 
 export default function MithrilStakeDistributionsList(props) {
   const [mithrilStakeDistributions, setMithrilStakeDistributions] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const aggregator = useSelector((state) => state.settings.selectedAggregator);
+  const aggregator = useSelector(selectedAggregator);
+  const artifactsEndpoint = useSelector((state) => `${selectedAggregator(state)}/artifact/mithril-stake-distributions`);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -17,7 +20,7 @@ export default function MithrilStakeDistributionsList(props) {
     }
 
     let fetchMithrilStakeDistribution = () => {
-      fetch(`${aggregator}/artifact/mithril-stake-distributions`)
+      fetch(artifactsEndpoint)
         .then(response => response.json())
         .then(data => setMithrilStakeDistributions(data))
         .catch(error => {
@@ -31,7 +34,7 @@ export default function MithrilStakeDistributionsList(props) {
 
     const interval = setInterval(fetchMithrilStakeDistribution, updateInterval);
     return () => clearInterval(interval);
-  }, [aggregator, updateInterval, autoUpdate]);
+  }, [artifactsEndpoint, updateInterval, autoUpdate]);
 
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);
@@ -49,7 +52,8 @@ export default function MithrilStakeDistributionsList(props) {
         onHashChange={handleCertificateHashChange}/>
 
       <div className={props.className}>
-        <h2>Mithril Stake Distribution <RawJsonButton href={`${aggregator}/artifact/mithril-stake-distributions`} variant="outline-light" size="sm"/></h2>
+        <h2>Mithril Stake Distribution <RawJsonButton href={artifactsEndpoint}
+                                                      variant="outline-light" size="sm"/></h2>
         {Object.entries(mithrilStakeDistributions).length === 0
           ? <p>No mithril stake distribution available</p>
           :
@@ -62,12 +66,15 @@ export default function MithrilStakeDistributionsList(props) {
                       <Card.Title>{mithrilStakeDistribution.hash}</Card.Title>
                       <ListGroup variant="flush" className="data-list-group">
                         <ListGroup.Item>Epoch: {mithrilStakeDistribution.epoch}</ListGroup.Item>
-		        {mithrilStakeDistribution.created_at &&
-			  <ListGroup.Item>Created: {new Date(mithrilStakeDistribution.created_at).toLocaleString()}</ListGroup.Item>
-			}
+                        {mithrilStakeDistribution.created_at &&
+                          <ListGroup.Item>
+                            Created: <LocalDateTime datetime={mithrilStakeDistribution.created_at}/>
+                          </ListGroup.Item>
+                        }
                         <ListGroup.Item>Certificate hash: <br/>
                           {mithrilStakeDistribution.certificate_hash}{' '}
-                          <Button size="sm" onClick={() => showCertificate(mithrilStakeDistribution.certificate_hash)}>Show</Button>
+                          <Button size="sm"
+                                  onClick={() => showCertificate(mithrilStakeDistribution.certificate_hash)}>Show</Button>
                         </ListGroup.Item>
                       </ListGroup>
                     </Card.Body>
@@ -77,8 +84,10 @@ export default function MithrilStakeDistributionsList(props) {
                           <><Badge bg="primary">Latest</Badge>{' '}</>
                         }
 
-                        <RawJsonButton href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`} size="sm"
-                                       className="ms-auto"/>
+                        <RawJsonButton
+                          href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`}
+                          size="sm"
+                          className="ms-auto"/>
                       </Stack>
                     </Card.Footer>
                   </Card>

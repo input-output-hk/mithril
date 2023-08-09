@@ -3,6 +3,8 @@ import {Badge, Button, Card, Col, Container, ListGroup, Row, Stack} from "react-
 import CertificateModal from '../../CertificateModal';
 import RawJsonButton from "../../RawJsonButton";
 import {useSelector} from "react-redux";
+import {selectedAggregator} from "../../../store/settingsSlice";
+import LocalDateTime from "../../LocalDateTime";
 
 /*
  * Code from: https://stackoverflow.com/a/18650828
@@ -22,7 +24,8 @@ function formatBytes(bytes, decimals = 2) {
 export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
-  const aggregator = useSelector((state) => state.settings.selectedAggregator);
+  const aggregator = useSelector(selectedAggregator);
+  const artifactsEndpoint = useSelector((state) => `${selectedAggregator(state)}/artifact/snapshots`);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -32,9 +35,7 @@ export default function SnapshotsList(props) {
     }
 
     let fetchSnapshots = () => {
-      // todo: update this to the new route (`${aggregator}/artifact/snapshots`) when all of our aggregators are updated
-      // also update both <RawJsonButton> href below.
-      fetch(`${aggregator}/snapshots`)
+      fetch(artifactsEndpoint)
         .then(response => response.json())
         .then(data => setSnapshots(data))
         .catch(error => {
@@ -48,7 +49,7 @@ export default function SnapshotsList(props) {
 
     const interval = setInterval(fetchSnapshots, updateInterval);
     return () => clearInterval(interval);
-  }, [aggregator, updateInterval, autoUpdate]);
+  }, [artifactsEndpoint, updateInterval, autoUpdate]);
 
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);
@@ -61,12 +62,11 @@ export default function SnapshotsList(props) {
   return (
     <>
       <CertificateModal
-        aggregator={aggregator}
         hash={selectedCertificateHash}
         onHashChange={handleCertificateHashChange}/>
 
       <div className={props.className}>
-        <h2>Snapshots <RawJsonButton href={`${aggregator}/snapshots`} variant="outline-light" size="sm"/></h2>
+        <h2>Snapshots <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm"/></h2>
         {Object.entries(snapshots).length === 0
           ? <p>No snapshot available</p>
           :
@@ -84,7 +84,8 @@ export default function SnapshotsList(props) {
                           {snapshot.certificate_hash}{' '}
                           <Button size="sm" onClick={() => showCertificate(snapshot.certificate_hash)}>Show</Button>
                         </ListGroup.Item>
-                        <ListGroup.Item>Created at: <br/> {new Date(snapshot.created_at).toLocaleString()}
+                        <ListGroup.Item>
+                          Created: <LocalDateTime datetime={snapshot.created_at}/>
                         </ListGroup.Item>
                         <ListGroup.Item>Size: {formatBytes(snapshot.size)}</ListGroup.Item>
                       </ListGroup>

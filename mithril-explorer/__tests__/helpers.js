@@ -1,4 +1,5 @@
-import {saveToLocalStorage, storeBuilder} from "../store/store";
+import {saveToLocalStorage, storeBuilder} from "../src/store/store";
+import * as mockRouter from 'next-router-mock';
 
 const baseLocation = 'http://localhost';
 
@@ -9,11 +10,28 @@ function initStore(default_state = undefined) {
   return storeBuilder();
 }
 
+const mockNextNavigation = {
+  ...mockRouter,
+  notFound: jest.fn(),
+  redirect: jest.fn().mockImplementation((url) => {
+    mockRouter.memoryRouter.setCurrentUrl(url);
+  }),
+  usePathname: () => {
+    const router = mockRouter.useRouter();
+    return router.asPath;
+  },
+  useSearchParams: () => {
+    const router = mockRouter.useRouter();
+    return new URLSearchParams(router.query);
+  },
+};
+
 /**
  * Reset the windows location api to `http://localhost`
  */
 function resetLocation() {
   setLocation(new URL(baseLocation));
+  mockRouter.memoryRouter.setCurrentUrl('/');
 }
 
 /**
@@ -37,7 +55,7 @@ function setLocation(url) {
 
 /**
  * Set the window.location search/query aggregator param to the given aggregator
- * 
+ *
  * If you use it define a beforeEach with resetLocation else the new location will persist between tests.
  * @param aggregatorUrl The target aggregator
  */
@@ -47,6 +65,7 @@ function setLocationToAggregator(aggregatorUrl) {
 
 module.exports = {
   initStore,
+  mockNextNavigation,
   setLocation,
   setLocationToAggregator,
   resetLocation,
