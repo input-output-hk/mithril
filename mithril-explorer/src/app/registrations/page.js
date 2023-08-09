@@ -15,6 +15,7 @@ export default function Registrations() {
   const [aggregator, setAggregator] = useState(undefined);
   const [registrationEpoch, setRegistrationEpoch] = useState(undefined);
   const [signingEpoch, setSigningEpoch] = useState(undefined);
+  const [currentEpoch, setCurrentEpoch] = useState(undefined);
   const [registrations, setRegistrations] = useState([]);
 
   useEffect(() => {
@@ -41,6 +42,14 @@ export default function Registrations() {
           setSigningEpoch(undefined);
           setRegistrations([]);
           console.error("Fetch registrations error:", error);
+        });
+
+      fetch(`${aggregator}/epoch-settings`)
+        .then(response => response.status === 200 ? response.json() : {})
+        .then(data => setCurrentEpoch(data?.epoch))
+        .catch(error => {
+          setCurrentEpoch(undefined);
+          console.error("Fetch current epoch in epoch-settings error:", error);
         });
     } else {
       setCurrentError(error);
@@ -76,6 +85,7 @@ export default function Registrations() {
   }, [aggregator, router]);
 
   const navigateToPrevious = () => navigateTo(registrationEpoch - 1);
+  const navigateToCurrent = () => navigateTo(currentEpoch);
   const navigateToNext = () => navigateTo(registrationEpoch + 1);
 
   return (
@@ -112,8 +122,16 @@ export default function Registrations() {
             </Col>
             <Col className="d-flex align-content-center justify-content-center">
               <ButtonGroup xs={12} sm="auto" vertical>
-                <Button onClick={navigateToPrevious}>Previous Epoch ({registrationEpoch - 1})</Button>
-                <Button onClick={navigateToNext}>Next Epoch ({registrationEpoch + 1})</Button>
+                <Button onClick={navigateToPrevious}>
+                  Previous Epoch ({registrationEpoch - 1})
+                </Button>
+                <Button onClick={navigateToCurrent}
+                        disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
+                  Current Epoch ({currentEpoch})
+                </Button>
+                <Button onClick={navigateToNext}>
+                  Next Epoch ({registrationEpoch + 1})
+                </Button>
               </ButtonGroup>
             </Col>
           </Row>
