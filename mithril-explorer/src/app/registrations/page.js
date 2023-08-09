@@ -75,6 +75,16 @@ export default function Registrations() {
 
     return description;
   }
+  
+  function getNoRegistrationsMessage() {
+    if (currentEpoch === registrationEpoch) {
+      return "The aggregator did not receive registrations yet for the current epoch.";
+    } else if (currentEpoch < registrationEpoch) {
+      return "The epoch is in the future";
+    } else {
+      return "The aggregator may have pruned old registrations or wasn't running at this epoch.";
+    }
+  }
 
   const navigateTo = useCallback((epoch) => {
     const params = new URLSearchParams();
@@ -129,7 +139,7 @@ export default function Registrations() {
                         disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
                   Current Epoch ({currentEpoch})
                 </Button>
-                <Button onClick={navigateToNext}>
+                <Button onClick={navigateToNext} disabled={currentEpoch <= registrationEpoch}>
                   Next Epoch ({registrationEpoch + 1})
                 </Button>
               </ButtonGroup>
@@ -139,14 +149,7 @@ export default function Registrations() {
             ?
             <Alert variant="info">
               <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
-              <div>
-                Either:
-                <ul>
-                  <li>It's the current epoch and the aggregator did not receive registrations yet.</li>
-                  <li>the epoch is in the future.</li>
-                  <li>the epoch is in the past and the aggregator have pruned old registrations.</li>
-                </ul>
-              </div>
+              <p>{getNoRegistrationsMessage()}</p>
             </Alert>
             :
             <Row>
