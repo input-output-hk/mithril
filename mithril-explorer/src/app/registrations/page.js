@@ -2,9 +2,11 @@
 
 import {useSearchParams} from "next/navigation";
 import {useEffect, useState} from "react";
+import {Alert, Col, Row, Stack, Table} from "react-bootstrap";
+import VerifiedBadge from "../../components/VerifiedBadge";
 import {aggregatorSearchParam} from "../../constants";
 import {checkUrl} from "../../utils";
-import {Alert, Stack} from "react-bootstrap";
+import RawJsonButton from "../../components/RawJsonButton";
 
 export default function Registrations() {
   const searchParams = useSearchParams();
@@ -35,6 +37,7 @@ export default function Registrations() {
           setRegistrations(data.registrations);
         })
         .catch(error => {
+          setSigningEpoch(undefined);
           setRegistrations([]);
           console.error("Fetch registrations error:", error);
         });
@@ -42,7 +45,7 @@ export default function Registrations() {
       setCurrentError(error);
     }
   }, [searchParams]);
- 
+
   function getErrorDescription() {
     let description = "";
 
@@ -64,14 +67,73 @@ export default function Registrations() {
   }
 
   return (
-    <Stack>
+    <Stack gap={3}>
+      <h2>
+        Registrations {' '}
+        {currentError === undefined &&
+          <RawJsonButton
+            href={`${aggregator}/signers/registered/${registrationEpoch}`}
+            variant="outline-light"
+            size="sm"/>
+        }
+      </h2>
       {currentError === undefined
-        ? <code>{JSON.stringify(registrations)}</code>
-        :
-        <Alert variant="danger">
-          <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
-          <p>{getErrorDescription()}</p>
-        </Alert>
+        ? registrations === undefined || registrations.length === 0
+          ? <div>No Signers registered for this epoch</div>
+          : <>
+            <Stack direction="horizontal" gap={3}>
+              <Table>
+                <tbody>
+                <tr>
+                  <td><strong>Aggregator:</strong></td>
+                  <td>{aggregator}</td>
+                </tr>
+                <tr>
+                  <td><strong>Registration epoch:</strong></td>
+                  <td>{registrationEpoch}</td>
+                </tr>
+                <tr>
+                  <td><strong>Will be signing at epoch:</strong></td>
+                  <td>{signingEpoch}</td>
+                </tr>
+                </tbody>
+              </Table>
+            </Stack>
+            <Row>
+              <Col xs={12} sm={5}>
+                <Stack gap={3}>
+                  <div></div>
+                  <div></div>
+                </Stack>
+              </Col>
+              <Col xs={12} sm={7}>
+                <Table responsive striped>
+                  <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Party id</th>
+                    <th>Stake</th>
+                  </tr>
+                  </thead>
+                  <tbody>
+                  {registrations.map((signer, index) =>
+                    <tr key={signer.party_id}>
+                      <td>{index}</td>
+                      <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                      <td>{signer.stake}</td>
+                    </tr>
+                  )}
+                  </tbody>
+                </Table>
+              </Col>
+            </Row>
+          </>
+        : <>
+          <Alert variant="danger">
+            <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
+            <p>{getErrorDescription()}</p>
+          </Alert>
+        </>
       }
     </Stack>
   );
