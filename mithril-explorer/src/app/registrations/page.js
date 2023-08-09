@@ -4,7 +4,7 @@ import {useSearchParams} from "next/navigation";
 import {useEffect, useState} from "react";
 import {aggregatorSearchParam} from "../../constants";
 import {checkUrl} from "../../utils";
-import {Alert} from "react-bootstrap";
+import {Alert, Stack} from "react-bootstrap";
 
 export default function Registrations() {
   const searchParams = useSearchParams();
@@ -16,11 +16,18 @@ export default function Registrations() {
 
   useEffect(() => {
     const aggregator = searchParams.get(aggregatorSearchParam);
-    const epoch = searchParams.get('epoch');
+    const epoch = Number(searchParams.get('epoch'));
+    let error = undefined;
     setAggregator(aggregator);
     setRegistrationEpoch(epoch);
 
-    if (checkUrl(aggregator)) {
+    if (!checkUrl(aggregator)) {
+      error = "invalidAggregatorUrl";
+    } else if (!Number.isInteger(epoch)) {
+      error = "invalidEpoch";
+    }
+
+    if (error === undefined) {
       fetch(`${aggregator}/signers/registered/${epoch}`)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => {
@@ -31,22 +38,41 @@ export default function Registrations() {
           setRegistrations([]);
           console.error("Fetch registrations error:", error);
         });
-
     } else {
-      setCurrentError("The aggregator endpoint isn't a valid url.");
+      setCurrentError(error);
     }
   }, [searchParams]);
+ 
+  function getErrorDescription() {
+    let description = "";
+
+    if (currentError) {
+      switch (currentError) {
+        case 'invalidEpoch':
+          description = "The given epoch isn't an integer, please correct it and try again.";
+          break;
+        case 'invalidAggregatorUrl':
+          description = "The given aggregator isn't a valid url, please correct it and try again.";
+          break;
+        default:
+          description = "Something went wrong";
+          break;
+      }
+    }
+
+    return description;
+  }
 
   return (
-    <>
+    <Stack>
       {currentError === undefined
         ? <code>{JSON.stringify(registrations)}</code>
         :
         <Alert variant="danger">
           <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
-          <p>{currentError}</p>
+          <p>{getErrorDescription()}</p>
         </Alert>
       }
-    </>
+    </Stack>
   );
 }
