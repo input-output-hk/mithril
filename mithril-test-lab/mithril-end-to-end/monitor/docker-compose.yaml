@@ -1,0 +1,84 @@
+version: "3.9"
+
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    profiles:
+      - monitoring
+      - dashboards
+      - all
+    volumes:
+      - ./config/grafana/provisioning/:/etc/grafana/provisioning/
+    environment:
+      - GF_SECURITY_ADMIN_USER=mithril
+      - GF_SECURITY_ADMIN_PASSWORD=mithril
+    restart: unless-stopped
+    user: ${CURRENT_UID}
+    ports:
+     - '3000:3000'
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    profiles:
+      - monitoring
+      - metrics
+      - all
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    user: ${CURRENT_UID}
+    logging:
+      driver: json-file
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    profiles:
+      - monitoring
+      - metrics
+      - all
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    logging:
+      driver: json-file
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+
+  process-exporter:
+    image: ncabatoff/process-exporter:latest
+    container_name: process-exporter
+    profiles:
+      - monitoring
+      - metrics
+      - all
+    restart: unless-stopped
+    ports:
+      - "9256:9256"
+    volumes:
+      - /proc:/host/proc:ro
+      - ./config/process_exporter/process.yml:/config/process.yml:ro
+    command:
+      - '-procfs=/host/proc'
+      - '-config.path=/config/process.yml'
+    logging:
+      driver: json-file
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+

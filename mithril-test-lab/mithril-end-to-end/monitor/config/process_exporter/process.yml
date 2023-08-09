@@ -1,0 +1,7 @@
+process_names:
+  - comm:
+      - mithril-aggregator
+      - mithril-aggrega
+      - mithril-client
+      - mithril-signer
+      - load-aggregator
