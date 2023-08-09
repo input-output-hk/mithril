@@ -2,7 +2,7 @@
 
 import {useRouter, useSearchParams} from "next/navigation";
 import {useCallback, useEffect, useState} from "react";
-import {Alert, Button, ButtonGroup, Col, Row, Stack, Table} from "react-bootstrap";
+import {Alert, Button, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import {aggregatorSearchParam} from "../../constants";
 import {checkUrl} from "../../utils";
@@ -11,6 +11,7 @@ import RawJsonButton from "../../components/RawJsonButton";
 export default function Registrations() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [isLoading, setIsLoading] = useState(true);
   const [currentError, setCurrentError] = useState(undefined);
   const [aggregator, setAggregator] = useState(undefined);
   const [registrationEpoch, setRegistrationEpoch] = useState(undefined);
@@ -37,10 +38,12 @@ export default function Registrations() {
         .then(data => {
           setSigningEpoch(data.signing_at);
           setRegistrations(data.registrations);
+          setIsLoading(false);
         })
         .catch(error => {
           setSigningEpoch(undefined);
           setRegistrations([]);
+          setIsLoading(false);
           console.error("Fetch registrations error:", error);
         });
 
@@ -75,7 +78,7 @@ export default function Registrations() {
 
     return description;
   }
-  
+
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {
       return "The aggregator did not receive registrations yet for the current epoch.";
@@ -145,41 +148,43 @@ export default function Registrations() {
               </ButtonGroup>
             </Col>
           </Row>
-          {registrations === undefined || registrations.length === 0
-            ?
-            <Alert variant="info">
-              <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
-              <p>{getNoRegistrationsMessage()}</p>
-            </Alert>
-            :
-            <Row>
-              <Col xs={12} sm={12} md={5}>
-                <Stack gap={3}>
-                  <div></div>
-                  <div></div>
-                </Stack>
-              </Col>
-              <Col xs={12} sm={12} md={7}>
-                <Table responsive striped>
-                  <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Party id</th>
-                    <th>Stake</th>
-                  </tr>
-                  </thead>
-                  <tbody>
-                  {registrations.map((signer, index) =>
-                    <tr key={signer.party_id}>
-                      <td>{index}</td>
-                      <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
-                      <td>{signer.stake}</td>
+          {isLoading
+            ? <Spinner animation="grow"/>
+            : registrations === undefined || registrations.length === 0
+              ?
+              <Alert variant="info">
+                <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
+                <p>{getNoRegistrationsMessage()}</p>
+              </Alert>
+              :
+              <Row>
+                <Col xs={12} sm={12} md={5}>
+                  <Stack gap={3}>
+                    <div></div>
+                    <div></div>
+                  </Stack>
+                </Col>
+                <Col xs={12} sm={12} md={7}>
+                  <Table responsive striped>
+                    <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Party id</th>
+                      <th>Stake</th>
                     </tr>
-                  )}
-                  </tbody>
-                </Table>
-              </Col>
-            </Row>
+                    </thead>
+                    <tbody>
+                    {registrations.map((signer, index) =>
+                      <tr key={signer.party_id}>
+                        <td>{index}</td>
+                        <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                        <td>{signer.stake}</td>
+                      </tr>
+                    )}
+                    </tbody>
+                  </Table>
+                </Col>
+              </Row>
           }
         </>
         : <>
