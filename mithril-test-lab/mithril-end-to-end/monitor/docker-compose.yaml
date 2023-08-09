@@ -14,6 +14,7 @@ services:
       - GF_SECURITY_ADMIN_USER=mithril
       - GF_SECURITY_ADMIN_PASSWORD=mithril
     restart: unless-stopped
+    user: ${CURRENT_UID}
     ports:
      - '3000:3000'
 
@@ -30,6 +31,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    user: ${CURRENT_UID}
     logging:
       driver: json-file
       options:

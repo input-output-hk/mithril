@@ -29,4 +29,4 @@ doc:
 	${CARGO} doc --no-deps --open
 
 monitor:
-	docker compose -f monitor/docker-compose.yaml --profile monitoring up --remove-orphans --force-recreate
+	CURRENT_UID=$(id -u) docker compose -f monitor/docker-compose.yaml --profile monitoring up --remove-orphans --force-recreate
