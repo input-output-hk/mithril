@@ -1,14 +1,15 @@
 "use client";
 
-import {useSearchParams} from "next/navigation";
-import {useEffect, useState} from "react";
-import {Alert, Col, Row, Stack, Table} from "react-bootstrap";
+import {useRouter, useSearchParams} from "next/navigation";
+import {useCallback, useEffect, useState} from "react";
+import {Alert, Button, ButtonGroup, Col, Row, Stack, Table} from "react-bootstrap";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import {aggregatorSearchParam} from "../../constants";
 import {checkUrl} from "../../utils";
 import RawJsonButton from "../../components/RawJsonButton";
 
 export default function Registrations() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [currentError, setCurrentError] = useState(undefined);
   const [aggregator, setAggregator] = useState(undefined);
@@ -66,6 +67,17 @@ export default function Registrations() {
     return description;
   }
 
+  const navigateTo = useCallback((epoch) => {
+    const params = new URLSearchParams();
+    params.set("aggregator", aggregator);
+    params.set("epoch", epoch);
+
+    router.push(`/registrations?${params.toString()}`)
+  }, [aggregator, router]);
+
+  const navigateToPrevious = () => navigateTo(registrationEpoch - 1);
+  const navigateToNext = () => navigateTo(registrationEpoch + 1);
+
   return (
     <Stack gap={3}>
       <h2>
@@ -78,10 +90,9 @@ export default function Registrations() {
         }
       </h2>
       {currentError === undefined
-        ? registrations === undefined || registrations.length === 0
-          ? <div>No Signers registered for this epoch</div>
-          : <>
-            <Stack direction="horizontal" gap={3}>
+        ? <>
+          <Row>
+            <Col xs={12} sm={10}>
               <Table>
                 <tbody>
                 <tr>
@@ -93,20 +104,41 @@ export default function Registrations() {
                   <td>{registrationEpoch}</td>
                 </tr>
                 <tr>
-                  <td><strong>Will be signing at epoch:</strong></td>
+                  <td><strong>Signing at epoch:</strong></td>
                   <td>{signingEpoch}</td>
                 </tr>
                 </tbody>
               </Table>
-            </Stack>
+            </Col>
+            <Col className="d-flex align-content-center justify-content-center">
+              <ButtonGroup xs={12} sm="auto" vertical>
+                <Button onClick={navigateToPrevious}>Previous Epoch ({registrationEpoch - 1})</Button>
+                <Button onClick={navigateToNext}>Next Epoch ({registrationEpoch + 1})</Button>
+              </ButtonGroup>
+            </Col>
+          </Row>
+          {registrations === undefined || registrations.length === 0
+            ?
+            <Alert variant="info">
+              <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
+              <div>
+                Either:
+                <ul>
+                  <li>It's the current epoch and the aggregator did not receive registrations yet.</li>
+                  <li>the epoch is in the future.</li>
+                  <li>the epoch is in the past and the aggregator have pruned old registrations.</li>
+                </ul>
+              </div>
+            </Alert>
+            :
             <Row>
-              <Col xs={12} sm={5}>
+              <Col xs={12} sm={12} md={5}>
                 <Stack gap={3}>
                   <div></div>
                   <div></div>
                 </Stack>
               </Col>
-              <Col xs={12} sm={7}>
+              <Col xs={12} sm={12} md={7}>
                 <Table responsive striped>
                   <thead>
                   <tr>
@@ -127,7 +159,8 @@ export default function Registrations() {
                 </Table>
               </Col>
             </Row>
-          </>
+          }
+        </>
         : <>
           <Alert variant="danger">
             <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
