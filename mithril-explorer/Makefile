@@ -41,9 +41,11 @@ upgrade: clean install
 		@reduxjs/toolkit@latest \
 		bootstrap@latest \
 		bootstrap-icons@latest \
+		chart.js@latest \
 		next@latest \
 		react@latest \
 		react-bootstrap@latest \
+		react-chartjs-2@latest \
 		react-dom@latest \
 		react-redux@latest \
 		@testing-library/jest-dom@latest \
