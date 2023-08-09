@@ -1,55 +1,51 @@
 ---
 sidebar_position: 3
-sidebar_label: Mithril Signer
+sidebar_label: Mithril signer
 ---
 
-# Mithril Signer Node
-
-Welcome to the Mithril Signer Node guide!
-
-## Introduction
+# Mithril signer node
 
 :::info
 
-The **Mithril Signer** is a node that works transparently on top of the **Stake Pool Operator** Cardano nodes and which individually signs the ledger state.
+The Mithril signer is a node that works transparently on top of the stake pool operators' Cardano nodes. It is responsible for independently signing the ledger state.
 
 :::
 
 :::tip
 
-* For more information about the **Mithril Protocol**, please refer to the [Protocol in depth](../mithril-protocol/protocol.md) page.
+* For more information about the **Mithril protocol**, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-* For more information about the **Mithril Signer**, please refer to the [Developer Documentation](../../manual/developer-docs/nodes/mithril-signer.md) page.
+* For more information about the **Mithril signer**, see the [developer manual](../../manual/developer-docs/nodes/mithril-signer.md).
 
 :::
 
-## Individual Signatures Production
+## Individual signature production
 
-The **Mithril Signer** is a node that represents a share of the total stake of the **Cardano Network** which entitles it to participate in the **Mithril multi signature** creation (with respect to its share of total stakes). The rule is simple, the more stake shares, the more contribution to the production of the multi signatures.
+The Mithril signer is a node representing a portion of the total stake within the Cardano network. This permits it to engage in Mithril multi-signature creation in proportion to its stake share. The principle is straightforward: a greater stake share corresponds to a more substantial contribution to the production of multi-signatures.
 
-In order to produce an **Individual Signature** a **Mithril Signer** must also be aware of all the other **Mithril Signers** that may contribute.
+To produce an individual signature, a Mithril signer must also be aware of all the other Mithril signers that can potentially contribute.
 
-For the protocol to be secure, the **Mithril Signer** must also be in charge of computing by itself the messages (or digest) that are signed. To do so, they heavily rely on the **Consensus** mechanism of the **Cardano Network** that guarantees that all nodes of the network will store the same data locally (after a certain delay).
+For the protocol to maintain its security, the Mithril signer must autonomously compute the messages (or digests) that require signing. To accomplish this, the signer heavily depends on the **consensus** mechanism of the Cardano network, which ensures that all network nodes locally store identical data (following a specific delay).
 
-If some nodes are not fully synchronized or if they have adversarial behavior they will simple not be able to contribute:
+If certain nodes are not fully synchronized or exhibit adversarial behavior, they will be unable to contribute, either:
+
+* Because they do not sign the same message (as they use different data from what the rest of the network agrees upon)
   
-* Either because they don't sign the same message (given they don't use the same data as those agreed by the rest of the network)
+* Or they are not entitled to sign (because they are not true holders of the stake share they used to sign).
 
-* Or they are not entitled to sign (because they are not true holders of the stake share they used to sign)
+## Interaction with the Mithril aggregator
 
-## Interaction with the Mithril Aggregator
+In its initial version, the Mithril signer collaborates with other Mithril signers through a central Mithril aggregator that serves as a facilitator, avoiding the necessity for direct signer-to-signer interactions.
 
-In its first version, the **Mithril Signer** works with other **Mithril Signers** through one **Mithril Aggregator** which acts as a facilitator and avoids direct signer to signer communications.
+Ultimately, any signer will have the potential to function as a Mithril aggregator, enhancing decentralization within the Mithril network.
 
-In the long run, any signer will also have the ability to be a **Mithril Aggregator** as well in order to achieve a higher level of decentralization in the **Mithril Network**.
+The Mithril signer establishes a connection with the Mithril aggregator for the following purposes:
 
-The **Mithril Signer** connects to the **Mithril Aggregator**:
-
-* To know when to sign a new snapshot (by using the advertised **Beacon** of the **Pending Certificate**).
-* To retrieve the currently used **Protocol Parameters**.
-* To register its **Verification Keys** (public keys).
-* To receive the **Verification Keys** of all the other declared signers available for the next message to sign.
-* To send the **Single Signatures** of the locally computed messages (that will hopefuly be combined into **Multi signatures** by the aggregator).
+-   Determining when to sign a new snapshot (via the advertised beacon of the pending certificate)
+-   Obtaining the presently used protocol parameters
+-   Registering its verification keys (public keys)
+-   Receiving the verification keys of all other declared signers, available for the upcoming message signing
+-   Sending the single signatures of locally computed messages (which will ideally be combined into multi-signatures by the aggregator).
 
 This process is summarized in the following diagram:
 
@@ -57,12 +53,12 @@ This process is summarized in the following diagram:
 
 ## Under the hood
 
-In its first version, the **Mithril Signer** is composed of a main component:
+In its initial version, the **Mithril signer** consists of a primary component:
 
-* A runtime that is powered by a state machine:
-  * The runtime is synchronous and is scheduled to execute at regular intervals.
-  * There are three possible states: **UNREGISTERED**, **REGISTERED** and **SIGNED**.
-  * The runtime handles state transitions.
-  * The runtime is summarized in the diagram below:
+* A runtime powered by a state machine:
+  * The runtime operates synchronously and is programmed to run at consistent intervals
+  * Three potential states exist: **UNREGISTERED**, **REGISTERED**, and **SIGNED**
+  * The runtime effectively manages state transitions
+  * The runtime's framework is depicted in the diagram below:
 
 ![Signer Runtime](images/signer-runtime.jpg)
