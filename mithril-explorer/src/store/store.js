@@ -47,7 +47,7 @@ function getSettings(defaultSettings, initialAggregator) {
       availableAggregators: aggregators,
     };
   }
-  
+
   return settings;
 }
 

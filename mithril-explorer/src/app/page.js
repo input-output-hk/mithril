@@ -9,6 +9,7 @@ import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from '../components/PendingCertificate';
 import SnapshotsList from '../components/Artifacts/SnapshotsList';
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
+import {aggregatorSearchParam} from "../constants";
 import {selectAggregator, selectedAggregator as currentlySelectedAggregator} from "../store/settingsSlice";
 
 // Disable SSR for the following components since they use data from the store that are not
@@ -20,19 +21,19 @@ export default function Explorer() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
-  
+
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
 
   // Update the aggregator in the url query
   useEffect(() => {
-    const aggregatorInUrl = searchParams.get('aggregator');
+    const aggregatorInUrl = searchParams.get(aggregatorSearchParam);
 
     if (selectedAggregator !== aggregatorInUrl) {
       const params = new URLSearchParams();
       params.set("aggregator", selectedAggregator);
-     
+
       setIsUpdatingAggregatorInUrl(true);
       router.push("?" + params.toString(), undefined, {shallow: true});
     }
