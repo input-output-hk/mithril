@@ -2,12 +2,26 @@
 
 import {useSearchParams} from "next/navigation";
 import {useCallback, useEffect, useState} from "react";
+import {checkUrl, setChartJsDefaults} from "../../utils";
 import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
+import {ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip} from 'chart.js';
+import {Bar, Pie} from "react-chartjs-2";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import {aggregatorSearchParam} from "../../constants";
-import {checkUrl} from "../../utils";
 import LinkButton from "../../components/LinkButton";
 import RawJsonButton from "../../components/RawJsonButton";
+
+Chart.register(
+  ArcElement,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+setChartJsDefaults(Chart);
 
 export default function Registrations() {
   const searchParams = useSearchParams();
@@ -18,6 +32,7 @@ export default function Registrations() {
   const [signingEpoch, setSigningEpoch] = useState(undefined);
   const [currentEpoch, setCurrentEpoch] = useState(undefined);
   const [registrations, setRegistrations] = useState([]);
+  const [charts, setCharts] = useState({stakesBreakdown: {}, signersWeigth: {}});
 
   useEffect(() => {
     const aggregator = searchParams.get(aggregatorSearchParam);
@@ -38,6 +53,10 @@ export default function Registrations() {
         .then(data => {
           setSigningEpoch(data.signing_at);
           setRegistrations(data.registrations);
+          setCharts({
+            stakesBreakdown: computeStakeShapes(data.registrations),
+            signersWeigth: computeSignersWeigth(data.registrations),
+          });
           setIsLoading(false);
         })
         .catch(error => {
@@ -59,6 +78,54 @@ export default function Registrations() {
     }
   }, [searchParams]);
 
+  function computeStakeShapes(registrationsList) {
+    const registrations = registrationsList ?? [];
+
+    const labels = [
+      "< 1M₳",
+      "≥ 1M₳ < 10M₳",
+      "≥ 10M₳ < 25M₳",
+      "≥ 25M₳ < 50M₳",
+      "≥ 50M₳ < 75M₳",
+      "≥ 75M₳ < 100M₳",
+      "≥ 100M₳",
+    ];
+
+    const toMillionAda = (lovelace) => lovelace / 1000000000000;
+    const stakes = registrations.map((r) => toMillionAda(r.stake));
+
+    let data = [
+      stakes.filter((stake) => stake < 1).length,
+      stakes.filter((stake) => stake >= 1 && stake < 10).length,
+      stakes.filter((stake) => stake >= 10 && stake < 25).length,
+      stakes.filter((stake) => stake >= 25 && stake < 50).length,
+      stakes.filter((stake) => stake >= 50 && stake < 75).length,
+      stakes.filter((stake) => stake >= 75 && stake < 100).length,
+      stakes.filter((stake) => stake > 100).length,
+    ];
+
+    return {
+      labels: labels,
+      datasets: [{
+        label: 'Number of signers',
+        data: data,
+      }],
+    };
+  }
+
+  function computeSignersWeigth(registrationsList) {
+    const registrations = registrationsList ?? [];
+    const toAda = (lovelace) => lovelace / 1000000;
+
+    return {
+      labels: registrations.map((r) => r.party_id),
+      datasets: [{
+        label: 'Stake (₳)',
+        data: registrations.map((r) => toAda(r.stake)),
+      }],
+    };
+  }
+
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {
       return "The aggregator did not receive registrations yet for the current epoch.";
@@ -75,7 +142,7 @@ export default function Registrations() {
     params.set("epoch", epoch);
 
     return `/registrations?${params.toString()}`;
-  }, [aggregator, router]);
+  }, [aggregator]);
 
   const navigateToPreviousUrl = navigateToUrl(registrationEpoch - 1);
   const navigateToCurrentUrl = navigateToUrl(currentEpoch);
@@ -130,6 +197,10 @@ export default function Registrations() {
             <td><strong>Signing at epoch:</strong></td>
             <td>{signingEpoch}</td>
           </tr>
+          <tr>
+            <td><strong>Number of signers:</strong></td>
+            <td>{registrations?.length ?? 0}</td>
+          </tr>
           </tbody>
         </Table>
       </Row>
@@ -163,6 +234,7 @@ export default function Registrations() {
           :
           <Row>
             <Col xs={12} sm={12} md={7}>
+              <h3>Signers</h3>
               <Table responsive striped>
                 <thead>
                 <tr>
@@ -184,8 +256,10 @@ export default function Registrations() {
             </Col>
             <Col xs={12} sm={12} md={5}>
               <Stack gap={3}>
-                <div></div>
-                <div></div>
+                <h3>Stakes breakdown</h3>
+                <Bar data={charts.stakesBreakdown}/>
+                <h3>Signers weight</h3>
+                <Pie data={charts.signersWeigth}/>
               </Stack>
             </Col>
           </Row>
