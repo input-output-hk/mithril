@@ -7,7 +7,7 @@ export MITHRIL_VM=**MITHRIL_VM**
 export CARDANO_NETWORK=**CARDANO_NETWORK**
 ```
 
-Here is an exmaple for the `release-mainnet` network:
+Here is an example for the `release-mainnet` network:
 ```bash
 export MITHRIL_VM=aggregator.release-mainnet.api.mithril.network
 export CARDANO_NETWORK=mainnet
