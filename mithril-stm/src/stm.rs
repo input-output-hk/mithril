@@ -1198,8 +1198,6 @@ mod tests {
                 sigs.push(sig);
             }
 
-            // let sig_reg_list = CoreVerifier::map_sig_party(&clerk.closed_reg.reg_parties, &sigs);
-
             let sig_reg_list = sigs
             .iter()
             .map(|sig| StmSigRegParty {
