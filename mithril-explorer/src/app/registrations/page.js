@@ -1,15 +1,15 @@
 "use client";
 
-import {useRouter, useSearchParams} from "next/navigation";
+import {useSearchParams} from "next/navigation";
 import {useCallback, useEffect, useState} from "react";
-import {Alert, Button, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
+import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import {aggregatorSearchParam} from "../../constants";
 import {checkUrl} from "../../utils";
+import LinkButton from "../../components/LinkButton";
 import RawJsonButton from "../../components/RawJsonButton";
 
 export default function Registrations() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [currentError, setCurrentError] = useState(undefined);
@@ -89,17 +89,17 @@ export default function Registrations() {
     }
   }
 
-  const navigateTo = useCallback((epoch) => {
+  const navigateToUrl = useCallback((epoch) => {
     const params = new URLSearchParams();
     params.set("aggregator", aggregator);
     params.set("epoch", epoch);
 
-    router.push(`/registrations?${params.toString()}`)
+    return `/registrations?${params.toString()}`;
   }, [aggregator, router]);
 
-  const navigateToPrevious = () => navigateTo(registrationEpoch - 1);
-  const navigateToCurrent = () => navigateTo(currentEpoch);
-  const navigateToNext = () => navigateTo(registrationEpoch + 1);
+  const navigateToPreviousUrl = navigateToUrl(registrationEpoch - 1);
+  const navigateToCurrentUrl = navigateToUrl(currentEpoch);
+  const navigateToNextUrl = navigateToUrl(registrationEpoch + 1);
 
   return (
     <Stack gap={3}>
@@ -115,38 +115,41 @@ export default function Registrations() {
       {currentError === undefined
         ? <>
           <Row>
-            <Col xs={12} sm={10}>
-              <Table>
-                <tbody>
-                <tr>
-                  <td><strong>Aggregator:</strong></td>
-                  <td>{aggregator}</td>
-                </tr>
-                <tr>
-                  <td><strong>Registration epoch:</strong></td>
-                  <td>{registrationEpoch}</td>
-                </tr>
-                <tr>
-                  <td><strong>Signing at epoch:</strong></td>
-                  <td>{signingEpoch}</td>
-                </tr>
-                </tbody>
-              </Table>
-            </Col>
-            <Col className="d-flex align-content-center justify-content-center">
-              <ButtonGroup xs={12} sm="auto" vertical>
-                <Button onClick={navigateToPrevious}>
-                  Previous Epoch ({registrationEpoch - 1})
-                </Button>
-                <Button onClick={navigateToCurrent}
-                        disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
-                  Current Epoch ({currentEpoch})
-                </Button>
-                <Button onClick={navigateToNext} disabled={currentEpoch <= registrationEpoch}>
-                  Next Epoch ({registrationEpoch + 1})
-                </Button>
-              </ButtonGroup>
-            </Col>
+            <Table>
+              <tbody>
+              <tr>
+                <td><strong>Aggregator:</strong></td>
+                <td>{aggregator}</td>
+              </tr>
+              <tr>
+                <td><strong>Registration epoch:</strong></td>
+                <td>{registrationEpoch}</td>
+              </tr>
+              <tr>
+                <td><strong>Signing at epoch:</strong></td>
+                <td>{signingEpoch}</td>
+              </tr>
+              </tbody>
+            </Table>
+          </Row>
+          <Row>
+            <div>
+              {Number.isInteger(registrationEpoch) &&
+                <ButtonGroup>
+                  <LinkButton href={navigateToPreviousUrl}>
+                    Previous Epoch ({registrationEpoch - 1})
+                  </LinkButton>
+                  <LinkButton href={navigateToCurrentUrl}
+                              disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
+                    Current Epoch ({currentEpoch})
+                  </LinkButton>
+                  <LinkButton href={navigateToNextUrl}
+                              disabled={currentEpoch <= registrationEpoch}>
+                    Next Epoch ({registrationEpoch + 1})
+                  </LinkButton>
+                </ButtonGroup>
+              }
+            </div>
           </Row>
           {isLoading
             ? <Spinner animation="grow"/>
@@ -158,12 +161,6 @@ export default function Registrations() {
               </Alert>
               :
               <Row>
-                <Col xs={12} sm={12} md={5}>
-                  <Stack gap={3}>
-                    <div></div>
-                    <div></div>
-                  </Stack>
-                </Col>
                 <Col xs={12} sm={12} md={7}>
                   <Table responsive striped>
                     <thead>
@@ -183,6 +180,12 @@ export default function Registrations() {
                     )}
                     </tbody>
                   </Table>
+                </Col>
+                <Col xs={12} sm={12} md={5}>
+                  <Stack gap={3}>
+                    <div></div>
+                    <div></div>
+                  </Stack>
                 </Col>
               </Row>
           }
