@@ -12,7 +12,7 @@ This page gathers the available guides to operate a Mithril network.
 | **Era markers** | [era-markers](./era-markers/README.md) | Create and update era markers on the Cardano chain.
 | **Signer registrations monitoring** | [registrations-monitoring](./registrations-monitoring/README.md) | Gather aggregated data about signer registrations (versions, stake, ...).
 | **Update protocol parameters** | [protocol-parameters](./protocol-parameters/README.md) | Update the protocol parameters of a Mithril network.
-| **Fix terraform lock** | [terraform-lock](./terraform-lock/README.md) | Fix a terraform lock in CD workflows.
 | **Recompute certificates hash** | [recompute-certificates-hash](./recompute-certificates-hash/README.md) | Recompute the certificates has of an aggregator.
+| **Fix terraform lock** | [terraform-lock](./terraform-lock/README.md) | Fix a terraform lock in CD workflows.
 
 
