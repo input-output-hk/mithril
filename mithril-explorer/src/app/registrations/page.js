@@ -59,26 +59,6 @@ export default function Registrations() {
     }
   }, [searchParams]);
 
-  function getErrorDescription() {
-    let description = "";
-
-    if (currentError) {
-      switch (currentError) {
-        case 'invalidEpoch':
-          description = "The given epoch isn't an integer, please correct it and try again.";
-          break;
-        case 'invalidAggregatorUrl':
-          description = "The given aggregator isn't a valid url, please correct it and try again.";
-          break;
-        default:
-          description = "Something went wrong";
-          break;
-      }
-    }
-
-    return description;
-  }
-
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {
       return "The aggregator did not receive registrations yet for the current epoch.";
@@ -101,101 +81,114 @@ export default function Registrations() {
   const navigateToCurrentUrl = navigateToUrl(currentEpoch);
   const navigateToNextUrl = navigateToUrl(registrationEpoch + 1);
 
+  if (currentError !== undefined) {
+    let errorDescription = "";
+    switch (currentError) {
+      case 'invalidEpoch':
+        errorDescription = "The given epoch isn't an integer, please correct it and try again.";
+        break;
+      case 'invalidAggregatorUrl':
+        errorDescription = "The given aggregator isn't a valid url, please correct it and try again.";
+        break;
+      default:
+        errorDescription = "Something went wrong";
+        break;
+    }
+
+    return (
+      <Stack gap={3}>
+        <h2>Registrations</h2>
+        <Alert variant="danger">
+          <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
+          <p>{errorDescription}</p>
+        </Alert>
+      </Stack>
+    );
+  }
+
   return (
     <Stack gap={3}>
       <h2>
         Registrations {' '}
-        {currentError === undefined &&
-          <RawJsonButton
-            href={`${aggregator}/signers/registered/${registrationEpoch}`}
-            variant="outline-light"
-            size="sm"/>
-        }
+        <RawJsonButton
+          href={`${aggregator}/signers/registered/${registrationEpoch}`}
+          variant="outline-light"
+          size="sm"/>
       </h2>
-      {currentError === undefined
-        ? <>
-          <Row>
-            <Table>
-              <tbody>
-              <tr>
-                <td><strong>Aggregator:</strong></td>
-                <td>{aggregator}</td>
-              </tr>
-              <tr>
-                <td><strong>Registration epoch:</strong></td>
-                <td>{registrationEpoch}</td>
-              </tr>
-              <tr>
-                <td><strong>Signing at epoch:</strong></td>
-                <td>{signingEpoch}</td>
-              </tr>
-              </tbody>
-            </Table>
-          </Row>
-          <Row>
-            <div>
-              {Number.isInteger(registrationEpoch) &&
-                <ButtonGroup>
-                  <LinkButton href={navigateToPreviousUrl}>
-                    Previous Epoch ({registrationEpoch - 1})
-                  </LinkButton>
-                  <LinkButton href={navigateToCurrentUrl}
-                              disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
-                    Current Epoch ({currentEpoch})
-                  </LinkButton>
-                  <LinkButton href={navigateToNextUrl}
-                              disabled={currentEpoch <= registrationEpoch}>
-                    Next Epoch ({registrationEpoch + 1})
-                  </LinkButton>
-                </ButtonGroup>
-              }
-            </div>
-          </Row>
-          {isLoading
-            ? <Spinner animation="grow"/>
-            : registrations === undefined || registrations.length === 0
-              ?
-              <Alert variant="info">
-                <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
-                <p>{getNoRegistrationsMessage()}</p>
-              </Alert>
-              :
-              <Row>
-                <Col xs={12} sm={12} md={7}>
-                  <Table responsive striped>
-                    <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Party id</th>
-                      <th>Stake</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {registrations.map((signer, index) =>
-                      <tr key={signer.party_id}>
-                        <td>{index}</td>
-                        <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
-                        <td>{signer.stake}</td>
-                      </tr>
-                    )}
-                    </tbody>
-                  </Table>
-                </Col>
-                <Col xs={12} sm={12} md={5}>
-                  <Stack gap={3}>
-                    <div></div>
-                    <div></div>
-                  </Stack>
-                </Col>
-              </Row>
+      <Row>
+        <Table>
+          <tbody>
+          <tr>
+            <td><strong>Aggregator:</strong></td>
+            <td>{aggregator}</td>
+          </tr>
+          <tr>
+            <td><strong>Registration epoch:</strong></td>
+            <td>{registrationEpoch}</td>
+          </tr>
+          <tr>
+            <td><strong>Signing at epoch:</strong></td>
+            <td>{signingEpoch}</td>
+          </tr>
+          </tbody>
+        </Table>
+      </Row>
+      <Row>
+        <div>
+          {Number.isInteger(registrationEpoch) &&
+            <ButtonGroup>
+              <LinkButton href={navigateToPreviousUrl}>
+                Previous Epoch ({registrationEpoch - 1})
+              </LinkButton>
+              <LinkButton href={navigateToCurrentUrl}
+                          disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
+                Current Epoch ({currentEpoch})
+              </LinkButton>
+              <LinkButton href={navigateToNextUrl}
+                          disabled={currentEpoch <= registrationEpoch}>
+                Next Epoch ({registrationEpoch + 1})
+              </LinkButton>
+            </ButtonGroup>
           }
-        </>
-        : <>
-          <Alert variant="danger">
-            <Alert.Heading>Oh snap! You got an error!</Alert.Heading>
-            <p>{getErrorDescription()}</p>
+        </div>
+      </Row>
+      {isLoading
+        ? <Spinner animation="grow"/>
+        : registrations === undefined || registrations.length === 0
+          ?
+          <Alert variant="info">
+            <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
+            <p>{getNoRegistrationsMessage()}</p>
           </Alert>
-        </>
+          :
+          <Row>
+            <Col xs={12} sm={12} md={7}>
+              <Table responsive striped>
+                <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Party id</th>
+                  <th>Stake</th>
+                </tr>
+                </thead>
+                <tbody>
+                {registrations.map((signer, index) =>
+                  <tr key={signer.party_id}>
+                    <td>{index}</td>
+                    <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                    <td>{signer.stake}</td>
+                  </tr>
+                )}
+                </tbody>
+              </Table>
+            </Col>
+            <Col xs={12} sm={12} md={5}>
+              <Stack gap={3}>
+                <div></div>
+                <div></div>
+              </Stack>
+            </Col>
+          </Row>
       }
     </Stack>
   );
