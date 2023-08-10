@@ -7,6 +7,32 @@ function checkUrl(url) {
   }
 }
 
+const toAda = (lovelace) => lovelace / 1000000;
+
+const formatCurrency = (number, maximumFractionDigits = 2) => number.toLocaleString(undefined, {
+  maximumFractionDigits: maximumFractionDigits,
+});
+
+function formatStake(lovelace) {
+  // Credits to Jasser Mark Arioste for the original idea:
+  // https://reacthustle.com/blog/how-to-convert-number-to-kmb-format-in-javascript
+  const thresholds = [
+    {suffix: 'B', value: 1e9},
+    {suffix: 'M', value: 1e6},
+    {suffix: 'K', value: 1e3},
+    {suffix: '', value: 1},
+  ];
+  const ada = toAda(lovelace);
+  // Note: subtracting 0.001 to handle cases like `999,999₳` rounding up to `1,000₳` after string format.
+  const threshold = thresholds.find((t) => Math.abs(ada) >= (t.value - 0.001));
+
+  if (threshold) {
+    return `${formatCurrency(ada / threshold.value)}${threshold.suffix}₳`;
+  }
+
+  return `${formatCurrency(ada)}₳`;
+}
+
 function setChartJsDefaults(chartJs) {
   const backgroundColor =
     [
@@ -44,5 +70,8 @@ function setChartJsDefaults(chartJs) {
 
 module.exports = {
   checkUrl,
+  formatStake,
   setChartJsDefaults,
+  toAda,
+  formatCurrency,
 }

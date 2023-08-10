@@ -2,14 +2,15 @@
 
 import {useSearchParams} from "next/navigation";
 import {useCallback, useEffect, useState} from "react";
-import {checkUrl, setChartJsDefaults} from "../../utils";
+import {checkUrl, setChartJsDefaults, toAda} from "../../utils";
 import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
 import {ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip} from 'chart.js';
 import {Bar, Pie} from "react-chartjs-2";
-import VerifiedBadge from "../../components/VerifiedBadge";
 import {aggregatorSearchParam} from "../../constants";
 import LinkButton from "../../components/LinkButton";
+import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
+import VerifiedBadge from "../../components/VerifiedBadge";
 
 Chart.register(
   ArcElement,
@@ -115,7 +116,6 @@ export default function Registrations() {
 
   function computeSignersWeigth(registrationsList) {
     const registrations = registrationsList ?? [];
-    const toAda = (lovelace) => lovelace / 1000000;
 
     return {
       labels: registrations.map((r) => r.party_id),
@@ -240,7 +240,7 @@ export default function Registrations() {
                 <tr>
                   <th>#</th>
                   <th>Party id</th>
-                  <th>Stake</th>
+                  <th style={{textAlign: "end"}}>Stake</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -248,7 +248,7 @@ export default function Registrations() {
                   <tr key={signer.party_id}>
                     <td>{index}</td>
                     <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
-                    <td>{signer.stake}</td>
+                    <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                   </tr>
                 )}
                 </tbody>
