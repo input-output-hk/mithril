@@ -9,7 +9,7 @@ query for that.
 ```sh
 $> sqlite3 -table -batch \
        $DATA_STORES_DIRECTORY/monitoring.sqlite3 \
-       <  mithril-aggregator/utils/monitoring/stake_signer_version.sql
+       <  stake_signer_version.sql
 ```
 
 The variable `$DATA_STORES_DIRECTORY` should point to the directory where the
