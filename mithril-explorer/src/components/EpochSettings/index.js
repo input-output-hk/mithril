@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {Card, ListGroup} from "react-bootstrap";
-import Link from "next/link";
+import LinkButton from "../LinkButton";
 import RawJsonButton from "../RawJsonButton";
 import {useSelector} from "react-redux";
 import ProtocolParameters from "../ProtocolParameters";
@@ -60,18 +60,20 @@ export default function EpochSettings(props) {
         <Card.Body>
           <Card.Title>Current Epoch</Card.Title>
           <ListGroup variant="flush">
-            <ListGroup.Item>
-              {epochSettings.epoch}{' '}
-              {registrationPageUrl &&
-                <Link href={registrationPageUrl}>Registrations</Link>
-              }
-            </ListGroup.Item>
+            <ListGroup.Item>{epochSettings.epoch}</ListGroup.Item>
           </ListGroup>
           <Card.Title>Protocol Parameters</Card.Title>
           <ProtocolParameters protocolParameters={epochSettings.protocol}/>
           <Card.Title>Next Protocol Parameters</Card.Title>
           <ProtocolParameters protocolParameters={epochSettings.next_protocol}/>
         </Card.Body>
+        {registrationPageUrl &&
+          <Card.Footer className="text-center">
+            <LinkButton href={registrationPageUrl}>
+              Registered Signers
+            </LinkButton>
+          </Card.Footer>
+        }
       </Card>
     </div>
   );
