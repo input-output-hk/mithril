@@ -71,7 +71,7 @@ pub struct MerkleTree<D: Digest> {
     /// Number of leaves cached in the merkle tree.
     n: usize,
     /// Phantom type to link the tree with its hasher
-    _hasher: PhantomData<D>,
+    hasher: PhantomData<D>,
 }
 
 impl MTLeaf {
@@ -155,7 +155,7 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
         Ok(Path {
             values,
             index,
-            hasher: Default::default(),
+            hasher: PhantomData,
         })
     }
 }
@@ -221,7 +221,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
         Ok(BatchPath {
             values,
             indices,
-            hasher: Default::default(),
+            hasher: PhantomData,
         })
     }
 }
@@ -416,7 +416,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             nodes,
             n,
             leaf_off: num_nodes - n,
-            _hasher: PhantomData,
+            hasher: PhantomData,
         }
     }
 
@@ -424,7 +424,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment {
             root: self.nodes[0].clone(),
-            hasher: self._hasher,
+            hasher: self.hasher,
         }
     }
 
@@ -434,7 +434,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         MerkleTreeCommitmentBatchCompat {
             root: self.nodes[0].clone(),
             nr_leaves: self.n,
-            hasher: self._hasher,
+            hasher: self.hasher,
         }
     }
 
@@ -469,7 +469,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         Path {
             values: proof,
             index: i,
-            hasher: Default::default(),
+            hasher: PhantomData,
         }
     }
 
@@ -539,7 +539,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         BatchPath {
             values: proof,
             indices,
-            hasher: Default::default(),
+            hasher: PhantomData,
         }
     }
 
@@ -583,7 +583,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             nodes,
             leaf_off: num_nodes - n,
             n,
-            _hasher: PhantomData,
+            hasher: PhantomData,
         })
     }
 }
