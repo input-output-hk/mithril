@@ -195,11 +195,15 @@ export default function Registrations() {
           </tr>
           <tr>
             <td><strong>Signing at epoch:</strong></td>
-            <td>{signingEpoch}</td>
+            <td>{signingEpoch ?? '?'}</td>
           </tr>
           <tr>
             <td><strong>Number of signers:</strong></td>
             <td>{registrations?.length ?? 0}</td>
+          </tr>
+          <tr>
+            <td><strong>Total stakes:</strong></td>
+            <td><Stake lovelace={registrations?.reduce((acc, reg) => acc + reg.stake, 0) ?? 0}/></td>
           </tr>
           </tbody>
         </Table>
