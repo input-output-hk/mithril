@@ -7,6 +7,7 @@ import styles from "./explorer.module.css";
 import './global.css'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
+import Link from "next/link";
 
 export const metadata = {
   title: 'Mithril Explorer',
@@ -23,7 +24,9 @@ export default function RootLayout({children}) {
       <div className={styles.container}>
         <main className={styles.main}>
           <h1 className={styles.title}>
-            <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55}/> Mithril Explorer
+            <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
+              <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55}/> Mithril Explorer
+            </Link>
           </h1>
           {children}
         </main>
