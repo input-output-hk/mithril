@@ -7,6 +7,12 @@ install: yarn.lock
 
 build: yarn.lock
 	yarn && yarn run build
+	# Fix to allow refresh & direct linking to the navigation page on static hosting such as Github Pages
+	# this is because the nextJs router is only active for the home page at start.
+	# A 'cleaner' way to do that must exist.
+	mkdir out/registrations
+	cp out/registrations.html out/registrations/index.html
+	cp out/registrations.txt out/registrations/index.txt
 
 serve: build
 	yarn run start
