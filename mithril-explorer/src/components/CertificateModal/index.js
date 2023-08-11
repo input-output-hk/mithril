@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {Badge, Button, Col, Container, ListGroup, Modal, Row, Table} from "react-bootstrap";
 import {useSelector} from "react-redux";
 import RawJsonButton from "../RawJsonButton";
+import Stake from "../Stake";
 import VerifiedBadge from '../VerifiedBadge';
 import ProtocolParameters from "../ProtocolParameters";
 import {selectedAggregator} from "../../store/settingsSlice";
@@ -81,7 +82,7 @@ export default function CertificateModal(props) {
                         <tr>
                           <th></th>
                           <th>Party id</th>
-                          <th>Stake</th>
+                          <th style={{textAlign: "end"}}>Stake</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -93,7 +94,7 @@ export default function CertificateModal(props) {
                               }
                             </td>
                             <td>{signer.party_id}</td>
-                            <td>{signer.stake}</td>
+                            <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                           </tr>
                         )}
                         </tbody>

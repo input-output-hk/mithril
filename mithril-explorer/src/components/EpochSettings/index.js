@@ -1,15 +1,19 @@
 import React, {useEffect, useState} from 'react';
 import {Card, ListGroup} from "react-bootstrap";
+import LinkButton from "../LinkButton";
 import RawJsonButton from "../RawJsonButton";
 import {useSelector} from "react-redux";
 import ProtocolParameters from "../ProtocolParameters";
 import {selectedAggregator} from "../../store/settingsSlice";
+import {checkUrl} from "../../utils";
 
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});
+  const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const epochSettingsEndpoint = useSelector((state) => `${selectedAggregator(state)}/epoch-settings`);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
+  const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
 
   useEffect(() => {
     if (!autoUpdate) {
@@ -33,6 +37,18 @@ export default function EpochSettings(props) {
     return () => clearInterval(interval);
   }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
 
+  useEffect(() => {
+      if (checkUrl(currentAggregator) && Number.isInteger(epochSettings?.epoch)) {
+        const params = new URLSearchParams();
+        params.set("aggregator", currentAggregator);
+        params.set("epoch", epochSettings.epoch);
+
+        setRegistrationPageUrl(`/registrations?${params.toString()}`)
+      }
+    },
+    [currentAggregator, epochSettings]
+  );
+
   return (
     <div>
       <h2>
@@ -51,6 +67,13 @@ export default function EpochSettings(props) {
           <Card.Title>Next Protocol Parameters</Card.Title>
           <ProtocolParameters protocolParameters={epochSettings.next_protocol}/>
         </Card.Body>
+        {registrationPageUrl &&
+          <Card.Footer className="text-center">
+            <LinkButton href={registrationPageUrl}>
+              Registered Signers
+            </LinkButton>
+          </Card.Footer>
+        }
       </Card>
     </div>
   );
