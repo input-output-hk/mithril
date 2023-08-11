@@ -1,6 +1,6 @@
 {
   "name": "mithril-explorer",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -26,10 +26,10 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^14.0.0",
-    "eslint": "^8.46.0",
+    "eslint": "^8.47.0",
     "eslint-config-next": "^13.4.13",
     "jest": "^29.6.2",
     "jest-environment-jsdom": "^29.6.2",
-    "next-router-mock": "^0.9.7"
+    "next-router-mock": "^0.9.8"
   }
 }
