@@ -10,6 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
+anyhow = "1.0.71"
 async-trait = "0.1.52"
 clap = { version = "4.0", features = ["derive", "env"] }
 config = "0.13.1"

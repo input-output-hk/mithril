@@ -2104,6 +2104,7 @@ dependencies = [
 name = "mithril-aggregator"
 version = "0.3.67"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "clap",
@@ -2142,6 +2143,7 @@ dependencies = [
 name = "mithril-client"
 version = "0.3.29"
 dependencies = [
+ "anyhow",
  "async-recursion",
  "async-trait",
  "chrono",
@@ -2250,6 +2252,7 @@ dependencies = [
 name = "mithril-signer"
 version = "0.2.65"
 dependencies = [
+ "anyhow",
  "async-trait",
  "clap",
  "config",
