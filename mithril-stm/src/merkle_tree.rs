@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct MTLeaf(pub VerificationKey, pub Stake);
 
 /// Path of hashes from root to leaf in a Merkle Tree.
@@ -155,7 +155,7 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
         Ok(Path {
             values,
             index,
-            hasher: Default::default(),
+            hasher: PhantomData,
         })
     }
 }
@@ -221,7 +221,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
         Ok(BatchPath {
             values,
             indices,
-            hasher: Default::default(),
+            hasher: PhantomData,
         })
     }
 }
@@ -469,7 +469,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         Path {
             values: proof,
             index: i,
-            hasher: Default::default(),
+            hasher: PhantomData,
         }
     }
 
@@ -539,7 +539,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         BatchPath {
             values: proof,
             indices,
-            hasher: Default::default(),
+            hasher: PhantomData,
         }
     }
 

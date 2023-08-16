@@ -9,12 +9,16 @@
 * We implemented the concatenation proof system as batch proofs:
   * Individual signatures do not contain the Merkle path to prove membership of the avk. Instead, it is the role of the aggregator to generate such proofs. This allows for a more efficient implementation of batched membership proofs (or batched Merkle paths).
 * Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
+* The API also includes *core verification*. This functionality allows a full node verifier (`CoreVerifier`) that is 
+  able to verify the signatures that are generated without the registration information, i.e., `avk`. A 
+  `CoreVerifier` is assumed to know identities of the signers, so, it does not need to check the registration. 
 
 
 * This library provides:
     * The implementation of the Stake-based Threshold Multisignatures
+    * The implementation of `CoreVerifier`
     * Key registration procedure for STM signatures
-    * The tests for the library functions and STM scheme
+    * The tests for the library functions, STM scheme, and `CoreVerifier`
     * Benchmark tests
 
 ## Pre-requisites
@@ -117,7 +121,8 @@ fn main() {
 
     // Check all parties can verify every sig
     for (s, p) in sigs.iter().zip(ps.iter()) {
-        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification failed");
+        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification 
+        failed");
     }
 
     // Aggregate with random parties

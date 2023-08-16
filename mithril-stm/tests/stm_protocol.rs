@@ -13,7 +13,7 @@ use rayon::prelude::*;
 type H = Blake2b<U32>;
 
 fn initialization_phase(
-    nparties: u64,
+    nparties: usize,
     mut rng: ChaCha20Rng,
     params: StmParameters,
 ) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
@@ -23,9 +23,9 @@ fn initialization_phase(
 
     let mut key_reg = KeyReg::init();
 
-    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
+    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
 
-    let mut reg_parties: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties as usize);
+    let mut reg_parties: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
 
     for stake in parties {
         let p = StmInitializer::setup(params, stake, &mut rng);
@@ -76,7 +76,7 @@ fn operation_phase(
 
 #[test]
 fn test_full_protocol() {
-    let nparties = 32;
+    let nparties: usize = 32;
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 32];
     rng.fill_bytes(&mut msg);
@@ -129,7 +129,7 @@ fn test_full_protocol_batch_verify() {
         let mut msg = [0u8; 32];
         rng.fill_bytes(&mut msg);
         let nparties = rng.next_u64() % 33;
-        let (signers, reg_parties) = initialization_phase(nparties, rng.clone(), params);
+        let (signers, reg_parties) = initialization_phase(nparties as usize, rng.clone(), params);
         let operation = operation_phase(params, signers, reg_parties, msg);
 
         aggr_avks.push(operation.1);

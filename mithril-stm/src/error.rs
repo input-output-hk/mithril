@@ -62,25 +62,9 @@ pub enum StmSignatureError {
 /// Errors which can be output by Mithril aggregate verification.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
-    /// No quorum was found
-    #[error("No Quorum was found.")]
-    NoQuorum,
-
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid(Box<VerificationKey>),
-
-    /// There is a duplicate index
-    #[error("Indices are not unique.")]
-    IndexNotUnique,
-
-    /// The aggregated signature is invalid
-    #[error("Aggregate signature is invalid")]
-    AggregateSignatureInvalid,
-
-    /// One of the aggregated signatures is invalid
-    #[error("Individual signature is invalid: {0}")]
-    IndividualSignatureInvalid(StmSignatureError),
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -93,6 +77,29 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// Batch verification of STM aggregate signatures failed
     #[error("Batch verification of STM aggregate signatures failed")]
     BatchInvalid,
+
+    #[error("Core verification error: {0}")]
+    CoreVerificationError(CoreVerifierError),
+}
+
+/// Errors which can be output by `CoreVerifier`.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum CoreVerifierError {
+    /// No quorum was found
+    #[error("No Quorum was found. Expected {0} signatures but got {1}")]
+    NoQuorum(u64, u64),
+
+    /// There is a duplicate index
+    #[error("Indices are not unique.")]
+    IndexNotUnique,
+
+    /// The aggregated signature is invalid
+    #[error("Aggregate signature is invalid")]
+    AggregateSignatureInvalid,
+
+    /// One of the aggregated signatures is invalid
+    #[error("Individual signature is invalid: {0}")]
+    IndividualSignatureInvalid(StmSignatureError),
 }
 
 /// Error types for aggregation.
@@ -143,16 +150,6 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
-    fn from(e: MerkleTreeError<D>) -> Self {
-        match e {
-            MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
-            MerkleTreeError::SerializationError => Self::SerializationError,
-            MerkleTreeError::PathInvalid(_e) => unreachable!(),
-        }
-    }
-}
-
 impl From<MultiSignatureError> for StmSignatureError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
@@ -165,11 +162,70 @@ impl From<MultiSignatureError> for StmSignatureError {
     }
 }
 
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::SerializationError => Self::SerializationError,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
+            MerkleTreeError::SerializationError => Self::SerializationError,
+            MerkleTreeError::PathInvalid(_e) => unreachable!(),
+        }
+    }
+}
+
 impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatureError<D> {
     fn from(e: MultiSignatureError) -> Self {
         match e {
-            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::AggregateSignatureInvalid => {
+                Self::from(CoreVerifierError::from(e))
+            }
             MultiSignatureError::BatchInvalid => Self::BatchInvalid,
+            MultiSignatureError::SerializationError => unreachable!(),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
+            MultiSignatureError::SignatureInvalid(_) => {
+                Self::CoreVerificationError(CoreVerifierError::from(e))
+            }
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<CoreVerifierError> for StmAggregateSignatureError<D> {
+    fn from(e: CoreVerifierError) -> Self {
+        Self::CoreVerificationError(e)
+    }
+}
+
+impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
+    fn from(e: StmSignatureError) -> Self {
+        match e {
+            StmSignatureError::SerializationError => Self::SerializationError,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl From<AggregationError> for CoreVerifierError {
+    fn from(e: AggregationError) -> Self {
+        match e {
+            AggregationError::NotEnoughSignatures(e, _e) => Self::NoQuorum(e, e),
+            AggregationError::UsizeConversionInvalid => unreachable!(),
+        }
+    }
+}
+
+impl From<MultiSignatureError> for CoreVerifierError {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::BatchInvalid => unreachable!(),
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
@@ -177,9 +233,9 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
     }
 }
 
-impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
+impl From<StmSignatureError> for CoreVerifierError {
     fn from(e: StmSignatureError) -> Self {
-        StmAggregateSignatureError::IndividualSignatureInvalid(e)
+        CoreVerifierError::IndividualSignatureInvalid(e)
     }
 }
 
@@ -188,9 +244,7 @@ impl From<MultiSignatureError> for RegisterError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
-            MultiSignatureError::SignatureInvalid(_) => unreachable!(),
-            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
-            MultiSignatureError::BatchInvalid => unreachable!(),
+            _ => unreachable!(),
         }
     }
 }

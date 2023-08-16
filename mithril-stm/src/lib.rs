@@ -2,13 +2,15 @@
 #![doc = include_str!("../README.md")]
 //! Implementation of Stake-based Threshold Multisignatures
 
+extern crate core;
+
 mod eligibility_check;
 mod error;
 pub mod key_reg;
 mod merkle_tree;
 pub mod stm;
 
-pub use crate::error::{AggregationError, RegisterError};
+pub use crate::error::{AggregationError, CoreVerifierError, RegisterError};
 
 #[cfg(feature = "benchmark-internals")]
 pub mod multi_sig;
