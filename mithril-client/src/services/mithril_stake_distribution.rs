@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::{
     path::{Path, PathBuf},
@@ -38,14 +39,8 @@ pub enum MithrilStakeDistributionServiceError {
     CertificateNotFound(String),
 
     /// The configuration has invalid or missing parameters
-    #[error("Missing or invalid parameters: {context}. Error: {error}")]
-    InvalidParameters {
-        /// Error context
-        context: String,
-
-        /// Eventual nested error
-        error: StdError,
-    },
+    #[error("Missing or invalid parameters: {0:?}")]
+    InvalidParameters(StdError),
 
     /// Could not find the given stake distribution
     #[error("Could not find stake distribution associated to hash '{0}'.")]
@@ -147,10 +142,9 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
             })?;
 
         let genesis_verification_key = key_decode_hex(genesis_verification_key).map_err(|e| {
-            MithrilStakeDistributionServiceError::InvalidParameters {
-                context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
-                error: e.into(),
-            }
+            MithrilStakeDistributionServiceError::InvalidParameters(anyhow!(e).context(format!(
+                "Invalid genesis verification key '{genesis_verification_key}'"
+            )))
         })?;
         self.certificate_verifier
             .verify_certificate_chain(
@@ -163,7 +157,10 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         let avk = key_encode_hex(
             self.compute_avk_from_mithril_stake_distribution(&stake_distribution_entity.artifact)
                 .await?,
-        )?;
+        )
+        .map_err(|e| anyhow!(e))
+        .with_context(|| "Encoding avk error")?;
+
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message
             .set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);

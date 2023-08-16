@@ -142,10 +142,11 @@ impl ArtifactBuilder<Beacon, Snapshot> for CardanoImmutableFilesFullArtifactBuil
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use std::path::Path;
+    use tempfile::NamedTempFile;
 
     use mithril_common::test_utils::fake_data;
-    use tempfile::NamedTempFile;
 
     use super::*;
 
@@ -253,7 +254,7 @@ mod tests {
         let mut snapshot_uploader = MockSnapshotUploader::new();
         snapshot_uploader
             .expect_upload_snapshot()
-            .return_once(|_| Err("an error".to_string()))
+            .return_once(|_| Err(anyhow!("an error")))
             .once();
 
         let cardano_immutable_files_full_artifact_builder =

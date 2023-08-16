@@ -82,6 +82,7 @@ mod tests {
     use crate::chain_observer::{ChainAddress, ChainObserver, ChainObserverError, TxDatum};
     use crate::digesters::DumbImmutableFileObserver;
     use crate::entities::{Epoch, StakeDistribution};
+    use anyhow::anyhow;
 
     use super::*;
 
@@ -103,11 +104,9 @@ mod tests {
         async fn get_current_stake_distribution(
             &self,
         ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-            Err(ChainObserverError::General(
+            Err(ChainObserverError::General(anyhow!(
                 "this should not be called in the BeaconProvider"
-                    .to_string()
-                    .into(),
-            ))
+            )))
         }
     }
 

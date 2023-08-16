@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::anyhow;
 use chrono::{DateTime, Utc};
 use mithril_common::sqlite::{
     HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
@@ -177,14 +178,11 @@ impl EventPersister {
         let connection = &*self.connection.lock().unwrap();
         let provider = EventPersisterProvider::new(connection);
         let log_message = message.clone();
-        let mut rows = provider
-            .find(self.get_persist_parameters(message)?)
-            .map_err(|e| -> StdError { e })?;
+        let mut rows = provider.find(self.get_persist_parameters(message)?)?;
 
-        rows.next().ok_or_else(|| {
-            format!("No record from the database after I saved event message {log_message:?}")
-                .into()
-        })
+        rows.next().ok_or(anyhow!(
+            "No record from the database after I saved event message {log_message:?}"
+        ))
     }
 }
 

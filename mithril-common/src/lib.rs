@@ -27,16 +27,14 @@ pub mod sqlite;
 pub mod store;
 pub mod test_utils;
 
-use std::error::Error;
-
 pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
 
 /// Generic error type
-pub type StdError = Box<dyn Error + Sync + Send>;
+pub type StdError = anyhow::Error;
 
 /// Generic result type
-pub type StdResult<T> = std::result::Result<T, StdError>;
+pub type StdResult<T> = anyhow::Result<T, StdError>;
 
 /// Mithril API protocol version header name
 pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";

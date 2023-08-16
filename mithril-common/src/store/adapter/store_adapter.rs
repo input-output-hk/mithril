@@ -1,38 +1,37 @@
+use crate::StdError;
 use async_trait::async_trait;
 use thiserror::Error;
-
-type SubError = Box<dyn std::error::Error + Sync + Send>;
 
 /// [StoreAdapter] related errors
 #[derive(Debug, Error)]
 pub enum AdapterError {
     /// Generic [StoreAdapter] error.
-    #[error("something wrong happened: {0}")]
-    GeneralError(String),
+    #[error("something wrong happened: {0:?}")]
+    GeneralError(StdError),
 
     /// Error raised when the store initialization fails.
-    #[error("problem creating the repository: {0}")]
-    InitializationError(SubError),
+    #[error("problem creating the repository: {0:?}")]
+    InitializationError(StdError),
 
     /// Error raised when the opening of a IO stream fails.
-    #[error("problem opening the IO stream: {0}")]
-    OpeningStreamError(SubError),
+    #[error("problem opening the IO stream: {0:?}")]
+    OpeningStreamError(StdError),
 
     /// Error raised when the parsing of a IO stream fails.
-    #[error("problem parsing the IO stream: {0}")]
-    ParsingDataError(SubError),
+    #[error("problem parsing the IO stream: {0:?}")]
+    ParsingDataError(StdError),
 
     /// Error raised if a writting operation fails.
-    #[error("problem writing on the adapter: {0}")]
-    MutationError(SubError),
+    #[error("problem writing on the adapter: {0:?}")]
+    MutationError(StdError),
 
     /// Error while querying the subsystem.
-    #[error("problem when querying the adapter: {0}")]
-    QueryError(SubError),
+    #[error("problem when querying the adapter: {0:?}")]
+    QueryError(StdError),
 
     /// Type conversion cannot be performed by this adapter.
-    #[error("type conversion error, this adapter does not know how to handle this: {0}")]
-    TypeError(SubError),
+    #[error("type conversion error, this adapter does not know how to handle this: {0:?}")]
+    TypeError(StdError),
 }
 
 /// Represent a way to store Key/Value pair data.

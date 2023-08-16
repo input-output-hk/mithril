@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use std::{collections::HashMap, hash::Hash};
 
@@ -25,9 +26,9 @@ where
 
         for (idx, elt) in data.into_iter() {
             if values.insert(idx.clone(), elt).is_some() {
-                return Err(AdapterError::InitializationError(
-                    "duplicate key found".into(),
-                ));
+                return Err(AdapterError::InitializationError(anyhow!(
+                    "duplicate key found"
+                )));
             }
             index.push(idx);
         }

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::ops::Not;
 use std::sync::Arc;
 
@@ -263,7 +264,10 @@ impl StakeStorer for StakePoolStore {
         for (pool_id, stake) in stakes {
             let stake_pool = provider
                 .persist(&pool_id, epoch, stake)
-                .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+                .with_context(|| {
+                    format!("persist stakes failure, epoch: {epoch}, pool_id: '{pool_id}'")
+                })
+                .map_err(AdapterError::GeneralError)?;
             new_stakes.insert(pool_id.to_string(), stake_pool.stake);
         }
 
@@ -287,7 +291,8 @@ impl StakeStorer for StakePoolStore {
         let provider = StakePoolProvider::new(connection);
         let cursor = provider
             .get_by_epoch(&epoch)
-            .map_err(|e| AdapterError::GeneralError(format!("Could not get stakes: {e}")))?;
+            .with_context(|| format!("get stakes failure, epoch: {epoch}"))
+            .map_err(AdapterError::GeneralError)?;
         let mut stake_distribution = StakeDistribution::new();
 
         for stake_pool in cursor {

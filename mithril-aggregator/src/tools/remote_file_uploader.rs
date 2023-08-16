@@ -4,6 +4,7 @@ use cloud_storage::{
     bucket::Entity, bucket_access_control::Role, object_access_control::NewObjectAccessControl,
     Client,
 };
+use mithril_common::StdResult;
 use slog_scope::info;
 use std::{env, path::Path};
 use tokio_util::{codec::BytesCodec, codec::FramedRead};
@@ -16,7 +17,7 @@ use mockall::automock;
 #[async_trait]
 pub trait RemoteFileUploader: Sync + Send {
     /// Upload a snapshot
-    async fn upload_file(&self, filepath: &Path) -> anyhow::Result<()>;
+    async fn upload_file(&self, filepath: &Path) -> StdResult<()>;
 }
 
 /// GcpFileUploader represents a Google Cloud Platform file uploader interactor
@@ -33,7 +34,7 @@ impl GcpFileUploader {
 
 #[async_trait]
 impl RemoteFileUploader for GcpFileUploader {
-    async fn upload_file(&self, filepath: &Path) -> anyhow::Result<()> {
+    async fn upload_file(&self, filepath: &Path) -> StdResult<()> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
             return Err(anyhow!(
                 "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string()

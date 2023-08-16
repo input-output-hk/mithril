@@ -203,7 +203,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
         let _mutex = self
             .update_token
             .update(current_epoch)
-            .map_err(|e| StakePoolDistributionServiceError::technical_subsystem(e))?;
+            .map_err(StakePoolDistributionServiceError::technical_subsystem)?;
         let stake_distribution = self
             .chain_observer
             .get_current_stake_distribution()

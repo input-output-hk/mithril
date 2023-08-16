@@ -1,10 +1,10 @@
 use crate::{
     crypto_helper::{KESPeriod, OpCert},
     entities::*,
+    StdError,
 };
 use async_trait::async_trait;
 use mockall::automock;
-use std::error::Error as StdError;
 use thiserror::Error;
 
 use super::{ChainAddress, TxDatum};
@@ -13,12 +13,12 @@ use super::{ChainAddress, TxDatum};
 #[derive(Debug, Error)]
 pub enum ChainObserverError {
     /// Generic [ChainObserver] error.
-    #[error("general error {0}")]
-    General(Box<dyn StdError + Sync + Send>),
+    #[error("general error {0:?}")]
+    General(StdError),
 
     /// Error raised when the content could not be parsed.
-    #[error("could not parse content: {0}")]
-    InvalidContent(Box<dyn StdError + Sync + Send>),
+    #[error("could not parse content: {0:?}")]
+    InvalidContent(StdError),
 }
 
 /// Retrieve data from the cardano network

@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
+use mithril_common::StdResult;
 use std::{path::Path, sync::RwLock};
 
 use super::{SnapshotLocation, SnapshotUploader};
@@ -21,7 +22,7 @@ impl DumbSnapshotUploader {
     }
 
     /// Return the last upload that was triggered.
-    pub fn get_last_upload(&self) -> anyhow::Result<Option<String>> {
+    pub fn get_last_upload(&self) -> StdResult<Option<String>> {
         let value = self
             .last_uploaded
             .read()
@@ -40,7 +41,7 @@ impl Default for DumbSnapshotUploader {
 #[async_trait]
 impl SnapshotUploader for DumbSnapshotUploader {
     /// Upload a snapshot
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> anyhow::Result<SnapshotLocation> {
+    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
         let mut value = self
             .last_uploaded
             .write()

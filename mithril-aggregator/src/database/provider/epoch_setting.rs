@@ -1,3 +1,4 @@
+use anyhow::Context;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -274,11 +275,12 @@ impl ProtocolParametersStorer for EpochSettingStore {
         let provider = UpdateEpochSettingProvider::new(connection);
         connection
             .execute("begin transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
+            .with_context(|| "could not begin transaction to update protocol parameters")
+            .map_err(AdapterError::QueryError)?;
 
-        let epoch_setting_record = provider
-            .persist(epoch, protocol_parameters)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let epoch_setting_record = provider.persist(epoch, protocol_parameters).map_err(|e| {
+            AdapterError::GeneralError(e.context("persist protocol parameters failure"))
+        })?;
 
         // Prune useless old epoch settings.
         if let Some(threshold) = self.retention_limit {
@@ -303,7 +305,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
         let provider = EpochSettingProvider::new(connection);
         let mut cursor = provider
             .get_by_epoch(&epoch)
-            .map_err(|e| AdapterError::GeneralError(format!("Could not get epoch setting: {e}")))?;
+            .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;
 
         if let Some(epoch_setting_record) = cursor.next() {
             return Ok(Some(epoch_setting_record.protocol_parameters));

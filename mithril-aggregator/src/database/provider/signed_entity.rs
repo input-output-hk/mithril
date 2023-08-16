@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -434,7 +435,8 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let mut cursor = provider
             .get_by_signed_entity_id(signed_entity_id)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| format!("get signed entity by id failure, id: {signed_entity_id}"))
+            .map_err(AdapterError::GeneralError)?;
         let signed_entity = cursor.next();
 
         Ok(signed_entity)
@@ -448,7 +450,12 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let mut cursor = provider
             .get_by_certificate_id(certificate_id)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| {
+                format!(
+                    "get signed entity by certificate id failure, certificate_id: {certificate_id}"
+                )
+            })
+            .map_err(AdapterError::GeneralError)?;
         let signed_entity = cursor.next();
 
         Ok(signed_entity)
@@ -474,7 +481,10 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let cursor = provider
             .get_by_signed_entity_type(signed_entity_type_id)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| {
+                format!("get last signed entity by type failure, type: {signed_entity_type_id:?}")
+            })
+            .map_err(AdapterError::GeneralError)?;
         let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
 
         Ok(signed_entities)

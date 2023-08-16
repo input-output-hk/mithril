@@ -194,6 +194,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use mithril_common::entities::Epoch;
     use mithril_common::{
         crypto_helper::ProtocolRegistrationError,
@@ -477,7 +478,7 @@ mod tests {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
             .expect_get_stake_distribution_for_epoch()
-            .return_once(|_| Err(AdapterError::GeneralError("invalid query".to_string()).into()));
+            .return_once(|_| Err(AdapterError::GeneralError(anyhow!("invalid query")).into()));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
 

@@ -1,12 +1,9 @@
+use anyhow::anyhow;
 use chrono::Utc;
-use slog::{debug, error};
-use slog::{info, Logger};
+use slog::{debug, error, info, Logger};
 use sqlite::Connection;
+use std::{cmp::Ordering, collections::BTreeSet, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
-
-use std::ops::Deref;
-use std::sync::Arc;
-use std::{cmp::Ordering, collections::BTreeSet};
 
 use crate::StdError;
 
@@ -92,7 +89,7 @@ impl DatabaseVersionChecker {
                     migration_version,
                 );
 
-                Err("This software version is older than the database structure. Aborting launch to prevent possible data corruption.")?;
+                Err(anyhow!("This software version is older than the database structure. Aborting launch to prevent possible data corruption."))?;
             }
             Ordering::Equal => {
                 debug!(&self.logger, "database up to date");

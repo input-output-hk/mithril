@@ -1,15 +1,15 @@
+use anyhow::anyhow;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use sqlite::{Connection, Row, Value};
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
 };
 
-use chrono::{DateTime, NaiveDateTime, Utc};
-use sqlite::{Connection, Row, Value};
-
-use crate::sqlite::{
-    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+use crate::{
+    sqlite::{HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition},
+    StdError,
 };
-use crate::StdError;
 
 use super::DbVersion;
 
@@ -29,7 +29,7 @@ impl ApplicationNodeType {
         match node_type {
             "aggregator" => Ok(Self::Aggregator),
             "signer" => Ok(Self::Signer),
-            _ => Err(format!("unknown node type '{node_type}'").into()),
+            _ => Err(anyhow!("unknown node type '{node_type}'")),
         }
     }
 }
@@ -205,7 +205,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
         let entity = self
             .find(filters)?
             .next()
-            .ok_or("No data returned after insertion")?;
+            .ok_or(anyhow!("No data returned after insertion"))?;
 
         Ok(entity)
     }

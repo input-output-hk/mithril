@@ -1,3 +1,4 @@
+use anyhow::Context;
 use chrono::Utc;
 use mithril_common::test_utils::fake_keys;
 use mithril_common::{entities::Epoch, StdResult};
@@ -38,9 +39,7 @@ pub fn setup_single_signature_records(
 pub fn disable_foreign_key_support(connection: &Connection) -> StdResult<()> {
     connection
         .execute("pragma foreign_keys=false")
-        .map_err(|e| {
-            format!("SQLite initialization: could not enable FOREIGN KEY support. err: {e}")
-        })?;
+        .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
     Ok(())
 }
 

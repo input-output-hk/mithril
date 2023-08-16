@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use mithril_common::StdResult;
 use slog_scope::debug;
 use std::path::Path;
 
@@ -24,7 +25,7 @@ impl RemoteSnapshotUploader {
 
 #[async_trait]
 impl SnapshotUploader for RemoteSnapshotUploader {
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> anyhow::Result<SnapshotLocation> {
+    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let location = format!(
             "https://storage.googleapis.com/{}/{}",

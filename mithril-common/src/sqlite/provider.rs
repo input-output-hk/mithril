@@ -1,3 +1,4 @@
+use anyhow::Context;
 use sqlite::Connection;
 
 use crate::StdError;
@@ -23,7 +24,12 @@ pub trait Provider<'conn> {
         let cursor = self
             .get_connection()
             .prepare(&sql)
-            .map_err(|e| format!("error=`{e}, SQL=`{}`", &sql.replace('\n', " ").trim()))?
+            .with_context(|| {
+                format!(
+                    "Prepare query error: SQL=`{}`",
+                    &sql.replace('\n', " ").trim()
+                )
+            })?
             .into_iter()
             .bind(&params[..])?;
 

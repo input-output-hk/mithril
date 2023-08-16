@@ -1,12 +1,12 @@
+use anyhow::Context;
+use mithril_common::StdResult;
 use slog_scope::{debug, info};
 use sqlite::Connection;
-use tokio::sync::mpsc::UnboundedReceiver;
-
 use std::{
-    error::Error,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{EventMessage, EventPersister};
 
@@ -24,7 +24,7 @@ impl EventStore {
     /// Launch the service. It runs until all the transmitters are gone and all
     /// messages have been processed. This means this service shall be waited
     /// upon completion to ensure all events are properly saved in the database.
-    pub async fn run(&mut self, file: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self, file: Option<PathBuf>) -> StdResult<()> {
         let connection = {
             let connection = match file {
                 Some(path) => Connection::open(path)?,
@@ -39,7 +39,7 @@ impl EventStore {
                 debug!("Event received: {message:?}");
                 let event = persister
                     .persist(message)
-                    .map_err(|e| -> Box<dyn Error> { e })?;
+                    .with_context(|| "event persist failure")?;
                 debug!("event ID={} created", event.event_id);
             } else {
                 info!("No more events to proceed, quitting…");

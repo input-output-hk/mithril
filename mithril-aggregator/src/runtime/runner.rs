@@ -1,19 +1,14 @@
 use async_trait::async_trait;
-use mithril_common::entities::Epoch;
-use mithril_common::entities::SignedEntityType;
-use mithril_common::store::StakeStorer;
 use slog_scope::{debug, info, warn};
+use std::{path::Path, path::PathBuf, sync::Arc};
 
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::entities::{
-    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey,
+    Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+    SignedEntityType,
 };
-use mithril_common::CardanoNetwork;
-
-use std::error::Error as StdError;
-use std::path::Path;
-use std::path::PathBuf;
-use std::sync::Arc;
+use mithril_common::store::StakeStorer;
+use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::entities::OpenMessage;
 use crate::RuntimeError;
@@ -53,107 +48,83 @@ impl AggregatorConfig {
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
-    async fn get_beacon_from_chain(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
+    async fn get_beacon_from_chain(&self) -> StdResult<Beacon>;
 
     /// Retrieves the current non certified open message for a given signed entity type.
     async fn get_current_non_certified_open_message_for_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<Option<OpenMessage>>;
 
     /// Retrieves the current non certified open message.
-    async fn get_current_non_certified_open_message(
-        &self,
-    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
+    async fn get_current_non_certified_open_message(&self) -> StdResult<Option<OpenMessage>>;
 
     /// Check if a certificate chain is valid.
-    async fn is_certificate_chain_valid(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()>;
 
     /// Update the multisigner with the given beacon.
-    async fn update_beacon(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_beacon(&self, new_beacon: &Beacon) -> StdResult<()>;
 
     /// Read the stake distribution from the blockchain and store it.
-    async fn update_stake_distribution(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()>;
 
     /// Open the signer registration round of an epoch.
-    async fn open_signer_registration_round(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn open_signer_registration_round(&self, new_beacon: &Beacon) -> StdResult<()>;
 
     /// Close the signer registration round of an epoch.
-    async fn close_signer_registration_round(&self) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn close_signer_registration_round(&self) -> StdResult<()>;
 
     /// Update the multisigner with the protocol parameters from configuration.
-    async fn update_protocol_parameters_in_multisigner(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_protocol_parameters_in_multisigner(&self, new_beacon: &Beacon)
+        -> StdResult<()>;
 
     /// Compute the protocol message
     async fn compute_protocol_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<ProtocolMessage>;
 
     /// Return the actual pending certificate from the multisigner.
     async fn create_new_pending_certificate_from_multisigner(
         &self,
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<CertificatePending, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<CertificatePending>;
 
     /// Store the given pending certificate.
     async fn save_pending_certificate(
         &self,
         pending_certificate: CertificatePending,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<()>;
 
     /// Drop the multisigner's actual pending certificate.
-    async fn drop_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>>;
+    async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
     /// Create multi-signature.
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<Option<Certificate>, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<Option<Certificate>>;
 
     /// Create an artifact and persist it.
     async fn create_artifact(
         &self,
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<()>;
 
     /// Update the EraChecker with EraReader information.
-    async fn update_era_checker(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()>;
 
     /// Certifier inform new epoch
-    async fn certifier_inform_new_epoch(
-        &self,
-        epoch: &Epoch,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn certifier_inform_new_epoch(&self, epoch: &Epoch) -> StdResult<()>;
 
     /// Create new open message
     async fn create_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> Result<OpenMessage, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<OpenMessage>;
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -173,7 +144,7 @@ impl AggregatorRunner {
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current beacon from the chain
-    async fn get_beacon_from_chain(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>> {
+    async fn get_beacon_from_chain(&self) -> StdResult<Beacon> {
         debug!("RUNNER: get beacon from chain");
         let beacon = self
             .dependencies
@@ -187,7 +158,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn get_current_non_certified_open_message_for_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<Option<OpenMessage>> {
         debug!("RUNNER: get_current_non_certified_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
         let open_message_maybe = match self
             .dependencies
@@ -236,9 +207,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(open_message_maybe)
     }
 
-    async fn get_current_non_certified_open_message(
-        &self,
-    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
+    async fn get_current_non_certified_open_message(&self) -> StdResult<Option<OpenMessage>> {
         debug!("RUNNER: get_current_non_certified_open_message");
         let signed_entity_types = vec![
             SignedEntityType::MithrilStakeDistribution(
@@ -268,10 +237,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(None)
     }
 
-    async fn is_certificate_chain_valid(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: is_certificate_chain_valid");
         self.dependencies
             .certifier_service
@@ -282,10 +248,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     // TODO: is this still useful?
-    async fn update_beacon(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn update_beacon(&self, new_beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: update beacon"; "beacon" => #?new_beacon);
         self.dependencies
             .multi_signer
@@ -296,10 +259,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn update_stake_distribution(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
         let exists_stake_distribution = !self
             .dependencies
@@ -348,10 +308,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?)
     }
 
-    async fn open_signer_registration_round(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn open_signer_registration_round(&self, new_beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: open signer registration round"; "beacon" => #?new_beacon);
         let registration_epoch = new_beacon.epoch.offset_to_recording_epoch();
 
@@ -369,7 +326,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn close_signer_registration_round(&self) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn close_signer_registration_round(&self) -> StdResult<()> {
         debug!("RUNNER: close signer registration round");
 
         self.dependencies
@@ -382,7 +339,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn update_protocol_parameters_in_multisigner(
         &self,
         new_beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<()> {
         debug!("RUNNER: update protocol parameters"; "beacon" => #?new_beacon);
         let protocol_parameters = self.dependencies.config.protocol_parameters.clone();
 
@@ -399,7 +356,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn compute_protocol_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<ProtocolMessage> {
         debug!("RUNNER: compute protocol message");
         let mut protocol_message = self
             .dependencies
@@ -422,7 +379,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<CertificatePending, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<CertificatePending> {
         debug!("RUNNER: create new pending certificate from multisigner");
         let multi_signer = self.dependencies.multi_signer.read().await;
 
@@ -471,7 +428,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn save_pending_certificate(
         &self,
         pending_certificate: CertificatePending,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<()> {
         debug!("RUNNER: saving pending certificate");
 
         self.dependencies
@@ -481,9 +438,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn drop_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>> {
+    async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
         debug!("RUNNER: drop pending certificate");
 
         let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
@@ -497,7 +452,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> Result<Option<Certificate>, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<Option<Certificate>> {
         debug!("RUNNER: create multi-signature");
 
         self.dependencies
@@ -510,7 +465,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<()> {
         debug!("RUNNER: create artifact");
         self.dependencies
             .signed_entity_service
@@ -520,10 +475,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn update_era_checker(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()> {
         let token = self
             .dependencies
             .era_reader
@@ -548,10 +500,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn certifier_inform_new_epoch(
-        &self,
-        epoch: &Epoch,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn certifier_inform_new_epoch(&self, epoch: &Epoch) -> StdResult<()> {
         self.dependencies
             .certifier_service
             .inform_epoch(*epoch)
@@ -564,7 +513,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> Result<OpenMessage, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<OpenMessage> {
         self.dependencies
             .certifier_service
             .create_open_message(signed_entity_type, protocol_message)
