@@ -11,5 +11,5 @@ pub type SnapshotLocation = String;
 #[async_trait]
 pub trait SnapshotUploader: Sync + Send {
     /// Upload a snapshot
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> Result<SnapshotLocation, String>;
+    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> anyhow::Result<SnapshotLocation>;
 }

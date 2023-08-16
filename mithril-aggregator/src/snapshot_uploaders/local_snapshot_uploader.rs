@@ -1,10 +1,11 @@
-use crate::http_server;
-use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
-use crate::tools;
-
+use anyhow::Context;
 use async_trait::async_trait;
 use slog_scope::debug;
 use std::path::{Path, PathBuf};
+
+use crate::http_server;
+use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
+use crate::tools;
 
 /// LocalSnapshotUploader is a snapshot uploader working using local files
 pub struct LocalSnapshotUploader {
@@ -28,12 +29,12 @@ impl LocalSnapshotUploader {
 
 #[async_trait]
 impl SnapshotUploader for LocalSnapshotUploader {
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> Result<SnapshotLocation, String> {
+    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> anyhow::Result<SnapshotLocation> {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
         tokio::fs::copy(snapshot_filepath, target_path)
             .await
-            .map_err(|e| format!("Snapshot copy failure: {e}"))?;
+            .with_context(|| format!("Snapshot copy failure"))?;
 
         let digest = tools::extract_digest_from_path(Path::new(archive_name));
         let location = format!(
@@ -84,10 +85,12 @@ mod tests {
         );
         let uploader = LocalSnapshotUploader::new(url, target_dir.path());
 
-        assert_eq!(
-            Ok(expected_location),
-            uploader.upload_snapshot(&archive).await,
-        );
+        let location = uploader
+            .upload_snapshot(&archive)
+            .await
+            .expect("local upload should not fail");
+
+        assert_eq!(expected_location, location);
     }
 
     #[tokio::test]
