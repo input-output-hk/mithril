@@ -170,6 +170,18 @@ impl MithrilClientSnapshotService {
             res = future => res,
         }
     }
+
+    async fn expand_eventual_snapshot_alias(&self, snapshot_id: &str) -> StdResult<String> {
+        if snapshot_id.to_lowercase() == "latest" {
+            let last_snapshot = self.list().await?;
+            let last_snapshot = last_snapshot
+                .first()
+                .ok_or_else(|| SnapshotServiceError::SnapshotNotFound(snapshot_id.to_string()))?;
+            Ok(last_snapshot.digest.to_owned())
+        } else {
+            Ok(snapshot_id.to_owned())
+        }
+    }
 }
 
 #[async_trait]
@@ -182,19 +194,18 @@ impl SnapshotService for MithrilClientSnapshotService {
 
     async fn show(&self, digest: &str) -> StdResult<SnapshotMessage> {
         debug!("Snapshot service: show.");
-        let snapshot_message =
-            self.snapshot_client
-                .show(digest)
-                .await
-                .map_err(|e| match &e.downcast_ref::<AggregatorHTTPClientError>() {
-                    Some(error)
-                        if matches!(error, &&AggregatorHTTPClientError::RemoteServerLogical(_)) =>
-                    {
-                        Box::new(SnapshotServiceError::SnapshotNotFound(digest.to_owned()))
-                            as StdError
-                    }
-                    _ => e,
-                })?;
+        let snapshot_message = self
+            .snapshot_client
+            .show(&self.expand_eventual_snapshot_alias(digest).await?)
+            .await
+            .map_err(|e| match &e.downcast_ref::<AggregatorHTTPClientError>() {
+                Some(error)
+                    if matches!(error, &&AggregatorHTTPClientError::RemoteServerLogical(_)) =>
+                {
+                    Box::new(SnapshotServiceError::SnapshotNotFound(digest.to_owned())) as StdError
+                }
+                _ => e,
+            })?;
 
         Ok(snapshot_message)
     }
@@ -697,6 +708,104 @@ mod tests {
             }
         } else {
             panic!("Expected a SnapshotServiceError when unpack dir already exists. {err}");
+        }
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_snapshot_alias_should_returns_id() {
+        let http_client = MockAggregatorHTTPClient::new();
+        let mut dep_builder = get_dep_builder(Arc::new(http_client));
+        let snapshot_service = MithrilClientSnapshotService::new(
+            dep_builder.get_snapshot_client().await.unwrap(),
+            dep_builder.get_certificate_client().await.unwrap(),
+            dep_builder.get_certificate_verifier().await.unwrap(),
+            dep_builder.get_immutable_digester().await.unwrap(),
+        );
+
+        let digest = snapshot_service
+            .expand_eventual_snapshot_alias("digest-1")
+            .await
+            .unwrap();
+
+        assert_eq!("digest-1", digest);
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_snapshot_alias_latest_lowercase() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .returning(|_| Ok(serde_json::to_string(&get_snapshot_list_message()).unwrap()));
+        let mut dep_builder = get_dep_builder(Arc::new(http_client));
+        let snapshot_service = MithrilClientSnapshotService::new(
+            dep_builder.get_snapshot_client().await.unwrap(),
+            dep_builder.get_certificate_client().await.unwrap(),
+            dep_builder.get_certificate_verifier().await.unwrap(),
+            dep_builder.get_immutable_digester().await.unwrap(),
+        );
+
+        let digest = snapshot_service
+            .expand_eventual_snapshot_alias("latest")
+            .await
+            .expect("expand_eventual_snapshot_alias should not error when latest is passed as parameter.");
+
+        assert_eq!("digest-1".to_string(), digest);
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_snapshot_alias_latest_uppercase() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .returning(|_| Ok(serde_json::to_string(&get_snapshot_list_message()).unwrap()));
+        let mut dep_builder = get_dep_builder(Arc::new(http_client));
+        let snapshot_service = MithrilClientSnapshotService::new(
+            dep_builder.get_snapshot_client().await.unwrap(),
+            dep_builder.get_certificate_client().await.unwrap(),
+            dep_builder.get_certificate_verifier().await.unwrap(),
+            dep_builder.get_immutable_digester().await.unwrap(),
+        );
+
+        let digest = snapshot_service
+            .expand_eventual_snapshot_alias("LATEST")
+            .await
+            .expect("expand_eventual_snapshot_alias should not error when latest is passed as parameter.");
+
+        assert_eq!("digest-1".to_string(), digest);
+    }
+
+    #[tokio::test]
+    async fn expand_eventual_snapshot_alias_should_error() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .returning(|_| Ok("[]".to_string()));
+        let mut dep_builder = get_dep_builder(Arc::new(http_client));
+        let snapshot_service = MithrilClientSnapshotService::new(
+            dep_builder.get_snapshot_client().await.unwrap(),
+            dep_builder.get_certificate_client().await.unwrap(),
+            dep_builder.get_certificate_verifier().await.unwrap(),
+            dep_builder.get_immutable_digester().await.unwrap(),
+        );
+
+        let err = snapshot_service
+            .expand_eventual_snapshot_alias("latest")
+            .await
+            .expect_err(
+                "expand_eventual_snapshot_alias should returns an error if there is no latest.",
+            );
+
+        if let Some(e) = err.downcast_ref::<SnapshotServiceError>() {
+            match e {
+                SnapshotServiceError::SnapshotNotFound(digest) => {
+                    assert_eq!("latest", digest.as_str());
+                }
+                _ => panic!("Wrong error type when snapshot could not be found {e:?}."),
+            }
+        } else {
+            panic!(
+                    "Expected a SnapshotServiceError when snapshot can not be found. Got {err:?}: '{err}'"
+                );
         }
     }
 }

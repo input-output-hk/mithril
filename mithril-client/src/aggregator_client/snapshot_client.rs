@@ -46,6 +46,7 @@ impl SnapshotClient {
         let url = "artifact/snapshots";
         let response = self.http_client.get_content(url).await?;
         let items = serde_json::from_str::<SnapshotListMessage>(&response)?;
+
         Ok(items)
     }
 

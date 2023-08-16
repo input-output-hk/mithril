@@ -10,7 +10,9 @@ use crate::dependencies::DependenciesBuilder;
 /// verification fails, the file is not persisted.
 #[derive(Parser, Debug, Clone)]
 pub struct MithrilStakeDistributionDownloadCommand {
-    /// Hash of the Mithril Stake Distribution artifact
+    /// Hash of the Mithril Stake Distribution artifact.
+    ///
+    /// If `latest` is specified as artifact_hash, the command will return the latest stake distribution.
     artifact_hash: String,
 
     /// Directory where the Mithril Stake Distribution will be downloaded. By default, a

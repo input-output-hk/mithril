@@ -302,18 +302,18 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 
 `snapshot download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the snapshot will be downloaded | . | - | - |
 
 `mithril-stake-distribution download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact | - | - | :heavy_check_mark: |
+| `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
