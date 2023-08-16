@@ -2,7 +2,7 @@ use anyhow::Context;
 use hex::{FromHex, ToHex};
 use mithril_stm::stm::{StmAggrSig, StmSig, StmVerificationKeyPoP};
 
-use crate::crypto_helper::{ProtocolKey, ProtocolKeyCodec, D};
+use crate::crypto_helper::{OpCert, ProtocolKey, ProtocolKeyCodec, D};
 use crate::StdResult;
 
 /// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP) to add serialization
@@ -17,6 +17,9 @@ pub type ProtocolMultiSignature = ProtocolKey<StmAggrSig<D>>;
 
 /// Wrapper of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
 pub type ProtocolGenesisSignature = ProtocolKey<ed25519_dalek::Signature>;
+
+/// Wrapper of [OpCert] to add serialization utilities.
+pub type ProtocolOpCert = ProtocolKey<OpCert>;
 
 impl ProtocolGenesisSignature {
     /// Create an instance from a bytes hex representation
@@ -62,6 +65,6 @@ impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
 }
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => StmVerificationKeyPoP, StmSig, StmAggrSig<D>
+    json_hex_codec => StmVerificationKeyPoP, StmSig, StmAggrSig<D>, OpCert
 );
 impl_codec_and_type_conversions_for_protocol_key!(no_default_codec => ed25519_dalek::Signature);

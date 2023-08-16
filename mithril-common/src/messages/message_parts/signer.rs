@@ -73,7 +73,10 @@ impl SignerWithStakeMessagePart {
                 verification_key: message.verification_key.try_into()?,
                 verification_key_signature: message.verification_key_signature,
                 kes_period: message.kes_period,
-                operational_certificate: message.operational_certificate,
+                operational_certificate: match message.operational_certificate {
+                    Some(operational_certificate) => Some(operational_certificate.try_into()?),
+                    _ => None,
+                },
                 stake: message.stake,
             };
             signers.push(value);
@@ -89,7 +92,9 @@ impl From<SignerWithStake> for SignerWithStakeMessagePart {
             party_id: value.party_id,
             verification_key: value.verification_key.try_into().unwrap(),
             verification_key_signature: value.verification_key_signature,
-            operational_certificate: value.operational_certificate,
+            operational_certificate: value
+                .operational_certificate
+                .map(|op_cert| (op_cert.try_into().unwrap())),
             kes_period: value.kes_period,
             stake: value.stake,
         }

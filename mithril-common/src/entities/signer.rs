@@ -1,6 +1,6 @@
 use crate::{
-    crypto_helper::{KESPeriod, ProtocolSignerVerificationKey},
-    entities::{HexEncodedOpCert, HexEncodedVerificationKeySignature, PartyId, Stake},
+    crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKey},
+    entities::{HexEncodedVerificationKeySignature, PartyId, Stake},
 };
 
 use serde::{Deserialize, Serialize};
@@ -24,7 +24,7 @@ pub struct Signer {
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub operational_certificate: Option<HexEncodedOpCert>,
+    pub operational_certificate: Option<ProtocolOpCert>,
 
     /// The kes period used to compute the verification key signature
     // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
@@ -44,7 +44,7 @@ impl Signer {
         party_id: PartyId,
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<HexEncodedVerificationKeySignature>,
-        operational_certificate: Option<HexEncodedOpCert>,
+        operational_certificate: Option<ProtocolOpCert>,
         kes_period: Option<KESPeriod>,
     ) -> Signer {
         Signer {
@@ -66,7 +66,7 @@ impl Signer {
             hasher.update(verification_key_signature.as_bytes());
         }
         if let Some(operational_certificate) = &self.operational_certificate {
-            hasher.update(operational_certificate.as_bytes());
+            hasher.update(operational_certificate.to_json_hex().unwrap().as_bytes());
         }
         hex::encode(hasher.finalize())
     }
@@ -102,7 +102,7 @@ pub struct SignerWithStake {
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub operational_certificate: Option<HexEncodedOpCert>,
+    pub operational_certificate: Option<ProtocolOpCert>,
 
     /// The kes period used to compute the verification key signature
     // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
@@ -137,7 +137,7 @@ impl SignerWithStake {
         party_id: PartyId,
         verification_key: ProtocolSignerVerificationKey,
         verification_key_signature: Option<HexEncodedVerificationKeySignature>,
-        operational_certificate: Option<HexEncodedOpCert>,
+        operational_certificate: Option<ProtocolOpCert>,
         kes_period: Option<KESPeriod>,
         stake: Stake,
     ) -> SignerWithStake {
@@ -174,7 +174,7 @@ impl SignerWithStake {
         }
 
         if let Some(operational_certificate) = &self.operational_certificate {
-            hasher.update(operational_certificate.as_bytes());
+            hasher.update(operational_certificate.to_json_hex().unwrap().as_bytes());
         }
         hasher.update(self.stake.to_be_bytes());
         hex::encode(hasher.finalize())

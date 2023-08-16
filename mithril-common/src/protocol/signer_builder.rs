@@ -198,12 +198,10 @@ struct SignerCryptographicMaterial {
 
 impl SignerCryptographicMaterial {
     fn decode_from_signer(signer: &SignerWithStake) -> Result<Self> {
-        let operational_certificate = match &signer.operational_certificate {
-            Some(operational_certificate) => key_decode_hex(operational_certificate)
-                .map_err(|e| anyhow!(e))
-                .with_context(|| "Could not decode operational certificate".to_string())?,
-            _ => None,
-        };
+        let operational_certificate = signer
+            .operational_certificate
+            .as_ref()
+            .map(|op_cert| op_cert.to_owned().into());
         let verification_key = signer.verification_key.clone();
         let kes_signature = match &signer.verification_key_signature {
             Some(verification_key_signature) => Some(
@@ -248,7 +246,7 @@ mod test {
     fn cant_construct_signer_builder_with_a_signer_with_invalid_keys() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let mut signers = fixture.signers_with_stake();
-        signers[2].operational_certificate = Some("invalid".to_string());
+        signers[2].verification_key_signature = Some("invalid".to_string());
 
         let error = SignerBuilder::new(&signers, &fixture.protocol_parameters()).expect_err(
             "We should not be able to construct a signer builder with a signer with invalid keys",

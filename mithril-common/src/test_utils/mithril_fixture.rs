@@ -9,8 +9,8 @@ use std::{
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        key_decode_hex, key_encode_hex, OpCert, ProtocolAggregateVerificationKey,
-        ProtocolGenesisSigner, ProtocolInitializer, ProtocolSigner, ProtocolSignerVerificationKey,
+        key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSigner,
+        ProtocolInitializer, ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
@@ -227,11 +227,8 @@ impl SignerFixture {
     }
 
     /// Decode this signer operational certificate if any
-    pub fn operational_certificate(&self) -> Option<OpCert> {
-        match &self.signer_with_stake.operational_certificate {
-            Some(operational_certificate) => key_decode_hex(operational_certificate).unwrap(),
-            _ => None,
-        }
+    pub fn operational_certificate(&self) -> Option<ProtocolOpCert> {
+        self.signer_with_stake.operational_certificate.clone()
     }
 
     /// Compute the party id hash
