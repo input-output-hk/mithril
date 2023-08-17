@@ -1,7 +1,9 @@
+use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_common::StdResult;
 use slog_scope::{crit, debug, info};
-use std::{error::Error, net::IpAddr, path::PathBuf};
+use std::{net::IpAddr, path::PathBuf};
 use tokio::{sync::oneshot, task::JoinSet};
 
 use crate::{dependency_injection::DependenciesBuilder, Configuration};
@@ -71,16 +73,13 @@ impl Source for ServeCommand {
 }
 
 impl ServeCommand {
-    pub async fn execute(
-        &self,
-        mut config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, mut config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         config_builder = config_builder.add_source(self.clone());
         let config: Configuration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
+            .with_context(|| "configuration build error")?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .with_context(|| "configuration deserialize error")?;
         debug!("SERVE command"; "config" => format!("{config:?}"));
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
 

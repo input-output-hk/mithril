@@ -2,6 +2,7 @@
 
 use clap::Parser;
 use mithril_aggregator::MainOpts;
+use mithril_common::StdResult;
 use slog::{Drain, Logger};
 use std::sync::Arc;
 
@@ -18,7 +19,7 @@ pub fn build_logger(args: &MainOpts) -> Logger {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> StdResult<()> {
     // Load args
     let args = MainOpts::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
@@ -26,5 +27,5 @@ async fn main() -> Result<(), String> {
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();
 
-    args.execute().await.map_err(|e| e.to_string())
+    args.execute().await
 }

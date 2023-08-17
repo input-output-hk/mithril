@@ -1,11 +1,13 @@
+use anyhow::{anyhow, Context};
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
     crypto_helper::{key_decode_hex, ProtocolGenesisSigner},
     entities::HexEncodedGenesisSecretKey,
+    StdResult,
 };
 use slog_scope::debug;
-use std::{error::Error, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::{dependency_injection::DependenciesBuilder, tools::GenesisTools, Configuration};
 
@@ -18,10 +20,7 @@ pub struct GenesisCommand {
 }
 
 impl GenesisCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         self.genesis_subcommand.execute(config_builder).await
     }
 }
@@ -43,10 +42,7 @@ pub enum GenesisSubCommand {
 }
 
 impl GenesisSubCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::Bootstrap(cmd) => cmd.execute(config_builder).await,
             Self::Export(cmd) => cmd.execute(config_builder).await,
@@ -65,15 +61,12 @@ pub struct ExportGenesisSubCommand {
 }
 
 impl ExportGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
+            .with_context(|| "configuration build error")?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .with_context(|| "configuration deserialize error")?;
         debug!("EXPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis export payload to sign to {}",
@@ -84,10 +77,10 @@ impl ExportGenesisSubCommand {
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
-            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
+            .with_context(|| "genesis-tools: initialization error")?;
         genesis_tools
             .export_payload_to_sign(&self.target_path)
-            .map_err(|err| format!("genesis-tools: export error: {err}"))?;
+            .with_context(|| "genesis-tools: export error")?;
         Ok(())
     }
 }
@@ -100,15 +93,12 @@ pub struct ImportGenesisSubCommand {
 }
 
 impl ImportGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
+            .with_context(|| "configuration build error")?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .with_context(|| "configuration deserialize error")?;
         debug!("IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
@@ -119,11 +109,11 @@ impl ImportGenesisSubCommand {
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
-            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
+            .with_context(|| "genesis-tools: initialization error")?;
         genesis_tools
             .import_payload_signature(&self.signed_payload_path)
             .await
-            .map_err(|err| format!("genesis-tools: import error: {err}"))?;
+            .with_context(|| "genesis-tools: import error")?;
         Ok(())
     }
 }
@@ -144,10 +134,7 @@ pub struct SignGenesisSubCommand {
 }
 
 impl SignGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         debug!("SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
@@ -161,7 +148,7 @@ impl SignGenesisSubCommand {
             &self.genesis_secret_key_path,
         )
         .await
-        .map_err(|err| format!("genesis-tools: sign error: {err}"))?;
+        .with_context(|| "genesis-tools: sign error")?;
 
         Ok(())
     }
@@ -174,15 +161,12 @@ pub struct BootstrapGenesisSubCommand {
 }
 
 impl BootstrapGenesisSubCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
+            .with_context(|| "configuration build error")?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .with_context(|| "configuration deserialize error")?;
         debug!("BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
@@ -190,13 +174,14 @@ impl BootstrapGenesisSubCommand {
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
-            .map_err(|err| format!("genesis-tools: initialization error: {err}"))?;
-        let genesis_secret_key = key_decode_hex(&self.genesis_secret_key)?;
+            .with_context(|| "genesis-tools: initialization error")?;
+        let genesis_secret_key = key_decode_hex(&self.genesis_secret_key)
+            .map_err(|e| anyhow!(e).context("json hex decode of genesis secret key failure"))?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await
-            .map_err(|err| format!("genesis-tools: bootstrap error: {err}"))?;
+            .with_context(|| "genesis-tools: bootstrap error")?;
         Ok(())
     }
 }

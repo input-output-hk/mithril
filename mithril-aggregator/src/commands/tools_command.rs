@@ -1,8 +1,10 @@
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::sqlite::vacuum_database;
+use mithril_common::StdResult;
 use slog_scope::debug;
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     database::provider::{CertificateRepository, SignedEntityStoreAdapter},
@@ -20,10 +22,7 @@ pub struct ToolsCommand {
 }
 
 impl ToolsCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         self.genesis_subcommand.execute(config_builder).await
     }
 }
@@ -40,10 +39,7 @@ pub enum ToolsSubCommand {
 }
 
 impl ToolsSubCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::RecomputeCertificatesHash(cmd) => cmd.execute(config_builder).await,
         }
@@ -55,15 +51,12 @@ impl ToolsSubCommand {
 pub struct RecomputeCertificatesHashCommand {}
 
 impl RecomputeCertificatesHashCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
+            .with_context(|| "configuration build error")?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+            .with_context(|| "configuration deserialize error")?;
         debug!("RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
         println!("Recomputing all certificate hash",);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
@@ -76,11 +69,11 @@ impl RecomputeCertificatesHashCommand {
         migrator
             .migrate()
             .await
-            .map_err(|err| format!("recompute-certificates-hash: migration error: {err}"))?;
+            .with_context(|| "recompute-certificates-hash: database migration error")?;
 
         vacuum_database(connection)
             .await
-            .map_err(|err| format!("recompute-certificates-hash: database vacuum error: {err}"))?;
+            .with_context(|| "recompute-certificates-hash: database vacuum error")?;
 
         Ok(())
     }

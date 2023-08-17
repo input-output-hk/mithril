@@ -1,11 +1,12 @@
+use anyhow::anyhow;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
     crypto_helper::{key_decode_hex, EraMarkersSigner},
     entities::{Epoch, HexEncodedEraMarkersSecretKey},
+    StdResult,
 };
 use slog_scope::debug;
-use std::error::Error;
 
 use crate::tools::EraTools;
 
@@ -18,10 +19,7 @@ pub struct EraCommand {
 }
 
 impl EraCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         self.era_subcommand.execute(config_builder).await
     }
 }
@@ -37,10 +35,7 @@ pub enum EraSubCommand {
 }
 
 impl EraSubCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::GenerateTxDatum(cmd) => cmd.execute(config_builder).await,
@@ -57,10 +52,7 @@ pub struct ListEraSubCommand {
 }
 
 impl ListEraSubCommand {
-    pub async fn execute(
-        &self,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         debug!("LIST ERA command");
         let era_tools = EraTools::new();
         let eras = era_tools.get_supported_eras_list()?;
@@ -93,14 +85,12 @@ pub struct GenerateTxDatumEraSubCommand {
 }
 
 impl GenerateTxDatumEraSubCommand {
-    pub async fn execute(
-        &self,
-        _config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         debug!("GENERATETXDATUM ERA command");
         let era_tools = EraTools::new();
 
-        let era_markers_secret_key = key_decode_hex(&self.era_markers_secret_key)?;
+        let era_markers_secret_key = key_decode_hex(&self.era_markers_secret_key)
+            .map_err(|e| anyhow!(e).context("json hex decode of era markers secret key failure"))?;
         let era_markers_signer = EraMarkersSigner::from_secret_key(era_markers_secret_key);
         print!(
             "{}",
