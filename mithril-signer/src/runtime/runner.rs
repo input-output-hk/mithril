@@ -6,7 +6,7 @@ use thiserror::Error;
 #[cfg(test)]
 use mockall::automock;
 
-use mithril_common::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
+use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityType};
 use mithril_common::{
     crypto_helper::key_encode_hex,
@@ -165,24 +165,17 @@ impl Runner for SignerRunner {
         let stake = stake_distribution
             .get(&self.services.single_signer.get_party_id())
             .ok_or_else(RunnerError::NoStakeForSelf)?;
-        let (operational_certificate, operational_certificate_encoded) = match &self
-            .config
-            .operational_certificate_path
-        {
-            Some(operational_certificate_path) => {
-                let opcert: OpCert =
-                    OpCert::from_file(operational_certificate_path).map_err(|_| {
-                        RunnerError::FileParse("operational_certificate_path".to_string())
-                    })?;
-                (
-                    Some(opcert.clone()),
-                    Some(key_encode_hex(opcert).map_err(|e| {
-                        anyhow!("Json Hex encoding of Operational certificate failure, error: {e}")
-                    })?),
-                )
-            }
-            _ => (None, None),
-        };
+        let (operational_certificate, protocol_operational_certificate) =
+            match &self.config.operational_certificate_path {
+                Some(operational_certificate_path) => {
+                    let opcert: OpCert =
+                        OpCert::from_file(operational_certificate_path).map_err(|_| {
+                            RunnerError::FileParse("operational_certificate_path".to_string())
+                        })?;
+                    (Some(opcert.clone()), Some(ProtocolOpCert::new(opcert)))
+                }
+                _ => (None, None),
+            };
 
         let kes_period = match operational_certificate {
             Some(operational_certificate) => Some(
@@ -214,7 +207,7 @@ impl Runner for SignerRunner {
             self.services.single_signer.get_party_id(),
             protocol_initializer.verification_key().into(),
             verification_key_signature_encoded,
-            operational_certificate_encoded,
+            protocol_operational_certificate,
             kes_period,
         );
         self.services

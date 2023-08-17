@@ -231,12 +231,10 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             ),
             _ => None,
         };
-        let operational_certificate = match &signer.operational_certificate {
-            Some(operational_certificate) => Some(
-                key_decode_hex(operational_certificate).map_err(SignerRegistrationError::Codec)?,
-            ),
-            _ => None,
-        };
+        let operational_certificate = signer
+            .operational_certificate
+            .as_ref()
+            .map(|op_cert| op_cert.to_owned().into());
         let kes_period = match &operational_certificate {
             Some(operational_certificate) => Some(
                 self.chain_observer

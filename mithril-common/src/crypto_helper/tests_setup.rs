@@ -77,9 +77,11 @@ fn setup_signer_with_stake(
     party_id: &str,
     stake: Stake,
     protocol_initializer: &ProtocolInitializer,
-    operational_certificate: Option<OpCert>,
+    operational_certificate: Option<ProtocolOpCert>,
     kes_period: u32,
 ) -> SignerWithStake {
+    let kes_period = operational_certificate.as_ref().and(Some(kes_period));
+
     SignerWithStake::new(
         party_id.to_owned(),
         protocol_initializer.verification_key().into(),
@@ -90,13 +92,8 @@ fn setup_signer_with_stake(
                 key_encode_hex(verification_key_signature)
                     .expect("key_encode_hex of verification_key_signature should not fail")
             }),
-        operational_certificate
-            .as_ref()
-            .map(|operational_certificate| {
-                key_encode_hex(operational_certificate)
-                    .expect("key_encode_hex of operational_certificate should not fail")
-            }),
-        operational_certificate.as_ref().map(|_| kes_period),
+        operational_certificate,
+        kes_period,
         stake,
     )
 }
@@ -131,7 +128,7 @@ pub fn setup_signers_from_stake_distribution(
             party_id,
             *stake,
             &protocol_initializer,
-            operational_certificate.clone(),
+            operational_certificate.as_ref().map(|o| o.clone().into()),
             kes_period,
         );
 
