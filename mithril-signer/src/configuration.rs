@@ -9,7 +9,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
         EraReaderAdapter,
     },
-    CardanoNetwork, StdError,
+    CardanoNetwork, StdResult,
 };
 
 const SQLITE_FILE: &str = "signer.sqlite3";
@@ -97,7 +97,7 @@ impl Configuration {
     pub fn build_era_reader_adapter(
         &self,
         chain_observer: Arc<dyn ChainObserver>,
-    ) -> Result<Arc<dyn EraReaderAdapter>, StdError> {
+    ) -> StdResult<Arc<dyn EraReaderAdapter>> {
         Ok(EraReaderAdapterBuilder::new(
             &self.era_reader_adapter_type,
             &self.era_reader_adapter_params,
@@ -127,7 +127,7 @@ impl Source for DefaultConfiguration {
         Box::new(self.clone())
     }
 
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+    fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
         let mut result = Map::new();
         let namespace = "default configuration".to_string();
         let myself = self.clone();

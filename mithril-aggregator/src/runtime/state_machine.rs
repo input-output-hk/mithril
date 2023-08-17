@@ -388,16 +388,16 @@ impl AggregatorRuntime {
 
 #[cfg(test)]
 mod tests {
-
     use crate::entities::OpenMessage;
-
-    use super::super::runner::MockAggregatorRunner;
-    use super::*;
+    use anyhow::anyhow;
+    use mockall::predicate;
 
     use mithril_common::entities::{Epoch, SignedEntityType};
     use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
-    use mockall::predicate;
+
+    use super::super::runner::MockAggregatorRunner;
+    use super::*;
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,
@@ -441,7 +441,7 @@ mod tests {
         runner
             .expect_is_certificate_chain_valid()
             .once()
-            .returning(|_| Err("error".into()));
+            .returning(|_| Err(anyhow!("error")));
         runner
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))
@@ -722,7 +722,7 @@ mod tests {
         runner
             .expect_create_artifact()
             .once()
-            .returning(|_, _| Err("whatever".into()));
+            .returning(|_, _| Err(anyhow!("whatever")));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
             open_message: OpenMessage::dummy(),

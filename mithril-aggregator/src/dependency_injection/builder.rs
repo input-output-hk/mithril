@@ -235,7 +235,7 @@ impl DependenciesBuilder {
                     "SQLite initialization: could not open connection with string '{}'.",
                     path.display()
                 ),
-                error: Some(Box::new(e)),
+                error: Some(e.into()),
             })?;
         // Check database migrations
         let mut db_checker = DatabaseVersionChecker::new(
@@ -672,7 +672,7 @@ impl DependenciesBuilder {
             .build(self.get_chain_observer().await?)
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "Could not build EraReader as dependency.".to_string(),
-                error: Some(Box::new(e)),
+                error: Some(e.into()),
             })?,
             _ => Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
                 &SupportedEra::dummy().to_string(),

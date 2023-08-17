@@ -6,7 +6,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use clap::Parser;
 
@@ -53,8 +53,8 @@ macro_rules! spin_while_waiting {
         let probe = async move { $block };
 
         select! {
-        _ = spinner => Err(String::new().into()),
-        _ = sleep($timeout) => Err($timeout_message.into()),
+        _ = spinner => Err(anyhow!("")),
+        _ = sleep($timeout) => Err(anyhow!($timeout_message)),
         res = probe => res
         }
     }};
@@ -338,7 +338,7 @@ pub async fn wait_for_certificates(
         {
             request_first_list_item_with_expected_size::<CertificateListItemMessage>(url, total)
                 .await
-                .map_err(|e| e.into())
+                .map_err(|e| anyhow!(e).context("Request first certificate failure"))
         },
         timeout,
         format!("Waiting for certificates"),
@@ -361,7 +361,7 @@ pub async fn wait_for_mithril_stake_distribution_artifacts(
                 url, 1,
             )
             .await
-            .map_err(|e| e.into())
+            .map_err(|e| anyhow!(e).context("Request first mithril stake distribution failure"))
         },
         timeout,
         format!("Waiting for mithril stake distribution artifacts"),
@@ -379,7 +379,7 @@ pub async fn wait_for_immutable_files_artifacts(
         {
             request_first_list_item_with_expected_size::<SnapshotListItemMessage>(url, 1)
                 .await
-                .map_err(|e| e.into())
+                .map_err(|e| anyhow!(e).context("Request first snapshot failure"))
         },
         timeout,
         format!("Waiting for immutable files artifacts"),
@@ -587,15 +587,15 @@ impl AggregatorParameters {
 
         let cardano_cli_path = {
             if !opts.cardano_cli_path.exists() {
-                Err(format!(
-                    "Given cardano-cli path does not exist: {}",
+                Err(anyhow!(
+                    "Given cardano-cli path does not exist: '{}'",
                     opts.cardano_cli_path.display()
                 ))?
             }
 
             opts.cardano_cli_path.canonicalize().with_context(|| {
                 format!(
-                    "Could not canonicalize path to the cardano-cli, path: {}",
+                    "Could not canonicalize path to the cardano-cli, path: '{}'",
                     opts.cardano_cli_path.display()
                 )
             })?

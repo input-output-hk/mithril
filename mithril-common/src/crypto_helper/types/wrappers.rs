@@ -1,8 +1,9 @@
-use anyhow::{Context, Result as StdResult};
+use anyhow::Context;
 use hex::{FromHex, ToHex};
 use mithril_stm::stm::{StmAggrSig, StmSig, StmVerificationKeyPoP};
 
 use crate::crypto_helper::{ProtocolKey, ProtocolKeyCodec, D};
+use crate::StdResult;
 
 /// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP) to add serialization
 /// utilities.

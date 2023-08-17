@@ -1,8 +1,8 @@
-use std::{error::Error, fs, path::PathBuf};
-
 use async_trait::async_trait;
+use std::{fs, path::PathBuf};
 
-use super::super::{EraMarker, EraReaderAdapter};
+use crate::era::{EraMarker, EraReaderAdapter};
+use crate::StdResult;
 
 /// File adapter is intended to be used in a test environment
 /// to simulate eras transitions.
@@ -19,7 +19,7 @@ impl FileAdapter {
 
 #[async_trait]
 impl EraReaderAdapter for FileAdapter {
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn Error + Sync + Send>> {
+    async fn read(&self) -> StdResult<Vec<EraMarker>> {
         Ok(serde_json::from_str(&fs::read_to_string(
             &self.markers_file,
         )?)?)

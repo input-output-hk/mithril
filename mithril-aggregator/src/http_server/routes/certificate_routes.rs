@@ -128,6 +128,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use mithril_common::test_utils::{apispec::APISpec, fake_data};
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};
@@ -252,7 +253,7 @@ mod tests {
         let mut certifier_service = MockCertifierService::new();
         certifier_service
             .expect_get_latest_certificates()
-            .returning(|_| Err("an error".into()));
+            .returning(|_| Err(anyhow!("an error")));
         dependency_manager.certifier_service = Arc::new(certifier_service);
 
         let method = Method::GET.as_str();
@@ -331,7 +332,7 @@ mod tests {
         let mut certifier_service = MockCertifierService::new();
         certifier_service
             .expect_get_certificate_by_hash()
-            .returning(|_| Err("an error".into()));
+            .returning(|_| Err(anyhow!("an error")));
         dependency_manager.certifier_service = Arc::new(certifier_service);
 
         let method = Method::GET.as_str();

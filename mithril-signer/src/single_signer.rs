@@ -110,7 +110,7 @@ impl SingleSigner for MithrilSingleSigner {
             .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer.clone())
             .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?
             .sign(protocol_message)
-            .map_err(|e| SingleSignerError::SignatureFailed(e.into()))?;
+            .map_err(SingleSignerError::SignatureFailed)?;
 
         match &signatures {
             Some(signature) => {
@@ -138,9 +138,7 @@ impl SingleSigner for MithrilSingleSigner {
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
         )
-        .map_err(|error| {
-            SingleSignerError::AggregateVerificationKeyComputationFailed(error.into())
-        })?;
+        .map_err(SingleSignerError::AggregateVerificationKeyComputationFailed)?;
 
         let encoded_avk = key_encode_hex(signer_builder.compute_aggregate_verification_key())
             .map_err(SingleSignerError::Codec)?;

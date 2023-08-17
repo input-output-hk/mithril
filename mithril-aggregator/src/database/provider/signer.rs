@@ -4,13 +4,10 @@ use sqlite::{Connection, Value};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use mithril_common::{
-    sqlite::{
-        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        WhereCondition,
-    },
-    StdError,
+use mithril_common::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
+use mithril_common::StdResult;
 
 use crate::signer_registerer::SignerRecorder;
 
@@ -84,7 +81,7 @@ impl<'client> SignerRecordProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_signer_id(&self, signer_id: String) -> Result<WhereCondition, StdError> {
+    fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
             vec![Value::String(signer_id)],
@@ -92,10 +89,7 @@ impl<'client> SignerRecordProvider<'client> {
     }
 
     /// Get SignerRecords for a given signer id.
-    pub fn get_by_signer_id(
-        &self,
-        signer_id: String,
-    ) -> Result<EntityCursor<SignerRecord>, StdError> {
+    pub fn get_by_signer_id(&self, signer_id: String) -> StdResult<EntityCursor<SignerRecord>> {
         let filters = self.condition_by_signer_id(signer_id)?;
         let signer_record = self.find(filters)?;
 
@@ -103,7 +97,7 @@ impl<'client> SignerRecordProvider<'client> {
     }
 
     /// Get all SignerRecords.
-    pub fn get_all(&self) -> Result<EntityCursor<SignerRecord>, StdError> {
+    pub fn get_all(&self) -> StdResult<EntityCursor<SignerRecord>> {
         let filters = WhereCondition::default();
         let signer_record = self.find(filters)?;
 
@@ -151,7 +145,7 @@ impl<'conn> InsertSignerRecordProvider<'conn> {
         )
     }
 
-    fn persist(&self, signer_record: SignerRecord) -> Result<SignerRecord, StdError> {
+    fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
         let filters = self.get_insert_condition(signer_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -205,7 +199,7 @@ impl<'conn> UpdateSignerRecordProvider<'conn> {
         )
     }
 
-    fn persist(&self, signer_record: SignerRecord) -> Result<SignerRecord, StdError> {
+    fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
         let filters = self.get_update_condition(signer_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -247,7 +241,7 @@ impl SignerStore {
 
 #[async_trait]
 impl SignerRecorder for SignerStore {
-    async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError> {
+    async fn record_signer_id(&self, signer_id: String) -> StdResult<()> {
         let connection = &*self.connection.lock().await;
         let provider = InsertSignerRecordProvider::new(connection);
         let created_at = Utc::now();
@@ -267,7 +261,7 @@ impl SignerRecorder for SignerStore {
         &self,
         signer_id: String,
         pool_ticker: Option<String>,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         let connection = &*self.connection.lock().await;
         let provider = UpdateSignerRecordProvider::new(connection);
         let created_at = Utc::now();
@@ -288,6 +282,7 @@ impl SignerRecorder for SignerStore {
 mod tests {
     use crate::database::provider::apply_all_migrations_to_db;
     use chrono::Duration;
+    use mithril_common::StdResult;
 
     use super::*;
 
@@ -309,7 +304,7 @@ mod tests {
     pub fn setup_signer_db(
         connection: &Connection,
         signer_records: Vec<SignerRecord>,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
 
         if signer_records.is_empty() {

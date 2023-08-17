@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -13,7 +14,7 @@ use mithril_common::{
         WhereCondition,
     },
     store::adapter::AdapterError,
-    StdError, StdResult,
+    StdResult,
 };
 
 #[cfg(test)]
@@ -137,20 +138,14 @@ impl<'client> SignedEntityRecordProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_signed_entity_id(
-        &self,
-        signed_entity_id: &str,
-    ) -> Result<WhereCondition, StdError> {
+    fn condition_by_signed_entity_id(&self, signed_entity_id: &str) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signed_entity_id = ?*",
             vec![Value::String(signed_entity_id.to_owned())],
         ))
     }
 
-    fn condition_by_certificate_id(
-        &self,
-        certificate_id: &str,
-    ) -> Result<WhereCondition, StdError> {
+    fn condition_by_certificate_id(&self, certificate_id: &str) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "certificate_id = ?*",
             vec![Value::String(certificate_id.to_owned())],
@@ -169,7 +164,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     fn condition_by_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityTypeDiscriminants,
-    ) -> Result<WhereCondition, StdError> {
+    ) -> StdResult<WhereCondition> {
         let signed_entity_type_id: i64 = signed_entity_type.index() as i64;
 
         Ok(WhereCondition::new(
@@ -182,7 +177,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     pub fn get_by_signed_entity_id(
         &self,
         signed_entity_id: &str,
-    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SignedEntityRecord>> {
         let filters = self.condition_by_signed_entity_id(signed_entity_id)?;
         let signed_entity_record = self.find(filters)?;
 
@@ -193,7 +188,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     pub fn get_by_certificate_id(
         &self,
         certificate_id: &str,
-    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SignedEntityRecord>> {
         let filters = self.condition_by_certificate_id(certificate_id)?;
         let signed_entity_record = self.find(filters)?;
 
@@ -204,7 +199,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     pub fn get_by_certificates_ids(
         &self,
         certificates_ids: &[&str],
-    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SignedEntityRecord>> {
         let filters = self.condition_by_certificates_ids(certificates_ids);
         let signed_entity_record = self.find(filters)?;
 
@@ -215,7 +210,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     pub fn get_by_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityTypeDiscriminants,
-    ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SignedEntityRecord>> {
         let filters = self.condition_by_signed_entity_type(signed_entity_type)?;
         let signed_entity_record = self.find(filters)?;
 
@@ -223,7 +218,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     }
 
     /// Get all SignedEntityRecords.
-    pub fn get_all(&self) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
+    pub fn get_all(&self) -> StdResult<EntityCursor<SignedEntityRecord>> {
         let filters = WhereCondition::default();
         let signed_entity_record = self.find(filters)?;
 
@@ -272,10 +267,7 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
         )
     }
 
-    fn persist(
-        &self,
-        signed_entity_record: SignedEntityRecord,
-    ) -> Result<SignedEntityRecord, StdError> {
+    fn persist(&self, signed_entity_record: SignedEntityRecord) -> StdResult<SignedEntityRecord> {
         let filters = self.get_insert_condition(signed_entity_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -334,10 +326,7 @@ where signed_entity_id = ?*";
         Ok(WhereCondition::new(expression, parameters))
     }
 
-    fn persist(
-        &self,
-        signed_entity_record: &SignedEntityRecord,
-    ) -> Result<SignedEntityRecord, StdError> {
+    fn persist(&self, signed_entity_record: &SignedEntityRecord) -> StdResult<SignedEntityRecord> {
         let filters = self.get_update_condition(signed_entity_record)?;
         let mut cursor = self.find(filters)?;
 
@@ -434,7 +423,8 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let mut cursor = provider
             .get_by_signed_entity_id(signed_entity_id)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| format!("get signed entity by id failure, id: {signed_entity_id}"))
+            .map_err(AdapterError::GeneralError)?;
         let signed_entity = cursor.next();
 
         Ok(signed_entity)
@@ -448,7 +438,12 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let mut cursor = provider
             .get_by_certificate_id(certificate_id)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| {
+                format!(
+                    "get signed entity by certificate id failure, certificate_id: {certificate_id}"
+                )
+            })
+            .map_err(AdapterError::GeneralError)?;
         let signed_entity = cursor.next();
 
         Ok(signed_entity)
@@ -474,7 +469,10 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let provider = SignedEntityRecordProvider::new(connection);
         let cursor = provider
             .get_by_signed_entity_type(signed_entity_type_id)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| {
+                format!("get last signed entity by type failure, type: {signed_entity_type_id:?}")
+            })
+            .map_err(AdapterError::GeneralError)?;
         let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
 
         Ok(signed_entities)
@@ -549,7 +547,7 @@ mod tests {
     pub fn setup_signed_entity_db(
         connection: &Connection,
         signed_entity_records: Vec<SignedEntityRecord>,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
         disable_foreign_key_support(connection)?;
 

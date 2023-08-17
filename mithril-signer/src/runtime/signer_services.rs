@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use sqlite::Connection;
 use std::{fs, sync::Arc};
@@ -19,7 +20,7 @@ use mithril_common::{
         MithrilStakeDistributionSignableBuilder, SignableBuilderService,
     },
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, StdError, StdResult,
+    BeaconProvider, BeaconProviderImpl, StdResult,
 };
 
 use crate::{
@@ -105,16 +106,16 @@ impl<'a> ProductionServiceBuilder<'a> {
         match &self.config.operational_certificate_path {
             Some(operational_certificate_path) => {
                 let opcert: OpCert = OpCert::from_file(operational_certificate_path)
-                    .map_err(|e| format!("Could not decode operational certificate: {e:?}"))?;
-                Ok(opcert.compute_protocol_party_id().map_err(|e| {
-                    format!("Could not compute party_id from operational certificate: {e:?}")
-                })?)
+                    .with_context(|| "Could not decode operational certificate")?;
+                Ok(opcert
+                    .compute_protocol_party_id()
+                    .with_context(|| "Could not compute party_id from operational certificate")?)
             }
             _ => Ok(self
                 .config
                 .party_id
                 .to_owned()
-                .ok_or("A party_id should at least be provided")?),
+                .ok_or(anyhow!("A party_id should at least be provided"))?),
         }
     }
 
@@ -152,7 +153,7 @@ impl<'a> ProductionServiceBuilder<'a> {
         db_checker
             .apply()
             .await
-            .map_err(|e| -> StdError { format!("Database migration error {e}").into() })?;
+            .with_context(|| "Database migration error")?;
 
         Ok(sqlite_connection)
     }
@@ -163,8 +164,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     /// Build a Services for the Production environment.
     async fn build(&self) -> StdResult<SignerServices> {
         if !self.config.data_stores_directory.exists() {
-            fs::create_dir_all(self.config.data_stores_directory.clone())
-                .map_err(|e| format!("Could not create data stores directory: {e:?}"))?;
+            fs::create_dir_all(self.config.data_stores_directory.clone()).with_context(|| {
+                format!(
+                    "Could not create data stores directory: `{}`",
+                    self.config.data_stores_directory.display()
+                )
+            })?;
         }
 
         let sqlite_connection = self.build_sqlite_connection().await?;

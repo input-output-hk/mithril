@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::{fs::File, io::prelude::*, io::Write, path::Path, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -76,12 +77,13 @@ impl GenesisTools {
         let protocol_parameters = protocol_parameters_store
             .get_protocol_parameters(beacon.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
-            .ok_or_else(|| "Missing protocol parameters".to_string())?;
+            .ok_or_else(|| anyhow!("Missing protocol parameters"))?;
 
         let genesis_avk = multi_signer
             .compute_next_stake_distribution_aggregate_verification_key()
             .await?;
-        let genesis_avk: ProtocolAggregateVerificationKey = key_decode_hex(&genesis_avk)?;
+        let genesis_avk: ProtocolAggregateVerificationKey = key_decode_hex(&genesis_avk)
+            .map_err(|e| anyhow!(e).context("Aggregate verification key decode error"))?;
 
         Ok(Self::new(
             protocol_parameters,
@@ -137,7 +139,8 @@ impl GenesisTools {
         let mut genesis_secret_key_serialized = String::new();
         genesis_secret_key_file.read_to_string(&mut genesis_secret_key_serialized)?;
 
-        let genesis_secret_key = key_decode_hex(genesis_secret_key_serialized.trim())?;
+        let genesis_secret_key = key_decode_hex(genesis_secret_key_serialized.trim())
+            .map_err(|e| anyhow!(e).context("Genesis secret key decode error"))?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();

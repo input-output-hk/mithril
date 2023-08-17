@@ -2104,6 +2104,7 @@ dependencies = [
 name = "mithril-aggregator"
 version = "0.3.67"
 dependencies = [
+ "anyhow",
  "async-trait",
  "chrono",
  "clap",
@@ -2142,6 +2143,7 @@ dependencies = [
 name = "mithril-client"
 version = "0.3.29"
 dependencies = [
+ "anyhow",
  "async-recursion",
  "async-trait",
  "chrono",
@@ -2191,7 +2193,6 @@ dependencies = [
  "http",
  "jsonschema",
  "kes-summed-ed25519",
- "lazy_static",
  "mithril-stm",
  "mockall",
  "nom",
@@ -2250,6 +2251,7 @@ dependencies = [
 name = "mithril-signer"
 version = "0.2.65"
 dependencies = [
+ "anyhow",
  "async-trait",
  "clap",
  "config",

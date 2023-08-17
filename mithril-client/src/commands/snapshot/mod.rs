@@ -3,14 +3,13 @@ mod download;
 mod list;
 mod show;
 
-use clap::Subcommand;
-use config::{builder::DefaultState, ConfigBuilder};
-
-use mithril_common::StdError;
-
 pub use download::*;
 pub use list::*;
 pub use show::*;
+
+use clap::Subcommand;
+use config::{builder::DefaultState, ConfigBuilder};
+use mithril_common::StdResult;
 
 /// Snapshot management
 #[derive(Subcommand, Debug, Clone)]
@@ -30,10 +29,7 @@ pub enum SnapshotCommands {
 
 impl SnapshotCommands {
     /// Execute snapshot command
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), StdError> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,

@@ -1,7 +1,8 @@
 use crate::{
     digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
-    StdError,
+    StdResult,
 };
+use anyhow::Context;
 use slog_scope::info;
 use std::path::Path;
 use tokio::fs;
@@ -38,26 +39,24 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
     }
 
     /// Build a [JsonImmutableFileDigestCacheProvider] based on the parameters previously set.
-    pub async fn build(&self) -> Result<JsonImmutableFileDigestCacheProvider, StdError> {
+    pub async fn build(&self) -> StdResult<JsonImmutableFileDigestCacheProvider> {
         let cache_file = self.cache_dir.join(self.filename);
         let cache_provider = JsonImmutableFileDigestCacheProvider::new(&cache_file);
 
         if self.ensure_dir_exist {
-            fs::create_dir_all(&self.cache_dir).await.map_err(|e| {
+            fs::create_dir_all(&self.cache_dir).await.with_context(|| {
                 format!(
-                    "Failure when creating cache directory `{}`: {}",
+                    "Failure when creating cache directory `{}`",
                     self.cache_dir.display(),
-                    e
                 )
             })?;
         }
 
         if self.reset_digests_cache {
-            cache_provider.reset().await.map_err(|e| {
+            cache_provider.reset().await.with_context(|| {
                 format!(
-                    "Failure when resetting digests cache file `{}`: {}",
+                    "Failure when resetting digests cache file `{}`",
                     cache_file.display(),
-                    e
                 )
             })?;
         }

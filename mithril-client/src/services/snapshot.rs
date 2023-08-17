@@ -1,3 +1,8 @@
+use anyhow::{anyhow, Context};
+use async_trait::async_trait;
+use futures::Future;
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
+use slog_scope::{debug, warn};
 use std::{
     fmt::Write,
     fs::File,
@@ -5,10 +10,9 @@ use std::{
     sync::Arc,
     time::Duration,
 };
+use thiserror::Error;
+use tokio::{select, time::sleep};
 
-use async_trait::async_trait;
-use futures::Future;
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
@@ -17,9 +21,6 @@ use mithril_common::{
     messages::{SnapshotListItemMessage, SnapshotMessage},
     StdError, StdResult,
 };
-use slog_scope::{debug, warn};
-use thiserror::Error;
-use tokio::{select, time::sleep};
 
 use crate::{
     aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient},
@@ -49,14 +50,8 @@ pub enum SnapshotServiceError {
     CouldNotFindCertificate(String),
 
     /// The configuration has invalid or missing parameters
-    #[error("Missing or invalid parameters: {context}. Error: {error}")]
-    InvalidParameters {
-        /// Error context
-        context: String,
-
-        /// Eventual nested error
-        error: StdError,
-    },
+    #[error("Missing or invalid parameters: {0:?}")]
+    InvalidParameters(StdError),
 }
 
 /// ## SnapshotService
@@ -133,10 +128,9 @@ impl MithrilClientSnapshotService {
         certificate: &Certificate,
     ) -> StdResult<()> {
         let genesis_verification_key = key_decode_hex(genesis_verification_key).map_err(|e| {
-            SnapshotServiceError::InvalidParameters {
-                context: format!("Invalid genesis verification key '{genesis_verification_key}'"),
-                error: e.into(),
-            }
+            SnapshotServiceError::InvalidParameters(anyhow!(e).context(format!(
+                "Invalid genesis verification key '{genesis_verification_key}'"
+            )))
         })?;
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
@@ -202,7 +196,7 @@ impl SnapshotService for MithrilClientSnapshotService {
                 Some(error)
                     if matches!(error, &&AggregatorHTTPClientError::RemoteServerLogical(_)) =>
                 {
-                    Box::new(SnapshotServiceError::SnapshotNotFound(digest.to_owned())) as StdError
+                    SnapshotServiceError::SnapshotNotFound(digest.to_owned()).into()
                 }
                 _ => e,
             })?;
@@ -253,12 +247,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             .snapshot_client
             .download(&snapshot_entity.artifact, download_dir, pb)
             .await
-            .map_err(|e| {
-                format!(
-                    "Could not download file in '{}': {e}",
-                    download_dir.display()
-                )
-            })?;
+            .with_context(|| format!("Could not download file in '{}'", download_dir.display()))?;
 
         progress_bar.println("5/7 - Unpacking the snapshot…")?;
         let unpacker = unpacker.unpack_snapshot(&snapshot_path, &db_dir);
@@ -277,7 +266,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             .immutable_digester
             .compute_digest(&db_dir, &certificate.beacon)
             .await
-            .map_err(|e| format!("Could not compute digest in '{}': {e}", db_dir.display()))?;
+            .with_context(|| format!("Could not compute digest in '{}'", db_dir.display()))?;
 
         progress_bar.println("7/7 - Verifying the snapshot signature…")?;
         let expected_message = {

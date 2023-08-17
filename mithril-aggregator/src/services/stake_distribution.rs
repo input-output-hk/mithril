@@ -1,19 +1,19 @@
 //! Stake Pool manager for the Runners
 //!
 
+use async_trait::async_trait;
 use std::{
     fmt::Display,
     sync::{Arc, RwLock},
 };
+use tokio::sync::{Mutex, MutexGuard};
 
-use async_trait::async_trait;
 use mithril_common::{
     chain_observer::ChainObserver,
     entities::{Epoch, StakeDistribution},
     store::StakeStorer,
-    StdError,
+    StdError, StdResult,
 };
-use tokio::sync::{Mutex, MutexGuard};
 
 use crate::database::provider::StakePoolStore;
 
@@ -117,7 +117,7 @@ impl Default for UpdateToken {
 }
 
 impl UpdateToken {
-    pub fn update(&self, epoch: Epoch) -> Result<MutexGuard<()>, StdError> {
+    pub fn update(&self, epoch: Epoch) -> StdResult<MutexGuard<()>> {
         let update_semaphore = self.is_busy.try_lock().map_err(|_| {
             let last_updated_epoch = self.busy_on_epoch.read().unwrap();
 
@@ -203,7 +203,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
         let _mutex = self
             .update_token
             .update(current_epoch)
-            .map_err(|e| StakePoolDistributionServiceError::technical_subsystem(e))?;
+            .map_err(StakePoolDistributionServiceError::technical_subsystem)?;
         let stake_distribution = self
             .chain_observer
             .get_current_stake_distribution()

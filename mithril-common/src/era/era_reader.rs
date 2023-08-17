@@ -1,8 +1,10 @@
-use crate::entities::Epoch;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{error::Error as StdError, str::FromStr, sync::Arc};
+use std::{str::FromStr, sync::Arc};
 use thiserror::Error;
+
+use crate::entities::Epoch;
+use crate::{StdError, StdResult};
 
 use super::{supported_era::UnsupportedEraError, SupportedEra};
 
@@ -30,7 +32,7 @@ impl EraMarker {
 #[async_trait]
 pub trait EraReaderAdapter: Sync + Send {
     /// Read era markers from the underlying adapter.
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn StdError + Sync + Send>>;
+    async fn read(&self) -> StdResult<Vec<EraMarker>>;
 }
 
 /// This is a response from the [EraReader]. It contains [EraMarker]s read from
@@ -106,7 +108,7 @@ pub enum EraReaderError {
         message: String,
 
         /// nested underlying adapter error
-        error: Box<dyn StdError + Sync + Send>,
+        error: StdError,
     },
 
     /// Data returned from the adapter are inconsistent or incomplete.

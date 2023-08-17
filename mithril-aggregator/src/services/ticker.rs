@@ -10,11 +10,9 @@ use mithril_common::{
     chain_observer::ChainObserver,
     digesters::ImmutableFileObserver,
     entities::{Beacon, Epoch},
-    CardanoNetwork, StdError,
+    CardanoNetwork, StdResult,
 };
 use thiserror::Error;
-
-type StdResult<T> = Result<T, StdError>;
 
 #[derive(Debug, Error)]
 enum MithrilTickerError {

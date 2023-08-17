@@ -1,9 +1,10 @@
-use std::ops::Not;
-use std::sync::Arc;
-
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
+use std::ops::Not;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use mithril_common::{
     entities::{Epoch, PartyId, Stake, StakeDistribution},
@@ -12,10 +13,8 @@ use mithril_common::{
         WhereCondition,
     },
     store::{adapter::AdapterError, StakeStorer, StoreError},
+    StdResult,
 };
-
-use mithril_common::StdError;
-use tokio::sync::Mutex;
 
 /// Stake pool as read from Chain.
 #[derive(Debug, PartialEq)]
@@ -88,7 +87,7 @@ impl<'client> StakePoolProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_epoch(&self, epoch: &Epoch) -> Result<WhereCondition, StdError> {
+    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "epoch = ?*",
             vec![Value::Integer(epoch.try_into()?)],
@@ -96,7 +95,7 @@ impl<'client> StakePoolProvider<'client> {
     }
 
     /// Get StakePools for a given Epoch for given pool_ids.
-    pub fn get_by_epoch(&self, epoch: &Epoch) -> Result<EntityCursor<StakePool>, StdError> {
+    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<StakePool>> {
         let filters = self.condition_by_epoch(epoch)?;
         let stake_pool = self.find(filters)?;
 
@@ -150,12 +149,7 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
         )
     }
 
-    fn persist(
-        &self,
-        stake_pool_id: &str,
-        epoch: Epoch,
-        stake: Stake,
-    ) -> Result<StakePool, StdError> {
+    fn persist(&self, stake_pool_id: &str, epoch: Epoch, stake: Stake) -> StdResult<StakePool> {
         let filters = self.get_insert_or_replace_condition(stake_pool_id, epoch, stake);
 
         let entity = self.find(filters)?
@@ -220,7 +214,7 @@ impl<'conn> DeleteStakePoolProvider<'conn> {
     }
 
     /// Prune the stake pools data older than the given epoch.
-    pub fn prune(&self, epoch_threshold: Epoch) -> Result<EntityCursor<StakePool>, StdError> {
+    pub fn prune(&self, epoch_threshold: Epoch) -> StdResult<EntityCursor<StakePool>> {
         let filters = self.get_prune_condition(epoch_threshold);
 
         self.find(filters)
@@ -263,7 +257,10 @@ impl StakeStorer for StakePoolStore {
         for (pool_id, stake) in stakes {
             let stake_pool = provider
                 .persist(&pool_id, epoch, stake)
-                .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+                .with_context(|| {
+                    format!("persist stakes failure, epoch: {epoch}, pool_id: '{pool_id}'")
+                })
+                .map_err(AdapterError::GeneralError)?;
             new_stakes.insert(pool_id.to_string(), stake_pool.stake);
         }
 
@@ -287,7 +284,8 @@ impl StakeStorer for StakePoolStore {
         let provider = StakePoolProvider::new(connection);
         let cursor = provider
             .get_by_epoch(&epoch)
-            .map_err(|e| AdapterError::GeneralError(format!("Could not get stakes: {e}")))?;
+            .with_context(|| format!("get stakes failure, epoch: {epoch}"))
+            .map_err(AdapterError::GeneralError)?;
         let mut stake_distribution = StakeDistribution::new();
 
         for stake_pool in cursor {
@@ -309,7 +307,7 @@ mod tests {
     pub fn setup_stake_db(
         connection: &Connection,
         epoch_to_insert_settings: &[i64],
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
 
         let query = {

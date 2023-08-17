@@ -202,9 +202,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| {
-                Err(Box::new(CertifierServiceError::NotFound(
-                    signed_entity_type,
-                )))
+                Err(CertifierServiceError::NotFound(signed_entity_type).into())
             });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
@@ -237,9 +235,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| {
-                Err(Box::new(CertifierServiceError::AlreadyCertified(
-                    signed_entity_type,
-                )))
+                Err(CertifierServiceError::AlreadyCertified(signed_entity_type).into())
             });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
@@ -270,9 +266,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| {
-                Err(Box::new(ProtocolError::Core(
-                    "an error occurred".to_string(),
-                )))
+                Err(ProtocolError::Core("an error occurred".to_string()).into())
             });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);

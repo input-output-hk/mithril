@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
@@ -15,7 +16,7 @@ use mithril_common::{
         WhereCondition,
     },
     store::{adapter::AdapterError, StoreError},
-    StdError,
+    StdResult,
 };
 
 use crate::VerificationKeyStorer;
@@ -186,14 +187,14 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_signer_id(&self, signer_id: String) -> Result<WhereCondition, StdError> {
+    fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
             vec![Value::String(signer_id)],
         ))
     }
 
-    fn condition_by_epoch(&self, epoch: &Epoch) -> Result<WhereCondition, StdError> {
+    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
         let epoch: i64 = epoch.try_into()?;
 
         Ok(WhereCondition::new(
@@ -207,7 +208,7 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
         &self,
         signer_id: String,
         epoch: &Epoch,
-    ) -> Result<EntityCursor<SignerRegistrationRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
         let filters = self
             .condition_by_signer_id(signer_id)?
             .and_where(self.condition_by_epoch(epoch)?);
@@ -217,10 +218,7 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
     }
 
     /// Get SignerRegistrationRecords for a given Epoch.
-    pub fn get_by_epoch(
-        &self,
-        epoch: &Epoch,
-    ) -> Result<EntityCursor<SignerRegistrationRecord>, StdError> {
+    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
         let filters = self.condition_by_epoch(epoch)?;
         let signer_registration_record = self.find(filters)?;
 
@@ -228,7 +226,7 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
     }
 
     /// Get all SignerRegistrationRecords.
-    pub fn get_all(&self) -> Result<EntityCursor<SignerRegistrationRecord>, StdError> {
+    pub fn get_all(&self) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
         let filters = WhereCondition::default();
         let signer_registration_record = self.find(filters)?;
 
@@ -297,7 +295,7 @@ impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     fn persist(
         &self,
         signer_registration_record: SignerRegistrationRecord,
-    ) -> Result<SignerRegistrationRecord, StdError> {
+    ) -> StdResult<SignerRegistrationRecord> {
         let filters = self.get_insert_or_replace_condition(signer_registration_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -367,7 +365,7 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
     }
 
     /// Delete the epoch setting data given the Epoch
-    pub fn delete(&self, epoch: Epoch) -> Result<EntityCursor<SignerRegistrationRecord>, StdError> {
+    pub fn delete(&self, epoch: Epoch) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
         let filters = self.get_delete_condition_by_epoch(epoch);
 
         self.find(filters)
@@ -384,7 +382,7 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
     pub fn prune(
         &self,
         epoch_threshold: Epoch,
-    ) -> Result<EntityCursor<SignerRegistrationRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
         let filters = self.get_prune_condition(epoch_threshold);
 
         self.find(filters)
@@ -414,14 +412,15 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
         let existing_record = SignerRegistrationRecordProvider::new(connection)
             .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
-            .map_err(|e| AdapterError::QueryError(e))?
+            .map_err(AdapterError::QueryError)?
             .next();
 
         let _updated_record = provider
             .persist(SignerRegistrationRecord::from_signer_with_stake(
                 signer, epoch,
             ))
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| format!("persist verification key failure, epoch: {epoch}"))
+            .map_err(AdapterError::GeneralError)?;
 
         match existing_record {
             None => Ok(None),
@@ -437,7 +436,8 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let provider = SignerRegistrationRecordProvider::new(connection);
         let cursor = provider
             .get_by_epoch(&epoch)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| format!("get verification key failure, epoch: {epoch}"))
+            .map_err(AdapterError::GeneralError)?;
 
         let signer_with_stakes: HashMap<PartyId, Signer> =
             HashMap::from_iter(cursor.map(|record| (record.signer_id.to_owned(), record.into())));
@@ -453,7 +453,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
             // we want to prune including the given epoch (+1)
             .prune(max_epoch_to_prune + 1)
-            .map_err(|e| AdapterError::QueryError(e))?
+            .map_err(AdapterError::QueryError)?
             .collect::<Vec<_>>();
 
         Ok(())
@@ -467,7 +467,8 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let provider = SignerRegistrationRecordProvider::new(connection);
         let cursor = provider
             .get_by_epoch(&epoch)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+            .with_context(|| format!("get stake distribution failure, epoch: {epoch}"))
+            .map_err(AdapterError::GeneralError)?;
 
         let stake_distribution = StakeDistribution::from_iter(
             cursor.map(|r| (r.signer_id, r.stake.unwrap_or_default())),
@@ -494,7 +495,7 @@ mod tests {
     pub fn setup_signer_registration_db(
         connection: &Connection,
         signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)>,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
         disable_foreign_key_support(connection)?;
 

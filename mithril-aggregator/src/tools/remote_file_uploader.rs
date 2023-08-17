@@ -1,13 +1,13 @@
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use cloud_storage::bucket::Entity;
-use cloud_storage::bucket_access_control::Role;
-use cloud_storage::object_access_control::NewObjectAccessControl;
-use cloud_storage::Client;
+use cloud_storage::{
+    bucket::Entity, bucket_access_control::Role, object_access_control::NewObjectAccessControl,
+    Client,
+};
+use mithril_common::StdResult;
 use slog_scope::info;
-use std::env;
-use std::path::Path;
-use tokio_util::codec::BytesCodec;
-use tokio_util::codec::FramedRead;
+use std::{env, path::Path};
+use tokio_util::{codec::BytesCodec, codec::FramedRead};
 
 #[cfg(test)]
 use mockall::automock;
@@ -17,7 +17,7 @@ use mockall::automock;
 #[async_trait]
 pub trait RemoteFileUploader: Sync + Send {
     /// Upload a snapshot
-    async fn upload_file(&self, filepath: &Path) -> Result<(), String>;
+    async fn upload_file(&self, filepath: &Path) -> StdResult<()>;
 }
 
 /// GcpFileUploader represents a Google Cloud Platform file uploader interactor
@@ -34,11 +34,11 @@ impl GcpFileUploader {
 
 #[async_trait]
 impl RemoteFileUploader for GcpFileUploader {
-    async fn upload_file(&self, filepath: &Path) -> Result<(), String> {
+    async fn upload_file(&self, filepath: &Path) -> StdResult<()> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
-            return Err(
-                "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string(),
-            );
+            return Err(anyhow!(
+                "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string()
+            ));
         };
 
         let filename = filepath.file_name().unwrap().to_str().unwrap();
@@ -57,7 +57,7 @@ impl RemoteFileUploader for GcpFileUploader {
                 "application/octet-stream",
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .with_context(|| "remote uploading failure")?;
 
         info!("uploaded {}", filename);
 
@@ -78,7 +78,7 @@ impl RemoteFileUploader for GcpFileUploader {
             .object_access_control()
             .create(&self.bucket, filename, &new_bucket_access_control)
             .await
-            .map_err(|e| e.to_string())?;
+            .with_context(|| "updating acl failure")?;
 
         info!("updated acl for {} ", filename);
 

@@ -1,4 +1,5 @@
 use super::{AdapterError, StoreAdapter};
+use anyhow::anyhow;
 use async_trait::async_trait;
 use std::marker::PhantomData;
 
@@ -38,42 +39,42 @@ where
         _key: &Self::Key,
         _record: &Self::Record,
     ) -> Result<(), AdapterError> {
-        Err(AdapterError::GeneralError(
-            "Fail adapter always fails".to_string(),
-        ))
+        Err(AdapterError::GeneralError(anyhow!(
+            "Fail adapter always fails"
+        )))
     }
 
     async fn get_record(&self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        Err(AdapterError::GeneralError(
-            "Fail adapter always fails".to_string(),
-        ))
+        Err(AdapterError::GeneralError(anyhow!(
+            "Fail adapter always fails"
+        )))
     }
 
     async fn record_exists(&self, _key: &Self::Key) -> Result<bool, AdapterError> {
-        Err(AdapterError::GeneralError(
-            "Fail adapter always fails".to_string(),
-        ))
+        Err(AdapterError::GeneralError(anyhow!(
+            "Fail adapter always fails"
+        )))
     }
 
     async fn get_last_n_records(
         &self,
         _how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        Err(AdapterError::GeneralError(
-            "Fail adapter always fails".to_string(),
-        ))
+        Err(AdapterError::GeneralError(anyhow!(
+            "Fail adapter always fails"
+        )))
     }
 
     async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        Err(AdapterError::GeneralError(
-            "Fail adapter always fails".to_string(),
-        ))
+        Err(AdapterError::GeneralError(anyhow!(
+            "Fail adapter always fails"
+        )))
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-        Err(AdapterError::GeneralError(
-            "Fail adapter always fails".to_string(),
-        ))
+        Err(AdapterError::GeneralError(anyhow!(
+            "Fail adapter always fails"
+        )))
     }
 }
 

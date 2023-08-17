@@ -1,13 +1,13 @@
-use std::error::Error;
-
+use anyhow::anyhow;
 use mithril_common::{
     chain_observer::{TxDatumBuilder, TxDatumFieldValue},
     crypto_helper::{key_encode_hex, EraMarkersSigner},
     entities::Epoch,
     era::{adapters::EraMarkersPayloadCardanoChain, EraMarker, SupportedEra},
+    StdResult,
 };
 
-type EraToolsResult<R> = Result<R, Box<dyn Error>>;
+type EraToolsResult<R> = StdResult<R>;
 
 pub struct EraTools {}
 
@@ -31,7 +31,9 @@ impl EraTools {
         if maybe_next_era_epoch.is_some()
             && maybe_next_era_epoch.unwrap_or_default() <= current_era_epoch
         {
-            Err("next era epoch must be strictly greater than the current era epoch".to_string())?;
+            Err(anyhow!(
+                "next era epoch must be strictly greater than the current era epoch"
+            ))?;
         }
 
         let mut era_markers = Vec::new();
@@ -39,7 +41,7 @@ impl EraTools {
             let era_marker = match index {
                 0 => EraMarker::new(&era.to_string(), Some(current_era_epoch)),
                 1 => EraMarker::new(&era.to_string(), maybe_next_era_epoch),
-                _ => Err("too many eras retrieved, can't generate tx datum".to_string())?,
+                _ => Err(anyhow!("too many eras retrieved, can't generate tx datum"))?,
             };
             era_markers.push(era_marker);
         }
@@ -51,8 +53,9 @@ impl EraTools {
 
         let tx_datum = TxDatumBuilder::new()
             .add_field(TxDatumFieldValue::Bytes(
-                key_encode_hex(era_markers_payload)
-                    .map_err(|e| format!("era markerspayload could not be hex encoded: {e}"))?,
+                key_encode_hex(era_markers_payload).map_err(|e| {
+                    anyhow!(e).context("era markerspayload could not be hex encoded")
+                })?,
             ))
             .build()?;
         Ok(tx_datum.0)

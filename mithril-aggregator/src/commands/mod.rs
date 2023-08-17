@@ -5,9 +5,10 @@ mod tools_command;
 
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_common::StdResult;
 use slog::Level;
 use slog_scope::debug;
-use std::{error::Error, path::PathBuf};
+use std::path::PathBuf;
 
 use crate::DefaultConfiguration;
 
@@ -21,10 +22,7 @@ pub enum MainCommand {
 }
 
 impl MainCommand {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::Genesis(cmd) => cmd.execute(config_builder).await,
             Self::Era(cmd) => cmd.execute(config_builder).await,
@@ -84,7 +82,7 @@ impl Source for MainOpts {
 
 impl MainOpts {
     /// execute command
-    pub async fn execute(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self) -> StdResult<()> {
         let config_file_path = self
             .config_directory
             .join(format!("{}.json", self.run_mode));

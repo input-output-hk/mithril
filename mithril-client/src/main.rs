@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 use config::builder::DefaultState;
 use config::{ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_client::commands::mithril_stake_distribution::MithrilStakeDistributionCommands;
-use mithril_common::StdError;
+use mithril_common::StdResult;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::path::PathBuf;
@@ -43,7 +43,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn execute(&self) -> Result<(), StdError> {
+    pub async fn execute(&self) -> StdResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
         debug!("Reading configuration file '{}'.", filename);
@@ -105,10 +105,7 @@ enum ArtifactCommands {
 }
 
 impl ArtifactCommands {
-    pub async fn execute(
-        &self,
-        config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), StdError> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
@@ -117,7 +114,7 @@ impl ArtifactCommands {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> StdResult<()> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger());
@@ -125,7 +122,5 @@ async fn main() -> Result<(), String> {
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();
 
-    args.execute()
-        .await
-        .map_err(|e| format!("An error occured: {e}"))
+    args.execute().await
 }

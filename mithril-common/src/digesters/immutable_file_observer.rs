@@ -1,7 +1,7 @@
 use crate::digesters::{ImmutableFile, ImmutableFileListingError};
 use crate::entities::ImmutableFileNumber;
+use crate::StdResult;
 use async_trait::async_trait;
-use std::error::Error;
 use std::ops::Add;
 use std::path::PathBuf;
 use thiserror::Error;
@@ -87,8 +87,9 @@ impl DumbImmutableFileObserver {
         self
     }
 
-    /// Increase by one the stored [immutable file number][DumbImmutableFileObserver::shall_return].
-    pub async fn increase(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
+    /// Increase by one the stored [immutable file number][DumbImmutableFileObserver::shall_return],
+    /// return the updated value.
+    pub async fn increase(&self) -> StdResult<u64> {
         let new_number = self
             .shall_return
             .read()

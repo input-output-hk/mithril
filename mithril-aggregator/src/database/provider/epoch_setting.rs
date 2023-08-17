@@ -1,7 +1,8 @@
-use std::sync::Arc;
-
+use anyhow::Context;
 use async_trait::async_trait;
 use sqlite::{Connection, Value};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use mithril_common::{
     entities::{Epoch, ProtocolParameters},
@@ -10,12 +11,10 @@ use mithril_common::{
         WhereCondition,
     },
     store::{adapter::AdapterError, StoreError},
+    StdResult,
 };
 
 use crate::ProtocolParametersStorer;
-
-use mithril_common::StdError;
-use tokio::sync::Mutex;
 
 /// Settings for an epoch, including the protocol parameters.
 #[derive(Debug, PartialEq)]
@@ -81,7 +80,7 @@ impl<'client> EpochSettingProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_epoch(&self, epoch: &Epoch) -> Result<WhereCondition, StdError> {
+    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
         let epoch_setting_id: i64 = epoch.try_into()?;
 
         Ok(WhereCondition::new(
@@ -91,10 +90,7 @@ impl<'client> EpochSettingProvider<'client> {
     }
 
     /// Get EpochSettingRecords for a given Epoch for given pool_ids.
-    pub fn get_by_epoch(
-        &self,
-        epoch: &Epoch,
-    ) -> Result<EntityCursor<EpochSettingRecord>, StdError> {
+    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
         let filters = self.condition_by_epoch(epoch)?;
         let epoch_setting_record = self.find(filters)?;
 
@@ -102,7 +98,7 @@ impl<'client> EpochSettingProvider<'client> {
     }
 
     /// Get all EpochSettingRecords.
-    pub fn get_all(&self) -> Result<EntityCursor<EpochSettingRecord>, StdError> {
+    pub fn get_all(&self) -> StdResult<EntityCursor<EpochSettingRecord>> {
         let filters = WhereCondition::default();
         let epoch_setting_record = self.find(filters)?;
 
@@ -155,7 +151,7 @@ impl<'conn> UpdateEpochSettingProvider<'conn> {
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
-    ) -> Result<EpochSettingRecord, StdError> {
+    ) -> StdResult<EpochSettingRecord> {
         let filters = self.get_update_condition(epoch, protocol_parameters);
 
         let entity = self
@@ -220,7 +216,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
     }
 
     /// Delete the epoch setting data given the Epoch
-    pub fn delete(&self, epoch: Epoch) -> Result<EntityCursor<EpochSettingRecord>, StdError> {
+    pub fn delete(&self, epoch: Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
         let filters = self.get_delete_condition_by_epoch(epoch);
 
         self.find(filters)
@@ -234,10 +230,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
     }
 
     /// Prune the epoch setting data older than the given epoch.
-    pub fn prune(
-        &self,
-        epoch_threshold: Epoch,
-    ) -> Result<EntityCursor<EpochSettingRecord>, StdError> {
+    pub fn prune(&self, epoch_threshold: Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
         let filters = self.get_prune_condition(epoch_threshold);
 
         self.find(filters)
@@ -274,11 +267,12 @@ impl ProtocolParametersStorer for EpochSettingStore {
         let provider = UpdateEpochSettingProvider::new(connection);
         connection
             .execute("begin transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
+            .with_context(|| "could not begin transaction to update protocol parameters")
+            .map_err(AdapterError::QueryError)?;
 
-        let epoch_setting_record = provider
-            .persist(epoch, protocol_parameters)
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let epoch_setting_record = provider.persist(epoch, protocol_parameters).map_err(|e| {
+            AdapterError::GeneralError(e.context("persist protocol parameters failure"))
+        })?;
 
         // Prune useless old epoch settings.
         if let Some(threshold) = self.retention_limit {
@@ -303,7 +297,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
         let provider = EpochSettingProvider::new(connection);
         let mut cursor = provider
             .get_by_epoch(&epoch)
-            .map_err(|e| AdapterError::GeneralError(format!("Could not get epoch setting: {e}")))?;
+            .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;
 
         if let Some(epoch_setting_record) = cursor.next() {
             return Ok(Some(epoch_setting_record.protocol_parameters));
@@ -322,7 +316,7 @@ mod tests {
     pub fn setup_epoch_setting_db(
         connection: &Connection,
         epoch_to_insert_settings: &[u64],
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
 
         let query = {

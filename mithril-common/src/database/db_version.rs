@@ -1,15 +1,15 @@
+use anyhow::anyhow;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use sqlite::{Connection, Row, Value};
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
 };
 
-use chrono::{DateTime, NaiveDateTime, Utc};
-use sqlite::{Connection, Row, Value};
-
-use crate::sqlite::{
-    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+use crate::{
+    sqlite::{HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition},
+    StdResult,
 };
-use crate::StdError;
 
 use super::DbVersion;
 
@@ -25,11 +25,11 @@ pub enum ApplicationNodeType {
 
 impl ApplicationNodeType {
     /// [ApplicationNodeType] constructor.
-    pub fn new(node_type: &str) -> Result<Self, StdError> {
+    pub fn new(node_type: &str) -> StdResult<Self> {
         match node_type {
             "aggregator" => Ok(Self::Aggregator),
             "signer" => Ok(Self::Signer),
-            _ => Err(format!("unknown node type '{node_type}'").into()),
+            _ => Err(anyhow!("unknown node type '{node_type}'")),
         }
     }
 }
@@ -121,7 +121,7 @@ impl<'conn> DatabaseVersionProvider<'conn> {
     pub fn create_table_if_not_exists(
         &self,
         application_type: &ApplicationNodeType,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         let connection = self.get_connection();
         let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
         let table_exists = connection
@@ -148,7 +148,7 @@ insert into db_version (application_type, version, updated_at) values ('{applica
     pub fn get_application_version(
         &self,
         application_type: &ApplicationNodeType,
-    ) -> Result<Option<DatabaseVersion>, StdError> {
+    ) -> StdResult<Option<DatabaseVersion>> {
         let filters = WhereCondition::new(
             "application_type = ?*",
             vec![Value::String(format!("{application_type}"))],
@@ -193,7 +193,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
     }
 
     /// Persist the given entity and return the projection of the saved entity.
-    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, StdError> {
+    pub fn save(&self, version: DatabaseVersion) -> StdResult<DatabaseVersion> {
         let filters = WhereCondition::new(
             "",
             vec![
@@ -205,7 +205,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
         let entity = self
             .find(filters)?
             .next()
-            .ok_or("No data returned after insertion")?;
+            .ok_or(anyhow!("No data returned after insertion"))?;
 
         Ok(entity)
     }

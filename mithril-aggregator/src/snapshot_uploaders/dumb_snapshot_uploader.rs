@@ -1,5 +1,7 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
-use std::{error::Error, path::Path, sync::RwLock};
+use mithril_common::StdResult;
+use std::{path::Path, sync::RwLock};
 
 use super::{SnapshotLocation, SnapshotUploader};
 
@@ -20,11 +22,11 @@ impl DumbSnapshotUploader {
     }
 
     /// Return the last upload that was triggered.
-    pub fn get_last_upload(&self) -> Result<Option<String>, Box<dyn Error + Sync + Send>> {
+    pub fn get_last_upload(&self) -> StdResult<Option<String>> {
         let value = self
             .last_uploaded
             .read()
-            .map_err(|e| format!("Error while saving filepath location: {e}"))?;
+            .map_err(|e| anyhow!("Error while saving filepath location: {e}"))?;
 
         Ok(value.as_ref().map(|v| v.to_string()))
     }
@@ -39,11 +41,11 @@ impl Default for DumbSnapshotUploader {
 #[async_trait]
 impl SnapshotUploader for DumbSnapshotUploader {
     /// Upload a snapshot
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> Result<SnapshotLocation, String> {
+    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
         let mut value = self
             .last_uploaded
             .write()
-            .map_err(|e| format!("Error while saving filepath location: {e}"))?;
+            .map_err(|e| anyhow!("Error while saving filepath location: {e}"))?;
 
         let location = snapshot_filepath.to_string_lossy().to_string();
         *value = Some(location.clone());

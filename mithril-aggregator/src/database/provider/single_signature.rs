@@ -151,10 +151,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_open_message_id(
-        &self,
-        open_message_id: &Uuid,
-    ) -> Result<WhereCondition, StdError> {
+    fn condition_by_open_message_id(&self, open_message_id: &Uuid) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "open_message_id = ?*",
             vec![Value::String(open_message_id.to_string())],
@@ -162,7 +159,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
     }
 
     #[allow(dead_code)] // todo: Should we keep this ?
-    fn condition_by_signer_id(&self, signer_id: String) -> Result<WhereCondition, StdError> {
+    fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
             vec![Value::String(signer_id)],
@@ -173,7 +170,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
     fn condition_by_registration_epoch(
         &self,
         registration_epoch: &Epoch,
-    ) -> Result<WhereCondition, StdError> {
+    ) -> StdResult<WhereCondition> {
         let epoch: i64 = registration_epoch.try_into()?;
 
         Ok(WhereCondition::new(
@@ -186,7 +183,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
     pub fn get_by_open_message_id(
         &self,
         open_message_id: &Uuid,
-    ) -> Result<EntityCursor<SingleSignatureRecord>, StdError> {
+    ) -> StdResult<EntityCursor<SingleSignatureRecord>> {
         let filters = self.condition_by_open_message_id(open_message_id)?;
         let single_signature_record = self.find(filters)?;
 
@@ -194,7 +191,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
     }
 
     /// Get all SingleSignatureRecords.
-    pub fn get_all(&self) -> Result<EntityCursor<SingleSignatureRecord>, StdError> {
+    pub fn get_all(&self) -> StdResult<EntityCursor<SingleSignatureRecord>> {
         let filters = WhereCondition::default();
         let single_signature_record = self.find(filters)?;
 
@@ -249,7 +246,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
     fn persist(
         &self,
         single_signature_record: SingleSignatureRecord,
-    ) -> Result<SingleSignatureRecord, StdError> {
+    ) -> StdResult<SingleSignatureRecord> {
         let filters = self.get_update_condition(&single_signature_record);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -297,7 +294,7 @@ impl SingleSignatureRepository {
         &self,
         single_signature: &SingleSignatures,
         open_message: &OpenMessageRecord,
-    ) -> Result<SingleSignatureRecord, StdError> {
+    ) -> StdResult<SingleSignatureRecord> {
         let connection = self.connection.lock().await;
         let single_signature = SingleSignatureRecord::try_from_single_signatures(
             single_signature,

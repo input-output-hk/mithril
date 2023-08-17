@@ -33,7 +33,7 @@ impl Display for DependenciesBuilderError {
         match self {
             Self::Initialization { message, error } => {
                 if let Some(nested) = error {
-                    write!(f, "Dependency initialization error: «{message}» with additional nested error: '{nested}'.")
+                    write!(f, "Dependency initialization error: «{message}» with additional nested error: '{nested:?}'.")
                 } else {
                     write!(f, "Dependency initialization error: «{message}».")
                 }

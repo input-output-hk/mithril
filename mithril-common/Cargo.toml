@@ -32,7 +32,6 @@ kes-summed-ed25519 = { version = "0.2.0", features = [
     "serde_enabled",
     "sk_clone_enabled",
 ] }
-lazy_static = "1.4.0"
 mockall = "0.11.0"
 nom = "7.1"
 rand-chacha-dalek-compat = { package = "rand_chacha", version = "0.2" }

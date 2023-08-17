@@ -1,6 +1,7 @@
-use std::{error::Error as StdError, fmt::Display};
+use std::fmt::Display;
 
 use mithril_common::entities::EpochError;
+use mithril_common::StdError;
 
 use crate::RunnerError;
 
@@ -15,7 +16,7 @@ pub enum RuntimeError {
         message: String,
 
         /// Eventual previous error message
-        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+        nested_error: Option<StdError>,
     },
     /// Critical error means the runtime will exit and the software will return
     /// an error code.
@@ -24,7 +25,7 @@ pub enum RuntimeError {
         message: String,
 
         /// Eventual previous error message
-        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+        nested_error: Option<StdError>,
     },
 }
 
@@ -41,7 +42,7 @@ impl RuntimeError {
     }
 }
 
-impl StdError for RuntimeError {}
+impl std::error::Error for RuntimeError {}
 
 impl Display for RuntimeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -51,7 +52,7 @@ impl Display for RuntimeError {
                 nested_error,
             } => {
                 let nested = if let Some(error) = nested_error {
-                    format!("nested error = {error}")
+                    format!("nested error = {error:?}")
                 } else {
                     String::new()
                 };
@@ -65,7 +66,7 @@ impl Display for RuntimeError {
                 nested_error,
             } => {
                 let nested = if let Some(error) = nested_error {
-                    format!("nested error = {error}")
+                    format!("nested error = {error:?}")
                 } else {
                     String::new()
                 };

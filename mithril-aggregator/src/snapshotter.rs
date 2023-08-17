@@ -2,7 +2,6 @@ use flate2::Compression;
 use flate2::{read::GzDecoder, write::GzEncoder};
 use mithril_common::StdResult;
 use slog_scope::{info, warn};
-use std::error::Error as StdError;
 use std::fs::File;
 use std::io::{self, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -189,9 +188,7 @@ impl DumbSnapshotter {
     }
 
     /// Return the last fake snapshot produced.
-    pub fn get_last_snapshot(
-        &self,
-    ) -> Result<Option<OngoingSnapshot>, Box<dyn StdError + Sync + Send>> {
+    pub fn get_last_snapshot(&self) -> StdResult<Option<OngoingSnapshot>> {
         let value = self
             .last_snapshot
             .read()
@@ -285,7 +282,7 @@ mod tests {
 
         std::fs::create_dir_all(&pending_snapshot_directory).unwrap();
 
-        std::fs::File::create(pending_snapshot_directory.join("whatever.txt")).unwrap();
+        File::create(pending_snapshot_directory.join("whatever.txt")).unwrap();
 
         Arc::new(GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap());
 
@@ -310,7 +307,7 @@ mod tests {
         );
 
         // this file should not be deleted by the archive creation
-        std::fs::File::create(pending_snapshot_directory.join("other-process.file")).unwrap();
+        File::create(pending_snapshot_directory.join("other-process.file")).unwrap();
 
         let _ = snapshotter
             .snapshot("whatever.tar.gz")

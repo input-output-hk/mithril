@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use bech32::{self, ToBase32, Variant};
 use hex::FromHex;
@@ -157,12 +158,11 @@ impl CliRunner for CardanoCliRunner {
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
-            Err(format!(
+            Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_utxo(address, out_file),
                 message
-            )
-            .into())
+            ))
         }
     }
 
@@ -174,12 +174,11 @@ impl CliRunner for CardanoCliRunner {
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
-            Err(format!(
+            Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_stake_distribution(),
                 message
-            )
-            .into())
+            ))
         }
     }
 
@@ -194,12 +193,11 @@ impl CliRunner for CardanoCliRunner {
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
-            Err(format!(
+            Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_stake_snapshot(stake_pool_id),
                 message
-            )
-            .into())
+            ))
         }
     }
 
@@ -211,12 +209,11 @@ impl CliRunner for CardanoCliRunner {
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
-            Err(format!(
+            Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_stake_snapshot_all_pools(),
                 message
-            )
-            .into())
+            ))
         }
     }
 
@@ -228,12 +225,11 @@ impl CliRunner for CardanoCliRunner {
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
-            Err(format!(
+            Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_epoch(),
                 message
-            )
-            .into())
+            ))
         }
     }
 
@@ -245,12 +241,11 @@ impl CliRunner for CardanoCliRunner {
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 
-            Err(format!(
+            Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_kes_period(opcert_file),
                 message
-            )
-            .into())
+            ))
         }
     }
 }
@@ -282,22 +277,18 @@ impl CardanoCliChainObserver {
             .await
             .map_err(ChainObserverError::General)?;
         let stake_pool_snapshot: Value = serde_json::from_str(&stake_pool_snapshot_output)
-            .map_err(|e| {
-                ChainObserverError::InvalidContent(
-                    format!("Error: {e:?}, output was = '{stake_pool_snapshot_output}'").into(),
-                )
-            })?;
+            .with_context(|| format!("output was = '{stake_pool_snapshot_output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
         if let Value::Number(stake_pool_stake) = &stake_pool_snapshot["poolStakeMark"] {
             return stake_pool_stake.as_u64().ok_or_else(|| {
-                ChainObserverError::InvalidContent(
-                    format!("Error: could not parse stake pool value as u64 {stake_pool_stake:?}")
-                        .into(),
-                )
+                ChainObserverError::InvalidContent(anyhow!(
+                    "Error: could not parse stake pool value as u64 {stake_pool_stake:?}"
+                ))
             });
         }
-        Err(ChainObserverError::InvalidContent(
-            format!("Error: could not parse stake pool snapshot {stake_pool_snapshot:?}").into(),
-        ))
+        Err(ChainObserverError::InvalidContent(anyhow!(
+            "Error: could not parse stake pool snapshot {stake_pool_snapshot:?}"
+        )))
     }
 
     // This is the legacy way of computing stake distribution, not optimized for mainnet, and usable for versions of the Cardano node up to '1.35.7'
@@ -331,9 +322,10 @@ impl CardanoCliChainObserver {
                     let _ = stake_distribution.insert(stake_pool_id.to_string(), stake);
                 }
             } else {
-                return Err(ChainObserverError::InvalidContent(
-                    format!("could not parse stake from '{}'", words[1]).into(),
-                ));
+                return Err(ChainObserverError::InvalidContent(anyhow!(
+                    "could not parse stake from '{}'",
+                    words[1]
+                )));
             }
         }
 
@@ -355,13 +347,13 @@ impl CardanoCliChainObserver {
             serde_json::from_str(&output).map_err(|e| ChainObserverError::General(e.into()))?;
         let pools_data = data
             .get("pools")
-            .ok_or(ChainObserverError::InvalidContent(
-                "Missing 'pools' field".to_string().into(),
-            ))?
+            .ok_or(ChainObserverError::InvalidContent(anyhow!(
+                "Missing 'pools' field"
+            )))?
             .as_object()
-            .ok_or(ChainObserverError::InvalidContent(
-                "Could not convert pool data to object".to_string().into(),
-            ))?;
+            .ok_or(ChainObserverError::InvalidContent(anyhow!(
+                "Could not convert pool data to object"
+            )))?;
 
         for (k, v) in pools_data.iter() {
             let pool_id_hex = k;
@@ -375,13 +367,13 @@ impl CardanoCliChainObserver {
             .map_err(|e| ChainObserverError::General(e.into()))?;
             let stakes = v
                 .get("stakeMark")
-                .ok_or(ChainObserverError::InvalidContent(
-                    format!("Missing 'stakeMark' field for {pool_id_bech32}").into(),
-                ))?
+                .ok_or(ChainObserverError::InvalidContent(anyhow!(
+                    "Missing 'stakeMark' field for {pool_id_bech32}"
+                )))?
                 .as_u64()
-                .ok_or(ChainObserverError::InvalidContent(
-                    format!("Stake could not be converted to integer for {pool_id_bech32}").into(),
-                ))?;
+                .ok_or(ChainObserverError::InvalidContent(anyhow!(
+                    "Stake could not be converted to integer for {pool_id_bech32}"
+                )))?;
             if stakes > 0 {
                 stake_distribution.insert(pool_id_bech32, stakes);
             }
@@ -399,11 +391,9 @@ impl ChainObserver for CardanoCliChainObserver {
             .launch_epoch()
             .await
             .map_err(ChainObserverError::General)?;
-        let v: Value = serde_json::from_str(&output).map_err(|e| {
-            ChainObserverError::InvalidContent(
-                format!("Error: {e:?}, output was = '{output}'").into(),
-            )
-        })?;
+        let v: Value = serde_json::from_str(&output)
+            .with_context(|| format!("output was = '{output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
 
         if let Value::Number(epoch) = &v["epoch"] {
             Ok(epoch.as_u64().map(Epoch))
@@ -421,11 +411,9 @@ impl ChainObserver for CardanoCliChainObserver {
             .launch_utxo(address)
             .await
             .map_err(ChainObserverError::General)?;
-        let v: HashMap<String, Value> = serde_json::from_str(&output).map_err(|e| {
-            ChainObserverError::InvalidContent(
-                format!("Error: {e:?}, output was = '{output}'").into(),
-            )
-        })?;
+        let v: HashMap<String, Value> = serde_json::from_str(&output)
+            .with_context(|| format!("output was = '{output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
 
         Ok(v.values()
             .filter_map(|v| {
@@ -451,12 +439,12 @@ impl ChainObserver for CardanoCliChainObserver {
         opcert: &OpCert,
     ) -> Result<Option<KESPeriod>, ChainObserverError> {
         let dir = std::env::temp_dir().join("mithril_kes_period");
-        fs::create_dir_all(&dir).map_err(|e| ChainObserverError::General(Box::new(e)))?;
+        fs::create_dir_all(&dir).map_err(|e| ChainObserverError::General(e.into()))?;
         let opcert_file =
             std::env::temp_dir().join(format!("opcert_kes_period-{}", opcert.compute_hash()));
         opcert
             .to_file(&opcert_file)
-            .map_err(|e| ChainObserverError::General(Box::new(e)))?;
+            .map_err(|e| ChainObserverError::General(e.into()))?;
         let output = self
             .cli_runner
             .launch_kes_period(opcert_file.to_str().unwrap())
@@ -464,11 +452,9 @@ impl ChainObserver for CardanoCliChainObserver {
             .map_err(ChainObserverError::General)?;
         let first_left_curly_bracket_index = output.find('{').unwrap_or_default();
         let output_cleaned = output.split_at(first_left_curly_bracket_index).1;
-        let v: Value = serde_json::from_str(output_cleaned).map_err(|e| {
-            ChainObserverError::InvalidContent(
-                format!("Error: {e:?}, output was = '{output}'").into(),
-            )
-        })?;
+        let v: Value = serde_json::from_str(output_cleaned)
+            .with_context(|| format!("output was = '{output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
 
         if let Value::Number(kes_period) = &v["qKesCurrentKesPeriod"] {
             Ok(kes_period.as_u64().map(|p| p as KESPeriod))
@@ -622,10 +608,9 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
 }
             "#;
             if self.is_legacy {
-                Err(
+                Err(anyhow!(
                     "launch_stake_snapshot_all_pools is not implemented in legacy cli runner"
-                        .into(),
-                )
+                ))
             } else {
                 Ok(output.to_string())
             }

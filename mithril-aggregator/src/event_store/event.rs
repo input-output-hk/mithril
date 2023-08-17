@@ -1,13 +1,13 @@
+use anyhow::anyhow;
+use chrono::{DateTime, Utc};
+use sqlite::Connection;
+use std::sync::Mutex;
 use std::{collections::HashMap, sync::Arc};
 
-use chrono::{DateTime, Utc};
 use mithril_common::sqlite::{
     HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
-use sqlite::Connection;
-use std::sync::Mutex;
-
-use mithril_common::StdError;
+use mithril_common::StdResult;
 
 /// Event that is sent from a thread to be persisted.
 #[derive(Debug, Clone)]
@@ -154,7 +154,7 @@ impl EventPersister {
         Self { connection }
     }
 
-    fn get_persist_parameters(&self, message: EventMessage) -> Result<WhereCondition, StdError> {
+    fn get_persist_parameters(&self, message: EventMessage) -> StdResult<WhereCondition> {
         let filters = WhereCondition::new(
             "(source, action, content, created_at) values (?*, ?*, ?*, ?*)",
             vec![
@@ -173,18 +173,15 @@ impl EventPersister {
     }
 
     /// Save an EventMessage in the database.
-    pub fn persist(&self, message: EventMessage) -> Result<Event, StdError> {
+    pub fn persist(&self, message: EventMessage) -> StdResult<Event> {
         let connection = &*self.connection.lock().unwrap();
         let provider = EventPersisterProvider::new(connection);
         let log_message = message.clone();
-        let mut rows = provider
-            .find(self.get_persist_parameters(message)?)
-            .map_err(|e| -> StdError { e })?;
+        let mut rows = provider.find(self.get_persist_parameters(message)?)?;
 
-        rows.next().ok_or_else(|| {
-            format!("No record from the database after I saved event message {log_message:?}")
-                .into()
-        })
+        rows.next().ok_or(anyhow!(
+            "No record from the database after I saved event message {log_message:?}"
+        ))
     }
 }
 

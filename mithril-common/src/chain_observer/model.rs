@@ -1,8 +1,11 @@
+use anyhow::anyhow;
 use serde::Serialize;
 use serde_json::Value;
-use std::{collections::HashMap, error::Error as StdError};
+use std::collections::HashMap;
 use strum_macros::{Display, EnumDiscriminants};
 use thiserror::Error;
+
+use crate::{StdError, StdResult};
 
 /// [ChainAddress] represents an on chain address.
 pub type ChainAddress = String;
@@ -11,8 +14,8 @@ pub type ChainAddress = String;
 #[derive(Debug, Error)]
 pub enum TxDatumError {
     /// Error raised when the content could not be parsed.
-    #[error("could not parse tx datum: {0}")]
-    InvalidContent(Box<dyn StdError + Sync + Send>),
+    #[error("could not parse tx datum: {0:?}")]
+    InvalidContent(StdError),
 
     /// Error raised when building the tx datum failed.
     #[error("could not build tx datum: {0}")]
@@ -25,25 +28,22 @@ pub struct TxDatum(pub String);
 
 impl TxDatum {
     /// Retrieves the fields of the datum with given type
-    pub fn get_fields_by_type(
-        &self,
-        type_name: &TxDatumFieldTypeName,
-    ) -> Result<Vec<Value>, Box<dyn StdError>> {
+    pub fn get_fields_by_type(&self, type_name: &TxDatumFieldTypeName) -> StdResult<Vec<Value>> {
         let tx_datum_raw = &self.0;
         // 1- Parse the Utxo raw data to a hashmap
         let v: HashMap<String, Value> = serde_json::from_str(tx_datum_raw).map_err(|e| {
             TxDatumError::InvalidContent(
-                format!("Error: {e:?}, tx datum was = '{tx_datum_raw}'").into(),
+                anyhow!(e).context(format!("tx datum was = '{tx_datum_raw}'")),
             )
         })?;
         // 2- Convert the 'fields' entry to a vec of json objects
         let fields = v.get("fields").ok_or_else(|| {
             TxDatumError::InvalidContent(
-                format!("Error: missing 'fields' entry, tx datum was = '{tx_datum_raw}'").into(),
+                anyhow!("Error: missing 'fields' entry, tx datum was = '{tx_datum_raw}'"),
             )
         })?.as_array().ok_or_else(|| {
             TxDatumError::InvalidContent(
-                format!("Error: 'fields' entry is not correctly structured, tx datum was = '{tx_datum_raw}'").into(),
+                anyhow!("Error: 'fields' entry is not correctly structured, tx datum was = '{tx_datum_raw}'"),
             )
         })?;
         // 3- Filter the vec (keep the ones that match the given type), and retrieve the nth entry of this filtered vec
@@ -59,20 +59,18 @@ impl TxDatum {
         &self,
         type_name: &TxDatumFieldTypeName,
         index: usize,
-    ) -> Result<Value, Box<dyn StdError>> {
+    ) -> StdResult<Value> {
         Ok(self
             .get_fields_by_type(type_name)?
             .get(index)
             .ok_or_else(|| {
-                TxDatumError::InvalidContent(
-                    format!("Error: missing field at index {index}").into(),
-                )
+                TxDatumError::InvalidContent(anyhow!("Error: missing field at index {index}"))
             })?
             .to_owned())
     }
 }
 
-/// [TxDatumFieldValue] represents a fiel value of TxDatum.
+/// [TxDatumFieldValue] represents a field value of TxDatum.
 #[derive(Debug, EnumDiscriminants, Serialize, Display)]
 #[serde(untagged, rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]

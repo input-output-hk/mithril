@@ -10,7 +10,7 @@ use mithril_common::{
     },
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     store::StoreError,
-    StdError,
+    StdResult,
 };
 
 use crate::VerificationKeyStorer;
@@ -113,14 +113,14 @@ pub trait SignerRegistrationRoundOpener: Sync + Send {
 #[async_trait]
 pub trait SignerRecorder: Sync + Send {
     /// Record signer_id
-    async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError>;
+    async fn record_signer_id(&self, signer_id: String) -> StdResult<()>;
 
     /// Record pool ticker by id
     async fn record_signer_pool_ticker(
         &self,
         signer_id: String,
         pool_ticker: Option<String>,
-    ) -> Result<(), StdError>;
+    ) -> StdResult<()>;
 }
 
 /// Implementation of a [SignerRegisterer]
