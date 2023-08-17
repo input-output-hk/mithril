@@ -56,7 +56,9 @@ impl SignerRegistrationRecord {
             epoch_setting_id: epoch,
             verification_key: other.verification_key.to_json_hex().unwrap(),
             verification_key_signature: other.verification_key_signature,
-            operational_certificate: other.operational_certificate,
+            operational_certificate: other
+                .operational_certificate
+                .map(|o| o.to_json_hex().unwrap()),
             kes_period: other.kes_period,
             stake: Some(other.stake),
             created_at: Utc::now(),
@@ -70,7 +72,9 @@ impl From<SignerRegistrationRecord> for Signer {
             party_id: other.signer_id,
             verification_key: other.verification_key.try_into().unwrap(),
             verification_key_signature: other.verification_key_signature,
-            operational_certificate: other.operational_certificate,
+            operational_certificate: other
+                .operational_certificate
+                .map(|o| (o.try_into().unwrap())),
             kes_period: other.kes_period,
         }
     }
@@ -82,7 +86,9 @@ impl From<SignerRegistrationRecord> for SignerWithStake {
             party_id: other.signer_id,
             verification_key: other.verification_key.try_into().unwrap(),
             verification_key_signature: other.verification_key_signature,
-            operational_certificate: other.operational_certificate,
+            operational_certificate: other
+                .operational_certificate
+                .map(|o| (o.try_into().unwrap())),
             kes_period: other.kes_period,
             stake: other.stake.unwrap_or_default(),
         }

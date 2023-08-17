@@ -31,7 +31,9 @@ impl ToCertificatePendingMessageAdapter {
                 verification_key: signer.verification_key.try_into().unwrap(),
                 verification_key_signature: signer.verification_key_signature,
                 kes_period: signer.kes_period,
-                operational_certificate: signer.operational_certificate,
+                operational_certificate: signer
+                    .operational_certificate
+                    .map(|o| o.try_into().unwrap()),
             })
             .collect()
     }
