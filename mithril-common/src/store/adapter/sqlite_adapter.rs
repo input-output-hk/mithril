@@ -5,7 +5,7 @@ use sqlite::{Connection, State, Statement};
 use tokio::sync::Mutex;
 
 use crate::StdError;
-use lazy_static::__Deref;
+use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc, thread::sleep, time::Duration};
 
 use super::{AdapterError, StoreAdapter};
