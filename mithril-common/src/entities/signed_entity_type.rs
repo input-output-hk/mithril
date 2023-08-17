@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumDiscriminants};
 
-use crate::{sqlite::HydrationError, StdError};
+use crate::{sqlite::HydrationError, StdResult};
 
 use super::{Beacon, Epoch};
 
@@ -89,7 +89,7 @@ impl SignedEntityType {
     }
 
     /// Return a JSON serialized value of the internal beacon
-    pub fn get_json_beacon(&self) -> Result<String, StdError> {
+    pub fn get_json_beacon(&self) -> StdResult<String> {
         let value = match self {
             Self::CardanoImmutableFilesFull(value) => serde_json::to_string(value)?,
             Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {

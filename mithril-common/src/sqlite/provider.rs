@@ -1,7 +1,7 @@
 use anyhow::Context;
 use sqlite::Connection;
 
-use crate::StdError;
+use crate::StdResult;
 
 use super::{EntityCursor, SqLiteEntity, WhereCondition};
 
@@ -15,10 +15,7 @@ pub trait Provider<'conn> {
     fn get_connection(&'conn self) -> &'conn Connection;
 
     /// Perform the parametrized definition query.
-    fn find(
-        &'conn self,
-        filters: WhereCondition,
-    ) -> Result<EntityCursor<'conn, Self::Entity>, StdError> {
+    fn find(&'conn self, filters: WhereCondition) -> StdResult<EntityCursor<'conn, Self::Entity>> {
         let (condition, params) = filters.expand();
         let sql = self.get_definition(&condition);
         let cursor = self

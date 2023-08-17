@@ -1,6 +1,6 @@
 use crate::{
     digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
-    StdError,
+    StdResult,
 };
 use anyhow::Context;
 use slog_scope::info;
@@ -39,7 +39,7 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
     }
 
     /// Build a [JsonImmutableFileDigestCacheProvider] based on the parameters previously set.
-    pub async fn build(&self) -> Result<JsonImmutableFileDigestCacheProvider, StdError> {
+    pub async fn build(&self) -> StdResult<JsonImmutableFileDigestCacheProvider> {
         let cache_file = self.cache_dir.join(self.filename);
         let cache_provider = JsonImmutableFileDigestCacheProvider::new(&cache_file);
 

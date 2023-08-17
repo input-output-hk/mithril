@@ -5,12 +5,12 @@ use sqlite::Connection;
 use std::{cmp::Ordering, collections::BTreeSet, ops::Deref, sync::Arc};
 use tokio::sync::Mutex;
 
-use crate::StdError;
-
 use super::{
     ApplicationNodeType, DatabaseVersion, DatabaseVersionProvider, DatabaseVersionUpdater,
     DbVersion,
 };
+
+use crate::StdResult;
 
 /// Struct to perform application version check in the database.
 pub struct DatabaseVersionChecker {
@@ -52,7 +52,7 @@ impl DatabaseVersionChecker {
     }
 
     /// Apply migrations
-    pub async fn apply(&self) -> Result<(), StdError> {
+    pub async fn apply(&self) -> StdResult<()> {
         debug!(&self.logger, "check database version",);
         let lock = self.connection.lock().await;
         let connection = lock.deref();
@@ -104,7 +104,7 @@ impl DatabaseVersionChecker {
         starting_version: &DatabaseVersion,
         updater: &DatabaseVersionUpdater,
         connection: &Connection,
-    ) -> Result<(), StdError> {
+    ) -> StdResult<()> {
         for migration in &self
             .migrations
             .iter()
@@ -166,6 +166,8 @@ impl Eq for SqlMigration {}
 
 #[cfg(test)]
 mod tests {
+    use crate::StdResult;
+    use anyhow::Context;
     use std::path::PathBuf;
 
     use super::*;
@@ -181,7 +183,7 @@ mod tests {
         assert_eq!(db_version, version.version);
     }
 
-    fn create_sqlite_file(name: &str) -> Result<(PathBuf, Connection), StdError> {
+    fn create_sqlite_file(name: &str) -> StdResult<(PathBuf, Connection)> {
         let dirpath = std::env::temp_dir().join("mithril_test_database");
         std::fs::create_dir_all(&dirpath).unwrap();
         let filepath = dirpath.join(name);
@@ -190,7 +192,8 @@ mod tests {
             std::fs::remove_file(filepath.as_path()).unwrap();
         }
 
-        let connection = Connection::open(&filepath).map_err(|e| -> StdError { e.into() })?;
+        let connection =
+            Connection::open(&filepath).with_context(|| "connection to sqlite file failure")?;
 
         Ok((filepath, connection))
     }
