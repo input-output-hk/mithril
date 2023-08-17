@@ -1,33 +1,27 @@
 #![allow(dead_code)]
-use mithril_common::api_version::APIVersionProvider;
-use mithril_common::digesters::ImmutableFileObserver;
-use mithril_common::entities::SignerWithStake;
-use mithril_common::era::{
-    adapters::{EraReaderAdapterType, EraReaderDummyAdapter},
-    EraChecker, EraReader,
-};
-use mithril_common::era::{EraMarker, SupportedEra};
-use mithril_common::signable_builder::{
-    CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
-    MithrilStakeDistributionSignableBuilder,
-};
-use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;
-use std::error::Error as StdError;
-use std::fmt::Debug;
-use std::path::Path;
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{fmt::Debug, path::Path, path::PathBuf, sync::Arc, time::Duration};
 use thiserror::Error;
 
-use mithril_common::crypto_helper::tests_setup;
 use mithril_common::{
+    api_version::APIVersionProvider,
     chain_observer::FakeObserver,
-    digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-    entities::{Beacon, Epoch},
+    crypto_helper::tests_setup,
+    digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
+    entities::{Beacon, Epoch, SignerWithStake},
+    era::{
+        adapters::{EraReaderAdapterType, EraReaderDummyAdapter},
+        EraChecker, EraMarker, EraReader, SupportedEra,
+    },
+    signable_builder::{
+        CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder,
+    },
     store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
-    BeaconProviderImpl,
+    BeaconProvider, BeaconProviderImpl, StdError,
 };
+
 use mithril_signer::{
     AggregatorClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
@@ -43,7 +37,7 @@ pub enum TestError {
     #[error("Assertion failed: {0}")]
     AssertFailed(String),
     #[error("Subsystem error: {0:?}")]
-    SubsystemError(#[from] Box<dyn StdError + Sync + Send>),
+    SubsystemError(#[from] StdError),
     #[error("Value error: {0}")]
     ValueError(String),
 }

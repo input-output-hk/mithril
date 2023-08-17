@@ -1,9 +1,10 @@
-use anyhow::{anyhow, Context, Result as StdResult};
+use anyhow::{anyhow, Context};
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::any::type_name;
 use std::ops::Deref;
 
 use crate::crypto_helper::{key_decode_hex, key_encode_hex};
+use crate::StdResult;
 
 /// A ProtocolKey is a wrapped that add Serialization capabilities.
 ///

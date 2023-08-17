@@ -1,6 +1,6 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use slog_scope::{debug, info, trace, warn};
-use std::error::Error as StdError;
 use thiserror::Error;
 
 #[cfg(test)]
@@ -15,6 +15,7 @@ use mithril_common::{
         Signer, SignerWithStake, SingleSignatures,
     },
     store::StakeStorer,
+    StdResult,
 };
 
 use crate::{Configuration, MithrilProtocolInitializerBuilder};
@@ -25,36 +26,26 @@ use super::signer_services::SignerServices;
 #[async_trait]
 pub trait Runner {
     /// Fetch the current epoch settings if any.
-    async fn get_epoch_settings(
-        &self,
-    ) -> Result<Option<EpochSettings>, Box<dyn StdError + Sync + Send>>;
+    async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>>;
 
     /// Fetch the current pending certificate if any.
-    async fn get_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>>;
+    async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
     /// Fetch the current beacon from the Cardano node.
-    async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
+    async fn get_current_beacon(&self) -> StdResult<Beacon>;
 
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
         &self,
         epoch: Epoch,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<()>;
 
     /// Read the stake distribution and store it.
-    async fn update_stake_distribution(
-        &self,
-        epoch: Epoch,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Check if all prerequisites for signing are met.
-    async fn can_i_sign(
-        &self,
-        pending_certificate: &CertificatePending,
-    ) -> Result<bool, Box<dyn StdError + Sync + Send>>;
+    async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
 
     /// From a list of signers, associate them with the stake read on the
     /// Cardano node.
@@ -62,14 +53,14 @@ pub trait Runner {
         &self,
         epoch: Epoch,
         signers: &[Signer],
-    ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<Vec<SignerWithStake>>;
 
     /// Create the message to be signed with the single signature.
     async fn compute_message(
         &self,
         signed_entity_type: &SignedEntityType,
         next_signers: &[SignerWithStake],
-    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<ProtocolMessage>;
 
     /// Create the single signature.
     async fn compute_single_signature(
@@ -77,18 +68,17 @@ pub trait Runner {
         epoch: Epoch,
         message: &ProtocolMessage,
         signers: &[SignerWithStake],
-    ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<Option<SingleSignatures>>;
 
     /// Send the single signature to the aggregator in order to be aggregated.
     async fn send_single_signature(
         &self,
         signed_entity_type: &SignedEntityType,
         maybe_signature: Option<SingleSignatures>,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    ) -> StdResult<()>;
 
     /// Read the current era and update the EraChecker.
-    async fn update_era_checker(&self, epoch: Epoch)
-        -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
 }
 
 /// This type represents the errors thrown from the Runner.
@@ -124,9 +114,7 @@ impl SignerRunner {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl Runner for SignerRunner {
-    async fn get_epoch_settings(
-        &self,
-    ) -> Result<Option<EpochSettings>, Box<dyn StdError + Sync + Send>> {
+    async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>> {
         debug!("RUNNER: get_epoch_settings");
 
         self.services
@@ -136,9 +124,7 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>> {
+    async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
         debug!("RUNNER: get_pending_certificate");
 
         self.services
@@ -148,7 +134,7 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>> {
+    async fn get_current_beacon(&self) -> StdResult<Beacon> {
         debug!("RUNNER: get_current_epoch");
 
         self.services
@@ -162,7 +148,7 @@ impl Runner for SignerRunner {
         &self,
         epoch: Epoch,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<()> {
         debug!("RUNNER: register_signer_to_aggregator");
 
         let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
@@ -179,17 +165,24 @@ impl Runner for SignerRunner {
         let stake = stake_distribution
             .get(&self.services.single_signer.get_party_id())
             .ok_or_else(RunnerError::NoStakeForSelf)?;
-        let (operational_certificate, operational_certificate_encoded) =
-            match &self.config.operational_certificate_path {
-                Some(operational_certificate_path) => {
-                    let opcert: OpCert =
-                        OpCert::from_file(operational_certificate_path).map_err(|_| {
-                            RunnerError::FileParse("operational_certificate_path".to_string())
-                        })?;
-                    (Some(opcert.clone()), Some(key_encode_hex(opcert)?))
-                }
-                _ => (None, None),
-            };
+        let (operational_certificate, operational_certificate_encoded) = match &self
+            .config
+            .operational_certificate_path
+        {
+            Some(operational_certificate_path) => {
+                let opcert: OpCert =
+                    OpCert::from_file(operational_certificate_path).map_err(|_| {
+                        RunnerError::FileParse("operational_certificate_path".to_string())
+                    })?;
+                (
+                    Some(opcert.clone()),
+                    Some(key_encode_hex(opcert).map_err(|e| {
+                        anyhow!("Json Hex encoding of Operational certificate failure, error: {e}")
+                    })?),
+                )
+            }
+            _ => (None, None),
+        };
 
         let kes_period = match operational_certificate {
             Some(operational_certificate) => Some(
@@ -210,7 +203,11 @@ impl Runner for SignerRunner {
         )?;
         let verification_key_signature_encoded =
             match protocol_initializer.verification_key_signature() {
-                Some(verification_signature) => Some(key_encode_hex(verification_signature)?),
+                Some(verification_signature) => {
+                    Some(key_encode_hex(verification_signature).map_err(|e| {
+                        anyhow!("Json Hex encoding of signer verification key signature failure, error: {e}")
+                    })?)
+                }
                 _ => None,
             };
         let signer = Signer::new(
@@ -232,10 +229,7 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    async fn update_stake_distribution(
-        &self,
-        epoch: Epoch,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()> {
         debug!("RUNNER: update_stake_distribution");
 
         let exists_stake_distribution = !self
@@ -263,10 +257,7 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    async fn can_i_sign(
-        &self,
-        pending_certificate: &CertificatePending,
-    ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
+    async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool> {
         debug!("RUNNER: can_i_sign");
 
         if let Some(signer) =
@@ -313,7 +304,7 @@ impl Runner for SignerRunner {
         &self,
         epoch: Epoch,
         signers: &[Signer],
-    ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<Vec<SignerWithStake>> {
         debug!("RUNNER: associate_signers_with_stake");
 
         let stakes = self
@@ -350,7 +341,7 @@ impl Runner for SignerRunner {
         &self,
         signed_entity_type: &SignedEntityType,
         next_signers: &[SignerWithStake],
-    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<ProtocolMessage> {
         debug!("RUNNER: compute_message");
 
         // 1 compute the signed entity type part of the message
@@ -389,7 +380,7 @@ impl Runner for SignerRunner {
         epoch: Epoch,
         message: &ProtocolMessage,
         signers: &[SignerWithStake],
-    ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<Option<SingleSignatures>> {
         debug!("RUNNER: compute_single_signature");
 
         let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch()?;
@@ -424,7 +415,7 @@ impl Runner for SignerRunner {
         &self,
         signed_entity_type: &SignedEntityType,
         maybe_signature: Option<SingleSignatures>,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    ) -> StdResult<()> {
         debug!("RUNNER: send_single_signature");
 
         if let Some(single_signatures) = maybe_signature {
@@ -441,10 +432,7 @@ impl Runner for SignerRunner {
         }
     }
 
-    async fn update_era_checker(
-        &self,
-        epoch: Epoch,
-    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+    async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {
         debug!("RUNNER: update_era_checker");
 
         let era_token = self

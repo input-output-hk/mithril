@@ -2,13 +2,12 @@ use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use mithril_common::entities::{HexEncodedGenesisVerificationKey, ProtocolParameters};
-use mithril_common::CardanoNetwork;
+use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::tools::GcpFileUploader;
 use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
@@ -32,7 +31,7 @@ impl FromStr for ExecutionEnvironment {
             "production" => Ok(Self::Production),
             "test" => Ok(Self::Test),
             _ => Err(ConfigError::Message(format!(
-                "Unkown execution environement {s}"
+                "Unknown execution environment {s}"
             ))),
         }
     }
@@ -159,7 +158,7 @@ impl Configuration {
     }
 
     /// Create a snapshot uploader from configuration settings.
-    pub fn build_snapshot_uploader(&self) -> Result<Arc<dyn SnapshotUploader>, Box<dyn Error>> {
+    pub fn build_snapshot_uploader(&self) -> StdResult<Arc<dyn SnapshotUploader>> {
         match self.snapshot_uploader_type {
             SnapshotUploaderType::Gcp => {
                 let bucket = self.snapshot_bucket_name.to_owned().ok_or_else(|| {

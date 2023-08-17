@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
 use crate::entities::Epoch;
-
-use super::super::{EraMarker, EraReaderAdapter, SupportedEra};
+use crate::era::{EraMarker, EraReaderAdapter, SupportedEra};
+use crate::StdResult;
 
 /// The goal of the bootstrap adapter is to advertise for the first existing Era
 /// while it does not exist yet on any backend. This adapter is intended to be
@@ -11,7 +11,7 @@ pub struct BootstrapAdapter;
 
 #[async_trait]
 impl EraReaderAdapter for BootstrapAdapter {
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn std::error::Error + Sync + Send>> {
+    async fn read(&self) -> StdResult<Vec<EraMarker>> {
         Ok(vec![EraMarker::new(
             &SupportedEra::eras().first().unwrap().to_string(),
             Some(Epoch(1)),

@@ -6,38 +6,36 @@ use crate::{
     },
     entities::HexEncodedEraMarkersSignature,
     era::{EraMarker, EraReaderAdapter},
+    StdError, StdResult,
 };
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
-use std::error::Error as StdError;
 use std::sync::Arc;
 use thiserror::Error;
-
-type GeneralError = Box<dyn StdError + Sync + Send>;
 
 /// [EraMarkersPayload] related errors.
 #[derive(Debug, Error)]
 pub enum EraMarkersPayloadError {
     /// Error raised when the message serialization fails
-    #[error("could not serialize message: {0}")]
-    SerializeMessage(GeneralError),
+    #[error("could not serialize message: {0:?}")]
+    SerializeMessage(StdError),
 
     /// Error raised when the signature deserialization fails
-    #[error("could not deserialize signature: {0}")]
-    DeserializeSignature(GeneralError),
+    #[error("could not deserialize signature: {0:?}")]
+    DeserializeSignature(StdError),
 
     /// Error raised when the signature is missing
     #[error("could not verify signature: signature is missing")]
     MissingSignature,
 
     /// Error raised when the signature is invalid
-    #[error("could not verify signature: {0}")]
-    VerifySignature(GeneralError),
+    #[error("could not verify signature: {0:?}")]
+    VerifySignature(StdError),
 
     /// Error raised when the signing the markers
-    #[error("could not create signature: {0}")]
-    CreateSignature(GeneralError),
+    #[error("could not create signature: {0:?}")]
+    CreateSignature(StdError),
 }
 
 /// Era markers payload
@@ -121,7 +119,7 @@ impl CardanoChainAdapter {
 
 #[async_trait]
 impl EraReaderAdapter for CardanoChainAdapter {
-    async fn read(&self) -> Result<Vec<EraMarker>, GeneralError> {
+    async fn read(&self) -> StdResult<Vec<EraMarker>> {
         let tx_datums = self
             .chain_observer
             .get_current_datums(&self.address)

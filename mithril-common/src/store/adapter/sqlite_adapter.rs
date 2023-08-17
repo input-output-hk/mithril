@@ -1,12 +1,11 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use sqlite::{Connection, State, Statement};
-use tokio::sync::Mutex;
-
-use crate::StdError;
 use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc, thread::sleep, time::Duration};
+use tokio::sync::Mutex;
 
 use super::{AdapterError, StoreAdapter};
 
@@ -88,7 +87,7 @@ where
     fn serialize_key(&self, key: &K) -> Result<String> {
         serde_json::to_string(&key).map_err(|e| {
             AdapterError::GeneralError(
-                StdError::new(e).context("SQLite adapter: Serde error while serializing store key"),
+                anyhow!(e).context("SQLite adapter: Serde error while serializing store key"),
             )
         })
     }
@@ -161,7 +160,7 @@ where
         );
         let value = serde_json::to_string(record).map_err(|e| {
             AdapterError::GeneralError(
-                StdError::new(e)
+                anyhow!(e)
                     .context("SQLite adapter error: could not serialize value before insertion"),
             )
         })?;
@@ -209,7 +208,7 @@ where
             .read::<i64, _>(0)
             .map_err(|e| {
                 AdapterError::GeneralError(
-                    StdError::new(e).context("There should be a result in this case !"),
+                    anyhow!(e).context("There should be a result in this case !"),
                 )
             })
             .map(|res| res == 1)

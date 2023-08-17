@@ -1,8 +1,8 @@
-use std::{error::Error, sync::RwLock};
-
 use async_trait::async_trait;
+use std::sync::RwLock;
 
-use super::super::{EraMarker, EraReaderAdapter};
+use crate::era::{EraMarker, EraReaderAdapter};
+use crate::StdResult;
 
 /// Dummy adapter is intended to be used in a test environment (end to end test)
 /// to simulate not yet activated Eras.
@@ -29,7 +29,7 @@ impl DummyAdapter {
 
 #[async_trait]
 impl EraReaderAdapter for DummyAdapter {
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn Error + Sync + Send>> {
+    async fn read(&self) -> StdResult<Vec<EraMarker>> {
         let markers = self.markers.read().unwrap();
 
         Ok((*markers.clone()).to_vec())
