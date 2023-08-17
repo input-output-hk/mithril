@@ -113,7 +113,9 @@ pub fn generate_register_signer_message(
             party_id: signer.party_id,
             verification_key: signer.verification_key.to_json_hex().unwrap(),
             verification_key_signature: signer.verification_key_signature,
-            operational_certificate: signer.operational_certificate,
+            operational_certificate: signer
+                .operational_certificate
+                .map(|o| o.to_json_hex().unwrap()),
             kes_period: signer.kes_period,
         })
         .collect::<Vec<_>>()
