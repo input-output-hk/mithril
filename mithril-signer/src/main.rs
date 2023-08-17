@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
 use slog_scope::debug;
@@ -5,6 +6,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use mithril_common::StdResult;
 use mithril_signer::{
     Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
     SignerState, StateMachine,
@@ -72,7 +74,7 @@ fn build_logger(min_level: Level) -> Logger {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> StdResult<()> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
@@ -85,9 +87,9 @@ async fn main() -> Result<(), String> {
     // Load config
     let config: Configuration = config::Config::builder()
         .set_default("disable_digests_cache", args.disable_digests_cache)
-        .map_err(|e| e.to_string())?
+        .with_context(|| "configuration error: could not set `disable_digests_cache`")?
         .set_default("reset_digests_cache", args.reset_digests_cache)
-        .map_err(|e| e.to_string())?
+        .with_context(|| "configuration error: could not set `reset_digests_cache`")?
         .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(
@@ -99,19 +101,21 @@ async fn main() -> Result<(), String> {
         )
         .add_source(config::Environment::default())
         .build()
-        .map_err(|e| format!("configuration build error: {e}"))?
+        .with_context(|| "configuration build error")?
         .try_deserialize()
-        .map_err(|e| format!("configuration deserialize error: {e}"))?;
+        .with_context(|| "configuration deserialize error")?;
+
     let services = ProductionServiceBuilder::new(&config)
         .build()
         .await
-        .map_err(|e| e.to_string())?;
-    debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
+        .with_context(|| "services initialization error")?;
 
+    debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
     let mut state_machine = StateMachine::new(
         SignerState::Init,
         Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
     );
-    state_machine.run().await.map_err(|e| e.to_string())
+
+    state_machine.run().await.map_err(|e| e.into())
 }
