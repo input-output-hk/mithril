@@ -10,15 +10,15 @@ repository = { workspace = true }
 
 [dependencies]
 base64 = "0.21.2"
-blake2 = "0.10.4"
-clap = { version = "4.0.18", features = ["derive"] }
+blake2 = "0.10.6"
+clap = { version = "4.3.22", features = ["derive"] }
 hex = "0.4.3"
-log = "0.4.14"
+log = "0.4.20"
 mithril-common = { path = "../../mithril-common" }
 rand_chacha = "0.3.1"
-rand_core   = "0.6.3"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+rand_core = "0.6.4"
+serde = { version = "1.0.183", features = ["derive"] }
+serde_json = "1.0.105"
 
 [target.'cfg(not(windows))'.dependencies]
 # non-windows: use default rug backend
@@ -26,7 +26,9 @@ mithril-stm = { path = "../../mithril-stm" }
 
 [target.'cfg(windows)'.dependencies]
 # Windows doesn't support rug backend, fallback to num-integer
-mithril-stm = { path = "../../mithril-stm", default-features = false, features = ["num-integer-backend"] }
+mithril-stm = { path = "../../mithril-stm", default-features = false, features = [
+    "num-integer-backend",
+] }
 
 [features]
 portable = ["mithril-common/portable", "mithril-stm/portable"]
