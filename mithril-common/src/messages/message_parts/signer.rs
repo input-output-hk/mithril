@@ -8,9 +8,10 @@ use crate::{
     StdResult,
 };
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
 /// Signer with Stake Message
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStakeMessagePart {
     /// The unique identifier of the signer
     // TODO: Should be removed once the signer certification is fully deployed
@@ -108,8 +109,35 @@ impl From<SignerWithStake> for SignerWithStakeMessagePart {
     }
 }
 
+impl Debug for SignerMessagePart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Signer");
+        debug.field("party_id", &self.party_id);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
+        }
+    }
+}
+
 /// Signer Message
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerMessagePart {
     /// The unique identifier of the signer
     // TODO: Should be removed once the signer certification is fully deployed
@@ -150,6 +178,35 @@ impl SignerMessagePart {
             ),
             operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
             kes_period: Some(6),
+        }
+    }
+}
+
+impl Debug for SignerWithStakeMessagePart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Signer");
+        debug
+            .field("party_id", &self.party_id)
+            .field("stake", &self.stake);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
         }
     }
 }

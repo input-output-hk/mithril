@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
 use crate::{
     crypto_helper::KESPeriod,
@@ -11,7 +12,7 @@ use crate::{
 
 era_deprecate!("make epoch of RegisterSignerMessage not optional");
 /// Register Signer Message
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RegisterSignerMessage {
     /// Epoch at which registration is sent
     /// #[serde(skip_serializing_if = "Option::is_none")]
@@ -57,6 +58,33 @@ impl RegisterSignerMessage {
             ),
             operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
             kes_period: Some(6),
+        }
+    }
+}
+
+impl Debug for RegisterSignerMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Signer");
+        debug.field("party_id", &self.party_id);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
         }
     }
 }
