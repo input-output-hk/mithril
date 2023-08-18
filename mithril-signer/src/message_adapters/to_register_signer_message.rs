@@ -13,7 +13,9 @@ impl ToMessageAdapter<(Epoch, Signer), RegisterSignerMessage> for ToRegisterSign
             epoch: Some(epoch),
             party_id: signer.party_id,
             verification_key: signer.verification_key.try_into().unwrap(),
-            verification_key_signature: signer.verification_key_signature,
+            verification_key_signature: signer
+                .verification_key_signature
+                .map(|k| k.try_into().unwrap()),
             operational_certificate: signer
                 .operational_certificate
                 .map(|o| o.try_into().unwrap()),

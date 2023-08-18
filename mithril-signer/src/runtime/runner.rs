@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use async_trait::async_trait;
 use slog_scope::{debug, info, trace, warn};
 use thiserror::Error;
@@ -9,7 +8,6 @@ use mockall::automock;
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityType};
 use mithril_common::{
-    crypto_helper::key_encode_hex,
     entities::{
         Beacon, CertificatePending, Epoch, EpochSettings, ProtocolMessage, ProtocolMessagePartKey,
         Signer, SignerWithStake, SingleSignatures,
@@ -194,19 +192,10 @@ impl Runner for SignerRunner {
             self.config.kes_secret_key_path.clone(),
             kes_period,
         )?;
-        let verification_key_signature_encoded =
-            match protocol_initializer.verification_key_signature() {
-                Some(verification_signature) => {
-                    Some(key_encode_hex(verification_signature).map_err(|e| {
-                        anyhow!("Json Hex encoding of signer verification key signature failure, error: {e}")
-                    })?)
-                }
-                _ => None,
-            };
         let signer = Signer::new(
             self.services.single_signer.get_party_id(),
             protocol_initializer.verification_key().into(),
-            verification_key_signature_encoded,
+            protocol_initializer.verification_key_signature(),
             protocol_operational_certificate,
             kes_period,
         );
