@@ -1,6 +1,6 @@
 use mithril_common::{
     entities::{CertificatePending, Signer},
-    messages::{CertificatePendingMessage, SignerMessage, ToMessageAdapter},
+    messages::{CertificatePendingMessage, SignerMessagePart, ToMessageAdapter},
 };
 
 /// Adapter to turn [CertificatePending] instances into [CertificatePendingMessage].
@@ -23,10 +23,10 @@ impl ToMessageAdapter<CertificatePending, CertificatePendingMessage>
 }
 
 impl ToCertificatePendingMessageAdapter {
-    fn adapt_signers(signers: Vec<Signer>) -> Vec<SignerMessage> {
+    fn adapt_signers(signers: Vec<Signer>) -> Vec<SignerMessagePart> {
         signers
             .into_iter()
-            .map(|signer| SignerMessage {
+            .map(|signer| SignerMessagePart {
                 party_id: signer.party_id,
                 verification_key: signer.verification_key.try_into().unwrap(),
                 verification_key_signature: signer

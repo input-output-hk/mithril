@@ -2,7 +2,6 @@
 //! This module aims at providing shared structures for API communications.
 mod certificate;
 mod certificate_list;
-mod certificate_metadata;
 mod certificate_pending;
 mod epoch_settings;
 mod interface;
@@ -18,8 +17,7 @@ pub use certificate::CertificateMessage;
 pub use certificate_list::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
 };
-pub use certificate_metadata::CertificateMetadataMessage;
-pub use certificate_pending::{CertificatePendingMessage, SignerMessage};
+pub use certificate_pending::CertificatePendingMessage;
 pub use epoch_settings::EpochSettingsMessage;
 pub use interface::*;
 pub use message_parts::*;

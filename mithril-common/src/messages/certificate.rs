@@ -1,10 +1,8 @@
-use crate::{
-    entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey},
-    messages::certificate_metadata::CertificateMetadataMessage,
-};
-
-use crate::test_utils::fake_keys;
 use serde::{Deserialize, Serialize};
+
+use crate::entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey};
+use crate::messages::CertificateMetadataMessagePart;
+use crate::test_utils::fake_keys;
 
 /// Message structure of a certificate
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -26,7 +24,7 @@ pub struct CertificateMessage {
 
     /// Certificate metadata
     /// aka METADATA(p,n)
-    pub metadata: CertificateMetadataMessage,
+    pub metadata: CertificateMetadataMessagePart,
 
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
@@ -66,7 +64,7 @@ impl CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             beacon: Beacon::new("testnet".to_string(), 10, 100),
-            metadata: CertificateMetadataMessage::dummy(),
+            metadata: CertificateMetadataMessagePart::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
@@ -96,7 +94,7 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             beacon: Beacon::new("testnet".to_string(), 10, 100),
-            metadata: CertificateMetadataMessage {
+            metadata: CertificateMetadataMessagePart {
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
