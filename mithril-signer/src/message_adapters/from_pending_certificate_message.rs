@@ -1,5 +1,7 @@
 use mithril_common::{
-    crypto_helper::{ProtocolOpCert, ProtocolSignerVerificationKey},
+    crypto_helper::{
+        ProtocolOpCert, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
+    },
     entities::{CertificatePending, Signer},
     messages::{CertificatePendingMessage, SignerMessage, TryFromMessageAdapter},
     StdResult,
@@ -15,7 +17,14 @@ fn to_signers(messages: &[SignerMessage]) -> StdResult<Vec<Signer>> {
         let signer = Signer::new(
             msg.party_id.to_owned(),
             ProtocolSignerVerificationKey::from_json_hex(&msg.verification_key)?,
-            msg.verification_key_signature.to_owned(),
+            match &msg.verification_key_signature {
+                Some(verification_key_signature) => {
+                    Some(ProtocolSignerVerificationKeySignature::from_json_hex(
+                        verification_key_signature,
+                    )?)
+                }
+                _ => None,
+            },
             match &msg.operational_certificate {
                 Some(operational_certificate) => {
                     Some(ProtocolOpCert::from_json_hex(operational_certificate)?)

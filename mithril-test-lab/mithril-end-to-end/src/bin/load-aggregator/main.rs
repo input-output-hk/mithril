@@ -112,7 +112,9 @@ pub fn generate_register_signer_message(
             epoch: Some(epoch),
             party_id: signer.party_id,
             verification_key: signer.verification_key.to_json_hex().unwrap(),
-            verification_key_signature: signer.verification_key_signature,
+            verification_key_signature: signer
+                .verification_key_signature
+                .map(|k| k.to_json_hex().unwrap()),
             operational_certificate: signer
                 .operational_certificate
                 .map(|o| o.to_json_hex().unwrap()),

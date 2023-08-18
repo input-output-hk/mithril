@@ -1,6 +1,9 @@
 use crate::{
-    crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKey},
-    entities::{HexEncodedVerificationKeySignature, PartyId, Stake},
+    crypto_helper::{
+        KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKey,
+        ProtocolSignerVerificationKeySignature,
+    },
+    entities::{PartyId, Stake},
 };
 
 use serde::{Deserialize, Serialize};
@@ -19,7 +22,7 @@ pub struct Signer {
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
     // TODO: Option should be removed once the signer certification is fully deployed
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+    pub verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
@@ -43,7 +46,7 @@ impl Signer {
     pub fn new(
         party_id: PartyId,
         verification_key: ProtocolSignerVerificationKey,
-        verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+        verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
         kes_period: Option<KESPeriod>,
     ) -> Signer {
@@ -63,7 +66,7 @@ impl Signer {
         hasher.update(self.verification_key.to_json_hex().unwrap().as_bytes());
 
         if let Some(verification_key_signature) = &self.verification_key_signature {
-            hasher.update(verification_key_signature.as_bytes());
+            hasher.update(verification_key_signature.to_json_hex().unwrap().as_bytes());
         }
         if let Some(operational_certificate) = &self.operational_certificate {
             hasher.update(operational_certificate.to_json_hex().unwrap().as_bytes());
@@ -97,7 +100,7 @@ pub struct SignerWithStake {
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
     // TODO: Option should be removed once the signer certification is fully deployed
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+    pub verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
@@ -136,7 +139,7 @@ impl SignerWithStake {
     pub fn new(
         party_id: PartyId,
         verification_key: ProtocolSignerVerificationKey,
-        verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+        verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
         operational_certificate: Option<ProtocolOpCert>,
         kes_period: Option<KESPeriod>,
         stake: Stake,
@@ -170,7 +173,7 @@ impl SignerWithStake {
         hasher.update(self.verification_key.to_json_hex().unwrap().as_bytes());
 
         if let Some(verification_key_signature) = &self.verification_key_signature {
-            hasher.update(verification_key_signature.as_bytes());
+            hasher.update(verification_key_signature.to_json_hex().unwrap().as_bytes());
         }
 
         if let Some(operational_certificate) = &self.operational_certificate {

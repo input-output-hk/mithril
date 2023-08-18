@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use std::path::Path;
@@ -7,9 +7,8 @@ use thiserror::Error;
 use crate::crypto_helper::ProtocolAggregateVerificationKey;
 use crate::{
     crypto_helper::{
-        key_decode_hex, OpCert, ProtocolClerk, ProtocolClosedKeyRegistration, ProtocolInitializer,
-        ProtocolKeyRegistration, ProtocolSignerVerificationKey,
-        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+        ProtocolClerk, ProtocolClosedKeyRegistration, ProtocolInitializer, ProtocolKeyRegistration,
+        ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
@@ -49,20 +48,13 @@ impl SignerBuilder {
         let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
 
         for signer in registered_signers {
-            let signer_keys = SignerCryptographicMaterial::decode_from_signer(signer)
-                .with_context(|| {
-                    format!(
-                        "Invalid signers in stake distribution: '{}'",
-                        signer.party_id
-                    )
-                })?;
             key_registration
                 .register(
                     Some(signer.party_id.to_owned()),
-                    signer_keys.operational_certificate,
-                    signer_keys.kes_signature,
-                    signer_keys.kes_period,
-                    signer_keys.verification_key,
+                    signer.operational_certificate.clone(),
+                    signer.verification_key_signature.clone(),
+                    signer.kes_period,
+                    signer.verification_key.clone(),
                 )
                 .with_context(|| {
                     format!("Registration failed for signer: '{}'", signer.party_id)
@@ -189,38 +181,6 @@ impl SignerBuilder {
     }
 }
 
-struct SignerCryptographicMaterial {
-    pub operational_certificate: Option<OpCert>,
-    pub verification_key: ProtocolSignerVerificationKey,
-    pub kes_signature: Option<ProtocolSignerVerificationKeySignature>,
-    pub kes_period: Option<u32>,
-}
-
-impl SignerCryptographicMaterial {
-    fn decode_from_signer(signer: &SignerWithStake) -> Result<Self> {
-        let operational_certificate = signer
-            .operational_certificate
-            .as_ref()
-            .map(|op_cert| op_cert.to_owned().into());
-        let verification_key = signer.verification_key.clone();
-        let kes_signature = match &signer.verification_key_signature {
-            Some(verification_key_signature) => Some(
-                key_decode_hex(verification_key_signature)
-                    .map_err(|e| anyhow!(e))
-                    .with_context(|| "Could not decode verification key signature".to_string())?,
-            ),
-            _ => None,
-        };
-
-        Ok(Self {
-            operational_certificate,
-            verification_key,
-            kes_signature,
-            kes_period: signer.kes_period,
-        })
-    }
-}
-
 #[cfg(test)]
 mod test {
     use crate::test_utils::{fake_data, MithrilFixtureBuilder};
@@ -240,26 +200,6 @@ mod test {
             Some(SignerBuilderError::EmptySigners) => (),
             None => panic!("Expected an EmptySigners error, got: {error}"),
         }
-    }
-
-    #[test]
-    fn cant_construct_signer_builder_with_a_signer_with_invalid_keys() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut signers = fixture.signers_with_stake();
-        signers[2].verification_key_signature = Some("invalid".to_string());
-
-        let error = SignerBuilder::new(&signers, &fixture.protocol_parameters()).expect_err(
-            "We should not be able to construct a signer builder with a signer with invalid keys",
-        );
-
-        assert!(
-            error
-                .to_string()
-                .contains("Invalid signers in stake distribution"),
-            "Expected Invalid signers error, got: {}, cause: {}",
-            error,
-            error.root_cause()
-        );
     }
 
     #[test]

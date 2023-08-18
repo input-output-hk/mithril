@@ -85,23 +85,18 @@ fn setup_signer_with_stake(
     SignerWithStake::new(
         party_id.to_owned(),
         protocol_initializer.verification_key().into(),
-        protocol_initializer
-            .verification_key_signature()
-            .as_ref()
-            .map(|verification_key_signature| {
-                key_encode_hex(verification_key_signature)
-                    .expect("key_encode_hex of verification_key_signature should not fail")
-            }),
+        protocol_initializer.verification_key_signature(),
         operational_certificate,
         kes_period,
         stake,
     )
 }
 
-fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<OpCert> {
+fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<ProtocolOpCert> {
     dir.as_ref().map(|dir| {
         OpCert::from_file(dir.join("opcert.cert"))
             .expect("operational certificate decoding should not fail")
+            .into()
     })
 }
 
@@ -128,7 +123,7 @@ pub fn setup_signers_from_stake_distribution(
             party_id,
             *stake,
             &protocol_initializer,
-            operational_certificate.as_ref().map(|o| o.clone().into()),
+            operational_certificate.clone(),
             kes_period,
         );
 

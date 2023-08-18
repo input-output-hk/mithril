@@ -5,9 +5,7 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     chain_observer::ChainObserver,
-    crypto_helper::{
-        key_decode_hex, KESPeriod, ProtocolKeyRegistration, ProtocolRegistrationError,
-    },
+    crypto_helper::{KESPeriod, ProtocolKeyRegistration, ProtocolRegistrationError},
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     store::StoreError,
     StdResult,
@@ -224,18 +222,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             "" => None,
             party_id => Some(party_id.to_string()),
         };
-        let verification_key_signature = match &signer.verification_key_signature {
-            Some(verification_key_signature) => Some(
-                key_decode_hex(verification_key_signature)
-                    .map_err(SignerRegistrationError::Codec)?,
-            ),
-            _ => None,
-        };
-        let operational_certificate = signer
-            .operational_certificate
-            .as_ref()
-            .map(|op_cert| op_cert.to_owned().into());
-        let kes_period = match &operational_certificate {
+        let kes_period = match &signer.operational_certificate {
             Some(operational_certificate) => Some(
                 self.chain_observer
                     .get_current_kes_period(operational_certificate)
@@ -248,8 +235,8 @@ impl SignerRegisterer for MithrilSignerRegisterer {
         };
         let party_id_save = key_registration.register(
             party_id_register.clone(),
-            operational_certificate,
-            verification_key_signature,
+            signer.operational_certificate.clone(),
+            signer.verification_key_signature.clone(),
             kes_period,
             signer.verification_key.clone(),
         )?;

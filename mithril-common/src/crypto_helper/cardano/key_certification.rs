@@ -4,11 +4,12 @@
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
 use crate::crypto_helper::{
-    cardano::{OpCert, ParseError, SerDeShelleyFileFormat},
+    cardano::{ParseError, SerDeShelleyFileFormat},
     types::{
         ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
+    ProtocolOpCert,
 };
 
 use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
@@ -143,7 +144,11 @@ impl StmInitializerWrapper {
                     .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
             }
 
-            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
+            Some(
+                kes_sk
+                    .sign(&stm_initializer.verification_key().to_bytes())
+                    .into(),
+            )
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None
@@ -162,7 +167,7 @@ impl StmInitializerWrapper {
 
     /// Extract the verification key signature.
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.kes_signature
+        self.kes_signature.clone()
     }
 
     /// Extract the protocol parameters of the initializer
@@ -215,7 +220,7 @@ impl StmInitializerWrapper {
 
         Ok(Self {
             stm_initializer,
-            kes_signature: Some(kes_signature),
+            kes_signature: Some(kes_signature.into()),
         })
     }
 }
@@ -236,7 +241,7 @@ impl KeyRegWrapper {
     pub fn register(
         &mut self,
         party_id: Option<ProtocolPartyId>, // TODO: Parameter should be removed once the signer certification is fully deployed
-        opcert: Option<OpCert>, // TODO: Option should be removed once the signer certification is fully deployed
+        opcert: Option<ProtocolOpCert>, // TODO: Option should be removed once the signer certification is fully deployed
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // TODO: Option should be removed once the signer certification is fully deployed
         kes_period: Option<KESPeriod>,
         pk: ProtocolSignerVerificationKey,
@@ -295,7 +300,7 @@ impl KeyRegWrapper {
 mod test {
 
     use super::*;
-    use crate::crypto_helper::cardano::ColdKeyGenerator;
+    use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
@@ -356,8 +361,9 @@ mod test {
         )
         .unwrap();
 
-        let opcert1: OpCert = OpCert::from_file(operational_certificate_file_1)
-            .expect("opcert deserialization should not fail");
+        let opcert1 = OpCert::from_file(operational_certificate_file_1)
+            .expect("opcert deserialization should not fail")
+            .into();
 
         let key_registration_1 = key_reg.register(
             None,
@@ -377,8 +383,9 @@ mod test {
         )
         .unwrap();
 
-        let opcert2: OpCert = OpCert::from_file(operational_certificate_file_2)
-            .expect("opcert deserialization should not fail");
+        let opcert2 = OpCert::from_file(operational_certificate_file_2)
+            .expect("opcert deserialization should not fail")
+            .into();
 
         let key_registration_2 = key_reg.register(
             None,

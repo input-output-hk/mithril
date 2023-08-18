@@ -1,5 +1,6 @@
 use anyhow::Context;
 use hex::{FromHex, ToHex};
+use kes_summed_ed25519::kes::Sum6KesSig;
 use mithril_stm::stm::{StmAggrSig, StmSig, StmVerificationKeyPoP};
 
 use crate::crypto_helper::{OpCert, ProtocolKey, ProtocolKeyCodec, D};
@@ -8,6 +9,10 @@ use crate::StdResult;
 /// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP) to add serialization
 /// utilities.
 pub type ProtocolSignerVerificationKey = ProtocolKey<StmVerificationKeyPoP>;
+
+/// Wrapper of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs) to add
+/// serialization utilities.
+pub type ProtocolSignerVerificationKeySignature = ProtocolKey<Sum6KesSig>;
 
 /// Wrapper of [MithrilStm:StmSig](type@StmSig) to add serialization utilities.
 pub type ProtocolSingleSignature = ProtocolKey<StmSig>;
@@ -65,6 +70,6 @@ impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
 }
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => StmVerificationKeyPoP, StmSig, StmAggrSig<D>, OpCert
+    json_hex_codec => StmVerificationKeyPoP, Sum6KesSig, StmSig, StmAggrSig<D>, OpCert
 );
 impl_codec_and_type_conversions_for_protocol_key!(no_default_codec => ed25519_dalek::Signature);
