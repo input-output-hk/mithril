@@ -222,11 +222,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             "" => None,
             party_id => Some(party_id.to_string()),
         };
-        let operational_certificate = signer
-            .operational_certificate
-            .as_ref()
-            .map(|op_cert| op_cert.to_owned().into());
-        let kes_period = match &operational_certificate {
+        let kes_period = match &signer.operational_certificate {
             Some(operational_certificate) => Some(
                 self.chain_observer
                     .get_current_kes_period(operational_certificate)
@@ -239,7 +235,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
         };
         let party_id_save = key_registration.register(
             party_id_register.clone(),
-            operational_certificate,
+            signer.operational_certificate.clone(),
             signer.verification_key_signature.clone(),
             kes_period,
             signer.verification_key.clone(),

@@ -51,7 +51,7 @@ impl SignerBuilder {
             key_registration
                 .register(
                     Some(signer.party_id.to_owned()),
-                    signer.operational_certificate.as_deref().cloned(),
+                    signer.operational_certificate.clone(),
                     signer.verification_key_signature.clone(),
                     signer.kes_period,
                     signer.verification_key.clone(),

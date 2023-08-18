@@ -92,10 +92,11 @@ fn setup_signer_with_stake(
     )
 }
 
-fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<OpCert> {
+fn decode_op_cert_in_dir(dir: Option<PathBuf>) -> Option<ProtocolOpCert> {
     dir.as_ref().map(|dir| {
         OpCert::from_file(dir.join("opcert.cert"))
             .expect("operational certificate decoding should not fail")
+            .into()
     })
 }
 
@@ -122,7 +123,7 @@ pub fn setup_signers_from_stake_distribution(
             party_id,
             *stake,
             &protocol_initializer,
-            operational_certificate.as_ref().map(|o| o.clone().into()),
+            operational_certificate.clone(),
             kes_period,
         );
 
