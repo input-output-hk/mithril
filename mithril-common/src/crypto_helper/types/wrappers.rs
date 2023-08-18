@@ -26,6 +26,9 @@ pub type ProtocolGenesisSignature = ProtocolKey<ed25519_dalek::Signature>;
 /// Wrapper of [OpCert] to add serialization utilities.
 pub type ProtocolOpCert = ProtocolKey<OpCert>;
 
+/// Alias of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.PublicKey.html).
+pub type ProtocolGenesisVerificationKey = ProtocolKey<ed25519_dalek::PublicKey>;
+
 impl ProtocolGenesisSignature {
     /// Create an instance from a bytes hex representation
     pub fn from_bytes_hex(hex_string: &str) -> StdResult<Self> {
@@ -70,6 +73,6 @@ impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
 }
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => StmVerificationKeyPoP, Sum6KesSig, StmSig, StmAggrSig<D>, OpCert
+    json_hex_codec => StmVerificationKeyPoP, Sum6KesSig, StmSig, StmAggrSig<D>, OpCert, ed25519_dalek::PublicKey
 );
 impl_codec_and_type_conversions_for_protocol_key!(no_default_codec => ed25519_dalek::Signature);

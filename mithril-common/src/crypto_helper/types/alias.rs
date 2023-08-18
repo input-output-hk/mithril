@@ -51,9 +51,6 @@ pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
 /// Alias of [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey).
 pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
 
-/// Alias of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.PublicKey.html).
-pub type ProtocolGenesisVerificationKey = ed25519_dalek::PublicKey;
-
 /// Alias of [Ed25519:SecretKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SecretKey.html).
 pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 

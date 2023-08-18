@@ -4,7 +4,9 @@ use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
-    crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
+    crypto_helper::{
+        ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
+    },
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
@@ -617,14 +619,15 @@ impl DependenciesBuilder {
     async fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
         let genesis_verifier: ProtocolGenesisVerifier = match self.configuration.environment {
             ExecutionEnvironment::Production => ProtocolGenesisVerifier::from_verification_key(
-                key_decode_hex(&self.configuration.genesis_verification_key).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: format!(
-                            "Could not decode hex key to build genesis verifier: '{}' Error: {e}.",
-                            self.configuration.genesis_verification_key
-                        ),
-                        error: None,
-                    }
+                ProtocolGenesisVerificationKey::from_json_hex(
+                    &self.configuration.genesis_verification_key,
+                )
+                .map_err(|e| DependenciesBuilderError::Initialization {
+                    message: format!(
+                        "Could not decode hex key to build genesis verifier: '{}'",
+                        self.configuration.genesis_verification_key
+                    ),
+                    error: Some(e),
                 })?,
             ),
             _ => ProtocolGenesisSigner::create_deterministic_genesis_signer()

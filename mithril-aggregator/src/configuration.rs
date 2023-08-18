@@ -1,5 +1,5 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
+use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -143,7 +143,7 @@ impl Configuration {
             db_directory: PathBuf::new(),
             snapshot_directory: PathBuf::new(),
             data_stores_directory: PathBuf::from(":memory:"),
-            genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
+            genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
             reset_digests_cache: false,
             disable_digests_cache: false,
             store_retention_limit: None,

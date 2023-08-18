@@ -64,8 +64,7 @@ impl ProtocolGenesisSigner {
         &self,
         expanded_secret_key: &ExpandedSecretKey,
     ) -> ProtocolGenesisVerificationKey {
-        let verification_key: ProtocolGenesisVerificationKey = expanded_secret_key.into();
-        verification_key
+        ProtocolGenesisVerificationKey::new(expanded_secret_key.into())
     }
 
     /// Create a ProtocolGenesisVerifier
@@ -111,7 +110,7 @@ impl ProtocolGenesisVerifier {
 
     /// ProtocolGenesisVerifier to ProtocolGenesisVerificationKey
     pub fn to_verification_key(&self) -> ProtocolGenesisVerificationKey {
-        self.verification_key
+        self.verification_key.clone()
     }
 
     /// Verifies the signature of a message
