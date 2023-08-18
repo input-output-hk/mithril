@@ -143,7 +143,11 @@ impl StmInitializerWrapper {
                     .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
             }
 
-            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
+            Some(
+                kes_sk
+                    .sign(&stm_initializer.verification_key().to_bytes())
+                    .into(),
+            )
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None
@@ -162,7 +166,7 @@ impl StmInitializerWrapper {
 
     /// Extract the verification key signature.
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.kes_signature
+        self.kes_signature.clone()
     }
 
     /// Extract the protocol parameters of the initializer
@@ -215,7 +219,7 @@ impl StmInitializerWrapper {
 
         Ok(Self {
             stm_initializer,
-            kes_signature: Some(kes_signature),
+            kes_signature: Some(kes_signature.into()),
         })
     }
 }

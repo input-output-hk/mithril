@@ -11,7 +11,6 @@ use mithril_stm::{
 
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;
-use kes_summed_ed25519::kes::Sum6KesSig;
 
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
@@ -48,9 +47,6 @@ pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::key_reg::KeyReg).
 pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
-
-/// Alias of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs).
-pub type ProtocolSignerVerificationKeySignature = Sum6KesSig;
 
 /// Alias of [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey).
 pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
