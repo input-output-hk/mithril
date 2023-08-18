@@ -253,10 +253,8 @@ mod tests {
             .with_signers(1)
             .build()
             .signers_with_stake()[0]
-            .verification_key
-            .clone();
-        let signer_expected =
-            Signer::new("1".to_string(), verification_key.clone(), None, None, None);
+            .verification_key;
+        let signer_expected = Signer::new("1".to_string(), verification_key, None, None, None);
         let signer_with_stake =
             SignerWithStake::new("1".to_string(), verification_key, None, None, None, 100);
 
@@ -324,8 +322,7 @@ mod tests {
         }
         {
             let mut signer_different_verification_key = signer.clone();
-            signer_different_verification_key.verification_key =
-                signers[1].verification_key.clone();
+            signer_different_verification_key.verification_key = signers[1].verification_key;
 
             assert_ne!(
                 EXPECTED_HASH,

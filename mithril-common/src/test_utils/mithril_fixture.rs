@@ -242,12 +242,12 @@ impl SignerFixture {
 
     /// Decode this signer verification key certificate
     pub fn verification_key(&self) -> ProtocolSignerVerificationKey {
-        self.signer_with_stake.verification_key.clone()
+        self.signer_with_stake.verification_key
     }
 
     /// Decode this signer verification key signature certificate if any
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.signer_with_stake.verification_key_signature.clone()
+        self.signer_with_stake.verification_key_signature
     }
 
     /// Get the path to this signer kes secret key

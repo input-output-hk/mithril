@@ -110,7 +110,7 @@ impl ProtocolGenesisVerifier {
 
     /// ProtocolGenesisVerifier to ProtocolGenesisVerificationKey
     pub fn to_verification_key(&self) -> ProtocolGenesisVerificationKey {
-        self.verification_key.clone()
+        self.verification_key
     }
 
     /// Verifies the signature of a message

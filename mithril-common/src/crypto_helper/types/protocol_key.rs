@@ -85,6 +85,8 @@ where
     }
 }
 
+impl<T> Copy for ProtocolKey<T> where T: Copy + Serialize + DeserializeOwned {}
+
 impl<T> Serialize for ProtocolKey<T>
 where
     T: ProtocolKeyCodec<T> + Serialize + DeserializeOwned,

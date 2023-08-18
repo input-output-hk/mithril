@@ -69,8 +69,7 @@ pub mod tests {
             .with_signers(1)
             .build()
             .signers_with_stake()[0]
-            .verification_key
-            .clone();
+            .verification_key;
         let signer_with_stake_expected = &entities::SignerWithStake::new(
             "1".to_string(),
             verification_key,
