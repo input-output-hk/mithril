@@ -10,7 +10,6 @@ use mithril_stm::{
 };
 
 use blake2::{digest::consts::U32, Blake2b};
-use ed25519_dalek;
 
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
@@ -50,9 +49,6 @@ pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
 
 /// Alias of [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey).
 pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
-
-/// Alias of [Ed25519:SecretKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SecretKey.html).
-pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).

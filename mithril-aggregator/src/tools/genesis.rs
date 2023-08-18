@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use std::{fs::File, io::prelude::*, io::Write, path::Path, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -139,8 +139,10 @@ impl GenesisTools {
         let mut genesis_secret_key_serialized = String::new();
         genesis_secret_key_file.read_to_string(&mut genesis_secret_key_serialized)?;
 
-        let genesis_secret_key = key_decode_hex(genesis_secret_key_serialized.trim())
-            .map_err(|e| anyhow!(e).context("Genesis secret key decode error"))?;
+        let genesis_secret_key = genesis_secret_key_serialized
+            .trim()
+            .try_into()
+            .with_context(|| "Genesis secret key decode error")?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();

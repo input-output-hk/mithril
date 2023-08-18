@@ -6,10 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;
 
-use super::{
-    key_encode_hex, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
-    ProtocolGenesisVerificationKey,
-};
+use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisVerificationKey};
 
 #[derive(Error, Debug)]
 /// [ProtocolGenesisSigner] and [ProtocolGenesisVerifier] related errors.
@@ -33,8 +30,8 @@ impl ProtocolGenesisSigner {
     where
         R: CryptoRng + RngCore,
     {
-        let secret_key = ProtocolGenesisSecretKey::generate(&mut rng);
-        Self::from_secret_key(secret_key)
+        let secret_key = ed25519_dalek::SecretKey::generate(&mut rng);
+        Self::from_secret_key(secret_key.into())
     }
 
     /// ProtocolGenesisSigner deterministic
@@ -56,7 +53,7 @@ impl ProtocolGenesisSigner {
 
     /// Create a an expanded secret key
     fn create_expanded_secret_key(&self) -> ExpandedSecretKey {
-        ExpandedSecretKey::from(&self.secret_key)
+        ExpandedSecretKey::from(&*self.secret_key)
     }
 
     /// Create a ProtocolGenesisVerificationKey
@@ -85,11 +82,7 @@ impl ProtocolGenesisSigner {
     #[doc(hidden)]
     pub fn export_to_file(&self, secret_key_path: &Path) -> StdResult<()> {
         let mut genesis_secret_key_file = File::create(secret_key_path)?;
-        genesis_secret_key_file.write_all(
-            key_encode_hex(self.secret_key.as_bytes())
-                .unwrap()
-                .as_bytes(),
-        )?;
+        genesis_secret_key_file.write_all(self.secret_key.to_json_hex().unwrap().as_bytes())?;
 
         Ok(())
     }
@@ -125,7 +118,6 @@ impl ProtocolGenesisVerifier {
 
 #[cfg(test)]
 mod tests {
-    use super::super::codec::{key_decode_hex, key_encode_hex};
     use super::*;
 
     #[test]
@@ -145,11 +137,11 @@ mod tests {
 
         println!(
             "Deterministic Genesis Verification Key={}",
-            key_encode_hex(genesis_verifier.verification_key.as_bytes()).unwrap()
+            genesis_verifier.verification_key.to_json_hex().unwrap()
         );
         println!(
             "Deterministic Genesis Secret Key=={}",
-            key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap()
+            genesis_signer.secret_key.to_json_hex().unwrap()
         );
     }
 
@@ -160,11 +152,11 @@ mod tests {
 
         println!(
             "Non Deterministic Genesis Verification Key={}",
-            key_encode_hex(genesis_verifier.verification_key.as_bytes()).unwrap()
+            genesis_verifier.verification_key.to_json_hex().unwrap()
         );
         println!(
             "Non Deterministic Genesis Secret Key=={}",
-            key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap()
+            genesis_signer.secret_key.to_json_hex().unwrap()
         );
     }
 
@@ -172,13 +164,11 @@ mod tests {
     fn test_codec_genesis_keypair() {
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_verifier = genesis_signer.create_genesis_verifier();
-        let secret_key_encoded = key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap();
-        let verification_key_encoded =
-            key_encode_hex(genesis_verifier.verification_key.as_bytes()).unwrap();
-        let secret_key_decoded: ProtocolGenesisSecretKey =
-            key_decode_hex(&secret_key_encoded).unwrap();
+        let secret_key_encoded = genesis_signer.secret_key.to_json_hex().unwrap();
+        let verification_key_encoded = genesis_verifier.verification_key.to_json_hex().unwrap();
+        let secret_key_decoded: ProtocolGenesisSecretKey = secret_key_encoded.try_into().unwrap();
         let verification_key_decoded: ProtocolGenesisVerificationKey =
-            key_decode_hex(&verification_key_encoded).unwrap();
+            verification_key_encoded.try_into().unwrap();
         let genesis_signer_decoded = ProtocolGenesisSigner::from_secret_key(secret_key_decoded);
         let genesis_verifier_decoded =
             ProtocolGenesisVerifier::from_verification_key(verification_key_decoded);
