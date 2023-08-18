@@ -85,13 +85,7 @@ fn setup_signer_with_stake(
     SignerWithStake::new(
         party_id.to_owned(),
         protocol_initializer.verification_key().into(),
-        protocol_initializer
-            .verification_key_signature()
-            .as_ref()
-            .map(|verification_key_signature| {
-                key_encode_hex(verification_key_signature)
-                    .expect("key_encode_hex of verification_key_signature should not fail")
-            }),
+        protocol_initializer.verification_key_signature(),
         operational_certificate,
         kes_period,
         stake,

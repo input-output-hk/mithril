@@ -71,7 +71,12 @@ impl SignerWithStakeMessagePart {
             let value = SignerWithStake {
                 party_id: message.party_id,
                 verification_key: message.verification_key.try_into()?,
-                verification_key_signature: message.verification_key_signature,
+                verification_key_signature: match message.verification_key_signature {
+                    Some(verification_key_signature) => {
+                        Some(verification_key_signature.try_into()?)
+                    }
+                    _ => None,
+                },
                 kes_period: message.kes_period,
                 operational_certificate: match message.operational_certificate {
                     Some(operational_certificate) => Some(operational_certificate.try_into()?),
@@ -91,7 +96,9 @@ impl From<SignerWithStake> for SignerWithStakeMessagePart {
         Self {
             party_id: value.party_id,
             verification_key: value.verification_key.try_into().unwrap(),
-            verification_key_signature: value.verification_key_signature,
+            verification_key_signature: value
+                .verification_key_signature
+                .map(|k| k.try_into().unwrap()),
             operational_certificate: value
                 .operational_certificate
                 .map(|op_cert| (op_cert.try_into().unwrap())),

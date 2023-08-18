@@ -9,7 +9,7 @@ use std::{
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSigner,
+        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSigner,
         ProtocolInitializer, ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
@@ -247,10 +247,7 @@ impl SignerFixture {
 
     /// Decode this signer verification key signature certificate if any
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.signer_with_stake
-            .verification_key_signature
-            .as_ref()
-            .map(|verification_key_signature| key_decode_hex(verification_key_signature).unwrap())
+        self.signer_with_stake.verification_key_signature.clone()
     }
 
     /// Get the path to this signer kes secret key
