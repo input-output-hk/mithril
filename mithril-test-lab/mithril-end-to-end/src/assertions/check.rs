@@ -178,7 +178,7 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
         }
     }) {
         AttemptResult::Ok(certificate) => {
-            info!("Aggregator produced a certificate"; "certificate" => #?certificate);
+            info!("Aggregator produced a certificate"; "certificate" => ?certificate);
             if certificate.metadata.signers.len() == total_signers_expected {
                 info!(
                     "Certificate is signed by expected number of signers: {} >= {} ",
