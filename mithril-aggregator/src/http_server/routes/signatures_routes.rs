@@ -29,7 +29,7 @@ mod handlers {
         messages::{RegisterSignatureMessage, TryFromMessageAdapter},
     };
 
-    use slog_scope::{debug, warn};
+    use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -47,6 +47,7 @@ mod handlers {
         ticker_service: Arc<dyn TickerService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
+        trace!("⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
 
         let signed_entity_type = match message.signed_entity_type.clone() {
             Some(signed_entity_type) => Ok(signed_entity_type),
