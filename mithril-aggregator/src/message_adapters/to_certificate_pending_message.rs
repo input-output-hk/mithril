@@ -29,7 +29,9 @@ impl ToCertificatePendingMessageAdapter {
             .map(|signer| SignerMessage {
                 party_id: signer.party_id,
                 verification_key: signer.verification_key.try_into().unwrap(),
-                verification_key_signature: signer.verification_key_signature,
+                verification_key_signature: signer
+                    .verification_key_signature
+                    .map(|k| k.try_into().unwrap()),
                 kes_period: signer.kes_period,
                 operational_certificate: signer
                     .operational_certificate

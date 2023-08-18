@@ -55,7 +55,9 @@ impl SignerRegistrationRecord {
             signer_id: other.party_id,
             epoch_setting_id: epoch,
             verification_key: other.verification_key.to_json_hex().unwrap(),
-            verification_key_signature: other.verification_key_signature,
+            verification_key_signature: other
+                .verification_key_signature
+                .map(|k| k.to_json_hex().unwrap()),
             operational_certificate: other
                 .operational_certificate
                 .map(|o| o.to_json_hex().unwrap()),
@@ -71,7 +73,9 @@ impl From<SignerRegistrationRecord> for Signer {
         Self {
             party_id: other.signer_id,
             verification_key: other.verification_key.try_into().unwrap(),
-            verification_key_signature: other.verification_key_signature,
+            verification_key_signature: other
+                .verification_key_signature
+                .map(|k| (k.try_into().unwrap())),
             operational_certificate: other
                 .operational_certificate
                 .map(|o| (o.try_into().unwrap())),
@@ -85,7 +89,9 @@ impl From<SignerRegistrationRecord> for SignerWithStake {
         Self {
             party_id: other.signer_id,
             verification_key: other.verification_key.try_into().unwrap(),
-            verification_key_signature: other.verification_key_signature,
+            verification_key_signature: other
+                .verification_key_signature
+                .map(|k| (k.try_into().unwrap())),
             operational_certificate: other
                 .operational_certificate
                 .map(|o| (o.try_into().unwrap())),

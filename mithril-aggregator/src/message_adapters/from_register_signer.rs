@@ -13,7 +13,10 @@ impl TryFromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSigner
         Ok(Signer {
             party_id: register_signer_message.party_id,
             verification_key: register_signer_message.verification_key.try_into()?,
-            verification_key_signature: register_signer_message.verification_key_signature,
+            verification_key_signature: match register_signer_message.verification_key_signature {
+                Some(verification_key_signature) => Some(verification_key_signature.try_into()?),
+                _ => None,
+            },
             operational_certificate: match register_signer_message.operational_certificate {
                 Some(operational_certificate) => Some(operational_certificate.try_into()?),
                 _ => None,
