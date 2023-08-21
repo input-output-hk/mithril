@@ -410,7 +410,7 @@ protocol_message, signers, initiated_at, sealed_at)";
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!(
-                "No entity returned by the persister, certificate_record = {certificate_record:?}"
+                "No entity returned by the persister, certificate_record = {certificate_record:#?}"
             )
         });
 

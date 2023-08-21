@@ -17,7 +17,7 @@ use mithril_common::{
     StdResult,
 };
 use slog::Logger;
-use slog_scope::{debug, error, info, warn};
+use slog_scope::{debug, error, info, trace, warn};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -206,6 +206,8 @@ impl CertifierService for MithrilCertifierService {
         signature: &SingleSignatures,
     ) -> StdResult<()> {
         debug!("CertifierService::register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
+        trace!("CertifierService::register_single_signature"; "complete_single_signatures" => #?signature);
+
         let open_message = self
             .get_open_message_record(signed_entity_type)
             .await?

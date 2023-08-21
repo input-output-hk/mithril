@@ -3,6 +3,7 @@ use crate::entities::{
     Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, ProtocolMessage,
 };
 use std::cmp::Ordering;
+use std::fmt::{Debug, Formatter};
 
 use sha2::{Digest, Sha256};
 
@@ -19,7 +20,7 @@ pub enum CertificateSignature {
 }
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Certificate {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -129,6 +130,34 @@ impl PartialOrd for Certificate {
             // Beacons may be not comparable (most likely because the network isn't the same) in
             // that case we can still order per hash
             None => self.hash.partial_cmp(&other.hash),
+        }
+    }
+}
+
+impl Debug for Certificate {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Certificate");
+        debug
+            .field("hash", &self.hash)
+            .field("previous_hash", &self.previous_hash)
+            .field("beacon", &format_args!("{:?}", self.beacon))
+            .field("metadata", &format_args!("{:?}", self.metadata))
+            .field(
+                "protocol_message",
+                &format_args!("{:?}", self.protocol_message),
+            )
+            .field("signed_message", &self.signed_message);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "aggregate_verification_key",
+                    &format_args!("{:?}", self.aggregate_verification_key),
+                )
+                .field("signature", &format_args!("{:?}", self.signature))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
         }
     }
 }

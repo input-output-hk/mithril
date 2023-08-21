@@ -1,6 +1,7 @@
 use mithril_common::entities::{Certificate, CertificateSignature};
 use mithril_common::messages::{
-    CertificateMessage, CertificateMetadataMessage, SignerWithStakeMessagePart, ToMessageAdapter,
+    CertificateMessage, CertificateMetadataMessagePart, SignerWithStakeMessagePart,
+    ToMessageAdapter,
 };
 
 /// Adapter to convert [Certificate] to [CertificateMessage] instances
@@ -9,7 +10,7 @@ pub struct ToCertificateMessageAdapter;
 impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageAdapter {
     /// Method to trigger the conversion
     fn adapt(certificate: Certificate) -> CertificateMessage {
-        let metadata = CertificateMetadataMessage {
+        let metadata = CertificateMetadataMessagePart {
             protocol_version: certificate.metadata.protocol_version,
             protocol_parameters: certificate.metadata.protocol_parameters,
             initiated_at: certificate.metadata.initiated_at,

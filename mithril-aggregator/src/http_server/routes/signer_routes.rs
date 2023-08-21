@@ -49,7 +49,7 @@ mod handlers {
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use mithril_common::BeaconProvider;
-    use slog_scope::{debug, warn};
+    use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -65,6 +65,10 @@ mod handlers {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
             register_signer_message
+        );
+        trace!(
+            "⇄ HTTP SERVER: register_signer";
+            "complete_message" => #?register_signer_message
         );
 
         let registration_epoch = match register_signer_message.epoch {

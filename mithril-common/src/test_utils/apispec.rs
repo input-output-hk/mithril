@@ -195,7 +195,7 @@ mod tests {
 
     use super::*;
     use crate::entities;
-    use crate::messages::{CertificatePendingMessage, SignerMessage};
+    use crate::messages::{CertificatePendingMessage, SignerMessagePart};
     use crate::test_utils::fake_data;
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
         assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
-            .validate_request(&SignerMessage::dummy())
+            .validate_request(&SignerMessagePart::dummy())
             .unwrap()
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());

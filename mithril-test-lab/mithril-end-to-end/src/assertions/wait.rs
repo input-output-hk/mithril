@@ -50,7 +50,7 @@ pub async fn wait_for_epoch_settings(
                         .json::<EpochSettingsMessage>()
                         .await
                         .map_err(|e| format!("Invalid EpochSettings body : {e}"))?;
-                    info!("Aggregator ready"; "epoch_settings"  => #?epoch_settings);
+                    info!("Aggregator ready"; "epoch_settings"  => ?epoch_settings);
                     Ok(Some(epoch_settings))
                 }
                 s if s.is_server_error() => {

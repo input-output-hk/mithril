@@ -8,10 +8,9 @@ use serde::{Deserialize, Serialize};
 
 use super::SignerWithStakeMessagePart;
 
-// todo: move to message_parts
 /// CertificateMetadata represents the metadata associated to a Certificate
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct CertificateMetadataMessage {
+pub struct CertificateMetadataMessagePart {
     /// Protocol Version (semver)
     /// Useful to achieve backward compatibility of the certificates (including of the multi signature)
     /// part of METADATA(p,n)
@@ -38,7 +37,7 @@ pub struct CertificateMetadataMessage {
     pub signers: Vec<SignerWithStakeMessagePart>,
 }
 
-impl CertificateMetadataMessage {
+impl CertificateMetadataMessagePart {
     /// CertificateMetadata factory
     pub fn dummy() -> Self {
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
@@ -76,8 +75,8 @@ impl CertificateMetadataMessage {
 mod tests {
     use super::*;
 
-    fn golden_message() -> CertificateMetadataMessage {
-        CertificateMetadataMessage {
+    fn golden_message() -> CertificateMetadataMessagePart {
+        CertificateMetadataMessagePart {
             protocol_version: "0.1.0".to_string(),
             protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
             initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
@@ -132,7 +131,7 @@ mod tests {
                 }
             ]
         }"#;
-        let message: CertificateMetadataMessage = serde_json::from_str(json).expect(
+        let message: CertificateMetadataMessagePart = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a CertificateMetadataMessage instance.",
         );
 

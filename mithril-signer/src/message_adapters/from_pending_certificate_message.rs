@@ -3,14 +3,14 @@ use mithril_common::{
         ProtocolOpCert, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
     },
     entities::{CertificatePending, Signer},
-    messages::{CertificatePendingMessage, SignerMessage, TryFromMessageAdapter},
+    messages::{CertificatePendingMessage, SignerMessagePart, TryFromMessageAdapter},
     StdResult,
 };
 
 /// Adapter to turn [CertificatePendingMessage] instances into [CertificatePending].
 pub struct FromPendingCertificateMessageAdapter;
 
-fn to_signers(messages: &[SignerMessage]) -> StdResult<Vec<Signer>> {
+fn to_signers(messages: &[SignerMessagePart]) -> StdResult<Vec<Signer>> {
     let mut signers: Vec<Signer> = Vec::new();
 
     for msg in messages {
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn adapt_signers() {
         let mut message = CertificatePendingMessage::dummy();
-        message.signers = vec![SignerMessage::dummy(), SignerMessage::dummy()];
+        message.signers = vec![SignerMessagePart::dummy(), SignerMessagePart::dummy()];
         let certificate_pending = FromPendingCertificateMessageAdapter::try_adapt(message).unwrap();
 
         assert_eq!(2, certificate_pending.signers.len());

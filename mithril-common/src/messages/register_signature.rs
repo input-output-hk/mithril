@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
 use crate::{
     entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType},
@@ -7,7 +8,7 @@ use crate::{
 
 era_deprecate!("make signed_entity_type of RegisterSignatureMessage not optional");
 /// Message structure to register single signature.
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RegisterSignatureMessage {
     /// Signed entity type
     #[serde(rename = "entity_type")]
@@ -32,6 +33,25 @@ impl RegisterSignatureMessage {
             party_id: "party_id".to_string(),
             signature: fake_keys::single_signature()[0].to_string(),
             won_indexes: vec![1, 3],
+        }
+    }
+}
+
+impl Debug for RegisterSignatureMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let is_pretty_printing = f.alternate();
+        let mut debug = f.debug_struct("SingleSignatures");
+        debug
+            .field(
+                "signed_entity_type",
+                &format_args!("{:?}", self.signed_entity_type),
+            )
+            .field("party_id", &self.party_id)
+            .field("won_indexes", &format_args!("{:?}", self.won_indexes));
+
+        match is_pretty_printing {
+            true => debug.field("signature", &self.signature).finish(),
+            false => debug.finish_non_exhaustive(),
         }
     }
 }

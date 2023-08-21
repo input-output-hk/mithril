@@ -1,11 +1,10 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
-use crate::entities::Beacon;
-use crate::entities::ProtocolMessage;
-use crate::entities::ProtocolMessagePartKey;
-use crate::entities::ProtocolParameters;
-use crate::entities::ProtocolVersion;
+use crate::entities::{
+    Beacon, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, ProtocolVersion,
+};
 
 /// Message structure of a certificate list
 pub type CertificateListMessage = Vec<CertificateListItemMessage>;
@@ -40,7 +39,7 @@ pub struct CertificateListItemMessageMetadata {
 }
 
 /// Message structure of a certificate list item
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificateListItemMessage {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -105,6 +104,33 @@ impl CertificateListItemMessage {
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
+        }
+    }
+}
+
+impl Debug for CertificateListItemMessage {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Certificate");
+        debug
+            .field("hash", &self.hash)
+            .field("previous_hash", &self.previous_hash)
+            .field("beacon", &format_args!("{:?}", self.beacon))
+            .field("metadata", &format_args!("{:?}", self.metadata))
+            .field(
+                "protocol_message",
+                &format_args!("{:?}", self.protocol_message),
+            )
+            .field("signed_message", &self.signed_message);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "aggregate_verification_key",
+                    &self.aggregate_verification_key,
+                )
+                .finish(),
+            false => debug.finish_non_exhaustive(),
         }
     }
 }

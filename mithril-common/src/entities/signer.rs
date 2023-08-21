@@ -5,12 +5,13 @@ use crate::{
     },
     entities::{PartyId, Stake},
 };
+use std::fmt::{Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Signer represents a signing participant in the network
-#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct Signer {
     /// The unique identifier of the signer
     // TODO: Should be removed once the signer certification is fully deployed
@@ -75,6 +76,33 @@ impl Signer {
     }
 }
 
+impl Debug for Signer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Signer");
+        debug.field("party_id", &self.party_id);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
+        }
+    }
+}
+
 impl From<SignerWithStake> for Signer {
     fn from(other: SignerWithStake) -> Self {
         Signer::new(
@@ -88,7 +116,7 @@ impl From<SignerWithStake> for Signer {
 }
 
 /// Signer represents a signing party in the network (including its stakes)
-#[derive(Clone, Debug, Eq, Serialize, Deserialize)]
+#[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
     // TODO: Should be removed once the signer certification is fully deployed
@@ -181,6 +209,35 @@ impl SignerWithStake {
         }
         hasher.update(self.stake.to_be_bytes());
         hex::encode(hasher.finalize())
+    }
+}
+
+impl Debug for SignerWithStake {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("SignerWithStake");
+        debug
+            .field("party_id", &self.party_id)
+            .field("stake", &self.stake);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
+        }
     }
 }
 

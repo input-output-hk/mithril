@@ -8,9 +8,10 @@ use crate::{
     StdResult,
 };
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
-/// Signer Message
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+/// Signer with Stake Message
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStakeMessagePart {
     /// The unique identifier of the signer
     // TODO: Should be removed once the signer certification is fully deployed
@@ -104,6 +105,108 @@ impl From<SignerWithStake> for SignerWithStakeMessagePart {
                 .map(|op_cert| (op_cert.try_into().unwrap())),
             kes_period: value.kes_period,
             stake: value.stake,
+        }
+    }
+}
+
+impl Debug for SignerMessagePart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Signer");
+        debug.field("party_id", &self.party_id);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
+        }
+    }
+}
+
+/// Signer Message
+#[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SignerMessagePart {
+    /// The unique identifier of the signer
+    // TODO: Should be removed once the signer certification is fully deployed
+    pub party_id: PartyId,
+
+    /// The public key used to authenticate signer signature
+    pub verification_key: HexEncodedVerificationKey,
+
+    /// The encoded signer 'Mithril verification key' signature (signed by the
+    /// Cardano node KES secret key).
+    // TODO: Option should be removed once the signer certification is fully
+    //       deployed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+
+    /// The encoded operational certificate of stake pool operator attached to
+    /// the signer node.
+    // TODO: Option should be removed once the signer certification is fully
+    //       deployed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub operational_certificate: Option<HexEncodedOpCert>,
+
+    /// The KES period used to compute the verification key signature
+    // TODO: This KES period should not be used as is and should probably be
+    //       within an allowed range of KES periods for the epoch.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kes_period: Option<KESPeriod>,
+}
+
+impl SignerMessagePart {
+    /// Return a dummy test entity (test-only).
+    pub fn dummy() -> Self {
+        Self {
+            party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
+            verification_key: fake_keys::signer_verification_key()[0].to_string(),
+            verification_key_signature: Some(
+                fake_keys::signer_verification_key_signature()[0].to_string(),
+            ),
+            operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
+            kes_period: Some(6),
+        }
+    }
+}
+
+impl Debug for SignerWithStakeMessagePart {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let should_be_exhaustive = f.alternate();
+        let mut debug = f.debug_struct("Signer");
+        debug
+            .field("party_id", &self.party_id)
+            .field("stake", &self.stake);
+
+        match should_be_exhaustive {
+            true => debug
+                .field(
+                    "verification_key",
+                    &format_args!("{:?}", self.verification_key),
+                )
+                .field(
+                    "verification_key_signature",
+                    &format_args!("{:?}", self.verification_key_signature),
+                )
+                .field(
+                    "operational_certificate",
+                    &format_args!("{:?}", self.operational_certificate),
+                )
+                .field("kes_period", &format_args!("{:?}", self.kes_period))
+                .finish(),
+            false => debug.finish_non_exhaustive(),
         }
     }
 }
