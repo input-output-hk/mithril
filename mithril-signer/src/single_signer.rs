@@ -3,9 +3,7 @@ use slog_scope::{info, trace, warn};
 use std::path::PathBuf;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{
-    key_encode_hex, KESPeriod, ProtocolInitializer, ProtocolInitializerError,
-};
+use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer, ProtocolInitializerError};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
 };
@@ -69,8 +67,8 @@ pub enum SingleSignerError {
     ProtocolSignerCreationFailure(String),
 
     /// Encoding / Decoding error.
-    #[error("codec error: '{0}'")]
-    Codec(String),
+    #[error("codec error: '{0:?}'")]
+    Codec(StdError),
 
     /// Signature Error
     #[error("Signature Error: {0:?}")]
@@ -140,7 +138,9 @@ impl SingleSigner for MithrilSingleSigner {
         )
         .map_err(SingleSignerError::AggregateVerificationKeyComputationFailed)?;
 
-        let encoded_avk = key_encode_hex(signer_builder.compute_aggregate_verification_key())
+        let encoded_avk = signer_builder
+            .compute_aggregate_verification_key()
+            .to_json_hex()
             .map_err(SingleSignerError::Codec)?;
 
         Ok(Some(encoded_avk))

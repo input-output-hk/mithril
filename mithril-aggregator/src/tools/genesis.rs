@@ -5,8 +5,8 @@ use tokio::sync::RwLock;
 use mithril_common::{
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
-        key_decode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
-        ProtocolGenesisSigner, ProtocolGenesisVerifier,
+        ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
+        ProtocolGenesisVerifier,
     },
     entities::{Beacon, ProtocolParameters},
     BeaconProvider, StdResult,
@@ -82,8 +82,8 @@ impl GenesisTools {
         let genesis_avk = multi_signer
             .compute_next_stake_distribution_aggregate_verification_key()
             .await?;
-        let genesis_avk: ProtocolAggregateVerificationKey = key_decode_hex(&genesis_avk)
-            .map_err(|e| anyhow!(e).context("Aggregate verification key decode error"))?;
+        let genesis_avk = ProtocolAggregateVerificationKey::from_json_hex(&genesis_avk)
+            .with_context(|| "Aggregate verification key decode error")?;
 
         Ok(Self::new(
             protocol_parameters,
@@ -211,7 +211,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let first_signer = fixture.signers_fixture()[0].clone().protocol_signer;
         let clerk = ProtocolClerk::from_signer(&first_signer);
-        clerk.compute_avk()
+        clerk.compute_avk().into()
     }
 
     fn build_tools(

@@ -7,21 +7,22 @@ use thiserror::Error;
 
 use crate::{
     crypto_helper::{
-        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSignature,
-        ProtocolGenesisSigner, PROTOCOL_VERSION,
+        ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
+        PROTOCOL_VERSION,
     },
     entities::{
         Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters,
     },
+    StdError,
 };
 
 /// [CertificateGenesisProducer] related errors.
 #[derive(Error, Debug)]
 pub enum CertificateGenesisProducerError {
     /// Error raised when a Codec error occurs
-    #[error("codec error: '{0}'")]
-    Codec(String),
+    #[error("codec error: '{0:?}'")]
+    Codec(StdError),
 
     /// Error raised when there is no genesis signer available
     #[error("missing genesis signer error")]
@@ -44,8 +45,9 @@ impl CertificateGenesisProducer {
     pub fn create_genesis_protocol_message(
         genesis_avk: &ProtocolAggregateVerificationKey,
     ) -> Result<ProtocolMessage, CertificateGenesisProducerError> {
-        let genesis_avk =
-            key_encode_hex(genesis_avk).map_err(CertificateGenesisProducerError::Codec)?;
+        let genesis_avk = genesis_avk
+            .to_json_hex()
+            .map_err(CertificateGenesisProducerError::Codec)?;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
@@ -86,8 +88,9 @@ impl CertificateGenesisProducer {
         );
         let previous_hash = "".to_string();
         let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
-        let genesis_avk =
-            key_encode_hex(&genesis_avk).map_err(CertificateGenesisProducerError::Codec)?;
+        let genesis_avk = genesis_avk
+            .to_json_hex()
+            .map_err(CertificateGenesisProducerError::Codec)?;
         Ok(Certificate::new(
             previous_hash,
             beacon,

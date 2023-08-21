@@ -5,13 +5,13 @@ use thiserror::Error;
 
 use mithril_common::{
     crypto_helper::{
-        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
-        ProtocolMultiSignature, ProtocolParameters, ProtocolRegistrationError,
-        ProtocolStakeDistribution,
+        ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolMultiSignature,
+        ProtocolParameters, ProtocolRegistrationError, ProtocolStakeDistribution,
     },
     entities::{self, Epoch, SignerWithStake, StakeDistribution},
     protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
     store::{StakeStorer, StoreError},
+    StdError,
 };
 
 use crate::{entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStorer};
@@ -39,8 +39,8 @@ pub enum ProtocolError {
     ExistingSingleSignature(entities::PartyId),
 
     /// Codec error.
-    #[error("codec error: '{0}'")]
-    Codec(String),
+    #[error("codec error: '{0:?}'")]
+    Codec(StdError),
 
     /// Mithril STM library returned an error.
     #[error("core error: '{0}'")]
@@ -131,7 +131,7 @@ pub trait MultiSigner: Sync + Send {
         let avk = self
             .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
             .await?;
-        Ok(key_encode_hex(avk).map_err(ProtocolError::Codec)?)
+        Ok(avk.to_json_hex().map_err(ProtocolError::Codec)?)
     }
 
     /// Compute next stake distribution aggregate verification key
@@ -146,7 +146,7 @@ pub trait MultiSigner: Sync + Send {
         let next_avk = self
             .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
             .await?;
-        Ok(key_encode_hex(next_avk).map_err(ProtocolError::Codec)?)
+        Ok(next_avk.to_json_hex().map_err(ProtocolError::Codec)?)
     }
 
     /// Get signers

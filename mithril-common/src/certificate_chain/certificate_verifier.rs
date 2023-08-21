@@ -8,11 +8,13 @@ use thiserror::Error;
 
 use super::{CertificateRetriever, CertificateRetrieverError};
 use crate::crypto_helper::{
-    key_decode_hex, ProtocolGenesisError, ProtocolGenesisVerifier, ProtocolMultiSignature,
+    ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerifier,
+    ProtocolMultiSignature,
 };
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
 };
+use crate::StdError;
 
 #[cfg(test)]
 use mockall::automock;
@@ -25,8 +27,8 @@ pub enum CertificateVerifierError {
     VerifyMultiSignature(String),
 
     /// Error raised when encoding or decoding of data to hex fails.
-    #[error("codec hex error: '{0}'")]
-    Codec(String),
+    #[error("codec hex error: '{0:?}'")]
+    Codec(StdError),
 
     /// Error raised when encoding or decoding of data to genesis type.
     #[error("codec genesis error: '{0}'")]
@@ -151,7 +153,8 @@ impl MithrilCertificateVerifier {
             message.encode_hex::<String>()
         );
         let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
+            ProtocolAggregateVerificationKey::from_json_hex(aggregate_verification_key)
+                .map_err(CertificateVerifierError::Codec)?;
 
         multi_signature
             .verify(
@@ -287,8 +290,7 @@ mod tests {
     use super::CertificateRetriever;
     use super::*;
 
-    use crate::crypto_helper::tests_setup::*;
-    use crate::crypto_helper::{key_encode_hex, ProtocolClerk};
+    use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
     use crate::test_utils::MithrilFixtureBuilder;
 
     mock! {
@@ -321,7 +323,7 @@ mod tests {
 
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::from_signer(first_signer);
-        let aggregate_verification_key = clerk.compute_avk();
+        let aggregate_verification_key = clerk.compute_avk().into();
         let multi_signature = clerk
             .aggregate(&single_signatures, &message_hash)
             .unwrap()
@@ -334,7 +336,7 @@ mod tests {
                 .verify_multi_signature(
                     &message_tampered,
                     &multi_signature,
-                    &key_encode_hex(&aggregate_verification_key).unwrap(),
+                    &aggregate_verification_key.to_json_hex().unwrap(),
                     &fixture.protocol_parameters(),
                 )
                 .is_err(),
@@ -344,7 +346,7 @@ mod tests {
             .verify_multi_signature(
                 &message_hash,
                 &multi_signature,
-                &key_encode_hex(&aggregate_verification_key).unwrap(),
+                &aggregate_verification_key.to_json_hex().unwrap(),
                 &fixture.protocol_parameters(),
             )
             .expect("multi signature verification should have succeeded");

@@ -4,11 +4,10 @@ use rand_core::{CryptoRng, RngCore, SeedableRng};
 use std::path::Path;
 use thiserror::Error;
 
-use crate::crypto_helper::ProtocolAggregateVerificationKey;
 use crate::{
     crypto_helper::{
-        ProtocolClerk, ProtocolClosedKeyRegistration, ProtocolInitializer, ProtocolKeyRegistration,
-        ProtocolStakeDistribution,
+        ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolClosedKeyRegistration,
+        ProtocolInitializer, ProtocolKeyRegistration, ProtocolStakeDistribution,
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
@@ -84,7 +83,7 @@ impl SignerBuilder {
         let clerk =
             ProtocolClerk::from_registration(&stm_parameters, &self.closed_key_registration);
 
-        clerk.compute_avk()
+        clerk.compute_avk().into()
     }
 
     fn build_single_signer_with_rng<R: RngCore + CryptoRng>(

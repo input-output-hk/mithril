@@ -1,7 +1,7 @@
 use anyhow::Context;
 use hex::{FromHex, ToHex};
 use kes_summed_ed25519::kes::Sum6KesSig;
-use mithril_stm::stm::{StmAggrSig, StmSig, StmVerificationKeyPoP};
+use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
 
 use crate::crypto_helper::{OpCert, ProtocolKey, ProtocolKeyCodec, D};
 use crate::StdResult;
@@ -31,6 +31,9 @@ pub type ProtocolGenesisVerificationKey = ProtocolKey<ed25519_dalek::PublicKey>;
 
 /// Alias of [Ed25519:SecretKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SecretKey.html).
 pub type ProtocolGenesisSecretKey = ProtocolKey<ed25519_dalek::SecretKey>;
+
+/// Alias of [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey).
+pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D>>;
 
 impl ProtocolGenesisSignature {
     /// Create an instance from a bytes hex representation
@@ -76,6 +79,7 @@ impl ProtocolKeyCodec<ed25519_dalek::Signature> for ed25519_dalek::Signature {
 }
 
 impl_codec_and_type_conversions_for_protocol_key!(
-    json_hex_codec => StmVerificationKeyPoP, Sum6KesSig, StmSig, StmAggrSig<D>, OpCert, ed25519_dalek::PublicKey, ed25519_dalek::SecretKey
+    json_hex_codec => StmVerificationKeyPoP, Sum6KesSig, StmSig, StmAggrSig<D>, OpCert,
+        ed25519_dalek::PublicKey, ed25519_dalek::SecretKey, StmAggrVerificationKey<D>
 );
 impl_codec_and_type_conversions_for_protocol_key!(no_default_codec => ed25519_dalek::Signature);
