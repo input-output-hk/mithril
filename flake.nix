@@ -106,7 +106,7 @@
           mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {};
           mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {};
           mithrildemo = buildPackage ./demo/protocol-demo/Cargo.toml mithril.cargoArtifacts {};
-          mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml mithril.cargoArtifacts {};
+          mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
         };
 
         devShells.default = pkgs.mkShell {
