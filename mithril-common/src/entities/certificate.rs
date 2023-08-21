@@ -200,7 +200,7 @@ mod tests {
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-123".to_string(),
+            fake_keys::aggregate_verification_key()[1].to_owned(),
         );
 
         protocol_message
@@ -209,7 +209,7 @@ mod tests {
     #[test]
     fn test_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "255d59cef74aae5bc2e83e87612dea41309551dde0c770d46bf6607971bb9765";
+            "af0965134ef5b2c2a33005cf401c58ca882dead8efda358540dac0575098b54e";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
@@ -227,7 +227,7 @@ mod tests {
                 get_signers_with_stake(),
             ),
             get_protocol_message(),
-            "aggregate_verification_key".to_string(),
+            fake_keys::aggregate_verification_key()[0].to_owned(),
             CertificateSignature::MultiSignature(
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
@@ -272,7 +272,9 @@ mod tests {
                     let mut protocol_message_modified = certificate.protocol_message.clone();
                     protocol_message_modified.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
-                        "next-avk-456".to_string(),
+                        fake_keys::aggregate_verification_key()[2]
+                            .try_into()
+                            .unwrap(),
                     );
 
                     protocol_message_modified
@@ -285,7 +287,9 @@ mod tests {
         assert_ne!(
             HASH_EXPECTED,
             Certificate {
-                aggregate_verification_key: "aggregate_verification_key-modified".to_string(),
+                aggregate_verification_key: fake_keys::aggregate_verification_key()[2]
+                    .try_into()
+                    .unwrap(),
                 ..certificate.clone()
             }
             .compute_hash(),
@@ -306,7 +310,7 @@ mod tests {
     #[test]
     fn test_genesis_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "bbb265e74082896873d3fbe568e4b0118ddcf9a63b4f4b369b92773439e80159";
+            "e8cc8885ef7a76f35216a6ef603ab0387dcacb892e0a33df9de9f5bf98cf203b";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
@@ -324,7 +328,7 @@ mod tests {
                 get_signers_with_stake(),
             ),
             get_protocol_message(),
-            "aggregate_verification_key".to_string(),
+            fake_keys::aggregate_verification_key()[1].to_owned(),
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),

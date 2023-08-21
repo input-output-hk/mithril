@@ -342,7 +342,7 @@ mod test {
         let expected = vec![
             (
                 dummy_genesis(
-                    "b9263d7c2e94f6a62802b6521b30967e7e7a7fdccf02026dc70a0ffbc46da393",
+                    "98b44c52ac3c82adcbc5aea27a0c99cbba716048dddaf401b27acded80f1abcd",
                     1,
                     1,
                 ),
@@ -350,8 +350,8 @@ mod test {
             ),
             (
                 dummy_certificate(
-                    "5d73905d314abc86451a399d4f1820201d4c20076d8fb0e4b277ffe5f5e4dc07",
-                    "b9263d7c2e94f6a62802b6521b30967e7e7a7fdccf02026dc70a0ffbc46da393",
+                    "0b7c12daffe63ca93a9cded424e300361a5234ab8c52b3e7029ff9dfbd8a16bd",
+                    "98b44c52ac3c82adcbc5aea27a0c99cbba716048dddaf401b27acded80f1abcd",
                     1,
                     2,
                 ),
@@ -359,7 +359,7 @@ mod test {
                     signed_entity_id: "signed_entity_id".to_string(),
                     signed_entity_type: MithrilStakeDistribution(Epoch(1)),
                     certificate_id:
-                        "5d73905d314abc86451a399d4f1820201d4c20076d8fb0e4b277ffe5f5e4dc07"
+                        "0b7c12daffe63ca93a9cded424e300361a5234ab8c52b3e7029ff9dfbd8a16bd"
                             .to_string(),
                     artifact: "".to_string(),
                     created_at: Default::default(),
@@ -367,8 +367,8 @@ mod test {
             ),
             (
                 dummy_certificate(
-                    "583803ea5050f781de38c25d8773628ccf5c6fd737b4d984db2d41444bfdbf39",
-                    "5d73905d314abc86451a399d4f1820201d4c20076d8fb0e4b277ffe5f5e4dc07",
+                    "0aa74b928d3eade6548b22349435a12e9591f0c34c9ca2b0abfbeeefbb1acb37",
+                    "0b7c12daffe63ca93a9cded424e300361a5234ab8c52b3e7029ff9dfbd8a16bd",
                     2,
                     3,
                 ),
@@ -376,7 +376,7 @@ mod test {
                     signed_entity_id: "signed_entity_id".to_string(),
                     signed_entity_type: MithrilStakeDistribution(Epoch(2)),
                     certificate_id:
-                        "583803ea5050f781de38c25d8773628ccf5c6fd737b4d984db2d41444bfdbf39"
+                        "0aa74b928d3eade6548b22349435a12e9591f0c34c9ca2b0abfbeeefbb1acb37"
                             .to_string(),
                     artifact: "".to_string(),
                     created_at: Default::default(),

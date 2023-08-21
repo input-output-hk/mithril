@@ -82,7 +82,7 @@ impl CertificateRecord {
             parent_certificate_id: Some(parent_id.to_string()),
             message: "message".to_string(),
             signature: fake_keys::multi_signature()[0].to_owned(),
-            aggregate_verification_key: "avk".to_string(),
+            aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
             epoch: beacon.epoch,
             beacon,
             protocol_version: "protocol_version".to_string(),

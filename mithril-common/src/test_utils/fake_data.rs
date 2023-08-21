@@ -123,7 +123,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     );
 
     // Protocol message
-    let next_aggregate_verification_key = "next-avk-123".to_string();
+    let next_aggregate_verification_key = fake_keys::aggregate_verification_key()[2].to_owned();
     let mut protocol_message = ProtocolMessage::new();
     let snapshot_digest = format!("1{}", beacon.immutable_file_number).repeat(20);
     protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
@@ -134,7 +134,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
 
     // Certificate
     let previous_hash = format!("{certificate_hash}0");
-    let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
+    let aggregate_verification_key = fake_keys::aggregate_verification_key()[1].to_owned();
     let multi_signature = fake_keys::multi_signature()[0].try_into().unwrap();
 
     entities::Certificate {
