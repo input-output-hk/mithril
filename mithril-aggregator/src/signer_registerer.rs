@@ -236,9 +236,9 @@ impl SignerRegisterer for MithrilSignerRegisterer {
         let party_id_save = key_registration.register(
             party_id_register.clone(),
             signer.operational_certificate.clone(),
-            signer.verification_key_signature.clone(),
+            signer.verification_key_signature,
             kes_period,
-            signer.verification_key.clone(),
+            signer.verification_key,
         )?;
         let mut signer_save = SignerWithStake::from_signer(
             signer.to_owned(),

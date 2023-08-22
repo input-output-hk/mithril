@@ -52,9 +52,9 @@ impl SignerBuilder {
                 .register(
                     Some(signer.party_id.to_owned()),
                     signer.operational_certificate.clone(),
-                    signer.verification_key_signature.clone(),
+                    signer.verification_key_signature,
                     signer.kes_period,
-                    signer.verification_key.clone(),
+                    signer.verification_key,
                 )
                 .with_context(|| {
                     format!("Registration failed for signer: '{}'", signer.party_id)

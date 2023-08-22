@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use async_trait::async_trait;
 use futures::Future;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
@@ -15,7 +15,7 @@ use tokio::{select, time::sleep};
 
 use mithril_common::{
     certificate_chain::CertificateVerifier,
-    crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
+    crypto_helper::{ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
     digesters::ImmutableDigester,
     entities::{Certificate, ProtocolMessagePartKey, SignedEntity, Snapshot},
     messages::{SnapshotListItemMessage, SnapshotMessage},
@@ -127,11 +127,12 @@ impl MithrilClientSnapshotService {
         genesis_verification_key: &str,
         certificate: &Certificate,
     ) -> StdResult<()> {
-        let genesis_verification_key = key_decode_hex(genesis_verification_key).map_err(|e| {
-            SnapshotServiceError::InvalidParameters(anyhow!(e).context(format!(
-                "Invalid genesis verification key '{genesis_verification_key}'"
-            )))
-        })?;
+        let genesis_verification_key =
+            ProtocolGenesisVerificationKey::from_json_hex(genesis_verification_key)
+                .with_context(|| {
+                    format!("Invalid genesis verification key '{genesis_verification_key}'")
+                })
+                .map_err(SnapshotServiceError::InvalidParameters)?;
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
@@ -302,7 +303,7 @@ mod tests {
     use config::{builder::DefaultState, ConfigBuilder};
     use flate2::{write::GzEncoder, Compression};
     use mithril_common::{
-        crypto_helper::{key_encode_hex, tests_setup::setup_genesis},
+        crypto_helper::tests_setup::setup_genesis,
         digesters::DumbImmutableDigester,
         messages::{
             CertificateMessage, FromMessageAdapter, SnapshotListItemMessage, SnapshotListMessage,
@@ -548,7 +549,7 @@ mod tests {
             .download(
                 &snapshot,
                 &test_path,
-                &key_encode_hex(genesis_verification_key).unwrap(),
+                &genesis_verification_key.to_json_hex().unwrap(),
                 ProgressDrawTarget::hidden(),
             )
             .await
@@ -588,7 +589,7 @@ mod tests {
             .download(
                 &snapshot,
                 &test_path,
-                &key_encode_hex(genesis_verification_key).unwrap(),
+                &genesis_verification_key.to_json_hex().unwrap(),
                 ProgressDrawTarget::hidden(),
             )
             .await
@@ -634,7 +635,7 @@ mod tests {
             .download(
                 &signed_entity,
                 &test_path,
-                &key_encode_hex(genesis_verification_key).unwrap(),
+                &genesis_verification_key.to_json_hex().unwrap(),
                 ProgressDrawTarget::hidden(),
             )
             .await
@@ -682,7 +683,7 @@ mod tests {
             .download(
                 &snapshot,
                 &test_path,
-                &key_encode_hex(genesis_verification_key).unwrap(),
+                &genesis_verification_key.to_json_hex().unwrap(),
                 ProgressDrawTarget::hidden(),
             )
             .await

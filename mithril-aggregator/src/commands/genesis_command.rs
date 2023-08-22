@@ -1,8 +1,8 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
-    crypto_helper::{key_decode_hex, ProtocolGenesisSigner},
+    crypto_helper::{ProtocolGenesisSecretKey, ProtocolGenesisSigner},
     entities::HexEncodedGenesisSecretKey,
     StdResult,
 };
@@ -175,8 +175,8 @@ impl BootstrapGenesisSubCommand {
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
             .with_context(|| "genesis-tools: initialization error")?;
-        let genesis_secret_key = key_decode_hex(&self.genesis_secret_key)
-            .map_err(|e| anyhow!(e).context("json hex decode of genesis secret key failure"))?;
+        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(&self.genesis_secret_key)
+            .with_context(|| "json hex decode of genesis secret key failure")?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
