@@ -640,7 +640,7 @@ chmod +x verify_signer_registration.sh
 
 Finally, execute the script:
 ```bash
-SIGNER_LOGS_PATH=**YOUR_SIGNER_LOGS_PATH** ./verify_signer_registration.sh
+PARTY_ID=**YOUR_PARTY_ID** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./verify_signer_registration.sh
 ```
 
 :::tip
@@ -660,7 +660,7 @@ If your signer is registered, you should see this message:
 
 Otherwise, you should see this error message:
 ```bash
->> Oops, your signer node is not registered. Check your configuration.
+>> Oops, your signer node is not registered. Party ID not found among the signers registered at epoch 430.
 ```
 
 ### Verify your signer contributes with individual signatures
