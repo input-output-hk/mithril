@@ -113,7 +113,7 @@ impl From<Certificate> for CertificateRecord {
             parent_certificate_id,
             message: other.signed_message,
             signature,
-            aggregate_verification_key: other.aggregate_verification_key,
+            aggregate_verification_key: other.aggregate_verification_key.to_json_hex().unwrap(),
             epoch: other.beacon.epoch,
             beacon: other.beacon,
             protocol_version: other.metadata.protocol_version,
@@ -153,7 +153,7 @@ impl From<CertificateRecord> for Certificate {
             metadata: certificate_metadata,
             signed_message: other.protocol_message.compute_hash(),
             protocol_message: other.protocol_message,
-            aggregate_verification_key: other.aggregate_verification_key,
+            aggregate_verification_key: other.aggregate_verification_key.try_into().unwrap(),
             signature,
         }
     }

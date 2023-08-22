@@ -134,7 +134,9 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
 
     // Certificate
     let previous_hash = format!("{certificate_hash}0");
-    let aggregate_verification_key = fake_keys::aggregate_verification_key()[1].to_owned();
+    let aggregate_verification_key = fake_keys::aggregate_verification_key()[1]
+        .try_into()
+        .unwrap();
     let multi_signature = fake_keys::multi_signature()[0].try_into().unwrap();
 
     entities::Certificate {

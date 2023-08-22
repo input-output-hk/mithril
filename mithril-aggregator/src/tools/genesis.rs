@@ -82,8 +82,6 @@ impl GenesisTools {
         let genesis_avk = multi_signer
             .compute_next_stake_distribution_aggregate_verification_key()
             .await?;
-        let genesis_avk = ProtocolAggregateVerificationKey::from_json_hex(&genesis_avk)
-            .with_context(|| "Aggregate verification key decode error")?;
 
         Ok(Self::new(
             protocol_parameters,

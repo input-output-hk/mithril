@@ -1,7 +1,7 @@
-use crate::crypto_helper::{ProtocolGenesisSignature, ProtocolMultiSignature};
-use crate::entities::{
-    Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, ProtocolMessage,
+use crate::crypto_helper::{
+    ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
+use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
@@ -52,7 +52,7 @@ pub struct Certificate {
     /// Aggregate verification key
     /// The AVK used to sign during the current epoch
     /// aka AVK(n-2)
-    pub aggregate_verification_key: HexEncodedAgregateVerificationKey,
+    pub aggregate_verification_key: ProtocolAggregateVerificationKey,
 
     /// Certificate signature
     pub signature: CertificateSignature,
@@ -65,7 +65,7 @@ impl Certificate {
         beacon: Beacon,
         metadata: CertificateMetadata,
         protocol_message: ProtocolMessage,
-        aggregate_verification_key: HexEncodedAgregateVerificationKey,
+        aggregate_verification_key: ProtocolAggregateVerificationKey,
         signature: CertificateSignature,
     ) -> Certificate {
         let signed_message = protocol_message.compute_hash();
@@ -91,7 +91,12 @@ impl Certificate {
         hasher.update(self.metadata.compute_hash().as_bytes());
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
-        hasher.update(self.aggregate_verification_key.as_bytes());
+        hasher.update(
+            self.aggregate_verification_key
+                .to_json_hex()
+                .unwrap()
+                .as_bytes(),
+        );
         match &self.signature {
             CertificateSignature::GenesisSignature(signature) => {
                 hasher.update(signature.to_bytes_hex());
@@ -227,7 +232,9 @@ mod tests {
                 get_signers_with_stake(),
             ),
             get_protocol_message(),
-            fake_keys::aggregate_verification_key()[0].to_owned(),
+            fake_keys::aggregate_verification_key()[0]
+                .try_into()
+                .unwrap(),
             CertificateSignature::MultiSignature(
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
@@ -328,7 +335,9 @@ mod tests {
                 get_signers_with_stake(),
             ),
             get_protocol_message(),
-            fake_keys::aggregate_verification_key()[1].to_owned(),
+            fake_keys::aggregate_verification_key()[1]
+                .try_into()
+                .unwrap(),
             CertificateSignature::GenesisSignature(
                 fake_keys::genesis_signature()[0].try_into().unwrap(),
             ),

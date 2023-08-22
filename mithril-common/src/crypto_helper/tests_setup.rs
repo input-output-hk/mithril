@@ -204,8 +204,6 @@ pub fn setup_certificate_chain(
         let clerk = clerk_for_signers(signers);
         clerk.compute_avk().into()
     };
-    let avk_encode =
-        |avk: &ProtocolAggregateVerificationKey| -> String { avk.to_json_hex().unwrap() };
     epochs.pop();
     let certificates = epochs
         .into_iter()
@@ -226,9 +224,9 @@ pub fn setup_certificate_chain(
                 .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
             fake_certificate.protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
-                avk_encode(&next_avk),
+                next_avk.to_json_hex().unwrap(),
             );
-            fake_certificate.aggregate_verification_key = avk_encode(&avk);
+            fake_certificate.aggregate_verification_key = avk;
             fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
             fake_certificate.previous_hash = "".to_string();
             match i {

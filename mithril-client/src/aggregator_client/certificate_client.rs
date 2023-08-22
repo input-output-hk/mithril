@@ -108,7 +108,10 @@ mod tests {
                     },
                     protocol_message: certificate.protocol_message.clone(),
                     signed_message: certificate.signed_message.clone(),
-                    aggregate_verification_key: certificate.aggregate_verification_key.clone(),
+                    aggregate_verification_key: certificate
+                        .aggregate_verification_key
+                        .try_into()
+                        .unwrap(),
                     multi_signature,
                     genesis_signature,
                 };

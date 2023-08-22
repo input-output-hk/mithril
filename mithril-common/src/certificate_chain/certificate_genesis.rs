@@ -88,9 +88,6 @@ impl CertificateGenesisProducer {
         );
         let previous_hash = "".to_string();
         let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
-        let genesis_avk = genesis_avk
-            .to_json_hex()
-            .map_err(CertificateGenesisProducerError::Codec)?;
         Ok(Certificate::new(
             previous_hash,
             beacon,

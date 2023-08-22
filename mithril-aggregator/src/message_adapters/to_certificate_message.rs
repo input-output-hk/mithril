@@ -34,7 +34,10 @@ impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageA
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
-            aggregate_verification_key: certificate.aggregate_verification_key,
+            aggregate_verification_key: certificate
+                .aggregate_verification_key
+                .to_json_hex()
+                .unwrap(),
             multi_signature,
             genesis_signature,
         }
