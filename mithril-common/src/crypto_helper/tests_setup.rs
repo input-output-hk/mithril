@@ -1,5 +1,5 @@
 //! Test data builders for Mithril STM types, for testing purpose.
-use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat};
+use super::{genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     entities::{
@@ -11,9 +11,7 @@ use crate::{
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use std::{cmp::min, fs, sync::Arc};
-
-use std::{collections::HashMap, path::PathBuf};
+use std::{cmp::min, collections::HashMap, fs, path::PathBuf, sync::Arc};
 
 /// Create or retrieve a temporary directory for storing cryptographic material for a signer, use this for tests only.
 pub fn setup_temp_directory_for_signer(
@@ -204,10 +202,8 @@ pub fn setup_certificate_chain(
     };
     let avk_for_signers = |signers: &[SignerFixture]| -> ProtocolAggregateVerificationKey {
         let clerk = clerk_for_signers(signers);
-        clerk.compute_avk()
+        clerk.compute_avk().into()
     };
-    let avk_encode =
-        |avk: &ProtocolAggregateVerificationKey| -> String { key_encode_hex(avk).unwrap() };
     epochs.pop();
     let certificates = epochs
         .into_iter()
@@ -228,9 +224,9 @@ pub fn setup_certificate_chain(
                 .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
             fake_certificate.protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
-                avk_encode(&next_avk),
+                next_avk.to_json_hex().unwrap(),
             );
-            fake_certificate.aggregate_verification_key = avk_encode(&avk);
+            fake_certificate.aggregate_verification_key = avk;
             fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
             fake_certificate.previous_hash = "".to_string();
             match i {

@@ -9,8 +9,8 @@ use std::{
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisSigner,
-        ProtocolInitializer, ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
+        ProtocolAggregateVerificationKey, ProtocolGenesisSigner, ProtocolInitializer,
+        ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
@@ -154,7 +154,7 @@ impl MithrilFixture {
     /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAgregateVerificationKey].
     pub fn compute_and_encode_avk(&self) -> HexEncodedAgregateVerificationKey {
         let avk = self.compute_avk();
-        key_encode_hex(avk).unwrap()
+        avk.to_json_hex().unwrap()
     }
 
     /// Create a genesis certificate using the fixture signers for the given beacon

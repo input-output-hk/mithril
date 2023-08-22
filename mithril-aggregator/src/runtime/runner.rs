@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use slog_scope::{debug, info, warn};
 use std::{path::Path, path::PathBuf, sync::Arc};
@@ -369,7 +370,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             multi_signer
                 .compute_next_stake_distribution_aggregate_verification_key()
-                .await?,
+                .await?
+                .to_json_hex()
+                .with_context(|| "convert next avk to json hex failure")?,
         );
 
         Ok(protocol_message)

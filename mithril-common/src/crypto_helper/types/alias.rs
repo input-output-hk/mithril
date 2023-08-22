@@ -5,7 +5,7 @@ use crate::crypto_helper::cardano::{
 
 use mithril_stm::{
     key_reg::ClosedKeyReg,
-    stm::{Index, Stake, StmAggrVerificationKey, StmClerk, StmParameters, StmSigner},
+    stm::{Index, Stake, StmClerk, StmParameters, StmSigner},
     AggregationError,
 };
 
@@ -46,9 +46,6 @@ pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of a wrapper of [MithrilStm:ClosedKeyReg](struct@mithril_stm::key_reg::KeyReg).
 pub type ProtocolClosedKeyRegistration = ClosedKeyReg<D>;
-
-/// Alias of [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey).
-pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
 
 // Error alias
 /// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).

@@ -332,11 +332,32 @@ pub const fn operational_certificate<'a>() -> [&'a str; 2] {
     ]
 }
 
+/// A list of pre json hex encoded [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey)
+pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
+    [
+        "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3134302c31332c3135352c3134312c3136332c\
+        372c38362c3232372c34372c31392c3138302c3132372c3139362c3130382c3137312c3135382c3134302c37372\
+        c3137352c3135392c3133362c3139332c3130382c34322c3134322c3234342c38352c3131362c3235322c313536\
+        2c3233352c35305d2c226e725f6c6561766573223a312c22686173686572223a6e756c6c7d2c22746f74616c5f7\
+        374616b65223a313030393439373433323536397d",
+        "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b37332c37342c3232392c3235302c3132322c32\
+        32362c38392c33372c3233312c3234352c3130362c3138332c3132372c332c39392c3137372c3231372c36352c3\
+        135322c3133352c33322c36372c3232332c33352c3134312c35312c342c3132352c3230332c33382c3139362c32\
+        31325d2c226e725f6c6561766573223a32342c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b6\
+        5223a35323337353137363336353838327d",
+        "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b39382c3234312c3132322c37382c3230322c33\
+        2c3230322c37322c36372c3231352c3139302c3135322c3130332c3135392c39372c35352c32362c3232312c313\
+        7372c38352c3233392c3132372c39322c35332c3131332c3235322c39302c39372c39352c3133342c3233342c36\
+        375d2c226e725f6c6561766573223a36342c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b652\
+        23a313236393036323837373536363033367d",
+    ]
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use kes_summed_ed25519::kes::Sum6KesSig;
-    use mithril_stm::stm::{StmAggrSig, StmSig, StmVerificationKeyPoP};
+    use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
     use serde::{de::DeserializeOwned, Serialize};
     use std::any::type_name;
 
@@ -432,5 +453,12 @@ mod test {
     #[test]
     fn assert_encoded_operational_certificate_are_still_matching_concrete_type() {
         assert_can_deserialize_using_key_decode_hex::<OpCert>(&operational_certificate());
+    }
+
+    #[test]
+    fn assert_encoded_aggregate_verification_key_are_still_matching_concrete_type() {
+        assert_can_deserialize_using_key_decode_hex::<StmAggrVerificationKey<D>>(
+            &aggregate_verification_key(),
+        );
     }
 }

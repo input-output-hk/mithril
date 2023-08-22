@@ -1,5 +1,6 @@
 //! A module used to validate the Certificate Chain created by an aggregator
 //!
+use anyhow::Context;
 use async_trait::async_trait;
 use hex::ToHex;
 use slog::{debug, Logger};
@@ -8,11 +9,13 @@ use thiserror::Error;
 
 use super::{CertificateRetriever, CertificateRetrieverError};
 use crate::crypto_helper::{
-    key_decode_hex, ProtocolGenesisError, ProtocolGenesisVerifier, ProtocolMultiSignature,
+    ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerifier,
+    ProtocolMultiSignature,
 };
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
 };
+use crate::StdError;
 
 #[cfg(test)]
 use mockall::automock;
@@ -25,8 +28,8 @@ pub enum CertificateVerifierError {
     VerifyMultiSignature(String),
 
     /// Error raised when encoding or decoding of data to hex fails.
-    #[error("codec hex error: '{0}'")]
-    Codec(String),
+    #[error("codec hex error: '{0:?}'")]
+    Codec(StdError),
 
     /// Error raised when encoding or decoding of data to genesis type.
     #[error("codec genesis error: '{0}'")]
@@ -142,7 +145,7 @@ impl MithrilCertificateVerifier {
         &self,
         message: &[u8],
         multi_signature: &ProtocolMultiSignature,
-        aggregate_verification_key: &str,
+        aggregate_verification_key: &ProtocolAggregateVerificationKey,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), CertificateVerifierError> {
         debug!(
@@ -150,13 +153,11 @@ impl MithrilCertificateVerifier {
             "Verify multi signature for {:?}",
             message.encode_hex::<String>()
         );
-        let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
 
         multi_signature
             .verify(
                 message,
-                &aggregate_verification_key,
+                aggregate_verification_key,
                 &protocol_parameters.to_owned().into(),
             )
             .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
@@ -178,21 +179,44 @@ impl MithrilCertificateVerifier {
         let previous_certificate = certificate_retriever
             .get_certificate_details(&certificate.previous_hash)
             .await?;
-        let valid_certificate_has_different_epoch_as_previous =
-            |next_aggregate_verification_key: &String| -> bool {
-                next_aggregate_verification_key == &certificate.aggregate_verification_key
-                    && previous_certificate.beacon.epoch != certificate.beacon.epoch
-            };
-        let valid_certificate_has_same_epoch_as_previous = || -> bool {
-            previous_certificate.aggregate_verification_key
-                == certificate.aggregate_verification_key
-                && previous_certificate.beacon.epoch == certificate.beacon.epoch
-        };
+
         if previous_certificate.hash != certificate.previous_hash {
             return Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch);
         }
 
-        match &previous_certificate
+        let current_certificate_avk: String = certificate
+            .aggregate_verification_key
+            .to_json_hex()
+            .with_context(|| {
+                format!(
+                    "avk to string conversion error for certificate: `{}`",
+                    certificate.hash
+                )
+            })
+            .map_err(CertificateVerifierError::Codec)?;
+
+        let previous_certificate_avk: String = previous_certificate
+            .aggregate_verification_key
+            .to_json_hex()
+            .with_context(|| {
+                format!(
+                    "avk to string conversion error for previous certificate: `{}`",
+                    certificate.hash
+                )
+            })
+            .map_err(CertificateVerifierError::Codec)?;
+
+        let valid_certificate_has_different_epoch_as_previous =
+            |next_aggregate_verification_key: &str| -> bool {
+                next_aggregate_verification_key == current_certificate_avk
+                    && previous_certificate.beacon.epoch != certificate.beacon.epoch
+            };
+        let valid_certificate_has_same_epoch_as_previous = || -> bool {
+            previous_certificate_avk == current_certificate_avk
+                && previous_certificate.beacon.epoch == certificate.beacon.epoch
+        };
+
+        match previous_certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
         {
@@ -287,8 +311,7 @@ mod tests {
     use super::CertificateRetriever;
     use super::*;
 
-    use crate::crypto_helper::tests_setup::*;
-    use crate::crypto_helper::{key_encode_hex, ProtocolClerk};
+    use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
     use crate::test_utils::MithrilFixtureBuilder;
 
     mock! {
@@ -321,7 +344,7 @@ mod tests {
 
         let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::from_signer(first_signer);
-        let aggregate_verification_key = clerk.compute_avk();
+        let aggregate_verification_key = clerk.compute_avk().into();
         let multi_signature = clerk
             .aggregate(&single_signatures, &message_hash)
             .unwrap()
@@ -334,7 +357,7 @@ mod tests {
                 .verify_multi_signature(
                     &message_tampered,
                     &multi_signature,
-                    &key_encode_hex(&aggregate_verification_key).unwrap(),
+                    &aggregate_verification_key,
                     &fixture.protocol_parameters(),
                 )
                 .is_err(),
@@ -344,7 +367,7 @@ mod tests {
             .verify_multi_signature(
                 &message_hash,
                 &multi_signature,
-                &key_encode_hex(&aggregate_verification_key).unwrap(),
+                &aggregate_verification_key,
                 &fixture.protocol_parameters(),
             )
             .expect("multi signature verification should have succeeded");

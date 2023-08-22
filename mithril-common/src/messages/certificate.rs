@@ -59,7 +59,7 @@ impl CertificateMessage {
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-123".to_string(),
+            fake_keys::aggregate_verification_key()[1].to_owned(),
         );
         Self {
             hash: "hash".to_string(),
@@ -68,7 +68,7 @@ impl CertificateMessage {
             metadata: CertificateMetadataMessagePart::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
-            aggregate_verification_key: "aggregate_verification_key".to_string(),
+            aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
             multi_signature: fake_keys::multi_signature()[0].to_owned(),
             genesis_signature: String::new(),
         }

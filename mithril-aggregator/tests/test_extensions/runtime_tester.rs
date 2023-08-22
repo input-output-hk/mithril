@@ -416,7 +416,7 @@ impl RuntimeTester {
         let expected_certificate = match signed_entity_record {
             None if certificate.is_genesis() => ExpectedCertificate::new_genesis(
                 certificate.beacon,
-                certificate.aggregate_verification_key,
+                certificate.aggregate_verification_key.try_into().unwrap(),
             ),
             None => {
                 panic!("A certificate should always have a SignedEntity if it's not a genesis certificate");
@@ -429,7 +429,7 @@ impl RuntimeTester {
                 ExpectedCertificate::new(
                     certificate.beacon,
                     &certificate.metadata.signers,
-                    certificate.aggregate_verification_key,
+                    certificate.aggregate_verification_key.try_into().unwrap(),
                     record.signed_entity_type,
                     previous_cert_identifier,
                 )

@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use async_trait::async_trait;
 use std::{
     path::{Path, PathBuf},
@@ -9,8 +9,7 @@ use thiserror::Error;
 use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{
-        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolGenesisVerificationKey,
-        ProtocolGenesisVerifier,
+        ProtocolAggregateVerificationKey, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
     },
     entities::{MithrilStakeDistribution, ProtocolMessagePartKey},
     messages::MithrilStakeDistributionListItemMessage,
@@ -156,12 +155,11 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
             )
             .await?;
 
-        let avk = key_encode_hex(
-            self.compute_avk_from_mithril_stake_distribution(&stake_distribution_entity.artifact)
-                .await?,
-        )
-        .map_err(|e| anyhow!(e))
-        .with_context(|| "Encoding avk error")?;
+        let avk = self
+            .compute_avk_from_mithril_stake_distribution(&stake_distribution_entity.artifact)
+            .await?
+            .to_json_hex()
+            .with_context(|| "Encoding avk error")?;
 
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message

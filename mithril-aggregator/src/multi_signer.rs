@@ -5,9 +5,8 @@ use thiserror::Error;
 
 use mithril_common::{
     crypto_helper::{
-        key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
-        ProtocolMultiSignature, ProtocolParameters, ProtocolRegistrationError,
-        ProtocolStakeDistribution,
+        ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolMultiSignature,
+        ProtocolParameters, ProtocolRegistrationError, ProtocolStakeDistribution,
     },
     entities::{self, Epoch, SignerWithStake, StakeDistribution},
     protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
@@ -37,10 +36,6 @@ pub enum ProtocolError {
     /// Single signature already recorded.
     #[error("single signature already recorded")]
     ExistingSingleSignature(entities::PartyId),
-
-    /// Codec error.
-    #[error("codec error: '{0}'")]
-    Codec(String),
 
     /// Mithril STM library returned an error.
     #[error("core error: '{0}'")]
@@ -122,31 +117,29 @@ pub trait MultiSigner: Sync + Send {
     /// Compute stake distribution aggregate verification key
     async fn compute_stake_distribution_aggregate_verification_key(
         &self,
-    ) -> Result<String, ProtocolError> {
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
         let signers_with_stake = self.get_signers_with_stake().await?;
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        let avk = self
+        Ok(self
             .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
-            .await?;
-        Ok(key_encode_hex(avk).map_err(ProtocolError::Codec)?)
+            .await?)
     }
 
     /// Compute next stake distribution aggregate verification key
     async fn compute_next_stake_distribution_aggregate_verification_key(
         &self,
-    ) -> Result<String, ProtocolError> {
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
         let next_signers_with_stake = self.get_next_signers_with_stake().await?;
         let protocol_parameters = self
             .get_next_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        let next_avk = self
+        Ok(self
             .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
-            .await?;
-        Ok(key_encode_hex(next_avk).map_err(ProtocolError::Codec)?)
+            .await?)
     }
 
     /// Get signers

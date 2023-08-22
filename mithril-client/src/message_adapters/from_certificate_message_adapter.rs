@@ -27,7 +27,9 @@ impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateM
             metadata,
             protocol_message: certificate_message.protocol_message,
             signed_message: certificate_message.signed_message,
-            aggregate_verification_key: certificate_message.aggregate_verification_key,
+            aggregate_verification_key: certificate_message
+                .aggregate_verification_key
+                .try_into()?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateSignature::MultiSignature(
                     certificate_message.multi_signature.try_into()?,

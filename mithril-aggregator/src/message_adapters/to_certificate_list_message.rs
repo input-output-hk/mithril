@@ -27,7 +27,10 @@ impl ToMessageAdapter<Vec<Certificate>, CertificateListMessage>
                 },
                 protocol_message: certificate.protocol_message,
                 signed_message: certificate.signed_message,
-                aggregate_verification_key: certificate.aggregate_verification_key,
+                aggregate_verification_key: certificate
+                    .aggregate_verification_key
+                    .to_json_hex()
+                    .unwrap(),
             })
             .collect()
     }
@@ -58,7 +61,10 @@ mod tests {
             },
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
-            aggregate_verification_key: certificate.aggregate_verification_key,
+            aggregate_verification_key: certificate
+                .aggregate_verification_key
+                .to_json_hex()
+                .unwrap(),
         }];
 
         assert_eq!(certificate_list_message_expected, certificate_list_message);
