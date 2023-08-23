@@ -115,6 +115,25 @@ mod tests {
     use super::super::codec::{key_decode_hex, key_encode_hex};
     use super::*;
 
+    const GOLDEN_ERA_MARKER_VERIFICATION_KEY: &str =
+        "5b32332c32372c3131322c362c35372c38342c3138302c342c3135302c3233322c3233372c3132362c3131392c\
+        3231342c33352c35342c38312c3230382c3231372c39392c3137302c3233312c3133392c362c3132322c39342c3\
+        9322c3137322c32332c3130322c3135372c3136375d";
+    const GOLDEN_ERA_MARKER_SECRET_KEY: &str =
+        "5b34332c3133322c3232312c3138382c3235332c3132372c3235352c38362c3136322c3133312c3233332c3131\
+        362c3134322c3233352c3131312c3133332c3134312c3138332c302c33392c3132302c3139372c39322c3133302\
+        c3233342c34362c3135372c32352c3133322c31352c3234312c3235345d";
+
+    #[test]
+    fn golden_master() {
+        let _: EraMarkersVerifierVerificationKey =
+            key_decode_hex(GOLDEN_ERA_MARKER_VERIFICATION_KEY)
+                .expect("Decoding golden verification key should not fail");
+
+        let _: EraMarkersVerifierSecretKey = key_decode_hex(GOLDEN_ERA_MARKER_SECRET_KEY)
+            .expect("Decoding golden secret key should not fail");
+    }
+
     #[test]
     fn test_generate_test_deterministic_keypair() {
         let signer = EraMarkersSigner::create_deterministic_signer();
