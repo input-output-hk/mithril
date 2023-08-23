@@ -13,7 +13,7 @@ pub type EraMarkersVerifierVerificationKey = ProtocolKey<ed25519_dalek::PublicKe
 pub type EraMarkersVerifierSecretKey = ProtocolKey<ed25519_dalek::SecretKey>;
 
 /// Alias of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
-pub type EraMarkersVerifierSignature = ed25519_dalek::Signature;
+pub type EraMarkersVerifierSignature = ProtocolKey<ed25519_dalek::Signature>;
 
 #[derive(Error, Debug)]
 /// [EraMarkersSigner] and [EraMarkersVerifier] related errors.
@@ -80,7 +80,7 @@ impl EraMarkersSigner {
     pub fn sign(&self, message: &[u8]) -> EraMarkersVerifierSignature {
         let expanded_secret_key = self.create_expanded_secret_key();
         let verification_key = self.create_verification_key(&expanded_secret_key);
-        expanded_secret_key.sign(message, &verification_key)
+        expanded_secret_key.sign(message, &verification_key).into()
     }
 }
 
