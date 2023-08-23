@@ -155,6 +155,13 @@ mod test {
 
     use super::*;
 
+    const GOLDEN_ERA_MARKERS_PAYLOAD: &str =
+        "7b226d61726b657273223a5b7b226e616d65223a227468616c6573222c2265706f6368223a317d2c7b226e616d\
+        65223a227079746861676f726173222c2265706f6368223a327d5d2c227369676e6174757265223a22633539373\
+        9653333663163336234376361306162353239386536353562316264653235656564303866356232653536663361\
+        6439623964373638316164663138653164656562623731616135616132636234363564643831323239633637656\
+        33030326463396632663563363664663931333164366561633039666565373065227d";
+
     fn dummy_tx_datums_from_markers_payload(payloads: Vec<EraMarkersPayload>) -> Vec<TxDatum> {
         payloads
             .into_iter()
@@ -165,6 +172,12 @@ mod test {
                     .unwrap()
             })
             .collect()
+    }
+
+    #[test]
+    fn golden_markers_payload() {
+        let _: EraMarkersPayload = key_decode_hex(GOLDEN_ERA_MARKERS_PAYLOAD)
+            .expect("Decoding golden markers payload should not fail");
     }
 
     #[tokio::test]
