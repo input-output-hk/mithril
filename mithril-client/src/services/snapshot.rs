@@ -25,7 +25,8 @@ use mithril_common::{
 use crate::{
     aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient},
     utils::{
-        DownloadProgressReporter, ProgressOutputType, SnapshotUnpacker, SnapshotUnpackerError,
+        DownloadProgressReporter, ProgressOutputType, ProgressPrinter, SnapshotUnpacker,
+        SnapshotUnpackerError,
     },
 };
 
@@ -217,15 +218,15 @@ impl SnapshotService for MithrilClientSnapshotService {
         debug!("Snapshot service: download.");
 
         let db_dir = download_dir.join("db");
-        let progress_bar = MultiProgress::with_draw_target(progress_output_type.into());
-        progress_bar.println("1/7 - Checking local disk info…")?;
+        let progress_bar = ProgressPrinter::new(progress_output_type, 7);
+        progress_bar.report_step(1, "Checking local disk info…")?;
         let unpacker = SnapshotUnpacker;
 
         if let Err(e) = unpacker.check_prerequisites(&db_dir, snapshot_entity.artifact.size) {
             self.check_disk_space_error(e)?;
         }
 
-        progress_bar.println("2/7 - Fetching the certificate's information…")?;
+        progress_bar.report_step(2, "Fetching the certificate's information…")?;
         let certificate = self
             .certificate_client
             .get(&snapshot_entity.certificate_id)
@@ -236,11 +237,11 @@ impl SnapshotService for MithrilClientSnapshotService {
                 )
             })?;
 
-        progress_bar.println("3/7 - Verifying the certificate chain…")?;
+        progress_bar.report_step(3, "Verifying the certificate chain…")?;
         let verifier = self.verify_certificate_chain(genesis_verification_key, &certificate);
         self.wait_spinner(&progress_bar, verifier).await?;
 
-        progress_bar.println("4/7 - Downloading the snapshot…")?;
+        progress_bar.report_step(4, "Downloading the snapshot…")?;
         let pb = progress_bar.add(ProgressBar::new(snapshot_entity.artifact.size));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
             .unwrap()
@@ -256,7 +257,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             .await
             .with_context(|| format!("Could not download file in '{}'", download_dir.display()))?;
 
-        progress_bar.println("5/7 - Unpacking the snapshot…")?;
+        progress_bar.report_step(5, "Unpacking the snapshot…")?;
         let unpacker = unpacker.unpack_snapshot(&snapshot_path, &db_dir);
         self.wait_spinner(&progress_bar, unpacker).await?;
 
@@ -268,14 +269,14 @@ impl SnapshotService for MithrilClientSnapshotService {
             );
         };
 
-        progress_bar.println("6/7 - Computing the snapshot digest…")?;
+        progress_bar.report_step(6, "Computing the snapshot digest…")?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&db_dir, &certificate.beacon)
             .await
             .with_context(|| format!("Could not compute digest in '{}'", db_dir.display()))?;
 
-        progress_bar.println("7/7 - Verifying the snapshot signature…")?;
+        progress_bar.report_step(7, "Verifying the snapshot signature…")?;
         let expected_message = {
             let mut protocol_message = certificate.protocol_message.clone();
             protocol_message.set_message_part(

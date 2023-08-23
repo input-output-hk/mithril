@@ -1,12 +1,14 @@
-use indicatif::{ProgressBar, ProgressDrawTarget};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
+use mithril_common::StdResult;
 use slog_scope::warn;
 use std::{
+    ops::Deref,
     sync::RwLock,
     time::{Duration, Instant},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-/// Output type of a [ProgressReporter]
+/// Output type of a [ProgressPrinter] or a [DownloadProgressReporter]
 pub enum ProgressOutputType {
     /// Output to json
     JsonReporter,
@@ -23,6 +25,48 @@ impl From<ProgressOutputType> for ProgressDrawTarget {
             ProgressOutputType::TTY => ProgressDrawTarget::stdout(),
             ProgressOutputType::Hidden => ProgressDrawTarget::hidden(),
         }
+    }
+}
+
+/// Wrapper of a indicatif [MultiProgress] to allow reporting to json.
+pub struct ProgressPrinter {
+    multi_progress: MultiProgress,
+    output_type: ProgressOutputType,
+    number_of_steps: u16,
+}
+
+impl ProgressPrinter {
+    /// Instanciate a new progress printer
+    pub fn new(output_type: ProgressOutputType, number_of_steps: u16) -> Self {
+        Self {
+            multi_progress: MultiProgress::with_draw_target(output_type.into()),
+            output_type,
+            number_of_steps,
+        }
+    }
+
+    /// Report the current step
+    pub fn report_step(&self, step_number: u16, text: &str) -> StdResult<()> {
+        match self.output_type {
+            ProgressOutputType::JsonReporter => println!(
+                r#"{{"step_num": {step_number}, "total_steps": {}, "message": "{text}"}}"#,
+                self.number_of_steps
+            ),
+            ProgressOutputType::TTY => self
+                .multi_progress
+                .println(format!("{step_number}/{} - {text}", self.number_of_steps))?,
+            ProgressOutputType::Hidden => (),
+        };
+
+        Ok(())
+    }
+}
+
+impl Deref for ProgressPrinter {
+    type Target = MultiProgress;
+
+    fn deref(&self) -> &Self::Target {
+        &self.multi_progress
     }
 }
 
