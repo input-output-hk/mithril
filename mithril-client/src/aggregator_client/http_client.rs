@@ -1,12 +1,10 @@
-use std::{path::Path, sync::Arc};
-
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use futures::StreamExt;
-use indicatif::ProgressBar;
 use reqwest::{Client, Response, StatusCode};
 use semver::Version;
 use slog_scope::debug;
+use std::{path::Path, sync::Arc};
 use thiserror::Error;
 use tokio::{fs, io::AsyncWriteExt, sync::RwLock};
 
@@ -14,6 +12,8 @@ use tokio::{fs, io::AsyncWriteExt, sync::RwLock};
 use mockall::automock;
 
 use mithril_common::{StdError, MITHRIL_API_VERSION_HEADER};
+
+use crate::utils::DownloadProgressReporter;
 
 /// Error tied with the Aggregator client
 #[derive(Error, Debug)]
@@ -56,7 +56,7 @@ pub trait AggregatorClient: Sync + Send {
         &self,
         url: &str,
         filepath: &Path,
-        progress_bar: ProgressBar,
+        progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError>;
 
     /// Test if the given URL points to a valid location & existing content.
@@ -183,7 +183,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         &self,
         url: &str,
         filepath: &Path,
-        progress_bar: ProgressBar,
+        progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError> {
         let response = self.get(url).await?;
         let mut local_file = fs::File::create(filepath).await.map_err(|e| {
@@ -215,7 +215,7 @@ impl AggregatorClient for AggregatorHTTPClient {
                 }
             })?;
             downloaded_bytes += chunk.len() as u64;
-            progress_bar.set_position(downloaded_bytes);
+            progress_reporter.report(downloaded_bytes);
         }
 
         Ok(())

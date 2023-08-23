@@ -1,7 +1,7 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use futures::Future;
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use slog_scope::{debug, warn};
 use std::{
     fmt::Write,
@@ -24,7 +24,9 @@ use mithril_common::{
 
 use crate::{
     aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient},
-    utils::{SnapshotUnpacker, SnapshotUnpackerError},
+    utils::{
+        DownloadProgressReporter, ProgressOutputType, SnapshotUnpacker, SnapshotUnpackerError,
+    },
 };
 
 /// [SnapshotService] related errors.
@@ -72,7 +74,7 @@ pub trait SnapshotService: Sync + Send {
         snapshot_entity: &SignedEntity<Snapshot>,
         pathdir: &Path,
         genesis_verification_key: &str,
-        progress_target: ProgressDrawTarget,
+        progress_output_type: ProgressOutputType,
     ) -> StdResult<PathBuf>;
 }
 
@@ -210,12 +212,12 @@ impl SnapshotService for MithrilClientSnapshotService {
         snapshot_entity: &SignedEntity<Snapshot>,
         download_dir: &Path,
         genesis_verification_key: &str,
-        progress_target: ProgressDrawTarget,
+        progress_output_type: ProgressOutputType,
     ) -> StdResult<PathBuf> {
         debug!("Snapshot service: download.");
 
         let db_dir = download_dir.join("db");
-        let progress_bar = MultiProgress::with_draw_target(progress_target);
+        let progress_bar = MultiProgress::with_draw_target(progress_output_type.into());
         progress_bar.println("1/7 - Checking local disk info…")?;
         let unpacker = SnapshotUnpacker;
 
@@ -246,7 +248,11 @@ impl SnapshotService for MithrilClientSnapshotService {
             .progress_chars("#>-"));
         let snapshot_path = self
             .snapshot_client
-            .download(&snapshot_entity.artifact, download_dir, pb)
+            .download(
+                &snapshot_entity.artifact,
+                download_dir,
+                DownloadProgressReporter::new(pb, progress_output_type),
+            )
             .await
             .with_context(|| format!("Could not download file in '{}'", download_dir.display()))?;
 
@@ -550,7 +556,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &genesis_verification_key.to_json_hex().unwrap(),
-                ProgressDrawTarget::hidden(),
+                ProgressOutputType::Hidden,
             )
             .await
             .expect("Snapshot download should succeed.");
@@ -590,7 +596,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &genesis_verification_key.to_json_hex().unwrap(),
-                ProgressDrawTarget::hidden(),
+                ProgressOutputType::Hidden,
             )
             .await
             .expect("Snapshot download should succeed.");
@@ -636,7 +642,7 @@ mod tests {
                 &signed_entity,
                 &test_path,
                 &genesis_verification_key.to_json_hex().unwrap(),
-                ProgressDrawTarget::hidden(),
+                ProgressOutputType::Hidden,
             )
             .await
             .expect_err("Snapshot digest comparison should fail.");
@@ -684,7 +690,7 @@ mod tests {
                 &snapshot,
                 &test_path,
                 &genesis_verification_key.to_json_hex().unwrap(),
-                ProgressDrawTarget::hidden(),
+                ProgressOutputType::Hidden,
             )
             .await
             .expect_err("Snapshot download should fail.");

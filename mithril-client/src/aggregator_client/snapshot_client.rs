@@ -1,20 +1,20 @@
 //! This module contains a struct to exchange snapshot information with the Aggregator
 
+use slog_scope::warn;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
+use thiserror::Error;
 
-use indicatif::ProgressBar;
 use mithril_common::{
     entities::Snapshot,
     messages::{SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage},
     StdResult,
 };
-use slog_scope::warn;
-use thiserror::Error;
 
-use super::AggregatorClient;
+use crate::aggregator_client::AggregatorClient;
+use crate::utils::DownloadProgressReporter;
 
 /// Error for the Snapshot client
 #[derive(Error, Debug)]
@@ -64,7 +64,7 @@ impl SnapshotClient {
         &self,
         snapshot: &Snapshot,
         download_dir: &Path,
-        progress_bar: ProgressBar,
+        progress_reporter: DownloadProgressReporter,
     ) -> StdResult<PathBuf> {
         let filepath = PathBuf::new()
             .join(download_dir)
@@ -74,7 +74,7 @@ impl SnapshotClient {
             if self.http_client.probe(url).await.is_ok() {
                 match self
                     .http_client
-                    .download(url, &filepath, progress_bar)
+                    .download(url, &filepath, progress_reporter)
                     .await
                 {
                     Ok(()) => return Ok(filepath),
