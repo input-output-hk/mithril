@@ -1,15 +1,14 @@
 use crate::{
     chain_observer::{ChainAddress, ChainObserver, TxDatumFieldTypeName},
     crypto_helper::{
-        key_decode_hex, EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierSignature,
-        EraMarkersVerifierVerificationKey,
+        key_decode_hex, key_encode_hex, EraMarkersSigner, EraMarkersVerifier,
+        EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
     },
-    entities::HexEncodedEraMarkersSignature,
     era::{EraMarker, EraReaderAdapter},
     StdError, StdResult,
 };
+use anyhow::anyhow;
 use async_trait::async_trait;
-use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use thiserror::Error;
@@ -45,7 +44,7 @@ pub struct EraMarkersPayload {
     pub markers: Vec<EraMarker>,
 
     /// Era markers signature
-    pub signature: Option<HexEncodedEraMarkersSignature>,
+    pub signature: Option<EraMarkersVerifierSignature>,
 }
 
 impl EraMarkersPayload {
@@ -54,16 +53,18 @@ impl EraMarkersPayload {
             .map_err(|e| EraMarkersPayloadError::SerializeMessage(e.into()))
     }
 
-    fn deserialize_signature(&self) -> Result<EraMarkersVerifierSignature, EraMarkersPayloadError> {
-        EraMarkersVerifierSignature::from_bytes(
-            &Vec::from_hex(
-                self.signature
-                    .as_ref()
-                    .ok_or(EraMarkersPayloadError::MissingSignature)?,
-            )
-            .map_err(|e| EraMarkersPayloadError::DeserializeSignature(e.into()))?,
-        )
-        .map_err(|e| EraMarkersPayloadError::DeserializeSignature(e.into()))
+    /// Encode this payload to a json hex string
+    pub fn to_json_hex(&self) -> StdResult<String> {
+        key_encode_hex(self)
+            .map_err(|e| anyhow!(e).context("era markers payload could not be json hex encoded"))
+    }
+
+    /// Decode a [EraMarkersPayload] from a json hex string
+    pub fn from_json_hex(payload: &str) -> StdResult<Self> {
+        let payload = key_decode_hex(payload).map_err(|e| {
+            anyhow!(e).context("era markers payload could not be decoded from json hex")
+        })?;
+        Ok(payload)
     }
 
     /// Verify the signature an era markers payload
@@ -71,22 +72,24 @@ impl EraMarkersPayload {
         &self,
         verification_key: EraMarkersVerifierVerificationKey,
     ) -> Result<(), EraMarkersPayloadError> {
-        let markers_verifier = EraMarkersVerifier::from_verification_key(verification_key);
+        let signature = self
+            .signature
+            .ok_or(EraMarkersPayloadError::MissingSignature)?;
+        let markers_verifier: EraMarkersVerifier =
+            EraMarkersVerifier::from_verification_key(verification_key);
 
         markers_verifier
-            .verify(&self.message_to_bytes()?, &self.deserialize_signature()?)
+            .verify(&self.message_to_bytes()?, &signature)
             .map_err(|e| EraMarkersPayloadError::VerifySignature(e.into()))
     }
 
     /// Sign an era markers payload
     pub fn sign(self, signer: &EraMarkersSigner) -> Result<Self, EraMarkersPayloadError> {
-        let signature = signer
-            .sign(
-                &self
-                    .message_to_bytes()
-                    .map_err(|e| EraMarkersPayloadError::CreateSignature(e.into()))?,
-            )
-            .encode_hex::<String>();
+        let signature = signer.sign(
+            &self
+                .message_to_bytes()
+                .map_err(|e| EraMarkersPayloadError::CreateSignature(e.into()))?,
+        );
 
         Ok(Self {
             markers: self.markers,
@@ -134,8 +137,8 @@ impl EraReaderAdapter for CardanoChainAdapter {
                     .collect::<Vec<String>>()
                     .join("")
             })
-            .filter_map(|field_value_str| key_decode_hex(&field_value_str).ok())
-            .filter_map(|era_markers_payload: EraMarkersPayload| {
+            .filter_map(|field_value_str| EraMarkersPayload::from_json_hex(&field_value_str).ok())
+            .filter_map(|era_markers_payload| {
                 era_markers_payload
                     .verify_signature(self.verification_key)
                     .ok()
@@ -150,21 +153,34 @@ impl EraReaderAdapter for CardanoChainAdapter {
 #[cfg(test)]
 mod test {
     use crate::chain_observer::{FakeObserver, TxDatum, TxDatumBuilder, TxDatumFieldValue};
-    use crate::crypto_helper::{key_encode_hex, EraMarkersSigner};
+    use crate::crypto_helper::EraMarkersSigner;
     use crate::entities::Epoch;
 
     use super::*;
+
+    const GOLDEN_ERA_MARKERS_PAYLOAD_WITH_SIGNATURE: &str =
+        "7b226d61726b657273223a5b7b226e616d65223a227468616c6573222c2265706f6368223a317d2c7b226e616d\
+        65223a227079746861676f726173222c2265706f6368223a327d5d2c227369676e6174757265223a22633539373\
+        9653333663163336234376361306162353239386536353562316264653235656564303866356232653536663361\
+        6439623964373638316164663138653164656562623731616135616132636234363564643831323239633637656\
+        33030326463396632663563363664663931333164366561633039666565373065227d";
 
     fn dummy_tx_datums_from_markers_payload(payloads: Vec<EraMarkersPayload>) -> Vec<TxDatum> {
         payloads
             .into_iter()
             .map(|payload| {
                 TxDatumBuilder::new()
-                    .add_field(TxDatumFieldValue::Bytes(key_encode_hex(payload).unwrap()))
+                    .add_field(TxDatumFieldValue::Bytes(payload.to_json_hex().unwrap()))
                     .build()
                     .unwrap()
             })
             .collect()
+    }
+
+    #[test]
+    fn golden_markers_payload_with_signature() {
+        EraMarkersPayload::from_json_hex(GOLDEN_ERA_MARKERS_PAYLOAD_WITH_SIGNATURE)
+            .expect("Decoding golden markers payload should not fail");
     }
 
     #[tokio::test]

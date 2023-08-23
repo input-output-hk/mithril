@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use mithril_common::{
     chain_observer::{TxDatumBuilder, TxDatumFieldValue},
-    crypto_helper::{key_encode_hex, EraMarkersSigner},
+    crypto_helper::EraMarkersSigner,
     entities::Epoch,
     era::{adapters::EraMarkersPayloadCardanoChain, EraMarker, SupportedEra},
     StdResult,
@@ -52,11 +52,7 @@ impl EraTools {
         .sign(era_markers_signer)?;
 
         let tx_datum = TxDatumBuilder::new()
-            .add_field(TxDatumFieldValue::Bytes(
-                key_encode_hex(era_markers_payload).map_err(|e| {
-                    anyhow!(e).context("era markerspayload could not be hex encoded")
-                })?,
-            ))
+            .add_field(TxDatumFieldValue::Bytes(era_markers_payload.to_json_hex()?))
             .build()?;
         Ok(tx_datum.0)
     }

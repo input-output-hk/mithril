@@ -1,8 +1,8 @@
-use anyhow::anyhow;
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
-    crypto_helper::{key_decode_hex, EraMarkersSigner},
+    crypto_helper::{EraMarkersSigner, EraMarkersVerifierSecretKey},
     entities::{Epoch, HexEncodedEraMarkersSecretKey},
     StdResult,
 };
@@ -89,8 +89,9 @@ impl GenerateTxDatumEraSubCommand {
         debug!("GENERATETXDATUM ERA command");
         let era_tools = EraTools::new();
 
-        let era_markers_secret_key = key_decode_hex(&self.era_markers_secret_key)
-            .map_err(|e| anyhow!(e).context("json hex decode of era markers secret key failure"))?;
+        let era_markers_secret_key =
+            EraMarkersVerifierSecretKey::from_json_hex(&self.era_markers_secret_key)
+                .with_context(|| "json hex decode of era markers secret key failure")?;
         let era_markers_signer = EraMarkersSigner::from_secret_key(era_markers_secret_key);
         print!(
             "{}",

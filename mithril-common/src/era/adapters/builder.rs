@@ -4,8 +4,7 @@ use thiserror::Error;
 
 use crate::{
     chain_observer::{ChainAddress, ChainObserver},
-    crypto_helper::key_decode_hex,
-    entities::HexEncodedEraMarkersSignature,
+    crypto_helper::EraMarkersVerifierVerificationKey,
     era::{
         adapters::{
             EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
@@ -13,6 +12,7 @@ use crate::{
         },
         EraMarker, EraReaderAdapter,
     },
+    StdError,
 };
 
 /// Type of era reader adapaters available
@@ -43,7 +43,7 @@ pub enum AdapterBuilderError {
 
     /// Parameters decode error.
     #[error("era reader adapter parameters decode error: {0:?}")]
-    Decode(String),
+    Decode(StdError),
 }
 
 /// Era adapter builder
@@ -71,7 +71,7 @@ impl AdapterBuilder {
                 #[derive(Deserialize)]
                 struct CardanoChainAdapterConfig {
                     address: ChainAddress,
-                    verification_key: HexEncodedEraMarkersSignature,
+                    verification_key: EraMarkersVerifierVerificationKey,
                 }
 
                 let adapter_config: CardanoChainAdapterConfig = serde_json::from_str(
@@ -84,8 +84,7 @@ impl AdapterBuilder {
                 Ok(Arc::new(EraReaderCardanoChainAdapter::new(
                     adapter_config.address,
                     chain_observer,
-                    key_decode_hex(&adapter_config.verification_key)
-                        .map_err(AdapterBuilderError::Decode)?,
+                    adapter_config.verification_key,
                 )))
             }
             AdapterType::File => {
@@ -123,5 +122,27 @@ impl AdapterBuilder {
             }
             AdapterType::Bootstrap => Ok(Arc::new(EraReaderBootstrapAdapter)),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::chain_observer::MockChainObserver;
+
+    use super::*;
+
+    const GOLDEN_ADAPTER_PARAMS: &str = r#"{
+        "address":"addr_test1qrv5xfwh043mlc3vk5d97s4nmhxu7cmleyssvhx37gkfyejfe8d38v3vsfgetjafgrsdc49krug8wf04h5rmtengtejqlxrksk",
+        "verification_key":"5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"
+    }"#;
+
+    #[test]
+    fn golden_test_for_cardano_chain() {
+        AdapterBuilder::new(
+            &AdapterType::CardanoChain,
+            &Some(GOLDEN_ADAPTER_PARAMS.to_owned()),
+        )
+        .build(Arc::new(MockChainObserver::new()))
+        .expect("building an cardano chain era reader with golden params should not fail");
     }
 }

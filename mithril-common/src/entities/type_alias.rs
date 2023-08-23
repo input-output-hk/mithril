@@ -33,9 +33,6 @@ pub type HexEncodedKeySlice<'a> = &'a str;
 /// Hex encoded Single Signature
 pub type HexEncodedSingleSignature = HexEncodedKey;
 
-/// Hex encoded Multi Signature
-pub type HexEncodedMultiSignature = HexEncodedKey;
-
 /// Hex encoded Aggregate Verification Key
 pub type HexEncodedAgregateVerificationKey = HexEncodedKey;
 
@@ -54,17 +51,8 @@ pub type HexEncodedGenesisSecretKey = HexEncodedKey;
 /// Hex encoded Genesis Verification Key
 pub type HexEncodedGenesisVerificationKey = HexEncodedKey;
 
-/// Hex encoded Genesis Signature
-pub type HexEncodedGenesisSignature = HexEncodedKey;
-
 /// Hex encoded Sha256 Digest
 pub type HexEncodedDigest = HexEncodedKey;
 
 /// Hex encoded Era Markers Secret Key
 pub type HexEncodedEraMarkersSecretKey = HexEncodedKey;
-
-/// Hex encoded Era Markers Verification Key
-pub type HexEncodedEraMarkersVerificationKey = HexEncodedKey;
-
-/// Hex encoded Era Markers Signature
-pub type HexEncodedEraMarkersSignature = HexEncodedKey;
