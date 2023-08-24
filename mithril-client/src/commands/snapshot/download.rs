@@ -1,11 +1,12 @@
-use std::{path::PathBuf, sync::Arc};
-
 use clap::Parser;
 use config::{builder::DefaultState, Config, ConfigBuilder};
-use indicatif::ProgressDrawTarget;
+use std::{path::PathBuf, sync::Arc};
+
 use mithril_common::{messages::FromMessageAdapter, StdResult};
 
-use crate::{dependencies::DependenciesBuilder, FromSnapshotMessageAdapter};
+use crate::{
+    dependencies::DependenciesBuilder, utils::ProgressOutputType, FromSnapshotMessageAdapter,
+};
 
 /// Clap command to download the snapshot and verify the certificate.
 #[derive(Parser, Debug, Clone)]
@@ -36,17 +37,17 @@ impl SnapshotDownloadCommand {
         let snapshot_service = dependencies_builder.get_snapshot_service().await?;
         let snapshot_entity =
             FromSnapshotMessageAdapter::adapt(snapshot_service.show(&self.digest).await?);
-        let progress_target = if self.json {
-            ProgressDrawTarget::hidden()
+        let progress_output_type = if self.json {
+            ProgressOutputType::JsonReporter
         } else {
-            ProgressDrawTarget::stdout()
+            ProgressOutputType::TTY
         };
         let filepath = snapshot_service
             .download(
                 &snapshot_entity,
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,
-                progress_target,
+                progress_output_type,
             )
             .await?;
 
