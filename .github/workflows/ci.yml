@@ -380,7 +380,8 @@ jobs:
           version-name: unstable-${{ steps.slug.outputs.sha8 }}
           download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/unstable
           gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
-
+          compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "✔", "testing-preview": "✔" }'
+      
       - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest
         with:

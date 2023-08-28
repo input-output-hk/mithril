@@ -62,6 +62,7 @@ jobs:
           version-name: ${{ github.ref_name }}
           download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}
           gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
+          compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "✔", "testing-preview": "✔" }'
 
       - name: Create pre-release ${{ github.ref_name }}
         uses: marvinpinto/action-automatic-releases@latest
