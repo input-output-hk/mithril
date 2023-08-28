@@ -14,6 +14,9 @@ inputs:
   gpg-secret-key:
     description: A GPG secret key to sign the distribution
     required: true
+  compatibility-table:
+    description: A json in which each key corresponds to a network and each value describes its compatibility
+    required: true
 runs:
   using: "composite"
   steps:
@@ -56,6 +59,20 @@ runs:
 
         cargo metadata --quiet --no-deps | \
           jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
+          >> ./release-notes-addon.txt
+        
+    - name: Add compatibility table
+      shell: bash
+      run: |
+        cat >> ./release-notes-addon.txt << EOF
+
+        ## Networks Compatibility :warning:
+        |  Network  |  Compatible  |
+        |---------- |:-------------:|
+        EOF
+
+        echo "${{ inputs.compatibility-table }}" \
+          | jq -r 'keys_unsorted[] as $network | "| \($network) | \(.[$network]) |"' \
           >> ./release-notes-addon.txt
         
     - name: Add minimum supported libc version
