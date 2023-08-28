@@ -233,7 +233,7 @@ returning {projection}
     #[test]
     fn test_upsertion() {
         let provider = TestEntityUpdateProvider::new(init_database());
-        let params = vec![
+        let params = [
             Value::String("row 1".to_string()),
             Value::Float(1.234),
             Value::Integer(0),
