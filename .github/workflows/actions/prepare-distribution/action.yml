@@ -71,7 +71,7 @@ runs:
         |---------- |:-------------:|
         EOF
 
-        echo "${{ inputs.compatibility-table }}" \
+        echo '${{ inputs.compatibility-table }}' \
           | jq -r 'keys_unsorted[] as $network | "| \($network) | \(.[$network]) |"' \
           >> ./release-notes-addon.txt
         
