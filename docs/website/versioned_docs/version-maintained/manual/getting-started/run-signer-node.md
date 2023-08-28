@@ -120,7 +120,7 @@ First, switch to build a branch/tag:
 ```bash
 # **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
 # please refer to the **Build from** column of the above **Mithril networks** table
-git switch **YOUR_BUILD_BRANCH_OR_TAG**
+git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
 Then, change the directory:
