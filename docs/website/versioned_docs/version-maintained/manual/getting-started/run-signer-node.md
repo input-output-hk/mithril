@@ -648,7 +648,7 @@ PARTY_ID=**YOUR_PARTY_ID** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./ve
 Here is an example command:
 
 ```bash
-SIGNER_LOGS_PATH=/var/log/syslog ./verify_signer_registration.sh
+PARTY_ID=pool1hp72sauk0g0yqm4dzllz0pz6j93gewhllkzphn4hykkfmne43y AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator ./verify_signer_registration.sh
 ```
 
 :::
