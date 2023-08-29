@@ -6,9 +6,10 @@ use crate::crypto_helper::ProtocolPartyId;
 
 use bech32::{self, ToBase32, Variant};
 use blake2::{digest::consts::U28, Blake2b, Digest};
-use ed25519_dalek::{Keypair as EdKeypair, Signer};
-use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
+use ed25519_dalek::{Signature as EdSignature, Verifier, VerifyingKey as EdPublicKey};
+use ed25519_dalek::{Signer, SigningKey as EdKeypair};
 use kes_summed_ed25519::PublicKey as KesPublicKey;
+use nom::AsBytes;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;
@@ -59,7 +60,7 @@ impl OpCert {
         start_kes_period: u64,
         cold_keypair: EdKeypair,
     ) -> Self {
-        let cold_vk: EdPublicKey = cold_keypair.public;
+        let cold_vk: EdPublicKey = cold_keypair.verifying_key();
         let cert_sig = cold_keypair.sign(&Self::compute_message_to_sign(
             &kes_vk,
             issue_number,
@@ -112,7 +113,7 @@ impl OpCert {
         let mut hasher = Blake2b::<U28>::new();
         hasher.update(self.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
-        pool_id.copy_from_slice(hasher.finalize().as_slice());
+        pool_id.copy_from_slice(hasher.finalize().as_bytes());
         bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
             .map_err(|_| OpCertError::PoolAddressEncoding)
     }
@@ -166,7 +167,7 @@ impl<'de> Deserialize<'de> for OpCert {
                 .map_err(|_| Error::custom("KES vk serialisation error"))?,
             issue_number: raw_cert.0 .1,
             start_kes_period: raw_cert.0 .2,
-            cert_sig: EdSignature::from_bytes(&raw_cert.0 .3)
+            cert_sig: EdSignature::from_slice(&raw_cert.0 .3)
                 .map_err(|_| Error::custom("ed25519 signature serialisation error"))?,
             cold_vk: raw_cert.1,
         })

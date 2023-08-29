@@ -1,6 +1,6 @@
-use ed25519_dalek::Keypair as ColdKeypair;
-use rand_chacha_dalek_compat::rand_core::SeedableRng;
-use rand_chacha_dalek_compat::ChaCha20Rng;
+use ed25519_dalek::SigningKey as ColdKeypair;
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
 
 /// A cold key generator / test only
 #[derive(Debug)]
