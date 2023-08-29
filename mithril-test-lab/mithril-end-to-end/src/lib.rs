@@ -3,6 +3,7 @@ mod devnet;
 mod end_to_end_spec;
 mod mithril;
 mod run_only;
+pub mod stress_test;
 mod utils;
 
 pub use devnet::*;
