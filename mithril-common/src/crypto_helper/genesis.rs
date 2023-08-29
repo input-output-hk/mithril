@@ -25,7 +25,7 @@ pub struct ProtocolGenesisSigner {
 }
 
 impl ProtocolGenesisSigner {
-    /// ProtocolGenesisSigner factory
+    /// [ProtocolGenesisSigner] factory
     pub fn create_test_genesis_signer<R>(mut rng: R) -> Self
     where
         R: CryptoRng + RngCore,
@@ -34,29 +34,29 @@ impl ProtocolGenesisSigner {
         Self::from_secret_key(secret_key.into())
     }
 
-    /// ProtocolGenesisSigner deterministic
+    /// [ProtocolGenesisSigner] deterministic
     pub fn create_deterministic_genesis_signer() -> Self {
         let rng = ChaCha20Rng::from_seed([0u8; 32]);
         Self::create_test_genesis_signer(rng)
     }
 
-    /// ProtocolGenesisSigner non deterministic
+    /// [ProtocolGenesisSigner] non deterministic
     pub fn create_non_deterministic_genesis_signer() -> Self {
         let rng = rand_core::OsRng;
         Self::create_test_genesis_signer(rng)
     }
 
-    /// ProtocolGenesisSigner from ProtocolGenesisSecretKey
+    /// [ProtocolGenesisSigner] from [ProtocolGenesisSecretKey]
     pub fn from_secret_key(secret_key: ProtocolGenesisSecretKey) -> Self {
         Self { secret_key }
     }
 
-    /// Create a ProtocolGenesisVerifier
+    /// Create a [ProtocolGenesisVerifier]
     pub fn create_genesis_verifier(&self) -> ProtocolGenesisVerifier {
         ProtocolGenesisVerifier::from_verification_key(self.secret_key.verifying_key().into())
     }
 
-    /// Signs a message and returns a ProtocolGenesisSignature
+    /// Signs a message and returns a [ProtocolGenesisSignature]
     pub fn sign(&self, message: &[u8]) -> ProtocolGenesisSignature {
         self.secret_key.sign(message).into()
     }
@@ -79,12 +79,12 @@ pub struct ProtocolGenesisVerifier {
 }
 
 impl ProtocolGenesisVerifier {
-    /// ProtocolGenesisVerifier from ProtocolGenesisVerificationKey
+    /// [ProtocolGenesisVerifier] from [ProtocolGenesisVerificationKey]
     pub fn from_verification_key(verification_key: ProtocolGenesisVerificationKey) -> Self {
         Self { verification_key }
     }
 
-    /// ProtocolGenesisVerifier to ProtocolGenesisVerificationKey
+    /// [ProtocolGenesisVerifier] to [ProtocolGenesisVerificationKey]
     pub fn to_verification_key(&self) -> ProtocolGenesisVerificationKey {
         self.verification_key
     }

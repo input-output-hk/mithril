@@ -23,7 +23,7 @@ pub enum OpCertError {
     PoolAddressEncoding,
 }
 
-/// Raw Fields of the operational certificates (without incluiding the cold VK)
+/// Raw Fields of the operational certificates (without including the cold VK)
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 struct RawFields(
     #[serde(with = "serde_bytes")] Vec<u8>,

@@ -26,13 +26,13 @@ pub type ProtocolGenesisSignature = ProtocolKey<ed25519_dalek::Signature>;
 /// Wrapper of [OpCert] to add serialization utilities.
 pub type ProtocolOpCert = ProtocolKey<OpCert>;
 
-/// Alias of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html).
+/// Wrapper of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html).
 pub type ProtocolGenesisVerificationKey = ProtocolKey<ed25519_dalek::VerifyingKey>;
 
-/// Alias of [Ed25519:SigningKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SigningKey.html).
+/// Wrapper of [Ed25519:SigningKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SigningKey.html).
 pub type ProtocolGenesisSecretKey = ProtocolKey<ed25519_dalek::SigningKey>;
 
-/// Alias of [MithrilStm:StmAggrVerificationKey](struct@mithril_stm::stm::StmAggrVerificationKey).
+/// Wrapper of [MithrilStm:StmAggrVerificationKey](struct@StmAggrVerificationKey).
 pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D>>;
 
 impl ProtocolGenesisSignature {

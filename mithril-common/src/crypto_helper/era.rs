@@ -6,13 +6,13 @@ use thiserror::Error;
 
 use super::ProtocolKey;
 
-/// Alias of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html).
+/// Wrapper of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html).
 pub type EraMarkersVerifierVerificationKey = ProtocolKey<ed25519_dalek::VerifyingKey>;
 
-/// Alias of [Ed25519:SigningKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SigningKey.html).
+/// Wrapper of [Ed25519:SigningKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SigningKey.html).
 pub type EraMarkersVerifierSecretKey = ProtocolKey<ed25519_dalek::SigningKey>;
 
-/// Alias of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
+/// Wrapper of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
 pub type EraMarkersVerifierSignature = ProtocolKey<ed25519_dalek::Signature>;
 
 #[derive(Error, Debug)]
@@ -30,7 +30,7 @@ pub struct EraMarkersSigner {
 }
 
 impl EraMarkersSigner {
-    /// EraMarkersSigner factory
+    /// [EraMarkersSigner] factory
     pub fn create_test_signer<R>(mut rng: R) -> Self
     where
         R: CryptoRng + RngCore,
@@ -39,29 +39,29 @@ impl EraMarkersSigner {
         Self::from_secret_key(secret_key.into())
     }
 
-    /// EraMarkersSigner deterministic
+    /// [EraMarkersSigner] deterministic
     pub fn create_deterministic_signer() -> Self {
         let rng = ChaCha20Rng::from_seed([0u8; 32]);
         Self::create_test_signer(rng)
     }
 
-    /// EraMarkersSigner non deterministic
+    /// [EraMarkersSigner] non deterministic
     pub fn create_non_deterministic_signer() -> Self {
         let rng = rand_core::OsRng;
         Self::create_test_signer(rng)
     }
 
-    /// EraMarkersSigner from EraMarkersVerifierSecretKey
+    /// [EraMarkersSigner] from [EraMarkersVerifierSecretKey]
     pub fn from_secret_key(secret_key: EraMarkersVerifierSecretKey) -> Self {
         Self { secret_key }
     }
 
-    /// Create a EraMarkersVerifier
+    /// Create a [EraMarkersVerifier]
     pub fn create_verifier(&self) -> EraMarkersVerifier {
         EraMarkersVerifier::from_verification_key(self.secret_key.verifying_key().into())
     }
 
-    /// Signs a message and returns a EraMarkersVerifierSignature
+    /// Signs a message and returns a [EraMarkersVerifierSignature]
     pub fn sign(&self, message: &[u8]) -> EraMarkersVerifierSignature {
         self.secret_key.sign(message).into()
     }
@@ -74,12 +74,12 @@ pub struct EraMarkersVerifier {
 }
 
 impl EraMarkersVerifier {
-    /// EraMarkersVerifier from EraMarkersVerifierVerificationKey
+    /// [EraMarkersVerifier] from [EraMarkersVerifierVerificationKey]
     pub fn from_verification_key(verification_key: EraMarkersVerifierVerificationKey) -> Self {
         Self { verification_key }
     }
 
-    /// EraMarkersVerifier to EraMarkersVerifierVerificationKey
+    /// [EraMarkersVerifier] to [EraMarkersVerifierVerificationKey]
     pub fn to_verification_key(&self) -> EraMarkersVerifierVerificationKey {
         self.verification_key
     }
