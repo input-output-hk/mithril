@@ -201,7 +201,7 @@ export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
 export NETWORK=**YOUR_CARDANO_NETWORK**
 export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
-export SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=latest
 ```
 
 Here is an example configuration for the `release-preprod` network and the `latest` stable Docker image:
@@ -211,7 +211,7 @@ export MITHRIL_IMAGE_ID=latest
 export NETWORK=preprod
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
-export SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=latest
 ```
 
 Proceed by creating a shell function for the Mithril client:
