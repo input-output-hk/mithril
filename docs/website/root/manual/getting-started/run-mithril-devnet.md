@@ -428,14 +428,14 @@ tail -n 22 ./node-pool2/node.log
 
 ```bash
 # Cardano network
-NETWORK=devnet
+export NETWORK=devnet
 
 # Aggregator API endpoint URL
-AGGREGATOR_ENDPOINT=http://localhost:8080/aggregator
+export AGGREGATOR_ENDPOINT=http://localhost:8080/aggregator
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
-SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=latest
 ```
 
 You can pick an online test aggregator directly from the [Mithril Explorer](https://mithril.network/explorer).
