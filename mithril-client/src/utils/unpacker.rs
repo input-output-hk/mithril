@@ -15,7 +15,7 @@ use mithril_common::{StdError, StdResult};
 /// disk space is sufficient to store the archive plus the extracted files. If
 /// the available space is lower than that, a warning is raised. This ratio has
 /// been experimentally established.
-const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 3.5;
+pub const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 2.5;
 
 /// Check and unpack a downloaded archive in a given directory.
 #[derive(Default)]
@@ -24,8 +24,8 @@ pub struct SnapshotUnpacker;
 /// Errors tied with the SnapshotUnpacker.
 #[derive(Debug, Error)]
 pub enum SnapshotUnpackerError {
-    /// Not enough space on the disk. There should be at least 3.5 times the
-    /// size of the archive to dowload to ensure it could be unpacked safely.
+    /// Not enough space on the disk. There should be at least [FREE_SPACE_SNAPSHOT_SIZE_RATIO] times
+    /// the size of the archive to download to ensure it could be unpacked safely.
     #[error("There is only {} remaining in directory '{}' to store and unpack a {} large archive.", human_bytes(*left_space), pathdir.display(), human_bytes(*archive_size))]
     NotEnoughSpace {
         /// Left space on device
