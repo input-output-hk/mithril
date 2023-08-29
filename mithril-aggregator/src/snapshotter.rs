@@ -2,11 +2,11 @@ use flate2::Compression;
 use flate2::{read::GzDecoder, write::GzEncoder};
 use mithril_common::StdResult;
 use slog_scope::{info, warn};
-use std::fs::File;
-use std::io::{self, Seek, SeekFrom};
+use std::fs::{self, File};
+use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
-use tar::Archive;
+use tar::{Archive, Entry, EntryType};
 use thiserror::Error;
 
 use crate::dependency_injection::DependenciesBuilderError;
@@ -56,6 +56,10 @@ pub enum SnapshotError {
     /// Set when the snapshotter creates an invalid snapshot.
     #[error("Invalid archive error: {0}")]
     InvalidArchiveError(String),
+
+    /// Set when the snapshotter fails verifying a snapshot.
+    #[error("Archive verification error: {0}")]
+    VerifyArchiveError(String),
 
     /// Set when the snapshotter fails at uploading the snapshot.
     #[error("Upload file error: `{0}`")]
@@ -165,12 +169,56 @@ impl GzipSnapshotter {
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
 
-        match snapshot_archive.entries()?.find(|e| e.is_err()) {
-            Some(Err(e)) => Err(SnapshotError::InvalidArchiveError(format!(
-                "invalid entry with error: '{e:?}'"
-            ))),
-            _ => Ok(()),
+        let unpack_temp_dir = std::env::temp_dir().join("mithril_snapshotter_verify_archive");
+        if unpack_temp_dir.exists() {
+            fs::remove_dir_all(&unpack_temp_dir)
+                .map_err(|e| SnapshotError::VerifyArchiveError(e.to_string()))?;
         }
+        fs::create_dir_all(&unpack_temp_dir)
+            .map_err(|e| SnapshotError::VerifyArchiveError(e.to_string()))?;
+        let unpack_temp_file = &unpack_temp_dir.join("unpack.tmp");
+
+        for e in snapshot_archive.entries()? {
+            match e {
+                Err(e) => {
+                    return Err(SnapshotError::InvalidArchiveError(format!(
+                        "invalid entry with error: '{:?}'",
+                        e
+                    )))
+                }
+                Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
+            }
+        }
+
+        Ok(())
+    }
+
+    // Helper to unpack and delete a file from en entry, for archive verification purpose
+    fn unpack_and_delete_file_from_entry<R: Read>(
+        entry: Entry<R>,
+        unpack_file_path: &Path,
+    ) -> Result<(), SnapshotError> {
+        if entry.header().entry_type() != EntryType::Directory {
+            let mut file = entry;
+            match file.unpack(unpack_file_path) {
+                Err(e) => {
+                    return Err(SnapshotError::InvalidArchiveError(format!(
+                        "can't unpack entry with error: '{:?}'",
+                        e
+                    )))
+                }
+                Ok(_) => {
+                    if let Err(e) = fs::remove_file(unpack_file_path) {
+                        return Err(SnapshotError::VerifyArchiveError(format!(
+                            "can't remove temporary unpacked file with error: '{:?}'",
+                            e
+                        )));
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
