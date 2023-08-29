@@ -1,0 +1,6 @@
+{
+    "$schema": "http://json.schemastore.org/vsls",
+    "hideFiles": [
+        "!src/bin"
+    ]
+}
