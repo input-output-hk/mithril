@@ -1,14 +1,14 @@
+use flate2::read::GzDecoder;
+use flume::Receiver;
+use human_bytes::human_bytes;
 use std::{
-    fs::{create_dir_all, remove_dir, File},
-    io::{Seek, SeekFrom},
+    fs::{create_dir_all, remove_dir},
     path::{Path, PathBuf},
 };
-
-use flate2::read::GzDecoder;
-use human_bytes::human_bytes;
 use tar::Archive;
 use thiserror::Error;
 
+use crate::utils::StreamReader;
 use mithril_common::{StdError, StdResult};
 
 /// This ratio will be multiplied by the snapshot size to check if the available
@@ -31,7 +31,7 @@ pub enum SnapshotUnpackerError {
         /// Left space on device
         left_space: f64,
 
-        /// Speficied location
+        /// Specified location
         pathdir: PathBuf,
 
         /// Packed snapshot size
@@ -49,11 +49,8 @@ pub enum SnapshotUnpackerError {
     UnpackDirectoryIsNotWritable(PathBuf, StdError),
 
     /// Unpacking error
-    #[error("Could not unpack '{filepath}' in directory '{dirpath}'. Error: « {error:#?} ».")]
+    #[error("Could not unpack from streamed data snapshot to directory '{dirpath}'. Error: « {error:?} ».")]
     UnpackFailed {
-        /// Location of the packed archive.
-        filepath: PathBuf,
-
         /// Location where the archive is to be extracted.
         dirpath: PathBuf,
 
@@ -89,24 +86,15 @@ impl SnapshotUnpacker {
         Ok(())
     }
 
-    /// Unpack the snapshot pointed at the given filepath into the given directory.
-    pub async fn unpack_snapshot(&self, filepath: &Path, unpack_dir: &Path) -> StdResult<()> {
-        let mut snapshot_file_tar_gz =
-            File::open(filepath).map_err(|e| SnapshotUnpackerError::UnpackFailed {
-                filepath: filepath.to_owned(),
-                dirpath: unpack_dir.to_owned(),
-                error: e.into(),
-            })?;
-        // Try to force the file read to start at 0.
-        // This seems to fix a crash when the unpacker tries to iterate
-        // over archive content.
-        snapshot_file_tar_gz.seek(SeekFrom::Start(0))?;
-        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let mut snapshot_archive = Archive::new(snapshot_file_tar);
+    /// Unpack the snapshot from the given stream into the given directory.
+    pub fn unpack_snapshot(&self, stream: Receiver<Vec<u8>>, unpack_dir: &Path) -> StdResult<()> {
+        let input = StreamReader::new(stream);
+
+        let gunzip_decoder = GzDecoder::new(input);
+        let mut snapshot_archive = Archive::new(gunzip_decoder);
         snapshot_archive
             .unpack(unpack_dir)
             .map_err(|e| SnapshotUnpackerError::UnpackFailed {
-                filepath: filepath.to_owned(),
                 dirpath: unpack_dir.to_owned(),
                 error: e.into(),
             })?;

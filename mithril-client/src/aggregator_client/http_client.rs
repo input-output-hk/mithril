@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -6,14 +7,14 @@ use semver::Version;
 use slog_scope::debug;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
-use tokio::{fs, io::AsyncWriteExt, sync::RwLock};
+use tokio::sync::RwLock;
 
 #[cfg(test)]
 use mockall::automock;
 
-use mithril_common::{StdError, MITHRIL_API_VERSION_HEADER};
+use mithril_common::{StdError, StdResult, MITHRIL_API_VERSION_HEADER};
 
-use crate::utils::DownloadProgressReporter;
+use crate::utils::{DownloadProgressReporter, SnapshotUnpacker};
 
 /// Error tied with the Aggregator client
 #[derive(Error, Debug)]
@@ -51,11 +52,11 @@ pub trait AggregatorClient: Sync + Send {
     /// Get the content back from the Aggregator, the URL is a relative path for a resource
     async fn get_content(&self, url: &str) -> Result<String, AggregatorHTTPClientError>;
 
-    /// Download large files on the disk
-    async fn download(
+    /// Download and unpack large archives on the disk
+    async fn download_unpack(
         &self,
         url: &str,
-        filepath: &Path,
+        target_dir: &Path,
         progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError>;
 
@@ -179,24 +180,31 @@ impl AggregatorClient for AggregatorHTTPClient {
             })
     }
 
-    async fn download(
+    async fn download_unpack(
         &self,
         url: &str,
-        filepath: &Path,
+        target_dir: &Path,
         progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError> {
-        let response = self.get(url).await?;
-        let mut local_file = fs::File::create(filepath).await.map_err(|e| {
-            AggregatorHTTPClientError::SubsystemError {
-                message: format!(
-                    "Download: could not create download archive '{}'.",
-                    filepath.display()
+        if !target_dir.is_dir() {
+            Err(AggregatorHTTPClientError::SubsystemError {
+                message: "Download-Unpack: prerequisite error".to_string(),
+                error: anyhow!(
+                    "target path is not a directory or does not exist: `{}`",
+                    target_dir.display()
                 ),
-                error: e.into(),
-            }
-        })?;
+            })?;
+        }
+
         let mut downloaded_bytes: u64 = 0;
-        let mut remote_stream = response.bytes_stream();
+        let mut remote_stream = self.get(url).await?.bytes_stream();
+        let (sender, receiver) = flume::bounded(5);
+
+        let dest_dir = target_dir.to_path_buf();
+        let unpack_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
+            let unpacker = SnapshotUnpacker;
+            unpacker.unpack_snapshot(receiver, &dest_dir)
+        });
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.map_err(|e| {
@@ -204,19 +212,32 @@ impl AggregatorClient for AggregatorHTTPClient {
                     "Download: Could not read from byte stream: {e}"
                 ))
             })?;
-            local_file.write_all(&chunk).await.map_err(|e| {
+
+            sender.send_async(chunk.to_vec()).await.map_err(|e| {
                 AggregatorHTTPClientError::SubsystemError {
-                    message: format!(
-                        "Download: could not write {} bytes to file '{}'.",
-                        chunk.len(),
-                        filepath.display()
-                    ),
+                    message: format!("Download: could not write {} bytes to stream.", chunk.len()),
                     error: e.into(),
                 }
             })?;
+
             downloaded_bytes += chunk.len() as u64;
             progress_reporter.report(downloaded_bytes);
         }
+
+        drop(sender); // Signal EOF
+        unpack_thread
+            .await
+            .map_err(|join_error| AggregatorHTTPClientError::SubsystemError {
+                message: format!(
+                    "Unpack: panic while unpacking to dir '{}'",
+                    target_dir.display()
+                ),
+                error: join_error.into(),
+            })?
+            .map_err(|unpack_error| AggregatorHTTPClientError::SubsystemError {
+                message: format!("Unpack: could not unpack to dir '{}'", target_dir.display()),
+                error: unpack_error,
+            })?;
 
         Ok(())
     }
