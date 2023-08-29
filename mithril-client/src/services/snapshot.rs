@@ -39,13 +39,10 @@ pub enum SnapshotServiceError {
 
     /// Error raised when the certificate verification failed for the downloaded
     /// archive.
-    #[error("Certificate verification failed (snapshot digest = '{digest}'). The archive has been downloaded in '{path}'.")]
+    #[error("Certificate verification failed (snapshot digest = '{digest}').")]
     CouldNotVerifySnapshot {
         /// snapshot digest
         digest: String,
-
-        /// The path of the downloaded archive
-        path: PathBuf,
     },
 
     /// The given certificate could not be found, contains the certificate hash
@@ -218,13 +215,20 @@ impl SnapshotService for MithrilClientSnapshotService {
         debug!("Snapshot service: download.");
 
         let db_dir = download_dir.join("db");
-        let progress_bar = ProgressPrinter::new(progress_output_type, 7);
+        let progress_bar = ProgressPrinter::new(progress_output_type, 6);
         progress_bar.report_step(1, "Checking local disk info…")?;
         let unpacker = SnapshotUnpacker;
 
         if let Err(e) = unpacker.check_prerequisites(&db_dir, snapshot_entity.artifact.size) {
             self.check_disk_space_error(e)?;
         }
+
+        std::fs::create_dir_all(&db_dir).with_context(|| {
+            format!(
+                "Download: could not create target directory '{}'.",
+                db_dir.display()
+            )
+        })?;
 
         progress_bar.report_step(2, "Fetching the certificate's information…")?;
         let certificate = self
@@ -241,25 +245,20 @@ impl SnapshotService for MithrilClientSnapshotService {
         let verifier = self.verify_certificate_chain(genesis_verification_key, &certificate);
         self.wait_spinner(&progress_bar, verifier).await?;
 
-        progress_bar.report_step(4, "Downloading the snapshot…")?;
+        progress_bar.report_step(4, "Downloading and unpacking the snapshot…")?;
         let pb = progress_bar.add(ProgressBar::new(snapshot_entity.artifact.size));
         pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
             .unwrap()
             .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
             .progress_chars("#>-"));
-        let snapshot_path = self
-            .snapshot_client
-            .download(
+        self.snapshot_client
+            .download_unpack(
                 &snapshot_entity.artifact,
-                download_dir,
+                &db_dir,
                 DownloadProgressReporter::new(pb, progress_output_type),
             )
             .await
             .with_context(|| format!("Could not download file in '{}'", download_dir.display()))?;
-
-        progress_bar.report_step(5, "Unpacking the snapshot…")?;
-        let unpacker = unpacker.unpack_snapshot(&snapshot_path, &db_dir);
-        self.wait_spinner(&progress_bar, unpacker).await?;
 
         // Append 'clean' file to speedup node bootstrap
         if let Err(error) = File::create(db_dir.join("clean")) {
@@ -269,14 +268,14 @@ impl SnapshotService for MithrilClientSnapshotService {
             );
         };
 
-        progress_bar.report_step(6, "Computing the snapshot digest…")?;
+        progress_bar.report_step(5, "Computing the snapshot digest…")?;
         let unpacked_snapshot_digest = self
             .immutable_digester
             .compute_digest(&db_dir, &certificate.beacon)
             .await
             .with_context(|| format!("Could not compute digest in '{}'", db_dir.display()))?;
 
-        progress_bar.report_step(7, "Verifying the snapshot signature…")?;
+        progress_bar.report_step(6, "Verifying the snapshot signature…")?;
         let expected_message = {
             let mut protocol_message = certificate.protocol_message.clone();
             protocol_message.set_message_part(
@@ -295,7 +294,6 @@ impl SnapshotService for MithrilClientSnapshotService {
 
             return Err(SnapshotServiceError::CouldNotVerifySnapshot {
                 digest: snapshot_entity.artifact.digest.clone(),
-                path: snapshot_path.canonicalize().unwrap(),
             }
             .into());
         }
@@ -400,7 +398,7 @@ mod tests {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client.expect_probe().returning(|_| Ok(()));
         http_client
-            .expect_download()
+            .expect_download_unpack()
             .returning(move |_, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
@@ -650,10 +648,7 @@ mod tests {
 
         if let Some(e) = err.downcast_ref::<SnapshotServiceError>() {
             match e {
-                SnapshotServiceError::CouldNotVerifySnapshot {
-                    digest,
-                    path: _path,
-                } => {
+                SnapshotServiceError::CouldNotVerifySnapshot { digest } => {
                     assert_eq!("digest-10", digest.as_str());
                 }
                 _ => panic!("Wrong error type when snapshot could not be verified."),

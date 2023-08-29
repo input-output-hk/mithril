@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.3.36"
+version = "0.3.37"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -19,6 +19,7 @@ cli-table = "0.4.7"
 config = "0.13.3"
 directories = "5.0.1"
 flate2 = "1.0.27"
+flume = "0.11.0"
 fs2 = "0.4.3"
 futures = "0.3.28"
 hex = "0.4.3"

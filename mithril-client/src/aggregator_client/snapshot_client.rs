@@ -1,10 +1,7 @@
 //! This module contains a struct to exchange snapshot information with the Aggregator
 
 use slog_scope::warn;
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 use mithril_common::{
@@ -59,28 +56,24 @@ impl SnapshotClient {
         Ok(message)
     }
 
-    /// Download the snapshot identified by the given snapshot in the given directory
-    pub async fn download(
+    /// Download and unpack the given snapshot to the given directory
+    pub async fn download_unpack(
         &self,
         snapshot: &Snapshot,
-        download_dir: &Path,
+        target_dir: &Path,
         progress_reporter: DownloadProgressReporter,
-    ) -> StdResult<PathBuf> {
-        let filepath = PathBuf::new()
-            .join(download_dir)
-            .join(format!("snapshot-{}.tar.gz", snapshot.digest));
-
+    ) -> StdResult<()> {
         for url in snapshot.locations.as_slice() {
             if self.http_client.probe(url).await.is_ok() {
-                match self
+                return match self
                     .http_client
-                    .download(url, &filepath, progress_reporter)
+                    .download_unpack(url, target_dir, progress_reporter)
                     .await
                 {
-                    Ok(()) => return Ok(filepath),
+                    Ok(()) => Ok(()),
                     Err(e) => {
                         warn!("Failed downloading snapshot from '{url}' Error: {e}.");
-                        return Err(e.into());
+                        Err(e.into())
                     }
                 };
             }
