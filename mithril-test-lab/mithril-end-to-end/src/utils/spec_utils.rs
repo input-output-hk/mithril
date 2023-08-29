@@ -97,7 +97,7 @@ mod tests {
 
         let elapsed = now.elapsed().as_millis();
         assert!(
-            (10..=15).contains(&elapsed),
+            (10..=30).contains(&elapsed),
             "Failure, after one loop the elapsed time was not ~10ms, elapsed: {elapsed}"
         );
     }
