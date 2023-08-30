@@ -412,6 +412,7 @@ mod tests {
         let server = MockServer::start();
         let config = Configuration {
             cardano_cli_path: PathBuf::new().join("cardano-cli"),
+            cardano_node_path: PathBuf::new().join("cardano-node"),
             cardano_node_socket_path: PathBuf::new().join("whatever"),
             network_magic: Some(42),
             network: "testnet".to_string(),

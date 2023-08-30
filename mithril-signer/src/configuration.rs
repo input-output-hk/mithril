@@ -20,6 +20,9 @@ pub struct Configuration {
     /// Cardano CLI tool path
     pub cardano_cli_path: PathBuf,
 
+    /// Cardano node binary path
+    pub cardano_node_path: PathBuf,
+
     /// Path of the socket used by the Cardano CLI tool
     /// to communicate with the Cardano node
     pub cardano_node_socket_path: PathBuf,

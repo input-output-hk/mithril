@@ -24,6 +24,7 @@ pub trait CliRunner {
     async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String>;
     async fn launch_epoch(&self) -> StdResult<String>;
     async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String>;
+    async fn launch_node_version(&self) -> StdResult<String>;
 }
 
 /// A runner able to request data from a Cardano node using the
@@ -31,15 +32,22 @@ pub trait CliRunner {
 #[derive(Clone, Debug)]
 pub struct CardanoCliRunner {
     cli_path: PathBuf,
+    node_path: PathBuf,
     socket_path: PathBuf,
     network: CardanoNetwork,
 }
 
 impl CardanoCliRunner {
     /// CardanoCliRunner factory
-    pub fn new(cli_path: PathBuf, socket_path: PathBuf, network: CardanoNetwork) -> Self {
+    pub fn new(
+        cli_path: PathBuf,
+        node_path: PathBuf,
+        socket_path: PathBuf,
+        network: CardanoNetwork,
+    ) -> Self {
         Self {
             cli_path,
+            node_path,
             socket_path,
             network,
         }
@@ -115,6 +123,13 @@ impl CardanoCliRunner {
             .arg("--op-cert-file")
             .arg(opcert_file);
         self.post_config_command(&mut command);
+
+        command
+    }
+
+    fn command_for_node_version(&self) -> Command {
+        let mut command = Command::new(&self.node_path);
+        command.arg("version");
 
         command
     }
@@ -245,6 +260,22 @@ impl CliRunner for CardanoCliRunner {
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_kes_period(opcert_file),
                 message
+            ))
+        }
+    }
+    async fn launch_node_version(&self) -> StdResult<String> {
+        let mut command = self.command_for_node_version();
+        let outcome = command.output().await?;
+
+        if outcome.status.success() {
+            let output = std::str::from_utf8(&outcome.stdout)?.trim();
+
+            Ok(output.to_string())
+        } else {
+            let message = String::from_utf8_lossy(&outcome.stderr);
+
+            Err(anyhow!(
+                "Error while launching version CLI command '{command:?}'. Error = '{message}'"
             ))
         }
     }
@@ -380,6 +411,22 @@ impl CardanoCliChainObserver {
         }
 
         Ok(Some(stake_distribution))
+    }
+
+    /// Return the version of the Cardano node.
+    /// **NOTE**: For now it returns the version of the Cardano CLI because [it
+    /// seems not possible to query the Cardano node version from the
+    /// CLI](https://cardano.stackexchange.com/questions/2357/how-can-check-what-version-of-cardano-node-is-running-on-testnet-or-mainnet).
+    pub async fn get_current_node_version(&self) -> StdResult<String> {
+        let output = &self.cli_runner.launch_node_version().await?;
+
+        output
+            .split_whitespace()
+            .nth(1)
+            .ok_or_else(|| {
+                anyhow!("Could not extract Cardano node version from output '{output}'.")
+            })
+            .map(|s| s.to_string())
     }
 }
 
@@ -648,6 +695,13 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
 
             Ok(output.to_string())
         }
+
+        async fn launch_node_version(&self) -> StdResult<String> {
+            let output = r#"cardano-cli 8.5.0.0 - linux-x86_64 - ghc-8.10
+git rev 0000000000000000000000000000000000000000"#;
+
+            Ok(output.to_string())
+        }
     }
 
     #[tokio::test]
@@ -662,6 +716,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     async fn test_cli_testnet_runner() {
         let runner = CardanoCliRunner::new(
             PathBuf::new().join("cardano-cli"),
+            PathBuf::new().join("cardano-node"),
             PathBuf::new().join("/tmp/whatever.sock"),
             CardanoNetwork::TestNet(10),
         );
@@ -674,6 +729,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     async fn test_cli_devnet_runner() {
         let runner = CardanoCliRunner::new(
             PathBuf::new().join("cardano-cli"),
+            PathBuf::new().join("cardano-node"),
             PathBuf::new().join("/tmp/whatever.sock"),
             CardanoNetwork::DevNet(25),
         );
@@ -686,6 +742,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     async fn test_cli_mainnet_runner() {
         let runner = CardanoCliRunner::new(
             PathBuf::new().join("cardano-cli"),
+            PathBuf::new().join("cardano-node"),
             PathBuf::new().join("/tmp/whatever.sock"),
             CardanoNetwork::MainNet,
         );

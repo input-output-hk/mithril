@@ -80,6 +80,7 @@ impl StateMachineTester {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
             relay_endpoint: None,
             cardano_cli_path: PathBuf::new(),
+            cardano_node_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),

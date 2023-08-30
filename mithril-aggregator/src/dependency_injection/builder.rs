@@ -462,6 +462,7 @@ impl DependenciesBuilder {
     async fn build_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
         let cli_runner = CardanoCliRunner::new(
             self.configuration.cardano_cli_path.clone(),
+            self.configuration.cardano_node_path.clone(),
             self.configuration.cardano_node_socket_path.clone(),
             self.configuration.get_network()?,
         );

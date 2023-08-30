@@ -553,6 +553,7 @@ mod tests {
             aggregator_endpoint: "http://0.0.0.0:3000".to_string(),
             relay_endpoint: None,
             cardano_cli_path: PathBuf::new(),
+            cardano_node_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             db_directory: PathBuf::new(),
             network: "whatever".to_string(),

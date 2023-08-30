@@ -60,6 +60,7 @@ impl<'a> ProductionServiceBuilder<'a> {
                 Ok(Arc::new(CardanoCliChainObserver::new(Box::new(
                     CardanoCliRunner::new(
                         config.cardano_cli_path.clone(),
+                        config.cardano_node_path.clone(),
                         config.cardano_node_socket_path.clone(),
                         config.get_network()?,
                     ),
@@ -322,6 +323,7 @@ mod tests {
         let stores_dir = get_test_dir().join("stores");
         let config = Configuration {
             cardano_cli_path: PathBuf::new(),
+            cardano_node_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             network_magic: None,
             network: "preview".to_string(),

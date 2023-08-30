@@ -71,6 +71,7 @@ impl MithrilInfrastructure {
         let cardano_chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
                 devnet.cardano_cli_path(),
+                devnet.cardano_node_path(),
                 bft_node.socket_path.clone(),
                 CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
             ),
