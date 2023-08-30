@@ -49,7 +49,9 @@ pub use signer_registerer::{
 pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
 };
-pub use snapshotter::{DumbSnapshotter, GzipSnapshotter, SnapshotError, Snapshotter};
+pub use snapshotter::{
+    CompressionFormat, DumbSnapshotter, GzipSnapshotter, SnapshotError, Snapshotter,
+};
 pub use store::{
     CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer,
     VerificationKeyStore, VerificationKeyStorer,

@@ -42,6 +42,7 @@ tokio-util = { version = "0.7.8", features = ["codec"] }
 typetag = "0.2.13"
 uuid = { version = "1.4.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
 warp = "0.3.5"
+zstd = "0.12.4"
 
 [dev-dependencies]
 httpmock = "0.6.8"

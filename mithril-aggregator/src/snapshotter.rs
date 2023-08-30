@@ -8,13 +8,27 @@ use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use tar::{Archive, Entry, EntryType};
 use thiserror::Error;
+use zstd::{Decoder, Encoder};
 
 use crate::dependency_injection::DependenciesBuilderError;
+
+/// Compression format for the compressed files
+pub enum CompressionFormat {
+    /// Gunzip compression format
+    Gunzip,
+
+    /// Zstandard compression format
+    Zstandard,
+}
 
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given archive name.
-    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
+    fn snapshot(
+        &self,
+        archive_name: &str,
+        compression_format: CompressionFormat,
+    ) -> Result<OngoingSnapshot, SnapshotError>;
 }
 
 /// Gzip Snapshotter create a compressed file.
@@ -71,9 +85,13 @@ pub enum SnapshotError {
 }
 
 impl Snapshotter for GzipSnapshotter {
-    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
+    fn snapshot(
+        &self,
+        archive_name: &str,
+        compression_format: CompressionFormat,
+    ) -> Result<OngoingSnapshot, SnapshotError> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
-        let filesize = self.create_and_verify_archive(&archive_path).map_err(|err| {
+        let filesize = self.create_and_verify_archive(&archive_path, compression_format).map_err(|err| {
             if archive_path.exists() {
                 if let Err(remove_error) = std::fs::remove_file(&archive_path) {
                     warn!(
@@ -127,70 +145,133 @@ impl GzipSnapshotter {
         Ok(res)
     }
 
-    fn create_archive(&self, archive_path: &Path) -> Result<u64, SnapshotError> {
+    fn create_archive(
+        &self,
+        archive_path: &Path,
+        compression_format: &CompressionFormat,
+    ) -> Result<u64, SnapshotError> {
         info!(
             "compressing {} into {}",
             self.db_directory.display(),
             archive_path.display()
         );
 
-        let tar_gz = File::create(archive_path).map_err(SnapshotError::CreateArchiveError)?;
-        let enc = GzEncoder::new(tar_gz, Compression::default());
-        let mut tar = tar::Builder::new(enc);
+        let tar_file = File::create(archive_path).map_err(SnapshotError::CreateArchiveError)?;
 
-        tar.append_dir_all(".", &self.db_directory)
-            .map_err(SnapshotError::CreateArchiveError)?;
+        match compression_format {
+            CompressionFormat::Gunzip => {
+                let enc = GzEncoder::new(tar_file, Compression::default());
+                let mut tar = tar::Builder::new(enc);
 
-        let mut gz = tar
-            .into_inner()
-            .map_err(SnapshotError::CreateArchiveError)?;
-        gz.try_finish().map_err(SnapshotError::CreateArchiveError)?;
+                tar.append_dir_all(".", &self.db_directory)
+                    .map_err(SnapshotError::CreateArchiveError)?;
+
+                let mut gz = tar
+                    .into_inner()
+                    .map_err(SnapshotError::CreateArchiveError)?;
+                gz.try_finish().map_err(SnapshotError::CreateArchiveError)?;
+            }
+            CompressionFormat::Zstandard => {
+                let enc = Encoder::new(tar_file, 0)?;
+                let mut tar = tar::Builder::new(enc);
+
+                tar.append_dir_all(".", &self.db_directory)
+                    .map_err(SnapshotError::CreateArchiveError)?;
+
+                let zstd = tar
+                    .into_inner()
+                    .map_err(SnapshotError::CreateArchiveError)?;
+                zstd.finish().map_err(SnapshotError::CreateArchiveError)?;
+            }
+        }
 
         let filesize = Self::get_file_size(archive_path)?;
 
         Ok(filesize)
     }
 
-    fn create_and_verify_archive(&self, archive_path: &Path) -> Result<u64, SnapshotError> {
-        let filesize = self.create_archive(archive_path)?;
-        self.verify_archive(archive_path)?;
+    fn create_and_verify_archive(
+        &self,
+        archive_path: &Path,
+        compression_format: CompressionFormat,
+    ) -> Result<u64, SnapshotError> {
+        let filesize = self.create_archive(archive_path, &compression_format)?;
+        self.verify_archive(archive_path, compression_format)?;
 
         Ok(filesize)
     }
 
     // Verify if an archive is corrupted (i.e. at least one entry is invalid)
-    fn verify_archive(&self, archive_path: &Path) -> Result<(), SnapshotError> {
+    fn verify_archive(
+        &self,
+        archive_path: &Path,
+        compression_format: CompressionFormat,
+    ) -> Result<(), SnapshotError> {
         info!("verifying archive: {}", archive_path.display());
 
-        let mut snapshot_file_tar_gz = File::open(archive_path)
+        let mut snapshot_file_tar = File::open(archive_path)
             .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;
+        snapshot_file_tar.seek(SeekFrom::Start(0))?;
 
-        snapshot_file_tar_gz.seek(SeekFrom::Start(0))?;
-        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let mut snapshot_archive = Archive::new(snapshot_file_tar);
+        let mut snapshot_archive: Archive<Box<dyn Read>> = match compression_format {
+            CompressionFormat::Gunzip => {
+                let snapshot_file_tar = GzDecoder::new(snapshot_file_tar);
+                Archive::new(Box::new(snapshot_file_tar))
+            }
+            CompressionFormat::Zstandard => {
+                let snapshot_file_tar = Decoder::new(snapshot_file_tar)?;
+                Archive::new(Box::new(snapshot_file_tar))
+            }
+        };
 
-        let unpack_temp_dir = std::env::temp_dir().join("mithril_snapshotter_verify_archive");
-        if unpack_temp_dir.exists() {
-            fs::remove_dir_all(&unpack_temp_dir)
-                .map_err(|e| SnapshotError::VerifyArchiveError(e.to_string()))?;
-        }
-        fs::create_dir_all(&unpack_temp_dir)
-            .map_err(|e| SnapshotError::VerifyArchiveError(e.to_string()))?;
+        let unpack_temp_dir = std::env::temp_dir()
+            .join("mithril_snapshotter_verify_archive")
+            // Add the archive name to the directory to allow two verifications at the same time
+            // (useful for tests).
+            .join(
+                archive_path
+                    .file_name()
+                    .ok_or(SnapshotError::VerifyArchiveError(format!(
+                        "Could not append archive name to temp directory: archive `{}`",
+                        archive_path.display(),
+                    )))?,
+            );
+
+        fs::create_dir_all(&unpack_temp_dir).map_err(|e| {
+            SnapshotError::VerifyArchiveError(format!(
+                "Could not create directory `{}`: {e}",
+                unpack_temp_dir.display(),
+            ))
+        })?;
+
         let unpack_temp_file = &unpack_temp_dir.join("unpack.tmp");
 
-        for e in snapshot_archive.entries()? {
-            match e {
-                Err(e) => {
-                    return Err(SnapshotError::InvalidArchiveError(format!(
-                        "invalid entry with error: '{:?}'",
-                        e
-                    )))
-                }
-                Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
+        let verify_result = {
+            let mut result = Ok(());
+            for e in snapshot_archive.entries()? {
+                match e {
+                    Err(e) => {
+                        result = Err(SnapshotError::InvalidArchiveError(format!(
+                            "invalid entry with error: '{:?}'",
+                            e
+                        )));
+                        break;
+                    }
+                    Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
+                };
             }
-        }
+            result
+        };
 
-        Ok(())
+        // Always remove the temp directory
+        fs::remove_dir_all(&unpack_temp_dir).map_err(|e| {
+            SnapshotError::VerifyArchiveError(format!(
+                "Could not remove directory `{}`: {e}",
+                unpack_temp_dir.display(),
+            ))
+        })?;
+
+        verify_result
     }
 
     // Helper to unpack and delete a file from en entry, for archive verification purpose
@@ -210,8 +291,8 @@ impl GzipSnapshotter {
                 Ok(_) => {
                     if let Err(e) = fs::remove_file(unpack_file_path) {
                         return Err(SnapshotError::VerifyArchiveError(format!(
-                            "can't remove temporary unpacked file with error: '{:?}'",
-                            e
+                            "can't remove temporary unpacked file with error: '{e:?}', file path: `{}`",
+                            unpack_file_path.display()
                         )));
                     }
                 }
@@ -255,7 +336,11 @@ impl Default for DumbSnapshotter {
 }
 
 impl Snapshotter for DumbSnapshotter {
-    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
+    fn snapshot(
+        &self,
+        archive_name: &str,
+        _: CompressionFormat,
+    ) -> Result<OngoingSnapshot, SnapshotError> {
         let mut value = self
             .last_snapshot
             .write()
@@ -300,7 +385,7 @@ mod tests {
             .is_none());
 
         let snapshot = snapshotter
-            .snapshot("whatever")
+            .snapshot("whatever", CompressionFormat::Zstandard)
             .expect("Dumb snapshotter::snapshot should not fail.");
         assert_eq!(
             Some(snapshot),
@@ -358,7 +443,7 @@ mod tests {
         File::create(pending_snapshot_directory.join("other-process.file")).unwrap();
 
         let _ = snapshotter
-            .snapshot("whatever.tar.gz")
+            .snapshot("whatever.tar.gz", CompressionFormat::Gunzip)
             .expect_err("Snapshotter::snapshot should fail if the db is empty.");
         let remaining_files: Vec<String> = std::fs::read_dir(&pending_snapshot_directory)
             .unwrap()
@@ -375,6 +460,8 @@ mod tests {
         let pending_snapshot_archive_file = "archive.tar.gz";
         let db_directory = test_dir.join("db");
 
+        println!("{:?}", db_directory);
+
         DummyImmutablesDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
@@ -387,16 +474,55 @@ mod tests {
         snapshotter
             .create_archive(
                 &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+                &CompressionFormat::Gunzip,
             )
             .expect("create_archive should not fail");
         snapshotter
             .verify_archive(
                 &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+                CompressionFormat::Gunzip,
             )
             .expect("verify_archive should not fail");
 
         snapshotter
-            .snapshot(pending_snapshot_archive_file)
+            .snapshot(pending_snapshot_archive_file, CompressionFormat::Gunzip)
+            .expect("Snapshotter::snapshot should not fail.");
+    }
+
+    #[test]
+    fn should_create_a_valid_archive_with_zstandard_snapshotter() {
+        let test_dir =
+            get_test_directory("should_create_a_valid_archive_with_zstandard_snapshotter");
+        let pending_snapshot_directory = test_dir.join("pending_snapshot");
+        let pending_snapshot_archive_file = "archive.tar.zst";
+        let db_directory = test_dir.join("db");
+
+        println!("{:?}", db_directory);
+
+        DummyImmutablesDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
+            .with_immutables(&[1, 2, 3])
+            .append_immutable_trio()
+            .build();
+
+        let snapshotter = Arc::new(
+            GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap(),
+        );
+
+        snapshotter
+            .create_archive(
+                &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+                &CompressionFormat::Zstandard,
+            )
+            .expect("create_archive should not fail");
+        snapshotter
+            .verify_archive(
+                &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+                CompressionFormat::Zstandard,
+            )
+            .expect("verify_archive should not fail");
+
+        snapshotter
+            .snapshot(pending_snapshot_archive_file, CompressionFormat::Zstandard)
             .expect("Snapshotter::snapshot should not fail.");
     }
 }
