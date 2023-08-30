@@ -6,8 +6,10 @@ use crate::crypto_helper::ProtocolPartyId;
 
 use bech32::{self, ToBase32, Variant};
 use blake2::{digest::consts::U28, Blake2b, Digest};
-use ed25519_dalek::{Signature as EdSignature, Verifier, VerifyingKey as EdPublicKey};
-use ed25519_dalek::{Signer, SigningKey as EdKeypair};
+use ed25519_dalek::{
+    Signature as EdSignature, Signer, SigningKey as EdSecretKey, Verifier,
+    VerifyingKey as EdVerificationKey,
+};
 use kes_summed_ed25519::PublicKey as KesPublicKey;
 use nom::AsBytes;
 use serde::de::Error;
@@ -34,7 +36,7 @@ struct RawFields(
 
 /// Raw Operational Certificate
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
-struct RawOpCert(RawFields, EdPublicKey);
+struct RawOpCert(RawFields, EdVerificationKey);
 
 /// Parsed Operational Certificate
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,7 +46,7 @@ pub struct OpCert {
     /// KES period at which KES key is initalized
     pub start_kes_period: u64,
     pub(crate) cert_sig: EdSignature,
-    pub(crate) cold_vk: EdPublicKey,
+    pub(crate) cold_vk: EdVerificationKey,
 }
 
 impl SerDeShelleyFileFormat for OpCert {
@@ -58,14 +60,15 @@ impl OpCert {
         kes_vk: KesPublicKey,
         issue_number: u64,
         start_kes_period: u64,
-        cold_keypair: EdKeypair,
+        cold_secret_key: EdSecretKey,
     ) -> Self {
-        let cold_vk: EdPublicKey = cold_keypair.verifying_key();
-        let cert_sig = cold_keypair.sign(&Self::compute_message_to_sign(
+        let cold_vk: EdVerificationKey = cold_secret_key.verifying_key();
+        let cert_sig = cold_secret_key.sign(&Self::compute_message_to_sign(
             &kes_vk,
             issue_number,
             start_kes_period,
         ));
+
         Self {
             kes_vk,
             issue_number,

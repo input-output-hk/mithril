@@ -1,4 +1,4 @@
-use ed25519_dalek::SigningKey as ColdKeypair;
+use ed25519_dalek::SigningKey as ColdSecretKey;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
@@ -7,9 +7,9 @@ use rand_core::SeedableRng;
 pub struct ColdKeyGenerator();
 
 impl ColdKeyGenerator {
-    pub(crate) fn create_deterministic_keypair(seed: [u8; 32]) -> ColdKeypair {
+    pub(crate) fn create_deterministic_keypair(seed: [u8; 32]) -> ColdSecretKey {
         let mut rng = ChaCha20Rng::from_seed(seed);
-        ColdKeypair::generate(&mut rng)
+        ColdSecretKey::generate(&mut rng)
     }
 }
 
