@@ -4,8 +4,8 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
-    snapshot_uploaders::SnapshotLocation, snapshotter::OngoingSnapshot, CompressionFormat,
-    SnapshotError, SnapshotUploader, Snapshotter,
+    snapshot_uploaders::SnapshotLocation, snapshotter::OngoingSnapshot, SnapshotError,
+    SnapshotUploader, Snapshotter,
 };
 
 use super::ArtifactBuilder;
@@ -63,7 +63,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot =
             tokio::task::spawn_blocking(move || -> Result<OngoingSnapshot, SnapshotError> {
-                snapshotter.snapshot(&snapshot_name, CompressionFormat::Gunzip)
+                snapshotter.snapshot(&snapshot_name)
             })
             .await??;
 

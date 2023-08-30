@@ -50,7 +50,7 @@ pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
 };
 pub use snapshotter::{
-    CompressionFormat, DumbSnapshotter, GzipSnapshotter, SnapshotError, Snapshotter,
+    CompressedArchiveSnapshotter, CompressionFormat, DumbSnapshotter, SnapshotError, Snapshotter,
 };
 pub use store::{
     CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer,

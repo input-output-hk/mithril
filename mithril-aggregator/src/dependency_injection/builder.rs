@@ -56,9 +56,9 @@ use crate::{
     },
     signer_registerer::SignerRecorder,
     tools::{GcpFileUploader, GenesisToolsDependency},
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore, Configuration,
-    DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, GzipSnapshotter,
-    LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
+    CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
+    DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
     Snapshotter, VerificationKeyStorer,
 };
@@ -581,9 +581,10 @@ impl DependenciesBuilder {
                     .snapshot_directory
                     .join("pending_snapshot");
 
-                Arc::new(GzipSnapshotter::new(
+                Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
+                    crate::CompressionFormat::Gunzip,
                 )?)
             }
             _ => Arc::new(DumbSnapshotter::new()),
