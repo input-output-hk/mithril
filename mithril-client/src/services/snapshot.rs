@@ -107,16 +107,14 @@ impl MithrilClientSnapshotService {
         }
     }
 
-    fn check_disk_space_error(&self, error: StdError) -> StdResult<()> {
+    fn check_disk_space_error(&self, error: StdError) -> StdResult<StdError> {
         if let Some(SnapshotUnpackerError::NotEnoughSpace {
             left_space: _,
             pathdir: _,
             archive_size: _,
         }) = error.downcast_ref::<SnapshotUnpackerError>()
         {
-            warn!("{error}");
-
-            Ok(())
+            Ok(error)
         } else {
             Err(error)
         }
@@ -220,7 +218,8 @@ impl SnapshotService for MithrilClientSnapshotService {
         let unpacker = SnapshotUnpacker;
 
         if let Err(e) = unpacker.check_prerequisites(&db_dir, snapshot_entity.artifact.size) {
-            self.check_disk_space_error(e)?;
+            progress_bar
+                .report_step(1, &format!("Warning: {}", self.check_disk_space_error(e)?))?;
         }
 
         std::fs::create_dir_all(&db_dir).with_context(|| {
