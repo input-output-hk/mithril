@@ -3,13 +3,17 @@ use slog_scope::info;
 use std::{sync::Arc, time::Duration};
 
 use mithril_common::{
-    digesters::DummyImmutablesDbBuilder,
-    entities::{Epoch, ProtocolParameters, SignedEntityType},
+    digesters::{DummyImmutableDb, DummyImmutablesDbBuilder},
+    entities::{Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
+    test_utils::MithrilFixture,
     StdResult,
 };
 
-use mithril_end_to_end::stress_test::{
-    aggregator_helpers, entities::*, fake_chain, fake_signer, payload_builder, wait,
+use mithril_end_to_end::{
+    stress_test::{
+        aggregator_helpers, entities::*, fake_chain, fake_signer, payload_builder, wait,
+    },
+    Aggregator,
 };
 
 fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
@@ -35,7 +39,7 @@ async fn main() -> StdResult<()> {
         .build();
 
     let _logger_guard = init_logger(&opts);
-    let args = AggregatorParameters::new(&opts, &immutable_db.dir)?;
+    let aggregator_parameters = AggregatorParameters::new(&opts, &immutable_db.dir)?;
     let mut current_epoch = Epoch(1);
     let protocol_parameters = ProtocolParameters::new(2422, 20973, 0.20);
     info!(">> Starting stress test with options: {opts:?}");
@@ -52,62 +56,143 @@ async fn main() -> StdResult<()> {
         )
         .await?;
 
-    let mut aggregator =
-        aggregator_helpers::bootstrap_aggregator(&args, &signers_fixture, &mut current_epoch)
-            .await?;
-    reporter.stop();
-
-    info!(">> Move one epoch forward in order to start creating certificates");
-    current_epoch += 1;
-    fake_chain::set_epoch(&args.mock_epoch_file_path(), current_epoch);
-    wait::for_epoch_settings_at_epoch(&aggregator, Duration::from_secs(10), current_epoch).await?;
-
-    info!(">> Send the Signer Key Registrations payloads");
-    reporter.start("signers registration");
-    let errors = fake_signer::register_signers_to_aggregator(
-        &aggregator,
-        &signers_fixture.signers(),
-        current_epoch + 1,
+    let mut aggregator = aggregator_helpers::bootstrap_aggregator(
+        &aggregator_parameters,
+        &signers_fixture,
+        &mut current_epoch,
     )
     .await?;
     reporter.stop();
+
+    let scenario_parameters = &mut ScenarioParameters {
+        aggregator: &aggregator,
+        aggregator_parameters: &aggregator_parameters,
+        signers_fixture: &signers_fixture,
+        immutable_db: &mut immutable_db,
+        reporter: &mut reporter,
+        precomputed_mithril_stake_distribution_signatures: &mithril_stake_distribution_signatures,
+    };
+
+    let scenario_counters = ScenarioCounters {
+        current_epoch,
+        number_of_certificates: 1,
+        number_of_mithril_stake_distributions: 0,
+        number_of_snapshots: 0,
+    };
+
+    info!(">> Run phase 1 without client load");
+    let scenario_counters = main_scenario(scenario_counters, scenario_parameters).await?;
+
+    info!(">> Run phase 2 with client load");
+    main_scenario(scenario_counters, scenario_parameters).await?;
+
+    info!(">> Display execution timings:");
+    reporter.print_report();
+
+    info!(">> All steps executed successfully, stopping all tasks...");
+    aggregator.stop().await.unwrap();
+
+    Ok(())
+}
+
+struct ScenarioParameters<'a> {
+    aggregator: &'a Aggregator,
+    aggregator_parameters: &'a AggregatorParameters,
+    signers_fixture: &'a MithrilFixture,
+    immutable_db: &'a mut DummyImmutableDb,
+    precomputed_mithril_stake_distribution_signatures: &'a [SingleSignatures],
+    reporter: &'a mut Reporter,
+}
+
+struct ScenarioCounters {
+    current_epoch: Epoch,
+    number_of_certificates: usize,
+    number_of_mithril_stake_distributions: usize,
+    number_of_snapshots: usize,
+}
+
+async fn main_scenario<'a>(
+    counters: ScenarioCounters,
+    parameters: &mut ScenarioParameters<'a>,
+) -> StdResult<ScenarioCounters> {
+    info!(">> Move one epoch forward in order to start creating certificates");
+    let ScenarioCounters {
+        mut current_epoch,
+        mut number_of_certificates,
+        mut number_of_mithril_stake_distributions,
+        mut number_of_snapshots,
+    } = counters;
+    current_epoch += 1;
+
+    fake_chain::set_epoch(
+        &parameters.aggregator_parameters.mock_epoch_file_path(),
+        current_epoch,
+    );
+    wait::for_epoch_settings_at_epoch(
+        parameters.aggregator,
+        Duration::from_secs(10),
+        current_epoch,
+    )
+    .await?;
+
+    info!(">> Send the Signer Key Registrations payloads");
+    parameters.reporter.start("signers registration");
+    let errors = fake_signer::register_signers_to_aggregator(
+        parameters.aggregator,
+        &parameters.signers_fixture.signers(),
+        current_epoch + 1,
+    )
+    .await?;
+    parameters.reporter.stop();
     assert_eq!(0, errors);
 
     info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
+    wait::for_pending_certificate(parameters.aggregator, Duration::from_secs(30)).await?;
 
     info!(
         ">> Send the Signer Signatures payloads for MithrilStakeDistribution({:?})",
         current_epoch
     );
-    reporter.start("signatures registration");
+    parameters.reporter.start("signatures registration");
     let errors = fake_signer::register_signatures_to_aggregator(
-        &aggregator,
-        &mithril_stake_distribution_signatures,
+        parameters.aggregator,
+        parameters.precomputed_mithril_stake_distribution_signatures,
         SignedEntityType::MithrilStakeDistribution(current_epoch),
     )
     .await?;
-    reporter.stop();
+    parameters.reporter.stop();
     assert_eq!(0, errors);
 
     info!(">> Wait for certificates to be available...");
-    wait::for_certificates(&aggregator, 1, Duration::from_secs(30)).await?;
+    number_of_certificates += 1;
+    wait::for_certificates(
+        parameters.aggregator,
+        number_of_certificates,
+        Duration::from_secs(30),
+    )
+    .await?;
 
     info!(">> Wait for artifacts to be available...");
-    wait::for_mithril_stake_distribution_artifacts(&aggregator, Duration::from_secs(30)).await?;
+    number_of_mithril_stake_distributions += 1;
+    wait::for_mithril_stake_distribution_artifacts(
+        parameters.aggregator,
+        number_of_mithril_stake_distributions,
+        Duration::from_secs(30),
+    )
+    .await?;
 
     info!(">> Add new immutable file");
-    immutable_db.add_immutable_file();
+    parameters.immutable_db.add_immutable_file();
 
     info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(&aggregator, Duration::from_secs(30)).await?;
+    wait::for_pending_certificate(parameters.aggregator, Duration::from_secs(30)).await?;
 
     info!(">> Compute the immutable files signature");
     let (current_beacon, immutable_files_signatures) =
         payload_builder::compute_immutable_files_signatures(
-            &immutable_db,
+            parameters.immutable_db,
             current_epoch,
-            &signers_fixture,
+            parameters.signers_fixture,
             Duration::from_secs(30),
         )
         .await
@@ -117,27 +202,38 @@ async fn main() -> StdResult<()> {
         ">> Send the Signer Signatures payloads for CardanoImmutableFiles({:?})",
         current_beacon
     );
-    reporter.start("signatures registration");
+    parameters.reporter.start("signatures registration");
     let errors = fake_signer::register_signatures_to_aggregator(
-        &aggregator,
+        parameters.aggregator,
         &immutable_files_signatures,
         SignedEntityType::CardanoImmutableFilesFull(current_beacon),
     )
     .await?;
-    reporter.stop();
+    parameters.reporter.stop();
     assert_eq!(0, errors);
 
     info!(">> Wait for certificates to be available...");
-    wait::for_certificates(&aggregator, 2, Duration::from_secs(30)).await?;
+    number_of_certificates += 1;
+    wait::for_certificates(
+        parameters.aggregator,
+        number_of_certificates,
+        Duration::from_secs(30),
+    )
+    .await?;
 
     info!(">> Wait for artifacts to be available...");
-    wait::for_immutable_files_artifacts(&aggregator, Duration::from_secs(30)).await?;
+    number_of_snapshots += 1;
+    wait::for_immutable_files_artifacts(
+        parameters.aggregator,
+        number_of_snapshots,
+        Duration::from_secs(30),
+    )
+    .await?;
 
-    info!(">> Display execution timings:");
-    reporter.print_report();
-
-    info!(">> All steps executed successfully, stopping all tasks...");
-    aggregator.stop().await.unwrap();
-
-    Ok(())
+    Ok(ScenarioCounters {
+        current_epoch,
+        number_of_certificates,
+        number_of_mithril_stake_distributions,
+        number_of_snapshots,
+    })
 }
