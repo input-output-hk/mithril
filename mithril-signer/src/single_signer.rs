@@ -8,7 +8,7 @@ use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
 };
 use mithril_common::protocol::SignerBuilder;
-use mithril_common::StdError;
+use mithril_common::{StdError, StdResult};
 
 #[cfg(test)]
 use mockall::automock;
@@ -46,14 +46,14 @@ pub trait SingleSigner: Sync + Send {
         protocol_message: &ProtocolMessage,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-    ) -> Result<Option<SingleSignatures>, SingleSignerError>;
+    ) -> StdResult<Option<SingleSignatures>>;
 
     /// Compute aggregate verification key from stake distribution
     fn compute_aggregate_verification_key(
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-    ) -> Result<Option<String>, SingleSignerError>;
+    ) -> StdResult<Option<String>>;
 
     /// Get party id
     fn get_party_id(&self) -> PartyId;
@@ -65,10 +65,6 @@ pub enum SingleSignerError {
     /// Cryptographic Signer creation error.
     #[error("the protocol signer creation failed: `{0}`")]
     ProtocolSignerCreationFailure(String),
-
-    /// Encoding / Decoding error.
-    #[error("codec error: '{0:?}'")]
-    Codec(StdError),
 
     /// Signature Error
     #[error("Signature Error: {0:?}")]
@@ -97,7 +93,7 @@ impl SingleSigner for MithrilSingleSigner {
         protocol_message: &ProtocolMessage,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-    ) -> Result<Option<SingleSignatures>, SingleSignerError> {
+    ) -> StdResult<Option<SingleSignatures>> {
         let builder = SignerBuilder::new(
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
@@ -131,7 +127,7 @@ impl SingleSigner for MithrilSingleSigner {
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-    ) -> Result<Option<String>, SingleSignerError> {
+    ) -> StdResult<Option<String>> {
         let signer_builder = SignerBuilder::new(
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
@@ -140,8 +136,7 @@ impl SingleSigner for MithrilSingleSigner {
 
         let encoded_avk = signer_builder
             .compute_aggregate_verification_key()
-            .to_json_hex()
-            .map_err(SingleSignerError::Codec)?;
+            .to_json_hex()?;
 
         Ok(Some(encoded_avk))
     }

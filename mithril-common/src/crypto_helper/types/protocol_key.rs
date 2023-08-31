@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
 use std::any::type_name;
 use std::ops::Deref;
@@ -44,14 +44,12 @@ where
 
     /// Create an instance from a JSON hex representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
-        let key = key_decode_hex::<T>(hex_string)
-            .map_err(|e| anyhow!(e))
-            .with_context(|| {
-                format!(
-                    "Could not deserialize a ProtocolKey from JSON hex string. Inner key type: {}",
-                    type_name::<T>()
-                )
-            })?;
+        let key = key_decode_hex::<T>(hex_string).with_context(|| {
+            format!(
+                "Could not deserialize a ProtocolKey from JSON hex string. Inner key type: {}",
+                type_name::<T>()
+            )
+        })?;
 
         Ok(Self { key })
     }
@@ -63,14 +61,12 @@ where
 
     /// Create a JSON hash representation of the given key
     pub fn key_to_json_hex(key: &T) -> StdResult<String> {
-        key_encode_hex(key)
-            .map_err(|e| anyhow!(e))
-            .with_context(|| {
-                format!(
-                    "Could not serialize a ProtocolKey to JSON hex key string. Inner key type: {}",
-                    type_name::<T>()
-                )
-            })
+        key_encode_hex(key).with_context(|| {
+            format!(
+                "Could not serialize a ProtocolKey to JSON hex key string. Inner key type: {}",
+                type_name::<T>()
+            )
+        })
     }
 }
 

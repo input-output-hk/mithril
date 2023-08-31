@@ -394,7 +394,9 @@ mod test {
         encoded_types: &[&str],
     ) {
         assert_decode_all(encoded_types, |encoded_type| {
-            key_decode_hex::<T>(encoded_type).map(|_| ())
+            key_decode_hex::<T>(encoded_type)
+                .map(|_| ())
+                .map_err(|e| format!("{e:?}"))
         })
     }
 
