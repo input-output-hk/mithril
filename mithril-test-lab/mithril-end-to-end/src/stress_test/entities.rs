@@ -29,6 +29,10 @@ pub struct MainOpts {
     #[arg(long, default_value = "20")]
     pub num_signers: usize,
 
+    /// Number of concurrent clients
+    #[arg(long, default_value = "0")]
+    pub num_clients: usize,
+
     /// Mithril technical Era
     #[arg(long, default_value = "thales")]
     pub mithril_era: String,
