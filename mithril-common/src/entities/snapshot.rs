@@ -1,6 +1,6 @@
 use crate::{entities::Beacon, signable_builder::Artifact};
 use serde::{Deserialize, Serialize};
-use strum::{EnumIter, IntoEnumIterator};
+use strum::{Display, EnumIter, IntoEnumIterator};
 
 /// Snapshot represents a snapshot file and its metadata
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -22,7 +22,7 @@ pub struct Snapshot {
 }
 
 /// Compression algorithm for the snapshot archive artifacts.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, EnumIter)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, EnumIter, Display)]
 #[serde(rename_all = "lowercase")]
 pub enum CompressionAlgorithm {
     /// Gunzip compression format
