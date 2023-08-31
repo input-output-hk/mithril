@@ -2289,6 +2289,7 @@ dependencies = [
  "tar",
  "thiserror",
  "tokio",
+ "zstd",
 ]
 
 [[package]]

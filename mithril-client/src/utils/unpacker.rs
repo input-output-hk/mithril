@@ -1,3 +1,4 @@
+use anyhow::Context;
 use flate2::read::GzDecoder;
 use flume::Receiver;
 use human_bytes::human_bytes;
@@ -9,7 +10,7 @@ use tar::Archive;
 use thiserror::Error;
 
 use crate::utils::StreamReader;
-use mithril_common::{StdError, StdResult};
+use mithril_common::{entities::CompressionAlgorithm, StdError, StdResult};
 
 /// This ratio will be multiplied by the snapshot size to check if the available
 /// disk space is sufficient to store the archive plus the extracted files. If
@@ -87,17 +88,37 @@ impl SnapshotUnpacker {
     }
 
     /// Unpack the snapshot from the given stream into the given directory.
-    pub fn unpack_snapshot(&self, stream: Receiver<Vec<u8>>, unpack_dir: &Path) -> StdResult<()> {
+    pub fn unpack_snapshot(
+        &self,
+        stream: Receiver<Vec<u8>>,
+        compression_algorithm: CompressionAlgorithm,
+        unpack_dir: &Path,
+    ) -> StdResult<()> {
         let input = StreamReader::new(stream);
 
-        let gunzip_decoder = GzDecoder::new(input);
-        let mut snapshot_archive = Archive::new(gunzip_decoder);
-        snapshot_archive
-            .unpack(unpack_dir)
-            .map_err(|e| SnapshotUnpackerError::UnpackFailed {
-                dirpath: unpack_dir.to_owned(),
-                error: e.into(),
-            })?;
+        match compression_algorithm {
+            CompressionAlgorithm::Gunzip => {
+                let gunzip_decoder = GzDecoder::new(input);
+                let mut snapshot_archive = Archive::new(gunzip_decoder);
+                snapshot_archive.unpack(unpack_dir).map_err(|e| {
+                    SnapshotUnpackerError::UnpackFailed {
+                        dirpath: unpack_dir.to_owned(),
+                        error: e.into(),
+                    }
+                })?;
+            }
+            CompressionAlgorithm::Zstandard => {
+                let zstandard_decoder = zstd::Decoder::new(input)
+                    .with_context(|| "Unpack failed: Create Zstandard decoder error")?;
+                let mut snapshot_archive = Archive::new(zstandard_decoder);
+                snapshot_archive.unpack(unpack_dir).map_err(|e| {
+                    SnapshotUnpackerError::UnpackFailed {
+                        dirpath: unpack_dir.to_owned(),
+                        error: e.into(),
+                    }
+                })?;
+            }
+        };
 
         Ok(())
     }

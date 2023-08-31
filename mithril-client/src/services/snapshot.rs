@@ -400,7 +400,7 @@ mod tests {
         http_client.expect_probe().returning(|_| Ok(()));
         http_client
             .expect_download_unpack()
-            .returning(move |_, _, _| Ok(()))
+            .returning(move |_, _, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();
