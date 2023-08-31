@@ -31,8 +31,8 @@ mod tools;
 
 pub use crate::artifact_builder::ArtifactBuilder;
 pub use crate::configuration::{
-    CompressionAlgorithm, Configuration, DefaultConfiguration, ExecutionEnvironment,
-    SnapshotUploaderType, ZstandardCompressionParameters,
+    Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
+    ZstandardCompressionParameters,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use commands::MainOpts;

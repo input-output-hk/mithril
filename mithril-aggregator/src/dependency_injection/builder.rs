@@ -13,7 +13,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{CertificatePending, Epoch},
+    entities::{CertificatePending, CompressionAlgorithm, Epoch},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -582,8 +582,8 @@ impl DependenciesBuilder {
                     .join("pending_snapshot");
 
                 let algorithm = match self.configuration.snapshot_compression_algorithm {
-                    crate::CompressionAlgorithm::Gunzip => SnapshotterCompressionAlgorithm::Gunzip,
-                    crate::CompressionAlgorithm::Zstandard => self
+                    CompressionAlgorithm::Gunzip => SnapshotterCompressionAlgorithm::Gunzip,
+                    CompressionAlgorithm::Zstandard => self
                         .configuration
                         .zstandard_parameters
                         .unwrap_or_default()
@@ -894,9 +894,12 @@ impl DependenciesBuilder {
             Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
-        let cardano_immutable_files_full_artifact_builder = Arc::new(
-            CardanoImmutableFilesFullArtifactBuilder::new(snapshotter, snapshot_uploader),
-        );
+        let cardano_immutable_files_full_artifact_builder =
+            Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
+                snapshotter,
+                snapshot_uploader,
+                self.configuration.snapshot_compression_algorithm,
+            ));
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,

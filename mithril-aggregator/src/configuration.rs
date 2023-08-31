@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use mithril_common::entities::{HexEncodedGenesisVerificationKey, ProtocolParameters};
+use mithril_common::entities::{
+    CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
+};
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::tools::GcpFileUploader;
@@ -124,17 +126,7 @@ pub enum SnapshotUploaderType {
     Local,
 }
 
-/// Compression algorithm for  the snapshot archive artifacts.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum CompressionAlgorithm {
-    /// Gunzip compression format
-    Gunzip,
-    /// Zstandard compression format
-    Zstandard,
-}
-
-/// [CompressionAlgorithm::Zstandard] specific compression parameters
+/// [Zstandard][CompressionAlgorithm::Zstandard] specific parameters
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ZstandardCompressionParameters {
     /// Level of compression, default to 9.

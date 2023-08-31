@@ -1,5 +1,5 @@
 use mithril_common::{
-    entities::{SignedEntity, SignedEntityType, Snapshot},
+    entities::{CompressionAlgorithm, SignedEntity, SignedEntityType, Snapshot},
     messages::{FromMessageAdapter, SnapshotMessage},
 };
 
@@ -14,6 +14,7 @@ impl FromMessageAdapter<SnapshotMessage, SignedEntity<Snapshot>> for FromSnapsho
             beacon: snapshot_message.beacon.clone(),
             size: snapshot_message.size,
             locations: snapshot_message.locations,
+            compression_algorithm: CompressionAlgorithm::Zstandard,
         };
 
         SignedEntity {
