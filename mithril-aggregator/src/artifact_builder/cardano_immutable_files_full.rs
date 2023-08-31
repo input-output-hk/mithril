@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use semver::Version;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
@@ -28,6 +29,7 @@ pub enum CardanoImmutableFilesFullArtifactError {
 
 /// A [CardanoImmutableFilesFullArtifact] builder
 pub struct CardanoImmutableFilesFullArtifactBuilder {
+    cardano_node_version: Version,
     snapshotter: Arc<dyn Snapshotter>,
     snapshot_uploader: Arc<dyn SnapshotUploader>,
     compression_algorithm: CompressionAlgorithm,
@@ -36,11 +38,13 @@ pub struct CardanoImmutableFilesFullArtifactBuilder {
 impl CardanoImmutableFilesFullArtifactBuilder {
     /// CardanoImmutableFilesFull artifact builder factory
     pub fn new(
+        cardano_node_version: &Version,
         snapshotter: Arc<dyn Snapshotter>,
         snapshot_uploader: Arc<dyn SnapshotUploader>,
         compression_algorithm: CompressionAlgorithm,
     ) -> Self {
         Self {
+            cardano_node_version: cardano_node_version.clone(),
             snapshotter,
             snapshot_uploader,
             compression_algorithm,
@@ -125,6 +129,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             *ongoing_snapshot.get_file_size(),
             remote_locations,
             self.compression_algorithm,
+            &self.cardano_node_version,
         );
 
         Ok(snapshot)
@@ -177,6 +182,7 @@ mod tests {
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
+                &Version::parse("1.0.0").unwrap(),
                 dumb_snapshotter.clone(),
                 dumb_snapshot_uploader.clone(),
                 CompressionAlgorithm::Zstandard,
@@ -200,6 +206,7 @@ mod tests {
             *last_ongoing_snapshot.get_file_size(),
             remote_locations,
             CompressionAlgorithm::Zstandard,
+            &Version::parse("1.0.0").unwrap(),
         );
         assert_eq!(artifact_expected, artifact);
     }
@@ -212,6 +219,7 @@ mod tests {
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
+                &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(DumbSnapshotUploader::new()),
                 CompressionAlgorithm::default(),
@@ -239,6 +247,7 @@ mod tests {
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
+                &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(DumbSnapshotUploader::new()),
                 CompressionAlgorithm::Gzip,
@@ -271,6 +280,7 @@ mod tests {
         for algorithm in CompressionAlgorithm::list() {
             let cardano_immutable_files_full_artifact_builder =
                 CardanoImmutableFilesFullArtifactBuilder::new(
+                    &Version::parse("1.0.0").unwrap(),
                     Arc::new(DumbSnapshotter::new()),
                     Arc::new(DumbSnapshotUploader::new()),
                     algorithm,
@@ -311,6 +321,7 @@ mod tests {
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
+                &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(snapshot_uploader),
                 CompressionAlgorithm::default(),
