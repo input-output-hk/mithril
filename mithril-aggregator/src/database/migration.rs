@@ -561,5 +561,20 @@ update signed_entity
     );
 "#,
         ),
+        // Migration 17
+        // Alter `signed_entity` table to add `compression_algorithm` in `artifact` JSON field.
+        SqlMigration::new(
+            17,
+            r#"
+update signed_entity
+    set artifact = json_insert(
+        json_insert(
+            artifact,
+            '$.compression_algorithm', 
+            'gunzip')
+    ) 
+where signed_entity.signed_entity_type_id = 2;
+        "#,
+        ),
     ]
 }
