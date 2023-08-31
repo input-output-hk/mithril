@@ -51,8 +51,7 @@ slog = { version = "2.7.0", features = [
 ] }
 slog-scope = "4.4.0"
 sqlite = { version = "0.31.0", features = ["bundled"] }
-strum = "0.25.0"
-strum_macros = "0.25.2"
+strum = { version = "0.25.0", features = ["derive"] }
 thiserror = "1.0.47"
 tokio = { version = "1.32.0", features = ["full"] }
 typetag = "0.2.13"

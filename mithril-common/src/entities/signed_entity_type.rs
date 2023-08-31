@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use strum_macros::{Display, EnumDiscriminants};
+use strum::{Display, EnumDiscriminants};
 
 use crate::{sqlite::HydrationError, StdResult};
 

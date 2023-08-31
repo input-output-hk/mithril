@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use strum_macros::{Display, EnumDiscriminants};
+use strum::{Display, EnumDiscriminants};
 use thiserror::Error;
 
 use crate::{StdError, StdResult};
