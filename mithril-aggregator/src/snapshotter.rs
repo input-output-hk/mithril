@@ -11,20 +11,27 @@ use thiserror::Error;
 use zstd::{Decoder, Encoder};
 
 use crate::dependency_injection::DependenciesBuilderError;
-
-/// Compression format for the compressed files
-pub enum CompressionFormat {
-    /// Gunzip compression format
-    Gunzip,
-
-    /// Zstandard compression format
-    Zstandard,
-}
+use crate::ZstandardCompressionParameters;
 
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given archive name.
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
+}
+
+/// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SnapshotterCompressionAlgorithm {
+    /// Gunzip compression format
+    Gunzip,
+    /// Zstandard compression format
+    Zstandard(ZstandardCompressionParameters),
+}
+
+impl From<ZstandardCompressionParameters> for SnapshotterCompressionAlgorithm {
+    fn from(params: ZstandardCompressionParameters) -> Self {
+        Self::Zstandard(params)
+    }
 }
 
 /// Gzip Snapshotter create a compressed file.
@@ -35,8 +42,8 @@ pub struct CompressedArchiveSnapshotter {
     /// Directory to store ongoing snapshot
     ongoing_snapshot_directory: PathBuf,
 
-    /// Compression format used for the archive    
-    compression_format: CompressionFormat,
+    /// Compression algorithm used for the archive
+    compression_algorithm: SnapshotterCompressionAlgorithm,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,7 +119,7 @@ impl CompressedArchiveSnapshotter {
     pub fn new(
         db_directory: PathBuf,
         ongoing_snapshot_directory: PathBuf,
-        compression_format: CompressionFormat,
+        compression_algorithm: SnapshotterCompressionAlgorithm,
     ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
             std::fs::remove_dir_all(&ongoing_snapshot_directory)?;
@@ -131,7 +138,7 @@ impl CompressedArchiveSnapshotter {
         Ok(Self {
             db_directory,
             ongoing_snapshot_directory,
-            compression_format,
+            compression_algorithm,
         })
     }
 
@@ -151,8 +158,8 @@ impl CompressedArchiveSnapshotter {
 
         let tar_file = File::create(archive_path).map_err(SnapshotError::CreateArchiveError)?;
 
-        match self.compression_format {
-            CompressionFormat::Gunzip => {
+        match self.compression_algorithm {
+            SnapshotterCompressionAlgorithm::Gunzip => {
                 let enc = GzEncoder::new(tar_file, Compression::default());
                 let mut tar = tar::Builder::new(enc);
 
@@ -164,8 +171,10 @@ impl CompressedArchiveSnapshotter {
                     .map_err(SnapshotError::CreateArchiveError)?;
                 gz.try_finish().map_err(SnapshotError::CreateArchiveError)?;
             }
-            CompressionFormat::Zstandard => {
-                let enc = Encoder::new(tar_file, 0)?;
+            SnapshotterCompressionAlgorithm::Zstandard(params) => {
+                let mut enc = Encoder::new(tar_file, params.level)?;
+                enc.multithread(params.number_of_workers)
+                    .map_err(SnapshotError::CreateArchiveError)?;
                 let mut tar = tar::Builder::new(enc);
 
                 tar.append_dir_all(".", &self.db_directory)
@@ -198,12 +207,12 @@ impl CompressedArchiveSnapshotter {
             .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;
         snapshot_file_tar.seek(SeekFrom::Start(0))?;
 
-        let mut snapshot_archive: Archive<Box<dyn Read>> = match self.compression_format {
-            CompressionFormat::Gunzip => {
+        let mut snapshot_archive: Archive<Box<dyn Read>> = match self.compression_algorithm {
+            SnapshotterCompressionAlgorithm::Gunzip => {
                 let snapshot_file_tar = GzDecoder::new(snapshot_file_tar);
                 Archive::new(Box::new(snapshot_file_tar))
             }
-            CompressionFormat::Zstandard => {
+            SnapshotterCompressionAlgorithm::Zstandard(_) => {
                 let snapshot_file_tar = Decoder::new(snapshot_file_tar)?;
                 Archive::new(Box::new(snapshot_file_tar))
             }
@@ -386,7 +395,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                CompressionFormat::Gunzip,
+                SnapshotterCompressionAlgorithm::Gunzip,
             )
             .unwrap(),
         );
@@ -409,7 +418,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                CompressionFormat::Gunzip,
+                SnapshotterCompressionAlgorithm::Gunzip,
             )
             .unwrap(),
         );
@@ -434,7 +443,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                CompressionFormat::Gunzip,
+                SnapshotterCompressionAlgorithm::Gunzip,
             )
             .unwrap(),
         );
@@ -469,7 +478,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                CompressionFormat::Gunzip,
+                SnapshotterCompressionAlgorithm::Gunzip,
             )
             .unwrap(),
         );
@@ -507,7 +516,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                CompressionFormat::Zstandard,
+                ZstandardCompressionParameters::default().into(),
             )
             .unwrap(),
         );

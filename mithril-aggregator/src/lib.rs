@@ -31,7 +31,8 @@ mod tools;
 
 pub use crate::artifact_builder::ArtifactBuilder;
 pub use crate::configuration::{
-    Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
+    CompressionAlgorithm, Configuration, DefaultConfiguration, ExecutionEnvironment,
+    SnapshotUploaderType, ZstandardCompressionParameters,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use commands::MainOpts;
@@ -50,7 +51,8 @@ pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
 };
 pub use snapshotter::{
-    CompressedArchiveSnapshotter, CompressionFormat, DumbSnapshotter, SnapshotError, Snapshotter,
+    CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotError, Snapshotter,
+    SnapshotterCompressionAlgorithm,
 };
 pub use store::{
     CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer,

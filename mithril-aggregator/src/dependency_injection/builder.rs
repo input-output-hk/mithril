@@ -60,7 +60,7 @@ use crate::{
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
     DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
-    Snapshotter, VerificationKeyStorer,
+    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -581,10 +581,19 @@ impl DependenciesBuilder {
                     .snapshot_directory
                     .join("pending_snapshot");
 
+                let algorithm = match self.configuration.snapshot_compression_algorithm {
+                    crate::CompressionAlgorithm::Gunzip => SnapshotterCompressionAlgorithm::Gunzip,
+                    crate::CompressionAlgorithm::Zstandard => self
+                        .configuration
+                        .zstandard_parameters
+                        .unwrap_or_default()
+                        .into(),
+                };
+
                 Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
-                    crate::CompressionFormat::Gunzip,
+                    algorithm,
                 )?)
             }
             _ => Arc::new(DumbSnapshotter::new()),
