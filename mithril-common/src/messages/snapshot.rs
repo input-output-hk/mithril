@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{Beacon, Epoch};
+use crate::entities::{Beacon, CompressionAlgorithm, Epoch};
 
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -23,6 +23,10 @@ pub struct SnapshotMessage {
 
     /// Locations where the binary content of the snapshot can be retrieved
     pub locations: Vec<String>,
+
+    /// Compression algorithm of the snapshot archive
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compression_algorithm: Option<CompressionAlgorithm>,
 }
 
 impl SnapshotMessage {
@@ -42,6 +46,7 @@ impl SnapshotMessage {
                 .unwrap()
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
+            compression_algorithm: Some(CompressionAlgorithm::Gunzip),
         }
     }
 }
@@ -65,6 +70,7 @@ mod tests {
                 .unwrap()
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
+            compression_algorithm: None,
         }
     }
 

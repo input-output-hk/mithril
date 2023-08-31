@@ -309,6 +309,7 @@ mod tests {
     use mithril_common::{
         crypto_helper::tests_setup::setup_genesis,
         digesters::DumbImmutableDigester,
+        entities::CompressionAlgorithm,
         messages::{
             CertificateMessage, FromMessageAdapter, SnapshotListItemMessage, SnapshotListMessage,
             SnapshotMessage,
@@ -386,6 +387,7 @@ mod tests {
             size: 1024,
             created_at: DateTime::<Utc>::default(),
             locations: vec!["location-10.1".to_string(), "location-10.2".to_string()],
+            compression_algorithm: Some(CompressionAlgorithm::Gunzip),
         }
     }
 
