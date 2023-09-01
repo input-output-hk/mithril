@@ -25,9 +25,9 @@ pub struct Snapshot {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, EnumIter, Display)]
 #[serde(rename_all = "lowercase")]
 pub enum CompressionAlgorithm {
-    /// Gunzip compression format
+    /// Gzip compression format
     #[default]
-    Gunzip,
+    Gzip,
     /// Zstandard compression format
     Zstandard,
 }
@@ -36,7 +36,7 @@ impl CompressionAlgorithm {
     /// Get the extension associated to tar archive using the current algorithm.
     pub fn tar_file_extension(&self) -> String {
         match self {
-            CompressionAlgorithm::Gunzip => "tar.gz".to_owned(),
+            CompressionAlgorithm::Gzip => "tar.gz".to_owned(),
             CompressionAlgorithm::Zstandard => "tar.zst".to_owned(),
         }
     }

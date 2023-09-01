@@ -582,7 +582,7 @@ impl DependenciesBuilder {
                     .join("pending_snapshot");
 
                 let algorithm = match self.configuration.snapshot_compression_algorithm {
-                    CompressionAlgorithm::Gunzip => SnapshotterCompressionAlgorithm::Gunzip,
+                    CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
                     CompressionAlgorithm::Zstandard => self
                         .configuration
                         .zstandard_parameters

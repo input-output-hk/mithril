@@ -241,7 +241,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(DumbSnapshotUploader::new()),
-                CompressionAlgorithm::Gunzip,
+                CompressionAlgorithm::Gzip,
             );
 
         let ongoing_snapshot = cardano_immutable_files_full_artifact_builder

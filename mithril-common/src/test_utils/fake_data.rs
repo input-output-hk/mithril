@@ -186,13 +186,7 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             let mut locations = Vec::new();
             locations.push(format!("http://{certificate_hash}"));
             locations.push(format!("http2://{certificate_hash}"));
-            entities::Snapshot::new(
-                digest,
-                beacon,
-                size,
-                locations,
-                CompressionAlgorithm::Gunzip,
-            )
+            entities::Snapshot::new(digest, beacon, size, locations, CompressionAlgorithm::Gzip)
         })
         .collect::<Vec<entities::Snapshot>>()
 }

@@ -22,8 +22,8 @@ pub trait Snapshotter: Sync + Send {
 /// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SnapshotterCompressionAlgorithm {
-    /// Gunzip compression format
-    Gunzip,
+    /// Gzip compression format
+    Gzip,
     /// Zstandard compression format
     Zstandard(ZstandardCompressionParameters),
 }
@@ -159,7 +159,7 @@ impl CompressedArchiveSnapshotter {
         let tar_file = File::create(archive_path).map_err(SnapshotError::CreateArchiveError)?;
 
         match self.compression_algorithm {
-            SnapshotterCompressionAlgorithm::Gunzip => {
+            SnapshotterCompressionAlgorithm::Gzip => {
                 let enc = GzEncoder::new(tar_file, Compression::default());
                 let mut tar = tar::Builder::new(enc);
 
@@ -208,7 +208,7 @@ impl CompressedArchiveSnapshotter {
         snapshot_file_tar.seek(SeekFrom::Start(0))?;
 
         let mut snapshot_archive: Archive<Box<dyn Read>> = match self.compression_algorithm {
-            SnapshotterCompressionAlgorithm::Gunzip => {
+            SnapshotterCompressionAlgorithm::Gzip => {
                 let snapshot_file_tar = GzDecoder::new(snapshot_file_tar);
                 Archive::new(Box::new(snapshot_file_tar))
             }
@@ -395,7 +395,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                SnapshotterCompressionAlgorithm::Gunzip,
+                SnapshotterCompressionAlgorithm::Gzip,
             )
             .unwrap(),
         );
@@ -418,7 +418,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                SnapshotterCompressionAlgorithm::Gunzip,
+                SnapshotterCompressionAlgorithm::Gzip,
             )
             .unwrap(),
         );
@@ -443,7 +443,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                SnapshotterCompressionAlgorithm::Gunzip,
+                SnapshotterCompressionAlgorithm::Gzip,
             )
             .unwrap(),
         );
@@ -478,7 +478,7 @@ mod tests {
             CompressedArchiveSnapshotter::new(
                 db_directory,
                 pending_snapshot_directory.clone(),
-                SnapshotterCompressionAlgorithm::Gunzip,
+                SnapshotterCompressionAlgorithm::Gzip,
             )
             .unwrap(),
         );

@@ -46,7 +46,7 @@ impl SnapshotMessage {
                 .unwrap()
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
-            compression_algorithm: Some(CompressionAlgorithm::Gunzip),
+            compression_algorithm: Some(CompressionAlgorithm::Gzip),
         }
     }
 }

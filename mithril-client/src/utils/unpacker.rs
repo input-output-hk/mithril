@@ -97,9 +97,9 @@ impl SnapshotUnpacker {
         let input = StreamReader::new(stream);
 
         match compression_algorithm {
-            CompressionAlgorithm::Gunzip => {
-                let gunzip_decoder = GzDecoder::new(input);
-                let mut snapshot_archive = Archive::new(gunzip_decoder);
+            CompressionAlgorithm::Gzip => {
+                let gzip_decoder = GzDecoder::new(input);
+                let mut snapshot_archive = Archive::new(gzip_decoder);
                 snapshot_archive.unpack(unpack_dir).map_err(|e| {
                     SnapshotUnpackerError::UnpackFailed {
                         dirpath: unpack_dir.to_owned(),

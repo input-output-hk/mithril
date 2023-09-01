@@ -571,7 +571,7 @@ update signed_entity
         json_insert(
             artifact,
             '$.compression_algorithm', 
-            'gunzip')
+            'gzip')
     ) 
 where signed_entity.signed_entity_type_id = 2;
         "#,
