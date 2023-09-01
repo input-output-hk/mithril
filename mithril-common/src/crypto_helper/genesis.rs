@@ -1,7 +1,7 @@
 use crate::StdResult;
-use ed25519_dalek::{ExpandedSecretKey, SignatureError};
-use rand_chacha_dalek_compat::rand_core::{self, CryptoRng, RngCore, SeedableRng};
-use rand_chacha_dalek_compat::ChaCha20Rng;
+use ed25519_dalek::{SignatureError, Signer, SigningKey};
+use rand_chacha::rand_core::{self, CryptoRng, RngCore, SeedableRng};
+use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;
@@ -25,57 +25,40 @@ pub struct ProtocolGenesisSigner {
 }
 
 impl ProtocolGenesisSigner {
-    /// ProtocolGenesisSigner factory
+    /// [ProtocolGenesisSigner] factory
     pub fn create_test_genesis_signer<R>(mut rng: R) -> Self
     where
         R: CryptoRng + RngCore,
     {
-        let secret_key = ed25519_dalek::SecretKey::generate(&mut rng);
+        let secret_key = SigningKey::generate(&mut rng);
         Self::from_secret_key(secret_key.into())
     }
 
-    /// ProtocolGenesisSigner deterministic
+    /// [ProtocolGenesisSigner] deterministic
     pub fn create_deterministic_genesis_signer() -> Self {
         let rng = ChaCha20Rng::from_seed([0u8; 32]);
         Self::create_test_genesis_signer(rng)
     }
 
-    /// ProtocolGenesisSigner non deterministic
+    /// [ProtocolGenesisSigner] non deterministic
     pub fn create_non_deterministic_genesis_signer() -> Self {
         let rng = rand_core::OsRng;
         Self::create_test_genesis_signer(rng)
     }
 
-    /// ProtocolGenesisSigner from ProtocolGenesisSecretKey
+    /// [ProtocolGenesisSigner] from [ProtocolGenesisSecretKey]
     pub fn from_secret_key(secret_key: ProtocolGenesisSecretKey) -> Self {
         Self { secret_key }
     }
 
-    /// Create a an expanded secret key
-    fn create_expanded_secret_key(&self) -> ExpandedSecretKey {
-        ExpandedSecretKey::from(&*self.secret_key)
-    }
-
-    /// Create a ProtocolGenesisVerificationKey
-    fn create_verification_key(
-        &self,
-        expanded_secret_key: &ExpandedSecretKey,
-    ) -> ProtocolGenesisVerificationKey {
-        ProtocolGenesisVerificationKey::new(expanded_secret_key.into())
-    }
-
-    /// Create a ProtocolGenesisVerifier
+    /// Create a [ProtocolGenesisVerifier]
     pub fn create_genesis_verifier(&self) -> ProtocolGenesisVerifier {
-        let expanded_secret_key = self.create_expanded_secret_key();
-        let verification_key = self.create_verification_key(&expanded_secret_key);
-        ProtocolGenesisVerifier::from_verification_key(verification_key)
+        ProtocolGenesisVerifier::from_verification_key(self.secret_key.verifying_key().into())
     }
 
-    /// Signs a message and returns a ProtocolGenesisSignature
+    /// Signs a message and returns a [ProtocolGenesisSignature]
     pub fn sign(&self, message: &[u8]) -> ProtocolGenesisSignature {
-        let expanded_secret_key = self.create_expanded_secret_key();
-        let verification_key = self.create_verification_key(&expanded_secret_key);
-        expanded_secret_key.sign(message, &verification_key).into()
+        self.secret_key.sign(message).into()
     }
 
     /// Export the secret key from the genesis verifier to a file. TEST ONLY
@@ -96,12 +79,12 @@ pub struct ProtocolGenesisVerifier {
 }
 
 impl ProtocolGenesisVerifier {
-    /// ProtocolGenesisVerifier from ProtocolGenesisVerificationKey
+    /// [ProtocolGenesisVerifier] from [ProtocolGenesisVerificationKey]
     pub fn from_verification_key(verification_key: ProtocolGenesisVerificationKey) -> Self {
         Self { verification_key }
     }
 
-    /// ProtocolGenesisVerifier to ProtocolGenesisVerificationKey
+    /// [ProtocolGenesisVerifier] to [ProtocolGenesisVerificationKey]
     pub fn to_verification_key(&self) -> ProtocolGenesisVerificationKey {
         self.verification_key
     }
@@ -127,8 +110,8 @@ mod tests {
         let genesis_signer_2 = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_verifier_2 = genesis_signer.create_genesis_verifier();
         assert_eq!(
-            genesis_signer.secret_key.as_bytes(),
-            genesis_signer_2.secret_key.as_bytes()
+            genesis_signer.secret_key.to_bytes(),
+            genesis_signer_2.secret_key.to_bytes()
         );
         assert_eq!(
             genesis_verifier.verification_key.as_bytes(),
