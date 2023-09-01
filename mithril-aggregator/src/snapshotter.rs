@@ -8,8 +8,10 @@ use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use tar::{Archive, Entry, EntryType};
 use thiserror::Error;
+use zstd::{Decoder, Encoder};
 
 use crate::dependency_injection::DependenciesBuilderError;
+use crate::ZstandardCompressionParameters;
 
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
@@ -17,13 +19,31 @@ pub trait Snapshotter: Sync + Send {
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
 }
 
+/// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SnapshotterCompressionAlgorithm {
+    /// Gzip compression format
+    Gzip,
+    /// Zstandard compression format
+    Zstandard(ZstandardCompressionParameters),
+}
+
+impl From<ZstandardCompressionParameters> for SnapshotterCompressionAlgorithm {
+    fn from(params: ZstandardCompressionParameters) -> Self {
+        Self::Zstandard(params)
+    }
+}
+
 /// Gzip Snapshotter create a compressed file.
-pub struct GzipSnapshotter {
+pub struct CompressedArchiveSnapshotter {
     /// DB directory to snapshot
     db_directory: PathBuf,
 
     /// Directory to store ongoing snapshot
     ongoing_snapshot_directory: PathBuf,
+
+    /// Compression algorithm used for the archive
+    compression_algorithm: SnapshotterCompressionAlgorithm,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,7 +90,7 @@ pub enum SnapshotError {
     GeneralError(String),
 }
 
-impl Snapshotter for GzipSnapshotter {
+impl Snapshotter for CompressedArchiveSnapshotter {
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
         let filesize = self.create_and_verify_archive(&archive_path).map_err(|err| {
@@ -94,12 +114,13 @@ impl Snapshotter for GzipSnapshotter {
     }
 }
 
-impl GzipSnapshotter {
+impl CompressedArchiveSnapshotter {
     /// Snapshotter factory
     pub fn new(
         db_directory: PathBuf,
         ongoing_snapshot_directory: PathBuf,
-    ) -> StdResult<GzipSnapshotter> {
+        compression_algorithm: SnapshotterCompressionAlgorithm,
+    ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
             std::fs::remove_dir_all(&ongoing_snapshot_directory)?;
         }
@@ -117,6 +138,7 @@ impl GzipSnapshotter {
         Ok(Self {
             db_directory,
             ongoing_snapshot_directory,
+            compression_algorithm,
         })
     }
 
@@ -134,17 +156,36 @@ impl GzipSnapshotter {
             archive_path.display()
         );
 
-        let tar_gz = File::create(archive_path).map_err(SnapshotError::CreateArchiveError)?;
-        let enc = GzEncoder::new(tar_gz, Compression::default());
-        let mut tar = tar::Builder::new(enc);
+        let tar_file = File::create(archive_path).map_err(SnapshotError::CreateArchiveError)?;
 
-        tar.append_dir_all(".", &self.db_directory)
-            .map_err(SnapshotError::CreateArchiveError)?;
+        match self.compression_algorithm {
+            SnapshotterCompressionAlgorithm::Gzip => {
+                let enc = GzEncoder::new(tar_file, Compression::default());
+                let mut tar = tar::Builder::new(enc);
 
-        let mut gz = tar
-            .into_inner()
-            .map_err(SnapshotError::CreateArchiveError)?;
-        gz.try_finish().map_err(SnapshotError::CreateArchiveError)?;
+                tar.append_dir_all(".", &self.db_directory)
+                    .map_err(SnapshotError::CreateArchiveError)?;
+
+                let mut gz = tar
+                    .into_inner()
+                    .map_err(SnapshotError::CreateArchiveError)?;
+                gz.try_finish().map_err(SnapshotError::CreateArchiveError)?;
+            }
+            SnapshotterCompressionAlgorithm::Zstandard(params) => {
+                let mut enc = Encoder::new(tar_file, params.level)?;
+                enc.multithread(params.number_of_workers)
+                    .map_err(SnapshotError::CreateArchiveError)?;
+                let mut tar = tar::Builder::new(enc);
+
+                tar.append_dir_all(".", &self.db_directory)
+                    .map_err(SnapshotError::CreateArchiveError)?;
+
+                let zstd = tar
+                    .into_inner()
+                    .map_err(SnapshotError::CreateArchiveError)?;
+                zstd.finish().map_err(SnapshotError::CreateArchiveError)?;
+            }
+        }
 
         let filesize = Self::get_file_size(archive_path)?;
 
@@ -162,35 +203,69 @@ impl GzipSnapshotter {
     fn verify_archive(&self, archive_path: &Path) -> Result<(), SnapshotError> {
         info!("verifying archive: {}", archive_path.display());
 
-        let mut snapshot_file_tar_gz = File::open(archive_path)
+        let mut snapshot_file_tar = File::open(archive_path)
             .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;
+        snapshot_file_tar.seek(SeekFrom::Start(0))?;
 
-        snapshot_file_tar_gz.seek(SeekFrom::Start(0))?;
-        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let mut snapshot_archive = Archive::new(snapshot_file_tar);
+        let mut snapshot_archive: Archive<Box<dyn Read>> = match self.compression_algorithm {
+            SnapshotterCompressionAlgorithm::Gzip => {
+                let snapshot_file_tar = GzDecoder::new(snapshot_file_tar);
+                Archive::new(Box::new(snapshot_file_tar))
+            }
+            SnapshotterCompressionAlgorithm::Zstandard(_) => {
+                let snapshot_file_tar = Decoder::new(snapshot_file_tar)?;
+                Archive::new(Box::new(snapshot_file_tar))
+            }
+        };
 
-        let unpack_temp_dir = std::env::temp_dir().join("mithril_snapshotter_verify_archive");
-        if unpack_temp_dir.exists() {
-            fs::remove_dir_all(&unpack_temp_dir)
-                .map_err(|e| SnapshotError::VerifyArchiveError(e.to_string()))?;
-        }
-        fs::create_dir_all(&unpack_temp_dir)
-            .map_err(|e| SnapshotError::VerifyArchiveError(e.to_string()))?;
+        let unpack_temp_dir = std::env::temp_dir()
+            .join("mithril_snapshotter_verify_archive")
+            // Add the archive name to the directory to allow two verifications at the same time
+            // (useful for tests).
+            .join(
+                archive_path
+                    .file_name()
+                    .ok_or(SnapshotError::VerifyArchiveError(format!(
+                        "Could not append archive name to temp directory: archive `{}`",
+                        archive_path.display(),
+                    )))?,
+            );
+
+        fs::create_dir_all(&unpack_temp_dir).map_err(|e| {
+            SnapshotError::VerifyArchiveError(format!(
+                "Could not create directory `{}`: {e}",
+                unpack_temp_dir.display(),
+            ))
+        })?;
+
         let unpack_temp_file = &unpack_temp_dir.join("unpack.tmp");
 
-        for e in snapshot_archive.entries()? {
-            match e {
-                Err(e) => {
-                    return Err(SnapshotError::InvalidArchiveError(format!(
-                        "invalid entry with error: '{:?}'",
-                        e
-                    )))
-                }
-                Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
+        let verify_result = {
+            let mut result = Ok(());
+            for e in snapshot_archive.entries()? {
+                match e {
+                    Err(e) => {
+                        result = Err(SnapshotError::InvalidArchiveError(format!(
+                            "invalid entry with error: '{:?}'",
+                            e
+                        )));
+                        break;
+                    }
+                    Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
+                };
             }
-        }
+            result
+        };
 
-        Ok(())
+        // Always remove the temp directory
+        fs::remove_dir_all(&unpack_temp_dir).map_err(|e| {
+            SnapshotError::VerifyArchiveError(format!(
+                "Could not remove directory `{}`: {e}",
+                unpack_temp_dir.display(),
+            ))
+        })?;
+
+        verify_result
     }
 
     // Helper to unpack and delete a file from en entry, for archive verification purpose
@@ -210,8 +285,8 @@ impl GzipSnapshotter {
                 Ok(_) => {
                     if let Err(e) = fs::remove_file(unpack_file_path) {
                         return Err(SnapshotError::VerifyArchiveError(format!(
-                            "can't remove temporary unpacked file with error: '{:?}'",
-                            e
+                            "can't remove temporary unpacked file with error: '{e:?}', file path: `{}`",
+                            unpack_file_path.display()
                         )));
                     }
                 }
@@ -316,7 +391,14 @@ mod tests {
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
         let db_directory = std::env::temp_dir().join("whatever");
 
-        Arc::new(GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap());
+        Arc::new(
+            CompressedArchiveSnapshotter::new(
+                db_directory,
+                pending_snapshot_directory.clone(),
+                SnapshotterCompressionAlgorithm::Gzip,
+            )
+            .unwrap(),
+        );
 
         assert!(pending_snapshot_directory.is_dir());
     }
@@ -332,7 +414,14 @@ mod tests {
 
         File::create(pending_snapshot_directory.join("whatever.txt")).unwrap();
 
-        Arc::new(GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap());
+        Arc::new(
+            CompressedArchiveSnapshotter::new(
+                db_directory,
+                pending_snapshot_directory.clone(),
+                SnapshotterCompressionAlgorithm::Gzip,
+            )
+            .unwrap(),
+        );
 
         assert_eq!(
             0,
@@ -351,7 +440,12 @@ mod tests {
         let db_directory = test_dir.join("db");
 
         let snapshotter = Arc::new(
-            GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap(),
+            CompressedArchiveSnapshotter::new(
+                db_directory,
+                pending_snapshot_directory.clone(),
+                SnapshotterCompressionAlgorithm::Gzip,
+            )
+            .unwrap(),
         );
 
         // this file should not be deleted by the archive creation
@@ -381,7 +475,50 @@ mod tests {
             .build();
 
         let snapshotter = Arc::new(
-            GzipSnapshotter::new(db_directory, pending_snapshot_directory.clone()).unwrap(),
+            CompressedArchiveSnapshotter::new(
+                db_directory,
+                pending_snapshot_directory.clone(),
+                SnapshotterCompressionAlgorithm::Gzip,
+            )
+            .unwrap(),
+        );
+
+        snapshotter
+            .create_archive(
+                &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+            )
+            .expect("create_archive should not fail");
+        snapshotter
+            .verify_archive(
+                &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+            )
+            .expect("verify_archive should not fail");
+
+        snapshotter
+            .snapshot(pending_snapshot_archive_file)
+            .expect("Snapshotter::snapshot should not fail.");
+    }
+
+    #[test]
+    fn should_create_a_valid_archive_with_zstandard_snapshotter() {
+        let test_dir =
+            get_test_directory("should_create_a_valid_archive_with_zstandard_snapshotter");
+        let pending_snapshot_directory = test_dir.join("pending_snapshot");
+        let pending_snapshot_archive_file = "archive.tar.zst";
+        let db_directory = test_dir.join("db");
+
+        DummyImmutablesDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
+            .with_immutables(&[1, 2, 3])
+            .append_immutable_trio()
+            .build();
+
+        let snapshotter = Arc::new(
+            CompressedArchiveSnapshotter::new(
+                db_directory,
+                pending_snapshot_directory.clone(),
+                ZstandardCompressionParameters::default().into(),
+            )
+            .unwrap(),
         );
 
         snapshotter

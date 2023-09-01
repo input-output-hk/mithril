@@ -535,6 +535,7 @@ version = "1.0.83"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1174fb0b6ec23863f8b971027804a42614e347eafb0a95bf0b12cdae21fc4d0"
 dependencies = [
+ "jobserver",
  "libc",
 ]
 
@@ -1941,6 +1942,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af150ab688ff2122fcef229be89cb50dd66af9e01a4ff320cc137eecc9bacc38"
 
 [[package]]
+name = "jobserver"
+version = "0.1.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "936cfd212a0155903bcbc060e316fb6cc7cbf2e1907329391ebadc1fe0ce77c2"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "js-sys"
 version = "0.3.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2206,7 +2216,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.3.76"
+version = "0.3.77"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2241,11 +2251,12 @@ dependencies = [
  "typetag",
  "uuid",
  "warp",
+ "zstd",
 ]
 
 [[package]]
 name = "mithril-client"
-version = "0.3.38"
+version = "0.3.39"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -2278,11 +2289,12 @@ dependencies = [
  "tar",
  "thiserror",
  "tokio",
+ "zstd",
 ]
 
 [[package]]
 name = "mithril-common"
-version = "0.2.100"
+version = "0.2.101"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2318,7 +2330,6 @@ dependencies = [
  "slog-term",
  "sqlite",
  "strum",
- "strum_macros",
  "thiserror",
  "tokio",
  "typetag",
@@ -3843,6 +3854,9 @@ name = "strum"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "290d54ea6f91c969195bdbcd7442c8c2a2ba87da8bf60a7ee86a235d4bc1e125"
+dependencies = [
+ "strum_macros",
+]
 
 [[package]]
 name = "strum_macros"
@@ -4779,4 +4793,34 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.29",
+]
+
+[[package]]
+name = "zstd"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1a27595e173641171fc74a1232b7b1c7a7cb6e18222c11e9dfb9888fa424c53c"
+dependencies = [
+ "zstd-safe",
+]
+
+[[package]]
+name = "zstd-safe"
+version = "6.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee98ffd0b48ee95e6c5168188e44a54550b1564d9d530ee21d5f0eaed1069581"
+dependencies = [
+ "libc",
+ "zstd-sys",
+]
+
+[[package]]
+name = "zstd-sys"
+version = "2.0.8+zstd.1.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5556e6ee25d32df2586c098bbfa278803692a20d0ab9565e049480d52707ec8c"
+dependencies = [
+ "cc",
+ "libc",
+ "pkg-config",
 ]

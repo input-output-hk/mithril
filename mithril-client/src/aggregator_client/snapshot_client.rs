@@ -67,7 +67,12 @@ impl SnapshotClient {
             if self.http_client.probe(url).await.is_ok() {
                 return match self
                     .http_client
-                    .download_unpack(url, target_dir, progress_reporter)
+                    .download_unpack(
+                        url,
+                        target_dir,
+                        snapshot.compression_algorithm,
+                        progress_reporter,
+                    )
                     .await
                 {
                     Ok(()) => Ok(()),

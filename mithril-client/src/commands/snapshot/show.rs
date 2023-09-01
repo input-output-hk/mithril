@@ -66,5 +66,13 @@ fn convert_to_field_items(snapshot_message: &SnapshotMessage) -> Vec<SnapshotFie
         "Created".to_string(),
         snapshot_message.created_at.to_string(),
     ));
+    field_items.push(SnapshotFieldItem::new(
+        "Compression Algorithm".to_string(),
+        format!(
+            "{}",
+            snapshot_message.compression_algorithm.unwrap_or_default()
+        ),
+    ));
+
     field_items
 }

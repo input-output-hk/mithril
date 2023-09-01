@@ -14,6 +14,7 @@ impl ToMessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMes
             size: signed_entity.artifact.size,
             created_at: signed_entity.created_at,
             locations: signed_entity.artifact.locations,
+            compression_algorithm: Some(signed_entity.artifact.compression_algorithm),
         }
     }
 }

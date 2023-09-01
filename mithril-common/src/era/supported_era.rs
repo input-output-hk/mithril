@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
-use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter, EnumString};
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 use thiserror::Error;
 
 /// Error related to [SupportedEra] String parsing implementation.

@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use mithril_common::entities::{HexEncodedGenesisVerificationKey, ProtocolParameters};
+use mithril_common::entities::{
+    CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
+};
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::tools::GcpFileUploader;
@@ -105,16 +107,42 @@ pub struct Configuration {
 
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
+
+    /// Compression algorithm used for the snapshot archive artifacts.
+    pub snapshot_compression_algorithm: CompressionAlgorithm,
+
+    /// Specific parameters when [snapshot_compression_algorithm][Self::snapshot_compression_algorithm]
+    /// is set to [zstandard][CompressionAlgorithm::Zstandard].
+    pub zstandard_parameters: Option<ZstandardCompressionParameters>,
 }
 
 /// Uploader needed to copy the snapshot once computed.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SnapshotUploaderType {
     /// Uploader to GCP storage.
     Gcp,
     /// Uploader to local storage.
     Local,
+}
+
+/// [Zstandard][CompressionAlgorithm::Zstandard] specific parameters
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ZstandardCompressionParameters {
+    /// Level of compression, default to 9.
+    pub level: i32,
+
+    /// Number of workers when compressing, 0 will disable multithreading, default to 4.
+    pub number_of_workers: u32,
+}
+
+impl Default for ZstandardCompressionParameters {
+    fn default() -> Self {
+        Self {
+            level: 9,
+            number_of_workers: 4,
+        }
+    }
 }
 
 impl Configuration {
@@ -149,6 +177,8 @@ impl Configuration {
             store_retention_limit: None,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            snapshot_compression_algorithm: CompressionAlgorithm::Zstandard,
+            zstandard_parameters: Some(ZstandardCompressionParameters::default()),
         }
     }
 
@@ -236,6 +266,9 @@ pub struct DefaultConfiguration {
 
     /// ImmutableDigesterCacheProvider default setting
     pub disable_digests_cache: String,
+
+    /// Snapshot compression algorithm default setting
+    pub snapshot_compression_algorithm: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -251,6 +284,7 @@ impl Default for DefaultConfiguration {
             era_reader_adapter_type: "bootstrap".to_string(),
             reset_digests_cache: "false".to_string(),
             disable_digests_cache: "false".to_string(),
+            snapshot_compression_algorithm: "zstandard".to_string(),
         }
     }
 }
@@ -326,6 +360,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.disable_digests_cache),
+            ),
+        );
+        result.insert(
+            "snapshot_compression_algorithm".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.snapshot_compression_algorithm),
             ),
         );
 

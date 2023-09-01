@@ -13,7 +13,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{CertificatePending, Epoch},
+    entities::{CertificatePending, CompressionAlgorithm, Epoch},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -56,11 +56,11 @@ use crate::{
     },
     signer_registerer::SignerRecorder,
     tools::{GcpFileUploader, GenesisToolsDependency},
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore, Configuration,
-    DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, GzipSnapshotter,
-    LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
+    CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
+    DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
-    Snapshotter, VerificationKeyStorer,
+    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -581,9 +581,19 @@ impl DependenciesBuilder {
                     .snapshot_directory
                     .join("pending_snapshot");
 
-                Arc::new(GzipSnapshotter::new(
+                let algorithm = match self.configuration.snapshot_compression_algorithm {
+                    CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
+                    CompressionAlgorithm::Zstandard => self
+                        .configuration
+                        .zstandard_parameters
+                        .unwrap_or_default()
+                        .into(),
+                };
+
+                Arc::new(CompressedArchiveSnapshotter::new(
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
+                    algorithm,
                 )?)
             }
             _ => Arc::new(DumbSnapshotter::new()),
@@ -884,9 +894,12 @@ impl DependenciesBuilder {
             Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
-        let cardano_immutable_files_full_artifact_builder = Arc::new(
-            CardanoImmutableFilesFullArtifactBuilder::new(snapshotter, snapshot_uploader),
-        );
+        let cardano_immutable_files_full_artifact_builder =
+            Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
+                snapshotter,
+                snapshot_uploader,
+                self.configuration.snapshot_compression_algorithm,
+            ));
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,

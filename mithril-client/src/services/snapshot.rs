@@ -107,14 +107,14 @@ impl MithrilClientSnapshotService {
         }
     }
 
-    fn check_disk_space_error(&self, error: StdError) -> StdResult<StdError> {
+    fn check_disk_space_error(&self, error: StdError) -> StdResult<String> {
         if let Some(SnapshotUnpackerError::NotEnoughSpace {
             left_space: _,
             pathdir: _,
             archive_size: _,
         }) = error.downcast_ref::<SnapshotUnpackerError>()
         {
-            Ok(error)
+            Ok(format!("Warning: {}", error))
         } else {
             Err(error)
         }
@@ -217,9 +217,12 @@ impl SnapshotService for MithrilClientSnapshotService {
         progress_bar.report_step(1, "Checking local disk info…")?;
         let unpacker = SnapshotUnpacker;
 
-        if let Err(e) = unpacker.check_prerequisites(&db_dir, snapshot_entity.artifact.size) {
-            progress_bar
-                .report_step(1, &format!("Warning: {}", self.check_disk_space_error(e)?))?;
+        if let Err(e) = unpacker.check_prerequisites(
+            &db_dir,
+            snapshot_entity.artifact.size,
+            snapshot_entity.artifact.compression_algorithm,
+        ) {
+            progress_bar.report_step(1, &self.check_disk_space_error(e)?)?;
         }
 
         std::fs::create_dir_all(&db_dir).with_context(|| {
@@ -309,6 +312,7 @@ mod tests {
     use mithril_common::{
         crypto_helper::tests_setup::setup_genesis,
         digesters::DumbImmutableDigester,
+        entities::CompressionAlgorithm,
         messages::{
             CertificateMessage, FromMessageAdapter, SnapshotListItemMessage, SnapshotListMessage,
             SnapshotMessage,
@@ -386,6 +390,7 @@ mod tests {
             size: 1024,
             created_at: DateTime::<Utc>::default(),
             locations: vec!["location-10.1".to_string(), "location-10.2".to_string()],
+            compression_algorithm: Some(CompressionAlgorithm::Gzip),
         }
     }
 
@@ -398,7 +403,7 @@ mod tests {
         http_client.expect_probe().returning(|_| Ok(()));
         http_client
             .expect_download_unpack()
-            .returning(move |_, _, _| Ok(()))
+            .returning(move |_, _, _, _| Ok(()))
             .times(1);
         http_client.expect_get_content().returning(|_| {
             let mut message = CertificateMessage::dummy();

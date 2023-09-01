@@ -1064,6 +1064,9 @@ components:
           type: array
           items:
             type: string
+        compression_algorithm:
+          description: Compression algorithm for the snapshot archive
+          type: string
       example:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
@@ -1082,7 +1085,8 @@ components:
               "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
               "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
               "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
-            ]
+            ],
+          "compression_algorithm": "zstandard"
         }
 
     SnapshotMessage:
@@ -1107,7 +1111,8 @@ components:
               "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
               "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
               "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
-            ]
+            ],
+          "compression_algorithm": "zstandard"
         }
 
     MithrilStakeDistributionListMessage:

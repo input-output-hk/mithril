@@ -10,7 +10,10 @@ use crate::{
 
 use super::ArtifactBuilder;
 use mithril_common::{
-    entities::{Beacon, Certificate, ProtocolMessage, ProtocolMessagePartKey, Snapshot},
+    entities::{
+        Beacon, Certificate, CompressionAlgorithm, ProtocolMessage, ProtocolMessagePartKey,
+        Snapshot,
+    },
     StdResult,
 };
 
@@ -27,6 +30,7 @@ pub enum CardanoImmutableFilesFullArtifactError {
 pub struct CardanoImmutableFilesFullArtifactBuilder {
     snapshotter: Arc<dyn Snapshotter>,
     snapshot_uploader: Arc<dyn SnapshotUploader>,
+    compression_algorithm: CompressionAlgorithm,
 }
 
 impl CardanoImmutableFilesFullArtifactBuilder {
@@ -34,10 +38,12 @@ impl CardanoImmutableFilesFullArtifactBuilder {
     pub fn new(
         snapshotter: Arc<dyn Snapshotter>,
         snapshot_uploader: Arc<dyn SnapshotUploader>,
+        compression_algorithm: CompressionAlgorithm,
     ) -> Self {
         Self {
             snapshotter,
             snapshot_uploader,
+            compression_algorithm,
         }
     }
 
@@ -57,8 +63,12 @@ impl CardanoImmutableFilesFullArtifactBuilder {
                 ))
             })?;
         let snapshot_name = format!(
-            "{}-e{}-i{}.{}.tar.gz",
-            beacon.network, *beacon.epoch, beacon.immutable_file_number, snapshot_digest
+            "{}-e{}-i{}.{}.{}",
+            beacon.network,
+            *beacon.epoch,
+            beacon.immutable_file_number,
+            snapshot_digest,
+            self.compression_algorithm.tar_file_extension()
         );
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot =
@@ -114,6 +124,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             certificate.beacon.to_owned(),
             *ongoing_snapshot.get_file_size(),
             remote_locations,
+            self.compression_algorithm,
         );
 
         Ok(snapshot)
@@ -146,7 +157,7 @@ mod tests {
     use std::path::Path;
     use tempfile::NamedTempFile;
 
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use super::*;
 
@@ -168,6 +179,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 dumb_snapshotter.clone(),
                 dumb_snapshot_uploader.clone(),
+                CompressionAlgorithm::Zstandard,
             );
         let artifact = cardano_immutable_files_full_artifact_builder
             .compute_artifact(beacon, &certificate)
@@ -187,6 +199,7 @@ mod tests {
             certificate.beacon.to_owned(),
             *last_ongoing_snapshot.get_file_size(),
             remote_locations,
+            CompressionAlgorithm::Zstandard,
         );
         assert_eq!(artifact_expected, artifact);
     }
@@ -201,6 +214,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(DumbSnapshotUploader::new()),
+                CompressionAlgorithm::default(),
             );
 
         cardano_immutable_files_full_artifact_builder
@@ -227,6 +241,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(DumbSnapshotUploader::new()),
+                CompressionAlgorithm::Gzip,
             );
 
         let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
@@ -235,14 +250,51 @@ mod tests {
             .expect("create_snapshot_archive should not fail");
 
         assert_eq!(
-            Path::new(
-                format!(
-                    "{}-e{}-i{}.{}.tar.gz",
-                    beacon.network, *beacon.epoch, beacon.immutable_file_number, "test+digest"
-                )
-                .as_str()
-            ),
+            Path::new(&format!(
+                "{}-e{}-i{}.{}.tar.gz",
+                beacon.network, *beacon.epoch, beacon.immutable_file_number, "test+digest"
+            )),
             ongoing_snapshot.get_file_path()
+        );
+    }
+
+    #[tokio::test]
+    async fn snapshot_archive_name_after_compression_algorithm() {
+        let mut message = ProtocolMessage::new();
+        message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "test+digest".to_string(),
+        );
+
+        let mut invalid_result: Vec<CompressionAlgorithm> = vec![];
+
+        for algorithm in CompressionAlgorithm::list() {
+            let cardano_immutable_files_full_artifact_builder =
+                CardanoImmutableFilesFullArtifactBuilder::new(
+                    Arc::new(DumbSnapshotter::new()),
+                    Arc::new(DumbSnapshotUploader::new()),
+                    algorithm,
+                );
+
+            let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
+                .create_snapshot_archive(&Beacon::default(), &message)
+                .await
+                .expect("create_snapshot_archive should not fail");
+            let file_name = ongoing_snapshot
+                .get_file_path()
+                .file_name()
+                .and_then(|f| f.to_str())
+                .unwrap();
+            let expected_extension = algorithm.tar_file_extension();
+
+            if !file_name.ends_with(&expected_extension) {
+                invalid_result.push(algorithm);
+            }
+        }
+
+        assert!(
+            invalid_result.is_empty(),
+            "Archive name did not contain some algorithms extension after snapshot, failing algorithm(s): {invalid_result:?}",
         );
     }
 
@@ -261,6 +313,7 @@ mod tests {
             CardanoImmutableFilesFullArtifactBuilder::new(
                 Arc::new(DumbSnapshotter::new()),
                 Arc::new(snapshot_uploader),
+                CompressionAlgorithm::default(),
             );
 
         cardano_immutable_files_full_artifact_builder

@@ -14,6 +14,7 @@ impl FromMessageAdapter<SnapshotMessage, SignedEntity<Snapshot>> for FromSnapsho
             beacon: snapshot_message.beacon.clone(),
             size: snapshot_message.size,
             locations: snapshot_message.locations,
+            compression_algorithm: snapshot_message.compression_algorithm.unwrap_or_default(),
         };
 
         SignedEntity {

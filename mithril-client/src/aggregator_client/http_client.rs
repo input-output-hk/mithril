@@ -12,7 +12,9 @@ use tokio::sync::RwLock;
 #[cfg(test)]
 use mockall::automock;
 
-use mithril_common::{StdError, StdResult, MITHRIL_API_VERSION_HEADER};
+use mithril_common::{
+    entities::CompressionAlgorithm, StdError, StdResult, MITHRIL_API_VERSION_HEADER,
+};
 
 use crate::utils::{DownloadProgressReporter, SnapshotUnpacker};
 
@@ -57,6 +59,7 @@ pub trait AggregatorClient: Sync + Send {
         &self,
         url: &str,
         target_dir: &Path,
+        compression_algorithm: CompressionAlgorithm,
         progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError>;
 
@@ -184,6 +187,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         &self,
         url: &str,
         target_dir: &Path,
+        compression_algorithm: CompressionAlgorithm,
         progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError> {
         if !target_dir.is_dir() {
@@ -203,7 +207,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         let dest_dir = target_dir.to_path_buf();
         let unpack_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
             let unpacker = SnapshotUnpacker;
-            unpacker.unpack_snapshot(receiver, &dest_dir)
+            unpacker.unpack_snapshot(receiver, compression_algorithm, &dest_dir)
         });
 
         while let Some(item) = remote_stream.next().await {

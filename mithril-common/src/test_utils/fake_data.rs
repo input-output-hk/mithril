@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 use crate::{
     crypto_helper,
     entities::{
-        self, CertificateMetadata, CertificateSignature, Epoch, LotteryIndex, ProtocolMessage,
-        ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
+        self, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch, LotteryIndex,
+        ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -186,7 +186,7 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             let mut locations = Vec::new();
             locations.push(format!("http://{certificate_hash}"));
             locations.push(format!("http2://{certificate_hash}"));
-            entities::Snapshot::new(digest, beacon, size, locations)
+            entities::Snapshot::new(digest, beacon, size, locations, CompressionAlgorithm::Gzip)
         })
         .collect::<Vec<entities::Snapshot>>()
 }

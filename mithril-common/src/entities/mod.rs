@@ -33,5 +33,5 @@ pub use signed_entity::*;
 pub use signed_entity_type::*;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::*;
-pub use snapshot::Snapshot;
+pub use snapshot::{CompressionAlgorithm, Snapshot};
 pub use type_alias::*;

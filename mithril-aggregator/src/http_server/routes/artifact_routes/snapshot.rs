@@ -197,11 +197,12 @@ mod handlers {
             Ok(Some(signed_entity)) => {
                 let snapshot = signed_entity.artifact;
                 let filename = format!(
-                    "{}-e{}-i{}.{}.tar.gz",
+                    "{}-e{}-i{}.{}.{}",
                     snapshot.beacon.network,
                     snapshot.beacon.epoch,
                     snapshot.beacon.immutable_file_number,
-                    snapshot.digest
+                    snapshot.digest,
+                    snapshot.compression_algorithm.tar_file_extension()
                 );
                 let snapshot_uri = format!(
                     "{}{}/snapshot_download/{}",
