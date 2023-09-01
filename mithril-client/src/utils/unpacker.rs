@@ -12,12 +12,6 @@ use thiserror::Error;
 use crate::utils::StreamReader;
 use mithril_common::{entities::CompressionAlgorithm, StdError, StdResult};
 
-/// This ratio will be multiplied by the snapshot size to check if the available
-/// disk space is sufficient to store the archive plus the extracted files. If
-/// the available space is lower than that, a warning is raised. This ratio has
-/// been experimentally established.
-pub const FREE_SPACE_SNAPSHOT_SIZE_RATIO: f64 = 2.5;
-
 /// Check and unpack a downloaded archive in a given directory.
 #[derive(Default)]
 pub struct SnapshotUnpacker;
@@ -25,7 +19,8 @@ pub struct SnapshotUnpacker;
 /// Errors tied with the SnapshotUnpacker.
 #[derive(Debug, Error)]
 pub enum SnapshotUnpackerError {
-    /// Not enough space on the disk. There should be at least [FREE_SPACE_SNAPSHOT_SIZE_RATIO] times
+    /// Not enough space on the disk. There should be at least the ratio given for the
+    /// used algorithm (see [CompressionAlgorithm::free_space_snapshot_ratio]) times
     /// the size of the archive to download to ensure it could be unpacked safely.
     #[error("There is only {} remaining in directory '{}' to store and unpack a {} large archive.", human_bytes(*left_space), pathdir.display(), human_bytes(*archive_size))]
     NotEnoughSpace {
@@ -63,7 +58,12 @@ pub enum SnapshotUnpackerError {
 impl SnapshotUnpacker {
     /// Check all prerequisites are met before starting to download and unpack
     /// big snapshot archive.
-    pub fn check_prerequisites(&self, pathdir: &Path, size: u64) -> StdResult<()> {
+    pub fn check_prerequisites(
+        &self,
+        pathdir: &Path,
+        size: u64,
+        compressionn_algorithm: CompressionAlgorithm,
+    ) -> StdResult<()> {
         if pathdir.exists() {
             return Err(
                 SnapshotUnpackerError::UnpackDirectoryAlreadyExists(pathdir.to_owned()).into(),
@@ -75,7 +75,7 @@ impl SnapshotUnpacker {
         let free_space = fs2::available_space(pathdir)? as f64;
         remove_dir(pathdir)?;
 
-        if free_space < FREE_SPACE_SNAPSHOT_SIZE_RATIO * size as f64 {
+        if free_space < compressionn_algorithm.free_space_snapshot_ratio() * size as f64 {
             return Err(SnapshotUnpackerError::NotEnoughSpace {
                 left_space: free_space,
                 pathdir: pathdir.to_owned(),

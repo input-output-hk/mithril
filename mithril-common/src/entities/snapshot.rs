@@ -45,6 +45,17 @@ impl CompressionAlgorithm {
     pub fn list() -> Vec<Self> {
         Self::iter().collect()
     }
+
+    /// Those ratio will be multiplied by the snapshot size to check if the available
+    /// disk space is sufficient to store the archive plus the extracted files.
+    /// If the available space is lower than that, a warning is raised.
+    /// Those ratio have been experimentally established.
+    pub fn free_space_snapshot_ratio(&self) -> f64 {
+        match self {
+            CompressionAlgorithm::Gzip => 2.5,
+            CompressionAlgorithm::Zstandard => 4.0,
+        }
+    }
 }
 
 impl Snapshot {
