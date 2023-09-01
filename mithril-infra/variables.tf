@@ -120,6 +120,12 @@ variable "google_service_credentials_json_file" {
   description = "The credentials of the GCP service account"
 }
 
+variable "google_storage_bucket_force_destroy" {
+  type        = bool
+  description = "Force destroy all items of the bucket when destroying the associated terraform resource"
+  default     = false
+}
+
 variable "google_storage_bucket_max_age" {
   type        = number
   description = "Number of days after which an object in the storage bucket expires"

@@ -1,7 +1,7 @@
 resource "google_storage_bucket" "cloud_storage" {
   name          = "${local.environment_name}-cs"
   location      = var.google_region
-  force_destroy = true
+  force_destroy = var.google_storage_bucket_force_destroy
 
   lifecycle_rule {
     condition {
