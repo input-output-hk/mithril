@@ -1,32 +1,13 @@
 //! API Version provider service
 include!(concat!(env!("OUT_DIR"), "/open_api.rs"));
-use semver::{Error as SemVerError, Version, VersionReq};
-use serde_yaml::Error as SerdeYamlError;
+use anyhow::anyhow;
+use anyhow::Context;
+use semver::{Version, VersionReq};
 use std::collections::HashMap;
 use std::sync::Arc;
-use thiserror::Error;
 
 use crate::era::EraChecker;
-
-/// API Version provider error
-#[derive(Debug, Error)]
-pub enum APIVersionProviderError {
-    /// Semver parse error
-    #[error("Semver parse error: {0:?}")]
-    SemverParse(#[from] SemVerError),
-
-    /// Yaml parse error
-    #[error("Spec file parse error: {0:?}")]
-    SpecParse(#[from] SerdeYamlError),
-
-    /// Spec file io error
-    #[error("Spec file IO error: {0}")]
-    SpecFileIO(String),
-
-    /// Missing default api version
-    #[error("Missing default API version")]
-    MissingDefault(),
-}
+use crate::StdResult;
 
 /// API Version provider
 #[derive(Clone)]
@@ -45,7 +26,7 @@ impl APIVersionProvider {
     }
 
     /// Compute the current api version
-    pub fn compute_current_version(&self) -> Result<Version, APIVersionProviderError> {
+    pub fn compute_current_version(&self) -> StdResult<Version> {
         let current_era = self.era_checker.current_era();
         let open_api_spec_file_name_default = "openapi.yaml";
         let open_api_spec_file_name_era = &format!("openapi-{current_era}.yaml");
@@ -55,16 +36,16 @@ impl APIVersionProvider {
             .unwrap_or(
                 self.open_api_versions
                     .get(open_api_spec_file_name_default)
-                    .ok_or_else(APIVersionProviderError::MissingDefault)?,
+                    .ok_or_else(|| anyhow!("Missing default API version"))?,
             );
 
-        Version::parse(open_api_version_raw).map_err(APIVersionProviderError::SemverParse)
+        Version::parse(open_api_version_raw)
+            .map_err(|e| anyhow!(e))
+            .with_context(|| format!("Cannot parse Semver from: '{open_api_version_raw:?}'"))
     }
 
     /// Compute the current api version requirement
-    pub fn compute_current_version_requirement(
-        &self,
-    ) -> Result<VersionReq, APIVersionProviderError> {
+    pub fn compute_current_version_requirement(&self) -> StdResult<VersionReq> {
         let version = &self.compute_current_version()?;
         let version_req = if version.major > 0 {
             format!("={}", version.major)
@@ -76,7 +57,7 @@ impl APIVersionProvider {
     }
 
     /// Compute all the sorted list of all versions
-    pub fn compute_all_versions_sorted() -> Result<Vec<Version>, APIVersionProviderError> {
+    pub fn compute_all_versions_sorted() -> StdResult<Vec<Version>> {
         let mut versions = Vec::new();
         for version_raw in get_open_api_versions_mapping().into_values() {
             versions.push(Version::parse(&version_raw)?)
