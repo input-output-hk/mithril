@@ -1,11 +1,13 @@
+use anyhow::anyhow;
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::chain_observer::ChainObserverError;
+use crate::StdResult;
 use crate::{
-    chain_observer::ChainObserver, digesters::ImmutableFileObserver,
-    digesters::ImmutableFileObserverError, entities::Beacon, CardanoNetwork,
+    chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::Beacon,
+    CardanoNetwork,
 };
 
 /// Provide the current [Beacon] of a cardano node.
@@ -15,24 +17,15 @@ where
     Self: Sync + Send,
 {
     /// Get the current [Beacon] of the cardano node.
-    async fn get_current_beacon(&self) -> Result<Beacon, BeaconProviderError>;
+    async fn get_current_beacon(&self) -> StdResult<Beacon>;
 }
 
 /// [BeaconProvider] related errors.
 #[derive(Error, Debug)]
 pub enum BeaconProviderError {
-    /// Raised when reading the current epoch with a [ChainObserver] fails.
-    #[error("Could not get Epoch: {0}")]
-    ChainObserver(#[from] ChainObserverError),
-
     /// Raised reading the current epoch succeeded but yield no result.
     #[error("No epoch yield by the chain observer, is your cardano node ready ?")]
     NoEpoch(),
-
-    /// Raised when [getting the last immutable file number][ImmutableFileObserver::get_last_immutable_number]
-    /// fails.
-    #[error("Could not get last immutable file number: {0}")]
-    ImmutableFileObserver(#[from] ImmutableFileObserverError),
 }
 
 /// A [BeaconProvider] using a [ChainObserver] and a [ImmutableFileObserver].
@@ -59,13 +52,21 @@ impl BeaconProviderImpl {
 
 #[async_trait]
 impl BeaconProvider for BeaconProviderImpl {
-    async fn get_current_beacon(&self) -> Result<Beacon, BeaconProviderError> {
+    async fn get_current_beacon(&self) -> StdResult<Beacon> {
         let epoch = self
             .chain_observer
             .get_current_epoch()
-            .await?
+            .await
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "Can not get current epoch")?
             .ok_or(BeaconProviderError::NoEpoch())?;
-        let immutable_file_number = self.immutable_observer.get_last_immutable_number().await?;
+
+        let immutable_file_number = self
+            .immutable_observer
+            .get_last_immutable_number()
+            .await
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "Can not get last immutable file number")?;
 
         let beacon = Beacon {
             network: self.network.to_string(),

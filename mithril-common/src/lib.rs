@@ -27,7 +27,7 @@ pub mod sqlite;
 pub mod store;
 pub mod test_utils;
 
-pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
+pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
 
 /// Generic error type

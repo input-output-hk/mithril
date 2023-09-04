@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use slog_scope::{debug, info, trace, warn};
 use thiserror::Error;
@@ -139,7 +140,7 @@ impl Runner for SignerRunner {
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| e.into())
+            .with_context(|| "Runner can not get current beacon")
     }
 
     async fn register_signer_to_aggregator(
@@ -463,7 +464,7 @@ mod tests {
             StakeStore, StakeStorer,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
-        BeaconProvider, BeaconProviderError, BeaconProviderImpl, CardanoNetwork,
+        BeaconProvider, BeaconProviderImpl, CardanoNetwork,
     };
     use mockall::mock;
     use std::{
@@ -485,7 +486,7 @@ mod tests {
 
         #[async_trait]
         impl BeaconProvider for FakeBeaconProvider {
-            async fn get_current_beacon(&self) -> Result<Beacon, BeaconProviderError>;
+            async fn get_current_beacon(&self) -> StdResult<Beacon>;
         }
     }
 
