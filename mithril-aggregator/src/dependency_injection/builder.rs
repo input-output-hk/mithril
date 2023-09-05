@@ -314,6 +314,7 @@ impl DependenciesBuilder {
                     Ok(Arc::new(RemoteSnapshotUploader::new(
                         Box::new(GcpFileUploader::new(bucket.clone())),
                         bucket,
+                        self.configuration.snapshot_use_cdn_domain,
                     )))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(

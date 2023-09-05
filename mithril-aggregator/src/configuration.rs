@@ -76,6 +76,9 @@ pub struct Configuration {
     /// Bucket name where the snapshots are stored if snapshot_uploader_type is Gcp
     pub snapshot_bucket_name: Option<String>,
 
+    /// Use CDN domain to construct snapshot urls if snapshot_uploader_type is Gcp
+    pub snapshot_use_cdn_domain: bool,
+
     /// Server listening IP
     pub server_ip: String,
 
@@ -173,6 +176,7 @@ impl Configuration {
             },
             snapshot_uploader_type: SnapshotUploaderType::Local,
             snapshot_bucket_name: None,
+            snapshot_use_cdn_domain: false,
             server_ip: "0.0.0.0".to_string(),
             server_port: 8000,
             run_interval: 5000,
@@ -205,6 +209,7 @@ impl Configuration {
                 Ok(Arc::new(RemoteSnapshotUploader::new(
                     Box::new(GcpFileUploader::new(bucket.clone())),
                     bucket,
+                    self.snapshot_use_cdn_domain,
                 )))
             }
             SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
@@ -277,6 +282,9 @@ pub struct DefaultConfiguration {
 
     /// Snapshot compression algorithm default setting
     pub snapshot_compression_algorithm: String,
+
+    /// Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp)
+    pub snapshot_use_cdn_domain: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -293,6 +301,7 @@ impl Default for DefaultConfiguration {
             reset_digests_cache: "false".to_string(),
             disable_digests_cache: "false".to_string(),
             snapshot_compression_algorithm: "zstandard".to_string(),
+            snapshot_use_cdn_domain: "false".to_string(),
         }
     }
 }
@@ -375,6 +384,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.snapshot_compression_algorithm),
+            ),
+        );
+        result.insert(
+            "snapshot_use_cdn_domain".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.snapshot_use_cdn_domain),
             ),
         );
 
