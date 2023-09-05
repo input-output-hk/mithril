@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
@@ -628,10 +629,11 @@ impl CertificateRetriever for CertificateRepository {
     ) -> Result<Certificate, CertificateRetrieverError> {
         self.get_certificate(certificate_hash)
             .await
-            .map_err(|e| CertificateRetrieverError::General(e.to_string()))?
-            .ok_or(CertificateRetrieverError::General(
-                "certificate does not exist".to_string(),
-            ))
+            .map_err(|e| CertificateRetrieverError(anyhow!(e)))?
+            .ok_or(CertificateRetrieverError(anyhow!(format!(
+                "Certificate does not exist: '{}'",
+                certificate_hash
+            ))))
     }
 }
 

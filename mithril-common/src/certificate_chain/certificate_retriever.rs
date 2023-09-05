@@ -1,18 +1,20 @@
 //! A module used to retrieve the Certificate Chain created by an aggregator
 //!
 use async_trait::async_trait;
-use thiserror::Error;
 
-use crate::entities::Certificate;
+use crate::{entities::Certificate, StdError};
 
 #[cfg(test)]
 use mockall::automock;
+
 /// [CertificateRetriever] related errors.
-#[derive(Error, Debug)]
-pub enum CertificateRetrieverError {
-    /// Error raised when a [CertificateRetriever] tries to retrieve a [Certificate]
-    #[error("general error: '{0}'")]
-    General(String),
+#[derive(Debug)]
+pub struct CertificateRetrieverError(pub StdError);
+
+impl From<StdError> for CertificateRetrieverError {
+    fn from(error: StdError) -> Self {
+        CertificateRetrieverError(error)
+    }
 }
 
 /// CertificateRetriever is in charge of retrieving a [Certificate] given its hash

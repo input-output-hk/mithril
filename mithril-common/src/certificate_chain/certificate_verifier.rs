@@ -1,13 +1,13 @@
 //! A module used to validate the Certificate Chain created by an aggregator
 //!
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use hex::ToHex;
 use slog::{debug, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
-use super::{CertificateRetriever, CertificateRetrieverError};
+use super::CertificateRetriever;
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerifier,
     ProtocolMultiSignature,
@@ -15,7 +15,7 @@ use crate::crypto_helper::{
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
 };
-use crate::StdError;
+use crate::{StdError, StdResult};
 
 #[cfg(test)]
 use mockall::automock;
@@ -34,10 +34,6 @@ pub enum CertificateVerifierError {
     /// Error raised when encoding or decoding of data to genesis type.
     #[error("codec genesis error: '{0}'")]
     CodecGenesis(String),
-
-    /// Error raised when a CertificateRetriever tries to retrieve a [Certificate].
-    #[error("certificate retriever error: '{0}'")]
-    CertificateRetriever(#[from] CertificateRetrieverError),
 
     /// Error raised when the Genesis Signature stored in a [Certificate] is invalid.
     #[error("certificate genesis error: '{0}'")]
@@ -90,7 +86,7 @@ pub trait CertificateVerifier: Send + Sync {
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<Option<Certificate>, CertificateVerifierError>;
+    ) -> StdResult<Option<Certificate>>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
     /// TODO: see if we can borrow the certificate instead.
@@ -99,7 +95,7 @@ pub trait CertificateVerifier: Send + Sync {
         certificate: Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<(), CertificateVerifierError> {
+    ) -> StdResult<()> {
         let mut certificate = certificate;
         while let Some(previous_certificate) = self
             .verify_certificate(
@@ -169,7 +165,7 @@ impl MithrilCertificateVerifier {
         certificate: &Certificate,
         signature: &ProtocolMultiSignature,
         certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<Option<Certificate>, CertificateVerifierError> {
+    ) -> StdResult<Option<Certificate>> {
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
             signature,
@@ -178,10 +174,14 @@ impl MithrilCertificateVerifier {
         )?;
         let previous_certificate = certificate_retriever
             .get_certificate_details(&certificate.previous_hash)
-            .await?;
+            .await
+            .map_err(|e| e.0)
+            .with_context(|| "Can not retrieve previous certificate during verification")?;
 
         if previous_certificate.hash != certificate.previous_hash {
-            return Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch);
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainPreviousHashUnmatch
+            ));
         }
 
         let current_certificate_avk: String = certificate
@@ -236,7 +236,9 @@ impl MithrilCertificateVerifier {
                     self.logger,
                     "Previous certificate {:#?}", previous_certificate
                 );
-                Err(CertificateVerifierError::CertificateChainAVKUnmatch)
+                Err(anyhow!(
+                    CertificateVerifierError::CertificateChainAVKUnmatch
+                ))
             }
         }
     }
@@ -269,7 +271,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<Option<Certificate>, CertificateVerifierError> {
+    ) -> StdResult<Option<Certificate>> {
         debug!(
             self.logger,
             "Verifying certificate";
@@ -285,7 +287,9 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             .ok_or(CertificateVerifierError::CertificateHashUnmatch)?;
 
         if certificate.is_chaining_to_itself() {
-            Err(CertificateVerifierError::CertificateChainInfiniteLoop)
+            Err(anyhow!(
+                CertificateVerifierError::CertificateChainInfiniteLoop
+            ))
         } else {
             match &certificate.signature {
                 CertificateSignature::GenesisSignature(_signature) => {
@@ -311,6 +315,7 @@ mod tests {
     use super::CertificateRetriever;
     use super::*;
 
+    use crate::certificate_chain::CertificateRetrieverError;
     use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
     use crate::test_utils::MithrilFixtureBuilder;
 
@@ -437,19 +442,24 @@ mod tests {
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
         let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
-        let verify = verifier
+        let error = verifier
             .verify_certificate(
                 &fake_certificate1,
                 Arc::new(mock_certificate_retriever),
                 &genesis_verifier,
             )
-            .await;
+            .await
+            .expect_err("verify_certificate_chain should fail");
+        let error = error
+            .downcast_ref::<CertificateVerifierError>()
+            .expect("Can not downcast to `CertificateVerifierError`.");
+
         assert!(
             matches!(
-                verify,
-                Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch)
+                error,
+                CertificateVerifierError::CertificateChainPreviousHashUnmatch
             ),
-            "unexpected error type: {verify:?}"
+            "unexpected error type: {error:?}"
         );
     }
 
@@ -474,19 +484,21 @@ mod tests {
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
         let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
-        let verify = verifier
+        let error = verifier
             .verify_certificate(
                 &fake_certificate1,
                 Arc::new(mock_certificate_retriever),
                 &genesis_verifier,
             )
-            .await;
+            .await
+            .expect_err("verify_certificate_chain should fail");
+        let error = error
+            .downcast_ref::<CertificateVerifierError>()
+            .expect("Can not downcast to `CertificateVerifierError`.");
+
         assert!(
-            matches!(
-                verify,
-                Err(CertificateVerifierError::CertificateChainAVKUnmatch)
-            ),
-            "unexpected error type: {verify:?}"
+            matches!(error, CertificateVerifierError::CertificateChainAVKUnmatch),
+            "unexpected error type: {error:?}"
         );
     }
 
@@ -500,19 +512,21 @@ mod tests {
         fake_certificate1.hash = "another-hash".to_string();
         let mock_certificate_retriever = MockCertificateRetrieverImpl::new();
         let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
-        let verify = verifier
+        let error = verifier
             .verify_certificate(
                 &fake_certificate1,
                 Arc::new(mock_certificate_retriever),
                 &genesis_verifier,
             )
-            .await;
+            .await
+            .expect_err("verify_certificate_chain should fail");
+        let error = error
+            .downcast_ref::<CertificateVerifierError>()
+            .expect("Can not downcast to `CertificateVerifierError`.");
+
         assert!(
-            matches!(
-                verify,
-                Err(CertificateVerifierError::CertificateHashUnmatch)
-            ),
-            "unexpected error type: {verify:?}"
+            matches!(error, CertificateVerifierError::CertificateHashUnmatch),
+            "unexpected error type: {error:?}"
         );
     }
 
@@ -562,19 +576,24 @@ mod tests {
                 .times(1);
         }
         let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
-        let verify = verifier
+        let error = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
                 Arc::new(mock_certificate_retriever),
                 &genesis_verifier,
             )
-            .await;
+            .await
+            .expect_err("verify_certificate_chain should fail");
+        let error = error
+            .downcast_ref::<CertificateVerifierError>()
+            .expect("Can not downcast to `CertificateVerifierError`.");
+
         assert!(
             matches!(
-                verify,
-                Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch)
+                error,
+                CertificateVerifierError::CertificateChainPreviousHashUnmatch
             ),
-            "unexpected error type: {verify:?}"
+            "unexpected error type: {error:?}"
         );
     }
 }

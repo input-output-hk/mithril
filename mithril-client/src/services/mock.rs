@@ -8,6 +8,7 @@ use mithril_common::certificate_chain::{
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 use mithril_common::entities::{Beacon, Certificate, ProtocolMessage};
+use mithril_common::StdResult;
 use mockall::mock;
 
 mock! {
@@ -39,14 +40,14 @@ mock! {
             certificate: &Certificate,
             certificate_retriever: Arc<dyn CertificateRetriever>,
             genesis_verifier: &ProtocolGenesisVerifier,
-        ) -> Result<Option<Certificate>, CertificateVerifierError>;
+        ) -> StdResult<Option<Certificate>>;
 
         async fn verify_certificate_chain(
             &self,
             certificate: Certificate,
             certificate_retriever: Arc<dyn CertificateRetriever>,
             genesis_verifier: &ProtocolGenesisVerifier,
-        ) -> Result<(), CertificateVerifierError>;
+        ) -> StdResult<()>;
 
         fn verify_protocol_message(
             &self,
