@@ -27,6 +27,10 @@ pub struct SnapshotMessage {
     /// Compression algorithm of the snapshot archive
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compression_algorithm: Option<CompressionAlgorithm>,
+
+    /// Cardano node version
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cardano_node_version: Option<String>,
 }
 
 impl SnapshotMessage {
@@ -47,6 +51,7 @@ impl SnapshotMessage {
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
             compression_algorithm: Some(CompressionAlgorithm::Gzip),
+            cardano_node_version: Some("0.0.1".to_string()),
         }
     }
 }
@@ -71,6 +76,7 @@ mod tests {
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
             compression_algorithm: None,
+            cardano_node_version: Some("0.0.1".to_string()),
         }
     }
 
@@ -89,7 +95,8 @@ mod tests {
 "created_at": "2023-01-19T13:43:05.618857482Z",
 "locations": [
   "https://host/certificate.tar.gz"
-]
+],
+"cardano_node_version": "0.0.1"
 }"#;
         let message: SnapshotMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be succesfully parsed into a SnapshotMessage instance.",

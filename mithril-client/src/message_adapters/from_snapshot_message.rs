@@ -15,7 +15,7 @@ impl FromMessageAdapter<SnapshotMessage, SignedEntity<Snapshot>> for FromSnapsho
             size: snapshot_message.size,
             locations: snapshot_message.locations,
             compression_algorithm: snapshot_message.compression_algorithm.unwrap_or_default(),
-            cardano_node_version: todo!(),
+            cardano_node_version: snapshot_message.cardano_node_version.unwrap_or_default(),
         };
 
         SignedEntity {
