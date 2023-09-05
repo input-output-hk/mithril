@@ -201,7 +201,7 @@ export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
 export NETWORK=**YOUR_CARDANO_NETWORK**
 export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
-export SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=latest
 ```
 
 Here is an example configuration for the `release-preprod` network and the `latest` stable Docker image:
@@ -211,7 +211,7 @@ export MITHRIL_IMAGE_ID=latest
 export NETWORK=preprod
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
-export SNAPSHOT_DIGEST=$(curl -sL $AGGREGATOR_ENDPOINT/artifact/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=latest
 ```
 
 Proceed by creating a shell function for the Mithril client:
@@ -302,18 +302,18 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 
 `snapshot download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the snapshot will be downloaded | . | - | - |
 
 `mithril-stake-distribution download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact | - | - | :heavy_check_mark: |
+| `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
