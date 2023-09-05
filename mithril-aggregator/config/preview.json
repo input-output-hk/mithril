@@ -9,7 +9,6 @@
         "m": 100,
         "phi_f": 0.65
     },
-    "url_snapshot_manifest": "https://storage.googleapis.com/cardano-preview/snapshots.json",
     "snapshot_store_type": "local",
     "snapshot_uploader_type": "gcp",
     "snapshot_bucket_name": "cardano-testnet",
