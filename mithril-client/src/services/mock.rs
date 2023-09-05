@@ -2,9 +2,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use mithril_common::certificate_chain::{
-    CertificateRetriever, CertificateVerifier, CertificateVerifierError,
-};
+use mithril_common::certificate_chain::{CertificateRetriever, CertificateVerifier};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 use mithril_common::entities::{Beacon, Certificate, ProtocolMessage};
@@ -33,7 +31,7 @@ mock! {
             &self,
             genesis_certificate: &Certificate,
             genesis_verifier: &ProtocolGenesisVerifier,
-        ) -> Result<(), CertificateVerifierError>;
+        ) -> StdResult<()>;
 
         async fn verify_certificate(
             &self,

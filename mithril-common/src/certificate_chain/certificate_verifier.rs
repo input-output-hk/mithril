@@ -15,7 +15,7 @@ use crate::crypto_helper::{
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
 };
-use crate::{StdError, StdResult};
+use crate::StdResult;
 
 #[cfg(test)]
 use mockall::automock;
@@ -26,14 +26,6 @@ pub enum CertificateVerifierError {
     /// Error raised when the multi signatures verification fails.
     #[error("multi signature verification failed: '{0}'")]
     VerifyMultiSignature(String),
-
-    /// Error raised when encoding or decoding of data to hex fails.
-    #[error("codec hex error: '{0:?}'")]
-    Codec(StdError),
-
-    /// Error raised when encoding or decoding of data to genesis type.
-    #[error("codec genesis error: '{0}'")]
-    CodecGenesis(String),
 
     /// Error raised when the Genesis Signature stored in a [Certificate] is invalid.
     #[error("certificate genesis error: '{0}'")]
@@ -75,7 +67,7 @@ pub trait CertificateVerifier: Send + Sync {
         &self,
         genesis_certificate: &Certificate,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<(), CertificateVerifierError>;
+    ) -> StdResult<()>;
 
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
     /// Step 1: Check if the hash is valid (i.e. the Certificate has not been tampered by modifying its content)
@@ -192,8 +184,7 @@ impl MithrilCertificateVerifier {
                     "avk to string conversion error for certificate: `{}`",
                     certificate.hash
                 )
-            })
-            .map_err(CertificateVerifierError::Codec)?;
+            })?;
 
         let previous_certificate_avk: String = previous_certificate
             .aggregate_verification_key
@@ -203,8 +194,7 @@ impl MithrilCertificateVerifier {
                     "avk to string conversion error for previous certificate: `{}`",
                     certificate.hash
                 )
-            })
-            .map_err(CertificateVerifierError::Codec)?;
+            })?;
 
         let valid_certificate_has_different_epoch_as_previous =
             |next_aggregate_verification_key: &str| -> bool {
@@ -251,16 +241,19 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         &self,
         genesis_certificate: &Certificate,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<(), CertificateVerifierError> {
+    ) -> StdResult<()> {
         let genesis_signature = match &genesis_certificate.signature {
             CertificateSignature::GenesisSignature(signature) => Ok(signature),
             _ => Err(CertificateVerifierError::InvalidGenesisCertificateProvided),
         }?;
 
-        genesis_verifier.verify(
-            genesis_certificate.signed_message.as_bytes(),
-            genesis_signature,
-        )?;
+        genesis_verifier
+            .verify(
+                genesis_certificate.signed_message.as_bytes(),
+                genesis_signature,
+            )
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "Certificate verifier failed verifying a genesis certificate")?;
 
         Ok(())
     }
