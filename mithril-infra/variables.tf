@@ -184,9 +184,15 @@ variable "mithril_aggregator_zstandard_parameters_workers" {
   default     = "4"
 }
 
+variable "mithril_aggregator_snapshot_use_cdn_domain" {
+  type        = bool
+  description = "Use CDN domain for constructing snapshot url"
+  default     = false
+}
+
 variable "mithril_aggregator_cdn_cname" {
   type        = string
-  description = "The CANME field used for the mithril aggregator CDN"
+  description = "The CNAME field used for the mithril aggregator CDN"
   default     = "c.storage.googleapis.com."
 }
 
