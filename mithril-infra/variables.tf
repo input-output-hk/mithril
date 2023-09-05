@@ -184,6 +184,12 @@ variable "mithril_aggregator_zstandard_parameters_workers" {
   default     = "4"
 }
 
+variable "mithril_aggregator_cdn_cname" {
+  type        = string
+  description = "The CANME field used for the mithril aggregator CDN"
+  default     = "c.storage.googleapis.com."
+}
+
 variable "mithril_aggregator_auth_username" {
   type        = string
   description = "The username for authentication on the mithril aggregator"

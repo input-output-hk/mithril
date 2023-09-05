@@ -1,7 +1,9 @@
 resource "google_storage_bucket" "cloud_storage" {
-  name          = "${local.environment_name}-cs"
+  name          = local.mithril_aggregator_cdn_host
   location      = var.google_region
   force_destroy = var.google_storage_bucket_force_destroy
+
+  depends_on = [googlesiteverification_dns.mithril-aggregator]
 
   lifecycle_rule {
     condition {
