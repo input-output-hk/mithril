@@ -713,7 +713,7 @@ impl DependenciesBuilder {
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "Error while building EraChecker".to_string(),
-                error: Some(e.into()),
+                error: Some(e),
             })?
             .epoch;
         let era_epoch_token = self
