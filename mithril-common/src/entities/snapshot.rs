@@ -1,4 +1,5 @@
 use crate::{entities::Beacon, signable_builder::Artifact};
+use semver::Version;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
@@ -19,6 +20,9 @@ pub struct Snapshot {
 
     /// Compression algorithm of the snapshot archive
     pub compression_algorithm: CompressionAlgorithm,
+
+    /// Version of the Cardano node used to create snapshot archive.
+    pub cardano_node_version: String,
 }
 
 /// Compression algorithm for the snapshot archive artifacts.
@@ -66,13 +70,17 @@ impl Snapshot {
         size: u64,
         locations: Vec<String>,
         compression_algorithm: CompressionAlgorithm,
+        cardano_node_version: &Version,
     ) -> Snapshot {
+        let cardano_node_version = format!("{cardano_node_version}");
+
         Snapshot {
             digest,
             beacon,
             size,
             locations,
             compression_algorithm,
+            cardano_node_version,
         }
     }
 }

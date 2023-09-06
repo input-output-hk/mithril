@@ -15,6 +15,7 @@ impl ToMessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMes
             created_at: signed_entity.created_at,
             locations: signed_entity.artifact.locations,
             compression_algorithm: Some(signed_entity.artifact.compression_algorithm),
+            cardano_node_version: Some(signed_entity.artifact.cardano_node_version),
         }
     }
 }

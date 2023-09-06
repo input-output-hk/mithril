@@ -52,6 +52,13 @@ pub struct Configuration {
     /// to communicate with the Cardano node
     pub cardano_node_socket_path: PathBuf,
 
+    /// Cardano node version.
+    ///
+    /// **NOTE**: This cannot be verified for now (see [this
+    /// issue](https://github.com/input-output-hk/cardano-cli/issues/224)). This
+    /// is why it has to be manually given to the Aggregator
+    pub cardano_node_version: String,
+
     /// Cardano Network Magic number
     ///
     /// useful for TestNet & DevNet
@@ -156,6 +163,7 @@ impl Configuration {
             environment: ExecutionEnvironment::Test,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
+            cardano_node_version: "0.0.1".to_string(),
             network_magic: Some(42),
             network: "devnet".to_string(),
             protocol_parameters: ProtocolParameters {

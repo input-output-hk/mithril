@@ -18,6 +18,7 @@ impl ToMessageAdapter<Vec<SignedEntity<Snapshot>>, SnapshotListMessage>
                 size: entity.artifact.size,
                 created_at: entity.created_at,
                 locations: entity.artifact.locations,
+                cardano_node_version: Some(entity.artifact.cardano_node_version),
             })
             .collect()
     }

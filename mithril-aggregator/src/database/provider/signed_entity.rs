@@ -611,7 +611,8 @@ mod tests {
                     "beacon":{"network":"preview","epoch":142,"immutable_file_number":2847},
                     "size":1689696245,
                     "locations":["https://storage.googleapis.com/mithril-testing-preview-cs/preview-e142-i2847.bfcd77e372a25e13353bb77697d0d08785ba98b703e22640a317c5054dc05fb1.tar.gz"],
-                    "compression_algorithm":"gzip"
+                    "compression_algorithm":"gzip",
+                    "cardano_node_version": "0.0.1"
                 }'
             );
 

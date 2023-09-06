@@ -59,6 +59,7 @@ services:
       - DATA_STORES_DIRECTORY=/mithril-aggregator/mithril/stores
       - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_VERSION=${CARDANO_IMAGE_ID}
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
       - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}

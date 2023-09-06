@@ -1,6 +1,7 @@
 //! Fake data builders for testing.
 
 use chrono::{DateTime, Utc};
+use semver::Version;
 
 use crate::{
     crypto_helper,
@@ -183,10 +184,19 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             let beacon = beacon();
             let certificate_hash = "123".to_string();
             let size = snapshot_id * 100000;
+            let cardano_node_version = Version::parse("1.0.0").unwrap();
             let mut locations = Vec::new();
             locations.push(format!("http://{certificate_hash}"));
             locations.push(format!("http2://{certificate_hash}"));
-            entities::Snapshot::new(digest, beacon, size, locations, CompressionAlgorithm::Gzip)
+
+            entities::Snapshot::new(
+                digest,
+                beacon,
+                size,
+                locations,
+                CompressionAlgorithm::Gzip,
+                &cardano_node_version,
+            )
         })
         .collect::<Vec<entities::Snapshot>>()
 }
