@@ -154,6 +154,7 @@ pub async fn for_certificates(
 /// Wait for Mithril Stake Distribution artifacts
 pub async fn for_mithril_stake_distribution_artifacts(
     aggregator: &Aggregator,
+    total: usize,
     timeout: Duration,
 ) -> StdResult<MithrilStakeDistributionListItemMessage> {
     let url = &format!(
@@ -163,7 +164,7 @@ pub async fn for_mithril_stake_distribution_artifacts(
     spin_while_waiting!(
         {
             request_first_list_item_with_expected_size::<MithrilStakeDistributionListItemMessage>(
-                url, 1,
+                url, total,
             )
             .await
             .map_err(|e| anyhow!(e).context("Request first mithril stake distribution failure"))
@@ -177,12 +178,13 @@ pub async fn for_mithril_stake_distribution_artifacts(
 /// Wait for Cardano Immutable Files artifacts
 pub async fn for_immutable_files_artifacts(
     aggregator: &Aggregator,
+    total: usize,
     timeout: Duration,
 ) -> StdResult<SnapshotListItemMessage> {
     let url = &format!("{}/artifact/snapshots", aggregator.endpoint());
     spin_while_waiting!(
         {
-            request_first_list_item_with_expected_size::<SnapshotListItemMessage>(url, 1)
+            request_first_list_item_with_expected_size::<SnapshotListItemMessage>(url, total)
                 .await
                 .map_err(|e| anyhow!(e).context("Request first snapshot failure"))
         },
