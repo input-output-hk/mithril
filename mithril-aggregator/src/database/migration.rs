@@ -576,5 +576,20 @@ update signed_entity
 where signed_entity.signed_entity_type_id = 2;
         "#,
         ),
+        // Migration 18
+        // Alter `signed_entity` table to add `cardano_node_version` in `artifact` JSON field.
+        SqlMigration::new(
+            18,
+            r#"
+update signed_entity
+    set artifact = json_insert(
+        json_insert(
+            artifact,
+            '$.cardano_node_version', 
+            '8.1.2')
+    ) 
+where signed_entity.signed_entity_type_id = 2;
+        "#,
+        ),
     ]
 }
