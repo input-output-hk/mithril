@@ -135,14 +135,16 @@ pub struct Timing {
 
 pub struct Reporter {
     number_of_signers: usize,
+    number_of_clients: usize,
     timings: Vec<Timing>,
     current_timing: Option<(String, Instant)>,
 }
 
 impl Reporter {
-    pub fn new(number_of_signers: usize) -> Self {
+    pub fn new(number_of_signers: usize, number_of_clients: usize) -> Self {
         Self {
             number_of_signers,
+            number_of_clients,
             timings: vec![],
             current_timing: None,
         }
@@ -169,6 +171,7 @@ impl Reporter {
 
     pub fn print_report(&self) {
         println!("number_of_signers\t{}", self.number_of_signers);
+        println!("number_of_clients\t{}", self.number_of_clients);
         println!("phase\tduration/ms");
         for t in &self.timings {
             println!("{}\t{}", t.phase, t.duration.as_millis());

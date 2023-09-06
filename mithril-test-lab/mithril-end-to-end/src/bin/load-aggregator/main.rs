@@ -32,7 +32,7 @@ fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
-    let mut reporter: Reporter = Reporter::new(opts.num_signers);
+    let mut reporter: Reporter = Reporter::new(opts.num_signers, opts.num_clients);
     reporter.start("stress tests bootstrap");
     // configure a dummy immutable db
     let immutable_db = DummyImmutablesDbBuilder::new("load-tester")
@@ -88,15 +88,16 @@ async fn main() -> StdResult<()> {
 
     info!(">> Run phase 2 with client load");
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-
     let clients_handle = tokio::spawn(async move {
-        loop {
-            tokio::select! {
-                _msg = &mut shutdown_rx => {
-                    break;
-                }
-                _ = clients_scenario(aggregator_endpoint.clone(), opts.num_clients) => {
+        if opts.num_clients > 0 {
+            loop {
+                tokio::select! {
+                    _msg = &mut shutdown_rx => {
+                        break;
+                    }
+                    _ = clients_scenario(aggregator_endpoint.clone(), opts.num_clients) => {
 
+                    }
                 }
             }
         }
@@ -152,7 +153,7 @@ async fn main_scenario(
     );
     wait::for_epoch_settings_at_epoch(
         &parameters.aggregator,
-        Duration::from_secs(10),
+        Duration::from_secs(30),
         current_epoch,
     )
     .await?;
