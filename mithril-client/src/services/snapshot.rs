@@ -369,6 +369,7 @@ mod tests {
             size: 1024,
             created_at: DateTime::<Utc>::default(),
             locations: vec!["location-1.1".to_string(), "location-1.2".to_string()],
+            cardano_node_version: None,
         };
         let item2 = SnapshotListItemMessage {
             digest: "digest-2".to_string(),
@@ -377,6 +378,7 @@ mod tests {
             size: 1024,
             created_at: DateTime::<Utc>::default(),
             locations: vec!["location-2.1".to_string(), "location-2.2".to_string()],
+            cardano_node_version: Some("1.0.0".to_string()),
         };
 
         vec![item1, item2]

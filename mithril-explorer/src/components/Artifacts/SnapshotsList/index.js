@@ -1,9 +1,9 @@
-import React, {useEffect, useState} from 'react';
-import {Badge, Button, Card, Col, Container, ListGroup, Row, Stack} from "react-bootstrap";
+import React, { useEffect, useState } from 'react';
+import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
 import CertificateModal from '../../CertificateModal';
 import RawJsonButton from "../../RawJsonButton";
-import {useSelector} from "react-redux";
-import {selectedAggregator} from "../../../store/settingsSlice";
+import { useSelector } from "react-redux";
+import { selectedAggregator } from "../../../store/settingsSlice";
 import LocalDateTime from "../../LocalDateTime";
 
 /*
@@ -63,10 +63,10 @@ export default function SnapshotsList(props) {
     <>
       <CertificateModal
         hash={selectedCertificateHash}
-        onHashChange={handleCertificateHashChange}/>
+        onHashChange={handleCertificateHashChange} />
 
       <div className={props.className}>
-        <h2>Snapshots <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm"/></h2>
+        <h2>Snapshots <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" /></h2>
         {Object.entries(snapshots).length === 0
           ? <p>No snapshot available</p>
           :
@@ -80,12 +80,15 @@ export default function SnapshotsList(props) {
                       <ListGroup variant="flush" className="data-list-group">
                         <ListGroup.Item>Epoch: {snapshot.beacon.epoch}</ListGroup.Item>
                         <ListGroup.Item>Immutable File Number: {snapshot.beacon.immutable_file_number}</ListGroup.Item>
-                        <ListGroup.Item>Certificate hash: <br/>
+                        {snapshot.cardano_node_version &&
+                          <ListGroup.Item>Cardano Node Version: {snapshot.cardano_node_version}</ListGroup.Item>
+                        }
+                        <ListGroup.Item>Certificate hash: <br />
                           {snapshot.certificate_hash}{' '}
                           <Button size="sm" onClick={() => showCertificate(snapshot.certificate_hash)}>Show</Button>
                         </ListGroup.Item>
                         <ListGroup.Item>
-                          Created: <LocalDateTime datetime={snapshot.created_at}/>
+                          Created: <LocalDateTime datetime={snapshot.created_at} />
                         </ListGroup.Item>
                         <ListGroup.Item>Size: {formatBytes(snapshot.size)}</ListGroup.Item>
                       </ListGroup>
@@ -98,7 +101,7 @@ export default function SnapshotsList(props) {
                         <Badge bg="secondary">{snapshot.beacon.network}</Badge>
 
                         <RawJsonButton href={`${aggregator}/snapshot/${snapshot.digest}`} size="sm"
-                                       className="ms-auto"/>
+                          className="ms-auto" />
                       </Stack>
                     </Card.Footer>
                   </Card>
