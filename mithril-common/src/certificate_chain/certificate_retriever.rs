@@ -3,17 +3,15 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
-use crate::entities::Certificate;
+use crate::{entities::Certificate, StdError};
 
 #[cfg(test)]
 use mockall::automock;
+
 /// [CertificateRetriever] related errors.
-#[derive(Error, Debug)]
-pub enum CertificateRetrieverError {
-    /// Error raised when a [CertificateRetriever] tries to retrieve a [Certificate]
-    #[error("general error: '{0}'")]
-    General(String),
-}
+#[derive(Debug, Error)]
+#[error("Error when retrieving certificate")]
+pub struct CertificateRetrieverError(pub StdError);
 
 /// CertificateRetriever is in charge of retrieving a [Certificate] given its hash
 #[cfg_attr(test, automock)]

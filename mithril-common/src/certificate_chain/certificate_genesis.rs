@@ -14,16 +14,12 @@ use crate::{
         Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters,
     },
-    StdError,
+    StdResult,
 };
 
 /// [CertificateGenesisProducer] related errors.
 #[derive(Error, Debug)]
 pub enum CertificateGenesisProducerError {
-    /// Error raised when a Codec error occurs
-    #[error("codec error: '{0:?}'")]
-    Codec(StdError),
-
     /// Error raised when there is no genesis signer available
     #[error("missing genesis signer error")]
     MissingGenesisSigner(),
@@ -44,10 +40,8 @@ impl CertificateGenesisProducer {
     /// Create the Genesis protocol message
     pub fn create_genesis_protocol_message(
         genesis_avk: &ProtocolAggregateVerificationKey,
-    ) -> Result<ProtocolMessage, CertificateGenesisProducerError> {
-        let genesis_avk = genesis_avk
-            .to_json_hex()
-            .map_err(CertificateGenesisProducerError::Codec)?;
+    ) -> StdResult<ProtocolMessage> {
+        let genesis_avk = genesis_avk.to_json_hex()?;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
@@ -74,7 +68,7 @@ impl CertificateGenesisProducer {
         beacon: Beacon,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_signature: ProtocolGenesisSignature,
-    ) -> Result<Certificate, CertificateGenesisProducerError> {
+    ) -> StdResult<Certificate> {
         let protocol_version = PROTOCOL_VERSION.to_string();
         let initiated_at = Utc::now();
         let sealed_at = Utc::now();

@@ -2,12 +2,11 @@ use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use mithril_common::certificate_chain::{
-    CertificateRetriever, CertificateVerifier, CertificateVerifierError,
-};
+use mithril_common::certificate_chain::{CertificateRetriever, CertificateVerifier};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 use mithril_common::entities::{Beacon, Certificate, ProtocolMessage};
+use mithril_common::StdResult;
 use mockall::mock;
 
 mock! {
@@ -32,21 +31,21 @@ mock! {
             &self,
             genesis_certificate: &Certificate,
             genesis_verifier: &ProtocolGenesisVerifier,
-        ) -> Result<(), CertificateVerifierError>;
+        ) -> StdResult<()>;
 
         async fn verify_certificate(
             &self,
             certificate: &Certificate,
             certificate_retriever: Arc<dyn CertificateRetriever>,
             genesis_verifier: &ProtocolGenesisVerifier,
-        ) -> Result<Option<Certificate>, CertificateVerifierError>;
+        ) -> StdResult<Option<Certificate>>;
 
         async fn verify_certificate_chain(
             &self,
             certificate: Certificate,
             certificate_retriever: Arc<dyn CertificateRetriever>,
             genesis_verifier: &ProtocolGenesisVerifier,
-        ) -> Result<(), CertificateVerifierError>;
+        ) -> StdResult<()>;
 
         fn verify_protocol_message(
             &self,

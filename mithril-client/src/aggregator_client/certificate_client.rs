@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 
 use mithril_common::{
@@ -55,12 +56,11 @@ impl CertificateRetriever for CertificateClient {
     ) -> Result<Certificate, CertificateRetrieverError> {
         self.get(certificate_hash)
             .await
-            .map_err(|e| CertificateRetrieverError::General(format!("{e}")))?
-            .ok_or_else(|| {
-                CertificateRetrieverError::General(format!(
-                    "Certificate '{certificate_hash}' not found"
-                ))
-            })
+            .map_err(|e| CertificateRetrieverError(anyhow!(e)))?
+            .ok_or(CertificateRetrieverError(anyhow!(format!(
+                "Certificate does not exist: '{}'",
+                certificate_hash
+            ))))
     }
 }
 
