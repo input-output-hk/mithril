@@ -43,8 +43,11 @@ make build
 # Help
 ./load-aggregator --help
 
-# Run with 100 signers
+# Run with 100 signers and 0 clients
 ./load-aggregator -vvv --cardano-cli-path script/mock-cardano-cli --aggregator-dir ../../target/release --num-signers=100
+
+# Run with 100 signers and 200 clients
+./load-aggregator -vvv --cardano-cli-path script/mock-cardano-cli --aggregator-dir ../../target/release --num-signers=100 --num-clients=200
 ```
 
 ## Launch a monitor
