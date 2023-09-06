@@ -89,7 +89,7 @@ async fn main() -> StdResult<()> {
     info!(">> Run phase 2 with client load");
     let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
 
-    tokio::spawn(async move {
+    let clients_handle = tokio::spawn(async move {
         loop {
             tokio::select! {
                 _msg = &mut shutdown_rx => {
@@ -105,6 +105,7 @@ async fn main() -> StdResult<()> {
         .await
         .expect("the main scenario should not fail");
     let _ = shutdown_tx.send(());
+    clients_handle.await.unwrap();
 
     info!(">> Display execution timings:");
     scenario_parameters.reporter.print_report();
