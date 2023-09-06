@@ -79,9 +79,12 @@ export default function SnapshotsList(props) {
                       <Card.Title>{snapshot.digest}</Card.Title>
                       <ListGroup variant="flush" className="data-list-group">
                         <ListGroup.Item>Epoch: {snapshot.beacon.epoch}</ListGroup.Item>
-                        <ListGroup.Item>Immutable File Number: {snapshot.beacon.immutable_file_number}</ListGroup.Item>
+                        <ListGroup.Item>Immutable file number: {snapshot.beacon.immutable_file_number}</ListGroup.Item>
                         {snapshot.cardano_node_version &&
-                          <ListGroup.Item>Cardano Node Version: {snapshot.cardano_node_version}</ListGroup.Item>
+                          <ListGroup.Item>Cardano node: {snapshot.cardano_node_version}</ListGroup.Item>
+                        }
+                        {snapshot.compression_algorithm &&
+                          <ListGroup.Item>Compression: {snapshot.compression_algorithm}</ListGroup.Item>
                         }
                         <ListGroup.Item>Certificate hash: <br />
                           {snapshot.certificate_hash}{' '}
@@ -90,7 +93,7 @@ export default function SnapshotsList(props) {
                         <ListGroup.Item>
                           Created: <LocalDateTime datetime={snapshot.created_at} />
                         </ListGroup.Item>
-                        <ListGroup.Item>Size: {formatBytes(snapshot.size)}</ListGroup.Item>
+                        <ListGroup.Item>Archive size: {formatBytes(snapshot.size)}</ListGroup.Item>
                       </ListGroup>
                     </Card.Body>
                     <Card.Footer>
