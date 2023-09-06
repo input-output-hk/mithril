@@ -56,9 +56,7 @@ pub struct Configuration {
     ///
     /// **NOTE**: This cannot be verified for now (see [this
     /// issue](https://github.com/input-output-hk/cardano-cli/issues/224)). This
-    /// is why it has to be manually given to the Aggregator. The use of an
-    /// environment variable is enocouraged since it makes easier the update
-    /// when the cardano node is updated.
+    /// is why it has to be manually given to the Aggregator
     pub cardano_node_version: String,
 
     /// Cardano Network Magic number

@@ -1068,7 +1068,7 @@ components:
           description: Compression algorithm for the snapshot archive
           type: string
         cardano_node_version:
-          description: Version of the Cardano node which is used to get information (stake, immutables etc.)
+          description: Version of the Cardano node which is used to create snapshot archives.
           type: string
       example:
         {

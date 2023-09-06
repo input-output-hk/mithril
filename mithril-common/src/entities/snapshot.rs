@@ -21,7 +21,7 @@ pub struct Snapshot {
     /// Compression algorithm of the snapshot archive
     pub compression_algorithm: CompressionAlgorithm,
 
-    /// Version of the Cardano node used to product immutable files.
+    /// Version of the Cardano node used to create snapshot archive.
     pub cardano_node_version: String,
 }
 
