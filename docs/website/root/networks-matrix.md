@@ -18,7 +18,6 @@ Here is an updated list of all **Mithril networks**, including their configurati
 
 | Information | -
 |------------|------------
-| **Cardano node version** | 8.1.2
 | **Mithril network** | `release-mainnet`
 | **Cardano network** | `mainnet` 
 | **Cardano magic id** |   `-`
@@ -38,7 +37,6 @@ Here is an updated list of all **Mithril networks**, including their configurati
 
 | Information | -
 |------------|------------
-| **Cardano node version** | 8.1.2
 | **Mithril network** | `release-preprod` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.release-preprod.api.mithril.network%2Faggregator)
 | **Cardano network** | `preprod` 
 | **Cardano magic Id** |   `1`
@@ -58,7 +56,6 @@ Here is an updated list of all **Mithril networks**, including their configurati
 
 | Information | -
 |------------|------------
-| **Cardano node version** | 8.1.2
 | **Mithril network** | `pre-release-preview` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.pre-release-preview.api.mithril.network%2Faggregator)
 | **Cardano network** | `preview` 
 | **Cardano magic Id** |   `2`
@@ -78,7 +75,6 @@ Here is an updated list of all **Mithril networks**, including their configurati
 
 | Information | -
 |------------|------------
-| **Cardano node version** | 8.1.2
 | **Mithril network** | `testing-preview` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.testing-preview.api.mithril.network%2Faggregator)
 | **Cardano network** | `preview` 
 | **Cardano magic Id** |   `2`
