@@ -22,7 +22,7 @@ pub struct MainOpts {
     pub temporary_path: Option<PathBuf>,
 
     /// Path of the Aggregator binary
-    #[arg(short, long, default_value = "./target/debug")]
+    #[arg(short, long, default_value = "./target/release")]
     pub aggregator_dir: PathBuf,
 
     /// Number of concurrent signers

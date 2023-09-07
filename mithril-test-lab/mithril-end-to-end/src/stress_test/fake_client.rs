@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::anyhow;
 use async_recursion::async_recursion;
 use indicatif::{ProgressBar, ProgressDrawTarget};
@@ -36,9 +38,10 @@ pub enum LoadError {
     EmptySnapshotList,
 }
 
-pub async fn download_latest_snasphot(endpoint: &str) -> StdResult<SnapshotListItemMessage> {
-    let http_client = reqwest::Client::new();
-
+pub async fn download_latest_snasphot(
+    http_client: Arc<reqwest::Client>,
+    endpoint: &str,
+) -> StdResult<SnapshotListItemMessage> {
     let http_request = http_client.get(format!("{}/artifact/snapshots", endpoint));
     let response = http_request.send().await;
     let snapshots: SnapshotListMessage = match response {
@@ -79,9 +82,11 @@ pub async fn download_latest_snasphot(endpoint: &str) -> StdResult<SnapshotListI
 }
 
 #[async_recursion]
-pub async fn download_certificate_chain(endpoint: &str, certificate_hash: &str) -> StdResult<()> {
-    let http_client = reqwest::Client::new();
-
+pub async fn download_certificate_chain(
+    http_client: Arc<reqwest::Client>,
+    endpoint: &str,
+    certificate_hash: &str,
+) -> StdResult<()> {
     let http_request = http_client.get(format!("{}/certificate/{}", endpoint, certificate_hash));
     let response = http_request.send().await;
     let certificate: CertificateMessage = match response {
@@ -100,7 +105,7 @@ pub async fn download_certificate_chain(endpoint: &str, certificate_hash: &str) 
     }?;
 
     if certificate.previous_hash.is_empty() {
-        return download_certificate_chain(endpoint, &certificate.previous_hash).await;
+        return download_certificate_chain(http_client, endpoint, &certificate.previous_hash).await;
     }
 
     Ok(())
@@ -113,11 +118,19 @@ pub async fn clients_scenario(endpoint: String, num_clients: usize) -> StdResult
     let progress_bar =
         ProgressBar::with_draw_target(Some(num_clients as u64), ProgressDrawTarget::stdout());
 
+    let http_client = Arc::new(reqwest::Client::new());
     for _client_index in 0..num_clients {
         let endpoint_clone = endpoint.clone();
+        let http_client_clone = http_client.clone();
         join_set.spawn(async move {
-            let last_snapshot = download_latest_snasphot(&endpoint_clone).await?;
-            download_certificate_chain(&endpoint_clone, &last_snapshot.certificate_hash).await?;
+            let last_snapshot =
+                download_latest_snasphot(http_client_clone.clone(), &endpoint_clone).await?;
+            download_certificate_chain(
+                http_client_clone,
+                &endpoint_clone,
+                &last_snapshot.certificate_hash,
+            )
+            .await?;
 
             Ok(())
         });
