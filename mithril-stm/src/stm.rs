@@ -217,6 +217,14 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     total_stake: Stake,
 }
 
+impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> Eq for StmAggrVerificationKey<D> {}
+
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StmSigRegParty {
@@ -692,7 +700,7 @@ impl Eq for StmSig {}
 
 impl PartialOrd for StmSig {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp_stm_sig(other))
+        Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
@@ -1624,5 +1632,25 @@ mod tests {
                 _ => unreachable!(),
             }
         }
+    }
+
+    #[test]
+    fn testing_equality_stm() {
+        let params = StmParameters {
+            m: 1,
+            k: 1,
+            phi_f: 0.2,
+        };
+        let ps = setup_equal_parties(params, 1);
+        let clerk = StmClerk::from_signer(&ps[0]);
+        let avk_1 = clerk.compute_avk();
+        let avk_2 = avk_1.clone();
+
+        let ps = setup_equal_parties(params, 4);
+        let clerk = StmClerk::from_signer(&ps[0]);
+        let avk_3 = clerk.compute_avk();
+
+        assert_eq!(avk_1, avk_2);
+        assert_ne!(avk_1, avk_3);
     }
 }

@@ -153,7 +153,7 @@ impl Eq for VerificationKey {}
 
 impl PartialOrd for VerificationKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp_msp_mvk(other))
+        Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
@@ -448,7 +448,7 @@ impl<'a> Sum<&'a Self> for Signature {
 
 impl PartialOrd for Signature {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp_msp_sig(other))
+        Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
