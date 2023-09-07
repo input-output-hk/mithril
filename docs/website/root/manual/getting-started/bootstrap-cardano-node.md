@@ -251,7 +251,11 @@ You will see a list of snapshots:
 …
 ```
 
-:warning: If you restore a node with a different version range than the one advertised, it may cause extra time to restore the node due to ledger computations or even crash the node.
+:::warning
+
+If you restore a Cardano node with a version not included in the advertised range of compatible versions, it may cause extra time to restore the node due to ledger computations, or even crash the node.
+
+:::
 
 ### Step 3: Show snapshot details
 
