@@ -55,6 +55,14 @@ fn convert_to_field_items(snapshot_message: &SnapshotMessage) -> Vec<SnapshotFie
         ),
         SnapshotFieldItem::new("Digest".to_string(), snapshot_message.digest.to_string()),
         SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot_message.size)),
+        SnapshotFieldItem::new(
+            "Cardano node version".to_string(),
+            snapshot_message
+                .cardano_node_version
+                .as_ref()
+                .unwrap_or(&"NA".to_string())
+                .to_string(),
+        ),
     ];
     for (idx, location) in snapshot_message.locations.iter().enumerate() {
         field_items.push(SnapshotFieldItem::new(
