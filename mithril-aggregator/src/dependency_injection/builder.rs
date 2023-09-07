@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
@@ -261,7 +262,10 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             })?;
 
-        db_checker.apply().await?;
+        db_checker
+            .apply()
+            .await
+            .with_context(|| "Database migration error")?;
 
         Ok(connection)
     }

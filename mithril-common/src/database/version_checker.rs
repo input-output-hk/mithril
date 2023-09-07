@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use chrono::Utc;
 use slog::{debug, error, info, Logger};
 use sqlite::Connection;
@@ -57,10 +57,13 @@ impl DatabaseVersionChecker {
         let lock = self.connection.lock().await;
         let connection = lock.deref();
         let provider = DatabaseVersionProvider::new(connection);
-        provider.create_table_if_not_exists(&self.application_type)?;
+        provider
+            .create_table_if_not_exists(&self.application_type)
+            .with_context(|| "Can not create table 'db_version' while applying migrations")?;
         let updater = DatabaseVersionUpdater::new(connection);
         let db_version = provider
             .get_application_version(&self.application_type)?
+            .with_context(|| "Can not get application version while applying migrations")
             .unwrap(); // At least a record exists.
 
         // the current database version is equal to the maximum migration
@@ -117,7 +120,12 @@ impl DatabaseVersionChecker {
                 application_type: self.application_type.clone(),
                 updated_at: Utc::now(),
             };
-            let _ = updater.save(db_version)?;
+            let _ = updater.save(db_version).with_context(|| {
+                format!(
+                    "Can not save database version when applying migration: '{}'",
+                    migration.version
+                )
+            })?;
         }
 
         Ok(())
