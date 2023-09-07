@@ -424,6 +424,12 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
         let existing_record = SignerRegistrationRecordProvider::new(connection)
             .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
+            .with_context(|| {
+                format!(
+                    "get signer registration record failure, signer_id: '{}', epoch: '{}'",
+                    signer.party_id, epoch
+                )
+            })
             .map_err(AdapterError::QueryError)?
             .next();
 

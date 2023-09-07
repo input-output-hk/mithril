@@ -5,6 +5,7 @@
 //! single signatures and deal with the multi_signer for aggregate signature
 //! creation.
 
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::{
@@ -184,9 +185,13 @@ impl MithrilCertifierService {
             "CertifierService::get_open_message_record(signed_entity_type: {signed_entity_type:?})"
         );
 
-        self.open_message_repository
+        let open_message_with_single_signatures = self
+            .open_message_repository
             .get_open_message_with_single_signatures(signed_entity_type)
             .await
+            .with_context(|| "Can not get open message with single signatures")?;
+
+        Ok(open_message_with_single_signatures)
     }
 }
 
@@ -229,8 +234,8 @@ impl CertifierService for MithrilCertifierService {
 
         let single_signature = self
             .single_signature_repository
-            .create_single_signature(signature, &open_message.into())
-            .await?;
+            .create_single_signature(signature, &open_message.clone().into())
+            .await.with_context(|| format!("Certifier can not create the single signature from single_signature: '{signature:?}', open_message: '{open_message:?}'"))?;
         info!("CertifierService::register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.", single_signature.signer_id);
         debug!("CertifierService::register_single_signature: created single signature for open message ID='{}'.", single_signature.open_message_id);
 
@@ -250,7 +255,14 @@ impl CertifierService for MithrilCertifierService {
                 signed_entity_type,
                 protocol_message,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Can not create open message from protocol_message: '{:?}, epoch: '{}''",
+                    protocol_message,
+                    signed_entity_type.get_epoch()
+                )
+            })?;
         info!("CertifierService::create_open_message: created open message for {signed_entity_type:?}");
         debug!(
             "CertifierService::create_open_message: created open message ID='{}'",
@@ -269,7 +281,8 @@ impl CertifierService for MithrilCertifierService {
         let open_message = self
             .open_message_repository
             .get_open_message_with_single_signatures(signed_entity_type)
-            .await?
+            .await
+            .with_context(|| "Can not get open message with single signatures")?
             .map(|record| record.into());
 
         Ok(open_message)

@@ -81,7 +81,9 @@ impl<'client> EpochSettingProvider<'client> {
     }
 
     fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
-        let epoch_setting_id: i64 = epoch.try_into()?;
+        let epoch_setting_id: i64 = epoch
+            .try_into()
+            .with_context(|| format!("Can not convert epoch: '{epoch}'"))?;
 
         Ok(WhereCondition::new(
             "epoch_setting_id = ?*",

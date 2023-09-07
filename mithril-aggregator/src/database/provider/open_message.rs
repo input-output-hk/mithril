@@ -1,3 +1,4 @@
+use anyhow::Context;
 use mithril_common::{
     entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures},
     sqlite::{HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition},
@@ -170,15 +171,14 @@ impl<'client> OpenMessageProvider<'client> {
     fn get_signed_entity_type_condition(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> WhereCondition {
-        WhereCondition::new(
+    ) -> StdResult<WhereCondition> {
+        Ok(WhereCondition::new(
             "signed_entity_type_id = ?* and beacon = ?*",
             vec![
                 Value::Integer(signed_entity_type.index() as i64),
-                // TODO!: Remove this ugly unwrap, should this method returns a result ?
-                Value::String(signed_entity_type.get_json_beacon().unwrap()),
+                Value::String(signed_entity_type.get_json_beacon()?),
             ],
-        )
+        ))
     }
 
     // Useful in test and probably in the future.
@@ -268,7 +268,12 @@ signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?* \
 where open_message_id = ?*";
         let beacon_str = open_message.signed_entity_type.get_json_beacon()?;
         let parameters = vec![
-            Value::Integer(open_message.epoch.try_into()?),
+            Value::Integer(
+                open_message
+                    .epoch
+                    .try_into()
+                    .with_context(|| format!("Can not convert epoch: '{}'", open_message.epoch))?,
+            ),
             Value::String(beacon_str),
             Value::Integer(open_message.signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(&open_message.protocol_message)?),
@@ -434,14 +439,14 @@ impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
     fn get_signed_entity_type_condition(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> WhereCondition {
-        WhereCondition::new(
+    ) -> StdResult<WhereCondition> {
+        Ok(WhereCondition::new(
             "signed_entity_type_id = ?* and beacon = ?*",
             vec![
                 Value::Integer(signed_entity_type.index() as i64),
-                Value::String(signed_entity_type.get_json_beacon().unwrap()),
+                Value::String(signed_entity_type.get_json_beacon()?),
             ],
-        )
+        ))
     }
 }
 
@@ -496,7 +501,7 @@ impl OpenMessageRepository {
         let provider = OpenMessageProvider::new(&lock);
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
-            .and_where(provider.get_signed_entity_type_condition(signed_entity_type));
+            .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
         let mut messages = provider.find(filters)?;
 
         Ok(messages.next())
@@ -511,7 +516,7 @@ impl OpenMessageRepository {
         let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
-            .and_where(provider.get_signed_entity_type_condition(signed_entity_type));
+            .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
         let mut messages = provider.find(filters)?;
 
         Ok(messages.next())
@@ -708,6 +713,7 @@ else json_group_array( \
             .get_signed_entity_type_condition(&SignedEntityType::CardanoImmutableFilesFull(
                 beacon.clone(),
             ))
+            .unwrap()
             .expand();
 
         assert_eq!(
