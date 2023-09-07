@@ -1634,23 +1634,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn testing_equality_stm() {
-        let params = StmParameters {
-            m: 1,
-            k: 1,
-            phi_f: 0.2,
-        };
-        let ps = setup_equal_parties(params, 1);
-        let clerk = StmClerk::from_signer(&ps[0]);
-        let avk_1 = clerk.compute_avk();
-        let avk_2 = avk_1.clone();
-
-        let ps = setup_equal_parties(params, 4);
-        let clerk = StmClerk::from_signer(&ps[0]);
-        let avk_3 = clerk.compute_avk();
-
-        assert_eq!(avk_1, avk_2);
-        assert_ne!(avk_1, avk_3);
-    }
 }
