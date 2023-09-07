@@ -217,6 +217,14 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     total_stake: Stake,
 }
 
+impl<D: Digest + Clone + FixedOutput> PartialEq for StmAggrVerificationKey<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.mt_commitment == other.mt_commitment && self.total_stake == other.total_stake
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> Eq for StmAggrVerificationKey<D> {}
+
 /// Signature with its registered party.
 #[derive(Debug, Clone, Hash, Deserialize, Eq, PartialEq, Ord, PartialOrd)]
 pub struct StmSigRegParty {
@@ -692,7 +700,7 @@ impl Eq for StmSig {}
 
 impl PartialOrd for StmSig {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp_stm_sig(other))
+        Some(std::cmp::Ord::cmp(self, other))
     }
 }
 

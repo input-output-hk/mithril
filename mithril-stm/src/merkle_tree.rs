@@ -57,6 +57,14 @@ pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
     hasher: PhantomData<D>,
 }
 
+impl<D: Digest> PartialEq for MerkleTreeCommitmentBatchCompat<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root && self.nr_leaves == other.nr_leaves
+    }
+}
+
+impl<D: Digest> Eq for MerkleTreeCommitmentBatchCompat<D> {}
+
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MerkleTree<D: Digest> {
@@ -105,7 +113,7 @@ impl PartialOrd for MTLeaf {
     /// meaning that the probability of having several signatures in the same side of the tree, is higher.
     /// This allows us to produce a more efficient batch opening of the merkle tree.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.1.cmp(&other.1).then(self.0.cmp(&other.0)))
+        Some(std::cmp::Ord::cmp(self, other))
     }
 }
 
