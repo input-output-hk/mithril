@@ -1,0 +1,21 @@
+{
+  "release-mainnet": {
+     "cardanoNetwork": "mainnet",
+     "aggregatorEndpoint": "https://aggregator.release-mainnet.api.mithril.network/aggregator"
+  },
+  "release-preprod": {
+     "cardanoNetwork": "preprod",
+     "cardanoTestnetMagic": 1,
+     "aggregatorEndpoint": "https://aggregator.release-preprod.api.mithril.network/aggregator"
+  },
+  "pre-release-preview": {
+     "cardanoNetwork": "preview",
+     "cardanoTestnetMagic": 2,
+     "aggregatorEndpoint": "https://aggregator.pre-release-preview.api.mithril.network/aggregator"
+  },
+  "testing-preview": {
+     "cardanoNetwork": "preview",
+     "cardanoTestnetMagic": 2,
+     "aggregatorEndpoint": "https://aggregator.testing-preview.api.mithril.network/aggregator"
+  }
+}
