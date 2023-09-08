@@ -1,0 +1,179 @@
+name: deploy-terraform-infrastructure
+description: |
+  Deploy the infrastructure of a Mithril network with terraform.
+inputs:
+  dry_run:
+    description: Dry run will apply the terraform infrastructure, just plan it.
+    required: true
+    default: "true"
+  terraform_backend_bucket:
+    description: terraform backend bucket used to store terraform state.
+    required: true
+  environment_prefix:
+    description: Mithril network environment prefix.
+    required: true
+  environment:
+    description: Mithril network environment name.
+    required: true
+  cardano_network:
+    description: Cardano network name.
+    required: true
+  google_region:
+    description: Google Cloud region name.
+    required: true
+  google_zone:
+    description: Google Cloud zone name.
+    required: true
+  google_machine_type:
+    description: Google Cloud VM name.
+    required: true
+  google_compute_instance_data_disk_size:
+    description: Google Cloud attached data disk size in GB.
+    required: true
+  google_application_credentials:
+    description: Google Cloud application credentials (service account).
+    required: true
+  mithril_api_domain:
+    description: Mithril network api domain root.
+    required: true
+  mithril_image_id:
+    description: Mithril Docker image id to deploy.
+    required: true
+  mithril_protocol_parameters:
+    description: Mithril protocol parameters.
+    required: true
+  mithril_signers:
+    description: Mithril signers settings.
+    required: true
+  mithril_genesis_secret_key: 
+    description: Mithril genesis secret key (only for test networks).
+    required: false
+  mithril_genesis_verification_key_url: 
+    description: Mithril genesis verification key location.
+    required: true
+  mithril_era_reader_address_url: 
+    description: Mithril era reader address location.
+    required: true
+  mithril_era_reader_verification_key_url: 
+    description: Mithril era reader verification key url.
+    required: true
+  mithril_era_reader_secret_key: 
+    description: Mithril era reader secret key (onlye for test networks).
+    required: false
+  prometheus_auth_username: 
+    description: Prometheus metrics endpoint username.
+    required: false
+  prometheus_auth_password: 
+    description: Prometheus metrics endpoint password.
+    required: false
+  prometheus_ingest_host: 
+    description: Prometheus ingester endpoint location.
+    required: false
+  prometheus_ingest_username: 
+    description: Prometheus ingester endpoint username.
+    required: false
+  prometheus_ingest_password: 
+    description: Prometheus ingester endpoint password.
+    required: false
+  loki_auth_username: 
+    description: Loki metrics endpoint username.
+    required: false
+  loki_auth_password: 
+    description: Loki metrics endpoint password.
+    required: false
+  loki_ingest_host: 
+    description: Loki ingester endpoint location.
+    required: false
+  loki_ingest_username: 
+    description: Loki ingester endpoint username.
+    required: false
+  loki_ingest_password: 
+    description: Loki ingester endpoint password.
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+  - name: Checkout sources
+    uses: actions/checkout@v3
+
+  - name: Prepare service account credentials
+    shell: bash
+    working-directory: mithril-infra
+    run: |
+      echo '${{ inputs.google_application_credentials}}' > ./google-application-credentials.json
+      chmod u+x ./assets/tools/utils/google-credentials-public-key.sh
+      ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys curry
+
+  - name: Prepare terraform variables
+    shell: bash
+    working-directory: mithril-infra
+    run: |
+      cat > ./env.variables.tfvars << EOF
+        environment_prefix                      = "${{ inputs.environment_prefix }}"
+        cardano_network                         = "${{ inputs.cardano_network }}"
+        google_region                           = "${{ inputs.google_region }}"
+        google_zone                             = "${{ inputs.google_zone }}"
+        google_machine_type                     = "${{ inputs.google_machine_type }}"
+        google_compute_instance_data_disk_size  = "${{ inputs.google_compute_instance_data_disk_size }}"
+        google_service_credentials_json_file    = "./google-application-credentials.json"
+        mithril_api_domain                      = "${{ inputs.mithril_api_domain }}"
+        mithril_image_id                        = "${{ inputs.mithril_image_id }}"
+        mithril_genesis_verification_key_url    = "${{ inputs.mithril_genesis_verification_key_url }}"
+        mithril_genesis_secret_key              = "${{ inputs.mithril_genesis_secret_key }}"
+        mithril_protocol_parameters             = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
+        mithril_era_reader_adapter_type         = "cardano-chain"
+        mithril_era_reader_address_url          = "${{ inputs.mithril_era_reader_address_url }}"
+        mithril_era_reader_verification_key_url = "${{ inputs.mithril_era_reader_verification_key_url }}"
+        mithril_era_reader_secret_key           = "${{ inputs.mithril_era_reader_secret_key }}"
+        mithril_signers                         = ${{ fromJSON(inputs.mithril_signers) }}
+        prometheus_auth_username                = "${{ inputs.prometheus_auth_username }}"
+        prometheus_auth_password                = "${{ inputs.prometheus_auth_password }}"
+        prometheus_ingest_host                  = "${{ inputs.prometheus_ingest_host }}"
+        prometheus_ingest_username              = "${{ inputs.prometheus_ingest_username }}"
+        prometheus_ingest_password              = "${{ inputs.prometheus_ingest_password }}"
+        loki_auth_username                      = "${{ inputs.loki_auth_username }}"
+        loki_auth_password                      = "${{ inputs.loki_auth_password }}"
+        loki_ingest_host                        = "${{ inputs.loki_ingest_host }}"
+        loki_ingest_username                    = "${{ inputs.loki_ingest_username }}"
+        loki_ingest_password                    = "${{ inputs.loki_ingest_password }}"
+      EOF
+      terraform fmt ./env.variables.tfvars
+      cat ./env.variables.tfvars
+
+  - name: Setup Terraform
+    uses: hashicorp/setup-terraform@v2
+    with:
+      terraform_wrapper: false
+
+  - name: Init Terraform
+    shell: bash
+    working-directory: mithril-infra
+    run: |
+      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}"
+
+  - name: Check Terraform
+    shell: bash
+    working-directory: mithril-infra
+    run: terraform fmt -check
+
+  - name: Terraform Plan
+    if: inputs.dry_run == 'true'
+    shell: bash
+    working-directory: mithril-infra
+    run: |
+      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform plan --var-file=./env.variables.tfvars
+
+  - name: Terraform Apply
+    shell: bash
+    working-directory: mithril-infra
+    if: inputs.dry_run == 'false'
+    run: |
+      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform apply -auto-approve --var-file=./env.variables.tfvars
+
+  - name: Cleanup
+    shell: bash
+    working-directory: mithril-infra
+    run: |
+      rm -f ./env.variables.tfvars
+      rm -f ./google-application-credentials.json

@@ -438,106 +438,51 @@ jobs:
           google_zone: europe-west1-b
           google_machine_type: e2-highmem-4
           google_compute_instance_data_disk_size: 250
-          
+    environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
-
     needs:
       - docker-mithril
-
-    environment: ${{ matrix.environment }}
-
-    env:
-      GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-      GENESIS_SECRET_KEY: ${{ secrets.GENESIS_SECRET_KEY }}
-      GENESIS_VERIFICATION_KEY_URL: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
-      ERA_READER_ADDRESS_URL: ${{ vars.ERA_READER_ADDRESS_URL }}
-      ERA_READER_VERIFICATION_KEY_URL: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
-      ERA_READER_SECRET_KEY: ${{ secrets.ERA_READER_SECRET_KEY }}
-      PROMETHEUS_AUTH_USERNAME: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
-      PROMETHEUS_AUTH_PASSWORD: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
-      PROMETHEUS_INGEST_HOST: ${{ vars.PROMETHEUS_INGEST_HOST }}
-      PROMETHEUS_INGEST_USERNAME: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
-      PROMETHEUS_INGEST_PASSWORD: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
-      LOKI_AUTH_USERNAME: ${{ secrets.LOKI_AUTH_USERNAME }}
-      LOKI_AUTH_PASSWORD: ${{ secrets.LOKI_AUTH_PASSWORD }}
-      LOKI_INGEST_HOST: ${{ vars.LOKI_INGEST_HOST }}
-      LOKI_INGEST_USERNAME: ${{ secrets.LOKI_INGEST_USERNAME }}
-      LOKI_INGEST_PASSWORD: ${{ secrets.LOKI_INGEST_PASSWORD }}
-
     defaults:
       run:
         working-directory: mithril-infra
-
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
 
-    - name: Checkout sources
-      uses: actions/checkout@v3
+      - name: Get Docker image id
+        run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
-    - name: Get Docker image id
-      run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
-
-    - name: Prepare service account credentials
-      run: |
-        echo '${{ env.GOOGLE_APPLICATION_CREDENTIALS}}' > ./google-application-credentials.json
-        chmod u+x ./assets/tools/utils/google-credentials-public-key.sh
-        ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys curry
-
-    - name: Prepare terraform variables
-      run: |
-        cat > ./env.variables.tfvars << EOF
-          environment_prefix                      = "${{ matrix.environment_prefix }}"
-          cardano_network                         = "${{ matrix.cardano_network }}"
-          google_region                           = "${{ matrix.google_region }}"
-          google_zone                             = "${{ matrix.google_zone }}"
-          google_machine_type                     = "${{ matrix.google_machine_type }}"
-          google_compute_instance_data_disk_size  = "${{ matrix.google_compute_instance_data_disk_size }}"
-          google_service_credentials_json_file    = "./google-application-credentials.json"
-          mithril_api_domain                      = "${{ matrix.mithril_api_domain }}"
-          mithril_image_id                        = "${{ env.DOCKER_IMAGE_ID }}"
-          mithril_genesis_verification_key_url    = "${{ env.GENESIS_VERIFICATION_KEY_URL }}"
-          mithril_genesis_secret_key              = "${{ env.GENESIS_SECRET_KEY }}"
-          mithril_protocol_parameters             = ${{ matrix.mithril_protocol_parameters }}
-          mithril_era_reader_adapter_type         = "cardano-chain"
-          mithril_era_reader_address_url          = "${{ env.ERA_READER_ADDRESS_URL }}"
-          mithril_era_reader_verification_key_url = "${{ env.ERA_READER_VERIFICATION_KEY_URL }}"
-          mithril_era_reader_secret_key           = "${{ env.ERA_READER_SECRET_KEY }}"
-          mithril_signers                         = ${{ matrix.mithril_signers }}
-          prometheus_auth_username                = "${{ env.PROMETHEUS_AUTH_USERNAME }}"
-          prometheus_auth_password                = "${{ env.PROMETHEUS_AUTH_PASSWORD }}"
-          prometheus_ingest_host                  = "${{ env.PROMETHEUS_INGEST_HOST }}"
-          prometheus_ingest_username              = "${{ env.PROMETHEUS_INGEST_USERNAME }}"
-          prometheus_ingest_password              = "${{ env.PROMETHEUS_INGEST_PASSWORD }}"
-          loki_auth_username                      = "${{ env.LOKI_AUTH_USERNAME }}"
-          loki_auth_password                      = "${{ env.LOKI_AUTH_PASSWORD }}"
-          loki_ingest_host                        = "${{ env.LOKI_INGEST_HOST }}"
-          loki_ingest_username                    = "${{ env.LOKI_INGEST_USERNAME }}"
-          loki_ingest_password                    = "${{ env.LOKI_INGEST_PASSWORD }}"
-        EOF
-        terraform fmt ./env.variables.tfvars
-        cat ./env.variables.tfvars
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-      with:
-        terraform_wrapper: false
-
-    - name: Init Terraform
-      run: |
-        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ matrix.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ matrix.environment }}"
-
-    - name: Check Terraform
-      run: terraform fmt -check
-
-    - name: Terraform Plan
-      run: |
-        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform plan --var-file=./env.variables.tfvars
-
-    - name: Terraform Apply
-      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      run: |
-        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform apply -auto-approve --var-file=./env.variables.tfvars
-
-    - name: Cleanup
-      run: |
-        rm -f ./env.variables.tfvars
-        rm -f ./google-application-credentials.json
+      - name: ${{ env.DEPLOY == 'true' && 'Apply' || 'Plan' }} terraform infrastructure
+        uses: ./.github/workflows/actions/deploy-terraform-infrastructure
+        env:
+          DEPLOY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        with:
+          dry_run: ${{ env.DEPLOY == 'true' && 'false' || 'true' }}
+          terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
+          environment_prefix: ${{ matrix.environment_prefix }}
+          environment: ${{ matrix.environment }}
+          cardano_network: ${{ matrix.cardano_network }}
+          google_region: ${{ matrix.google_region }}
+          google_zone: ${{ matrix.google_zone }}
+          google_machine_type: ${{ matrix.google_machine_type }}
+          google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+          google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          mithril_api_domain: ${{ matrix.mithril_api_domain }}
+          mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
+          mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
+          mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
+          mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
+          mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
+          mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
+          mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
+          mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
+          prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
+          prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
+          prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
+          prometheus_ingest_username: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
+          prometheus_ingest_password: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
+          loki_auth_username: ${{ secrets.LOKI_AUTH_USERNAME }}
+          loki_auth_password: ${{ secrets.LOKI_AUTH_PASSWORD }}
+          loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
+          loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
+          loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
