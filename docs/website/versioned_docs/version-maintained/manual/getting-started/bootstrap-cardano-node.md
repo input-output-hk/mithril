@@ -11,14 +11,6 @@ import CompiledBinaries from '../../compiled-binaries.md'
 
 With the **Mithril client** connected to a **Mithril aggregator**, you can restore a full Cardano node in less than two hours!
 
-:::
-
-:::note Mithril networks
-
-<NetworksMatrix />
-
-:::
-
 ## Video demonstration
 
 In this video, you will witness the speed of bootstrapping a Cardano node with Mithril compared to classical bootstrapping. The benchmark was conducted on mainnet using the Daedalus wallet.

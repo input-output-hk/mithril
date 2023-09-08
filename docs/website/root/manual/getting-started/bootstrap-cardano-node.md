@@ -210,6 +210,41 @@ In the following part of the document, you will need to replace the `./mithril-c
 
 ### Step 1: Prepare some useful variables
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import CodeBlock from '@theme/CodeBlock';
+
+import networks from '../../networks.json';
+
+TODO: Generate tabs for each network
+
+<Tabs queryString="network">
+  <TabItem value="release-mainnet" label="Mainnet (release)" default>
+
+<CodeBlock language="shell">
+  {`# Cardano network
+export NETWORK=${networks["release-mainnet"].cardanoNetwork}
+  
+# Aggregator API endpoint URL
+export AGGREGATOR_ENDPOINT=${networks["release-mainnet"].aggregatorEndpoint}
+`}
+</CodeBlock>
+
+  </TabItem>
+  <TabItem value="release-preprod" label="Preprod (release)">
+
+<CodeBlock language="shell">
+  {`# Cardano network
+export NETWORK=${networks["release-preprod"].cardanoNetwork}
+  
+# Aggregator API endpoint URL
+export AGGREGATOR_ENDPOINT=${networks["release-preprod"].aggregatorEndpoint}
+`}
+</CodeBlock>
+
+  </TabItem>
+</Tabs>
+
 ```bash
 # Cardano network
 export NETWORK=**YOUR_CARDANO_NETWORK**
