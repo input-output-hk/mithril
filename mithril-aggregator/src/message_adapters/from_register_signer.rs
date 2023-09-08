@@ -1,3 +1,4 @@
+use anyhow::Context;
 use mithril_common::{
     entities::Signer,
     messages::{RegisterSignerMessage, TryFromMessageAdapter},
@@ -12,13 +13,26 @@ impl TryFromMessageAdapter<RegisterSignerMessage, Signer> for FromRegisterSigner
     fn try_adapt(register_signer_message: RegisterSignerMessage) -> StdResult<Signer> {
         Ok(Signer {
             party_id: register_signer_message.party_id,
-            verification_key: register_signer_message.verification_key.try_into()?,
+            verification_key: register_signer_message
+                .verification_key
+                .try_into()
+                .with_context(|| {
+                    "'FromRegisterSignerAdapter' can not convert the verification key"
+                })?,
             verification_key_signature: match register_signer_message.verification_key_signature {
-                Some(verification_key_signature) => Some(verification_key_signature.try_into()?),
+                Some(verification_key_signature) => {
+                    Some(verification_key_signature.try_into().with_context(|| {
+                        "'FromRegisterSignerAdapter' can not convert the verification key signature"
+                    })?)
+                }
                 _ => None,
             },
             operational_certificate: match register_signer_message.operational_certificate {
-                Some(operational_certificate) => Some(operational_certificate.try_into()?),
+                Some(operational_certificate) => {
+                    Some(operational_certificate.try_into().with_context(|| {
+                        "'FromRegisterSignerAdapter' can not convert the operational certificate"
+                    })?)
+                }
                 _ => None,
             },
             kes_period: register_signer_message.kes_period,
