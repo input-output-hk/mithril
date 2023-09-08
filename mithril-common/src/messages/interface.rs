@@ -22,3 +22,9 @@ where
     /// Adapt message to entity
     fn adapt(from: U) -> V;
 }
+
+/// TryTo message adapter trait
+pub trait TryToMessageAdapter<U, V> {
+    /// Adapt message to entity
+    fn try_adapt(from: U) -> StdResult<V>;
+}

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use mithril_common::{
     crypto_helper::{
         ProtocolOpCert, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
@@ -18,17 +19,28 @@ fn to_signers(messages: &[SignerMessagePart]) -> StdResult<Vec<Signer>> {
             msg.party_id.to_owned(),
             ProtocolSignerVerificationKey::from_json_hex(&msg.verification_key)?,
             match &msg.verification_key_signature {
-                Some(verification_key_signature) => {
-                    Some(ProtocolSignerVerificationKeySignature::from_json_hex(
+                Some(verification_key_signature) => Some(
+                    ProtocolSignerVerificationKeySignature::from_json_hex(
                         verification_key_signature,
-                    )?)
-                }
+                    )
+                    .with_context(|| {
+                        format!(
+                            "'FromPendingCertificateMessageAdapter' can not json hex decode the verification key signature: '{}'",
+                            verification_key_signature
+                        )
+                    })?,
+                ),
                 _ => None,
             },
             match &msg.operational_certificate {
-                Some(operational_certificate) => {
-                    Some(ProtocolOpCert::from_json_hex(operational_certificate)?)
-                }
+                Some(operational_certificate) => Some(
+                    ProtocolOpCert::from_json_hex(operational_certificate).with_context(|| {
+                        format!(
+                            "'FromPendingCertificateMessageAdapter' can not json hex decode the operational certificate: '{}'",
+                            operational_certificate
+                        )
+                    })?,
+                ),
                 _ => None,
             },
             msg.kes_period,
@@ -49,8 +61,18 @@ impl TryFromMessageAdapter<CertificatePendingMessage, CertificatePending>
             signed_entity_type: message.signed_entity_type,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
-            signers: to_signers(&message.signers)?,
-            next_signers: to_signers(&message.next_signers)?,
+            signers: to_signers(&message.signers).with_context(|| {
+                format!(
+                    "'FromPendingCertificateMessageAdapter' can not convert the list of current signers: '{:?}'",
+                    message.signers
+                )
+            })?,
+            next_signers: to_signers(&message.next_signers).with_context(|| {
+                format!(
+                    "'FromPendingCertificateMessageAdapter' can not convert the list of next signers: '{:?}'",
+                    message.next_signers
+                )
+            })?,
         };
 
         Ok(certificate)
