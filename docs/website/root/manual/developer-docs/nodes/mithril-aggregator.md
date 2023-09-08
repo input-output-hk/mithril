@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-import NetworksMatrix from '../../../networks-matrix.md';
+import NetworksMatrix from '../../../_networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril aggregator node

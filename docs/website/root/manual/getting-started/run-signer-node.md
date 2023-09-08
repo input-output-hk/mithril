@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-import NetworksMatrix from '../../networks-matrix.md';
+import NetworksMatrix from '../../_networks-matrix.md';
 import CompiledBinaries from '../../compiled-binaries.md'
 
 # Run a Mithril signer as an SPO

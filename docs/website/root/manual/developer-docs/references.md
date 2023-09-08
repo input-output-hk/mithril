@@ -2,8 +2,6 @@
 sidebar_position: 2
 ---
 
-import NetworksMatrix from '../../networks-matrix.md';
-
 # API references
 
 :::info
@@ -20,6 +18,7 @@ To learn more about the **Mithril protocol**, please refer to the [about Mithril
 
 ## Mithril networks
 
+import NetworksMatrix from '../../_networks-matrix.md';
 <NetworksMatrix />
 
 ## A list of dependencies 
