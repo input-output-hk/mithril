@@ -201,6 +201,9 @@ jobs:
           mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
           mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
           mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
+          mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
+          mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
+          mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
           prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
           prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}

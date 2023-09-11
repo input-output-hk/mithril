@@ -60,6 +60,15 @@ inputs:
   mithril_era_reader_secret_key: 
     description: Mithril era reader secret key (onlye for test networks).
     required: false
+  mithril_aggregator_snapshot_compression_algorithm: 
+    description: Mithril aggregator snapshot compression algorithm.
+    required: false
+  mithril_aggregator_zstandard_parameters_level: 
+    description: Mithril aggregator snapshot zstandard compression level.
+    required: false
+  mithril_aggregator_zstandard_parameters_workers: 
+    description: Mithril aggregator snapshot zstandard number of workers.
+    required: false
   prometheus_auth_username: 
     description: Prometheus metrics endpoint username.
     required: false
@@ -110,33 +119,36 @@ runs:
     working-directory: mithril-infra
     run: |
       cat > ./env.variables.tfvars << EOF
-        environment_prefix                      = "${{ inputs.environment_prefix }}"
-        cardano_network                         = "${{ inputs.cardano_network }}"
-        google_region                           = "${{ inputs.google_region }}"
-        google_zone                             = "${{ inputs.google_zone }}"
-        google_machine_type                     = "${{ inputs.google_machine_type }}"
-        google_compute_instance_data_disk_size  = "${{ inputs.google_compute_instance_data_disk_size }}"
-        google_service_credentials_json_file    = "./google-application-credentials.json"
-        mithril_api_domain                      = "${{ inputs.mithril_api_domain }}"
-        mithril_image_id                        = "${{ inputs.mithril_image_id }}"
-        mithril_genesis_verification_key_url    = "${{ inputs.mithril_genesis_verification_key_url }}"
-        mithril_genesis_secret_key              = "${{ inputs.mithril_genesis_secret_key }}"
-        mithril_protocol_parameters             = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
-        mithril_era_reader_adapter_type         = "cardano-chain"
-        mithril_era_reader_address_url          = "${{ inputs.mithril_era_reader_address_url }}"
-        mithril_era_reader_verification_key_url = "${{ inputs.mithril_era_reader_verification_key_url }}"
-        mithril_era_reader_secret_key           = "${{ inputs.mithril_era_reader_secret_key }}"
-        mithril_signers                         = ${{ fromJSON(inputs.mithril_signers) }}
-        prometheus_auth_username                = "${{ inputs.prometheus_auth_username }}"
-        prometheus_auth_password                = "${{ inputs.prometheus_auth_password }}"
-        prometheus_ingest_host                  = "${{ inputs.prometheus_ingest_host }}"
-        prometheus_ingest_username              = "${{ inputs.prometheus_ingest_username }}"
-        prometheus_ingest_password              = "${{ inputs.prometheus_ingest_password }}"
-        loki_auth_username                      = "${{ inputs.loki_auth_username }}"
-        loki_auth_password                      = "${{ inputs.loki_auth_password }}"
-        loki_ingest_host                        = "${{ inputs.loki_ingest_host }}"
-        loki_ingest_username                    = "${{ inputs.loki_ingest_username }}"
-        loki_ingest_password                    = "${{ inputs.loki_ingest_password }}"
+        environment_prefix                                = "${{ inputs.environment_prefix }}"
+        cardano_network                                   = "${{ inputs.cardano_network }}"
+        google_region                                     = "${{ inputs.google_region }}"
+        google_zone                                       = "${{ inputs.google_zone }}"
+        google_machine_type                               = "${{ inputs.google_machine_type }}"
+        google_compute_instance_data_disk_size            = "${{ inputs.google_compute_instance_data_disk_size }}"
+        google_service_credentials_json_file              = "./google-application-credentials.json"
+        mithril_api_domain                                = "${{ inputs.mithril_api_domain }}"
+        mithril_image_id                                  = "${{ inputs.mithril_image_id }}"
+        mithril_genesis_verification_key_url              = "${{ inputs.mithril_genesis_verification_key_url }}"
+        mithril_genesis_secret_key                        = "${{ inputs.mithril_genesis_secret_key }}"
+        mithril_protocol_parameters                       = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
+        mithril_signers                                   = ${{ fromJSON(inputs.mithril_signers) }}
+        mithril_era_reader_adapter_type                   = "cardano-chain"
+        mithril_era_reader_address_url                    = "${{ inputs.mithril_era_reader_address_url }}"
+        mithril_era_reader_verification_key_url           = "${{ inputs.mithril_era_reader_verification_key_url }}"
+        mithril_era_reader_secret_key                     = "${{ inputs.mithril_era_reader_secret_key }}"
+        mithril_aggregator_snapshot_compression_algorithm = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
+        mithril_aggregator_zstandard_parameters_level     = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
+        mithril_aggregator_zstandard_parameters_workers   = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
+        prometheus_auth_username                          = "${{ inputs.prometheus_auth_username }}"
+        prometheus_auth_password                          = "${{ inputs.prometheus_auth_password }}"
+        prometheus_ingest_host                            = "${{ inputs.prometheus_ingest_host }}"
+        prometheus_ingest_username                        = "${{ inputs.prometheus_ingest_username }}"
+        prometheus_ingest_password                        = "${{ inputs.prometheus_ingest_password }}"
+        loki_auth_username                                = "${{ inputs.loki_auth_username }}"
+        loki_auth_password                                = "${{ inputs.loki_auth_password }}"
+        loki_ingest_host                                  = "${{ inputs.loki_ingest_host }}"
+        loki_ingest_username                              = "${{ inputs.loki_ingest_username }}"
+        loki_ingest_password                              = "${{ inputs.loki_ingest_password }}"
       EOF
       terraform fmt ./env.variables.tfvars
       cat ./env.variables.tfvars
