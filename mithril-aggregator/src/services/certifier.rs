@@ -189,7 +189,7 @@ impl MithrilCertifierService {
             .open_message_repository
             .get_open_message_with_single_signatures(signed_entity_type)
             .await
-            .with_context(|| "Can not get open message with single signatures")?;
+            .with_context(|| "Certifier can not get open message with single signatures for signed entity type: '{signed_entity_type}'")?;
 
         Ok(open_message_with_single_signatures)
     }
@@ -199,7 +199,11 @@ impl MithrilCertifierService {
 impl CertifierService for MithrilCertifierService {
     async fn inform_epoch(&self, epoch: Epoch) -> StdResult<()> {
         debug!("CertifierService::inform_epoch(epoch: {epoch:?})");
-        let nb = self.open_message_repository.clean_epoch(epoch).await?;
+        let nb = self
+            .open_message_repository
+            .clean_epoch(epoch)
+            .await
+            .with_context(|| "Certifier can not clean open messages from epoch '{epoch}'")?;
         info!("MithrilCertifierService: Informed of a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures.");
 
         Ok(())
@@ -258,7 +262,7 @@ impl CertifierService for MithrilCertifierService {
             .await
             .with_context(|| {
                 format!(
-                    "Can not create open message from protocol_message: '{:?}, epoch: '{}''",
+                    "Certifier can not create open message from protocol_message: '{:?}, epoch: '{}''",
                     protocol_message,
                     signed_entity_type.get_epoch()
                 )
@@ -282,7 +286,7 @@ impl CertifierService for MithrilCertifierService {
             .open_message_repository
             .get_open_message_with_single_signatures(signed_entity_type)
             .await
-            .with_context(|| "Can not get open message with single signatures")?
+            .with_context(|| "Certifier can not get open message with single signatures for signed entity type: '{signed_entity_type}'")?
             .map(|record| record.into());
 
         Ok(open_message)
@@ -388,7 +392,9 @@ impl CertifierService for MithrilCertifierService {
         open_message_certified.is_certified = true;
         self.open_message_repository
             .update_open_message(&open_message_certified)
-            .await?;
+            .await
+            .with_context(|| "Certifier can not update open message for signed entity type: '{signed_entity_type}'")
+            ?;
 
         Ok(Some(certificate))
     }
