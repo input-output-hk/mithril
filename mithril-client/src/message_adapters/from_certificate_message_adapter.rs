@@ -1,3 +1,4 @@
+use anyhow::Context;
 use mithril_common::entities::{Certificate, CertificateMetadata, CertificateSignature};
 use mithril_common::messages::{
     CertificateMessage, SignerWithStakeMessagePart, TryFromMessageAdapter,
@@ -17,7 +18,10 @@ impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateM
             sealed_at: certificate_message.metadata.sealed_at,
             signers: SignerWithStakeMessagePart::try_into_signers(
                 certificate_message.metadata.signers,
-            )?,
+            )
+            .with_context(|| {
+                "'FromCertificateMessageAdapter' can not convert the list of signers"
+            })?,
         };
 
         let certificate = Certificate {
@@ -29,14 +33,27 @@ impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateM
             signed_message: certificate_message.signed_message,
             aggregate_verification_key: certificate_message
                 .aggregate_verification_key
-                .try_into()?,
+                .try_into()
+                .with_context(|| {
+                "'FromCertificateMessageAdapter' can not convert the aggregate verification key"
+            })?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateSignature::MultiSignature(
-                    certificate_message.multi_signature.try_into()?,
+                    certificate_message
+                        .multi_signature
+                        .try_into()
+                        .with_context(|| {
+                            "'FromCertificateMessageAdapter' can not convert the multi-signature"
+                        })?,
                 )
             } else {
                 CertificateSignature::GenesisSignature(
-                    certificate_message.genesis_signature.try_into()?,
+                    certificate_message
+                        .genesis_signature
+                        .try_into()
+                        .with_context(|| {
+                            "'FromCertificateMessageAdapter' can not convert the genesis signature"
+                        })?,
                 )
             },
         };

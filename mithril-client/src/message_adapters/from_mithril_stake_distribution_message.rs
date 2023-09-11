@@ -1,3 +1,4 @@
+use anyhow::Context;
 use mithril_common::{
     entities::{MithrilStakeDistribution, SignedEntity, SignedEntityType},
     messages::{
@@ -18,7 +19,10 @@ impl TryFromMessageAdapter<MithrilStakeDistributionMessage, SignedEntity<Mithril
             epoch: from.epoch,
             signers_with_stake: SignerWithStakeMessagePart::try_into_signers(
                 from.signers_with_stake,
-            )?,
+            )
+            .with_context(|| {
+                "'FromMithrilStakeDistributionMessageAdapter' can not convert the list of signers"
+            })?,
             hash: from.hash,
             protocol_parameters: from.protocol_parameters,
         };

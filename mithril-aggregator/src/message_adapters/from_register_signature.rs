@@ -1,3 +1,4 @@
+use anyhow::Context;
 use mithril_common::{
     entities::SingleSignatures,
     messages::{RegisterSignatureMessage, TryFromMessageAdapter},
@@ -14,7 +15,12 @@ impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
     ) -> StdResult<SingleSignatures> {
         let signatures = SingleSignatures {
             party_id: register_single_signature_message.party_id,
-            signature: register_single_signature_message.signature.try_into()?,
+            signature: register_single_signature_message
+                .signature
+                .try_into()
+                .with_context(|| {
+                    "'FromRegisterSingleSignatureAdapter' can not convert the single signature"
+                })?,
             won_indexes: register_single_signature_message.won_indexes,
         };
 
