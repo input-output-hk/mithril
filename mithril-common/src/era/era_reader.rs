@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::{str::FromStr, sync::Arc};
@@ -6,7 +7,7 @@ use thiserror::Error;
 use crate::entities::Epoch;
 use crate::{StdError, StdResult};
 
-use super::{supported_era::UnsupportedEraError, SupportedEra};
+use super::SupportedEra;
 
 /// Value object that represents a tag of Era change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -57,9 +58,9 @@ impl EraEpochToken {
     /// Try to cast the current [EraMarker] to a [SupportedEra]. If it fails,
     /// that means the current Era is not supported by this version of the
     /// software.
-    pub fn get_current_supported_era(&self) -> Result<SupportedEra, UnsupportedEraError> {
+    pub fn get_current_supported_era(&self) -> StdResult<SupportedEra> {
         SupportedEra::from_str(&self.current_era.name)
-            .map_err(|_| UnsupportedEraError::new(&self.current_era.name))
+            .map_err(|_| anyhow!(format!("Unsupported era '{}'.", &self.current_era.name)))
     }
 
     /// Return the [EraMarker] of the current Era.
@@ -76,11 +77,11 @@ impl EraEpochToken {
     /// means the coming Era will not be supported by this version of the
     /// software. This mechanism is used to issue a warning to the user asking
     /// for upgrade.
-    pub fn get_next_supported_era(&self) -> Result<Option<SupportedEra>, UnsupportedEraError> {
+    pub fn get_next_supported_era(&self) -> StdResult<Option<SupportedEra>> {
         match self.next_era.as_ref() {
             Some(marker) => Ok(Some(
                 SupportedEra::from_str(&marker.name)
-                    .map_err(|_| UnsupportedEraError::new(&self.current_era.name))?,
+                    .map_err(|_| anyhow!(format!("Unsupported era '{}'.", &marker.name)))?,
             )),
             None => Ok(None),
         }

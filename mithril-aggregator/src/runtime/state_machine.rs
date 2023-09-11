@@ -393,7 +393,6 @@ mod tests {
     use mockall::predicate;
 
     use mithril_common::entities::{Epoch, SignedEntityType};
-    use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
 
     use super::super::runner::MockAggregatorRunner;
@@ -793,7 +792,7 @@ mod tests {
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))
             .once()
-            .returning(|_| Err(UnsupportedEraError::new("whatever").into()));
+            .returning(|_| Err(anyhow!("ERROR")));
         runner
             .expect_close_signer_registration_round()
             .once()
