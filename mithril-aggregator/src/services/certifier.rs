@@ -346,7 +346,13 @@ impl CertifierService for MithrilCertifierService {
         let parent_certificate_hash = self
             .certificate_repository
             .get_master_certificate_for_epoch(open_message.epoch)
-            .await?
+            .await
+            .with_context(|| {
+                format!(
+                    "Certifier can not get master certificate for epoch: '{}'",
+                    open_message.epoch
+                )
+            })?
             .map(|cert| cert.hash)
             .ok_or_else(|| Box::new(CertifierServiceError::NoParentCertificateFound))?;
 
@@ -373,7 +379,10 @@ impl CertifierService for MithrilCertifierService {
         let certificate = self
             .certificate_repository
             .create_certificate(certificate)
-            .await?;
+            .await
+            .with_context(|| {
+                "Certifier can not create certificate for signed entity type: '{signed_entity_type}'"
+            })?;
 
         let mut open_message_certified: OpenMessageRecord = open_message_record.into();
         open_message_certified.is_certified = true;
@@ -392,6 +401,7 @@ impl CertifierService for MithrilCertifierService {
         self.certificate_repository
             .get_latest_certificates(last_n)
             .await
+            .with_context(|| "Certifier can not get last '{last_n}' certificates")
     }
 
     async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()> {

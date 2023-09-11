@@ -1,5 +1,5 @@
 use crate::database::provider::{CertificateRepository, SignedEntityStorer};
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use mithril_common::{entities::Certificate, StdResult};
 use slog_scope::{debug, info, trace};
 use std::{collections::HashMap, sync::Arc};
@@ -112,7 +112,8 @@ impl CertificatesHashMigrator {
         debug!("🔧 Certificate Hash Migrator: inserting migrated certificates in the database");
         self.certificate_repository
             .create_many_certificates(migrated_certificates)
-            .await?;
+            .await
+            .with_context(|| "Certificates Hash Migrator can not create many certificates")?;
 
         Ok((old_certificates, old_and_new_hashes))
     }
@@ -163,7 +164,8 @@ impl CertificatesHashMigrator {
         info!("🔧 Certificate Hash Migrator: deleting old certificates in the database");
         self.certificate_repository
             .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
-            .await?;
+            .await
+            .with_context(|| "Certificate Hash Migrator can not delete certificates")?;
 
         Ok(())
     }
@@ -175,6 +177,7 @@ mod test {
         apply_all_migrations_to_db, disable_foreign_key_support, CertificateRecord,
         CertificateRepository, SignedEntityRecord, SignedEntityStoreAdapter, SignedEntityStorer,
     };
+    use anyhow::Context;
     use mithril_common::{
         entities::{
             Beacon, Certificate, Epoch, ImmutableFileNumber,
@@ -244,7 +247,8 @@ mod test {
         for (certificate, discriminant_maybe) in certificates_and_signed_entity {
             certificate_repository
                 .create_certificate(certificate.clone())
-                .await?;
+                .await
+                .with_context(|| "Certificates Hash Migrator can not create certificate")?;
 
             let signed_entity_maybe = match discriminant_maybe {
                 None => None,
