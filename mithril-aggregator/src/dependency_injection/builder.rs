@@ -734,7 +734,7 @@ impl DependenciesBuilder {
             era_epoch_token.get_current_supported_era().map_err(|e| {
                 DependenciesBuilderError::Initialization {
                     message: "Error while building EraChecker".to_string(),
-                    error: Some(e.into()),
+                    error: Some(e),
                 }
             })?,
             era_epoch_token.get_current_epoch(),

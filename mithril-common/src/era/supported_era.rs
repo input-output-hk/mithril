@@ -1,22 +1,5 @@
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
-use thiserror::Error;
-
-/// Error related to [SupportedEra] String parsing implementation.
-#[derive(Debug, Error)]
-#[error("Unsupported Era '{era}'.")]
-pub struct UnsupportedEraError {
-    era: String,
-}
-
-impl UnsupportedEraError {
-    /// Create a new Era Error
-    pub fn new(era: &str) -> Self {
-        Self {
-            era: era.to_owned(),
-        }
-    }
-}
 
 /// The era that the software is running or will run
 #[derive(
