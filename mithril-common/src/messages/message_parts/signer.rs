@@ -1,5 +1,5 @@
 use crate::{
-    crypto_helper::KESPeriod,
+    crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
     entities::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         SignerWithStake, Stake,
@@ -7,6 +7,7 @@ use crate::{
     test_utils::fake_keys,
     StdResult,
 };
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
@@ -69,20 +70,26 @@ impl SignerWithStakeMessagePart {
         let mut signers: Vec<SignerWithStake> = Vec::new();
 
         for message in messages {
+            let verification_key_signature: Option<ProtocolSignerVerificationKeySignature> = message.verification_key_signature
+                .map(|f| f.try_into())
+                .transpose()
+                .with_context(|| format!("Error while parsing verification key signature message, party_id = '{}'", message.party_id))?;
+            let operational_certificate: Option<ProtocolOpCert> = message
+                .operational_certificate
+                .map(|f| f.try_into())
+                .transpose()
+                .with_context(|| {
+                    format!(
+                        "Error while parsinh operational certificate message, party_id = '{}'.",
+                        message.party_id
+                    )
+                })?;
             let value = SignerWithStake {
                 party_id: message.party_id,
                 verification_key: message.verification_key.try_into()?,
-                verification_key_signature: match message.verification_key_signature {
-                    Some(verification_key_signature) => {
-                        Some(verification_key_signature.try_into()?)
-                    }
-                    _ => None,
-                },
+                verification_key_signature,
                 kes_period: message.kes_period,
-                operational_certificate: match message.operational_certificate {
-                    Some(operational_certificate) => Some(operational_certificate.try_into()?),
-                    _ => None,
-                },
+                operational_certificate,
                 stake: message.stake,
             };
             signers.push(value);
