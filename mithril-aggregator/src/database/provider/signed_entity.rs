@@ -374,7 +374,7 @@ pub trait SignedEntityStorer: Sync + Send {
     ) -> StdResult<Option<SignedEntityRecord>>;
 
     /// Get signed entities type by certificates ids
-    async fn get_signed_entity_by_certificates_ids<'a>(
+    async fn get_signed_entities_by_certificates_ids<'a>(
         &self,
         certificates_ids: &[&'a str],
     ) -> StdResult<Vec<SignedEntityRecord>>;
@@ -449,7 +449,7 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         Ok(signed_entity)
     }
 
-    async fn get_signed_entity_by_certificates_ids<'a>(
+    async fn get_signed_entities_by_certificates_ids<'a>(
         &self,
         certificates_ids: &[&'a str],
     ) -> StdResult<Vec<SignedEntityRecord>> {
@@ -855,7 +855,7 @@ mod tests {
             .collect();
 
         let queried_records = store
-            .get_signed_entity_by_certificates_ids(&certificates_ids)
+            .get_signed_entities_by_certificates_ids(&certificates_ids)
             .await
             .expect("querying signed entity record by certificates ids should not fail");
 

@@ -2,6 +2,7 @@
 //!
 //! This service is responsible of dealing with [SignedEntity] type.
 //! It creates [Artifact] that can be accessed by clients.
+use anyhow::Context;
 use async_trait::async_trait;
 use chrono::Utc;
 use slog_scope::info;
@@ -144,7 +145,7 @@ impl SignedEntityService for MithrilSignedEntityService {
 
         self.signed_entity_storer
             .store_signed_entity(&signed_entity)
-            .await?;
+            .await.with_context(|| "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'")?;
 
         Ok(())
     }
@@ -159,7 +160,13 @@ impl SignedEntityService for MithrilSignedEntityService {
                 &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 total,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Signed Entity Service can not get last signed entities with type: '{:?}'",
+                    &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
+                )
+            })?;
         let mut signed_entities: Vec<SignedEntity<Snapshot>> = Vec::new();
 
         for record in signed_entities_records {
@@ -179,7 +186,13 @@ impl SignedEntityService for MithrilSignedEntityService {
                 &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 total,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Signed Entity Service can not get last signed entities with type: '{:?}'",
+                    &SignedEntityTypeDiscriminants::MithrilStakeDistribution
+                )
+            })?;
         let mut signed_entities: Vec<SignedEntity<MithrilStakeDistribution>> = Vec::new();
 
         for record in signed_entities_records {
@@ -196,8 +209,10 @@ impl SignedEntityService for MithrilSignedEntityService {
         let entity: Option<SignedEntity<Snapshot>> = match self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)
-            .await?
-        {
+            .await
+            .with_context(|| {
+                "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+            })? {
             Some(entity) => Some(entity.try_into()?),
             None => None,
         };
@@ -212,8 +227,10 @@ impl SignedEntityService for MithrilSignedEntityService {
         let entity: Option<SignedEntity<MithrilStakeDistribution>> = match self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)
-            .await?
-        {
+            .await
+            .with_context(|| {
+                "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+            })? {
             Some(entity) => Some(entity.try_into()?),
             None => None,
         };

@@ -129,8 +129,11 @@ impl CertificatesHashMigrator {
             .collect();
         let mut records_to_migrate = self
             .signed_entity_storer
-            .get_signed_entity_by_certificates_ids(&old_hashes)
-            .await?;
+            .get_signed_entities_by_certificates_ids(&old_hashes)
+            .await
+            .with_context(|| {
+                "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{old_hashes}'"
+            })?;
 
         debug!("🔧 Certificate Hash Migrator: updating signed entities certificate_ids to new computed hash");
         for signed_entity_record in records_to_migrate.iter_mut() {
@@ -155,7 +158,8 @@ impl CertificatesHashMigrator {
         debug!("🔧 Certificate Hash Migrator: updating migrated signed entities in the database");
         self.signed_entity_storer
             .update_signed_entities(records_to_migrate)
-            .await?;
+            .await
+            .with_context(|| "Certificates Hash Migrator can not update signed entities")?;
 
         Ok(())
     }
@@ -165,7 +169,9 @@ impl CertificatesHashMigrator {
         self.certificate_repository
             .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
             .await
-            .with_context(|| "Certificate Hash Migrator can not delete certificates")?;
+            .with_context(|| {
+                "Certificates Hash Migrator can not delete certificates with hashes: '{old_hashes}'"
+            })?;
 
         Ok(())
     }
@@ -277,7 +283,10 @@ mod test {
 
                     signed_entity_store
                         .store_signed_entity(&signed_entity_record)
-                        .await?;
+                        .await
+                        .with_context(|| {
+                            "Certificates Hash Migrator can not store signed entity"
+                        })?;
 
                     Some(signed_entity_record)
                 }
@@ -408,7 +417,8 @@ mod test {
             } else {
                 let record = signed_entity_store
                     .get_signed_entity_by_certificate_id(&certificate.hash)
-                    .await?;
+                    .await
+                    .with_context(|| "Certificates Hash Migrator can not get signed entity type by certificate id with hash: '{&certificate.hash}'")?;
                 result.push((certificate, record));
             }
         }
