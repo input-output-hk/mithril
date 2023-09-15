@@ -80,7 +80,7 @@ impl SignerWithStakeMessagePart {
                 .transpose()
                 .with_context(|| {
                     format!(
-                        "Error while parsinh operational certificate message, party_id = '{}'.",
+                        "Error while parsing operational certificate message, party_id = '{}'.",
                         message.party_id
                     )
                 })?;
