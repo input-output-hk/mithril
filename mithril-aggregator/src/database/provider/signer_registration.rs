@@ -426,7 +426,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
             .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
             .with_context(|| {
                 format!(
-                    "get signer registration record failure, signer_id: '{}', epoch: '{}'",
+                    "Get signer registration record failure with signer_id: '{}', epoch: '{}'",
                     signer.party_id, epoch
                 )
             })

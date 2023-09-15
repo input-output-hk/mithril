@@ -113,7 +113,9 @@ impl CertificatesHashMigrator {
         self.certificate_repository
             .create_many_certificates(migrated_certificates)
             .await
-            .with_context(|| "Certificates Hash Migrator can not create many certificates")?;
+            .with_context(|| {
+                "Certificates Hash Migrator can not insert migrated certificates in the database"
+            })?;
 
         Ok((old_certificates, old_and_new_hashes))
     }
@@ -131,9 +133,11 @@ impl CertificatesHashMigrator {
             .signed_entity_storer
             .get_signed_entities_by_certificates_ids(&old_hashes)
             .await
-            .with_context(|| {
-                "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{old_hashes}'"
-            })?;
+            .with_context(||
+                format!(
+                    "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{:?}'", old_hashes
+                )
+            )?;
 
         debug!("🔧 Certificate Hash Migrator: updating signed entities certificate_ids to new computed hash");
         for signed_entity_record in records_to_migrate.iter_mut() {
@@ -170,7 +174,7 @@ impl CertificatesHashMigrator {
             .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
             .await
             .with_context(|| {
-                "Certificates Hash Migrator can not delete certificates with hashes: '{old_hashes}'"
+                "Certificates Hash Migrator can not delete old certificates in the database"
             })?;
 
         Ok(())
@@ -254,7 +258,12 @@ mod test {
             certificate_repository
                 .create_certificate(certificate.clone())
                 .await
-                .with_context(|| "Certificates Hash Migrator can not create certificate")?;
+                .with_context(|| {
+                    format!(
+                        "Certificates Hash Migrator can not create certificate with hash: '{}'",
+                        certificate.hash
+                    )
+                })?;
 
             let signed_entity_maybe = match discriminant_maybe {
                 None => None,
@@ -418,7 +427,7 @@ mod test {
                 let record = signed_entity_store
                     .get_signed_entity_by_certificate_id(&certificate.hash)
                     .await
-                    .with_context(|| "Certificates Hash Migrator can not get signed entity type by certificate id with hash: '{&certificate.hash}'")?;
+                    .with_context(|| format!("Certificates Hash Migrator can not get signed entity type by certificate id with hash: '{}'", certificate.hash))?;
                 result.push((certificate, record));
             }
         }

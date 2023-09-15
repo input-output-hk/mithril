@@ -191,7 +191,10 @@ impl RuntimeTester {
             .create_certificate(genesis_certificate)
             .await
             .with_context(|| {
-                "Runtime Tester can not create certificate with fixture: '{fixture}'"
+                format!(
+                    "Runtime Tester can not create certificate with fixture: '{:?}'",
+                    fixture
+                )
             })?;
 
         Ok(())

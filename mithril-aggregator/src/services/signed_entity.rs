@@ -137,7 +137,7 @@ impl SignedEntityService for MithrilSignedEntityService {
 
         let signed_entity = SignedEntityRecord {
             signed_entity_id: artifact.get_id(),
-            signed_entity_type,
+            signed_entity_type: signed_entity_type.clone(),
             certificate_id: certificate.hash.clone(),
             artifact: serde_json::to_string(&artifact)?,
             created_at: Utc::now(),
@@ -145,7 +145,12 @@ impl SignedEntityService for MithrilSignedEntityService {
 
         self.signed_entity_storer
             .store_signed_entity(&signed_entity)
-            .await.with_context(|| "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'")?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
+                )
+            })?;
 
         Ok(())
     }
@@ -211,7 +216,9 @@ impl SignedEntityService for MithrilSignedEntityService {
             .get_signed_entity(signed_entity_id)
             .await
             .with_context(|| {
-                "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+                format!(
+                    "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+                )
             })? {
             Some(entity) => Some(entity.try_into()?),
             None => None,
@@ -229,7 +236,9 @@ impl SignedEntityService for MithrilSignedEntityService {
             .get_signed_entity(signed_entity_id)
             .await
             .with_context(|| {
-                "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+                format!(
+                    "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+                )
             })? {
             Some(entity) => Some(entity.try_into()?),
             None => None,

@@ -173,7 +173,10 @@ impl GenesisTools {
             .create_certificate(genesis_certificate.clone())
             .await
             .with_context(|| {
-                "Genesis tool can not create certificate with genesis signature: '{genesis_signature}'"
+                format!(
+                    "Genesis tool can not create certificate with genesis signature: '{:?}'",
+                    genesis_signature
+                )
             })?;
         Ok(())
     }
