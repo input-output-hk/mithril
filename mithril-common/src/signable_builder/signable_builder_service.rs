@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -47,16 +48,20 @@ impl SignableBuilderService for MithrilSignableBuilderService {
         signed_entity_type: SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
         let protocol_message = match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(e) => {
-                self.mithril_stake_distribution_builder
-                    .compute_protocol_message(e)
-                    .await?
-            }
-            SignedEntityType::CardanoImmutableFilesFull(beacon) => {
-                self.immutable_signable_builder
-                    .compute_protocol_message(beacon)
-                    .await?
-            }
+            SignedEntityType::MithrilStakeDistribution(e) => self
+                .mithril_stake_distribution_builder
+                .compute_protocol_message(e)
+                .await
+                .with_context(|| format!(
+                    "Signable builder service can not compute protocol message with epoch: '{e}'"
+                ))?,
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => self
+                .immutable_signable_builder
+                .compute_protocol_message(beacon.clone())
+                .await
+                .with_context(|| format!(
+                    "Signable builder service can not compute protocol message with beacon: '{beacon}'"
+                ))?,
             SignedEntityType::CardanoStakeDistribution(_) => todo!(),
         };
 
