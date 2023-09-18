@@ -162,7 +162,7 @@ runs:
     shell: bash
     working-directory: mithril-infra
     run: |
-      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}"
+      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}" -upgrade
 
   - name: Check Terraform
     shell: bash
