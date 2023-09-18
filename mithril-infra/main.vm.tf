@@ -3,6 +3,10 @@ terraform {
     google = {
       source = "hashicorp/google"
     }
+    googlesiteverification = {
+      source  = "hectorj/googlesiteverification"
+      version = "0.4.5"
+    }
   }
 }
 
@@ -19,7 +23,8 @@ resource "google_compute_network" "vpc_network" {
 
 resource "google_compute_instance" "vm_instance" {
   depends_on = [
-    google_compute_disk.boot
+    google_compute_disk.boot,
+    google_storage_bucket.cloud_storage
   ]
 
   name         = "${local.environment_name}-vm"

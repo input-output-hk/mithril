@@ -120,6 +120,12 @@ variable "google_service_credentials_json_file" {
   description = "The credentials of the GCP service account"
 }
 
+variable "google_storage_bucket_force_destroy" {
+  type        = bool
+  description = "Force destroy all items of the bucket when destroying the associated terraform resource"
+  default     = false
+}
+
 variable "google_storage_bucket_max_age" {
   type        = number
   description = "Number of days after which an object in the storage bucket expires"
@@ -176,6 +182,18 @@ variable "mithril_aggregator_zstandard_parameters_workers" {
   type        = string
   description = "Zstandard number of workers parameter"
   default     = "4"
+}
+
+variable "mithril_aggregator_snapshot_use_cdn_domain" {
+  type        = bool
+  description = "Use CDN domain for constructing snapshot url"
+  default     = false
+}
+
+variable "mithril_aggregator_cdn_cname" {
+  type        = string
+  description = "The CNAME field used for the mithril aggregator CDN"
+  default     = "c.storage.googleapis.com."
 }
 
 variable "mithril_aggregator_auth_username" {

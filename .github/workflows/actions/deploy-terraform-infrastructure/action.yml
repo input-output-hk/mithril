@@ -60,6 +60,13 @@ inputs:
   mithril_era_reader_secret_key: 
     description: Mithril era reader secret key (onlye for test networks).
     required: false
+  mithril_aggregator_cdn_cname:
+    description: Mithril aggregator uses CDN domain for constructing snapshot url.
+    required: true
+  mithril_aggregator_snapshot_use_cdn_domain:
+    description: Mithril aggregator CNAME field used for the snapshot CDN.
+    required: false
+    default: "false"
   mithril_aggregator_snapshot_compression_algorithm: 
     description: Mithril aggregator snapshot compression algorithm.
     required: false
@@ -136,6 +143,8 @@ runs:
         mithril_era_reader_address_url                    = "${{ inputs.mithril_era_reader_address_url }}"
         mithril_era_reader_verification_key_url           = "${{ inputs.mithril_era_reader_verification_key_url }}"
         mithril_era_reader_secret_key                     = "${{ inputs.mithril_era_reader_secret_key }}"
+        mithril_aggregator_cdn_cname                      = "${{ inputs.mithril_aggregator_cdn_cname }}"
+        mithril_aggregator_snapshot_use_cdn_domain        = ${{ inputs.mithril_aggregator_snapshot_use_cdn_domain }}
         mithril_aggregator_snapshot_compression_algorithm = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
         mithril_aggregator_zstandard_parameters_level     = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
         mithril_aggregator_zstandard_parameters_workers   = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
@@ -162,7 +171,7 @@ runs:
     shell: bash
     working-directory: mithril-infra
     run: |
-      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}"
+      GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ inputs.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ inputs.environment }}" -upgrade
 
   - name: Check Terraform
     shell: bash
