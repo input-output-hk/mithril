@@ -1,6 +1,7 @@
-use crate::digesters::{ImmutableFile, ImmutableFileListingError};
+use crate::digesters::ImmutableFile;
 use crate::entities::ImmutableFileNumber;
-use crate::StdResult;
+use crate::{StdError, StdResult};
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::ops::Add;
 use std::path::PathBuf;
@@ -14,7 +15,7 @@ where
     Self: Sync + Send,
 {
     /// Get the [ImmutableFileNumber] of the last immutable file in the cardano database.
-    async fn get_last_immutable_number(&self) -> Result<u64, ImmutableFileObserverError>;
+    async fn get_last_immutable_number(&self) -> StdResult<u64>;
 }
 
 /// [ImmutableFileObserver] related errors.
@@ -26,7 +27,7 @@ pub enum ImmutableFileObserverError {
 
     /// Raised when [immutable file listing][ImmutableFile::list_completed_in_dir] fails.
     #[error("immutable file creation error: {0}")]
-    ImmutableFileListing(#[from] ImmutableFileListingError),
+    ImmutableFileListing(StdError),
 }
 
 /// An [ImmutableFileObserver] using the filesystem.
@@ -45,11 +46,13 @@ impl ImmutableFileSystemObserver {
 
 #[async_trait]
 impl ImmutableFileObserver for ImmutableFileSystemObserver {
-    async fn get_last_immutable_number(&self) -> Result<u64, ImmutableFileObserverError> {
-        let immutable_file_number = ImmutableFile::list_completed_in_dir(&self.db_path)?
+    async fn get_last_immutable_number(&self) -> StdResult<u64> {
+        let immutable_file_number = ImmutableFile::list_completed_in_dir(&self.db_path)
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "Immutable File System Observer can not list all immutable files")?
             .into_iter()
             .last()
-            .ok_or(ImmutableFileObserverError::Missing())?
+            .ok_or(anyhow!(ImmutableFileObserverError::Missing()))?
             .number;
 
         Ok(immutable_file_number)
@@ -104,11 +107,11 @@ impl DumbImmutableFileObserver {
 
 #[async_trait]
 impl ImmutableFileObserver for DumbImmutableFileObserver {
-    async fn get_last_immutable_number(&self) -> Result<u64, ImmutableFileObserverError> {
+    async fn get_last_immutable_number(&self) -> StdResult<u64> {
         self.shall_return
             .read()
             .await
-            .ok_or_else(ImmutableFileObserverError::Missing)
+            .ok_or_else(|| anyhow!(ImmutableFileObserverError::Missing()))
     }
 }
 
