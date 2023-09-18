@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use semver::Version;
 use slog_scope::{debug, warn};
@@ -23,8 +24,8 @@ use mithril_common::{
 #[derive(Debug, Error)]
 pub enum CardanoImmutableFilesFullArtifactError {
     /// Protocol message part is missing
-    #[error("Missing protocol message: '{0}'.")]
-    MissingProtocolMessage(String),
+    #[error("Missing protocol message for beacon: '{0}'.")]
+    MissingProtocolMessage(Beacon),
 }
 
 /// A [CardanoImmutableFilesFullArtifact] builder
@@ -62,9 +63,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         let snapshot_digest = protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .ok_or_else(|| {
-                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(format!(
-                    "no digest message part found for beacon '{beacon:?}'."
-                ))
+                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(beacon.clone())
             })?;
         let snapshot_name = format!(
             "{}-e{}-i{}.{}.{}",
@@ -117,10 +116,9 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .ok_or_else(|| {
-                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(format!(
-                    "message part 'digest' not found for snapshot '{}'.",
-                    ongoing_snapshot.get_file_path().display()
-                ))
+                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(
+                    certificate.beacon.clone(),
+                )
             })?
             .to_owned();
         let snapshot = Snapshot::new(
@@ -145,8 +143,16 @@ impl ArtifactBuilder<Beacon, Snapshot> for CardanoImmutableFilesFullArtifactBuil
     ) -> StdResult<Snapshot> {
         let ongoing_snapshot = self
             .create_snapshot_archive(&beacon, &certificate.protocol_message)
-            .await?;
-        let locations = self.upload_snapshot_archive(&ongoing_snapshot).await?;
+            .await
+            .with_context(|| {
+                "Cardano Immutable Files Full Artifact Builder can not create snapshot archive"
+            })?;
+        let locations = self
+            .upload_snapshot_archive(&ongoing_snapshot)
+            .await
+            .with_context(|| {
+                format!("Cardano Immutable Files Full Artifact Builder can not upload snapshot archive to path: '{:?}'", ongoing_snapshot.get_file_path())
+            })?;
 
         let snapshot = self
             .create_snapshot(certificate, &ongoing_snapshot, locations)
