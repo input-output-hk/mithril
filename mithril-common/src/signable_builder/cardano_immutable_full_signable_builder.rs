@@ -9,6 +9,7 @@ use crate::{
     signable_builder::SignableBuilder,
     StdResult,
 };
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, info, Logger};
 
@@ -41,7 +42,13 @@ impl SignableBuilder<Beacon> for CardanoImmutableFilesFullSignableBuilder {
         let digest = self
             .immutable_digester
             .compute_digest(&self.dirpath, &beacon)
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Cardano Immutable Files Full Signable Builder can not compute digest of '{}'",
+                    &self.dirpath.display()
+                )
+            })?;
         info!(self.logger, "SignableBuilder: digest = '{digest}'.");
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);

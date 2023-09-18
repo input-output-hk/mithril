@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::Context;
 use mithril_common::{
     digesters::{CardanoImmutableDigester, DummyImmutableDb, ImmutableDigester},
     entities::{
@@ -108,7 +109,15 @@ pub async fn compute_immutable_files_signatures(
                 immutable_db.last_immutable_number().unwrap() - 1,
             );
             let digester = CardanoImmutableDigester::new(None, slog_scope::logger());
-            let digest = digester.compute_digest(&immutable_db.dir, &beacon).await?;
+            let digest = digester
+                .compute_digest(&immutable_db.dir, &beacon)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Payload Builder can not compute digest of '{}'",
+                        &immutable_db.dir.display()
+                    )
+                })?;
             let signers_fixture = signers_fixture.clone();
 
             let signatures = tokio::task::spawn_blocking(move || -> Vec<SingleSignatures> {
