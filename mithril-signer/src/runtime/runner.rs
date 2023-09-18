@@ -332,7 +332,8 @@ impl Runner for SignerRunner {
             .services
             .signable_builder_service
             .compute_protocol_message(signed_entity_type.to_owned())
-            .await?;
+            .await
+            .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
 
         // 2 set the next signers keys and stakes in the message
         let epoch = signed_entity_type.get_epoch();

@@ -363,7 +363,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .signable_builder_service
             .compute_protocol_message(signed_entity_type.to_owned())
-            .await?;
+            .await
+            .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
 
         let multi_signer = self.dependencies.multi_signer.write().await;
         protocol_message.set_message_part(
