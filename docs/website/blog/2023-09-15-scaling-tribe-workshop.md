@@ -36,8 +36,7 @@ Note this workshop was ran following the [Open Space](https://openspaceworld.org
 
 We were lucky to have _Matthias Benkort_, former member of Hydra team and prolific Cardano open-source contributor, attending our workshop, and we took this opportunity to have an introductory session on [Aiken](https://aiken-lang.org), an alternative Smart Contracts language for Cardano that compiles to Plutus Core which he is [building](https://github.com/aiken-lang/aiken) along with a small team of talented engineers.
 
-TODO: Matthias wanted to share the slides he showed
-
+* Matthias shared the [slides](https://slides.com/ktorz/aiken/fullscreen) he showed
 * During the introduction, SN adds `aiken` to the `hydra` project in anticipation of the next session
 * SN realizes that syntax highlighting for emacs would be great.
   - Having the lsp-mode integration in emacs would also be good (second step after syntax).
