@@ -1,8 +1,7 @@
-use anyhow::Result;
-
 use crate::{
     crypto_helper::ProtocolSigner,
     entities::{PartyId, ProtocolMessage, SingleSignatures},
+    StdResult,
 };
 
 /// The SingleSigner is the structure responsible for issuing SingleSignatures.
@@ -23,7 +22,7 @@ impl SingleSigner {
     /// Issue a single signature for the given message.
     ///
     /// If no lottery are won None will be returned.
-    pub fn sign(&self, message: &ProtocolMessage) -> Result<Option<SingleSignatures>> {
+    pub fn sign(&self, message: &ProtocolMessage) -> StdResult<Option<SingleSignatures>> {
         match self.protocol_signer.sign(message.compute_hash().as_bytes()) {
             Some(signature) => {
                 let won_indexes = signature.indexes.clone();
