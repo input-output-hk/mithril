@@ -1,3 +1,4 @@
+use anyhow::Context;
 use hex::ToHex;
 use slog_scope::{info, trace, warn};
 use std::path::PathBuf;
@@ -102,8 +103,20 @@ impl SingleSigner for MithrilSingleSigner {
         info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "signed message" => protocol_message.compute_hash().encode_hex::<String>());
         let signatures = builder
             .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer.clone())
+            .with_context(|| {
+                format!(
+                    "Mithril Single Signer can not restore signer with party_id: '{}'",
+                    self.party_id.clone()
+                )
+            })
             .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?
             .sign(protocol_message)
+            .with_context(|| {
+                format!(
+                    "Mithril Single Signer can not sign protocol_message: '{:?}'",
+                    protocol_message
+                )
+            })
             .map_err(SingleSignerError::SignatureFailed)?;
 
         match &signatures {
