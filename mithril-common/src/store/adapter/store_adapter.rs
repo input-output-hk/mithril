@@ -21,17 +21,9 @@ pub enum AdapterError {
     #[error("problem parsing the IO stream: {0:?}")]
     ParsingDataError(StdError),
 
-    /// Error raised if a writting operation fails.
-    #[error("problem writing on the adapter: {0:?}")]
-    MutationError(StdError),
-
     /// Error while querying the subsystem.
     #[error("problem when querying the adapter: {0:?}")]
     QueryError(StdError),
-
-    /// Type conversion cannot be performed by this adapter.
-    #[error("type conversion error, this adapter does not know how to handle this: {0:?}")]
-    TypeError(StdError),
 }
 
 /// Represent a way to store Key/Value pair data.
