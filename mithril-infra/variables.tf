@@ -160,6 +160,24 @@ variable "mithril_container_logging_driver" {
   default     = "json-file"
 }
 
+variable "mithril_aggregator_snapshot_compression_algorithm" {
+  type        = string
+  description = "The compression algorithm of the snapshot archive"
+  default     = "zstandard"
+}
+
+variable "mithril_aggregator_zstandard_parameters_level" {
+  type        = string
+  description = "Zstandard compression level parameter"
+  default     = "9"
+}
+
+variable "mithril_aggregator_zstandard_parameters_workers" {
+  type        = string
+  description = "Zstandard number of workers parameter"
+  default     = "4"
+}
+
 variable "mithril_aggregator_auth_username" {
   type        = string
   description = "The username for authentication on the mithril aggregator"
