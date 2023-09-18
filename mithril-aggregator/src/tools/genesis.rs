@@ -170,8 +170,14 @@ impl GenesisTools {
             .verify_genesis_certificate(&genesis_certificate, &self.genesis_verifier)
             .await?;
         self.certificate_repository
-            .create_certificate(genesis_certificate)
-            .await?;
+            .create_certificate(genesis_certificate.clone())
+            .await
+            .with_context(|| {
+                format!(
+                    "Genesis tool can not create certificate with genesis signature: '{:?}'",
+                    genesis_signature
+                )
+            })?;
         Ok(())
     }
 }

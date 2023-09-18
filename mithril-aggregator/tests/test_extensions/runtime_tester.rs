@@ -1,9 +1,11 @@
+use anyhow::Context;
 use mithril_aggregator::database::provider::SignedEntityRecord;
 use mithril_aggregator::{
     dependency_injection::DependenciesBuilder, event_store::EventMessage, AggregatorRuntime,
     Configuration, DumbSnapshotUploader, DumbSnapshotter, SignerRegisterer,
     SignerRegistrationError,
 };
+use mithril_common::StdResult;
 use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::ProtocolGenesisSigner,
@@ -178,7 +180,7 @@ impl RuntimeTester {
     pub async fn register_genesis_certificate(
         &mut self,
         fixture: &MithrilFixture,
-    ) -> Result<(), String> {
+    ) -> StdResult<()> {
         let beacon = self.observer.current_beacon().await;
         let genesis_certificate = fixture.create_genesis_certificate(&beacon);
         debug!("genesis_certificate: {genesis_certificate:?}");
@@ -188,7 +190,13 @@ impl RuntimeTester {
             .unwrap()
             .create_certificate(genesis_certificate)
             .await
-            .map_err(|e| format!("Saving the genesis certificate should not fail: {e:?}"))?;
+            .with_context(|| {
+                format!(
+                    "Runtime Tester can not create certificate with fixture: '{:?}'",
+                    fixture
+                )
+            })?;
+
         Ok(())
     }
 
