@@ -21,18 +21,41 @@ Note this workshop was ran following the [Open Space](https://openspaceworld.org
 
 # Sessions Notes & Summary
 
+## Continue "Kupo X Hydra" integration
+
+* We wanted to complete the integration work started [here](https://github.com/CardanoSolutions/kupo/pull/117) in the workshop
+* SN started by rebasing the repository which was fairly straight-forward, only
+  some conflicts on the `KupoSpec` and how the `endToEnd` spec is set up.
+* To allow for some nix-based development, but not requiring a flake.nix/flake.lock on the project, SN is trying to use `use flake "github:input-output-hk/devx#ghc8107-iog"` which worked flawlessly
+* The `cabal build` resulted in compiling quite a lot of libraries.. took 2292s.
+* While compiling we decided to continue with other sessions and need to continue this work asynchronously.
+
 ## Hydra Use cases
 
 ## Introduction to Aiken
 
 We were lucky to have _Matthias Benkort_, former member of Hydra team and prolific Cardano open-source contributor, attending our workshop, and we took this opportunity to have an introductory session on [Aiken](https://aiken-lang.org), an alternative Smart Contracts language for Cardano that compiles to Plutus Core which he is [building](https://github.com/aiken-lang/aiken) along with a small team of talented engineers.
 
+TODO: Matthias wanted to share the slides he showed
+
+* During the introduction, SN adds `aiken` to the `hydra` project in anticipation of the next session
+* SN realizes that syntax highlighting for emacs would be great.
+  - Having the lsp-mode integration in emacs would also be good (second step after syntax).
+* SN scratched that itch on the train home: [`aiken-mode`](https://github.com/ch1bo/aiken-mode)
+
 ## Hydra Scripts in Aiken
 
 * Being introduced to Aiken is great, but what's better is to experiment it first hand and test how it would feel to program Hydra smart contracts using it.
-* We rewrote one of the simplest contracts we have, namely the [Commit](https://github.com/input-output-hk/hydra/blob/ec6c7a2ab651462228475d0b34264e9a182c22bb/hydra-plutus/src/Hydra/Contract/Commit.hs) validator, [in Aiken](https://github.com/input-output-hk/hydra/blob/4ec572511fc13a526b85efce3aac556ae5bd007c/hydra-plutus/validators/commit.ak)
+
+* As the `hydra-node` just uses the UPLC binary and its hash to construct transactions, we could rely on the same interface, with the difference that the script binary gets produced by `aiken`
+* Aiken does produce a socalled blueprint `plutus.json` containing the contract. We staged that file into git and embedded it into a Haskell interface to be able to reference the compiled script as `SerialisedScript` from `hydra-node`.
+* Next, we ported one of the simplest contracts we have, namely the [Commit](https://github.com/input-output-hk/hydra/blob/ec6c7a2ab651462228475d0b34264e9a182c22bb/hydra-plutus/src/Hydra/Contract/Commit.hs) validator, [in Aiken](https://github.com/input-output-hk/hydra/blob/4ec572511fc13a526b85efce3aac556ae5bd007c/hydra-plutus/validators/commit.ak)
 * After some fiddling with internal representations of data strctures, it came out as a drop-in replacement for the existing script and we were able to run all our tests.
-* More importantly, this script gave the Hydra head lifecycle a performance boost on chain which [materialised](https://github.com/input-output-hk/hydra/pull/1072#issuecomment-1717644108) by doubling the supported number of parties in a Head
+  - Side note: the `plutus.json` embedding was making some problems as `hydra-plutus` was not automatically recompiled. Need to investigate that later.
+  - On first try, our test failed with `unListData` and we investigated.
+  - Seems like `plutus-tx` is encoding triples as `Constr` data on-chain. So we decode an aiken record as commit datum.
+  - Tests were green now right away!
+* More importantly, this script gave the Hydra head lifecycle a performance boost (or rather reduced cost) on chain which [materialised](https://github.com/input-output-hk/hydra/pull/1072#issuecomment-1717644108) by doubling the supported number of parties in a Head
 
 ## Synergies b/w Hydra & Mithril
 
