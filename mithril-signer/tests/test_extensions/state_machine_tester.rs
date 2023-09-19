@@ -302,7 +302,7 @@ impl StateMachineTester {
             .immutable_observer
             .get_last_immutable_number()
             .await
-            .map_err(|e| TestError::SubsystemError(e.into()))?;
+            .map_err(TestError::SubsystemError)?;
         let new_immutable = immutable_number + increment;
         self.assert(
             expected == new_immutable,

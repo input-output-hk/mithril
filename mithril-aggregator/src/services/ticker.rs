@@ -5,6 +5,7 @@
 
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::{
     chain_observer::ChainObserver,
@@ -70,7 +71,15 @@ impl TickerService for MithrilTickerService {
 
     async fn get_current_immutable_beacon(&self) -> StdResult<Beacon> {
         let epoch = self.get_current_epoch().await?;
-        let immutable_file_number = self.immutable_observer.get_last_immutable_number().await?;
+        let immutable_file_number = self
+            .immutable_observer
+            .get_last_immutable_number()
+            .await
+            .with_context(|| {
+                format!(
+                    "Mithril Ticker Service can not get last immutable file number for epoch: '{epoch}'"
+                )
+            })?;
 
         Ok(Beacon::new(
             self.network.to_string(),

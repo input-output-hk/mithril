@@ -58,15 +58,18 @@ impl BeaconProvider for BeaconProviderImpl {
             .get_current_epoch()
             .await
             .map_err(|e| anyhow!(e))
-            .with_context(|| "Can not get current epoch")?
+            .with_context(|| "Beacon Provider can not get current epoch")?
             .ok_or(BeaconProviderError::NoEpoch())?;
 
         let immutable_file_number = self
             .immutable_observer
             .get_last_immutable_number()
             .await
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "Can not get last immutable file number")?;
+            .with_context(|| {
+                format!(
+                    "Beacon Provider can not get last immutable file number for epoch: '{epoch}'"
+                )
+            })?;
 
         let beacon = Beacon {
             network: self.network.to_string(),
