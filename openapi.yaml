@@ -360,6 +360,34 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /statistics/snapshot:
+    post:
+      summary: Increments download statistics
+      description: Increments snapshot download statistics
+      requestBody:
+        description: Downloaded snapshot
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SnapshotMessage"
+      responses:
+        "201":
+          description: Statistic succesfully posted
+        "400":
+          description: Increments download statistics bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "412":
+          description: API version mismatch
+        default:
+          description: Snapshot download statistics error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   schemas:
