@@ -3,13 +3,16 @@
 //! These wrappers allows keeping mithril-stm agnostic to Cardano, while providing some
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
-use crate::crypto_helper::{
-    cardano::{ParseError, SerDeShelleyFileFormat},
-    types::{
-        ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
-        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+use crate::{
+    crypto_helper::{
+        cardano::SerDeShelleyFileFormat,
+        types::{
+            ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
+            ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+        },
+        ProtocolOpCert,
     },
-    ProtocolOpCert,
+    StdError, StdResult,
 };
 
 use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
@@ -17,6 +20,7 @@ use mithril_stm::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerif
 use mithril_stm::RegisterError;
 
 use crate::crypto_helper::cardano::Sum6KesBytes;
+use anyhow::{anyhow, Context};
 use blake2::{
     digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
@@ -36,7 +40,7 @@ type D = Blake2b<U32>;
 pub type KESPeriod = u32;
 
 /// New registration error
-#[derive(Error, Debug, PartialEq, Eq)]
+#[derive(Error, Debug)]
 pub enum ProtocolRegistrationErrorWrapper {
     /// Error raised when a party id is needed but not provided
     // TODO: Should be removed once the signer certification is fully deployed
@@ -72,16 +76,16 @@ pub enum ProtocolRegistrationErrorWrapper {
     PoolAddressEncoding,
 
     /// Error raised when a core registration error occurs
-    #[error("core registration error: '{0}'")]
-    CoreRegister(#[from] RegisterError),
+    #[error("core registration error: '{0:?}'")]
+    CoreRegister(StdError),
 }
 
 /// New initializer error
 #[derive(Error, Debug)]
 pub enum ProtocolInitializerErrorWrapper {
-    /// Error raised when a codec parse error occurs
-    #[error("codec parse error: '{0}'")]
-    Codec(#[from] ParseError),
+    /// Error raised when the underlying protocol initializer fails
+    #[error("protocol initializer error {0:?}")]
+    ProtocolInitializer(StdError),
 
     /// Error raised when a KES update error occurs
     #[error("KES key cannot be updated for period {0}")]
@@ -122,19 +126,22 @@ impl StmInitializerWrapper {
         kes_period: Option<KESPeriod>,
         stake: Stake,
         rng: &mut R,
-    ) -> Result<Self, ProtocolInitializerErrorWrapper> {
+    ) -> StdResult<Self> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
-            let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)?;
+            let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)
+                .map_err(|e| anyhow!(e))
+                .with_context(|| "StmInitializerWrapper can not read KES secret key from file")?;
             let mut kes_sk = Sum6Kes::try_from(&mut kes_sk_bytes)
-                .map_err(ProtocolInitializerErrorWrapper::Codec)?;
+                .map_err(|e| ProtocolInitializerErrorWrapper::ProtocolInitializer(anyhow!(e)))
+                .with_context(|| "StmInitializerWrapper can not use KES secret key")?;
             let kes_sk_period = kes_sk.get_period();
             let provided_period = kes_period.unwrap_or_default();
             if kes_sk_period > provided_period {
-                return Err(ProtocolInitializerErrorWrapper::KesMismatch(
+                return Err(anyhow!(ProtocolInitializerErrorWrapper::KesMismatch(
                     kes_sk_period,
                     provided_period,
-                ));
+                )));
             }
 
             // We need to perform the evolutions
@@ -192,7 +199,10 @@ impl StmInitializerWrapper {
         self,
         closed_reg: ClosedKeyReg<D>,
     ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
-        Ok(self.stm_initializer.new_signer(closed_reg)?)
+        self.stm_initializer
+            .new_signer(closed_reg)
+            .with_context(|| "StmInitializerWrapper can not create a new signer")
+            .map_err(|e| ProtocolRegistrationErrorWrapper::CoreRegister(anyhow!(e)))
     }
 
     /// Convert to bytes
@@ -279,7 +289,8 @@ impl KeyRegWrapper {
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             self.stm_key_reg
                 .register(stake, pk.into())
-                .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)?;
+                .with_context(|| format!("KeyRegWrapper can not register pool {pool_id_bech32}"))
+                .map_err(|e| ProtocolRegistrationErrorWrapper::CoreRegister(anyhow!(e)))?;
             return Ok(pool_id_bech32);
         }
         Err(ProtocolRegistrationErrorWrapper::PartyIdNonExisting)

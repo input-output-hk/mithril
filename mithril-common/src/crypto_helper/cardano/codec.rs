@@ -11,6 +11,7 @@
 //! The trait `SerDeShelleyFileFormat` can be implemented for any structure that implements
 //! `Serialize` and `Deserialize`.
 
+use anyhow::{anyhow, Context};
 use hex::FromHex;
 use kes_summed_ed25519::kes::Sum6Kes;
 use kes_summed_ed25519::traits::KesSk;
@@ -21,6 +22,8 @@ use std::fs;
 use std::io::Write;
 use std::path::Path;
 use thiserror::Error;
+
+use crate::StdError;
 
 /// We need to create this struct because the design of Sum6Kes takes
 /// a reference to a mutable pointer. It is therefore not possible to
@@ -33,22 +36,8 @@ pub struct Sum6KesBytes(#[serde(with = "As::<Bytes>")] pub [u8; 612]);
 
 /// Parse error
 #[derive(Error, Debug)]
-pub enum ParseError {
-    #[error("io error: `{0}`")]
-    IO(#[from] std::io::Error),
-
-    #[error("JSON parse error: `{0}`")]
-    JsonFormat(#[from] serde_json::Error),
-
-    #[error("CBOR hex codec error: `{0}`")]
-    CborHex(#[from] hex::FromHexError),
-
-    #[error("CBOR parse error: `{0}`")]
-    CborFormat(#[from] serde_cbor::Error),
-
-    #[error("Invalid KES format")]
-    KesFormat,
-}
+#[error("Codec parse error: `{0:?}`")]
+pub struct CodecParseError(StdError);
 
 /// Fields for a shelley formatted file (holds for vkeys, skeys or certs)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -71,19 +60,31 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
 
     /// Deserialize a type `T: Serialize + DeserializeOwned` from file following Cardano
     /// Shelley file format.
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ParseError> {
-        let data = fs::read_to_string(path)?;
-        let file: ShelleyFileFormat = serde_json::from_str(&data)?;
-        let hex_vector = Vec::from_hex(file.cbor_hex)?;
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, CodecParseError> {
+        let data = fs::read_to_string(path)
+            .with_context(|| "SerDeShelleyFileFormat can not read data from file {}")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+        let file: ShelleyFileFormat = serde_json::from_str(&data)
+            .with_context(|| "SerDeShelleyFileFormat can not unserialize json data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+        let hex_vector = Vec::from_hex(file.cbor_hex)
+            .with_context(|| "SerDeShelleyFileFormat can not unserialize hex data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+        let a: Self = serde_cbor::from_slice(&hex_vector)
+            .with_context(|| "SerDeShelleyFileFormat can not unserialize cbor data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
 
-        let a: Self = serde_cbor::from_slice(&hex_vector)?;
         Ok(a)
     }
 
     /// Serialize a type `T: Serialize + DeserializeOwned` to file following Cardano
     /// Shelley file format.
-    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ParseError> {
-        let cbor_string = hex::encode(serde_cbor::to_vec(&self)?);
+    fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), CodecParseError> {
+        let cbor_string = hex::encode(
+            serde_cbor::to_vec(&self)
+                .with_context(|| "SerDeShelleyFileFormat can not serialize data to cbor")
+                .map_err(|e| CodecParseError(anyhow!(e)))?,
+        );
 
         let file_format = ShelleyFileFormat {
             file_type: Self::TYPE.to_string(),
@@ -91,10 +92,16 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
             cbor_hex: cbor_string,
         };
 
-        let mut file = fs::File::create(path)?;
-        let json_str = serde_json::to_string(&file_format)?;
+        let mut file = fs::File::create(path)
+            .with_context(|| "SerDeShelleyFileFormat can not create file")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+        let json_str = serde_json::to_string(&file_format)
+            .with_context(|| "SerDeShelleyFileFormat can not serialize data to json")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
 
-        write!(file, "{json_str}")?;
+        write!(file, "{json_str}")
+            .with_context(|| "SerDeShelleyFileFormat can not write data to file")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
         Ok(())
     }
 }
@@ -106,10 +113,16 @@ impl SerDeShelleyFileFormat for Sum6KesBytes {
     /// Deserialize a Cardano key from file. Cardano KES key Shelley format does not
     /// contain the period (it is always zero). Therefore we need to include it in the
     /// deserialisation.
-    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ParseError> {
-        let data = fs::read_to_string(path)?;
-        let file: ShelleyFileFormat = serde_json::from_str(&data)?;
-        let mut hex_vector = Vec::from_hex(file.cbor_hex)?;
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, CodecParseError> {
+        let data = fs::read_to_string(path)
+            .with_context(|| "Sum6KesBytes can not read data from file")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+        let file: ShelleyFileFormat = serde_json::from_str(&data)
+            .with_context(|| "Sum6KesBytes can not unserialize json data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
+        let mut hex_vector = Vec::from_hex(file.cbor_hex)
+            .with_context(|| "Sum6KesBytes can not unserialize hex data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
 
         // We check whether the serialisation was performed by the haskell library or the rust library
         if (hex_vector[2] & 4u8) == 0 {
@@ -119,16 +132,18 @@ impl SerDeShelleyFileFormat for Sum6KesBytes {
             hex_vector.extend_from_slice(&[0u8; 4]);
         }
 
-        let a: Self = serde_cbor::from_slice(&hex_vector)?;
+        let a: Self = serde_cbor::from_slice(&hex_vector)
+            .with_context(|| "Sum6KesBytes can not unserialize cbor data")
+            .map_err(|e| CodecParseError(anyhow!(e)))?;
         Ok(a)
     }
 }
 
 impl<'a> TryFrom<&'a mut Sum6KesBytes> for Sum6Kes<'a> {
-    type Error = ParseError;
+    type Error = CodecParseError;
 
     fn try_from(value: &'a mut Sum6KesBytes) -> Result<Self, Self::Error> {
-        Self::from_bytes(&mut value.0).map_err(|_| ParseError::KesFormat)
+        Self::from_bytes(&mut value.0).map_err(|e| CodecParseError(anyhow!(format!("{e:?}"))))
     }
 }
 

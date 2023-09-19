@@ -4,7 +4,7 @@ use slog_scope::{info, trace, warn};
 use std::path::PathBuf;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer, ProtocolInitializerError};
+use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
 };
@@ -24,7 +24,7 @@ impl MithrilProtocolInitializerBuilder {
         protocol_parameters: &ProtocolParameters,
         kes_secret_key_path: Option<PathBuf>,
         kes_period: Option<KESPeriod>,
-    ) -> Result<ProtocolInitializer, ProtocolInitializerError> {
+    ) -> StdResult<ProtocolInitializer> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
             protocol_parameters.to_owned().into(),

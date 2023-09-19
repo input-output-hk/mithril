@@ -164,17 +164,20 @@ impl Runner for SignerRunner {
         let stake = stake_distribution
             .get(&self.services.single_signer.get_party_id())
             .ok_or_else(RunnerError::NoStakeForSelf)?;
-        let (operational_certificate, protocol_operational_certificate) =
-            match &self.config.operational_certificate_path {
-                Some(operational_certificate_path) => {
-                    let opcert: OpCert =
-                        OpCert::from_file(operational_certificate_path).map_err(|_| {
-                            RunnerError::FileParse("operational_certificate_path".to_string())
-                        })?;
-                    (Some(opcert.clone()), Some(ProtocolOpCert::new(opcert)))
-                }
-                _ => (None, None),
-            };
+        let (operational_certificate, protocol_operational_certificate) = match &self
+            .config
+            .operational_certificate_path
+        {
+            Some(operational_certificate_path) => {
+                let opcert: OpCert = OpCert::from_file(operational_certificate_path)
+                    .map_err(|_| RunnerError::FileParse("operational_certificate_path".to_string()))
+                    .with_context(|| {
+                        "register_signer_to_aggregator can not decode OpCert from file"
+                    })?;
+                (Some(opcert.clone()), Some(ProtocolOpCert::new(opcert)))
+            }
+            _ => (None, None),
+        };
 
         let kes_period = match operational_certificate {
             Some(operational_certificate) => Some(
