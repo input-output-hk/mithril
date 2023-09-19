@@ -2232,7 +2232,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.113"
+version = "0.2.114"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2302,7 +2302,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.79"
+version = "0.2.80"
 dependencies = [
  "anyhow",
  "async-trait",
