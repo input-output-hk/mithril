@@ -13,12 +13,11 @@ use mithril_common::{
 /// Error linked to [MithrilStakeDistributionArtifactBuilder].
 #[derive(Debug, Error)]
 pub enum MithrilStakeDistributionArtifactBuilderError {
-    /// Could not get protocol parameters
-    #[error(
-        "Could not build Mithril Stake Distribution artifact, no protocol parameters available."
-    )]
-    NoProtocolParameters(),
+    /// Protocol parameters are missing
+    #[error("Missing protocol parameter for epoch: '{0}'.")]
+    MissingProtocolParameters(Epoch),
 }
+
 /// A [MithrilStakeDistributionArtifact] builder
 pub struct MithrilStakeDistributionArtifactBuilder {
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
@@ -35,16 +34,15 @@ impl MithrilStakeDistributionArtifactBuilder {
 impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributionArtifactBuilder {
     async fn compute_artifact(
         &self,
-        beacon: Epoch,
+        epoch: Epoch,
         _certificate: &Certificate,
     ) -> StdResult<MithrilStakeDistribution> {
         let multi_signer = self.multi_signer.read().await;
-        let protocol_parameters = multi_signer
-            .get_next_protocol_parameters()
-            .await?
-            .ok_or_else(MithrilStakeDistributionArtifactBuilderError::NoProtocolParameters)?;
+        let protocol_parameters = multi_signer.get_next_protocol_parameters().await?.ok_or(
+            MithrilStakeDistributionArtifactBuilderError::MissingProtocolParameters(epoch),
+        )?;
         Ok(MithrilStakeDistribution::new(
-            beacon,
+            epoch,
             multi_signer.get_next_signers_with_stake().await?,
             &protocol_parameters.into(),
         ))
