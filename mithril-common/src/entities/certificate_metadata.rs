@@ -57,8 +57,18 @@ impl CertificateMetadata {
         let mut hasher = Sha256::new();
         hasher.update(self.protocol_version.as_bytes());
         hasher.update(self.protocol_parameters.compute_hash().as_bytes());
-        hasher.update(self.initiated_at.timestamp_nanos().to_be_bytes());
-        hasher.update(self.sealed_at.timestamp_nanos().to_be_bytes());
+        hasher.update(
+            self.initiated_at
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+                .to_be_bytes(),
+        );
+        hasher.update(
+            self.sealed_at
+                .timestamp_nanos_opt()
+                .unwrap_or_default()
+                .to_be_bytes(),
+        );
         self.signers
             .iter()
             .for_each(|signer| hasher.update(signer.compute_hash().as_bytes()));
