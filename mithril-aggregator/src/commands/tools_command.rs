@@ -60,7 +60,10 @@ impl RecomputeCertificatesHashCommand {
         debug!("RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
         println!("Recomputing all certificate hash",);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let connection = dependencies_builder.get_sqlite_connection().await?;
+        let connection = dependencies_builder
+            .get_sqlite_connection()
+            .await
+            .with_context(|| "Dependencies Builder can not get sqlite connection")?;
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
             Arc::new(SignedEntityStoreAdapter::new(connection.clone())),

@@ -88,7 +88,10 @@ impl ServeCommand {
         println!("Press Ctrl+C to stop");
 
         // start the monitoring thread
-        let mut event_store = dependencies_builder.create_event_store().await?;
+        let mut event_store = dependencies_builder
+            .create_event_store()
+            .await
+            .with_context(|| "Dependencies Builder can not create event store")?;
         let event_store_config = config.clone();
         let event_store_thread = tokio::spawn(async move {
             event_store
@@ -102,13 +105,19 @@ impl ServeCommand {
         });
 
         // start the aggregator runtime
-        let mut runtime = dependencies_builder.create_aggregator_runner().await?;
+        let mut runtime = dependencies_builder
+            .create_aggregator_runner()
+            .await
+            .with_context(|| "Dependencies Builder can not create aggregator runner")?;
         let mut join_set = JoinSet::new();
         join_set.spawn(async move { runtime.run().await.map_err(|e| e.to_string()) });
 
         // start the HTTP server
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let routes = dependencies_builder.create_http_routes().await?;
+        let routes = dependencies_builder
+            .create_http_routes()
+            .await
+            .with_context(|| "Dependencies Builder can not create http routes")?;
         join_set.spawn(async move {
             let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(
                 (
