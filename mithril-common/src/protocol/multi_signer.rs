@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Context};
 use mithril_stm::stm::StmParameters;
 
 use crate::{
@@ -7,6 +7,7 @@ use crate::{
         ProtocolMultiSignature,
     },
     entities::{ProtocolMessage, SingleSignatures},
+    StdResult,
 };
 
 /// MultiSigner is the cryptographic engine in charge of producing multi-signatures from individual signatures
@@ -52,7 +53,7 @@ impl MultiSigner {
         &self,
         message: &ProtocolMessage,
         single_signature: &SingleSignatures,
-    ) -> Result<()> {
+    ) -> StdResult<()> {
         let protocol_signature = single_signature.to_protocol_signature();
 
         let avk = self.compute_aggregate_verification_key();

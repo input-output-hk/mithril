@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
@@ -457,6 +458,7 @@ impl MultiSigner for MultiSignerImpl {
 
         protocol_multi_signer
             .verify_single_signature(message, single_signature)
+            .with_context(|| "Multi Signer can not verify multi-signature")
             .map_err(|error| ProtocolError::Core(error.to_string()))
     }
 

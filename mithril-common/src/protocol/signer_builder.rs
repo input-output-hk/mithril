@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Context;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use std::path::Path;
@@ -11,6 +11,7 @@ use crate::{
     },
     entities::{PartyId, ProtocolParameters, SignerWithStake},
     protocol::MultiSigner,
+    StdResult,
 };
 
 use super::SingleSigner;
@@ -35,7 +36,7 @@ impl SignerBuilder {
     pub fn new(
         registered_signers: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<Self> {
+    ) -> StdResult<Self> {
         if registered_signers.is_empty() {
             return Err(SignerBuilderError::EmptySigners.into());
         }
@@ -91,7 +92,7 @@ impl SignerBuilder {
         signer_with_stake: SignerWithStake,
         kes_secret_key_path: Option<&Path>,
         rng: &mut R,
-    ) -> Result<(SingleSigner, ProtocolInitializer)> {
+    ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         let protocol_initializer = ProtocolInitializer::setup(
             self.protocol_parameters.clone().into(),
             kes_secret_key_path,
@@ -127,7 +128,7 @@ impl SignerBuilder {
         &self,
         signer_with_stake: SignerWithStake,
         kes_secret_key_path: Option<&Path>,
-    ) -> Result<(SingleSigner, ProtocolInitializer)> {
+    ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         self.build_single_signer_with_rng(
             signer_with_stake,
             kes_secret_key_path,
@@ -142,7 +143,7 @@ impl SignerBuilder {
         &self,
         signer_with_stake: SignerWithStake,
         kes_secret_key_path: Option<&Path>,
-    ) -> Result<(SingleSigner, ProtocolInitializer)> {
+    ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
         let protocol_initializer_seed: [u8; 32] = signer_with_stake.party_id.as_bytes()[..32]
             .try_into()
             .unwrap();
@@ -169,7 +170,7 @@ impl SignerBuilder {
         &self,
         party_id: PartyId,
         protocol_initializer: ProtocolInitializer,
-    ) -> Result<SingleSigner> {
+    ) -> StdResult<SingleSigner> {
         let single_signer = protocol_initializer
             .new_signer(self.closed_key_registration.clone())
             .with_context(|| {
