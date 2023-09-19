@@ -7,7 +7,7 @@ use crate::{
     era::{EraMarker, EraReaderAdapter},
     StdError, StdResult,
 };
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -80,7 +80,8 @@ impl EraMarkersPayload {
 
         markers_verifier
             .verify(&self.message_to_bytes()?, &signature)
-            .map_err(|e| EraMarkersPayloadError::VerifySignature(e.into()))
+            .with_context(|| "era markers payload could not verify signature")
+            .map_err(EraMarkersPayloadError::VerifySignature)
     }
 
     /// Sign an era markers payload

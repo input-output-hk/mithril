@@ -1,8 +1,10 @@
-use ed25519_dalek::{SignatureError, Signer, SigningKey};
+use ed25519_dalek::{Signer, SigningKey};
 use rand_chacha::rand_core::{self, CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+use crate::{StdError, StdResult};
 
 use super::ProtocolKey;
 
@@ -20,7 +22,7 @@ pub type EraMarkersVerifierSignature = ProtocolKey<ed25519_dalek::Signature>;
 pub enum EraMarkersVerifierError {
     /// Error raised when a Signature verification fail
     #[error("era markers signature verification error: '{0}'")]
-    SignatureVerification(#[from] SignatureError),
+    SignatureVerification(StdError),
 }
 
 /// A cryptographic signer that is responsible for signing the EraMarkers
@@ -85,11 +87,7 @@ impl EraMarkersVerifier {
     }
 
     /// Verifies the signature of a message
-    pub fn verify(
-        &self,
-        message: &[u8],
-        signature: &EraMarkersVerifierSignature,
-    ) -> Result<(), EraMarkersVerifierError> {
+    pub fn verify(&self, message: &[u8], signature: &EraMarkersVerifierSignature) -> StdResult<()> {
         Ok(self.verification_key.verify_strict(message, signature)?)
     }
 }
