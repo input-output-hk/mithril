@@ -157,6 +157,7 @@ impl AggregatorHTTPClient {
     }
 
     /// Issue a POST HTTP request.
+    #[async_recursion]
     async fn post(&self, url: &str, json: &str) -> Result<Response, AggregatorHTTPClientError> {
         let request_builder = Client::new().post(url.to_owned()).json(json);
         let current_api_version = self
@@ -168,13 +169,31 @@ impl AggregatorHTTPClient {
         let request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
 
-        request_builder
-            .send()
-            .await
-            .map_err(|e| AggregatorHTTPClientError::SubsystemError {
-                message: format!("Error while posting data '{json}' to URL '{url}'."),
+        let response = request_builder.send().await.map_err(|e| {
+            AggregatorHTTPClientError::SubsystemError {
+                message: format!("Error while POSTing data '{json}' to URL='{url}'."),
                 error: e.into(),
-            })
+            }
+        })?;
+
+        match response.status() {
+            StatusCode::OK => Ok(response),
+            StatusCode::PRECONDITION_FAILED => {
+                if self.discard_current_api_version().await.is_some()
+                    && !self.api_versions.read().await.is_empty()
+                {
+                    return self.post(url, json).await;
+                }
+
+                Err(self.handle_api_error(&response).await)
+            }
+            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(format!(
+                "Url='{url} not found"
+            ))),
+            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(format!(
+                "Unhandled error {status_code}"
+            ))),
+        }
     }
 
     /// API version error handling

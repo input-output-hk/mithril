@@ -362,8 +362,8 @@ paths:
                 $ref: "#/components/schemas/Error"
   /statistics/snapshot:
     post:
-      summary: Increments download statistics
-      description: Increments snapshot download statistics
+      summary: Records snapshot download event
+      description: Records snapshot download event
       requestBody:
         description: Downloaded snapshot
         required: true
@@ -373,9 +373,9 @@ paths:
               $ref: "#/components/schemas/SnapshotMessage"
       responses:
         "201":
-          description: Statistic succesfully posted
+          description: Event successfully recorded
         "400":
-          description: Increments download statistics bad request
+          description: Record event bad request
           content:
             application/json:
               schema:
@@ -383,7 +383,7 @@ paths:
         "412":
           description: API version mismatch
         default:
-          description: Snapshot download statistics error
+          description: Record event error
           content:
             application/json:
               schema:

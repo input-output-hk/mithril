@@ -16,3 +16,5 @@ pub mod utils;
 
 pub use entities::*;
 pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};
+
+pub const MITHRIL_CLIENT_VERSION_HEADER: &str = "client-node-version";

@@ -1,4 +1,3 @@
-use mithril_common::MITHRIL_SIGNER_VERSION_HEADER;
 use std::sync::Arc;
 use warp::Filter;
 
@@ -17,9 +16,6 @@ fn post_statistics(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
-        .and(warp::header::optional::<String>(
-            MITHRIL_SIGNER_VERSION_HEADER,
-        ))
         .and(warp::body::json())
         .and(middlewares::with_event_transmitter(
             dependency_manager.clone(),
@@ -37,23 +33,20 @@ mod handlers {
     use crate::http_server::routes::reply;
 
     pub async fn post_snapshot_statistics(
-        signer_node_version: Option<String>,
         snapshot_message: SnapshotMessage,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let headers: Vec<(&str, &str)> = signer_node_version
-            .as_ref()
-            .map(|v| ("signer-node-version", v.as_str()))
-            .into_iter()
-            .collect();
-        let _ = event_transmitter.send_event_message(
+        let headers: Vec<(&str, &str)> = Vec::new();
+
+        match event_transmitter.send_event_message(
             "HTTP::statistics",
             "snapshot_downloaded",
             &snapshot_message,
             headers,
-        );
-
-        Ok(reply::empty(StatusCode::CREATED))
+        ) {
+            Err(e) => Ok(reply::internal_server_error(e)),
+            Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
+        }
     }
 }
 
