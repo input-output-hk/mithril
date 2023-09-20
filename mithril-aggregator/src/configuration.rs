@@ -1,18 +1,15 @@
+use anyhow::anyhow;
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use mithril_common::entities::{
     CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
 };
 use mithril_common::{CardanoNetwork, StdResult};
-
-use crate::tools::GcpFileUploader;
-use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
 
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -199,30 +196,10 @@ impl Configuration {
         format!("http://{}:{}/", self.server_ip, self.server_port)
     }
 
-    /// Create a snapshot uploader from configuration settings.
-    pub fn build_snapshot_uploader(&self) -> StdResult<Arc<dyn SnapshotUploader>> {
-        match self.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => {
-                let bucket = self.snapshot_bucket_name.to_owned().ok_or_else(|| {
-                    ConfigError::Message("missing snapshot bucket name".to_string())
-                })?;
-                Ok(Arc::new(RemoteSnapshotUploader::new(
-                    Box::new(GcpFileUploader::new(bucket.clone())),
-                    bucket,
-                    self.snapshot_use_cdn_domain,
-                )))
-            }
-            SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
-                self.get_server_url(),
-                &self.snapshot_directory,
-            ))),
-        }
-    }
-
     /// Check configuration and return a representation of the Cardano network.
-    pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
+    pub fn get_network(&self) -> StdResult<CardanoNetwork> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
-            .map_err(|e| ConfigError::Message(e.to_string()))
+            .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
     }
 
     /// Return the file of the SQLite stores. If the directory does not exist, it is created.

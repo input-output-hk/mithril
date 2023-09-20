@@ -469,7 +469,9 @@ impl DependenciesBuilder {
         let cli_runner = CardanoCliRunner::new(
             self.configuration.cardano_cli_path.clone(),
             self.configuration.cardano_node_socket_path.clone(),
-            self.configuration.get_network()?,
+            self.configuration.get_network().with_context(|| {
+                "Dependencies Builder can not get Cardano network while building cardano cli runner"
+            })?,
         );
 
         Ok(Box::new(cli_runner))
@@ -488,7 +490,9 @@ impl DependenciesBuilder {
         let beacon_provider = BeaconProviderImpl::new(
             self.get_chain_observer().await?,
             self.get_immutable_file_observer().await?,
-            self.configuration.get_network()?,
+            self.configuration.get_network().with_context(|| {
+                "Dependencies Builder can not get Cardano network while building beacon provider"
+            })?,
         );
 
         Ok(Arc::new(beacon_provider))
@@ -1045,7 +1049,9 @@ impl DependenciesBuilder {
 
         let config = AggregatorConfig::new(
             self.configuration.run_interval,
-            self.configuration.get_network()?,
+            self.configuration.get_network().with_context(|| {
+                "Dependencies Builder can not get Cardano network while creating aggregator runner"
+            })?,
             &self.configuration.db_directory.clone(),
         );
         let runtime = AggregatorRuntime::new(
@@ -1087,7 +1093,9 @@ impl DependenciesBuilder {
 
     /// Create [TickerService] instance.
     pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
-        let network = self.configuration.get_network()?;
+        let network = self.configuration.get_network().with_context(|| {
+            "Dependencies Builder can not get Cardano network while building ticker service"
+        })?;
         let chain_observer = self.get_chain_observer().await?;
         let immutable_observer = self.get_immutable_file_observer().await?;
 
