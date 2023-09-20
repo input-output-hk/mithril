@@ -73,7 +73,12 @@ impl ExportGenesisSubCommand {
             self.target_path.display()
         );
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let dependencies = dependencies_builder.create_genesis_container().await?;
+        let dependencies = dependencies_builder
+            .create_genesis_container()
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not create genesis command dependencies container"
+            })?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -105,7 +110,12 @@ impl ImportGenesisSubCommand {
             self.signed_payload_path.to_string_lossy()
         );
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let dependencies = dependencies_builder.create_genesis_container().await?;
+        let dependencies = dependencies_builder
+            .create_genesis_container()
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not create genesis command dependencies container"
+            })?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
@@ -170,7 +180,12 @@ impl BootstrapGenesisSubCommand {
         debug!("BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let dependencies = dependencies_builder.create_genesis_container().await?;
+        let dependencies = dependencies_builder
+            .create_genesis_container()
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not create genesis command dependencies container"
+            })?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies)
             .await
