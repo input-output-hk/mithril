@@ -135,13 +135,6 @@ mod handlers {
                 );
                 Ok(reply::empty(StatusCode::CREATED))
             }
-            Err(SignerRegistrationError::Codec(err)) => {
-                warn!("register_signer::failed_signer_decoding"; "error" => ?err);
-                Ok(reply::bad_request(
-                    "failed_signer_decoding".to_string(),
-                    err,
-                ))
-            }
             Err(SignerRegistrationError::FailedSignerRegistration(err)) => {
                 warn!("register_signer::failed_signer_registration"; "error" => ?err);
                 Ok(reply::bad_request(
@@ -312,9 +305,9 @@ mod tests {
         mock_signer_registerer
             .expect_register_signer()
             .return_once(|_, _| {
-                Err(SignerRegistrationError::FailedSignerRegistration(
-                    ProtocolRegistrationError::OpCertInvalid,
-                ))
+                Err(SignerRegistrationError::FailedSignerRegistration(anyhow!(
+                    ProtocolRegistrationError::OpCertInvalid
+                )))
             });
         mock_signer_registerer
             .expect_get_current_round()

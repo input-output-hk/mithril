@@ -332,7 +332,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .signer_registration_round_opener
             .open_registration_round(registration_epoch, stakes)
             .await
-            .map_err(|e| e.into())
     }
 
     async fn close_signer_registration_round(&self) -> StdResult<()> {
@@ -342,7 +341,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .signer_registration_round_opener
             .close_registration_round()
             .await
-            .map_err(|e| e.into())
     }
 
     async fn update_protocol_parameters_in_multisigner(
