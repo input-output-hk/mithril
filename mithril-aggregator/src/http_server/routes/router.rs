@@ -1,5 +1,6 @@
 use crate::http_server::routes::{
     artifact_routes, certificate_routes, epoch_routes, signatures_routes, signer_routes,
+    statistics_routes,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
@@ -13,8 +14,6 @@ use std::sync::Arc;
 use warp::http::Method;
 use warp::reject::Reject;
 use warp::{Filter, Rejection, Reply};
-
-use super::statistics;
 
 #[derive(Debug)]
 pub struct VersionMismatchError;
@@ -51,7 +50,7 @@ pub fn routes(
                 .or(signer_routes::routes(dependency_manager.clone()))
                 .or(signatures_routes::routes(dependency_manager.clone()))
                 .or(epoch_routes::routes(dependency_manager.clone()))
-                .or(statistics::routes(dependency_manager.clone()))
+                .or(statistics_routes::routes(dependency_manager.clone()))
                 .with(cors),
         )
         .recover(handle_custom)
