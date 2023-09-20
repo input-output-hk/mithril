@@ -47,23 +47,11 @@ pub enum CertifierServiceError {
     #[error("Open message for beacon {0:?} already certified.")]
     AlreadyCertified(SignedEntityType),
 
-    /// The given beacon is older than the current open message for this type.
-    #[error("Given beacon {0:?} is older than the current open message beacon.")]
-    BeaconTooOld(SignedEntityType),
-
-    /// The given OpenMessage already exists
-    #[error("An open message already exist for this beacon {0:?}, cannot create another one.")]
-    OpenMessageAlreadyExists(SignedEntityType),
-
     /// No parent certificate could be found, this certifier cannot create genesis certificates.
     #[error(
         "No parent certificate could be found, this certifier cannot create genesis certificates."
     )]
     NoParentCertificateFound,
-
-    /// Codec error.
-    #[error("codec error: '{0}'")]
-    Codec(String),
 
     /// No certificate for this epoch
     #[error("There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})")]
@@ -221,7 +209,7 @@ impl CertifierService for MithrilCertifierService {
 
         let open_message = self
             .get_open_message_record(signed_entity_type)
-            .await?
+            .await.with_context(|| format!("CertifierService can not get open message record for signed_entity_type: '{signed_entity_type}'"))?
             .ok_or_else(|| {
                 warn!("CertifierService::register_single_signature: OpenMessage not found for type {signed_entity_type:?}.");
                 CertifierServiceError::NotFound(signed_entity_type.clone())
@@ -380,7 +368,13 @@ impl CertifierService for MithrilCertifierService {
                 self.certificate_repository.clone(),
                 &self.genesis_verifier,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "CertificateVerifier can not verify certificate with hash: '{}'",
+                    certificate.hash
+                )
+            })?;
 
         let certificate = self
             .certificate_repository
@@ -433,7 +427,8 @@ impl CertifierService for MithrilCertifierService {
                     self.certificate_repository.clone(),
                     &self.genesis_verifier,
                 )
-                .await?;
+                .await
+                .with_context(|| "CertificateVerifier can not verify certificate chain")?;
 
             Ok(())
         } else {
