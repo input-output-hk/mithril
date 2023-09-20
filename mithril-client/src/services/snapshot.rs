@@ -260,7 +260,12 @@ impl SnapshotService for MithrilClientSnapshotService {
                 DownloadProgressReporter::new(pb, progress_output_type),
             )
             .await
-            .with_context(|| format!("Could not download file in '{}'", download_dir.display()))?;
+            .with_context(|| {
+                format!(
+                    "Could not download file in directory '{}'",
+                    download_dir.display()
+                )
+            })?;
 
         // Append 'clean' file to speedup node bootstrap
         if let Err(error) = File::create(db_dir.join("clean")) {
@@ -541,8 +546,11 @@ mod tests {
         let test_path = std::env::temp_dir().join("test_download_snapshot_ok");
         let _ = std::fs::remove_dir_all(&test_path);
 
-        let (http_client, certificate_verifier, digester) =
+        let (mut http_client, certificate_verifier, digester) =
             get_mocks_for_snapshot_service_configured_to_make_download_succeed();
+        http_client
+            .expect_post_content()
+            .returning(|_, _| Ok(String::new()));
 
         let mut builder = get_dep_builder(Arc::new(http_client));
         builder.certificate_verifier = Some(Arc::new(certificate_verifier));
@@ -581,8 +589,11 @@ mod tests {
             .join("test_download_snapshot_ok_add_clean_file_allowing_node_bootstrap_speedup");
         let _ = std::fs::remove_dir_all(&test_path);
 
-        let (http_client, certificate_verifier, digester) =
+        let (mut http_client, certificate_verifier, digester) =
             get_mocks_for_snapshot_service_configured_to_make_download_succeed();
+        http_client
+            .expect_post_content()
+            .returning(|_, _| Ok(String::new()));
 
         let mut builder = get_dep_builder(Arc::new(http_client));
         builder.certificate_verifier = Some(Arc::new(certificate_verifier));
@@ -625,8 +636,11 @@ mod tests {
         let test_path = std::env::temp_dir().join("test_download_snapshot_invalid_digest");
         let _ = std::fs::remove_dir_all(&test_path);
 
-        let (http_client, certificate_verifier, _) =
+        let (mut http_client, certificate_verifier, _) =
             get_mocks_for_snapshot_service_configured_to_make_download_succeed();
+        http_client
+            .expect_post_content()
+            .returning(|_, _| Ok(String::new()));
         let immutable_digester = DumbImmutableDigester::new("snapshot-digest-KO", true);
 
         let mut dep_builder = get_dep_builder(Arc::new(http_client));

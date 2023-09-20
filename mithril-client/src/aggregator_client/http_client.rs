@@ -54,6 +54,13 @@ pub trait AggregatorClient: Sync + Send {
     /// Get the content back from the Aggregator, the URL is a relative path for a resource
     async fn get_content(&self, url: &str) -> Result<String, AggregatorHTTPClientError>;
 
+    /// Post information to the Aggregator, the URL is a relative path for a resource
+    async fn post_content(
+        &self,
+        url: &str,
+        json: &str,
+    ) -> Result<String, AggregatorHTTPClientError>;
+
     /// Download and unpack large archives on the disk
     async fn download_unpack(
         &self,
@@ -149,6 +156,27 @@ impl AggregatorHTTPClient {
         }
     }
 
+    /// Issue a POST HTTP request.
+    async fn post(&self, url: &str, json: &str) -> Result<Response, AggregatorHTTPClientError> {
+        let request_builder = Client::new().post(url.to_owned()).json(json);
+        let current_api_version = self
+            .compute_current_api_version()
+            .await
+            .unwrap()
+            .to_string();
+        debug!("Prepare request with version: {current_api_version}");
+        let request_builder =
+            request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        request_builder
+            .send()
+            .await
+            .map_err(|e| AggregatorHTTPClientError::SubsystemError {
+                message: format!("Error while posting data '{json}' to URL '{url}'."),
+                error: e.into(),
+            })
+    }
+
     /// API version error handling
     async fn handle_api_error(&self, response: &Response) -> AggregatorHTTPClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
@@ -181,6 +209,26 @@ impl AggregatorClient for AggregatorHTTPClient {
                 message: format!("Could not find a JSON body in the response '{content}'."),
                 error: e.into(),
             })
+    }
+
+    async fn post_content(
+        &self,
+        url: &str,
+        json: &str,
+    ) -> Result<String, AggregatorHTTPClientError> {
+        let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
+        let response = self.post(&url, json).await?;
+
+        let body =
+            response
+                .text()
+                .await
+                .map_err(|e| AggregatorHTTPClientError::SubsystemError {
+                    message: "Could not find a text body in the response.".to_string(),
+                    error: e.into(),
+                })?;
+
+        Ok(body)
     }
 
     async fn download_unpack(
