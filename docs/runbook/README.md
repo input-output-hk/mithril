@@ -10,6 +10,7 @@ This page gathers the available guides to operate a Mithril network.
 |------------|------------|------------
 | **Genesis manually** | [manual-genesis](./genesis-manually/README.md) | Proceed to manual (re)genesis of the aggregator certificate chain.
 | **Era markers** | [era-markers](./era-markers/README.md) | Create and update era markers on the Cardano chain.
+| **Downloads statistics** | [downloads statistics](./statistics/README.md) | Display the number of downloads per day.
 | **Signer registrations monitoring** | [registrations-monitoring](./registrations-monitoring/README.md) | Gather aggregated data about signer registrations (versions, stake, ...).
 | **Update protocol parameters** | [protocol-parameters](./protocol-parameters/README.md) | Update the protocol parameters of a Mithril network.
 | **Recompute certificates hash** | [recompute-certificates-hash](./recompute-certificates-hash/README.md) | Recompute the certificates has of an aggregator.

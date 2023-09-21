@@ -75,7 +75,12 @@ impl SnapshotClient {
                     )
                     .await
                 {
-                    Ok(()) => Ok(()),
+                    Ok(()) => {
+                        // the snapshot download does not fail if the statistic call fails.
+                        let _ = self.add_statistics(snapshot).await;
+
+                        Ok(())
+                    }
                     Err(e) => {
                         warn!("Failed downloading snapshot from '{url}' Error: {e}.");
                         Err(e.into())
@@ -91,5 +96,14 @@ impl SnapshotClient {
             locations,
         }
         .into())
+    }
+
+    /// Increments Aggregator's download statistics
+    pub async fn add_statistics(&self, snapshot: &Snapshot) -> StdResult<()> {
+        let url = "statistics/snapshot";
+        let json = serde_json::to_string(snapshot)?;
+        let _response = self.http_client.post_content(url, &json).await?;
+
+        Ok(())
     }
 }

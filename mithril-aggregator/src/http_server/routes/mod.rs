@@ -6,3 +6,4 @@ mod reply;
 pub mod router;
 mod signatures_routes;
 mod signer_routes;
+mod statistics_routes;

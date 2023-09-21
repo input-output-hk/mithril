@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.10
+  version: 0.1.11
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -356,6 +356,34 @@ paths:
           description: API version mismatch
         default:
           description: signatures registration error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /statistics/snapshot:
+    post:
+      summary: Records snapshot download event
+      description: Records snapshot download event
+      requestBody:
+        description: Downloaded snapshot
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SnapshotMessage"
+      responses:
+        "201":
+          description: Event successfully recorded
+        "400":
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "412":
+          description: API version mismatch
+        default:
+          description: Record event error
           content:
             application/json:
               schema:

@@ -4,6 +4,7 @@
 .DS_Store
 .direnv/
 .tmp/
+.vscode/
 target
 target-*
 test-results.xml
