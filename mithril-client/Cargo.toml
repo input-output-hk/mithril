@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.4.1"
+version = "0.4.2"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
