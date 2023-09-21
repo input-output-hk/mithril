@@ -3,6 +3,7 @@ use crate::{
     runtime::{AggregatorRunnerTrait, RuntimeError},
 };
 
+use anyhow::Context;
 use mithril_common::entities::Beacon;
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
@@ -162,7 +163,10 @@ impl AggregatorRuntime {
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
-                let chain_beacon = self.runner.get_beacon_from_chain().await?;
+                let chain_beacon =
+                    self.runner.get_beacon_from_chain().await.with_context(|| {
+                        "AggregatorRuntime in the state IDLE can not get current beacon from chain"
+                    })?;
 
                 info!(
                     "→ new Beacon settings found, trying to transition to READY";
@@ -176,7 +180,10 @@ impl AggregatorRuntime {
                 });
             }
             AggregatorState::Ready(state) => {
-                let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
+                let chain_beacon: Beacon =
+                    self.runner.get_beacon_from_chain().await.with_context(|| {
+                        "AggregatorRuntime in the state READY can not get current beacon from chain"
+                    })?;
 
                 if chain_beacon
                     .compare_to_older(&state.current_beacon)
@@ -193,13 +200,13 @@ impl AggregatorRuntime {
                 } else if let Some(open_message) = self
                     .runner
                     .get_current_non_certified_open_message()
-                    .await?
+                    .await.with_context(|| "AggregatorRuntime can not get the current non certified open message")?
                 {
                     // transition READY > SIGNING
                     info!("→ transitioning to SIGNING");
                     let new_state = self
-                        .transition_from_ready_to_signing(chain_beacon, open_message)
-                        .await?;
+                        .transition_from_ready_to_signing(chain_beacon.clone(), open_message.clone())
+                        .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
                     self.state = AggregatorState::Signing(new_state);
                 } else {
                     // READY > READY
@@ -213,13 +220,17 @@ impl AggregatorRuntime {
                 }
             }
             AggregatorState::Signing(state) => {
-                let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
+                let chain_beacon: Beacon =
+                    self.runner.get_beacon_from_chain().await.with_context(|| {
+                        "AggregatorRuntime in the state SIGNING can not get current beacon from chain"
+                    })?;
                 let has_newer_open_message = if let Some(open_message_new) = self
                     .runner
                     .get_current_non_certified_open_message_for_signed_entity_type(
                         &state.open_message.signed_entity_type,
                     )
-                    .await?
+                    .await
+                    .with_context(|| format!("AggregatorRuntime can not get the current non certified open message for signed entity type: '{}'", &state.open_message.signed_entity_type))?
                 {
                     open_message_new.signed_entity_type != state.open_message.signed_entity_type
                 } else {
