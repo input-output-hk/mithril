@@ -26,14 +26,14 @@ fn post_statistics(
 mod handlers {
     use std::{convert::Infallible, sync::Arc};
 
-    use mithril_common::messages::SnapshotMessage;
+    use mithril_common::messages::SnapshotDownloadMessage;
     use reqwest::StatusCode;
 
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::http_server::routes::reply;
 
     pub async fn post_snapshot_statistics(
-        snapshot_message: SnapshotMessage,
+        snapshot_download_message: SnapshotDownloadMessage,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
         let headers: Vec<(&str, &str)> = Vec::new();
@@ -41,7 +41,7 @@ mod handlers {
         match event_transmitter.send_event_message(
             "HTTP::statistics",
             "snapshot_downloaded",
-            &snapshot_message,
+            &snapshot_download_message,
             headers,
         ) {
             Err(e) => Ok(reply::internal_server_error(e)),
@@ -54,7 +54,7 @@ mod handlers {
 mod tests {
     use super::*;
 
-    use mithril_common::messages::SnapshotMessage;
+    use mithril_common::messages::SnapshotDownloadMessage;
     use mithril_common::test_utils::apispec::APISpec;
 
     use warp::{http::Method, test::request};
@@ -82,14 +82,14 @@ mod tests {
         let mut builder = DependenciesBuilder::new(config);
         let mut rx = builder.get_event_transmitter_receiver().await.unwrap();
         let dependency_manager = builder.build_dependency_container().await.unwrap();
-        let snapshot_message = SnapshotMessage::dummy();
+        let snapshot_download_message = SnapshotDownloadMessage::dummy();
 
         let method = Method::POST.as_str();
         let path = "/statistics/snapshot";
 
         let response = request()
             .method(method)
-            .json(&snapshot_message)
+            .json(&snapshot_download_message)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -99,7 +99,7 @@ mod tests {
             method,
             path,
             "application/json",
-            &snapshot_message,
+            &snapshot_download_message,
             &response,
         );
 
