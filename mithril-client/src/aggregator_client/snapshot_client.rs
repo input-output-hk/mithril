@@ -6,12 +6,14 @@ use thiserror::Error;
 
 use mithril_common::{
     entities::Snapshot,
-    messages::{SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage},
+    messages::{SnapshotListItemMessage, SnapshotListMessage, SnapshotMessage, ToMessageAdapter},
     StdResult,
 };
 
-use crate::aggregator_client::AggregatorClient;
 use crate::utils::DownloadProgressReporter;
+use crate::{
+    aggregator_client::AggregatorClient, message_adapters::ToSnapshotDownloadMessageAdapter,
+};
 
 /// Error for the Snapshot client
 #[derive(Error, Debug)]
@@ -77,7 +79,9 @@ impl SnapshotClient {
                 {
                     Ok(()) => {
                         // the snapshot download does not fail if the statistic call fails.
-                        let _ = self.add_statistics(snapshot).await;
+                        if let Err(e) = self.add_statistics(snapshot).await {
+                            warn!("Could not POST snapshot download statistics: {e:?}");
+                        }
 
                         Ok(())
                     }
@@ -101,7 +105,8 @@ impl SnapshotClient {
     /// Increments Aggregator's download statistics
     pub async fn add_statistics(&self, snapshot: &Snapshot) -> StdResult<()> {
         let url = "statistics/snapshot";
-        let json = serde_json::to_string(snapshot)?;
+        let snapshot_download_message = ToSnapshotDownloadMessageAdapter::adapt(snapshot);
+        let json = serde_json::to_string(&snapshot_download_message)?;
         let _response = self.http_client.post_content(url, &json).await?;
 
         Ok(())

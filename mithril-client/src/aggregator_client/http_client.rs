@@ -159,7 +159,8 @@ impl AggregatorHTTPClient {
     /// Issue a POST HTTP request.
     #[async_recursion]
     async fn post(&self, url: &str, json: &str) -> Result<Response, AggregatorHTTPClientError> {
-        let request_builder = Client::new().post(url.to_owned()).json(json);
+        debug!("POST url='{url}' json='{json}'.");
+        let request_builder = Client::new().post(url.to_owned()).body(json.to_owned());
         let current_api_version = self
             .compute_current_api_version()
             .await
@@ -177,7 +178,7 @@ impl AggregatorHTTPClient {
         })?;
 
         match response.status() {
-            StatusCode::OK => Ok(response),
+            StatusCode::OK | StatusCode::CREATED => Ok(response),
             StatusCode::PRECONDITION_FAILED => {
                 if self.discard_current_api_version().await.is_some()
                     && !self.api_versions.read().await.is_empty()
