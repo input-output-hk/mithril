@@ -11,6 +11,7 @@ mod mithril_stake_distribution_list;
 mod register_signature;
 mod register_signer;
 mod snapshot;
+mod snapshot_download;
 mod snapshot_list;
 
 pub use certificate::CertificateMessage;
@@ -28,4 +29,5 @@ pub use mithril_stake_distribution_list::{
 pub use register_signature::RegisterSignatureMessage;
 pub use register_signer::RegisterSignerMessage;
 pub use snapshot::SnapshotMessage;
+pub use snapshot_download::SnapshotDownloadMessage;
 pub use snapshot_list::{SnapshotListItemMessage, SnapshotListMessage};
