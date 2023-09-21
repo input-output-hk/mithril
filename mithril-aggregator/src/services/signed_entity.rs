@@ -92,16 +92,26 @@ impl MithrilSignedEntityService {
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<Arc<dyn Artifact>> {
-        match signed_entity_type {
+        match signed_entity_type.clone() {
             SignedEntityType::MithrilStakeDistribution(epoch) => Ok(Arc::new(
                 self.mithril_stake_distribution_artifact_builder
                     .compute_artifact(epoch, certificate)
-                    .await?,
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
+                        )
+                    })?,
             )),
             SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Arc::new(
                 self.cardano_immutable_files_full_artifact_builder
-                    .compute_artifact(beacon, certificate)
-                    .await?,
+                    .compute_artifact(beacon.clone(), certificate)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
+                        )
+                    })?,
             )),
             SignedEntityType::CardanoStakeDistribution(_) => todo!(),
         }
