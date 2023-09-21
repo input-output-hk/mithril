@@ -365,12 +365,12 @@ paths:
       summary: Records snapshot download event
       description: Records snapshot download event
       requestBody:
-        description: Downloaded snapshot
+        description: Downloaded snapshot message
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SnapshotMessage"
+              $ref: "#/components/schemas/SnapshotDownloadMessage"
       responses:
         "201":
           description: Event successfully recorded
@@ -1137,6 +1137,60 @@ components:
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "size": 26058531636,
           "created_at": "2022-07-21T17:32:28Z",
+          "locations":
+            [
+              "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+              "https://mithril-cdn-eu.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+              "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C",
+              "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT"
+            ],
+          "compression_algorithm": "zstandard",
+          "cardano_node_version": "1.0.0"
+        }
+
+    SnapshotDownloadMessage:
+      description: SnapshotDownloadMessage represents a downloaded snapshot event
+      type: object
+      additionalProperties: false
+      required:
+        - digest
+        - beacon
+        - size
+        - locations
+        - compression_algorithm
+        - cardano_node_version
+      properties:
+        digest:
+          description: Digest that is signed by the signer participants
+          type: string
+          format: bytes
+        beacon:
+          $ref: "#/components/schemas/Beacon"
+        size:
+          description: Size of the snapshot file in Bytes
+          type: integer
+          format: int64
+        locations:
+          description: Locations where the binary content of the snapshot can be retrieved
+          type: array
+          items:
+            type: string
+        compression_algorithm:
+          description: Compression algorithm for the snapshot archive
+          type: string
+        cardano_node_version:
+          description: Version of the Cardano node which is used to create snapshot archives.
+          type: string
+      example:
+        {
+          "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "beacon":
+            {
+              "network": "mainnet",
+              "epoch": 329,
+              "immutable_file_number": 7060000
+            },
+          "size": 26058531636,
           "locations":
             [
               "https://mithril-cdn-us.iohk.io/snapshot/6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
