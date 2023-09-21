@@ -1,6 +1,6 @@
 # Statistics
 
-## Snapshot downloads per snapshot per day
+## Snapshot downloads per day
 
 ```sh
 $> sqlite3 -table -batch \

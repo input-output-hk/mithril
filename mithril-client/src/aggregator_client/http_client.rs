@@ -238,16 +238,13 @@ impl AggregatorClient for AggregatorHTTPClient {
         let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
         let response = self.post(&url, json).await?;
 
-        let body =
-            response
-                .text()
-                .await
-                .map_err(|e| AggregatorHTTPClientError::SubsystemError {
-                    message: "Could not find a text body in the response.".to_string(),
-                    error: e.into(),
-                })?;
-
-        Ok(body)
+        response
+            .text()
+            .await
+            .map_err(|e| AggregatorHTTPClientError::SubsystemError {
+                message: "Could not find a text body in the response.".to_string(),
+                error: e.into(),
+            })
     }
 
     async fn download_unpack(
