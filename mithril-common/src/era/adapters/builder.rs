@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
+use std::{fmt::Display, path::PathBuf, sync::Arc};
 use thiserror::Error;
 
 use crate::{
@@ -28,6 +28,17 @@ pub enum AdapterType {
     Dummy,
     /// Bootstrap adapter.
     Bootstrap,
+}
+
+impl Display for AdapterType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Bootstrap => write!(f, "bootstrap"),
+            Self::CardanoChain => write!(f, "cardano chain"),
+            Self::Dummy => write!(f, "dummy"),
+            Self::File => write!(f, "file"),
+        }
+    }
 }
 
 /// Error type for era adapter builder service.

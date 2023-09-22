@@ -138,7 +138,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     }
 
     async fn build_sqlite_connection(&self) -> StdResult<Arc<Mutex<Connection>>> {
-        let sqlite_db_path = self.config.get_sqlite_file();
+        let sqlite_db_path = self.config.get_sqlite_file()?;
         let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),

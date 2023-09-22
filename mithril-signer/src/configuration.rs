@@ -1,3 +1,4 @@
+use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
@@ -76,21 +77,30 @@ pub struct Configuration {
 
 impl Configuration {
     /// Return the CardanoNetwork value from the configuration.
-    pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
-        CardanoNetwork::from_code(self.network.clone(), self.network_magic)
-            .map_err(|e| ConfigError::Message(e.to_string()))
+    pub fn get_network(&self) -> StdResult<CardanoNetwork> {
+        CardanoNetwork::from_code(self.network.clone(), self.network_magic).with_context(|| {
+            format!(
+                "Could not read Network '{}' from configuration.",
+                &self.network
+            )
+        })
     }
 
     /// Create the SQL store directory if not exist and return the path of the
     /// SQLite3 file.
-    pub fn get_sqlite_file(&self) -> PathBuf {
+    pub fn get_sqlite_file(&self) -> StdResult<PathBuf> {
         let store_dir = &self.data_stores_directory;
 
         if !store_dir.exists() {
-            std::fs::create_dir_all(store_dir).unwrap();
+            std::fs::create_dir_all(store_dir).with_context(|| {
+                format!(
+                    "Could not create directory '{}' for Sqlite3 file.",
+                    store_dir.display()
+                )
+            })?;
         }
 
-        self.data_stores_directory.join(SQLITE_FILE)
+        Ok(self.data_stores_directory.join(SQLITE_FILE))
     }
 
     /// Create era reader adapter from configuration settings.
@@ -98,12 +108,17 @@ impl Configuration {
         &self,
         chain_observer: Arc<dyn ChainObserver>,
     ) -> StdResult<Arc<dyn EraReaderAdapter>> {
-        Ok(EraReaderAdapterBuilder::new(
+        EraReaderAdapterBuilder::new(
             &self.era_reader_adapter_type,
             &self.era_reader_adapter_params,
         )
         .build(chain_observer)
-        .map_err(|e| ConfigError::Message(format!("build era adapter failed {e}")))?)
+        .with_context(|| {
+            format!(
+                "Configuration: can not create era reader for adapter '{}'.",
+                &self.era_reader_adapter_type
+            )
+        })
     }
 }
 
