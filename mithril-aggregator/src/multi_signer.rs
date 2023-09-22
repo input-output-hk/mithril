@@ -255,9 +255,9 @@ impl MultiSignerImpl {
         {
             Ok(Some(protocol_parameters)) => Ok(Some(protocol_parameters.into())),
             Ok(None) => Ok(None),
-            Err(e) => Err(ProtocolError::StoreError(anyhow!(e).context(format!(
-                "Multi Signer can not retrieve protocol parameters for epoch '{epoch}'"
-            )))),
+            Err(e) => Err(ProtocolError::StoreError(anyhow!(e).context(
+                "Multi Signer can not retrieve protocol parameters for epoch '{epoch}'",
+            ))),
         }
     }
 }
@@ -398,9 +398,10 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
+            .epoch;
+        let epoch = epoch
             .offset_to_signer_retrieval_epoch()
-            .with_context(|| "Multi Signer can not offset to signer retrieveal epoch while retrieving signers with stake")
+            .with_context(|| format!("Multi Signer can not offset to signer retrieveal epoch '{epoch}' while retrieving signers with stake"))
             .map_err(|e| ProtocolError::Beacon(anyhow!(e)))?;
         let signers = self
             .verification_key_store
