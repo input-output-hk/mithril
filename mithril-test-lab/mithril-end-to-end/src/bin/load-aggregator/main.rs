@@ -1,11 +1,11 @@
 use clap::Parser;
 use slog_scope::info;
-use std::{sync::Arc, time::Duration};
+use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 use mithril_common::{
     digesters::{DummyImmutableDb, DummyImmutablesDbBuilder},
-    entities::{Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
+    entities::{Beacon, Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
     test_utils::MithrilFixture,
     StdResult,
 };
@@ -170,7 +170,12 @@ async fn main_scenario(
     assert_eq!(0, errors);
 
     info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(&parameters.aggregator, Duration::from_secs(30)).await?;
+    wait::for_pending_certificate(
+        &parameters.aggregator,
+        Duration::from_secs(60),
+        &SignedEntityType::MithrilStakeDistribution(current_epoch),
+    )
+    .await?;
 
     info!(
         ">> Send the Signer Signatures payloads for MithrilStakeDistribution({:?})",
@@ -208,7 +213,16 @@ async fn main_scenario(
     parameters.immutable_db.add_immutable_file();
 
     info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(&parameters.aggregator, Duration::from_secs(30)).await?;
+    wait::for_pending_certificate(
+        &parameters.aggregator,
+        Duration::from_secs(60),
+        &SignedEntityType::CardanoImmutableFilesFull(Beacon::new(
+            "devnet".to_string(),
+            *current_epoch.deref(),
+            parameters.immutable_db.last_immutable_number().unwrap() - 1,
+        )),
+    )
+    .await?;
 
     info!(">> Compute the immutable files signature");
     let (current_beacon, immutable_files_signatures) =
