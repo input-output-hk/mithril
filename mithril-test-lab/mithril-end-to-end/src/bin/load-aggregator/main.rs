@@ -151,6 +151,11 @@ async fn main_scenario(
         &parameters.aggregator_parameters.mock_epoch_file_path(),
         current_epoch,
     );
+
+    // Creating the new immutable file early will avoid time effects due to the aggregator runtime design when high client traffic is sent
+    info!(">> Add new immutable file");
+    parameters.immutable_db.add_immutable_file();
+
     wait::for_epoch_settings_at_epoch(
         &parameters.aggregator,
         Duration::from_secs(60),
@@ -208,9 +213,6 @@ async fn main_scenario(
         Duration::from_secs(60),
     )
     .await?;
-
-    info!(">> Add new immutable file");
-    parameters.immutable_db.add_immutable_file();
 
     info!(">> Wait for pending certificate to be available");
     wait::for_pending_certificate(
