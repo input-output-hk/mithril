@@ -153,7 +153,7 @@ async fn main_scenario(
     );
     wait::for_epoch_settings_at_epoch(
         &parameters.aggregator,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
         current_epoch,
     )
     .await?;
@@ -196,7 +196,7 @@ async fn main_scenario(
     wait::for_certificates(
         &parameters.aggregator,
         number_of_certificates,
-        Duration::from_secs(30),
+        Duration::from_secs(120),
     )
     .await?;
 
@@ -205,7 +205,7 @@ async fn main_scenario(
     wait::for_mithril_stake_distribution_artifacts(
         &parameters.aggregator,
         number_of_mithril_stake_distributions,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
     )
     .await?;
 
@@ -230,7 +230,7 @@ async fn main_scenario(
             &parameters.immutable_db,
             current_epoch,
             &parameters.signers_fixture,
-            Duration::from_secs(30),
+            Duration::from_secs(60),
         )
         .await
         .unwrap();
@@ -254,7 +254,7 @@ async fn main_scenario(
     wait::for_certificates(
         &parameters.aggregator,
         number_of_certificates,
-        Duration::from_secs(30),
+        Duration::from_secs(120),
     )
     .await?;
 
@@ -263,7 +263,7 @@ async fn main_scenario(
     wait::for_immutable_files_artifacts(
         &parameters.aggregator,
         number_of_snapshots,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
     )
     .await?;
 
