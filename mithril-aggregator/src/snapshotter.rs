@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use flate2::Compression;
 use flate2::{read::GzDecoder, write::GzEncoder};
 use mithril_common::StdResult;
@@ -16,7 +17,7 @@ use crate::ZstandardCompressionParameters;
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given archive name.
-    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
+    fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot>;
 }
 
 /// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
@@ -34,7 +35,7 @@ impl From<ZstandardCompressionParameters> for SnapshotterCompressionAlgorithm {
     }
 }
 
-/// Gzip Snapshotter create a compressed file.
+/// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
     /// DB directory to snapshot
     db_directory: PathBuf,
@@ -91,7 +92,7 @@ pub enum SnapshotError {
 }
 
 impl Snapshotter for CompressedArchiveSnapshotter {
-    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
+    fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
         let filesize = self.create_and_verify_archive(&archive_path).map_err(|err| {
             if archive_path.exists() {
@@ -105,7 +106,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             }
 
             err
-        })?;
+        }).with_context(|| format!("CompressedArchiveSnapshotter can not create and verify archive: '{}'", archive_path.display()))?;
 
         Ok(OngoingSnapshot {
             filepath: archive_path,
@@ -122,13 +123,18 @@ impl CompressedArchiveSnapshotter {
         compression_algorithm: SnapshotterCompressionAlgorithm,
     ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
-            std::fs::remove_dir_all(&ongoing_snapshot_directory)?;
+            std::fs::remove_dir_all(&ongoing_snapshot_directory).with_context(|| {
+                format!(
+                    "Can not remove snapshotter directory: '{}'.",
+                    ongoing_snapshot_directory.display()
+                )
+            })?;
         }
 
         std::fs::create_dir(&ongoing_snapshot_directory).map_err(|e| {
             DependenciesBuilderError::Initialization {
                 message: format!(
-                    "Cannot create snapshotter directory '{}'.",
+                    "Can not create snapshotter directory: '{}'.",
                     ongoing_snapshot_directory.display()
                 ),
                 error: Some(e.into()),
@@ -142,14 +148,14 @@ impl CompressedArchiveSnapshotter {
         })
     }
 
-    fn get_file_size(filepath: &Path) -> Result<u64, SnapshotError> {
+    fn get_file_size(filepath: &Path) -> StdResult<u64> {
         let res = std::fs::metadata(filepath)
             .map_err(|e| SnapshotError::GeneralError(e.to_string()))?
             .len();
         Ok(res)
     }
 
-    fn create_archive(&self, archive_path: &Path) -> Result<u64, SnapshotError> {
+    fn create_archive(&self, archive_path: &Path) -> StdResult<u64> {
         info!(
             "compressing {} into {}",
             self.db_directory.display(),
@@ -164,12 +170,21 @@ impl CompressedArchiveSnapshotter {
                 let mut tar = tar::Builder::new(enc);
 
                 tar.append_dir_all(".", &self.db_directory)
-                    .map_err(SnapshotError::CreateArchiveError)?;
+                    .map_err(SnapshotError::CreateArchiveError)
+                    .with_context(|| {
+                        format!(
+                            "GzEncoder Builder can not add directory: '{}' to the archive",
+                            self.db_directory.display()
+                        )
+                    })?;
 
                 let mut gz = tar
                     .into_inner()
-                    .map_err(SnapshotError::CreateArchiveError)?;
-                gz.try_finish().map_err(SnapshotError::CreateArchiveError)?;
+                    .map_err(SnapshotError::CreateArchiveError)
+                    .with_context(|| "GzEncoder Builder can not write the archive")?;
+                gz.try_finish()
+                    .map_err(SnapshotError::CreateArchiveError)
+                    .with_context(|| "GzEncoder can not finish the output stream after writing")?;
             }
             SnapshotterCompressionAlgorithm::Zstandard(params) => {
                 let mut enc = Encoder::new(tar_file, params.level)?;
@@ -178,29 +193,55 @@ impl CompressedArchiveSnapshotter {
                 let mut tar = tar::Builder::new(enc);
 
                 tar.append_dir_all(".", &self.db_directory)
-                    .map_err(SnapshotError::CreateArchiveError)?;
+                    .map_err(SnapshotError::CreateArchiveError)
+                    .with_context(|| {
+                        format!(
+                            "ZstandardEncoder Builder can not add directory: '{}' to the archive",
+                            self.db_directory.display()
+                        )
+                    })?;
 
                 let zstd = tar
                     .into_inner()
-                    .map_err(SnapshotError::CreateArchiveError)?;
-                zstd.finish().map_err(SnapshotError::CreateArchiveError)?;
+                    .map_err(SnapshotError::CreateArchiveError)
+                    .with_context(|| "ZstandardEncoder Builder can not write the archive")?;
+                zstd.finish()
+                    .map_err(SnapshotError::CreateArchiveError)
+                    .with_context(|| {
+                        "ZstandardEncoder can not finish the output stream after writing"
+                    })?;
             }
         }
 
-        let filesize = Self::get_file_size(archive_path)?;
+        let filesize = Self::get_file_size(archive_path).with_context(|| {
+            format!(
+                "CompressedArchiveSnapshotter can not get file size of archive with path: '{}'",
+                archive_path.display()
+            )
+        })?;
 
         Ok(filesize)
     }
 
-    fn create_and_verify_archive(&self, archive_path: &Path) -> Result<u64, SnapshotError> {
-        let filesize = self.create_archive(archive_path)?;
-        self.verify_archive(archive_path)?;
+    fn create_and_verify_archive(&self, archive_path: &Path) -> StdResult<u64> {
+        let filesize = self.create_archive(archive_path).with_context(|| {
+            format!(
+                "CompressedArchiveSnapshotter can not create archive with path: '{}''",
+                archive_path.display()
+            )
+        })?;
+        self.verify_archive(archive_path).with_context(|| {
+            format!(
+                "CompressedArchiveSnapshotter can not verify archive with path: '{}''",
+                archive_path.display()
+            )
+        })?;
 
         Ok(filesize)
     }
 
     // Verify if an archive is corrupted (i.e. at least one entry is invalid)
-    fn verify_archive(&self, archive_path: &Path) -> Result<(), SnapshotError> {
+    fn verify_archive(&self, archive_path: &Path) -> StdResult<()> {
         info!("verifying archive: {}", archive_path.display());
 
         let mut snapshot_file_tar = File::open(archive_path)
@@ -245,10 +286,10 @@ impl CompressedArchiveSnapshotter {
             for e in snapshot_archive.entries()? {
                 match e {
                     Err(e) => {
-                        result = Err(SnapshotError::InvalidArchiveError(format!(
+                        result = Err(anyhow!(SnapshotError::InvalidArchiveError(format!(
                             "invalid entry with error: '{:?}'",
                             e
-                        )));
+                        ))));
                         break;
                     }
                     Ok(entry) => Self::unpack_and_delete_file_from_entry(entry, unpack_temp_file)?,
@@ -330,7 +371,7 @@ impl Default for DumbSnapshotter {
 }
 
 impl Snapshotter for DumbSnapshotter {
-    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
+    fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot> {
         let mut value = self
             .last_snapshot
             .write()
