@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
@@ -5,10 +6,9 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     chain_observer::ChainObserver,
-    crypto_helper::{KESPeriod, ProtocolKeyRegistration, ProtocolRegistrationError},
+    crypto_helper::{KESPeriod, ProtocolKeyRegistration},
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
-    store::StoreError,
-    StdResult,
+    StdError, StdResult,
 };
 
 use crate::VerificationKeyStorer;
@@ -32,10 +32,6 @@ pub enum SignerRegistrationError {
         received_epoch: Epoch,
     },
 
-    /// Codec error.
-    #[error("codec error: '{0}'")]
-    Codec(String),
-
     /// Chain observer error.
     #[error("chain observer error: '{0}'")]
     ChainObserver(String),
@@ -46,11 +42,11 @@ pub enum SignerRegistrationError {
 
     /// Store error.
     #[error("store error: {0}")]
-    StoreError(#[from] StoreError),
+    StoreError(StdError),
 
     /// Signer registration failed.
     #[error("signer registration failed")]
-    FailedSignerRegistration(#[from] ProtocolRegistrationError),
+    FailedSignerRegistration(StdError),
 
     /// Signer recorder failed.
     #[error("signer recorder failed: '{0}'")]
@@ -100,10 +96,10 @@ pub trait SignerRegistrationRoundOpener: Sync + Send {
         &self,
         registration_epoch: Epoch,
         stake_distribution: StakeDistribution,
-    ) -> Result<(), SignerRegistrationError>;
+    ) -> StdResult<()>;
 
     /// Close a signer registration round
-    async fn close_registration_round(&self) -> Result<(), SignerRegistrationError>;
+    async fn close_registration_round(&self) -> StdResult<()>;
 }
 
 /// Signer recorder trait
@@ -169,7 +165,7 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
         &self,
         registration_epoch: Epoch,
         stake_distribution: StakeDistribution,
-    ) -> Result<(), SignerRegistrationError> {
+    ) -> StdResult<()> {
         let mut current_round = self.current_round.write().await;
         *current_round = Some(SignerRegistrationRound {
             epoch: registration_epoch,
@@ -179,13 +175,20 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
         if let Some(retention_limit) = self.verification_key_epoch_retention_limit {
             self.verification_key_store
                 .prune_verification_keys(registration_epoch - retention_limit)
-                .await?;
+                .await
+                .with_context(|| {
+                    format!(
+                        "VerificationKeyStorer can not prune verification keys below epoch: '{}'",
+                        registration_epoch - retention_limit
+                    )
+                })
+                .map_err(|e| SignerRegistrationError::StoreError(anyhow!(e)))?;
         }
 
         Ok(())
     }
 
-    async fn close_registration_round(&self) -> Result<(), SignerRegistrationError> {
+    async fn close_registration_round(&self) -> StdResult<()> {
         let mut current_round = self.current_round.write().await;
         *current_round = None;
 
@@ -233,13 +236,21 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             ),
             None => None,
         };
-        let party_id_save = key_registration.register(
-            party_id_register.clone(),
-            signer.operational_certificate.clone(),
-            signer.verification_key_signature,
-            kes_period,
-            signer.verification_key,
-        )?;
+        let party_id_save = key_registration
+            .register(
+                party_id_register.clone(),
+                signer.operational_certificate.clone(),
+                signer.verification_key_signature,
+                kes_period,
+                signer.verification_key,
+            )
+            .with_context(|| {
+                format!(
+                    "KeyRegwrapper can not register signer with party_id: '{:?}'",
+                    party_id_register
+                )
+            })
+            .map_err(|e| SignerRegistrationError::FailedSignerRegistration(anyhow!(e)))?;
         let mut signer_save = SignerWithStake::from_signer(
             signer.to_owned(),
             *registration_round
@@ -257,7 +268,15 @@ impl SignerRegisterer for MithrilSignerRegisterer {
         match self
             .verification_key_store
             .save_verification_key(registration_round.epoch, signer_save.clone())
-            .await?
+            .await
+            .with_context(|| {
+                format!(
+                    "VerificationKeyStorer can not save verification keys for party_id: '{}' for epoch: '{}'",
+                    signer_save.party_id,
+                    registration_round.epoch
+                )
+            })
+            .map_err(|e| SignerRegistrationError::StoreError(anyhow!(e)))?
         {
             Some(_) => Err(SignerRegistrationError::ExistingSigner(Box::new(
                 signer_save,
