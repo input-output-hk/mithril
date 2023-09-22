@@ -67,7 +67,12 @@ pub async fn download_latest_snasphot(
     let response = http_request.send().await;
     match response {
         Ok(response) => match response.status() {
-            StatusCode::OK => Ok(last_snapshot.to_owned()),
+            StatusCode::OK => {
+                let http_request = http_client.post(format!("{}/statistics/snapshot", endpoint));
+                let _ = http_request.send().await;
+
+                Ok(last_snapshot.to_owned())
+            }
             status => Err(anyhow!(LoadError::SnapshotDetailError {
                 expected_http_code: 200,
                 got_http_code: status.as_u16() as u32,
