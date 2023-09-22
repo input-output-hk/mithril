@@ -9,10 +9,6 @@ pub enum HydrationError {
     /// data do not conform to expectations
     #[error("data do not conform to expectations: {0}")]
     InvalidData(String),
-
-    /// data are missing
-    #[error("some data are missing: {0}")]
-    MissingData(String),
 }
 
 /// How to hydrate an entity from a SQLite result row
