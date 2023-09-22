@@ -78,8 +78,12 @@ pub struct Configuration {
 impl Configuration {
     /// Return the CardanoNetwork value from the configuration.
     pub fn get_network(&self) -> StdResult<CardanoNetwork> {
-        CardanoNetwork::from_code(self.network.clone(), self.network_magic)
-            .with_context(|| "Could not read Network from configuration.")
+        CardanoNetwork::from_code(self.network.clone(), self.network_magic).with_context(|| {
+            format!(
+                "Could not read Network '{}' from configuration.",
+                &self.network
+            )
+        })
     }
 
     /// Create the SQL store directory if not exist and return the path of the
@@ -109,7 +113,12 @@ impl Configuration {
             &self.era_reader_adapter_params,
         )
         .build(chain_observer)
-        .with_context(|| "Configuration: can not create era adapter.".to_string())
+        .with_context(|| {
+            format!(
+                "Configuration: can not create era reader for adapter '{}'.",
+                &self.era_reader_adapter_type
+            )
+        })
     }
 }
 
