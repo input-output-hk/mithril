@@ -32,9 +32,7 @@ impl TxDatum {
         let tx_datum_raw = &self.0;
         // 1- Parse the Utxo raw data to a hashmap
         let v: HashMap<String, Value> = serde_json::from_str(tx_datum_raw).map_err(|e| {
-            TxDatumError::InvalidContent(
-                anyhow!(e).context(format!("tx datum was = '{tx_datum_raw}'")),
-            )
+            TxDatumError::InvalidContent(anyhow!(e).context("tx datum was = '{tx_datum_raw}'"))
         })?;
         // 2- Convert the 'fields' entry to a vec of json objects
         let fields = v.get("fields").ok_or_else(|| {

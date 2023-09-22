@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
@@ -7,11 +7,12 @@ use thiserror::Error;
 use mithril_common::{
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolMultiSignature,
-        ProtocolParameters, ProtocolRegistrationError, ProtocolStakeDistribution,
+        ProtocolParameters, ProtocolStakeDistribution,
     },
     entities::{self, Epoch, SignerWithStake, StakeDistribution},
     protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
-    store::{StakeStorer, StoreError},
+    store::StakeStorer,
+    StdError,
 };
 
 use crate::{entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStorer};
@@ -32,7 +33,7 @@ pub enum ProtocolError {
 
     /// Signer registration failed.
     #[error("signer registration failed")]
-    FailedSignerRegistration(#[from] ProtocolRegistrationError),
+    FailedSignerRegistration(StdError),
 
     /// Single signature already recorded.
     #[error("single signature already recorded")]
@@ -40,7 +41,7 @@ pub enum ProtocolError {
 
     /// Mithril STM library returned an error.
     #[error("core error: '{0}'")]
-    Core(String),
+    Core(StdError),
 
     /// No message available.
     #[error("no message available")]
@@ -60,11 +61,11 @@ pub enum ProtocolError {
 
     /// Store error.
     #[error("store error: {0}")]
-    StoreError(#[from] StoreError),
+    StoreError(StdError),
 
     /// Beacon error.
     #[error("beacon error: '{0}'")]
-    Beacon(#[from] entities::EpochError),
+    Beacon(StdError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -215,7 +216,8 @@ impl MultiSignerImpl {
 
         let protocol_multi_signer =
             SignerBuilder::new(signers_with_stake, &(*protocol_parameters).into())
-                .map_err(|error| ProtocolError::Core(error.to_string()))?
+                .with_context(|| "Multi Signer can not build a protocol multi signer")
+                .map_err(|e| ProtocolError::Core(anyhow!(e)))?
                 .build_multi_signer();
 
         Ok(protocol_multi_signer)
@@ -231,8 +233,11 @@ impl MultiSignerImpl {
         let stakes = self
             .stake_store
             .get_stakes(epoch)
-            .await?
+            .await
+            .with_context(|| format!("Multi Signer can not retrieve stakes for epoch '{epoch}'"))
+            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?
             .unwrap_or_default();
+
         Ok(stakes.into_iter().collect::<ProtocolStakeDistribution>())
     }
 
@@ -250,7 +255,9 @@ impl MultiSignerImpl {
         {
             Ok(Some(protocol_parameters)) => Ok(Some(protocol_parameters.into())),
             Ok(None) => Ok(None),
-            Err(e) => Err(e.into()),
+            Err(e) => Err(ProtocolError::StoreError(anyhow!(e).context(
+                "Multi Signer can not retrieve protocol parameters for epoch '{epoch}'",
+            ))),
         }
     }
 }
@@ -267,6 +274,7 @@ impl MultiSigner for MultiSignerImpl {
     ) -> Result<(), ProtocolError> {
         debug!("Update current_beacon to {:?}", beacon);
         self.current_beacon = Some(beacon);
+
         Ok(())
     }
 
@@ -279,7 +287,9 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_to_signer_retrieval_epoch()?;
+            .offset_to_signer_retrieval_epoch()
+            .with_context(|| "Multi Signer can not offset to signer retrieveal epoch while retrivieving protocol parameters")
+            .map_err(|e| ProtocolError::Beacon(anyhow!(e)))?;
         self.get_protocol_parameters_at_epoch(epoch).await
     }
 
@@ -298,7 +308,9 @@ impl MultiSigner for MultiSignerImpl {
 
         self.protocol_parameters_store
             .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
-            .await?;
+            .await.with_context(|| format!("Multi Signer can not update protocol parameters '{protocol_parameters:?}' for epoch '{epoch}'"))
+            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
+
         Ok(())
     }
 
@@ -324,7 +336,9 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_to_signer_retrieval_epoch()?;
+            .offset_to_signer_retrieval_epoch()
+            .with_context(|| "Multi Signer can not offset to signer retrieveal epoch while retrieving stake distribution")
+            .map_err(|e| ProtocolError::Beacon(anyhow!(e)))?;
         self.get_stake_distribution_at_epoch(epoch).await
     }
 
@@ -355,7 +369,13 @@ impl MultiSigner for MultiSignerImpl {
             .epoch
             .offset_to_recording_epoch();
         let stakes = StakeDistribution::from_iter(stakes.iter().cloned());
-        self.stake_store.save_stakes(epoch, stakes).await?;
+        self.stake_store
+            .save_stakes(epoch, stakes)
+            .await
+            .with_context(|| {
+                format!("Multi Signer can not update stake distribution for epoch '{epoch}'")
+            })
+            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
 
         Ok(())
     }
@@ -368,6 +388,7 @@ impl MultiSigner for MultiSignerImpl {
     ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
         let protocol_multi_signer =
             self.create_protocol_multi_signer(signers_with_stakes, protocol_parameters)?;
+
         Ok(protocol_multi_signer.compute_aggregate_verification_key())
     }
 
@@ -377,13 +398,23 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            .offset_to_signer_retrieval_epoch()?;
+            .epoch;
+        let epoch = epoch
+            .offset_to_signer_retrieval_epoch()
+            .with_context(|| format!("Multi Signer can not offset to signer retrieveal epoch '{epoch}' while retrieving signers with stake"))
+            .map_err(|e| ProtocolError::Beacon(anyhow!(e)))?;
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
-            .await?
+            .await
+            .with_context(|| {
+                format!(
+                    "Multi Signer can not retrieve signers verification keys for epoch '{epoch}'"
+                )
+            })
+            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?
             .unwrap_or_default();
+
         Ok(self
             .get_stake_distribution()
             .await?
@@ -414,8 +445,14 @@ impl MultiSigner for MultiSignerImpl {
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
-            .await?
+            .await.with_context(|| {
+                format!(
+                    "Multi Signer can not retrieve next signers verification keys for epoch '{epoch}'"
+                )
+            })
+            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?
             .unwrap_or_default();
+
         Ok(self
             .get_next_stake_distribution()
             .await?
@@ -458,8 +495,8 @@ impl MultiSigner for MultiSignerImpl {
 
         protocol_multi_signer
             .verify_single_signature(message, single_signature)
-            .with_context(|| "Multi Signer can not verify multi-signature")
-            .map_err(|error| ProtocolError::Core(error.to_string()))
+            .with_context(|| "Multi Signer can not verify single signature for message '{message}'")
+            .map_err(|e| ProtocolError::Core(anyhow!(e)))
     }
 
     /// Creates a multi signature from single signatures
@@ -487,7 +524,10 @@ impl MultiSigner for MultiSignerImpl {
                 warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
                 Ok(None)
             }
-            Err(err) => Err(ProtocolError::Core(err.to_string())),
+            Err(err) => Err(ProtocolError::Core(anyhow!(err).context(format!(
+                "Multi Signer can not create multi-signature for entity type '{:?}'",
+                open_message.signed_entity_type
+            )))),
         }
     }
 }

@@ -102,6 +102,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use warp::http::Method;
     use warp::test::request;
 
@@ -266,9 +267,7 @@ mod tests {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| {
-                Err(ProtocolError::Core("an error occurred".to_string()).into())
-            });
+            .return_once(move |_, _| Err(ProtocolError::Core(anyhow!("an error occurred")).into()));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
