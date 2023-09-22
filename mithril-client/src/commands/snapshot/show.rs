@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
@@ -25,8 +26,16 @@ impl SnapshotShowCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Config = config_builder.build()?;
         let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
-        let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let snapshot_message = snapshot_service.show(&self.digest).await?;
+        let snapshot_service = dependencies_builder
+            .get_snapshot_service()
+            .await
+            .with_context(|| "Dependencies Builder can not get Snapshot Service")?;
+        let snapshot_message = snapshot_service.show(&self.digest).await.with_context(|| {
+            format!(
+                "Snapshot Service can not show the snapshot for digest: '{}'",
+                self.digest
+            )
+        })?;
 
         if self.json {
             println!("{}", serde_json::to_string(&snapshot_message)?);

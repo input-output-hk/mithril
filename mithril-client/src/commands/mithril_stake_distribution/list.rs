@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
@@ -22,8 +23,13 @@ impl MithrilStakeDistributionListCommand {
         let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
         let service = dependencies_builder
             .get_mithril_stake_distribution_service()
-            .await?;
-        let lines = service.list().await?;
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not get Mithril Stake Distribution Service"
+            })?;
+        let lines = service.list().await.with_context(|| {
+            "Mithril Stake Distribution Service can not get the list of artifacts"
+        })?;
 
         if self.json {
             println!("{}", serde_json::to_string(&lines)?);
