@@ -44,8 +44,8 @@ impl SqLiteEntity for StakePool {
         let stake_pool = Self {
             stake_pool_id: row.read::<&str, _>(0).to_string(),
             stake: u64::try_from(stake).map_err(|e| {
-                HydrationError::InconsistentType(format!(
-                    "Could not cast the stake from internal db I64 → U64. Error: '{e}'."
+                HydrationError::InvalidData(format!(
+                    "Could not cast the StakePool.stake from internal db I64 → U64. Error: '{e}'.",
                 ))
             })?,
             epoch: Epoch(epoch_int.try_into().map_err(|e| {
