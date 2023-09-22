@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use slog_scope::debug;
@@ -13,7 +14,7 @@ use mithril_common::{
         CertificatePendingMessage, EpochSettingsMessage, FromMessageAdapter, TryFromMessageAdapter,
         TryToMessageAdapter,
     },
-    MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
+    StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 #[cfg(test)]
@@ -29,39 +30,39 @@ use crate::message_adapters::{
 pub enum AggregatorClientError {
     /// The aggregator host has returned a technical error.
     #[error("remote server technical error: '{0}'")]
-    RemoteServerTechnical(String),
+    RemoteServerTechnical(StdError),
 
     /// The aggregator host responded it cannot fulfill our request.
     #[error("remote server logical error: '{0}'")]
-    RemoteServerLogical(String),
+    RemoteServerLogical(StdError),
 
     /// Could not reach aggregator.
     #[error("remote server unreachable: '{0}'")]
-    RemoteServerUnreachable(String),
+    RemoteServerUnreachable(StdError),
 
     /// Could not parse response.
     #[error("json parsing failed: '{0}'")]
-    JsonParseFailed(String),
+    JsonParseFailed(StdError),
 
     /// Mostly network errors.
-    #[error("io error: {0}")]
+    #[error("Input/Output error: {0}")]
     IOError(#[from] io::Error),
 
     /// Incompatible API version error
     #[error("HTTP API version mismatch: {0}")]
-    ApiVersionMismatch(String),
+    ApiVersionMismatch(StdError),
 
     /// HTTP client creation error
     #[error("HTTP client creation failed: {0}")]
-    HTTPClientCreation(String),
+    HTTPClientCreation(StdError),
 
     /// Proxy creation error
     #[error("proxy creation failed: {0}")]
-    ProxyCreation(String),
+    ProxyCreation(StdError),
 
     /// Adapter error
     #[error("adapter failed: {0}")]
-    Adapter(String),
+    Adapter(StdError),
 }
 
 #[cfg(test)]
@@ -127,10 +128,10 @@ impl AggregatorHTTPClient {
             Some(relay_endpoint) => Client::builder()
                 .proxy(
                     Proxy::all(relay_endpoint)
-                        .map_err(|e| AggregatorClientError::ProxyCreation(e.to_string()))?,
+                        .map_err(|e| AggregatorClientError::ProxyCreation(anyhow!(e)))?,
                 )
                 .build()
-                .map_err(|e| AggregatorClientError::HTTPClientCreation(e.to_string()))?,
+                .map_err(|e| AggregatorClientError::HTTPClientCreation(anyhow!(e)))?,
             None => Client::new(),
         };
 
@@ -153,13 +154,13 @@ impl AggregatorHTTPClient {
     /// API version error handling
     fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            AggregatorClientError::ApiVersionMismatch(format!(
+            AggregatorClientError::ApiVersionMismatch(anyhow!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
                 self.api_version_provider.compute_current_version().unwrap()
             ))
         } else {
-            AggregatorClientError::ApiVersionMismatch(format!(
+            AggregatorClientError::ApiVersionMismatch(anyhow!(
                 "version precondition failed, sent version '{}'.",
                 self.api_version_provider.compute_current_version().unwrap()
             ))
@@ -183,16 +184,15 @@ impl AggregatorClient for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<EpochSettingsMessage>().await {
                     Ok(message) => Ok(Some(FromEpochSettingsAdapter::adapt(message))),
-                    Err(err) => Err(AggregatorClientError::JsonParseFailed(err.to_string())),
+                    Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(
-                    response.text().await.unwrap_or_default(),
-                )),
+                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                    "{}",
+                    response.text().await.unwrap_or_default()
+                ))),
             },
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
-                err.to_string(),
-            )),
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 
@@ -211,19 +211,18 @@ impl AggregatorClient for AggregatorHTTPClient {
                 StatusCode::OK => match response.json::<CertificatePendingMessage>().await {
                     Ok(message) => Ok(Some(
                         FromPendingCertificateMessageAdapter::try_adapt(message)
-                            .map_err(|e| AggregatorClientError::JsonParseFailed(e.to_string()))?,
+                            .map_err(|err| AggregatorClientError::JsonParseFailed(anyhow!(err)))?,
                     )),
-                    Err(err) => Err(AggregatorClientError::JsonParseFailed(err.to_string())),
+                    Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::NO_CONTENT => Ok(None),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(
-                    response.text().await.unwrap_or_default(),
-                )),
+                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                    "{}",
+                    response.text().await.unwrap_or_default()
+                ))),
             },
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
-                err.to_string(),
-            )),
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 
@@ -236,7 +235,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         let url = format!("{}/register-signer", self.aggregator_endpoint);
         let register_signer_message =
             ToRegisterSignerMessageAdapter::try_adapt((epoch, signer.to_owned()))
-                .map_err(|e| AggregatorClientError::Adapter(e.to_string()))?;
+                .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.post(url.clone()))
             .json(&register_signer_message)
@@ -248,15 +247,14 @@ impl AggregatorClient for AggregatorHTTPClient {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
-                    format!("bad request: {}", response.text().await.unwrap_or_default()),
+                    anyhow!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(
-                    response.text().await.unwrap_or_default(),
-                )),
+                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                    "{}",
+                    response.text().await.unwrap_or_default()
+                ))),
             },
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
-                err.to_string(),
-            )),
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 
@@ -271,7 +269,7 @@ impl AggregatorClient for AggregatorHTTPClient {
             signed_entity_type.to_owned(),
             signatures.to_owned(),
         ))
-        .map_err(|e| AggregatorClientError::Adapter(e.to_string()))?;
+        .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.post(url.clone()))
             .json(&register_single_signature_message)
@@ -283,18 +281,17 @@ impl AggregatorClient for AggregatorHTTPClient {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
-                    format!("bad request: {}", response.text().await.unwrap_or_default()),
+                    anyhow!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
-                StatusCode::CONFLICT => Err(AggregatorClientError::RemoteServerLogical(
-                    "already registered single signatures".to_string(),
-                )),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(
-                    response.text().await.unwrap_or_default(),
-                )),
+                StatusCode::CONFLICT => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                    "already registered single signatures"
+                ))),
+                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                    "{}",
+                    response.text().await.unwrap_or_default()
+                ))),
             },
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(
-                err.to_string(),
-            )),
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 }
@@ -495,12 +492,15 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
-                .to_string(),
-            epoch_settings.unwrap_err().to_string()
-        );
+
+        match certificate_handler
+            .retrieve_epoch_settings()
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
     }
 
     #[tokio::test]
@@ -519,6 +519,7 @@ mod tests {
         );
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         pending_certificate.as_ref().expect("unexpected error");
+
         assert_eq!(
             FromPendingCertificateMessageAdapter::try_adapt(pending_certificate_expected).unwrap(),
             pending_certificate.unwrap().unwrap()
@@ -574,12 +575,15 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
-                .to_string(),
-            pending_certificate.unwrap_err().to_string()
-        );
+
+        match certificate_handler
+            .retrieve_pending_certificate()
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
     }
 
     #[tokio::test]
@@ -648,16 +652,19 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signer = certificate_handler
+
+        match certificate_handler
             .register_signer(epoch, single_signer)
-            .await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerLogical(
-                "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
-            )
-            .to_string(),
-            register_signer.unwrap_err().to_string()
-        );
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerLogical(_) => (),
+            err => {
+                panic!(
+                    "Expected a AggregatorClientError::RemoteServerLogical error, got '{err:?}'."
+                )
+            }
+        };
     }
 
     #[tokio::test]
@@ -675,14 +682,15 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signer = certificate_handler
+
+        match certificate_handler
             .register_signer(epoch, single_signer)
-            .await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
-                .to_string(),
-            register_signer.unwrap_err().to_string()
-        );
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
     }
 
     #[tokio::test]
@@ -745,16 +753,14 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signatures = certificate_handler
+        match certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
-            .await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerLogical(
-                "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
-            )
-            .to_string(),
-            register_signatures.unwrap_err().to_string()
-        );
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerLogical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerLogical error, got '{e:?}'."),
+        };
     }
 
     #[tokio::test]
@@ -770,16 +776,14 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signatures = certificate_handler
+        match certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
-            .await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerLogical(
-                "already registered single signatures".to_string()
-            )
-            .to_string(),
-            register_signatures.unwrap_err().to_string()
-        );
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerLogical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerLogical error, got '{e:?}'."),
+        }
     }
 
     #[tokio::test]
@@ -795,13 +799,13 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signatures = certificate_handler
+        match certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
-            .await;
-        assert_eq!(
-            AggregatorClientError::RemoteServerTechnical("an error occurred".to_string())
-                .to_string(),
-            register_signatures.unwrap_err().to_string()
-        );
+            .await
+            .unwrap_err()
+        {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
     }
 }

@@ -1,5 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_common::{
     entities::{
@@ -43,7 +44,7 @@ impl FakeAggregator {
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| AggregatorClientError::RemoteServerTechnical(e.to_string()))?;
+            .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
 
         Ok(beacon)
     }
