@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use mithril_common::{
     entities::{MithrilStakeDistribution, SignedEntity},
     messages::{MithrilStakeDistributionListItemMessage, MithrilStakeDistributionListMessage},
@@ -25,8 +26,11 @@ impl MithrilStakeDistributionClient {
     /// Fetch a list of signed MithrilStakeDistribution
     pub async fn list(&self) -> StdResult<Vec<MithrilStakeDistributionListItemMessage>> {
         let url = "artifact/mithril-stake-distributions";
-        let response = self.http_client.get_content(url).await?;
-        let items = serde_json::from_str::<MithrilStakeDistributionListMessage>(&response)?;
+        let response = self.http_client.get_content(url).await.with_context(|| {
+            format!("MithrilStakeDistribution Client can not get the artifact list at '{url}'")
+        })?;
+        let items = serde_json::from_str::<MithrilStakeDistributionListMessage>(&response)
+            .with_context(|| "MithrilStakeDistribution Client can not deserialize artifact list")?;
 
         Ok(items)
     }
@@ -40,9 +44,9 @@ impl MithrilStakeDistributionClient {
 
         match self.http_client.get_content(&url).await {
             Ok(content) => {
-                let message: MithrilStakeDistributionMessage = serde_json::from_str(&content)?;
+                let message: MithrilStakeDistributionMessage = serde_json::from_str(&content).with_context(|| format!("MithrilStakeDistribution Client can not deserialize artifact at '{url}'"))?;
                 let stake_distribution_entity =
-                    FromMithrilStakeDistributionMessageAdapter::try_adapt(message)?;
+                    FromMithrilStakeDistributionMessageAdapter::try_adapt(message).with_context(|| format!("MithrilStakeDistribution Client can not parse stake distribution artifact from message, certificate hash: '{hash:?}'"))?;
 
                 Ok(Some(stake_distribution_entity))
             }

@@ -135,7 +135,9 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| {
-                Err(AggregatorHTTPClientError::RemoteServerLogical(String::new()))
+                Err(AggregatorHTTPClientError::RemoteServerLogical(anyhow!(
+                    "an error"
+                )))
             })
             .times(1);
 
@@ -153,9 +155,9 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| {
-                Err(AggregatorHTTPClientError::RemoteServerTechnical(
-                    String::new(),
-                ))
+                Err(AggregatorHTTPClientError::RemoteServerTechnical(anyhow!(
+                    "an error"
+                )))
             })
             .times(1);
 

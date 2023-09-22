@@ -311,6 +311,7 @@ impl SnapshotService for MithrilClientSnapshotService {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use chrono::{DateTime, Utc};
     use config::{builder::DefaultState, ConfigBuilder};
     use flate2::{write::GzEncoder, Compression};
@@ -472,9 +473,9 @@ mod tests {
         http_client
             .expect_get_content()
             .returning(|_| {
-                Err(AggregatorHTTPClientError::RemoteServerUnreachable(
-                    "whatever".to_string(),
-                ))
+                Err(AggregatorHTTPClientError::SubsystemError(anyhow!(
+                    "an error"
+                )))
             })
             .times(1);
         let snapshot_service = get_dep_builder(Arc::new(http_client))
@@ -509,9 +510,9 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| {
-                Err(AggregatorHTTPClientError::RemoteServerLogical(
+                Err(AggregatorHTTPClientError::RemoteServerLogical(anyhow!(
                     "whatever".to_string(),
-                ))
+                )))
             })
             .times(1);
         let snapshot_service = get_dep_builder(Arc::new(http_client))
@@ -528,9 +529,9 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| {
-                Err(AggregatorHTTPClientError::ApiVersionMismatch(
-                    "whatever".to_string(),
-                ))
+                Err(AggregatorHTTPClientError::ApiVersionMismatch(anyhow!(
+                    "whatever".to_string()
+                )))
             })
             .times(1);
         let snapshot_service = get_dep_builder(Arc::new(http_client))

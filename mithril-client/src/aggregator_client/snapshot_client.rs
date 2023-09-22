@@ -1,5 +1,6 @@
 //! This module contains a struct to exchange snapshot information with the Aggregator
 
+use anyhow::Context;
 use slog_scope::warn;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
@@ -43,8 +44,12 @@ impl SnapshotClient {
     /// Return a list of available snapshots
     pub async fn list(&self) -> StdResult<Vec<SnapshotListItemMessage>> {
         let url = "artifact/snapshots";
-        let response = self.http_client.get_content(url).await?;
-        let items = serde_json::from_str::<SnapshotListMessage>(&response)?;
+        let response =
+            self.http_client.get_content(url).await.with_context(|| {
+                format!("Snapshot Client can not get the artifact list at '{url}'")
+            })?;
+        let items = serde_json::from_str::<SnapshotListMessage>(&response)
+            .with_context(|| "Snapshot Client can not deserialize artifact list")?;
 
         Ok(items)
     }
@@ -52,8 +57,14 @@ impl SnapshotClient {
     /// Return a snapshot based on the given digest (list to get the digests)
     pub async fn show(&self, digest: &str) -> StdResult<SnapshotMessage> {
         let url = format!("artifact/snapshot/{}", digest);
-        let response = self.http_client.get_content(&url).await?;
-        let message = serde_json::from_str::<SnapshotMessage>(&response)?;
+        let response = self
+            .http_client
+            .get_content(&url)
+            .await
+            .with_context(|| format!("Snapshot Client can not get the artifact at '{url}'"))?;
+        let message = serde_json::from_str::<SnapshotMessage>(&response).with_context(|| {
+            format!("Snapshot Client can not deserialize artifact for digest '{digest}'")
+        })?;
 
         Ok(message)
     }
