@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use config::Config;
 use slog::Logger;
 
@@ -104,7 +105,11 @@ impl DependenciesBuilder {
     /// Get a clone of the [SnapshotClient] dependency
     pub async fn get_snapshot_client(&mut self) -> StdResult<Arc<SnapshotClient>> {
         if self.snapshot_client.is_none() {
-            self.snapshot_client = Some(self.build_snapshot_client().await?);
+            self.snapshot_client = Some(
+                self.build_snapshot_client()
+                    .await
+                    .with_context(|| "Dependencies Builder can not build Snapshot Client")?,
+            );
         }
 
         Ok(self.snapshot_client.as_ref().cloned().unwrap())
@@ -123,8 +128,13 @@ impl DependenciesBuilder {
         &mut self,
     ) -> StdResult<Arc<MithrilStakeDistributionClient>> {
         if self.mithril_stake_distribution_client.is_none() {
-            self.mithril_stake_distribution_client =
-                Some(self.build_mithril_stake_distribution_client().await?);
+            self.mithril_stake_distribution_client = Some(
+                self.build_mithril_stake_distribution_client()
+                    .await
+                    .with_context(|| {
+                        "Dependencies Builder can not build Mithril Stake distribution Client"
+                    })?,
+            );
         }
 
         Ok(self
@@ -143,7 +153,11 @@ impl DependenciesBuilder {
     /// Get a clone of the [CertificateClient] dependency
     pub async fn get_certificate_client(&mut self) -> StdResult<Arc<CertificateClient>> {
         if self.certificate_client.is_none() {
-            self.certificate_client = Some(self.build_certificate_client().await?);
+            self.certificate_client = Some(
+                self.build_certificate_client()
+                    .await
+                    .with_context(|| "Dependencies Builder can not build Certificate Client")?,
+            );
         }
 
         Ok(self.certificate_client.as_ref().cloned().unwrap())
@@ -158,7 +172,11 @@ impl DependenciesBuilder {
     /// Get a clone of the [CertificateVerifier] dependency
     pub async fn get_certificate_verifier(&mut self) -> StdResult<Arc<dyn CertificateVerifier>> {
         if self.certificate_verifier.is_none() {
-            self.certificate_verifier = Some(self.build_certificate_verifier().await?);
+            self.certificate_verifier = Some(
+                self.build_certificate_verifier()
+                    .await
+                    .with_context(|| "Dependencies Builder can not build Certificate Verifier")?,
+            );
         }
 
         Ok(self.certificate_verifier.as_ref().cloned().unwrap())
@@ -173,7 +191,11 @@ impl DependenciesBuilder {
     /// Get a clone of the [ImmutableDigester] dependency
     pub async fn get_immutable_digester(&mut self) -> StdResult<Arc<dyn ImmutableDigester>> {
         if self.immutable_digester.is_none() {
-            self.immutable_digester = Some(self.build_immutable_digester().await?);
+            self.immutable_digester = Some(
+                self.build_immutable_digester()
+                    .await
+                    .with_context(|| "Dependencies Builder can not build Immutable Digester")?,
+            );
         }
 
         Ok(self.immutable_digester.as_ref().cloned().unwrap())
@@ -193,7 +215,11 @@ impl DependenciesBuilder {
     /// Get a clone of the [SnapshotService] dependency
     pub async fn get_snapshot_service(&mut self) -> StdResult<Arc<dyn SnapshotService>> {
         if self.snapshot_service.is_none() {
-            self.snapshot_service = Some(self.build_snapshot_service().await?);
+            self.snapshot_service = Some(
+                self.build_snapshot_service()
+                    .await
+                    .with_context(|| "Dependencies Builder can not build Snapshot Service")?,
+            );
         }
 
         Ok(self.snapshot_service.as_ref().cloned().unwrap())
@@ -216,8 +242,13 @@ impl DependenciesBuilder {
         &mut self,
     ) -> StdResult<Arc<dyn MithrilStakeDistributionService>> {
         if self.mithril_stake_distribution_service.is_none() {
-            self.mithril_stake_distribution_service =
-                Some(self.build_mithril_stake_distribution_service().await?);
+            self.mithril_stake_distribution_service = Some(
+                self.build_mithril_stake_distribution_service()
+                    .await
+                    .with_context(|| {
+                        "Dependencies Builder can not build Mithril Stake Distribution Service"
+                    })?,
+            );
         }
 
         Ok(self
