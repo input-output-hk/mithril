@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use super::{adapter::StoreAdapter, StoreError};
+use crate::StdResult;
+
+use super::adapter::StoreAdapter;
 
 /// Implementing this trait will make store able to limit the number of the
 /// stored records by pruning them if a limit is set.
@@ -21,7 +23,7 @@ pub trait StorePruner {
     fn get_max_records(&self) -> Option<usize>;
 
     /// Prune elements exceeding the specified limit.
-    async fn prune(&self) -> Result<(), StoreError> {
+    async fn prune(&self) -> StdResult<()> {
         let retention_len = self.get_max_records().unwrap_or(usize::MAX);
         let lock = self.get_adapter();
         let mut adapter = lock.write().await;

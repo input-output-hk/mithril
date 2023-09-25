@@ -1,8 +1,10 @@
+use anyhow::Context;
 use async_trait::async_trait;
+use mithril_common::StdResult;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::store::{adapter::StoreAdapter, StoreError, StorePruner};
+use mithril_common::store::{adapter::StoreAdapter, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
@@ -14,13 +16,10 @@ pub trait ProtocolParametersStorer: Sync + Send {
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
-    ) -> Result<Option<ProtocolParameters>, StoreError>;
+    ) -> StdResult<Option<ProtocolParameters>>;
 
     /// Get the saved `ProtocolParameter` for the given [Epoch] if any.
-    async fn get_protocol_parameters(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<ProtocolParameters>, StoreError>;
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
 }
 /// `ProtocolParameter` store.
 pub struct ProtocolParametersStore {
@@ -54,7 +53,7 @@ impl StorePruner for ProtocolParametersStore {
     }
 
     /// Pruning is deactivated on this store.
-    async fn prune(&self) -> Result<(), StoreError> {
+    async fn prune(&self) -> StdResult<()> {
         Ok(())
     }
 }
@@ -65,25 +64,26 @@ impl ProtocolParametersStorer for ProtocolParametersStore {
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
-    ) -> Result<Option<ProtocolParameters>, StoreError> {
+    ) -> StdResult<Option<ProtocolParameters>> {
         let previous_protocol_parameters = self.adapter.read().await.get_record(&epoch).await?;
         self.adapter
             .write()
             .await
             .store_record(&epoch, &protocol_parameters)
-            .await?;
+            .await
+            .with_context(|| format!("Could not save protocol parameters for epoch '{epoch}'"))?;
         self.prune().await?;
 
         Ok(previous_protocol_parameters)
     }
 
-    async fn get_protocol_parameters(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<ProtocolParameters>, StoreError> {
-        let record = self.adapter.read().await.get_record(&epoch).await?;
-
-        Ok(record)
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+        self.adapter
+            .read()
+            .await
+            .get_record(&epoch)
+            .await
+            .with_context(|| format!("Could not get protocol parameters for epoch '{epoch}'"))
     }
 }
 

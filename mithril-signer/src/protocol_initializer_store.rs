@@ -1,10 +1,12 @@
 use async_trait::async_trait;
-use mithril_common::store::{StoreError, StorePruner};
 use tokio::sync::RwLock;
 
-use mithril_common::crypto_helper::ProtocolInitializer;
-use mithril_common::entities::Epoch;
-use mithril_common::store::adapter::StoreAdapter;
+use mithril_common::{
+    crypto_helper::ProtocolInitializer,
+    entities::Epoch,
+    store::{adapter::StoreAdapter, StorePruner},
+    StdResult,
+};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
 
@@ -17,19 +19,19 @@ pub trait ProtocolInitializerStorer: Sync + Send {
         &self,
         epoch: Epoch,
         protocol_initializer: ProtocolInitializer,
-    ) -> Result<Option<ProtocolInitializer>, StoreError>;
+    ) -> StdResult<Option<ProtocolInitializer>>;
 
     /// Fetch a protocol initializer if any saved for the given Epoch.
     async fn get_protocol_initializer(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<ProtocolInitializer>, StoreError>;
+    ) -> StdResult<Option<ProtocolInitializer>>;
 
     /// Return the list of the N last saved protocol initializers if any.
     async fn get_last_protocol_initializer(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, StoreError>;
+    ) -> StdResult<Vec<(Epoch, ProtocolInitializer)>>;
 }
 /// Implementation of the ProtocolInitializerStorer
 pub struct ProtocolInitializerStore {
@@ -69,7 +71,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
         &self,
         epoch: Epoch,
         protocol_initializer: ProtocolInitializer,
-    ) -> Result<Option<ProtocolInitializer>, StoreError> {
+    ) -> StdResult<Option<ProtocolInitializer>> {
         let previous_protocol_initializer = self.adapter.read().await.get_record(&epoch).await?;
         self.adapter
             .write()
@@ -84,7 +86,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
     async fn get_protocol_initializer(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<ProtocolInitializer>, StoreError> {
+    ) -> StdResult<Option<ProtocolInitializer>> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
         Ok(record)
     }
@@ -92,7 +94,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
     async fn get_last_protocol_initializer(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, StoreError> {
+    ) -> StdResult<Vec<(Epoch, ProtocolInitializer)>> {
         let records = self.adapter.read().await.get_last_n_records(last).await?;
 
         Ok(records)

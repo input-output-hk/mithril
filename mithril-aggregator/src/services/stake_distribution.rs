@@ -168,7 +168,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
             .stake_store
             .get_stakes(epoch)
             .await
-            .map_err(|e| StakePoolDistributionServiceError::technical_subsystem(e.into()))?
+            .map_err(StakePoolDistributionServiceError::technical_subsystem)?
             .unwrap_or_default();
 
         if !stake_distribution.is_empty() {
@@ -215,7 +215,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
             .stake_store
             .save_stakes(current_epoch, stake_distribution)
             .await
-            .map_err(|e| StakePoolDistributionServiceError::technical_subsystem(e.into()))?;
+            .map_err(StakePoolDistributionServiceError::technical_subsystem)?;
 
         Ok(())
     }

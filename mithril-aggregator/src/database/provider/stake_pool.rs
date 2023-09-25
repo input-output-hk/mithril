@@ -12,7 +12,7 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::{adapter::AdapterError, StakeStorer, StoreError},
+    store::{adapter::AdapterError, StakeStorer},
     StdResult,
 };
 
@@ -246,7 +246,7 @@ impl StakeStorer for StakePoolStore {
         &self,
         epoch: Epoch,
         stakes: StakeDistribution,
-    ) -> Result<Option<StakeDistribution>, StoreError> {
+    ) -> StdResult<Option<StakeDistribution>> {
         let connection = &*self.connection.lock().await;
         let provider = InsertOrReplaceStakePoolProvider::new(connection);
         let mut new_stakes = StakeDistribution::new();
@@ -279,7 +279,7 @@ impl StakeStorer for StakePoolStore {
         Ok(Some(new_stakes))
     }
 
-    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError> {
+    async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
         let connection = &*self.connection.lock().await;
         let provider = StakePoolProvider::new(connection);
         let cursor = provider

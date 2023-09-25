@@ -15,7 +15,7 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::{adapter::AdapterError, StoreError},
+    store::adapter::AdapterError,
     StdResult,
 };
 
@@ -419,7 +419,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         &self,
         epoch: Epoch,
         signer: SignerWithStake,
-    ) -> Result<Option<SignerWithStake>, StoreError> {
+    ) -> StdResult<Option<SignerWithStake>> {
         let connection = &*self.connection.lock().await;
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
         let existing_record = SignerRegistrationRecordProvider::new(connection)
@@ -449,7 +449,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     async fn get_verification_keys(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
+    ) -> StdResult<Option<HashMap<PartyId, Signer>>> {
         let connection = &*self.connection.lock().await;
         let provider = SignerRegistrationRecordProvider::new(connection);
         let cursor = provider
@@ -466,7 +466,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         }
     }
 
-    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError> {
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
         let connection = &*self.connection.lock().await;
         let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
             // we want to prune including the given epoch (+1)
@@ -480,7 +480,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     async fn get_stake_distribution_for_epoch(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<StakeDistribution>, StoreError> {
+    ) -> StdResult<Option<StakeDistribution>> {
         let connection = &*self.connection.lock().await;
         let provider = SignerRegistrationRecordProvider::new(connection);
         let cursor = provider
