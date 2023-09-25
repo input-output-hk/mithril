@@ -430,7 +430,7 @@ sudo bash -c 'cat > /etc/squid/squid.conf << EOF
 http_port **YOUR_RELAY_LISTENING_PORT**
 
 # ACL for internal IP of your block producer node
-acl relay_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP**
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP**
 
 # ACL for aggregator endpoint
 acl aggregator_domain dstdomain .mithril.network
@@ -439,7 +439,7 @@ acl aggregator_domain dstdomain .mithril.network
 acl SSL_port port 443
 
 # Allowed traffic
-http_access allow relay_internal_ip aggregator_domain SSL_port
+http_access allow block_producer_internal_ip aggregator_domain SSL_port
 
 # Do not disclose block producer internal IP
 forwarded_for delete
@@ -485,7 +485,7 @@ sudo bash -c 'cat > /etc/squid/squid.conf << EOF
 http_port 3128
 
 # ACL for internal IP of your block producer node
-acl relay_internal_ip src 192.168.1.75
+acl block_producer_internal_ip src 192.168.1.75
 
 # ACL for aggregator endpoint
 acl aggregator_domain dstdomain .mithril.network
@@ -494,7 +494,7 @@ acl aggregator_domain dstdomain .mithril.network
 acl SSL_port port 443
 
 # Allowed traffic
-http_access allow relay_internal_ip aggregator_domain SSL_port
+http_access allow block_producer_internal_ip aggregator_domain SSL_port
 
 # Do not disclose block producer internal IP
 forwarded_for delete
