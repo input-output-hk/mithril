@@ -97,7 +97,9 @@ impl AppMithrilStakeDistributionService {
 
     async fn expand_eventual_artifact_hash_alias(&self, hash: &str) -> StdResult<String> {
         if hash.to_lowercase() == "latest" {
-            let last_mithril_stake_distribution = self.list().await?;
+            let last_mithril_stake_distribution = self.list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest stake distribution hash"
+            })?;
             let last_mithril_stake_distribution =
                 last_mithril_stake_distribution.first().ok_or_else(|| {
                     MithrilStakeDistributionServiceError::CouldNotFindStakeDistribution(
@@ -134,7 +136,13 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         let certificate = self
             .certificate_client
             .get(&stake_distribution_entity.certificate_id)
-            .await?
+            .await
+            .with_context(|| {
+                format!(
+                    "Mithril Stake Distribution Service can not get the certificate for id: '{}'",
+                    stake_distribution_entity.certificate_id
+                )
+            })?
             .ok_or_else(|| {
                 MithrilStakeDistributionServiceError::CertificateNotFound(
                     stake_distribution_entity.certificate_id.clone(),
@@ -157,7 +165,13 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
 
         let avk = self
             .compute_avk_from_mithril_stake_distribution(&stake_distribution_entity.artifact)
-            .await?
+            .await
+            .with_context(|| {
+                format!(
+                    "Mithril Stake Distribution Service can not compute avk for artifact hash '{:?}'",
+                    stake_distribution_entity.artifact.hash
+                )
+            })?
             .to_json_hex()
             .with_context(|| "Encoding avk error")?;
 
@@ -188,7 +202,12 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
         ));
         std::fs::write(
             &filepath,
-            serde_json::to_string(&stake_distribution_entity.artifact)?,
+            serde_json::to_string(&stake_distribution_entity.artifact).with_context(|| {
+                format!(
+                    "Can not serialize stake distribution artifact '{:?}'",
+                    stake_distribution_entity.artifact
+                )
+            })?,
         )?;
 
         Ok(filepath)
