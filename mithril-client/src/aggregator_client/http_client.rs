@@ -23,29 +23,19 @@ use crate::utils::{DownloadProgressReporter, SnapshotUnpacker};
 pub enum AggregatorHTTPClientError {
     /// Error raised when querying the aggregator returned a 5XX error.
     #[error("remote server technical error: '{0}'")]
-    RemoteServerTechnical(String),
+    RemoteServerTechnical(StdError),
 
     /// Error raised when querying the aggregator returned a 4XX error.
     #[error("remote server logical error: '{0}'")]
-    RemoteServerLogical(String),
-
-    /// Error raised when the aggregator can't be reached.
-    #[error("remote server unreachable: '{0}'")]
-    RemoteServerUnreachable(String),
+    RemoteServerLogical(StdError),
 
     /// Error raised when the server API version mismatch the client API version.
     #[error("API version mismatch: {0}")]
-    ApiVersionMismatch(String),
+    ApiVersionMismatch(StdError),
 
     /// HTTP subsystem error
-    #[error("HTTP subsystem error: {message} ({error}).")]
-    SubsystemError {
-        /// Error context
-        message: String,
-
-        /// Nested error
-        error: StdError,
-    },
+    #[error("HTTP subsystem error: {0}")]
+    SubsystemError(StdError),
 }
 
 /// API that defines a client for the Aggregator
@@ -127,14 +117,12 @@ impl AggregatorHTTPClient {
         debug!("Prepare request with version: {current_api_version}");
         let request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
-        let response = request_builder.send().await.map_err(|e| {
-            AggregatorHTTPClientError::SubsystemError {
-                message: format!(
-                    "Cannot perform a GET against the Aggregator HTTP server (url='{url}')"
-                ),
-                error: e.into(),
-            }
-        })?;
+        let response =
+            request_builder.send().await.map_err(|e| {
+                AggregatorHTTPClientError::SubsystemError(anyhow!(e).context(
+                    "Cannot perform a GET against the Aggregator HTTP server (url='{url}'",
+                ))
+            })?;
 
         match response.status() {
             StatusCode::OK => Ok(response),
@@ -147,10 +135,10 @@ impl AggregatorHTTPClient {
 
                 Err(self.handle_api_error(&response).await)
             }
-            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(format!(
+            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(anyhow!(
                 "Url='{url} not found"
             ))),
-            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(format!(
+            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(anyhow!(
                 "Unhandled error {status_code}"
             ))),
         }
@@ -171,10 +159,9 @@ impl AggregatorHTTPClient {
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
 
         let response = request_builder.send().await.map_err(|e| {
-            AggregatorHTTPClientError::SubsystemError {
-                message: format!("Error while POSTing data '{json}' to URL='{url}'."),
-                error: e.into(),
-            }
+            AggregatorHTTPClientError::SubsystemError(
+                anyhow!(e).context("Error while POSTing data '{json}' to URL='{url}'."),
+            )
         })?;
 
         match response.status() {
@@ -188,10 +175,10 @@ impl AggregatorHTTPClient {
 
                 Err(self.handle_api_error(&response).await)
             }
-            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(format!(
+            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(anyhow!(
                 "Url='{url} not found"
             ))),
-            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(format!(
+            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(anyhow!(
                 "Unhandled error {status_code}"
             ))),
         }
@@ -200,13 +187,13 @@ impl AggregatorHTTPClient {
     /// API version error handling
     async fn handle_api_error(&self, response: &Response) -> AggregatorHTTPClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            AggregatorHTTPClientError::ApiVersionMismatch(format!(
+            AggregatorHTTPClientError::ApiVersionMismatch(anyhow!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
                 self.compute_current_api_version().await.unwrap()
             ))
         } else {
-            AggregatorHTTPClientError::ApiVersionMismatch(format!(
+            AggregatorHTTPClientError::ApiVersionMismatch(anyhow!(
                 "version precondition failed, sent version '{}'.",
                 self.compute_current_api_version().await.unwrap()
             ))
@@ -222,13 +209,11 @@ impl AggregatorClient for AggregatorHTTPClient {
         let response = self.get(&url).await?;
         let content = format!("{response:?}");
 
-        response
-            .text()
-            .await
-            .map_err(|e| AggregatorHTTPClientError::SubsystemError {
-                message: format!("Could not find a JSON body in the response '{content}'."),
-                error: e.into(),
-            })
+        response.text().await.map_err(|e| {
+            AggregatorHTTPClientError::SubsystemError(anyhow!(e).context(format!(
+                "Could not find a JSON body in the response '{content}'."
+            )))
+        })
     }
 
     async fn post_content(
@@ -239,13 +224,11 @@ impl AggregatorClient for AggregatorHTTPClient {
         let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
         let response = self.post(&url, json).await?;
 
-        response
-            .text()
-            .await
-            .map_err(|e| AggregatorHTTPClientError::SubsystemError {
-                message: "Could not find a text body in the response.".to_string(),
-                error: e.into(),
-            })
+        response.text().await.map_err(|e| {
+            AggregatorHTTPClientError::SubsystemError(
+                anyhow!(e).context("Could not find a text body in the response."),
+            )
+        })
     }
 
     async fn download_unpack(
@@ -256,13 +239,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         progress_reporter: DownloadProgressReporter,
     ) -> Result<(), AggregatorHTTPClientError> {
         if !target_dir.is_dir() {
-            Err(AggregatorHTTPClientError::SubsystemError {
-                message: "Download-Unpack: prerequisite error".to_string(),
-                error: anyhow!(
-                    "target path is not a directory or does not exist: `{}`",
-                    target_dir.display()
-                ),
-            })?;
+            Err(AggregatorHTTPClientError::SubsystemError(
+                anyhow!("target path is not a directory or does not exist: `{target_dir:?}`")
+                    .context("Download-Unpack: prerequisite error"),
+            ))?;
         }
 
         let mut downloaded_bytes: u64 = 0;
@@ -277,16 +257,16 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.map_err(|e| {
-                AggregatorHTTPClientError::RemoteServerTechnical(format!(
+                AggregatorHTTPClientError::RemoteServerTechnical(anyhow!(
                     "Download: Could not read from byte stream: {e}"
                 ))
             })?;
 
             sender.send_async(chunk.to_vec()).await.map_err(|e| {
-                AggregatorHTTPClientError::SubsystemError {
-                    message: format!("Download: could not write {} bytes to stream.", chunk.len()),
-                    error: e.into(),
-                }
+                AggregatorHTTPClientError::SubsystemError(anyhow!(e).context(format!(
+                    "Download: could not write {} bytes to stream.",
+                    chunk.len()
+                )))
             })?;
 
             downloaded_bytes += chunk.len() as u64;
@@ -296,16 +276,17 @@ impl AggregatorClient for AggregatorHTTPClient {
         drop(sender); // Signal EOF
         unpack_thread
             .await
-            .map_err(|join_error| AggregatorHTTPClientError::SubsystemError {
-                message: format!(
+            .map_err(|join_error| {
+                AggregatorHTTPClientError::SubsystemError(anyhow!(join_error).context(format!(
                     "Unpack: panic while unpacking to dir '{}'",
                     target_dir.display()
-                ),
-                error: join_error.into(),
+                )))
             })?
-            .map_err(|unpack_error| AggregatorHTTPClientError::SubsystemError {
-                message: format!("Unpack: could not unpack to dir '{}'", target_dir.display()),
-                error: unpack_error,
+            .map_err(|unpack_error| {
+                AggregatorHTTPClientError::SubsystemError(anyhow!(unpack_error).context(format!(
+                    "Unpack: could not unpack to dir '{}'",
+                    target_dir.display()
+                )))
             })?;
 
         Ok(())
@@ -315,17 +296,16 @@ impl AggregatorClient for AggregatorHTTPClient {
         debug!("HEAD url='{url}'.");
         let request_builder = Client::new().head(url.to_owned());
         let response = request_builder.send().await.map_err(|e| {
-            AggregatorHTTPClientError::SubsystemError {
-                message: format!("Cannot perform a HEAD for url='{url}'"),
-                error: e.into(),
-            }
+            AggregatorHTTPClientError::SubsystemError(
+                anyhow!(e).context("Cannot perform a HEAD for url='{url}'"),
+            )
         })?;
         match response.status() {
             StatusCode::OK => Ok(()),
-            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(format!(
+            StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(anyhow!(
                 "Url='{url} not found"
             ))),
-            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(format!(
+            status_code => Err(AggregatorHTTPClientError::RemoteServerTechnical(anyhow!(
                 "Unhandled error {status_code}"
             ))),
         }
