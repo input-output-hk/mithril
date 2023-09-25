@@ -182,6 +182,7 @@ jobs:
           google_region: ${{ matrix.google_region }}
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
+          google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
           google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}

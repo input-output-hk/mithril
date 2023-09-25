@@ -27,6 +27,9 @@ inputs:
   google_machine_type:
     description: Google Cloud VM name.
     required: true
+  google_compute_instance_boot_disk_size:
+    description: Google Cloud attached boot disk size in GB.
+    required: true
   google_compute_instance_data_disk_size:
     description: Google Cloud attached data disk size in GB.
     required: true
@@ -131,6 +134,7 @@ runs:
         google_region                                     = "${{ inputs.google_region }}"
         google_zone                                       = "${{ inputs.google_zone }}"
         google_machine_type                               = "${{ inputs.google_machine_type }}"
+        google_compute_instance_boot_disk_size            = "${{ inputs.google_compute_instance_boot_disk_size }}"
         google_compute_instance_data_disk_size            = "${{ inputs.google_compute_instance_data_disk_size }}"
         google_service_credentials_json_file              = "./google-application-credentials.json"
         mithril_api_domain                                = "${{ inputs.mithril_api_domain }}"

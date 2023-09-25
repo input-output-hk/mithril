@@ -437,6 +437,7 @@ jobs:
           google_region: europe-west1
           google_zone: europe-west1-b
           google_machine_type: e2-highmem-4
+          google_compute_instance_boot_disk_size: 200
           google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
@@ -465,6 +466,7 @@ jobs:
           google_region: ${{ matrix.google_region }}
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
+          google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
           google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
