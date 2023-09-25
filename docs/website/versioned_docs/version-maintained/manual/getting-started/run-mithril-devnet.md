@@ -165,7 +165,7 @@ Creating artifacts_mithril-aggregator_1        ... done
 Creating artifacts_mithril-signer-node-pool1_1 ... done
 Creating artifacts_mithril-signer-node-pool2_1 ... done
 Creating artifacts_mithril-aggregator-genesis_run ... done
-{"msg":"Started","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925641527Z","hostname":"e932dff845aa","pid":1,"config":"Configuration { cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", network_magic: Some(42), network: \"devnet\", protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, url_snapshot_manifest: \"\", snapshot_store_type: Local, snapshot_uploader_type: Local, server_url: \"http://0.0.0.0:8080/\", run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \"/data/mithril/aggregator\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\" }","run_mode":"dev"}
+{"msg":"Started","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925641527Z","hostname":"e932dff845aa","pid":1,"config":"Configuration { cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", network_magic: Some(42), network: \"devnet\", protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, snapshot_store_type: Local, snapshot_uploader_type: Local, server_url: \"http://0.0.0.0:8080/\", run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \"/data/mithril/aggregator\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\" }","run_mode":"dev"}
 {"msg":"New LocalSnapshotUploader created","v":0,"name":"slog-rs","level":20Genesis bootstrap for test only
 ,"time":"2022-09-06T09:24:31.925683285Z","hostname":"e932dff845aa","pid":1,"snapshot_server_url":"http://0.0.0.0:8080/"}
 {"msg":"New MultiSignerImpl created","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925711468Z","hostname":"e932dff845aa","pid":1}
@@ -495,7 +495,8 @@ You will see more information about the snapshot:
 +-----------------------+-----------------------------------------------------------------------------------------+
 | Created               | 2023-05-31T12:50:45.978711344Z                                                          |
 +-----------------------+-----------------------------------------------------------------------------------------+
-
+| Compression Algorithm | Zstandard                                                                               |
++-----------------------+-----------------------------------------------------------------------------------------+
 ```
 
 ### Step 4: Download and verify the selected snapshot
