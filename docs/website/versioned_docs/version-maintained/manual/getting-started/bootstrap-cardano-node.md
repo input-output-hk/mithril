@@ -251,6 +251,12 @@ You will see a list of snapshots:
 …
 ```
 
+:::warning
+
+If you restore a Cardano node with a version not included in the advertised range of compatible versions, it may cause extra time to restore the node due to ledger computations, or even crash the node.
+
+:::
+
 ### Step 3: Show snapshot details
 
 To get more details from a specific snapshot (optional), run:
@@ -274,6 +280,8 @@ You will see more information about the snapshot:
 | Size                  | 1259745182                                                                                                                    |
 +-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
 | Location 1            | https://storage.googleapis.com/mithril-release-preprod-…aa11b0e2ccf737d4f5def8b0a9f2245eded2b4ec4be876f7bd64deddcbbf.tar.gz   |
++-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Cardano node version  | 8.1.2                                                                                                                         |
 +-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
 | Created               | 2023-05-31T14:02:40.150189810Z                                                                                                |
 +-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
