@@ -78,7 +78,6 @@ impl MultiSigner {
                 &avk,
                 message.compute_hash().as_bytes(),
             )
-            .map_err(|e| anyhow!(e))
             .with_context(|| {
                 format!(
                     "Invalid signature for party: '{}'",
@@ -92,6 +91,8 @@ impl MultiSigner {
 
 #[cfg(test)]
 mod test {
+    use mithril_stm::StmSignatureError;
+
     use crate::{
         entities::{ProtocolMessagePartKey, ProtocolParameters},
         protocol::SignerBuilder,
@@ -192,11 +193,10 @@ mod test {
                 "Verify single signature should fail if the signer isn't in the registered parties",
             );
 
-        assert!(
-            error.to_string().contains("Invalid signature for party"),
-            "Expected invalid signature of party error, got: {error}, cause: {}",
-            error.root_cause()
-        )
+        match error.downcast_ref::<StmSignatureError>() {
+            Some(StmSignatureError::SignatureInvalid(_)) => (),
+            _ => panic!("Expected an SignatureInvalid error, got: {error:?}"),
+        }
     }
 
     #[test]
@@ -219,11 +219,10 @@ mod test {
             .verify_single_signature(&ProtocolMessage::default(), &single_signature)
             .expect_err("Verify single signature should fail");
 
-        assert!(
-            error.to_string().contains("Invalid signature for party"),
-            "Expected invalid signature of party error, got: {error}, cause: {}",
-            error.root_cause()
-        )
+        match error.downcast_ref::<StmSignatureError>() {
+            Some(StmSignatureError::SignatureInvalid(_)) => (),
+            _ => panic!("Expected an SignatureInvalid error, got: {error:?}"),
+        }
     }
 
     #[test]
