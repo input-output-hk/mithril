@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use hex::ToHex;
 use slog_scope::{info, trace, warn};
 use std::path::PathBuf;
@@ -65,7 +65,7 @@ pub trait SingleSigner: Sync + Send {
 pub enum SingleSignerError {
     /// Cryptographic Signer creation error.
     #[error("the protocol signer creation failed: `{0}`")]
-    ProtocolSignerCreationFailure(String),
+    ProtocolSignerCreationFailure(StdError),
 
     /// Signature Error
     #[error("Signature Error: {0:?}")]
@@ -99,7 +99,8 @@ impl SingleSigner for MithrilSingleSigner {
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
         )
-        .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?;
+        .with_context(|| "Mithril Single Signer can not build signer")
+        .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(anyhow!(e)))?;
         info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "signed message" => protocol_message.compute_hash().encode_hex::<String>());
         let signatures = builder
             .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer.clone())
@@ -109,7 +110,7 @@ impl SingleSigner for MithrilSingleSigner {
                     self.party_id.clone()
                 )
             })
-            .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?
+            .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(anyhow!(e)))?
             .sign(protocol_message)
             .with_context(|| {
                 format!(
@@ -145,11 +146,15 @@ impl SingleSigner for MithrilSingleSigner {
             signers_with_stake,
             &protocol_initializer.get_protocol_parameters().into(),
         )
+        .with_context(|| "Mithril Single Signer can not compute aggregate verification key")
         .map_err(SingleSignerError::AggregateVerificationKeyComputationFailed)?;
 
         let encoded_avk = signer_builder
             .compute_aggregate_verification_key()
-            .to_json_hex()?;
+            .to_json_hex()
+            .with_context(|| {
+                "Mithril Single Signer can not serialize aggregate verification key"
+            })?;
 
         Ok(Some(encoded_avk))
     }
