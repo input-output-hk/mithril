@@ -7,10 +7,10 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use mithril_common::{
-    entities::Epoch,
+    entities::{Epoch, SignedEntityType},
     messages::{
-        CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
-        SnapshotListItemMessage,
+        CertificateListItemMessage, CertificatePendingMessage, EpochSettingsMessage,
+        MithrilStakeDistributionListItemMessage, SnapshotListItemMessage,
     },
     StdResult,
 };
@@ -105,14 +105,24 @@ pub async fn for_epoch_settings_at_epoch(
 }
 
 /// Wait for pending certificate
-pub async fn for_pending_certificate(aggregator: &Aggregator, timeout: Duration) -> StdResult<()> {
+pub async fn for_pending_certificate(
+    aggregator: &Aggregator,
+    timeout: Duration,
+    signed_entity_type: &SignedEntityType,
+) -> StdResult<()> {
     let url = &format!("{}/certificate-pending", aggregator.endpoint());
     spin_while_waiting!(
         {
             while let Ok(response) = reqwest::get(url).await {
                 match response.status() {
                     StatusCode::OK => {
-                        break;
+                        let pending_certificate =
+                            response.json::<CertificatePendingMessage>().await.unwrap();
+
+                        if &pending_certificate.signed_entity_type == signed_entity_type {
+                            break;
+                        }
+                        sleep(Duration::from_millis(300)).await
                     }
                     s if s.is_server_error() => {
                         warn!(

@@ -1,11 +1,11 @@
 use clap::Parser;
 use slog_scope::info;
-use std::{sync::Arc, time::Duration};
+use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 use mithril_common::{
     digesters::{DummyImmutableDb, DummyImmutablesDbBuilder},
-    entities::{Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
+    entities::{Beacon, Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
     test_utils::MithrilFixture,
     StdResult,
 };
@@ -151,9 +151,14 @@ async fn main_scenario(
         &parameters.aggregator_parameters.mock_epoch_file_path(),
         current_epoch,
     );
+
+    // Creating the new immutable file early will avoid time effects due to the aggregator runtime design when high client traffic is sent
+    info!(">> Add new immutable file");
+    parameters.immutable_db.add_immutable_file();
+
     wait::for_epoch_settings_at_epoch(
         &parameters.aggregator,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
         current_epoch,
     )
     .await?;
@@ -170,7 +175,12 @@ async fn main_scenario(
     assert_eq!(0, errors);
 
     info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(&parameters.aggregator, Duration::from_secs(30)).await?;
+    wait::for_pending_certificate(
+        &parameters.aggregator,
+        Duration::from_secs(60),
+        &SignedEntityType::MithrilStakeDistribution(current_epoch),
+    )
+    .await?;
 
     info!(
         ">> Send the Signer Signatures payloads for MithrilStakeDistribution({:?})",
@@ -191,7 +201,7 @@ async fn main_scenario(
     wait::for_certificates(
         &parameters.aggregator,
         number_of_certificates,
-        Duration::from_secs(30),
+        Duration::from_secs(120),
     )
     .await?;
 
@@ -200,15 +210,21 @@ async fn main_scenario(
     wait::for_mithril_stake_distribution_artifacts(
         &parameters.aggregator,
         number_of_mithril_stake_distributions,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
     )
     .await?;
 
-    info!(">> Add new immutable file");
-    parameters.immutable_db.add_immutable_file();
-
     info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(&parameters.aggregator, Duration::from_secs(30)).await?;
+    wait::for_pending_certificate(
+        &parameters.aggregator,
+        Duration::from_secs(60),
+        &SignedEntityType::CardanoImmutableFilesFull(Beacon::new(
+            "devnet".to_string(),
+            *current_epoch.deref(),
+            parameters.immutable_db.last_immutable_number().unwrap() - 1,
+        )),
+    )
+    .await?;
 
     info!(">> Compute the immutable files signature");
     let (current_beacon, immutable_files_signatures) =
@@ -216,7 +232,7 @@ async fn main_scenario(
             &parameters.immutable_db,
             current_epoch,
             &parameters.signers_fixture,
-            Duration::from_secs(30),
+            Duration::from_secs(60),
         )
         .await
         .unwrap();
@@ -240,7 +256,7 @@ async fn main_scenario(
     wait::for_certificates(
         &parameters.aggregator,
         number_of_certificates,
-        Duration::from_secs(30),
+        Duration::from_secs(120),
     )
     .await?;
 
@@ -249,7 +265,7 @@ async fn main_scenario(
     wait::for_immutable_files_artifacts(
         &parameters.aggregator,
         number_of_snapshots,
-        Duration::from_secs(30),
+        Duration::from_secs(60),
     )
     .await?;
 
