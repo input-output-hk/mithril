@@ -1,3 +1,4 @@
+use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, Config, ConfigBuilder};
 use std::{path::PathBuf, sync::Arc};
@@ -30,13 +31,24 @@ pub struct SnapshotDownloadCommand {
 impl SnapshotDownloadCommand {
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config_builder = config_builder.set_default("genesis_verification_key", "")?;
+        let config_builder = config_builder
+            .set_default("genesis_verification_key", "")
+            .unwrap();
         let config: Config = config_builder.build()?;
         let config = Arc::new(config);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
-        let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let snapshot_entity =
-            FromSnapshotMessageAdapter::adapt(snapshot_service.show(&self.digest).await?);
+        let snapshot_service = dependencies_builder
+            .get_snapshot_service()
+            .await
+            .with_context(|| "Dependencies Builder can not get Snapshot Service")?;
+        let snapshot_entity = FromSnapshotMessageAdapter::adapt(
+            snapshot_service.show(&self.digest).await.with_context(|| {
+                format!(
+                    "Snapshot Service can not get the snapshot for digest: '{}'",
+                    self.digest
+                )
+            })?,
+        );
         let progress_output_type = if self.json {
             ProgressOutputType::JsonReporter
         } else {
@@ -46,7 +58,14 @@ impl SnapshotDownloadCommand {
             .download(
                 &snapshot_entity,
                 &self.download_dir,
-                &config.get_string("genesis_verification_key")?,
+                &config
+                    .get_string("genesis_verification_key")
+                    .with_context(|| {
+                        format!(
+                            "Snapshot Service can not download and verify the snapshot for digest: '{}'",
+                            self.digest
+                        )
+                    })?,
                 progress_output_type,
             )
             .await?;

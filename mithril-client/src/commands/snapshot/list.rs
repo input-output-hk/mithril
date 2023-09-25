@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
@@ -21,8 +22,14 @@ impl SnapshotListCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config: Config = config_builder.build()?;
         let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
-        let snapshot_service = dependencies_builder.get_snapshot_service().await?;
-        let items = snapshot_service.list().await?;
+        let snapshot_service = dependencies_builder
+            .get_snapshot_service()
+            .await
+            .with_context(|| "Dependencies Builder can not get Snapshot Service")?;
+        let items = snapshot_service
+            .list()
+            .await
+            .with_context(|| "Snapshot Service can not get the list of snapshots")?;
 
         if self.json {
             println!("{}", serde_json::to_string(&items)?);

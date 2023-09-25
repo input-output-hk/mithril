@@ -1,5 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
+use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, Config, ConfigBuilder};
 use mithril_common::StdResult;
@@ -25,13 +26,18 @@ pub struct MithrilStakeDistributionDownloadCommand {
 impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config_builder = config_builder.set_default("genesis_verification_key", "")?;
+        let config_builder = config_builder
+            .set_default("genesis_verification_key", "")
+            .unwrap();
         let config: Config = config_builder.build()?;
         let config = Arc::new(config);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let service = dependencies_builder
             .get_mithril_stake_distribution_service()
-            .await?;
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not get Mithril Stake Distribution Service"
+            })?;
 
         let filepath = service
             .download(
@@ -39,7 +45,13 @@ impl MithrilStakeDistributionDownloadCommand {
                 &self.download_dir,
                 &config.get_string("genesis_verification_key")?,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Mithril Stake Distribution Service can not download and verify the artifact for hash: '{}'",
+                    self.artifact_hash
+                )
+            })?;
 
         println!(
             "Mithril Stake Distribution '{}' has been verified and saved as '{}'.",
