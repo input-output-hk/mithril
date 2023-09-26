@@ -78,8 +78,9 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     #[error("Batch verification of STM aggregate signatures failed")]
     BatchInvalid,
 
+    /// `CoreVerifier` check failed
     #[error("Core verification error: {0}")]
-    CoreVerificationError(CoreVerifierError),
+    CoreVerificationError(#[source] CoreVerifierError),
 }
 
 /// Errors which can be output by `CoreVerifier`.
@@ -99,7 +100,7 @@ pub enum CoreVerifierError {
 
     /// One of the aggregated signatures is invalid
     #[error("Individual signature is invalid: {0}")]
-    IndividualSignatureInvalid(StmSignatureError),
+    IndividualSignatureInvalid(#[source] StmSignatureError),
 }
 
 /// Error types for aggregation.
