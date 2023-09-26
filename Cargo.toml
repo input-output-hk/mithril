@@ -9,7 +9,8 @@ members = [
   "mithril-common",
   "mithril-signer",
   "mithril-stm",
-  "mithril-test-lab/mithril-end-to-end"
+  "mithril-test-lab/mithril-end-to-end",
+  "poc-wasm-client"
 ]
 
 [workspace.package]
