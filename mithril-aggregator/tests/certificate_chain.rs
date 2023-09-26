@@ -160,10 +160,8 @@ async fn certificate_chain() {
         "Checking that no signers are registered for the next epoch since they did not register"
     );
     let next_epoch_verification_keys = tester
-        .deps_builder
-        .get_verification_key_store()
-        .await
-        .unwrap()
+        .dependencies
+        .verification_key_store
         .get_verification_keys(new_epoch + 1)
         .await
         .expect("get_verification_keys should not fail");

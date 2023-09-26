@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context};
 use mithril_aggregator::database::provider::SignedEntityRecord;
 use mithril_aggregator::{
     dependency_injection::DependenciesBuilder, event_store::EventMessage, AggregatorRuntime,
-    Configuration, DumbSnapshotUploader, DumbSnapshotter, SignerRegisterer,
+    Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
 use mithril_common::StdResult;
@@ -60,7 +60,7 @@ pub struct RuntimeTester {
     pub digester: Arc<DumbImmutableDigester>,
     pub snapshotter: Arc<DumbSnapshotter>,
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
-    pub deps_builder: DependenciesBuilder,
+    pub dependencies: DependencyContainer,
     pub runtime: AggregatorRuntime,
     pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
@@ -68,8 +68,16 @@ pub struct RuntimeTester {
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
+fn build_logger() -> slog_scope::GlobalLoggerGuard {
+    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()))
+}
+
 impl RuntimeTester {
     pub async fn build(start_beacon: Beacon, configuration: Configuration) -> Self {
+        let logger = build_logger();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
@@ -92,11 +100,8 @@ impl RuntimeTester {
         deps_builder.snapshotter = Some(snapshotter.clone());
         deps_builder.era_reader = Some(Arc::new(EraReader::new(era_reader_adapter.clone())));
 
+        let dependencies = deps_builder.build_dependency_container().await.unwrap();
         let runtime = deps_builder.create_aggregator_runner().await.unwrap();
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        let log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
 
@@ -107,12 +112,12 @@ impl RuntimeTester {
             digester,
             snapshotter,
             genesis_signer,
-            deps_builder,
+            dependencies,
             runtime,
             receiver,
             era_reader_adapter,
             observer,
-            _logs_guard: log,
+            _logs_guard: logger,
         }
     }
 
@@ -160,13 +165,8 @@ impl RuntimeTester {
             .await;
 
         // Init the stores needed for a genesis certificate
-        let dependency_container = self
-            .deps_builder
-            .build_dependency_container()
-            .await
-            .with_context(|| "getting the dependency_container should not fail")?;
-        let genesis_epochs = dependency_container.get_genesis_epochs().await;
-        dependency_container
+        let genesis_epochs = self.dependencies.get_genesis_epochs().await;
+        self.dependencies
             .init_state_from_fixture(fixture, &[genesis_epochs.0, genesis_epochs.1])
             .await;
         Ok(())
@@ -180,10 +180,8 @@ impl RuntimeTester {
         let beacon = self.observer.current_beacon().await;
         let genesis_certificate = fixture.create_genesis_certificate(&beacon);
         debug!("genesis_certificate: {:?}", genesis_certificate);
-        self.deps_builder
-            .get_certificate_repository()
-            .await
-            .unwrap()
+        self.dependencies
+            .certificate_repository
             .create_certificate(genesis_certificate)
             .await
             .with_context(|| {
@@ -219,10 +217,8 @@ impl RuntimeTester {
             .await
             .ok_or(anyhow!("a new epoch should have been issued"))?;
         self.update_digester_digest().await;
-        self.deps_builder
-            .get_certifier_service()
-            .await
-            .unwrap()
+        self.dependencies
+            .certifier_service
             .inform_epoch(new_epoch)
             .await
             .with_context(|| "inform_epoch should not fail")?;
@@ -241,9 +237,10 @@ impl RuntimeTester {
             .unwrap()
             .epoch
             .offset_to_recording_epoch();
-        let signer_registerer = self.deps_builder.get_mithril_registerer().await.unwrap();
         for signer_with_stake in signers.iter().map(|f| &f.signer_with_stake) {
-            match signer_registerer
+            match self
+                .dependencies
+                .signer_registerer
                 .register_signer(registration_epoch, &signer_with_stake.to_owned().into())
                 .await
             {
@@ -263,7 +260,7 @@ impl RuntimeTester {
         discriminant: SignedEntityTypeDiscriminants,
         signers: &[SignerFixture],
     ) -> StdResult<()> {
-        let certifier_service = self.deps_builder.get_certifier_service().await.unwrap();
+        let certifier_service = self.dependencies.certifier_service.clone();
         let signed_entity_type = self
             .observer
             .get_current_signed_entity_type(discriminant)
@@ -301,18 +298,14 @@ impl RuntimeTester {
         &mut self,
     ) -> StdResult<(Vec<Certificate>, Vec<Snapshot>)> {
         let certificates = self
-            .deps_builder
-            .get_certificate_repository()
-            .await
-            .unwrap()
+            .dependencies
+            .certificate_repository
             .get_latest_certificates(1000) // Arbitrary high number to get all of them in store
             .await
             .with_context(|| "Querying certificate store should not fail")?;
         let signed_entities = self
-            .deps_builder
-            .get_signed_entity_service()
-            .await
-            .unwrap()
+            .dependencies
+            .signed_entity_service
             .get_last_signed_snapshots(20)
             .await
             .with_context(|| "Querying snapshot store should not fail")?;
@@ -331,10 +324,8 @@ impl RuntimeTester {
     ) -> StdResult<MithrilFixture> {
         let beacon = self.observer.current_beacon().await;
         let protocol_parameters = self
-            .deps_builder
-            .get_protocol_parameters_store()
-            .await
-            .unwrap()
+            .dependencies
+            .protocol_parameters_store
             .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch())
             .await
             .with_context(|| "Querying the recording epoch protocol_parameters should not fail")?
@@ -379,10 +370,8 @@ impl RuntimeTester {
         &mut self,
     ) -> StdResult<(Certificate, Option<SignedEntityRecord>)> {
         let certificate = self
-            .deps_builder
-            .get_certifier_service()
-            .await
-            .unwrap()
+            .dependencies
+            .certifier_service
             .get_latest_certificates(1)
             .await
             .with_context(|| "Querying last certificate should not fail")?
@@ -396,10 +385,8 @@ impl RuntimeTester {
             CertificateSignature::GenesisSignature(_) => None,
             CertificateSignature::MultiSignature(_) => {
                 let record = self
-                    .deps_builder
-                    .get_signed_entity_storer()
-                    .await
-                    .unwrap()
+                    .dependencies
+                    .signed_entity_storer
                     .get_signed_entity_by_certificate_id(&certificate.hash)
                     .await
                     .with_context(|| "Querying certificate should not fail")?
@@ -450,10 +437,8 @@ impl RuntimeTester {
         certificate_hash: &str,
     ) -> StdResult<String> {
         let cert_identifier = match self
-            .deps_builder
-            .get_signed_entity_storer()
-            .await
-            .unwrap()
+            .dependencies
+            .signed_entity_storer
             .get_signed_entity_by_certificate_id(certificate_hash)
             .await
             .with_context(|| "Querying signed entity should not fail")?
@@ -462,10 +447,8 @@ impl RuntimeTester {
             None => {
                 // Certificate is a genesis certificate
                 let genesis_certificate = self
-                    .deps_builder
-                    .get_certifier_service()
-                    .await
-                    .unwrap()
+                    .dependencies
+                    .certifier_service
                     .get_certificate_by_hash(certificate_hash)
                     .await
                     .with_context(|| "Querying genesis certificate should not fail")?
