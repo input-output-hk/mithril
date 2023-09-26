@@ -392,6 +392,23 @@ Finally, monitor the logs of the service:
 tail /var/log/syslog
 ```
 
+### Rotating the KES keys
+
+:::danger
+
+When the KES keys have expired, the Mithril signer is not able to register to the Mithril protocol.
+
+:::
+
+When you have rotated the KES keys on your Cardano block producer, we recommend the following upgrade procedure for your Mithril signer node:
+1. Update the `KES_SECRET_KEY_PATH` entry of your environment file to reflect the location of the **new KES secret key file**.
+2. Update the `OPERATIONAL_CERTIFICATE_PATH` entry of your environment file to reflect the location of the **new Operational certificate file**.
+3. Restart your Mithril signer service with the following command:
+```bash
+sudo systemctl restart mithril-signer
+```
+4. Check the logs of your signer node and make sure that it has successfully registered after restarting (the following log should be displayed: `STATE MACHINE: new cycle: Registered`).
+
 ## Set up the Mithril relay node
 
 :::caution
