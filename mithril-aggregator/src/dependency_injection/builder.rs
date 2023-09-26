@@ -1025,7 +1025,7 @@ impl DependenciesBuilder {
                 .await
                 .map_err(|e| DependenciesBuilderError::Initialization {
                     message: "can not create aggregator runner".to_string(),
-                    error: Some(e.into()),
+                    error: Some(e),
                 })?
                 .is_none()
             {
@@ -1040,7 +1040,7 @@ impl DependenciesBuilder {
                         .await
                         .map_err(|e| DependenciesBuilderError::Initialization {
                             message: "can not create aggregator runner".to_string(),
-                            error: Some(e.into()),
+                            error: Some(e),
                         })?;
                 }
             }

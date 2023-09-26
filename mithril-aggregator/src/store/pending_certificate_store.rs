@@ -1,7 +1,9 @@
+use anyhow::{anyhow, Context};
+use mithril_common::StdResult;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::CertificatePending;
-use mithril_common::store::{adapter::StoreAdapter, StoreError};
+use mithril_common::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = CertificatePending>>;
 
@@ -21,34 +23,40 @@ impl CertificatePendingStore {
     }
 
     /// Fetch the current [CertificatePending] if any.
-    pub async fn get(&self) -> Result<Option<CertificatePending>, StoreError> {
-        let record = self
-            .adapter
+    pub async fn get(&self) -> StdResult<Option<CertificatePending>> {
+        self.adapter
             .read()
             .await
             .get_record(&KEY.to_string())
-            .await?;
-        Ok(record)
+            .await
+            .with_context(|| "Certificate pending store: could not GET store.".to_string())
     }
 
     /// Save the given [CertificatePending].
-    pub async fn save(&self, certificate: CertificatePending) -> Result<(), StoreError> {
-        Ok(self
+    pub async fn save(&self, certificate: CertificatePending) -> StdResult<()> {
+        self
             .adapter
             .write()
             .await
             .store_record(&KEY.to_string(), &certificate)
-            .await?)
+            .await
+            .with_context(|| format!("Certificate pending store: error while saving pending certificate for epoch '{}'.", certificate.beacon.epoch))
     }
 
     /// Remove and return the current [CertificatePending] if any.
-    pub async fn remove(&self) -> Result<Option<CertificatePending>, StoreError> {
+    pub async fn remove(&self) -> StdResult<Option<CertificatePending>> {
         self.adapter
             .write()
             .await
             .remove(&KEY.to_string())
             .await
-            .map_err(StoreError::AdapterError)
+            .map_err(|e| anyhow!(e))
+            .with_context(|| {
+                format!(
+                    "Could not delete certificate pending (key = '{}') from store.",
+                    &KEY
+                )
+            })
     }
 }
 

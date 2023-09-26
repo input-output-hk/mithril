@@ -1,9 +1,11 @@
+use anyhow::Context;
 use async_trait::async_trait;
+use mithril_common::StdResult;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake, StakeDistribution};
-use mithril_common::store::{adapter::StoreAdapter, StoreError};
+use mithril_common::store::adapter::StoreAdapter;
 
 #[cfg(test)]
 use mockall::automock;
@@ -23,22 +25,22 @@ pub trait VerificationKeyStorer: Sync + Send {
         &self,
         epoch: Epoch,
         signer: SignerWithStake,
-    ) -> Result<Option<SignerWithStake>, StoreError>;
+    ) -> StdResult<Option<SignerWithStake>>;
 
     /// Returns a HashMap of [Signer] indexed by [PartyId] for the given `Beacon`.
     async fn get_verification_keys(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError>;
+    ) -> StdResult<Option<HashMap<PartyId, Signer>>>;
 
     /// Prune all verification keys that are at or below the given epoch.
-    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError>;
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()>;
 
     /// Return the parties that are stored at the given epoch.
     async fn get_stake_distribution_for_epoch(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<StakeDistribution>, StoreError>;
+    ) -> StdResult<Option<StakeDistribution>>;
 }
 
 /// Store for the `VerificationKey`.
@@ -61,7 +63,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
         &self,
         epoch: Epoch,
         signer: SignerWithStake,
-    ) -> Result<Option<SignerWithStake>, StoreError> {
+    ) -> StdResult<Option<SignerWithStake>> {
         let mut signers = match self.adapter.read().await.get_record(&epoch).await? {
             Some(s) => s,
             None => HashMap::new(),
@@ -79,21 +81,32 @@ impl VerificationKeyStorer for VerificationKeyStore {
     async fn get_verification_keys(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
-        let record = self.adapter.read().await.get_record(&epoch).await?;
+    ) -> StdResult<Option<HashMap<PartyId, Signer>>> {
+        let record = self
+            .adapter
+            .read()
+            .await
+            .get_record(&epoch)
+            .await
+            .with_context(|| format!("Could not get verification keys for epoch {epoch}."))?;
+
         Ok(record.map(|h| h.into_iter().map(|(k, v)| (k, v.into())).collect()))
     }
 
-    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> Result<(), StoreError> {
+    async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
         let mut adapter = self.adapter.write().await;
 
         for (epoch, _record) in adapter
             .get_last_n_records(usize::MAX)
-            .await?
+            .await
+            .with_context(|| {
+                "Pruning verification keys: could not read last records from database".to_string()
+            })?
             .into_iter()
             .filter(|(e, _)| e <= &max_epoch_to_prune)
         {
-            adapter.remove(&epoch).await?;
+            adapter.remove(&epoch).await
+                .with_context(|| format!("Pruning verification keys: could not remove record for epoch '{epoch}' from the database."))?;
         }
 
         Ok(())
@@ -102,7 +115,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
     async fn get_stake_distribution_for_epoch(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<StakeDistribution>, StoreError> {
+    ) -> StdResult<Option<StakeDistribution>> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
         Ok(record.map(|r| {
             StakeDistribution::from_iter(

@@ -1,9 +1,12 @@
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use crate::entities::{Epoch, StakeDistribution};
+use crate::{
+    entities::{Epoch, StakeDistribution},
+    StdResult,
+};
 
-use super::{adapter::StoreAdapter, StoreError, StorePruner};
+use super::{adapter::StoreAdapter, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
 
@@ -15,10 +18,10 @@ pub trait StakeStorer: Sync + Send {
         &self,
         epoch: Epoch,
         stakes: StakeDistribution,
-    ) -> Result<Option<StakeDistribution>, StoreError>;
+    ) -> StdResult<Option<StakeDistribution>>;
 
     /// Get the stakes of all party at a given `epoch`.
-    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError>;
+    async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>>;
 }
 
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
@@ -59,7 +62,7 @@ impl StakeStorer for StakeStore {
         &self,
         epoch: Epoch,
         stakes: StakeDistribution,
-    ) -> Result<Option<StakeDistribution>, StoreError> {
+    ) -> StdResult<Option<StakeDistribution>> {
         let signers = {
             let mut adapter = self.adapter.write().await;
             let signers = adapter.get_record(&epoch).await?;
@@ -74,7 +77,7 @@ impl StakeStorer for StakeStore {
         Ok(signers)
     }
 
-    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError> {
+    async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
         Ok(self.adapter.read().await.get_record(&epoch).await?)
     }
 }

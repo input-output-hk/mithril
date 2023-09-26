@@ -270,7 +270,7 @@ impl StateMachineTester {
             .protocol_initializer_store
             .get_protocol_initializer(epoch)
             .await
-            .map_err(|e| TestError::SubsystemError(e.into()))?;
+            .map_err(TestError::SubsystemError)?;
 
         self.assert(maybe_protocol_initializer.is_some(), format!(
                 "there should be a protocol intializer in store for Epoch {}, here is the last 3 in store: {:?}",
@@ -288,7 +288,7 @@ impl StateMachineTester {
             .stake_store
             .get_stakes(epoch)
             .await
-            .map_err(|e| TestError::SubsystemError(e.into()))?;
+            .map_err(TestError::SubsystemError)?;
 
         self.assert(
             maybe_stakes.is_some(),

@@ -10,7 +10,7 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::{adapter::AdapterError, StoreError},
+    store::adapter::AdapterError,
     StdResult,
 };
 
@@ -264,7 +264,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
-    ) -> Result<Option<ProtocolParameters>, StoreError> {
+    ) -> StdResult<Option<ProtocolParameters>> {
         let connection = &*self.connection.lock().await;
         let provider = UpdateEpochSettingProvider::new(connection);
         connection
@@ -291,10 +291,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
         Ok(Some(epoch_setting_record.protocol_parameters))
     }
 
-    async fn get_protocol_parameters(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<ProtocolParameters>, StoreError> {
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let connection = &*self.connection.lock().await;
         let provider = EpochSettingProvider::new(connection);
         let mut cursor = provider
