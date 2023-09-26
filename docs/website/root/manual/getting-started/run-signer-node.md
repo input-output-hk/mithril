@@ -532,6 +532,19 @@ EOF'
 
 :::
 
+:::tip
+
+In case you are using the same Cardano relay for multiple Cardano block producers, you will need to add a new line per block producer for authorizing its internal IP:
+
+```bash
+# ACL for internal IP of your block producer node
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_1**
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_2**
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_3**
+```
+
+:::
+
 With this configuration, the proxy will:
 - accept incoming traffic originating from the internal IP of the block-producing machine
 - accept incoming traffic directed to the listening port of the proxy
