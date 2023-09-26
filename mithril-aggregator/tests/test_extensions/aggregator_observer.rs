@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Context};
 use mithril_aggregator::{
     dependency_injection::DependenciesBuilder,
     entities::OpenMessage,
@@ -5,7 +6,7 @@ use mithril_aggregator::{
 };
 use mithril_common::{
     entities::{Beacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants},
-    BeaconProvider,
+    BeaconProvider, StdResult,
 };
 use std::sync::Arc;
 
@@ -43,26 +44,24 @@ impl AggregatorObserver {
     pub async fn get_current_open_message(
         &self,
         discriminant: SignedEntityTypeDiscriminants,
-    ) -> Result<Option<OpenMessage>, String> {
+    ) -> StdResult<Option<OpenMessage>> {
         let signed_entity_type = self.build_current_signed_entity_type(discriminant).await?;
 
         self.certifier_service
             .get_open_message(&signed_entity_type)
             .await
-            .map_err(|e| {
-                format!(
-                    "Requesting current open message of type CardanoImmutableFilesFull should be not fail: {e:?}"
-                )
-            })
+            .with_context(|| "Requesting current open message of type CardanoImmutableFilesFull should be not fail")
     }
 
     // Get the [entity type][SignedEntityType::CardanoImmutableFilesFull] of the current current open message
     pub async fn get_current_signed_entity_type(
         &self,
         discriminant: SignedEntityTypeDiscriminants,
-    ) -> Result<SignedEntityType, String> {
+    ) -> StdResult<SignedEntityType> {
         match self.get_current_open_message(discriminant).await? {
-            None => Err("An open message should be available for cardano immutables".to_string()),
+            None => Err(anyhow!(
+                "An open message should be available for cardano immutables"
+            )),
             Some(message) => Ok(message.signed_entity_type),
         }
     }
@@ -70,12 +69,12 @@ impl AggregatorObserver {
     async fn build_current_signed_entity_type(
         &self,
         discriminant: SignedEntityTypeDiscriminants,
-    ) -> Result<SignedEntityType, String> {
+    ) -> StdResult<SignedEntityType> {
         let beacon = self
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
+            .with_context(|| "Querying the current beacon should not fail")?;
 
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
