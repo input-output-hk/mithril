@@ -1,4 +1,6 @@
+use anyhow::{anyhow, Context};
 use mithril_common::entities::PartyId;
+use mithril_common::StdResult;
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
@@ -28,18 +30,17 @@ pub struct PoolNode {
 }
 
 impl PoolNode {
-    pub fn party_id(&self) -> Result<PartyId, String> {
-        let content = fs::read_to_string(&self.pool_env_path).map_err(|e| {
+    pub fn party_id(&self) -> StdResult<PartyId> {
+        let content = fs::read_to_string(&self.pool_env_path).with_context(|| {
             format!(
-                "error while reading party_id from file '{}': {}",
+                "error while reading party_id from file '{}'",
                 self.pool_env_path.display(),
-                e
             )
         })?;
         let party_id = content
             .split('=')
             .nth(1)
-            .ok_or(format!("could not get party_id from string '{content}'"))?;
+            .ok_or(anyhow!("could not get party_id from string '{content}'"))?;
 
         Ok(party_id.trim().to_string())
     }
@@ -60,23 +61,22 @@ impl Devnet {
         cardano_slot_length: f64,
         cardano_epoch_length: f64,
         skip_cardano_bin_download: bool,
-    ) -> Result<Devnet, String> {
+    ) -> StdResult<Devnet> {
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path = devnet_scripts_dir
             .canonicalize()
-            .map_err(|e| {
+            .with_context(|| {
                 format!(
-                    "Can't find bootstrap script '{}' in {}: {}",
+                    "Can't find bootstrap script '{}' in {}",
                     bootstrap_script,
                     devnet_scripts_dir.display(),
-                    e
                 )
             })?
             .join(bootstrap_script);
 
         if artifacts_target_dir.exists() {
             fs::remove_dir_all(&artifacts_target_dir)
-                .map_err(|e| format!("Previous artifacts dir removal failed: {e}"))?;
+                .with_context(|| "Previous artifacts dir removal failed")?;
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
@@ -101,10 +101,10 @@ impl Devnet {
 
         bootstrap_command
             .spawn()
-            .map_err(|e| format!("{bootstrap_script} failed to start: {e}"))?
+            .with_context(|| format!("{bootstrap_script} failed to start"))?
             .wait()
             .await
-            .map_err(|e| format!("{bootstrap_script} failed to run: {e}"))?;
+            .with_context(|| format!("{bootstrap_script} failed to run"))?;
 
         Ok(Devnet {
             artifacts_dir: artifacts_target_dir,
@@ -159,7 +159,7 @@ impl Devnet {
         }
     }
 
-    pub async fn run(&self) -> Result<(), String> {
+    pub async fn run(&self) -> StdResult<()> {
         let run_script = "start-cardano.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
@@ -171,18 +171,18 @@ impl Devnet {
 
         let status = run_command
             .spawn()
-            .map_err(|e| format!("Failed to start the devnet: {e}"))?
+            .with_context(|| "Failed to start the devnet")?
             .wait()
             .await
-            .map_err(|e| format!("Error while starting the devnet: {e}"))?;
+            .with_context(|| "Error while starting the devnet")?;
         match status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(format!("Run devnet exited with status code: {code}")),
-            None => Err("Run devnet terminated by signal".to_string()),
+            Some(code) => Err(anyhow!("Run devnet exited with status code: {code}")),
+            None => Err(anyhow!("Run devnet terminated by signal")),
         }
     }
 
-    pub async fn stop(&self) -> Result<(), String> {
+    pub async fn stop(&self) -> StdResult<()> {
         let stop_script = "stop.sh";
         let stop_script_path = self.artifacts_dir.join(stop_script);
         let mut stop_command = Command::new(&stop_script_path);
@@ -192,20 +192,20 @@ impl Devnet {
 
         info!("Stopping the Devnet"; "script" => &stop_script_path.display());
 
-        let status = stop_command
+        let exit_status = stop_command
             .spawn()
-            .map_err(|e| format!("Failed to stop the devnet: {e}"))?
+            .with_context(|| "Failed to stop the devnet")?
             .wait()
             .await
-            .map_err(|e| format!("Error while stopping the devnet: {e}"))?;
-        match status.code() {
+            .with_context(|| "Error while stopping the devnet")?;
+        match exit_status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(format!("Stop devnet exited with status code: {code}")),
-            None => Err("Stop devnet terminated by signal".to_string()),
+            Some(code) => Err(anyhow!("Stop devnet exited with status code: {code}")),
+            None => Err(anyhow!("Stop devnet terminated by signal")),
         }
     }
 
-    pub async fn delegate_stakes(&self) -> Result<(), String> {
+    pub async fn delegate_stakes(&self) -> StdResult<()> {
         let run_script = "delegate.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
@@ -217,14 +217,14 @@ impl Devnet {
 
         let status = run_command
             .spawn()
-            .map_err(|e| format!("Failed to delegate stakes to the pools: {e}"))?
+            .with_context(|| "Failed to delegate stakes to the pools")?
             .wait()
             .await
-            .map_err(|e| format!("Error while delegating stakes to the pools: {e}"))?;
+            .with_context(|| "Error while delegating stakes to the pools")?;
         match status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(format!("Delegating stakes exited with status code: {code}")),
-            None => Err("Delegating stakes terminated by signal".to_string()),
+            Some(code) => Err(anyhow!("Delegating stakes exited with status code: {code}")),
+            None => Err(anyhow!("Delegating stakes terminated by signal")),
         }
     }
 }

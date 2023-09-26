@@ -1,8 +1,9 @@
 use crate::{Aggregator, Devnet};
 use mithril_common::entities::ProtocolParameters;
+use mithril_common::StdResult;
 use slog_scope::info;
 
-pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> Result<(), String> {
+pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> StdResult<()> {
     info!("Bootstrap genesis certificate");
 
     info!("> stopping aggregator");
@@ -15,7 +16,7 @@ pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> Resul
     Ok(())
 }
 
-pub async fn delegate_stakes_to_pools(devnet: &Devnet) -> Result<(), String> {
+pub async fn delegate_stakes_to_pools(devnet: &Devnet) -> StdResult<()> {
     info!("Delegate stakes to the cardano pools");
 
     devnet.delegate_stakes().await?;
@@ -23,7 +24,7 @@ pub async fn delegate_stakes_to_pools(devnet: &Devnet) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), String> {
+pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResult<()> {
     info!("Update protocol parameters");
 
     info!("> stopping aggregator");

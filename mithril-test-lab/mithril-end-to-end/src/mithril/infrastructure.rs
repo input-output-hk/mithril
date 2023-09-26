@@ -1,7 +1,8 @@
 use crate::{Aggregator, Client, Devnet, Signer, DEVNET_MAGIC_ID};
+use anyhow::anyhow;
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::entities::ProtocolParameters;
-use mithril_common::CardanoNetwork;
+use mithril_common::{CardanoNetwork, StdResult};
 use std::borrow::BorrowMut;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -24,13 +25,13 @@ impl MithrilInfrastructure {
         bin_dir: &Path,
         mithril_era: &str,
         run_only_mode: bool,
-    ) -> Result<Self, String> {
+    ) -> StdResult<Self> {
         devnet.run().await?;
         let devnet_topology = devnet.topology();
         let bft_node = devnet_topology
             .bft_nodes
             .first()
-            .ok_or_else(|| "No BFT node available for the aggregator".to_string())?;
+            .ok_or_else(|| anyhow!("No BFT node available for the aggregator"))?;
 
         let mut aggregator = Aggregator::new(
             server_port,
@@ -111,7 +112,7 @@ impl MithrilInfrastructure {
         self.cardano_chain_observer.clone()
     }
 
-    pub fn build_client(&self) -> Result<Client, String> {
+    pub fn build_client(&self) -> StdResult<Client> {
         Client::new(self.aggregator.endpoint(), &self.work_dir, &self.bin_dir)
     }
 
@@ -119,7 +120,7 @@ impl MithrilInfrastructure {
         self.run_only_mode
     }
 
-    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+    pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.aggregator().tail_logs(number_of_line).await?;
         for signer in self.signers() {
             signer.tail_logs(number_of_line).await?;

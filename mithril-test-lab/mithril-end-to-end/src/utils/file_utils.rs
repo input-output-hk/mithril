@@ -1,3 +1,5 @@
+use anyhow::Context;
+use mithril_common::StdResult;
 use std::path::Path;
 use tokio::process::Command;
 
@@ -5,7 +7,7 @@ use tokio::process::Command;
 ///
 /// For the sake of simplicity it use internally the tail command so be sure to have it on
 /// your system.
-pub async fn tail(file_path: &Path, number_of_line: u64) -> Result<String, String> {
+pub async fn tail(file_path: &Path, number_of_line: u64) -> StdResult<String> {
     let tail_result = Command::new("tail")
         .args(vec![
             "-n",
@@ -15,10 +17,9 @@ pub async fn tail(file_path: &Path, number_of_line: u64) -> Result<String, Strin
         .kill_on_drop(true)
         .output()
         .await
-        .map_err(|e| format!("Failed to tail file `{}`: {}", file_path.display(), e))?;
+        .with_context(|| format!("Failed to tail file `{}`", file_path.display()))?;
 
-    String::from_utf8(tail_result.stdout)
-        .map_err(|e| format!("Failed to parse tail output to utf8: {e}"))
+    String::from_utf8(tail_result.stdout).with_context(|| "Failed to parse tail output to utf8")
 }
 
 #[cfg(test)]
