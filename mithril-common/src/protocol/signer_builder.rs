@@ -183,7 +183,12 @@ impl SignerBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::test_utils::{fake_data, MithrilFixtureBuilder};
+    use mithril_stm::RegisterError;
+
+    use crate::{
+        crypto_helper::ProtocolRegistrationErrorWrapper,
+        test_utils::{fake_data, MithrilFixtureBuilder},
+    };
 
     use super::*;
 
@@ -198,7 +203,7 @@ mod test {
 
         match error.downcast_ref::<SignerBuilderError>() {
             Some(SignerBuilderError::EmptySigners) => (),
-            None => panic!("Expected an EmptySigners error, got: {error}"),
+            _ => panic!("Expected an EmptySigners error, got: {error:?}"),
         }
     }
 
@@ -223,12 +228,10 @@ mod test {
             "We should not be able to construct a signer builder if a signer registration fail",
         );
 
-        assert!(
-            error.to_string().contains("Registration failed for signer"),
-            "Expected Registration error, got: {}, cause: {}",
-            error,
-            error.root_cause()
-        );
+        match error.downcast_ref::<ProtocolRegistrationErrorWrapper>() {
+            Some(ProtocolRegistrationErrorWrapper::CoreRegister(_)) => (),
+            _ => panic!("Expected an CoreRegister error, got: {error:?}"),
+        }
     }
 
     #[test]
@@ -265,14 +268,14 @@ mod test {
             "We should not be able to construct a single signer from a not registered party",
         );
 
-        assert!(
-            error
-                .to_string()
-                .contains("Could not create a protocol signer for party"),
-            "Expected protocol signer creation error, got: {}, cause: {}",
-            error,
-            error.root_cause()
-        );
+        match error.downcast_ref::<ProtocolRegistrationErrorWrapper>() {
+            Some(ProtocolRegistrationErrorWrapper::CoreRegister(
+                RegisterError::UnregisteredInitializer,
+            )) => (),
+            _ => panic!(
+                "Expected an ProtocolRegistrationErrorWrapper::CoreRegister error, got: {error:?}"
+            ),
+        }
     }
 
     #[test]

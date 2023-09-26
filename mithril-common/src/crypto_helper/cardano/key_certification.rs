@@ -76,16 +76,16 @@ pub enum ProtocolRegistrationErrorWrapper {
     PoolAddressEncoding,
 
     /// Error raised when a core registration error occurs
-    #[error("core registration error: '{0:?}'")]
-    CoreRegister(StdError),
+    #[error("core registration error")]
+    CoreRegister(#[source] RegisterError),
 }
 
 /// New initializer error
 #[derive(Error, Debug)]
 pub enum ProtocolInitializerErrorWrapper {
     /// Error raised when the underlying protocol initializer fails
-    #[error("protocol initializer error {0:?}")]
-    ProtocolInitializer(StdError),
+    #[error("protocol initializer error")]
+    ProtocolInitializer(#[source] StdError),
 
     /// Error raised when a KES update error occurs
     #[error("KES key cannot be updated for period {0}")]
@@ -201,8 +201,7 @@ impl StmInitializerWrapper {
     ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
         self.stm_initializer
             .new_signer(closed_reg)
-            .with_context(|| "StmInitializerWrapper can not create a new signer")
-            .map_err(|e| ProtocolRegistrationErrorWrapper::CoreRegister(anyhow!(e)))
+            .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)
     }
 
     /// Convert to bytes
@@ -289,8 +288,7 @@ impl KeyRegWrapper {
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             self.stm_key_reg
                 .register(stake, pk.into())
-                .with_context(|| format!("KeyRegWrapper can not register pool {pool_id_bech32}"))
-                .map_err(|e| ProtocolRegistrationErrorWrapper::CoreRegister(anyhow!(e)))?;
+                .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)?;
             return Ok(pool_id_bech32);
         }
         Err(ProtocolRegistrationErrorWrapper::PartyIdNonExisting)
