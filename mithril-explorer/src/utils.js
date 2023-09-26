@@ -17,10 +17,10 @@ function formatStake(lovelace) {
   // Credits to Jasser Mark Arioste for the original idea:
   // https://reacthustle.com/blog/how-to-convert-number-to-kmb-format-in-javascript
   const thresholds = [
-    {suffix: 'B', value: 1e9},
-    {suffix: 'M', value: 1e6},
-    {suffix: 'K', value: 1e3},
-    {suffix: '', value: 1},
+    { suffix: 'B', value: 1e9 },
+    { suffix: 'M', value: 1e6 },
+    { suffix: 'K', value: 1e3 },
+    { suffix: '', value: 1 },
   ];
   const ada = toAda(lovelace);
   // Note: subtracting 0.001 to handle cases like `999,999₳` rounding up to `1,000₳` after string format.
@@ -31,6 +31,21 @@ function formatStake(lovelace) {
   }
 
   return `${formatCurrency(ada)}₳`;
+}
+
+/*
+ * Code from: https://stackoverflow.com/a/18650828
+ */
+function formatBytes(bytes, decimals = 2) {
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 function setChartJsDefaults(chartJs) {
@@ -74,4 +89,5 @@ module.exports = {
   setChartJsDefaults,
   toAda,
   formatCurrency,
+  formatBytes
 }
