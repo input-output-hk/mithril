@@ -166,7 +166,9 @@ impl MithrilClientSnapshotService {
 
     async fn expand_eventual_snapshot_alias(&self, snapshot_id: &str) -> StdResult<String> {
         if snapshot_id.to_lowercase() == "latest" {
-            let last_snapshot = self.list().await?;
+            let last_snapshot = self.list().await.with_context(|| {
+                "Can not get the list of snapshots while retrieving the latest snapshot digest"
+            })?;
             let last_snapshot = last_snapshot
                 .first()
                 .ok_or_else(|| SnapshotServiceError::SnapshotNotFound(snapshot_id.to_string()))?;
@@ -236,7 +238,13 @@ impl SnapshotService for MithrilClientSnapshotService {
         let certificate = self
             .certificate_client
             .get(&snapshot_entity.certificate_id)
-            .await?
+            .await
+            .with_context(|| {
+                format!(
+                    "Snapshot Service can not get the certificate for id: '{}'",
+                    snapshot_entity.certificate_id
+                )
+            })?
             .ok_or_else(|| {
                 SnapshotServiceError::CouldNotFindCertificate(
                     snapshot_entity.certificate_id.clone(),
