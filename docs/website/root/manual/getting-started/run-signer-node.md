@@ -396,7 +396,7 @@ tail /var/log/syslog
 
 :::danger
 
-When the KES keys have expired, the Mithril signer is not able to register to the Mithril protocol.
+When the KES keys expire, the Mithril signer is unable to register with the Mithril protocol.
 
 :::
 
