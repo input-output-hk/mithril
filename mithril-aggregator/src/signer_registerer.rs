@@ -13,6 +13,7 @@ use mithril_common::{
 
 use crate::VerificationKeyStorer;
 
+use mithril_common::chain_observer::ChainObserverError;
 #[cfg(test)]
 use mockall::automock;
 
@@ -32,10 +33,9 @@ pub enum SignerRegistrationError {
         received_epoch: Epoch,
     },
 
-    // todo: wrap ChainObserverError instead
     /// Chain observer error.
-    #[error("chain observer error: '{0}'")]
-    ChainObserver(String),
+    #[error("chain observer error")]
+    ChainObserver(#[from] ChainObserverError),
 
     /// Signer is already registered.
     #[error("signer already registered")]
@@ -230,8 +230,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             Some(operational_certificate) => Some(
                 self.chain_observer
                     .get_current_kes_period(operational_certificate)
-                    .await
-                    .map_err(|e| SignerRegistrationError::ChainObserver(e.to_string()))?
+                    .await?
                     .unwrap_or_default()
                     - operational_certificate.start_kes_period as KESPeriod,
             ),
