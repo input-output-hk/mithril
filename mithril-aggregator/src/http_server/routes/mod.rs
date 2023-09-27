@@ -3,6 +3,7 @@ mod certificate_routes;
 mod epoch_routes;
 mod middlewares;
 mod reply;
+mod root_routes;
 pub mod router;
 mod signatures_routes;
 mod signer_routes;

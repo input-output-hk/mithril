@@ -1,6 +1,6 @@
 use crate::http_server::routes::{
-    artifact_routes, certificate_routes, epoch_routes, signatures_routes, signer_routes,
-    statistics_routes,
+    artifact_routes, certificate_routes, epoch_routes, root_routes, signatures_routes,
+    signer_routes, statistics_routes,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
@@ -14,6 +14,8 @@ use std::sync::Arc;
 use warp::http::Method;
 use warp::reject::Reject;
 use warp::{Filter, Rejection, Reply};
+
+use super::middlewares;
 
 #[derive(Debug)]
 pub struct VersionMismatchError;
@@ -36,7 +38,7 @@ pub fn routes(
 
     warp::any()
         .and(header_must_be(
-            dependency_manager.clone().api_version_provider.clone(),
+            dependency_manager.api_version_provider.clone(),
         ))
         .and(warp::path(SERVER_BASE_PATH))
         .and(
@@ -51,10 +53,11 @@ pub fn routes(
                 .or(signatures_routes::routes(dependency_manager.clone()))
                 .or(epoch_routes::routes(dependency_manager.clone()))
                 .or(statistics_routes::routes(dependency_manager.clone()))
+                .or(root_routes::routes(dependency_manager.clone()))
                 .with(cors),
         )
         .recover(handle_custom)
-        .and(warp::any().map(move || dependency_manager.clone().api_version_provider.clone()))
+        .and(middlewares::with_api_version_provider(dependency_manager))
         .map(|reply, api_version_provider: Arc<APIVersionProvider>| {
             warp::reply::with_header(
                 reply,
