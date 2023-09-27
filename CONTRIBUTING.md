@@ -82,6 +82,8 @@ Make sure to follow our [Coding Standards](https://github.com/input-output-hk/mi
 It includes guidelines on Rust code style, but also on Git commit messages
 and some processes. To propose new standards or changes to the existing standards, file an issue.
 
+Also make sure to follow our Architectural Decision Records or [ADRs](https://mithril.network/doc/adr) that will give you insights on development guidelines and best practices for the project.
+
 ### Creating a pull request
 
 Thank you for contributing your changes by opening a pull requests! To get
