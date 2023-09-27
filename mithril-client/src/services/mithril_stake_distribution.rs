@@ -39,13 +39,14 @@ pub enum MithrilStakeDistributionServiceError {
     CertificateNotFound(String),
 
     /// The configuration has invalid or missing parameters
-    #[error("Missing or invalid parameters: {0:?}")]
-    InvalidParameters(StdError),
+    #[error("Missing or invalid parameters")]
+    InvalidParameters(#[source] StdError),
 
     /// Could not find the given stake distribution
     #[error("Could not find stake distribution associated to hash '{0}'.")]
     CouldNotFindStakeDistribution(String),
 }
+
 /// Definition of the service responsible of Mithril Stake Distribution.
 #[async_trait]
 pub trait MithrilStakeDistributionService {

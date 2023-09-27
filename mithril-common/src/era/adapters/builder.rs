@@ -49,12 +49,12 @@ pub enum AdapterBuilderError {
     MissingParameters(),
 
     /// Parameters parse error.
-    #[error("era reader adapter parameters parse error: {0:?}")]
-    ParseParameters(serde_json::Error),
+    #[error("era reader adapter parameters parse error")]
+    ParseParameters(#[source] serde_json::Error),
 
     /// Parameters decode error.
-    #[error("era reader adapter parameters decode error: {0:?}")]
-    Decode(StdError),
+    #[error("era reader adapter parameters decode error")]
+    Decode(#[source] StdError),
 }
 
 /// Era adapter builder

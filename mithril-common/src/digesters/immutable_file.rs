@@ -48,7 +48,7 @@ pub enum ImmutableFileCreationError {
     },
 
     /// Raised when the immutable file number parsing, from the filename, fails.
-    #[error("Error while parsing immutable file number: {0}")]
+    #[error("Error while parsing immutable file number")]
     FileNumberParsing(#[from] ParseIntError),
 }
 
@@ -56,11 +56,11 @@ pub enum ImmutableFileCreationError {
 #[derive(Error, Debug)]
 pub enum ImmutableFileListingError {
     /// Raised when the metadata of a file could not be read.
-    #[error("metadata parsing failed: {0}")]
+    #[error("metadata parsing failed")]
     MetadataParsing(#[from] io::Error),
 
     /// Raised when [ImmutableFile::new] fails.
-    #[error("immutable file creation error: {0}")]
+    #[error("immutable file creation error")]
     ImmutableFileCreation(#[from] ImmutableFileCreationError),
 }
 

@@ -32,6 +32,7 @@ pub enum SignerRegistrationError {
         received_epoch: Epoch,
     },
 
+    // todo: wrap ChainObserverError instead
     /// Chain observer error.
     #[error("chain observer error: '{0}'")]
     ChainObserver(String),
@@ -41,12 +42,12 @@ pub enum SignerRegistrationError {
     ExistingSigner(Box<SignerWithStake>),
 
     /// Store error.
-    #[error("store error: {0}")]
-    StoreError(StdError),
+    #[error("store error")]
+    StoreError(#[source] StdError),
 
     /// Signer registration failed.
     #[error("signer registration failed")]
-    FailedSignerRegistration(StdError),
+    FailedSignerRegistration(#[source] StdError),
 
     /// Signer recorder failed.
     #[error("signer recorder failed: '{0}'")]

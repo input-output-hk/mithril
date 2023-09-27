@@ -28,7 +28,7 @@ pub enum CertificateVerifierError {
     VerifyMultiSignature(String),
 
     /// Error raised when the Genesis Signature stored in a [Certificate] is invalid.
-    #[error("certificate genesis error: '{0}'")]
+    #[error("certificate genesis error")]
     CertificateGenesis(#[from] ProtocolGenesisError),
 
     /// Error raised when the hash stored in a [Certificate] doesn't match a recomputed hash.

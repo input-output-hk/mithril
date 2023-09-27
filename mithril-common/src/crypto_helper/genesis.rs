@@ -11,8 +11,8 @@ use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisV
 
 #[derive(Error, Debug)]
 /// [ProtocolGenesisSigner] and [ProtocolGenesisVerifier] related errors.
-#[error("genesis signature verification error: '{0}'")]
-pub struct ProtocolGenesisError(StdError);
+#[error("genesis signature verification error")]
+pub struct ProtocolGenesisError(#[source] StdError);
 
 /// A protocol Genesis Signer that is responsible for signing the
 /// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)

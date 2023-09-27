@@ -7,31 +7,34 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum RuntimeError {
     /// Errors that need the runtime to try again without changing its state.
-    #[error("An error occured: {message}. This runtime cycle will be skipped. Nested error: {nested_error:#?}.")]
+    #[error("An error occured: {message}. This runtime cycle will be skipped.")]
     KeepState {
         /// error message
         message: String,
 
         /// Eventual caught error
+        #[source]
         nested_error: Option<StdError>,
     },
     /// A Critical error means the Runtime stops and the software exits with an
     /// error code.
-    #[error("Critical error:'{message}'. Nested error: {nested_error:#?}.")]
+    #[error("Critical error:'{message}'.")]
     Critical {
         /// error message
         message: String,
 
         /// Eventual caught error
+        #[source]
         nested_error: Option<StdError>,
     },
     /// An error that needs to re-initialize the state machine.
-    #[error("An error occured: {message}. The state machine will be re-initialized. Nested error: {nested_error:#?}")]
+    #[error("An error occured: {message}. The state machine will be re-initialized.")]
     ReInit {
         /// error message
         message: String,
 
         /// Eventual caught error
+        #[source]
         nested_error: Option<StdError>,
     },
 }

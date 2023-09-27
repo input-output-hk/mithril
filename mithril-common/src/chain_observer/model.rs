@@ -14,12 +14,12 @@ pub type ChainAddress = String;
 #[derive(Debug, Error)]
 pub enum TxDatumError {
     /// Error raised when the content could not be parsed.
-    #[error("could not parse tx datum: {0:?}")]
-    InvalidContent(StdError),
+    #[error("could not parse tx datum")]
+    InvalidContent(#[source] StdError),
 
     /// Error raised when building the tx datum failed.
-    #[error("could not build tx datum: {0}")]
-    Build(serde_json::Error),
+    #[error("could not build tx datum")]
+    Build(#[source] serde_json::Error),
 }
 
 /// [TxDatum] represents transaction Datum.
