@@ -402,7 +402,7 @@ When the KES keys expire, the Mithril signer is unable to register with the Mith
 
 After rotating the KES keys on your Cardano block producer, we recommend following this upgrade procedure for your Mithril signer node:
 1. Update the `KES_SECRET_KEY_PATH` entry of your environment file to reflect the location of the **new KES secret key file**.
-2. Update the `OPERATIONAL_CERTIFICATE_PATH` entry of your environment file to reflect the location of the **new Operational certificate file**.
+2. Update the `OPERATIONAL_CERTIFICATE_PATH` entry of your environment file to reflect the location of the **new operational certificate file**.
 3. Restart your Mithril signer service with the following command:
 ```bash
 sudo systemctl restart mithril-signer
