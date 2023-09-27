@@ -2,6 +2,7 @@ use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
 use crate::DEVNET_MAGIC_ID;
 use mithril_common::entities::PartyId;
+use mithril_common::StdResult;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
@@ -22,7 +23,7 @@ impl Signer {
         bin_dir: &Path,
         mithril_era: &str,
         enable_certification: bool,
-    ) -> Result<Self, String> {
+    ) -> StdResult<Self> {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let data_stores_path = format!("./stores/signer-{party_id}");
@@ -67,12 +68,12 @@ impl Signer {
         })
     }
 
-    pub fn start(&mut self) -> Result<(), String> {
+    pub fn start(&mut self) -> StdResult<()> {
         self.process = Some(self.command.start(&[])?);
         Ok(())
     }
 
-    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+    pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command
             .tail_logs(
                 Some(format!("mithril-signer-{}", self.party_id).as_str()),

@@ -21,7 +21,7 @@ use crate::Aggregator;
 async fn request_first_list_item_with_expected_size<I>(
     url: &str,
     expected_size: usize,
-) -> Result<I, String>
+) -> StdResult<I>
 where
     for<'a> I: Deserialize<'a> + Sync + Send + Clone,
 {
@@ -31,12 +31,12 @@ where
         Ok(response) => match response.status() {
             StatusCode::OK => match response.json::<Vec<I>>().await.as_deref() {
                 Ok(list) if list.len() == expected_size => Ok(list.first().unwrap().clone()),
-                Ok(list) if list.len() > expected_size => Err(format!(
+                Ok(list) if list.len() > expected_size => Err(anyhow!(
                     "Invalid size, expected {expected_size}, got {}",
                     list.len()
                 )),
                 Ok(_) => request_first_list_item_with_expected_size::<I>(url, expected_size).await,
-                Err(err) => Err(format!("Invalid list body : {err}")),
+                Err(err) => Err(anyhow!("Invalid list body : {err}")),
             },
             s if s.is_server_error() => {
                 let message = format!(
@@ -44,11 +44,11 @@ where
                     s
                 );
                 warn!("{message}");
-                Err(message)
+                Err(anyhow!(message))
             }
             _ => request_first_list_item_with_expected_size::<I>(url, expected_size).await,
         },
-        Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+        Err(err) => Err(anyhow!(err).context("Request to `{url}` failed")),
     }
 }
 

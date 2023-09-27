@@ -1,7 +1,8 @@
 use crate::devnet::BftNode;
 use crate::utils::MithrilCommand;
 use crate::DEVNET_MAGIC_ID;
-use mithril_common::entities;
+use anyhow::{anyhow, Context};
+use mithril_common::{entities, StdResult};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -23,7 +24,7 @@ impl Aggregator {
         work_dir: &Path,
         bin_dir: &Path,
         mithril_era: &str,
-    ) -> Result<Self, String> {
+    ) -> StdResult<Self> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = server_port.to_string();
         let era_reader_adapter_params =
@@ -79,42 +80,39 @@ impl Aggregator {
         &self.db_directory
     }
 
-    pub fn serve(&mut self) -> Result<(), String> {
+    pub fn serve(&mut self) -> StdResult<()> {
         self.process = Some(self.command.start(&["serve".to_string()])?);
         Ok(())
     }
 
-    pub async fn bootstrap_genesis(&mut self) -> Result<(), String> {
-        let mut child = self
+    pub async fn bootstrap_genesis(&mut self) -> StdResult<()> {
+        let exit_status = self
             .command
-            .start(&["genesis".to_string(), "bootstrap".to_string()])?;
+            .start(&["genesis".to_string(), "bootstrap".to_string()])?
+            .wait()
+            .await
+            .with_context(|| "`mithril-aggregator genesis bootstrap` crashed")?;
 
-        match child.wait().await {
-            Ok(status) => {
-                if status.success() {
-                    Ok(())
-                } else {
-                    Err(match status.code() {
-                        Some(c) => {
-                            format!("`mithril-aggregator genesis bootstrap` exited with code: {c}")
-                        }
-                        None => {
-                            "`mithril-aggregator genesis bootstrap` was terminated with a signal"
-                                .to_string()
-                        }
-                    })
+        if exit_status.success() {
+            Ok(())
+        } else {
+            Err(match exit_status.code() {
+                Some(c) => {
+                    anyhow!("`mithril-aggregator genesis bootstrap` exited with code: {c}")
                 }
-            }
-            Err(error) => Err(error.to_string()),
+                None => {
+                    anyhow!("`mithril-aggregator genesis bootstrap` was terminated with a signal")
+                }
+            })
         }
     }
 
-    pub async fn stop(&mut self) -> Result<(), String> {
+    pub async fn stop(&mut self) -> StdResult<()> {
         if let Some(process) = self.process.as_mut() {
             process
                 .kill()
                 .await
-                .map_err(|e| format!("Could not kill aggregator: {e:?}"))?;
+                .with_context(|| "Could not kill aggregator")?;
         }
         Ok(())
     }
@@ -153,7 +151,7 @@ impl Aggregator {
             .set_env_var("RUN_INTERVAL", &format!("{}", interval.as_millis()))
     }
 
-    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+    pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command.tail_logs(None, number_of_line).await
     }
 }

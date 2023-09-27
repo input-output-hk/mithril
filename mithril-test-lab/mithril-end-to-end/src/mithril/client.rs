@@ -1,4 +1,6 @@
 use crate::utils::MithrilCommand;
+use anyhow::{anyhow, Context};
+use mithril_common::StdResult;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -27,11 +29,7 @@ pub enum ClientCommand {
 }
 
 impl Client {
-    pub fn new(
-        aggregator_endpoint: String,
-        work_dir: &Path,
-        bin_dir: &Path,
-    ) -> Result<Self, String> {
+    pub fn new(aggregator_endpoint: String, work_dir: &Path, bin_dir: &Path) -> StdResult<Self> {
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
@@ -43,7 +41,7 @@ impl Client {
         Ok(Self { command })
     }
 
-    pub async fn run(&mut self, command: ClientCommand) -> Result<(), String> {
+    pub async fn run(&mut self, command: ClientCommand) -> StdResult<()> {
         let args = match command {
             ClientCommand::Snapshot(subcommand) => match subcommand {
                 SnapshotCommand::List() => vec!["snapshot".to_string(), "list".to_string()],
@@ -65,24 +63,25 @@ impl Client {
                 ],
             },
         };
-        let mut child = self.command.start(&args)?;
 
-        match child.wait().await {
-            Ok(status) => {
-                if status.success() {
-                    Ok(())
-                } else {
-                    self.command
-                        .tail_logs(Some(format!("mithril-client {args:?}").as_str()), 20)
-                        .await?;
+        let exit_status = self
+            .command
+            .start(&args)?
+            .wait()
+            .await
+            .with_context(|| "mithril-client crashed")?;
 
-                    Err(match status.code() {
-                        Some(c) => format!("mithril-client exited with code: {c}"),
-                        None => "mithril-client was terminated with a signal".to_string(),
-                    })
-                }
-            }
-            Err(error) => Err(error.to_string()),
+        if exit_status.success() {
+            Ok(())
+        } else {
+            self.command
+                .tail_logs(Some(format!("mithril-client {args:?}").as_str()), 20)
+                .await?;
+
+            Err(match exit_status.code() {
+                Some(c) => anyhow!("mithril-client exited with code: {c}"),
+                None => anyhow!("mithril-client was terminated with a signal"),
+            })
         }
     }
 }

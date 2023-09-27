@@ -1,9 +1,9 @@
 use clap::Parser;
+use mithril_common::StdResult;
 use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
 use slog::{Drain, Logger};
 use slog_scope::{error, info};
 use std::{
-    error::Error,
     fs,
     path::{Path, PathBuf},
     sync::Arc,
@@ -64,7 +64,7 @@ pub struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> StdResult<()> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger());
     let server_port = 8080;
@@ -102,7 +102,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    let runner: Result<(), Box<dyn Error>> = match run_only_mode {
+    let runner: StdResult<()> = match run_only_mode {
         true => {
             let mut run_only = RunOnly::new(&mut infrastructure);
             run_only.start().await
@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 }
 
-async fn run_until_cancelled(devnet: Devnet) -> Result<(), Box<dyn Error>> {
+async fn run_until_cancelled(devnet: Devnet) -> StdResult<()> {
     let cancellation_token = CancellationToken::new();
     let cloned_token = cancellation_token.clone();
 

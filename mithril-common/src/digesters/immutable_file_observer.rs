@@ -95,9 +95,9 @@ impl DumbImmutableFileObserver {
     pub async fn increase(&self) -> StdResult<u64> {
         let new_number = self
             .shall_return
-            .read()
+            .write()
             .await
-            .unwrap() // I do not understand why ok_or_else does not work here, TODO: fix this
+            .ok_or_else(|| anyhow!(ImmutableFileObserverError::Missing()))?
             .add(1);
         self.shall_return(Some(new_number)).await;
 

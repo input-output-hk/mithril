@@ -2,20 +2,22 @@ use crate::{
     attempt, utils::AttemptResult, Client, ClientCommand, MithrilStakeDistributionCommand,
     SnapshotCommand,
 };
+use anyhow::anyhow;
 use mithril_common::{
     entities::Epoch,
     messages::{
         CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
         SnapshotMessage,
     },
+    StdResult,
 };
 use reqwest::StatusCode;
 use slog_scope::info;
-use std::{error::Error, time::Duration};
+use std::time::Duration;
 
 pub async fn assert_node_producing_mithril_stake_distribution(
     aggregator_endpoint: &str,
-) -> Result<String, String> {
+) -> StdResult<String> {
     let url = format!("{aggregator_endpoint}/artifact/mithril-stake-distributions");
     info!("Waiting for the aggregator to produce a mithril stake distribution");
 
@@ -26,11 +28,11 @@ pub async fn assert_node_producing_mithril_stake_distribution(
                 StatusCode::OK => match response.json::<MithrilStakeDistributionListMessage>().await.as_deref() {
                     Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
                     Ok(&[]) => Ok(None),
-                    Err(err) => Err(format!("Invalid mithril stake distribution body : {err}",)),
+                    Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
                 },
-                s => Err(format!("Unexpected status code from Aggregator: {s}")),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
     }) {
         AttemptResult::Ok(hash) => {
@@ -38,7 +40,7 @@ pub async fn assert_node_producing_mithril_stake_distribution(
             Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(format!(
+        AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_node_producing_mithril_stake_distribution, no response from `{url}`"
         )),
     }
@@ -48,7 +50,7 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
     aggregator_endpoint: &str,
     hash: &str,
     expected_epoch_min: Epoch,
-) -> Result<String, String> {
+) -> StdResult<String> {
     let url = format!("{aggregator_endpoint}/artifact/mithril-stake-distribution/{hash}");
     info!(
         "Asserting the aggregator is signing the mithril stake distribution message `{}` with an expected min epoch of `{}`",
@@ -62,16 +64,16 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
                 StatusCode::OK => match response.json::<MithrilStakeDistributionMessage>().await {
                     Ok(stake_distribution) => match stake_distribution.epoch {
                         epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
-                        epoch => Err(format!(
+                        epoch => Err(anyhow!(
                             "Minimum expected mithril stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
                         )),
                     },
-                    Err(err) => Err(format!("Invalid mithril stake distribution body : {err}",)),
+                    Err(err) => Err(anyhow!(err).context("Invalid mithril stake distribution body",)),
                 },
                 StatusCode::NOT_FOUND => Ok(None),
-                s => Err(format!("Unexpected status code from Aggregator: {s}")),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
     }) {
         AttemptResult::Ok(stake_distribution) => {
@@ -80,13 +82,13 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
             Ok(stake_distribution.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(format!(
+        AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_mithril_stake_distribution, no response from `{url}`"
         )),
     }
 }
 
-pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
+pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdResult<String> {
     let url = format!("{aggregator_endpoint}/artifact/snapshots");
     info!("Waiting for the aggregator to produce a snapshot");
 
@@ -97,11 +99,11 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result
                 StatusCode::OK => match response.json::<Vec<SnapshotMessage>>().await.as_deref() {
                     Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
                     Ok(&[]) => Ok(None),
-                    Err(err) => Err(format!("Invalid snapshot body : {err}",)),
+                    Err(err) => Err(anyhow!("Invalid snapshot body : {err}",)),
                 },
-                s => Err(format!("Unexpected status code from Aggregator: {s}")),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
     }) {
         AttemptResult::Ok(digest) => {
@@ -109,7 +111,7 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result
             Ok(digest)
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(format!(
+        AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
         )),
     }
@@ -119,7 +121,7 @@ pub async fn assert_signer_is_signing_snapshot(
     aggregator_endpoint: &str,
     digest: &str,
     expected_epoch_min: Epoch,
-) -> Result<String, String> {
+) -> StdResult<String> {
     let url = format!("{aggregator_endpoint}/artifact/snapshot/{digest}");
     info!(
         "Asserting the aggregator is signing the snapshot message `{}` with an expected min epoch of `{}`",
@@ -133,16 +135,16 @@ pub async fn assert_signer_is_signing_snapshot(
                 StatusCode::OK => match response.json::<SnapshotMessage>().await {
                     Ok(snapshot) => match snapshot.beacon.epoch {
                         epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
-                        epoch => Err(format!(
+                        epoch => Err(anyhow!(
                             "Minimum expected snapshot epoch not reached : {epoch} < {expected_epoch_min}"
                         )),
                     },
-                    Err(err) => Err(format!("Invalid snapshot body : {err}",)),
+                    Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
                 },
                 StatusCode::NOT_FOUND => Ok(None),
-                s => Err(format!("Unexpected status code from Aggregator: {s}")),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
     }) {
         AttemptResult::Ok(snapshot) => {
@@ -151,7 +153,7 @@ pub async fn assert_signer_is_signing_snapshot(
             Ok(snapshot.certificate_hash)
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(format!(
+        AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
         )),
     }
@@ -161,7 +163,7 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
     aggregator_endpoint: &str,
     certificate_hash: &str,
     total_signers_expected: usize,
-) -> Result<(), String> {
+) -> StdResult<()> {
     let url = format!("{aggregator_endpoint}/certificate/{certificate_hash}");
 
     match attempt!(10, Duration::from_millis(1000), {
@@ -169,12 +171,12 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CertificateMessage>().await {
                     Ok(certificate) => Ok(Some(certificate)),
-                    Err(err) => Err(format!("Invalid snapshot body : {err}",)),
+                    Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
                 },
                 StatusCode::NOT_FOUND => Ok(None),
-                s => Err(format!("Unexpected status code from Aggregator: {s}")),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
     }) {
         AttemptResult::Ok(certificate) => {
@@ -187,7 +189,7 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
                 );
                 Ok(())
             } else {
-                Err(format!(
+                Err(anyhow!(
                     "Certificate is not signed by expected number of signers: {} < {} ",
                     certificate.metadata.signers.len(),
                     total_signers_expected
@@ -195,16 +197,13 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
             }
         }
         AttemptResult::Err(error) => Err(error),
-        AttemptResult::Timeout() => Err(format!(
+        AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_is_creating_certificate, no response from `{url}`"
         )),
     }
 }
 
-pub async fn assert_client_can_verify_snapshot(
-    client: &mut Client,
-    digest: &str,
-) -> Result<(), String> {
+pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str) -> StdResult<()> {
     client
         .run(ClientCommand::Snapshot(SnapshotCommand::Download {
             digest: digest.to_string(),
@@ -218,7 +217,7 @@ pub async fn assert_client_can_verify_snapshot(
 pub async fn assert_client_can_verify_mithril_stake_distribution(
     client: &mut Client,
     hash: &str,
-) -> Result<(), Box<dyn Error>> {
+) -> StdResult<()> {
     client
         .run(ClientCommand::MithrilStakeDistribution(
             MithrilStakeDistributionCommand::Download {

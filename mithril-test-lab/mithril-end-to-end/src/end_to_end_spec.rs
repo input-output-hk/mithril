@@ -1,7 +1,7 @@
 use crate::assertions;
 use crate::MithrilInfrastructure;
 use mithril_common::chain_observer::ChainObserver;
-use std::error::Error;
+use mithril_common::StdResult;
 
 pub struct Spec<'a> {
     pub infrastructure: &'a mut MithrilInfrastructure,
@@ -12,7 +12,7 @@ impl<'a> Spec<'a> {
         Self { infrastructure }
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) -> StdResult<()> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
         assertions::wait_for_enough_immutable(self.infrastructure.aggregator().db_directory())
             .await?;

@@ -1,4 +1,6 @@
 use crate::utils::file_utils;
+use anyhow::{anyhow, Context};
+use mithril_common::StdResult;
 use slog_scope::info;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -21,7 +23,7 @@ impl MithrilCommand {
         bin_dir: &Path,
         env_vars: HashMap<&str, &str>,
         default_args: &[&str],
-    ) -> Result<MithrilCommand, String> {
+    ) -> StdResult<MithrilCommand> {
         let current_dir = std::env::current_dir().unwrap();
         let process_path = bin_dir
             .canonicalize()
@@ -45,7 +47,7 @@ impl MithrilCommand {
         env_vars.insert("RUST_BACKTRACE".to_string(), "full".to_string());
 
         if !process_path.exists() {
-            return Err(format!(
+            return Err(anyhow!(
                 "cannot find {} executable in expected location \"{}\"",
                 name,
                 bin_dir.display()
@@ -70,25 +72,23 @@ impl MithrilCommand {
         self.env_vars.insert(name.to_string(), value.to_string());
     }
 
-    pub fn start(&mut self, args: &[String]) -> Result<Child, String> {
+    pub fn start(&mut self, args: &[String]) -> StdResult<Child> {
         let args = [&self.default_args, args].concat();
 
         let log_file_stdout = std::fs::File::options()
             .create(true)
             .append(true)
             .open(&self.log_path)
-            .map_err(|e| {
+            .with_context(|| {
                 format!(
-                    "failed to use file `{}` for logging: {}",
+                    "failed to use file `{}` for logging",
                     self.log_path.display(),
-                    e
                 )
             })?;
-        let log_file_stderr = log_file_stdout.try_clone().map_err(|e| {
+        let log_file_stderr = log_file_stdout.try_clone().with_context(|| {
             format!(
-                "failed to use file `{}` for logging: {}",
+                "failed to use file `{}` for logging",
                 self.log_path.display(),
-                e
             )
         })?;
 
@@ -105,19 +105,15 @@ impl MithrilCommand {
 
         command
             .spawn()
-            .map_err(|e| format!("{} failed to start: {}", self.name, e))
+            .with_context(|| format!("{} failed to start", self.name))
     }
 
     /// Tail the command log
     ///
     /// You can override the title with the name parameter.
-    pub(crate) async fn tail_logs(
-        &self,
-        name: Option<&str>,
-        number_of_line: u64,
-    ) -> Result<(), String> {
+    pub(crate) async fn tail_logs(&self, name: Option<&str>, number_of_line: u64) -> StdResult<()> {
         if !self.log_path.exists() {
-            return Err(format!(
+            return Err(anyhow!(
                 "No log for {}, did you run the command at least once ? expected path: {}",
                 self.name,
                 self.log_path.display()
