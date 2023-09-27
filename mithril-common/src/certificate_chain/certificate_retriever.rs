@@ -11,7 +11,7 @@ use mockall::automock;
 /// [CertificateRetriever] related errors.
 #[derive(Debug, Error)]
 #[error("Error when retrieving certificate")]
-pub struct CertificateRetrieverError(pub StdError);
+pub struct CertificateRetrieverError(#[source] pub StdError);
 
 /// CertificateRetriever is in charge of retrieving a [Certificate] given its hash
 #[cfg_attr(test, automock)]

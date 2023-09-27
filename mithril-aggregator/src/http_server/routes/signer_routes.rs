@@ -343,7 +343,7 @@ mod tests {
         mock_signer_registerer
             .expect_register_signer()
             .return_once(|_, _| {
-                Err(SignerRegistrationError::ChainObserver(
+                Err(SignerRegistrationError::FailedSignerRecorder(
                     "an error occurred".to_string(),
                 ))
             });

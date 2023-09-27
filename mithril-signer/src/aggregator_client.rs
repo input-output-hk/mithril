@@ -29,40 +29,40 @@ use crate::message_adapters::{
 #[derive(Error, Debug)]
 pub enum AggregatorClientError {
     /// The aggregator host has returned a technical error.
-    #[error("remote server technical error: '{0}'")]
-    RemoteServerTechnical(StdError),
+    #[error("remote server technical error")]
+    RemoteServerTechnical(#[source] StdError),
 
     /// The aggregator host responded it cannot fulfill our request.
-    #[error("remote server logical error: '{0}'")]
-    RemoteServerLogical(StdError),
+    #[error("remote server logical error")]
+    RemoteServerLogical(#[source] StdError),
 
     /// Could not reach aggregator.
-    #[error("remote server unreachable: '{0}'")]
-    RemoteServerUnreachable(StdError),
+    #[error("remote server unreachable")]
+    RemoteServerUnreachable(#[source] StdError),
 
     /// Could not parse response.
-    #[error("json parsing failed: '{0}'")]
-    JsonParseFailed(StdError),
+    #[error("json parsing failed")]
+    JsonParseFailed(#[source] StdError),
 
     /// Mostly network errors.
-    #[error("Input/Output error: {0}")]
+    #[error("Input/Output error")]
     IOError(#[from] io::Error),
 
     /// Incompatible API version error
-    #[error("HTTP API version mismatch: {0}")]
-    ApiVersionMismatch(StdError),
+    #[error("HTTP API version mismatch")]
+    ApiVersionMismatch(#[source] StdError),
 
     /// HTTP client creation error
-    #[error("HTTP client creation failed: {0}")]
-    HTTPClientCreation(StdError),
+    #[error("HTTP client creation failed")]
+    HTTPClientCreation(#[source] StdError),
 
     /// Proxy creation error
-    #[error("proxy creation failed: {0}")]
-    ProxyCreation(StdError),
+    #[error("proxy creation failed")]
+    ProxyCreation(#[source] StdError),
 
     /// Adapter error
-    #[error("adapter failed: {0}")]
-    Adapter(StdError),
+    #[error("adapter failed")]
+    Adapter(#[source] StdError),
 }
 
 #[cfg(test)]

@@ -13,12 +13,12 @@ use super::{ChainAddress, TxDatum};
 #[derive(Debug, Error)]
 pub enum ChainObserverError {
     /// Generic [ChainObserver] error.
-    #[error("general error {0:?}")]
-    General(StdError),
+    #[error("general error")]
+    General(#[source] StdError),
 
     /// Error raised when the content could not be parsed.
-    #[error("could not parse content: {0:?}")]
-    InvalidContent(StdError),
+    #[error("could not parse content")]
+    InvalidContent(#[source] StdError),
 }
 
 /// Retrieve data from the cardano network

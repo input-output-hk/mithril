@@ -25,47 +25,47 @@ use mockall::automock;
 pub enum ProtocolError {
     /// Signer is already registered.
     #[error("signer already registered")]
-    ExistingSigner(),
+    ExistingSigner,
 
     /// Signer was not registered.
     #[error("signer did not register")]
-    UnregisteredParty(),
+    UnregisteredParty,
 
     /// Signer registration failed.
     #[error("signer registration failed")]
-    FailedSignerRegistration(StdError),
+    FailedSignerRegistration(#[source] StdError),
 
     /// Single signature already recorded.
     #[error("single signature already recorded")]
     ExistingSingleSignature(entities::PartyId),
 
     /// Mithril STM library returned an error.
-    #[error("core error: '{0}'")]
-    Core(StdError),
+    #[error("core error")]
+    Core(#[source] StdError),
 
     /// No message available.
     #[error("no message available")]
-    UnavailableMessage(),
+    UnavailableMessage,
 
     /// No protocol parameters available.
     #[error("no protocol parameters available")]
-    UnavailableProtocolParameters(),
+    UnavailableProtocolParameters,
 
     /// No clerk available.
     #[error("no clerk available")]
-    UnavailableClerk(),
+    UnavailableClerk,
 
     /// No beacon available.
     #[error("no beacon available")]
-    UnavailableBeacon(),
+    UnavailableBeacon,
 
     /// Store error.
-    #[error("store error: {0}")]
-    StoreError(StdError),
+    #[error("store error")]
+    StoreError(#[source] StdError),
 
     /// Beacon error.
-    #[error("beacon error: '{0}'")]
-    Beacon(StdError),
+    #[error("beacon error")]
+    Beacon(#[source] StdError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -124,7 +124,7 @@ pub trait MultiSigner: Sync + Send {
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
-            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
         Ok(self
             .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
             .await?)
@@ -138,7 +138,7 @@ pub trait MultiSigner: Sync + Send {
         let protocol_parameters = self
             .get_next_protocol_parameters()
             .await?
-            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
         Ok(self
             .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
             .await?)
@@ -285,7 +285,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_signer_retrieval_epoch()
             .with_context(|| "Multi Signer can not offset to signer retrieveal epoch while retrivieving protocol parameters")
@@ -302,7 +302,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_protocol_parameters_recording_epoch();
 
@@ -322,7 +322,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_next_signer_retrieval_epoch();
         self.get_protocol_parameters_at_epoch(epoch).await
@@ -334,7 +334,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_signer_retrieval_epoch()
             .with_context(|| "Multi Signer can not offset to signer retrieveal epoch while retrieving stake distribution")
@@ -350,7 +350,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_next_signer_retrieval_epoch();
         self.get_stake_distribution_at_epoch(epoch).await
@@ -365,7 +365,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_recording_epoch();
         let stakes = StakeDistribution::from_iter(stakes.iter().cloned());
@@ -397,7 +397,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch;
         let epoch = epoch
             .offset_to_signer_retrieval_epoch()
@@ -439,7 +439,7 @@ impl MultiSigner for MultiSignerImpl {
         let epoch = self
             .current_beacon
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .ok_or(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_next_signer_retrieval_epoch();
         let signers = self
@@ -486,7 +486,7 @@ impl MultiSigner for MultiSignerImpl {
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
-            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
 
         let signers_with_stakes = self.get_signers_with_stake().await?;
 
@@ -508,7 +508,7 @@ impl MultiSigner for MultiSignerImpl {
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
-            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
 
         let signers_with_stakes = self.get_signers_with_stake().await?;
 

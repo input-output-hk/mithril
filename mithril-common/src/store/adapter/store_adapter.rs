@@ -6,24 +6,24 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AdapterError {
     /// Generic [StoreAdapter] error.
-    #[error("something wrong happened: {0:?}")]
-    GeneralError(StdError),
+    #[error("something wrong happened")]
+    GeneralError(#[source] StdError),
 
     /// Error raised when the store initialization fails.
-    #[error("problem creating the repository: {0:?}")]
-    InitializationError(StdError),
+    #[error("problem creating the repository")]
+    InitializationError(#[source] StdError),
 
     /// Error raised when the opening of a IO stream fails.
-    #[error("problem opening the IO stream: {0:?}")]
-    OpeningStreamError(StdError),
+    #[error("problem opening the IO stream")]
+    OpeningStreamError(#[source] StdError),
 
     /// Error raised when the parsing of a IO stream fails.
-    #[error("problem parsing the IO stream: {0:?}")]
-    ParsingDataError(StdError),
+    #[error("problem parsing the IO stream")]
+    ParsingDataError(#[source] StdError),
 
     /// Error while querying the subsystem.
-    #[error("problem when querying the adapter: {0:?}")]
-    QueryError(StdError),
+    #[error("problem when querying the adapter")]
+    QueryError(#[source] StdError),
 }
 
 /// Represent a way to store Key/Value pair data.

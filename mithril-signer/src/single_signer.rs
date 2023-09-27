@@ -64,16 +64,16 @@ pub trait SingleSigner: Sync + Send {
 #[derive(Error, Debug)]
 pub enum SingleSignerError {
     /// Cryptographic Signer creation error.
-    #[error("the protocol signer creation failed: `{0}`")]
-    ProtocolSignerCreationFailure(StdError),
+    #[error("the protocol signer creation failed")]
+    ProtocolSignerCreationFailure(#[source] StdError),
 
     /// Signature Error
-    #[error("Signature Error: {0:?}")]
-    SignatureFailed(StdError),
+    #[error("Signature Error")]
+    SignatureFailed(#[source] StdError),
 
     /// Avk computation Error
-    #[error("Aggregate verification key computation Error: {0:?}")]
-    AggregateVerificationKeyComputationFailed(StdError),
+    #[error("Aggregate verification key computation Error")]
+    AggregateVerificationKeyComputationFailed(#[source] StdError),
 }
 
 /// Implementation of the SingleSigner.

@@ -1,5 +1,6 @@
 use slog_scope::{crit, debug, error, info};
-use std::{fmt::Display, thread::sleep, time::Duration};
+use std::{fmt::Display, time::Duration};
+use tokio::time::sleep;
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
@@ -127,7 +128,7 @@ impl StateMachine {
                 "… Cycle finished, Sleeping for {} ms",
                 self.state_sleep.as_millis()
             );
-            sleep(self.state_sleep);
+            sleep(self.state_sleep).await;
         }
     }
 

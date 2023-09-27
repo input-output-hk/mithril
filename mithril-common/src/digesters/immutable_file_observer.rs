@@ -26,8 +26,8 @@ pub enum ImmutableFileObserverError {
     Missing(),
 
     /// Raised when [immutable file listing][ImmutableFile::list_completed_in_dir] fails.
-    #[error("immutable file creation error: {0}")]
-    ImmutableFileListing(StdError),
+    #[error("immutable file creation error")]
+    ImmutableFileListing(#[source] StdError),
 }
 
 /// An [ImmutableFileObserver] using the filesystem.

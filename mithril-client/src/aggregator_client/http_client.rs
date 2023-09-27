@@ -22,20 +22,20 @@ use crate::utils::{DownloadProgressReporter, SnapshotUnpacker};
 #[derive(Error, Debug)]
 pub enum AggregatorHTTPClientError {
     /// Error raised when querying the aggregator returned a 5XX error.
-    #[error("remote server technical error: '{0}'")]
-    RemoteServerTechnical(StdError),
+    #[error("remote server technical error")]
+    RemoteServerTechnical(#[source] StdError),
 
     /// Error raised when querying the aggregator returned a 4XX error.
-    #[error("remote server logical error: '{0}'")]
-    RemoteServerLogical(StdError),
+    #[error("remote server logical error")]
+    RemoteServerLogical(#[source] StdError),
 
     /// Error raised when the server API version mismatch the client API version.
-    #[error("API version mismatch: {0}")]
-    ApiVersionMismatch(StdError),
+    #[error("API version mismatch")]
+    ApiVersionMismatch(#[source] StdError),
 
     /// HTTP subsystem error
-    #[error("HTTP subsystem error: {0}")]
-    SubsystemError(StdError),
+    #[error("HTTP subsystem error")]
+    SubsystemError(#[source] StdError),
 }
 
 /// API that defines a client for the Aggregator

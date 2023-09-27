@@ -60,7 +60,7 @@ pub trait ImmutableDigester: Sync + Send {
 #[derive(Error, Debug)]
 pub enum ImmutableDigesterError {
     /// Error raised when the files listing failed.
-    #[error("Immutable files listing failed: {0}")]
+    #[error("Immutable files listing failed")]
     ListImmutablesError(#[from] ImmutableFileListingError),
 
     /// Error raised when there's less than the required number of completed immutables in
@@ -76,6 +76,6 @@ pub enum ImmutableDigesterError {
     },
 
     /// Error raised when the digest computation failed.
-    #[error("Digest computation failed: {0}")]
+    #[error("Digest computation failed")]
     DigestComputationError(#[from] io::Error),
 }

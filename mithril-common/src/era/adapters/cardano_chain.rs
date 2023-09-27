@@ -17,24 +17,24 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum EraMarkersPayloadError {
     /// Error raised when the message serialization fails
-    #[error("could not serialize message: {0:?}")]
-    SerializeMessage(StdError),
+    #[error("could not serialize message")]
+    SerializeMessage(#[source] StdError),
 
     /// Error raised when the signature deserialization fails
-    #[error("could not deserialize signature: {0:?}")]
-    DeserializeSignature(StdError),
+    #[error("could not deserialize signature")]
+    DeserializeSignature(#[source] StdError),
 
     /// Error raised when the signature is missing
     #[error("could not verify signature: signature is missing")]
     MissingSignature,
 
     /// Error raised when the signature is invalid
-    #[error("could not verify signature: {0:?}")]
-    VerifySignature(StdError),
+    #[error("could not verify signature")]
+    VerifySignature(#[source] StdError),
 
     /// Error raised when the signing the markers
-    #[error("could not create signature: {0:?}")]
-    CreateSignature(StdError),
+    #[error("could not create signature")]
+    CreateSignature(#[source] StdError),
 }
 
 /// Era markers payload

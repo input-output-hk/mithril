@@ -103,12 +103,13 @@ pub struct EraReader {
 #[derive(Debug, Error)]
 pub enum EraReaderError {
     /// Underlying adapter fails to return data.
-    #[error("Adapter Error message: «{message}» caught error: {error:?}")]
+    #[error("Adapter Error message: «{message}»")]
     AdapterFailure {
         /// context message
         message: String,
 
         /// nested underlying adapter error
+        #[source]
         error: StdError,
     },
 

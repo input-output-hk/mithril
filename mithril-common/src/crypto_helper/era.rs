@@ -21,8 +21,8 @@ pub type EraMarkersVerifierSignature = ProtocolKey<ed25519_dalek::Signature>;
 /// [EraMarkersSigner] and [EraMarkersVerifier] related errors.
 pub enum EraMarkersVerifierError {
     /// Error raised when a Signature verification fail
-    #[error("era markers signature verification error: '{0}'")]
-    SignatureVerification(StdError),
+    #[error("era markers signature verification error")]
+    SignatureVerification(#[source] StdError),
 }
 
 /// A cryptographic signer that is responsible for signing the EraMarkers

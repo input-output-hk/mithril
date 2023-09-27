@@ -41,16 +41,17 @@ pub enum SnapshotUnpackerError {
     UnpackDirectoryAlreadyExists(PathBuf),
 
     /// Cannot write in the given directory.
-    #[error("Unpack directory '{0}' is not writable. (underlying error: « {1} »).")]
-    UnpackDirectoryIsNotWritable(PathBuf, StdError),
+    #[error("Unpack directory '{0}' is not writable.")]
+    UnpackDirectoryIsNotWritable(PathBuf, #[source] StdError),
 
     /// Unpacking error
-    #[error("Could not unpack from streamed data snapshot to directory '{dirpath}'. Error: « {error:?} ».")]
+    #[error("Could not unpack from streamed data snapshot to directory '{dirpath}'")]
     UnpackFailed {
         /// Location where the archive is to be extracted.
         dirpath: PathBuf,
 
         /// Subsystem error
+        #[source]
         error: StdError,
     },
 }

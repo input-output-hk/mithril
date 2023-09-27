@@ -16,11 +16,11 @@ pub type CacheProviderResult<T> = Result<T, ImmutableDigesterCacheProviderError>
 #[derive(Error, Debug)]
 pub enum ImmutableDigesterCacheProviderError {
     /// Error raised by [ImmutableFileDigestCacheProvider::store].
-    #[error("Could not store immutable file digests cache: {0}")]
+    #[error("Could not store immutable file digests cache")]
     Store(#[from] ImmutableDigesterCacheStoreError),
 
     /// Error raised by [ImmutableFileDigestCacheProvider::get].
-    #[error("Could not read immutable file digests cache: {0}")]
+    #[error("Could not read immutable file digests cache")]
     Get(#[from] ImmutableDigesterCacheGetError),
 }
 
@@ -28,11 +28,11 @@ pub enum ImmutableDigesterCacheProviderError {
 #[derive(Error, Debug)]
 pub enum ImmutableDigesterCacheStoreError {
     /// Raised when an IO error is raised when storing a cache.
-    #[error("IO error when storing cache: {0}")]
+    #[error("IO error when storing cache")]
     Io(#[from] io::Error),
 
     /// Raised when json cache serialization fails.
-    #[error("IO error when serializing json cache: {0}")]
+    #[error("IO error when serializing json cache")]
     JsonSerialization(#[from] serde_json::Error),
 }
 
@@ -40,11 +40,11 @@ pub enum ImmutableDigesterCacheStoreError {
 #[derive(Error, Debug)]
 pub enum ImmutableDigesterCacheGetError {
     /// Raised when an IO error is raised when getting a cache.
-    #[error("IO error when getting cache: {0}")]
+    #[error("IO error when getting cache")]
     Io(#[from] io::Error),
 
     /// Raised when json cache deserialization fails.
-    #[error("IO error when deserializing json cache: {0}")]
+    #[error("IO error when deserializing json cache")]
     JsonDeserialization(#[from] serde_json::Error),
 }
 

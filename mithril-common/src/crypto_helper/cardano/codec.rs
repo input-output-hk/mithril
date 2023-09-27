@@ -36,8 +36,8 @@ pub struct Sum6KesBytes(#[serde(with = "As::<Bytes>")] pub [u8; 612]);
 
 /// Parse error
 #[derive(Error, Debug)]
-#[error("Codec parse error: `{0:?}`")]
-pub struct CodecParseError(StdError);
+#[error("Codec parse error")]
+pub struct CodecParseError(#[source] StdError);
 
 /// Fields for a shelley formatted file (holds for vkeys, skeys or certs)
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
