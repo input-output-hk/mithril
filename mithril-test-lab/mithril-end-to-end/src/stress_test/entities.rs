@@ -157,6 +157,11 @@ impl Reporter {
     pub fn stop(&mut self) {
         match &self.current_timing {
             Some((phase, instant)) => {
+                let phase = if self.number_of_clients == 0 {
+                    format!("{phase} - without clients")
+                } else {
+                    format!("{phase} - with clients")
+                };
                 let timing = Timing {
                     phase: phase.clone(),
                     duration: instant.elapsed(),
@@ -170,11 +175,15 @@ impl Reporter {
     }
 
     pub fn print_report(&self) {
-        println!("number_of_signers\t{}", self.number_of_signers);
-        println!("number_of_clients\t{}", self.number_of_clients);
-        println!("phase\tduration/ms");
+        println!("signers\tclients\tphase\tduration/ms");
         for t in &self.timings {
-            println!("{}\t{}", t.phase, t.duration.as_millis());
+            println!(
+                "{}\t{}\t{}\t{}",
+                self.number_of_signers,
+                self.number_of_clients,
+                t.phase,
+                t.duration.as_millis()
+            );
         }
     }
 }
