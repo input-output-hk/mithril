@@ -13,12 +13,12 @@ if [ -z "${MIN_SIGNERS}" ]; then
 fi
 
 if [ -z "${MAX_SIGNERS}" ]; then
-    echo Missing environment variable: MAX_SIGNERS
+    echo "Missing environment variable: MAX_SIGNERS" >/dev/stderr
     exit 1
 fi
 
 if [ -z "${STEP_SIGNERS}" ]; then
-    echo Missing environment variable: STEP_SIGNERS
+    echo "Missing environment variable: STEP_SIGNERS" >/dev/stderr
     exit 1
 fi
 
@@ -27,12 +27,12 @@ if [ -z "${MIN_CLIENTS}" ]; then
 fi
 
 if [ -z "${MAX_CLIENTS}" ]; then
-    echo Missing environment variable: MAX_CLIENTS
+    echo "Missing environment variable: MAX_CLIENTS" >/dev/stderr
     exit 1
 fi
 
 if [ -z "${STEP_CLIENTS}" ]; then
-    echo Missing environment variable: STEP_CLIENTS
+    echo "Missing environment variable: STEP_CLIENTS" >/dev/stderr
     exit 1
 fi
 
