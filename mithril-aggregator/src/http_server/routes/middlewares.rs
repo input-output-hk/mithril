@@ -7,7 +7,7 @@ use crate::{
     SignerRegisterer, VerificationKeyStorer,
 };
 
-use mithril_common::BeaconProvider;
+use mithril_common::{api_version::APIVersionProvider, BeaconProvider};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -87,4 +87,11 @@ pub fn with_verification_key_store(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<dyn VerificationKeyStorer>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.verification_key_store.clone())
+}
+
+/// With API version provider
+pub fn with_api_version_provider(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (Arc<APIVersionProvider>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.api_version_provider.clone())
 }
