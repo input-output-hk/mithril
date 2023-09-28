@@ -2891,9 +2891,18 @@ dependencies = [
 name = "poc-wasm-client"
 version = "0.1.0"
 dependencies = [
+ "blake2 0.10.6",
+ "config",
  "console_error_panic_hook",
+ "hex",
+ "js-sys",
+ "mithril-stm",
+ "serde",
+ "serde_bytes",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-test",
+ "web-sys",
 ]
 
 [[package]]
