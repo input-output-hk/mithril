@@ -34,7 +34,7 @@ make build
 ./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release
 ```
 
-## Build and run the stress tester
+## Build and run an aggregator stress test
 
 ```bash
 # Build
@@ -48,6 +48,16 @@ make build
 
 # Run with 100 signers and 200 clients
 ./load-aggregator -vvv --cardano-cli-path script/mock-cardano-cli --aggregator-dir ../../target/release --num-signers=100 --num-clients=200
+```
+
+## Benchmark aggregator performances
+
+```bash
+# Build the load aggregator tool
+make build
+
+# Run a benchmark for [10, 20, 30 40, 50] signers x [100, 200, 300] clients
+MIN_SIGNERS=10 MAX_SIGNERS=50 STEP_SIGNERS=10 MIN_CLIENTS=100 MAX_CLIENTS=300 STEP_CLIENTS=100 ./benchmark-aggregator.sh
 ```
 
 ## Launch a monitor
