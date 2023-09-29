@@ -1,12 +1,15 @@
-use crate::database::provider::SignerStore;
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_common::StdResult;
+use mithril_common::{entities::PartyId, StdResult};
+use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::Not;
 use std::sync::Arc;
 
+use crate::database::provider::SignerStore;
 use crate::SignerRecorder;
-use mithril_common::entities::PartyId;
+
 #[cfg(test)]
 use mockall::automock;
 
@@ -41,49 +44,101 @@ impl SignerTickersImporter {
 #[async_trait]
 pub trait SignerTickersRetriever {
     /// Retrieve the signers list.
-    async fn retrieve(&self) -> StdResult<HashMap<PartyId, PoolTicker>>;
+    async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>>;
 }
 
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignerTickersPersister {
     /// Persist the given list of signers.
-    async fn persist(&self, signers: HashMap<PartyId, PoolTicker>) -> StdResult<()>;
+    async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()>;
 }
 
 #[async_trait]
 impl SignerTickersPersister for SignerStore {
-    async fn persist(&self, signers: HashMap<PartyId, PoolTicker>) -> StdResult<()> {
+    async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()> {
         for (party_id, ticker) in signers {
-            self.record_signer_pool_ticker(party_id, Some(ticker))
-                .await?;
+            self.record_signer_pool_ticker(party_id, ticker).await?;
         }
 
         Ok(())
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-struct SPOItem {
-    pool_id: &'static str,
-    name: &'static str,
+/// A [SignerTickersRetriever] fetching signers data from CExplorer.
+pub struct CExplorerSignerTickerRetriever {
+    /// Url from which a SPO list using the CExplorer format will be fetch.
+    source_url: Url,
 }
 
-#[derive(Debug, Clone)]
+impl CExplorerSignerTickerRetriever {
+    /// Create a new [CExplorerSignerTickerRetriever] that will fetch data from the given url.
+    pub(crate) fn new(source_url: Url) -> Self {
+        Self { source_url }
+    }
+}
+
+#[async_trait]
+impl SignerTickersRetriever for CExplorerSignerTickerRetriever {
+    async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
+        let spo_list = reqwest::get(self.source_url.to_owned())
+            .await
+            .with_context(|| "Retrieving of CExplorer SPO list failed")?
+            .json::<SPOList>()
+            .await
+            .with_context(|| "Failed to deserialize retrieved SPO list from CExplorer")?;
+
+        Ok(spo_list
+            .data
+            .into_iter()
+            .map(|item| item.extract())
+            .collect())
+    }
+}
+
+/// *Internal type* that map a CExplorer SPO list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct SPOList {
     data: Vec<SPOItem>,
 }
 
+/// *Internal type* that map a CExplorer SPO item inside its data list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SPOItem {
+    pool_id: String,
+    name: String,
+}
+
+impl SPOItem {
+    const EMPTY_NAME: &'static str = "[] ";
+
+    fn is_name_empty(&self) -> bool {
+        self.name.is_empty() || self.name == Self::EMPTY_NAME
+    }
+
+    /// Consume this item to convert it to a result ready to be yield by a
+    /// [SignerTickersRetriever::retrieve] implementation.
+    fn extract(self) -> (PartyId, Option<PoolTicker>) {
+        let is_name_empty = self.is_name_empty();
+        let (pool_id, name) = (self.pool_id, self.name);
+
+        (pool_id, is_name_empty.not().then_some(name))
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
     use sqlite::Connection;
     use std::sync::Arc;
     use tokio::sync::Mutex;
+    use warp::Filter;
 
     use crate::database::provider::{
         apply_all_migrations_to_db, disable_foreign_key_support, SignerStore,
     };
+    use crate::http_server::routes::reply;
     use crate::SignerRecorder;
 
     use super::*;
@@ -148,6 +203,79 @@ mod tests {
         Ok(signers)
     }
 
+    #[test]
+    fn item_with_empty_name_yield_empty_pool_ticker() {
+        for name in ["", SPOItem::EMPTY_NAME] {
+            let item = SPOItem {
+                pool_id: "whatever".to_string(),
+                name: name.to_string(),
+            };
+            assert!(item.is_name_empty());
+            assert_eq!(("whatever".to_string(), None), item.extract());
+        }
+    }
+
+    #[tokio::test]
+    async fn retriever_should_return_deduplicated_data_and_handle_empty_name() {
+        let cexplorer_spo_list = r#"{
+            "data": [
+                {"pool_id": "pool1", "name": ""},
+                {"pool_id": "pool2", "name": "[] "},
+                {"pool_id": "pool3", "name": "whatever"},
+                {"pool_id": "pool3", "name": "whatever2"}
+            ]
+        }"#;
+        let routes = warp::path("list").map(move || cexplorer_spo_list);
+        let server = test_http_server(routes);
+
+        let retriever = CExplorerSignerTickerRetriever::new(
+            Url::parse(&format!("{}/list", server.url())).unwrap(),
+        );
+        let result = retriever
+            .retrieve()
+            .await
+            .expect("Retriever should not fail");
+
+        assert_eq!(
+            result,
+            HashMap::from([
+                ("pool1".to_string(), None),
+                ("pool2".to_string(), None),
+                ("pool3".to_string(), Some("whatever2".to_string())),
+            ])
+        );
+    }
+
+    #[tokio::test]
+    async fn retriever_doesnt_crash_if_remote_url_is_not_responding() {
+        let routes =
+            warp::path("list").map(|| reply::internal_server_error("whatever".to_string()));
+        let server = test_http_server(routes);
+
+        let retriever = CExplorerSignerTickerRetriever::new(
+            Url::parse(&format!("{}/list", server.url())).unwrap(),
+        );
+        retriever
+            .retrieve()
+            .await
+            .expect_err("An error should have been raised");
+    }
+
+    #[tokio::test]
+    async fn retriever_yield_error_when_json_is_malformed() {
+        let cexplorer_spo_list = r#"{ "data": [ {"pool_" ] }"#;
+        let routes = warp::path("list").map(move || cexplorer_spo_list);
+        let server = test_http_server(routes);
+
+        let retriever = CExplorerSignerTickerRetriever::new(
+            Url::parse(&format!("{}/list", server.url())).unwrap(),
+        );
+        retriever
+            .retrieve()
+            .await
+            .expect_err("An error should have been raised");
+    }
+
     #[tokio::test]
     async fn imported_list_of_one_signer_with_ticker() {
         let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
@@ -159,7 +287,34 @@ mod tests {
         retriever.expect_retrieve().returning(|| {
             Ok(HashMap::from([(
                 "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc".to_string(),
-                "[Pool name test]".to_string(),
+                Some("[Pool name test]".to_string()),
+            )]))
+        });
+
+        let importer = SignerTickersImporter::new(
+            Arc::new(retriever),
+            Arc::new(SignerStore::new(connection.clone())),
+        );
+        importer
+            .run()
+            .await
+            .expect("running importer should not fail");
+
+        let result = get_all_signers(connection).await.unwrap();
+        assert_eq!(result, expected);
+    }
+
+    #[tokio::test]
+    async fn imported_list_of_one_signer_without_ticker() {
+        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let expected = vec![TestSigner::without_ticker(
+            "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc",
+        )];
+        let mut retriever = MockSignerTickersRetriever::new();
+        retriever.expect_retrieve().returning(|| {
+            Ok(HashMap::from([(
+                "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc".to_string(),
+                None,
             )]))
         });
 
