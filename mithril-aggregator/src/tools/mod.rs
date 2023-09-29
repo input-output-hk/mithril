@@ -3,6 +3,7 @@ mod digest_helpers;
 mod era;
 mod genesis;
 mod remote_file_uploader;
+mod signer_tickers_importer;
 
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
