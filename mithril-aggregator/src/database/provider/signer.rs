@@ -15,16 +15,16 @@ use crate::signer_registerer::SignerRecorder;
 #[derive(Debug, PartialEq, Clone)]
 pub struct SignerRecord {
     /// Signer id.
-    signer_id: String,
+    pub signer_id: String,
 
     /// Pool ticker of the signer.
-    pool_ticker: Option<String>,
+    pub pool_ticker: Option<String>,
 
     /// Date and time when the signer was created.
-    created_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
 
     /// Date and time when the signer was updated.
-    updated_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 impl SqLiteEntity for SignerRecord {
@@ -236,6 +236,15 @@ impl SignerStore {
     /// Create a new SignerStore service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
+    }
+
+    /// Return all stored [SignerRecord].
+    pub async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignerRecordProvider::new(connection);
+        let cursor = provider.get_all()?;
+
+        Ok(cursor.collect())
     }
 }
 
@@ -489,6 +498,23 @@ mod tests {
             let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
             assert_eq!(signer_record, signer_record_saved);
         }
+    }
+
+    #[tokio::test]
+    async fn test_get_all_signers() {
+        let signer_records = fake_signer_records(5);
+        let expected: Vec<_> = signer_records.iter().rev().cloned().collect();
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signer_db(&connection, signer_records).unwrap();
+
+        let store = SignerStore::new(Arc::new(Mutex::new(connection)));
+
+        let stored_signers = store
+            .get_all()
+            .await
+            .expect("getting all signers should not fail");
+
+        assert_eq!(expected, stored_signers);
     }
 
     #[tokio::test]
