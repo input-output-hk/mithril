@@ -1,13 +1,15 @@
 // mod entities;
 mod utils;
 
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 
 use blake2::{digest::typenum::U32, Blake2b};
 use hex::FromHex;
 use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmParameters, StmSig};
 use serde::de::DeserializeOwned;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::JsFuture;
+use web_sys::{Request, RequestInit, RequestMode, Response};
 
 pub(crate) type D = Blake2b<U32>;
 
@@ -17,6 +19,8 @@ pub const PROTOCOL_PARAMETERS: StmParameters = StmParameters {
     k: 5,
     phi_f: 0.65,
 };
+pub const AGGREGATOR_URL: &str =
+    "https://aggregator.release-preprod.api.mithril.network/aggregator";
 
 #[wasm_bindgen]
 extern "C" {
@@ -76,6 +80,16 @@ impl CertificateSignature {
 }
 
 #[derive(Debug)]
+pub struct CertificateMessage {
+    hash: String,
+    previous_hash: String,
+    multi_signature: String,
+    genesis_signature: String,
+    aggregate_verification_key: String,
+    signed_message: String,
+}
+
+#[derive(Debug)]
 struct Certificate {
     hash: String,
     previous_hash: Option<String>,
@@ -83,6 +97,26 @@ struct Certificate {
     avk: StmAggrVerificationKey<D>,
     message: Vec<u8>,
     protocol_parameters: StmParameters,
+}
+
+impl TryFrom<CertificateMessage> for Certificate {
+    type Error = String;
+
+    fn try_from(value: CertificateMessage) -> Result<Certificate, Self::Error> {
+        let signature = if value.previous_hash.is_empty() {
+            &value.genesis_signature
+        } else {
+            &value.multi_signature
+        };
+
+        Certificate::new(
+            &value.hash,
+            &value.previous_hash,
+            signature,
+            &value.aggregate_verification_key,
+            &value.signed_message,
+        )
+    }
 }
 
 impl Certificate {
@@ -151,19 +185,63 @@ impl Certificate {
     }
 }
 
-#[wasm_bindgen]
-pub fn main() {
-    let certificate = Certificate::dummy_genesis().unwrap();
+async fn fetch_certificate(hash: &str) -> Result<Certificate, String> {
+    todo!();
+    /*     let mut opts = RequestInit::new();
+    opts.method("GET");
+    opts.mode(RequestMode::Cors);
+    let url = format!("{AGGREGATOR_URL}/certificate/{hash}");
+    let request = Request::new_with_str_and_init(&url, &opts)
+        .map_err(|e| format!("WEB-SYS: request error: {e:?}"))?;
+    request
+        .headers()
+        .set("Accept", "application/vnd.github.v3+json")
+        .map_err(|e| format!("WEB-SYS: headers error: {e:?}"))?;
+    let window = web_sys::window().ok_or_else(|| "WEB-SYS: no Window created!".to_string())?;
+    let resp_value = JsFuture::from(window.fetch_with_request(&request))
+        .await
+        .map_err(|e| format!("WEB-SYS: fetch error: {e:?}"))?;
+    let response: Response = resp_value
+        .dyn_into()
+        .map_err(|e| format!("WEB-SYS: response error: {e:?}"))?;
+    let json = JsFuture::from(
+        response
+            .json()
+            .map_err(|e| format!("WEB-SYS: Cannot read JSON response from body: {e:?}"))?,
+    )
+    .await
+    .map_err(|e| format!("WEB-SYS: Cannot read JS memory: {e:?}"))?;
 
-    console_log!("CERTIFICATE = {certificate:?}");
+    let certificate_message: CertificateMessage = serde_json::from_str(
+        &json
+            .as_string()
+            .ok_or_else(|| format!("WEB-SYS: given JSON is not a String"))?,
+    )
+    .map_err(|e| format!("SERDE-JSON: Could not deserialize CertificateMessge from given JSON "))?;
 
-    // Check certificate
+    certificate_message.try_into() */
+}
 
-    // Signature verification
-    if let Err(msg) = certificate.verify() {
-        console_log!("ERROR='{msg}");
-        alert("Verification failed ❌ (see logs).");
-    } else {
-        alert("Verification OK ✅");
-    }
+#[wasm_bindgen(start)]
+pub fn main() -> Result<(), JsValue> {
+    /*
+    let mut certificate = fetch_certificate(&Certificate::dummy_multisig()?.hash).await?;
+
+    loop {
+        certificate.verify().map_err(|e| {
+            format!(
+                "Verification failed for certificate hash='{}', ERROR = '{e}",
+                certificate.hash
+            )
+        })?;
+        console_log!("OK certificate hash='{}'.", certificate.hash);
+
+        certificate = match &certificate.previous_hash {
+            None => break,
+            Some(hash) => fetch_certificate(hash).await?,
+        };
+    } */
+    alert("❎ certificate chain verified!");
+
+    Ok(())
 }

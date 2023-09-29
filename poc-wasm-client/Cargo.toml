@@ -11,9 +11,9 @@ crate-type = ["cdylib", "rlib"]
 default = ["console_error_panic_hook"]
 
 [dependencies]
-wasm-bindgen = "0.2.84"
+wasm-bindgen = "0.2"
 js-sys = "0.3"
-web-sys = "0.3"
+web-sys = { version = "0.3", features = ["Headers", "Request", "RequestInit", "RequestMode", "Response", "Window"] }
 mithril-stm = { path = "../mithril-stm", default-features = false, features = [
     "num-integer-backend",
 ] }
@@ -27,12 +27,13 @@ config = "0.13.3"
 blake2 = "0.10.4"
 serde_bytes = "0.11.12"
 serde_json = "1.0.107"
-serde = "1.0.188"
+serde = { version = "1.0.188", features = ["serde_derive"] }
 hex = "0.4.3"
 sha2 = "0.10.8"
 chrono = "0.4.31"
 kes-summed-ed25519 = { version = "0.2.1", features = ["sk_clone_enabled"] }
 ed25519-dalek = { version = "2.0.0", features = ["rand_core", "serde"] }
+wasm-bindgen-futures = "0.4.37"
 
 
 [dev-dependencies]
