@@ -2,7 +2,8 @@ use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
-use slog_scope::{crit, debug, info};
+use slog_scope::{crit, debug, info, warn};
+use std::time::Duration;
 use std::{net::IpAddr, path::PathBuf};
 use tokio::{sync::oneshot, task::JoinSet};
 
@@ -132,6 +133,34 @@ impl ServeCommand {
 
             Ok(())
         });
+
+        // Create a [SignerTickersImporter] only if the `cexplorer_pools_url` is provided in the
+        // config.
+        if let Some(cexplorer_pools_url) = config.cexplorer_pools_url {
+            match dependencies_builder
+                .create_signer_ticker_importer(&cexplorer_pools_url)
+                .await
+            {
+                Ok(service) => {
+                    join_set.spawn(async move {
+                        service
+                            .run_forever(Duration::from_secs(
+                                // Signer Ticker Interval are in minutes
+                                config.signer_ticker_run_interval * 60,
+                            ))
+                            .await;
+                        Ok(())
+                    });
+                }
+                Err(error) => {
+                    warn!(
+                        "Failed to build the `SignerTickersImporter` fetching url `{}`. Error: {:?}",
+                        cexplorer_pools_url, error
+                    );
+                }
+            }
+        }
+
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
         dependencies_builder.vanish();
 
