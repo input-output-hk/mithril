@@ -35,8 +35,15 @@ impl SignerTickersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        let items = self.retriever.retrieve().await.with_context(|| "todo")?;
-        self.persister.persist(items).await.with_context(|| "todo")
+        let items = self
+            .retriever
+            .retrieve()
+            .await
+            .with_context(|| "Failed to retrieve signers from remote service")?;
+        self.persister
+            .persist(items)
+            .await
+            .with_context(|| "Failed to persist retrieved data into the database")
     }
 }
 
@@ -131,6 +138,7 @@ mod tests {
     use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
     use sqlite::Connection;
+    use std::collections::BTreeSet;
     use std::sync::Arc;
     use tokio::sync::Mutex;
     use warp::Filter;
@@ -188,7 +196,9 @@ mod tests {
         Ok(())
     }
 
-    async fn get_all_signers(connection: Arc<Mutex<Connection>>) -> StdResult<Vec<TestSigner>> {
+    async fn get_all_signers(
+        connection: Arc<Mutex<Connection>>,
+    ) -> StdResult<BTreeSet<TestSigner>> {
         let store = SignerStore::new(connection);
 
         let signers = store
@@ -217,16 +227,16 @@ mod tests {
 
     #[tokio::test]
     async fn retriever_should_return_deduplicated_data_and_handle_empty_name() {
-        let cexplorer_spo_list = r#"{
+        let server = test_http_server(warp::path("list").map(|| {
+            r#"{
             "data": [
                 {"pool_id": "pool1", "name": ""},
                 {"pool_id": "pool2", "name": "[] "},
                 {"pool_id": "pool3", "name": "whatever"},
                 {"pool_id": "pool3", "name": "whatever2"}
             ]
-        }"#;
-        let routes = warp::path("list").map(move || cexplorer_spo_list);
-        let server = test_http_server(routes);
+        }"#
+        }));
 
         let retriever = CExplorerSignerTickerRetriever::new(
             Url::parse(&format!("{}/list", server.url())).unwrap(),
@@ -248,9 +258,9 @@ mod tests {
 
     #[tokio::test]
     async fn retriever_doesnt_crash_if_remote_url_is_not_responding() {
-        let routes =
-            warp::path("list").map(|| reply::internal_server_error("whatever".to_string()));
-        let server = test_http_server(routes);
+        let server = test_http_server(
+            warp::path("list").map(|| reply::internal_server_error("whatever".to_string())),
+        );
 
         let retriever = CExplorerSignerTickerRetriever::new(
             Url::parse(&format!("{}/list", server.url())).unwrap(),
@@ -263,9 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn retriever_yield_error_when_json_is_malformed() {
-        let cexplorer_spo_list = r#"{ "data": [ {"pool_" ] }"#;
-        let routes = warp::path("list").map(move || cexplorer_spo_list);
-        let server = test_http_server(routes);
+        let server = test_http_server(warp::path("list").map(|| r#"{ "data": [ {"pool_" ] }"#));
 
         let retriever = CExplorerSignerTickerRetriever::new(
             Url::parse(&format!("{}/list", server.url())).unwrap(),
@@ -277,18 +285,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn imported_list_of_one_signer_with_ticker() {
+    async fn persist_list_of_two_signers_one_with_ticker_the_other_without() {
         let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
-        let expected = vec![TestSigner::with_ticker(
-            "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc",
-            "[Pool name test]",
-        )];
         let mut retriever = MockSignerTickersRetriever::new();
         retriever.expect_retrieve().returning(|| {
-            Ok(HashMap::from([(
-                "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc".to_string(),
-                Some("[Pool name test]".to_string()),
-            )]))
+            Ok(HashMap::from([
+                ("pool1".to_string(), Some("[Pool name test]".to_string())),
+                ("pool2".to_string(), None),
+            ]))
         });
 
         let importer = SignerTickersImporter::new(
@@ -301,21 +305,38 @@ mod tests {
             .expect("running importer should not fail");
 
         let result = get_all_signers(connection).await.unwrap();
-        assert_eq!(result, expected);
+        assert_eq!(
+            result,
+            BTreeSet::from([
+                TestSigner::with_ticker("pool1", "[Pool name test]",),
+                TestSigner::without_ticker("pool2"),
+            ])
+        );
     }
 
     #[tokio::test]
-    async fn imported_list_of_one_signer_without_ticker() {
+    async fn persist_update_existing_data() {
         let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
-        let expected = vec![TestSigner::without_ticker(
-            "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc",
-        )];
+        fill_signer_db(
+            connection.clone(),
+            &[
+                TestSigner::with_ticker("pool1", "[Pool name test]"),
+                TestSigner::without_ticker("pool2"),
+                TestSigner::with_ticker("pool3", "[Not updated]"),
+                TestSigner::with_ticker("pool4", "[Ticker will be removed]"),
+            ],
+        )
+        .await
+        .unwrap();
         let mut retriever = MockSignerTickersRetriever::new();
         retriever.expect_retrieve().returning(|| {
-            Ok(HashMap::from([(
-                "pool7809lhh2dhf48ezp7dy8j7450z026hch1w7c2j0px43jmu9l3wc".to_string(),
-                None,
-            )]))
+            Ok(HashMap::from([
+                ("pool1".to_string(), Some("[Updated Pool name]".to_string())),
+                ("pool2".to_string(), Some("[Added Pool name]".to_string())),
+                ("pool3".to_string(), Some("[Not updated]".to_string())),
+                ("pool4".to_string(), None),
+                ("pool5".to_string(), Some("[New Pool]".to_string())),
+            ]))
         });
 
         let importer = SignerTickersImporter::new(
@@ -328,6 +349,15 @@ mod tests {
             .expect("running importer should not fail");
 
         let result = get_all_signers(connection).await.unwrap();
-        assert_eq!(result, expected);
+        assert_eq!(
+            result,
+            BTreeSet::from([
+                TestSigner::with_ticker("pool1", "[Updated Pool name]"),
+                TestSigner::with_ticker("pool2", "[Added Pool name]"),
+                TestSigner::with_ticker("pool3", "[Not updated]"),
+                TestSigner::without_ticker("pool4"),
+                TestSigner::with_ticker("pool5", "[New Pool]"),
+            ])
+        );
     }
 }
