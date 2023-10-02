@@ -1,11 +1,12 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::{entities::PartyId, StdResult};
-use reqwest::Url;
+use reqwest::{IntoUrl, Url};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::database::provider::SignerStore;
 use crate::SignerRecorder;
@@ -49,14 +50,14 @@ impl SignerTickersImporter {
 
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait SignerTickersRetriever {
+pub trait SignerTickersRetriever: Sync + Send {
     /// Retrieve the signers list.
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>>;
 }
 
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait SignerTickersPersister {
+pub trait SignerTickersPersister: Sync + Send {
     /// Persist the given list of signers.
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()>;
 }
@@ -76,21 +77,40 @@ impl SignerTickersPersister for SignerStore {
 pub struct CExplorerSignerTickerRetriever {
     /// Url from which a SPO list using the CExplorer format will be fetch.
     source_url: Url,
+    client: reqwest::Client,
 }
 
 impl CExplorerSignerTickerRetriever {
     /// Create a new [CExplorerSignerTickerRetriever] that will fetch data from the given url.
-    pub(crate) fn new(source_url: Url) -> Self {
-        Self { source_url }
+    pub(crate) fn new<T: IntoUrl>(source_url: T, timeout: Option<Duration>) -> StdResult<Self> {
+        let source_url = source_url
+            .into_url()
+            .with_context(|| "Given `source_url` is not a valid Url")?;
+        let client_builder = reqwest::Client::builder();
+        let client = match timeout {
+            None => client_builder,
+            Some(timeout) => client_builder.timeout(timeout),
+        }
+        .build()
+        .with_context(|| "Http Client build failed")?;
+
+        Ok(Self { source_url, client })
     }
 }
 
 #[async_trait]
 impl SignerTickersRetriever for CExplorerSignerTickerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
-        let spo_list = reqwest::get(self.source_url.to_owned())
+        let response = self
+            .client
+            .get(self.source_url.to_owned())
+            .send()
             .await
-            .with_context(|| "Retrieving of CExplorer SPO list failed")?
+            .with_context(|| "Retrieving of CExplorer SPO list failed")?;
+
+        let spo_list = response
+            .error_for_status()
+            .with_context(|| "Data fetching failed")?
             .json::<SPOList>()
             .await
             .with_context(|| "Failed to deserialize retrieved SPO list from CExplorer")?;
@@ -103,13 +123,13 @@ impl SignerTickersRetriever for CExplorerSignerTickerRetriever {
     }
 }
 
-/// *Internal type* that map a CExplorer SPO list.
+/// *Internal type* Map a CExplorer SPO list.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SPOList {
     data: Vec<SPOItem>,
 }
 
-/// *Internal type* that map a CExplorer SPO item inside its data list.
+/// *Internal type* Map a CExplorer SPO item inside its data list.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SPOItem {
     pool_id: String,
@@ -139,6 +159,7 @@ mod tests {
     use mithril_common::StdResult;
     use sqlite::Connection;
     use std::collections::BTreeSet;
+    use std::convert::Infallible;
     use std::sync::Arc;
     use tokio::sync::Mutex;
     use warp::Filter;
@@ -238,9 +259,8 @@ mod tests {
         }"#
         }));
 
-        let retriever = CExplorerSignerTickerRetriever::new(
-            Url::parse(&format!("{}/list", server.url())).unwrap(),
-        );
+        let retriever =
+            CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None).unwrap();
         let result = retriever
             .retrieve()
             .await
@@ -257,14 +277,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retriever_doesnt_crash_if_remote_url_is_not_responding() {
+    async fn retriever_handle_http_data_fetching_error() {
         let server = test_http_server(
             warp::path("list").map(|| reply::internal_server_error("whatever".to_string())),
         );
 
-        let retriever = CExplorerSignerTickerRetriever::new(
-            Url::parse(&format!("{}/list", server.url())).unwrap(),
-        );
+        let retriever =
+            CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None).unwrap();
         retriever
             .retrieve()
             .await
@@ -275,9 +294,26 @@ mod tests {
     async fn retriever_yield_error_when_json_is_malformed() {
         let server = test_http_server(warp::path("list").map(|| r#"{ "data": [ {"pool_" ] }"#));
 
+        let retriever =
+            CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+        retriever
+            .retrieve()
+            .await
+            .expect_err("An error should have been raised");
+    }
+
+    #[tokio::test]
+    async fn retriever_can_timeout() {
+        let server = test_http_server(warp::path("list").and_then(|| async {
+            tokio::time::sleep(Duration::from_millis(70)).await;
+            Ok::<&str, Infallible>(r#"{"data":[]}"#)
+        }));
+
         let retriever = CExplorerSignerTickerRetriever::new(
-            Url::parse(&format!("{}/list", server.url())).unwrap(),
-        );
+            format!("{}/list", server.url()),
+            Some(Duration::from_millis(10)),
+        )
+        .unwrap();
         retriever
             .retrieve()
             .await
@@ -389,9 +425,10 @@ mod tests {
         }));
 
         let importer = SignerTickersImporter::new(
-            Arc::new(CExplorerSignerTickerRetriever::new(
-                Url::parse(&format!("{}/list", server.url())).unwrap(),
-            )),
+            Arc::new(
+                CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None)
+                    .unwrap(),
+            ),
             Arc::new(SignerStore::new(connection.clone())),
         );
         importer
