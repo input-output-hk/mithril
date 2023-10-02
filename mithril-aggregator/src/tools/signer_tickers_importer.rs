@@ -360,4 +360,57 @@ mod tests {
             ])
         );
     }
+
+    #[tokio::test]
+    async fn importer_integration_test() {
+        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        fill_signer_db(
+            connection.clone(),
+            &[
+                TestSigner::with_ticker("pool4", "[Pool4 dont change]"),
+                TestSigner::without_ticker("pool5"),
+                TestSigner::with_ticker("pool6", "[Pool6 not returned by server]"),
+                TestSigner::with_ticker("pool7", "[Pool7 ticker will be removed]"),
+            ],
+        )
+        .await
+        .unwrap();
+        let server = test_http_server(warp::path("list").map(|| {
+            r#"{
+            "data": [
+                {"pool_id": "pool1", "name": ""},
+                {"pool_id": "pool2", "name": "[] "},
+                {"pool_id": "pool3", "name": "[Pool3 added]"},
+                {"pool_id": "pool4", "name": "[Pool4 dont change]"},
+                {"pool_id": "pool5", "name": "[Pool5 add ticker]"},
+                {"pool_id": "pool7", "name": "[] "}
+            ]
+        }"#
+        }));
+
+        let importer = SignerTickersImporter::new(
+            Arc::new(CExplorerSignerTickerRetriever::new(
+                Url::parse(&format!("{}/list", server.url())).unwrap(),
+            )),
+            Arc::new(SignerStore::new(connection.clone())),
+        );
+        importer
+            .run()
+            .await
+            .expect("running importer should not fail");
+
+        let result = get_all_signers(connection).await.unwrap();
+        assert_eq!(
+            result,
+            BTreeSet::from([
+                TestSigner::without_ticker("pool1"),
+                TestSigner::without_ticker("pool2"),
+                TestSigner::with_ticker("pool3", "[Pool3 added]",),
+                TestSigner::with_ticker("pool4", "[Pool4 dont change]",),
+                TestSigner::with_ticker("pool5", "[Pool5 add ticker]",),
+                TestSigner::with_ticker("pool6", "[Pool6 not returned by server]",),
+                TestSigner::without_ticker("pool7"),
+            ])
+        );
+    }
 }
