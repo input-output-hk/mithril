@@ -13,6 +13,7 @@ use crate::SignerRecorder;
 
 #[cfg(test)]
 use mockall::automock;
+use slog_scope::warn;
 
 pub type PoolTicker = String;
 
@@ -45,6 +46,18 @@ impl SignerTickersImporter {
             .persist(items)
             .await
             .with_context(|| "Failed to persist retrieved data into the database")
+    }
+
+    /// Start a loop that call [run][Self::run] at the given time interval.
+    pub async fn run_forever(&self, run_interval: Duration) {
+        let mut interval = tokio::time::interval(run_interval);
+
+        loop {
+            interval.tick().await;
+            if let Err(error) = self.run().await {
+                warn!("Signer ticker retriever failed: Error: «{:?}».", error);
+            }
+        }
     }
 }
 
