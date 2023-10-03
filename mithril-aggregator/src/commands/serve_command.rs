@@ -143,6 +143,9 @@ impl ServeCommand {
             {
                 Ok(service) => {
                     join_set.spawn(async move {
+                        // Wait 5s to let the other services the time to start before running
+                        // the first import.
+                        tokio::time::sleep(Duration::from_secs(5)).await;
                         service
                             .run_forever(Duration::from_secs(
                                 // Signer Ticker Interval are in minutes
