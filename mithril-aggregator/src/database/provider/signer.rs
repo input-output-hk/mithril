@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlite::{Connection, Value};
+use std::collections::HashMap;
+use std::iter::repeat;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -184,29 +186,46 @@ impl<'conn> UpdateSignerRecordProvider<'conn> {
         Self { connection }
     }
 
-    fn get_update_condition(&self, signer_record: SignerRecord) -> WhereCondition {
+    fn get_update_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
+        let columns = "(signer_id, pool_ticker, created_at, updated_at)";
+        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*)")
+            .take(signer_records.len())
+            .collect();
+        let values = signer_records
+            .into_iter()
+            .flat_map(|signer_record| {
+                vec![
+                    Value::String(signer_record.signer_id),
+                    signer_record
+                        .pool_ticker
+                        .map(Value::String)
+                        .unwrap_or(Value::Null),
+                    Value::String(signer_record.created_at.to_rfc3339()),
+                    Value::String(signer_record.updated_at.to_rfc3339()),
+                ]
+            })
+            .collect();
+
         WhereCondition::new(
-            "(signer_id, pool_ticker, created_at, updated_at) values (?*, ?*, ?*, ?*)",
-            vec![
-                Value::String(signer_record.signer_id),
-                signer_record
-                    .pool_ticker
-                    .map(Value::String)
-                    .unwrap_or(Value::Null),
-                Value::String(signer_record.created_at.to_rfc3339()),
-                Value::String(signer_record.updated_at.to_rfc3339()),
-            ],
+            format!("{columns} values {}", values_columns.join(", ")).as_str(),
+            values,
         )
     }
 
     fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
-        let filters = self.get_update_condition(signer_record.clone());
+        let filters = self.get_update_condition(vec![signer_record.clone()]);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!("No entity returned by the persister, signer_record = {signer_record:?}")
         });
 
         Ok(entity)
+    }
+
+    fn persist_many(&self, signer_records: Vec<SignerRecord>) -> StdResult<Vec<SignerRecord>> {
+        let filters = self.get_update_condition(signer_records);
+
+        Ok(self.find(filters)?.collect())
     }
 }
 
@@ -285,6 +304,30 @@ impl SignerRecorder for SignerStore {
 
         Ok(())
     }
+
+    async fn record_many_signers_pool_tickers(
+        &self,
+        pool_ticker_by_id: HashMap<String, Option<String>>,
+    ) -> StdResult<()> {
+        let connection = &*self.connection.lock().await;
+        let provider = UpdateSignerRecordProvider::new(connection);
+
+        let created_at = Utc::now();
+        let updated_at = created_at;
+        let signer_records: Vec<_> = pool_ticker_by_id
+            .into_iter()
+            .map(|(signer_id, pool_ticker)| SignerRecord {
+                signer_id,
+                pool_ticker,
+                created_at,
+                updated_at,
+            })
+            .collect();
+
+        provider.persist_many(signer_records)?;
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -325,7 +368,7 @@ mod tests {
             // tested on its own above.
             let update_provider = UpdateSignerRecordProvider::new(connection);
             let (sql_values, _) = update_provider
-                .get_update_condition(signer_records.first().unwrap().to_owned())
+                .get_update_condition(vec![signer_records.first().unwrap().to_owned()])
                 .expand();
             format!("insert into signer {sql_values}")
         };
@@ -402,22 +445,26 @@ mod tests {
 
     #[test]
     fn update_signer_record() {
-        let signer_record = fake_signer_records(1).first().unwrap().to_owned();
+        let signer_records = fake_signer_records(2);
         let connection = Connection::open(":memory:").unwrap();
         let provider = UpdateSignerRecordProvider::new(&connection);
-        let condition = provider.get_update_condition(signer_record.clone());
+        let condition = provider.get_update_condition(signer_records.clone());
         let (values, params) = condition.expand();
 
         assert_eq!(
-            "(signer_id, pool_ticker, created_at, updated_at) values (?1, ?2, ?3, ?4)".to_string(),
-            values
+            "(signer_id, pool_ticker, created_at, updated_at) values (?1, ?2, ?3, ?4), (?5, ?6, ?7, ?8)",
+            &values
         );
         assert_eq!(
             vec![
-                Value::String(signer_record.signer_id),
-                Value::String(signer_record.pool_ticker.unwrap()),
-                Value::String(signer_record.created_at.to_rfc3339()),
-                Value::String(signer_record.updated_at.to_rfc3339()),
+                Value::String(signer_records[0].signer_id.to_owned()),
+                Value::String(signer_records[0].pool_ticker.to_owned().unwrap()),
+                Value::String(signer_records[0].created_at.to_rfc3339()),
+                Value::String(signer_records[0].updated_at.to_rfc3339()),
+                Value::String(signer_records[1].signer_id.to_owned()),
+                Value::String(signer_records[1].pool_ticker.to_owned().unwrap()),
+                Value::String(signer_records[1].created_at.to_rfc3339()),
+                Value::String(signer_records[1].updated_at.to_rfc3339()),
             ],
             params
         );
@@ -498,6 +545,28 @@ mod tests {
             let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
             assert_eq!(signer_record, signer_record_saved);
         }
+    }
+
+    #[test]
+    fn test_update_many_signer_records() {
+        let mut signer_records_fake = fake_signer_records(5);
+        signer_records_fake.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
+
+        let provider = UpdateSignerRecordProvider::new(&connection);
+        let mut saved_records = provider.persist_many(signer_records_fake.clone()).unwrap();
+        saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
+        assert_eq!(signer_records_fake, saved_records);
+
+        for signer_record in signer_records_fake.iter_mut() {
+            signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
+            signer_record.updated_at += Duration::hours(1);
+        }
+        let mut saved_records = provider.persist_many(signer_records_fake.clone()).unwrap();
+        saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
+        assert_eq!(signer_records_fake, saved_records);
     }
 
     #[tokio::test]

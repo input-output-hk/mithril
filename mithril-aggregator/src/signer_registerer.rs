@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -115,6 +116,12 @@ pub trait SignerRecorder: Sync + Send {
         &self,
         signer_id: String,
         pool_ticker: Option<String>,
+    ) -> StdResult<()>;
+
+    /// Record many pool ticker by id at once
+    async fn record_many_signers_pool_tickers(
+        &self,
+        pool_ticker_by_id: HashMap<String, Option<String>>,
     ) -> StdResult<()>;
 }
 

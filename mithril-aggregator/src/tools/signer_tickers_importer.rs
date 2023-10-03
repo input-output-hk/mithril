@@ -87,9 +87,7 @@ impl SignerTickersPersister for SignerStore {
             "🔧 Signer Ticker Importer: persisting retrieved data in the database";
             "number_of_signer_to_insert" => signers.len()
         );
-        for (party_id, ticker) in signers {
-            self.record_signer_pool_ticker(party_id, ticker).await?;
-        }
+        self.record_many_signers_pool_tickers(signers).await?;
 
         Ok(())
     }
