@@ -16,10 +16,9 @@ use mithril_common::{
     BeaconProvider,
 };
 
-use crate::database::provider::CertificateRepository;
 use crate::{
     configuration::*,
-    database::provider::{SignedEntityStorer, StakePoolStore},
+    database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
     services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
@@ -123,6 +122,9 @@ pub struct DependencyContainer {
 
     /// Signed Entity storer
     pub signed_entity_storer: Arc<dyn SignedEntityStorer>,
+
+    /// Signer getter service
+    pub signer_getter: Arc<dyn SignerGetter>,
 }
 
 #[doc(hidden)]

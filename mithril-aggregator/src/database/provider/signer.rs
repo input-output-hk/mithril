@@ -13,6 +13,9 @@ use mithril_common::StdResult;
 
 use crate::signer_registerer::SignerRecorder;
 
+#[cfg(test)]
+use mockall::automock;
+
 /// Signer record is the representation of a stored signer.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SignerRecord {
@@ -273,6 +276,14 @@ impl<'conn> Provider<'conn> for ImportSignerRecordProvider<'conn> {
     }
 }
 
+/// Service to get [SignerRecord].
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait SignerGetter: Sync + Send {
+    /// Return all stored records.
+    async fn get_all(&self) -> StdResult<Vec<SignerRecord>>;
+}
+
 /// Service to deal with signer (read & write).
 pub struct SignerStore {
     connection: Arc<Mutex<Connection>>,
@@ -282,15 +293,6 @@ impl SignerStore {
     /// Create a new SignerStore service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
-    }
-
-    /// Return all stored [SignerRecord].
-    pub async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignerRecordProvider::new(connection);
-        let cursor = provider.get_all()?;
-
-        Ok(cursor.collect())
     }
 
     /// Import a signer in the database, its registered_at date will be left empty
@@ -360,6 +362,17 @@ impl SignerRecorder for SignerStore {
         provider.persist(signer_record)?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl SignerGetter for SignerStore {
+    async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignerRecordProvider::new(connection);
+        let cursor = provider.get_all()?;
+
+        Ok(cursor.collect())
     }
 }
 

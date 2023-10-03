@@ -7,6 +7,7 @@ use crate::{
     SignerRegisterer, VerificationKeyStorer,
 };
 
+use crate::database::provider::SignerGetter;
 use mithril_common::{api_version::APIVersionProvider, BeaconProvider};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -38,6 +39,13 @@ pub fn with_signer_registerer(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<dyn SignerRegisterer>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.signer_registerer.clone())
+}
+
+/// With signer getter middleware
+pub fn with_signer_getter(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (Arc<dyn SignerGetter>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.signer_getter.clone())
 }
 
 /// With config middleware

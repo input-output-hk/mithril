@@ -287,7 +287,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/SignerRegistrationsMessage"
         "404":
-          description: Registed Signers not found
+          description: Registered Signers not found
         "412":
           description: API version mismatch
         default:
@@ -296,7 +296,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  
+
+  /signers/tickers:
+    get:
+      summary: Get the signers known by the aggregator
+      description: |
+        Returns the signers party id and, if available, their pool ticker
+      responses:
+        "200":
+          description: Signers found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SignerTickerMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: Signers retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /register-signer:
     post:
       summary: Registers signer
@@ -662,6 +685,30 @@ components:
         party_id:
           description: The unique identifier of the signer
           type: string
+
+    SignerTickerMessage:
+      description: represents a known signer with its pool ticker
+      type: object
+      additionalProperties: true
+      required:
+        - party_id
+        - has_registered
+      properties:
+        party_id:
+          description: The unique identifier of the signer
+          type: string
+        pool_ticker:
+          description: The signer pool ticker
+          type: string
+        has_registered:
+          description: The signer has registered at least once
+          type: boolean
+      example:
+        {
+          "party_id": "pool1234567890",
+          "pool_ticker": "[Pool_Name]",
+          "has_registered": true
+        }
 
     RegisterSingleSignatureMessage:
       description: |

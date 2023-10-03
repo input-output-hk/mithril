@@ -39,7 +39,6 @@ use tokio::{
 };
 use warp::Filter;
 
-use crate::tools::{CExplorerSignerTickerRetriever, SignerTickersImporter, SignerTickersPersister};
 use crate::{
     artifact_builder::{
         CardanoImmutableFilesFullArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
@@ -57,8 +56,10 @@ use crate::{
         MithrilStakeDistributionService, MithrilTickerService, SignedEntityService,
         StakeDistributionService, TickerService,
     },
-    signer_registerer::SignerRecorder,
-    tools::{GcpFileUploader, GenesisToolsDependency},
+    tools::{
+        CExplorerSignerTickerRetriever, GcpFileUploader, GenesisToolsDependency,
+        SignerTickersImporter,
+    },
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
     DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
@@ -671,7 +672,7 @@ impl DependenciesBuilder {
         let registerer = MithrilSignerRegisterer::new(
             self.get_chain_observer().await?,
             self.get_verification_key_store().await?,
-            self.get_signer_recorder().await?,
+            self.get_signer_store().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
 
@@ -862,22 +863,16 @@ impl DependenciesBuilder {
         Ok(signer_store)
     }
 
-    /// [SignerRecorder] service
-    pub async fn get_signer_recorder(&mut self) -> Result<Arc<dyn SignerRecorder>> {
-        if self.signer_store.is_none() {
-            self.signer_store = Some(self.build_signer_store().await?);
+    /// [SignerStore] service
+    pub async fn get_signer_store(&mut self) -> Result<Arc<SignerStore>> {
+        match self.signer_store.as_ref().cloned() {
+            None => {
+                let store = self.build_signer_store().await?;
+                self.signer_store = Some(store.clone());
+                Ok(store)
+            }
+            Some(store) => Ok(store),
         }
-
-        Ok(self.signer_store.as_ref().cloned().unwrap())
-    }
-
-    /// [SignerTickersPersister] service
-    pub async fn get_signer_ticker_persister(&mut self) -> Result<Arc<dyn SignerTickersPersister>> {
-        if self.signer_store.is_none() {
-            self.signer_store = Some(self.build_signer_store().await?);
-        }
-
-        Ok(self.signer_store.as_ref().cloned().unwrap())
     }
 
     async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
@@ -984,12 +979,13 @@ impl DependenciesBuilder {
             event_transmitter: self.get_event_transmitter().await?,
             api_version_provider: self.get_api_version_provider().await?,
             stake_distribution_service: self.get_stake_distribution_service().await?,
-            signer_recorder: self.get_signer_recorder().await?,
+            signer_recorder: self.get_signer_store().await?,
             signable_builder_service: self.get_signable_builder_service().await?,
             signed_entity_service: self.get_signed_entity_service().await?,
             certifier_service: self.get_certifier_service().await?,
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
+            signer_getter: self.get_signer_store().await?,
         };
 
         Ok(dependency_manager)
@@ -1110,7 +1106,7 @@ impl DependenciesBuilder {
             cexplorer_pools_url,
             Some(Duration::from_secs(30)),
         )?;
-        let persister = self.get_signer_ticker_persister().await?;
+        let persister = self.get_signer_store().await?;
 
         Ok(SignerTickersImporter::new(Arc::new(retriever), persister))
     }

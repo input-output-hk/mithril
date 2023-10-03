@@ -188,7 +188,7 @@ mod tests {
     use warp::Filter;
 
     use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, SignerStore,
+        apply_all_migrations_to_db, disable_foreign_key_support, SignerGetter, SignerStore,
     };
     use crate::http_server::routes::reply;
 
