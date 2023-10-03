@@ -135,17 +135,17 @@ impl<'client> Provider<'client> for SignerRecordProvider<'client> {
 }
 
 /// Query to insert the signer record
-pub struct InsertSignerRecordProvider<'conn> {
+pub struct RegisterSignerRecordProvider<'conn> {
     connection: &'conn Connection,
 }
 
-impl<'conn> InsertSignerRecordProvider<'conn> {
+impl<'conn> RegisterSignerRecordProvider<'conn> {
     /// Create a new instance
     pub fn new(connection: &'conn Connection) -> Self {
         Self { connection }
     }
 
-    fn get_insert_condition(&self, signer_record: SignerRecord) -> WhereCondition {
+    fn get_register_condition(&self, signer_record: SignerRecord) -> WhereCondition {
         WhereCondition::new(
             "(signer_id, pool_ticker, created_at, updated_at, registered_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
@@ -165,7 +165,7 @@ impl<'conn> InsertSignerRecordProvider<'conn> {
     }
 
     fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
-        let filters = self.get_insert_condition(signer_record.clone());
+        let filters = self.get_register_condition(signer_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!("No entity returned by the persister, signer_record = {signer_record:?}")
@@ -175,7 +175,7 @@ impl<'conn> InsertSignerRecordProvider<'conn> {
     }
 }
 
-impl<'conn> Provider<'conn> for InsertSignerRecordProvider<'conn> {
+impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
     type Entity = SignerRecord;
 
     fn get_connection(&'conn self) -> &'conn Connection {
@@ -188,22 +188,25 @@ impl<'conn> Provider<'conn> for InsertSignerRecordProvider<'conn> {
         let projection =
             Self::Entity::get_projection().expand(SourceAlias::new(&[("{:signer:}", "signer")]));
 
-        format!("insert into signer {condition} on conflict (signer_id) do update set updated_at = excluded.updated_at returning {projection}")
+        format!(
+            "insert into signer {condition} on conflict (signer_id) do update set \
+            updated_at = excluded.updated_at, registered_at = excluded.registered_at returning {projection}"
+        )
     }
 }
 
 /// Query to update the signer record
-pub struct UpdateSignerRecordProvider<'conn> {
+pub struct ImportSignerRecordProvider<'conn> {
     connection: &'conn Connection,
 }
 
-impl<'conn> UpdateSignerRecordProvider<'conn> {
+impl<'conn> ImportSignerRecordProvider<'conn> {
     /// Create a new instance
     pub fn new(connection: &'conn Connection) -> Self {
         Self { connection }
     }
 
-    fn get_update_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
+    fn get_import_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
         let columns = "(signer_id, pool_ticker, created_at, updated_at, registered_at)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
             .take(signer_records.len())
@@ -234,7 +237,7 @@ impl<'conn> UpdateSignerRecordProvider<'conn> {
     }
 
     fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
-        let filters = self.get_update_condition(vec![signer_record.clone()]);
+        let filters = self.get_import_condition(vec![signer_record.clone()]);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!("No entity returned by the persister, signer_record = {signer_record:?}")
@@ -244,13 +247,13 @@ impl<'conn> UpdateSignerRecordProvider<'conn> {
     }
 
     fn persist_many(&self, signer_records: Vec<SignerRecord>) -> StdResult<Vec<SignerRecord>> {
-        let filters = self.get_update_condition(signer_records);
+        let filters = self.get_import_condition(signer_records);
 
         Ok(self.find(filters)?.collect())
     }
 }
 
-impl<'conn> Provider<'conn> for UpdateSignerRecordProvider<'conn> {
+impl<'conn> Provider<'conn> for ImportSignerRecordProvider<'conn> {
     type Entity = SignerRecord;
 
     fn get_connection(&'conn self) -> &'conn Connection {
@@ -263,7 +266,10 @@ impl<'conn> Provider<'conn> for UpdateSignerRecordProvider<'conn> {
         let projection =
             Self::Entity::get_projection().expand(SourceAlias::new(&[("{:signer:}", "signer")]));
 
-        format!("insert into signer {condition} on conflict(signer_id) do update set pool_ticker = excluded.pool_ticker, updated_at = excluded.updated_at returning {projection}")
+        format!(
+            "insert into signer {condition} on conflict(signer_id) do update \
+            set pool_ticker = excluded.pool_ticker, updated_at = excluded.updated_at returning {projection}"
+        )
     }
 }
 
@@ -286,34 +292,15 @@ impl SignerStore {
 
         Ok(cursor.collect())
     }
-}
 
-#[async_trait]
-impl SignerRecorder for SignerStore {
-    async fn record_signer_id(&self, signer_id: String) -> StdResult<()> {
-        let connection = &*self.connection.lock().await;
-        let provider = InsertSignerRecordProvider::new(connection);
-        let created_at = Utc::now();
-        let updated_at = created_at;
-        let signer_record = SignerRecord {
-            signer_id,
-            pool_ticker: None,
-            created_at,
-            updated_at,
-            registered_at: None,
-        };
-        provider.persist(signer_record)?;
-
-        Ok(())
-    }
-
-    async fn record_signer_pool_ticker(
+    /// Import a signer in the database, its registered_at date will be left empty
+    pub async fn import_signer(
         &self,
         signer_id: String,
         pool_ticker: Option<String>,
     ) -> StdResult<()> {
         let connection = &*self.connection.lock().await;
-        let provider = UpdateSignerRecordProvider::new(connection);
+        let provider = ImportSignerRecordProvider::new(connection);
         let created_at = Utc::now();
         let updated_at = created_at;
         let signer_record = SignerRecord {
@@ -328,12 +315,13 @@ impl SignerRecorder for SignerStore {
         Ok(())
     }
 
-    async fn record_many_signers_pool_tickers(
+    /// Create many signers at once in the database, their registered_at date will be left empty
+    pub async fn import_many_signers(
         &self,
         pool_ticker_by_id: HashMap<String, Option<String>>,
     ) -> StdResult<()> {
         let connection = &*self.connection.lock().await;
-        let provider = UpdateSignerRecordProvider::new(connection);
+        let provider = ImportSignerRecordProvider::new(connection);
 
         let created_at = Utc::now();
         let updated_at = created_at;
@@ -354,11 +342,33 @@ impl SignerRecorder for SignerStore {
     }
 }
 
+#[async_trait]
+impl SignerRecorder for SignerStore {
+    async fn record_signer_registration(&self, signer_id: String) -> StdResult<()> {
+        let connection = &*self.connection.lock().await;
+        let provider = RegisterSignerRecordProvider::new(connection);
+        let created_at = Utc::now();
+        let updated_at = created_at;
+        let registered_at = Some(created_at);
+        let signer_record = SignerRecord {
+            signer_id,
+            pool_ticker: None,
+            created_at,
+            updated_at,
+            registered_at,
+        };
+        provider.persist(signer_record)?;
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::database::provider::apply_all_migrations_to_db;
     use chrono::Duration;
     use mithril_common::StdResult;
+    use std::collections::BTreeMap;
 
     use super::*;
 
@@ -395,9 +405,9 @@ mod tests {
         let query = {
             // leverage the expanded parameter from this provider which is unit
             // tested on its own above.
-            let update_provider = UpdateSignerRecordProvider::new(connection);
+            let update_provider = ImportSignerRecordProvider::new(connection);
             let (sql_values, _) = update_provider
-                .get_update_condition(vec![signer_records.first().unwrap().to_owned()])
+                .get_import_condition(vec![signer_records.first().unwrap().to_owned()])
                 .expand();
             format!("insert into signer {sql_values}")
         };
@@ -461,8 +471,8 @@ mod tests {
     fn insert_signer_record() {
         let signer_record = fake_signer_records(1).first().unwrap().to_owned();
         let connection = Connection::open(":memory:").unwrap();
-        let provider = InsertSignerRecordProvider::new(&connection);
-        let condition = provider.get_insert_condition(signer_record.clone());
+        let provider = RegisterSignerRecordProvider::new(&connection);
+        let condition = provider.get_register_condition(signer_record.clone());
         let (values, params) = condition.expand();
 
         assert_eq!(
@@ -485,8 +495,8 @@ mod tests {
     fn update_signer_record() {
         let signer_records = fake_signer_records(2);
         let connection = Connection::open(":memory:").unwrap();
-        let provider = UpdateSignerRecordProvider::new(&connection);
-        let condition = provider.get_update_condition(signer_records.clone());
+        let provider = ImportSignerRecordProvider::new(&connection);
+        let condition = provider.get_import_condition(signer_records.clone());
         let (values, params) = condition.expand();
 
         assert_eq!(
@@ -551,7 +561,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
-        let provider = InsertSignerRecordProvider::new(&connection);
+        let provider = RegisterSignerRecordProvider::new(&connection);
 
         for signer_record in signer_records_fake.clone() {
             let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
@@ -572,7 +582,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
-        let provider = UpdateSignerRecordProvider::new(&connection);
+        let provider = ImportSignerRecordProvider::new(&connection);
 
         for signer_record in signer_records_fake.clone() {
             let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
@@ -595,7 +605,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
-        let provider = UpdateSignerRecordProvider::new(&connection);
+        let provider = ImportSignerRecordProvider::new(&connection);
         let mut saved_records = provider.persist_many(signer_records_fake.clone()).unwrap();
         saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
         assert_eq!(signer_records_fake, saved_records);
@@ -638,9 +648,9 @@ mod tests {
 
         for signer_record in signer_records_fake.clone() {
             store_recorder
-                .record_signer_id(signer_record.signer_id.clone())
+                .record_signer_registration(signer_record.signer_id.clone())
                 .await
-                .expect("record_signer_id should not fail");
+                .expect("record_signer_registration should not fail");
             let connection = &*connection.lock().await;
             let provider = SignerRecordProvider::new(connection);
             let signer_records_stored: Vec<SignerRecord> = provider
@@ -648,21 +658,80 @@ mod tests {
                 .unwrap()
                 .collect::<Vec<_>>();
             assert_eq!(1, signer_records_stored.len());
+            assert!(
+                signer_records_stored
+                    .iter()
+                    .all(|s| s.registered_at.is_some()),
+                "registering a signer should set the registration date"
+            )
         }
+    }
+
+    #[tokio::test]
+    async fn test_store_import_signer() {
+        let signer_records_fake = fake_signer_records(5);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signer_db(&connection, Vec::new()).unwrap();
+
+        let connection = Arc::new(Mutex::new(connection));
+        let store = SignerStore::new(connection.clone());
 
         for signer_record in signer_records_fake {
-            let pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
-            store_recorder
-                .record_signer_pool_ticker(signer_record.signer_id.clone(), pool_ticker.clone())
+            store
+                .import_signer(
+                    signer_record.signer_id.clone(),
+                    signer_record.pool_ticker.clone(),
+                )
                 .await
-                .expect("record_signer_pool_ticker should not fail");
+                .expect("import_signer should not fail");
             let connection = &*connection.lock().await;
             let provider = SignerRecordProvider::new(connection);
             let signer_records_stored: Vec<SignerRecord> = provider
                 .get_by_signer_id(signer_record.signer_id)
                 .unwrap()
                 .collect::<Vec<_>>();
-            assert_eq!(pool_ticker, signer_records_stored[0].to_owned().pool_ticker);
+            assert_eq!(
+                signer_record.pool_ticker,
+                signer_records_stored[0].to_owned().pool_ticker
+            );
+            assert!(
+                signer_records_stored
+                    .iter()
+                    .all(|s| s.registered_at.is_none()),
+                "imported signer should not have a registration date"
+            )
         }
+    }
+
+    #[tokio::test]
+    async fn test_store_import_many_signers() {
+        let signers_fake: BTreeMap<_, _> = fake_signer_records(5)
+            .into_iter()
+            .map(|r| (r.signer_id, r.pool_ticker))
+            .collect();
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signer_db(&connection, Vec::new()).unwrap();
+        let store = SignerStore::new(Arc::new(Mutex::new(connection)));
+
+        store
+            .import_many_signers(signers_fake.clone().into_iter().collect())
+            .await
+            .expect("import_many_signers should not fail");
+
+        let signer_records_stored = store.get_all().await.unwrap();
+        let signers_stored = signer_records_stored
+            .iter()
+            .cloned()
+            .map(|r| (r.signer_id, r.pool_ticker))
+            .collect();
+        assert_eq!(signers_fake, signers_stored);
+        assert!(
+            signer_records_stored
+                .iter()
+                .all(|s| s.registered_at.is_none()),
+            "imported signer should not have a registration date"
+        );
     }
 }

@@ -9,7 +9,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::database::provider::SignerStore;
-use crate::SignerRecorder;
 
 #[cfg(test)]
 use mockall::automock;
@@ -87,7 +86,7 @@ impl SignerTickersPersister for SignerStore {
             "🔧 Signer Ticker Importer: persisting retrieved data in the database";
             "number_of_signer_to_insert" => signers.len()
         );
-        self.record_many_signers_pool_tickers(signers).await?;
+        self.import_many_signers(signers).await?;
 
         Ok(())
     }
@@ -192,7 +191,6 @@ mod tests {
         apply_all_migrations_to_db, disable_foreign_key_support, SignerStore,
     };
     use crate::http_server::routes::reply;
-    use crate::SignerRecorder;
 
     use super::*;
 
@@ -234,7 +232,7 @@ mod tests {
 
         for signer in test_signers {
             store
-                .record_signer_pool_ticker(signer.pool_id.clone(), signer.ticker.clone())
+                .import_signer(signer.pool_id.clone(), signer.ticker.clone())
                 .await?;
         }
 

@@ -285,9 +285,9 @@ impl DependencyContainer {
     async fn fill_verification_key_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
         for signer in signers {
             self.signer_recorder
-                .record_signer_id(signer.party_id.clone())
+                .record_signer_registration(signer.party_id.clone())
                 .await
-                .expect("record_signer_id should not fail");
+                .expect("record_signer_registration should not fail");
             self.verification_key_store
                 .save_verification_key(target_epoch, signer.clone())
                 .await

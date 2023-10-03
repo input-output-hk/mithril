@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use std::collections::HashMap;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -108,21 +107,8 @@ pub trait SignerRegistrationRoundOpener: Sync + Send {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignerRecorder: Sync + Send {
-    /// Record signer_id
-    async fn record_signer_id(&self, signer_id: String) -> StdResult<()>;
-
-    /// Record pool ticker by id
-    async fn record_signer_pool_ticker(
-        &self,
-        signer_id: String,
-        pool_ticker: Option<String>,
-    ) -> StdResult<()>;
-
-    /// Record many pool ticker by id at once
-    async fn record_many_signers_pool_tickers(
-        &self,
-        pool_ticker_by_id: HashMap<String, Option<String>>,
-    ) -> StdResult<()>;
+    /// Record a signer registration
+    async fn record_signer_registration(&self, signer_id: String) -> StdResult<()>;
 }
 
 /// Implementation of a [SignerRegisterer]
@@ -268,7 +254,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
         signer_save.party_id = party_id_save.clone();
 
         self.signer_recorder
-            .record_signer_id(party_id_save)
+            .record_signer_registration(party_id_save)
             .await
             .map_err(|e| SignerRegistrationError::FailedSignerRecorder(e.to_string()))?;
 
@@ -323,7 +309,7 @@ mod tests {
         )));
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
-            .expect_record_signer_id()
+            .expect_record_signer_registration()
             .returning(|_| Ok(()))
             .once();
         let signer_registerer = MithrilSignerRegisterer::new(
@@ -368,7 +354,7 @@ mod tests {
         )));
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
-            .expect_record_signer_id()
+            .expect_record_signer_registration()
             .returning(|_| Ok(()))
             .once();
         let signer_registerer = MithrilSignerRegisterer::new(
