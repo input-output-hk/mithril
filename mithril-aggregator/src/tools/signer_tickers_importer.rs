@@ -13,7 +13,7 @@ use crate::SignerRecorder;
 
 #[cfg(test)]
 use mockall::automock;
-use slog_scope::warn;
+use slog_scope::{info, warn};
 
 pub type PoolTicker = String;
 
@@ -37,6 +37,7 @@ impl SignerTickersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
+        info!("🔧 Signer Ticker Importer: starting");
         let items = self
             .retriever
             .retrieve()
@@ -57,6 +58,10 @@ impl SignerTickersImporter {
             if let Err(error) = self.run().await {
                 warn!("Signer ticker retriever failed: Error: «{:?}».", error);
             }
+            info!(
+                "🔧 Signer Ticker Importer: Cycle finished, Sleeping for {} min",
+                run_interval.as_secs() / 60
+            );
         }
     }
 }
@@ -78,6 +83,10 @@ pub trait SignerTickersPersister: Sync + Send {
 #[async_trait]
 impl SignerTickersPersister for SignerStore {
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()> {
+        info!(
+            "🔧 Signer Ticker Importer: persisting retrieved data in the database";
+            "number_of_signer_to_insert" => signers.len()
+        );
         for (party_id, ticker) in signers {
             self.record_signer_pool_ticker(party_id, ticker).await?;
         }
@@ -114,6 +123,10 @@ impl CExplorerSignerTickerRetriever {
 #[async_trait]
 impl SignerTickersRetriever for CExplorerSignerTickerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
+        info!(
+            "🔧 Signer Ticker Importer: retrieving data from source";
+            "source_url" => &self.source_url.as_str()
+        );
         let response = self
             .client
             .get(self.source_url.to_owned())
