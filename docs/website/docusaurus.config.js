@@ -188,6 +188,10 @@ const config = {
             title: 'More',
             items: [
               {
+                label: 'Mithril Networks Status',
+                href: 'https://mithril.cronitorstatus.com/'
+              },
+              {
                 label: 'Logbook',
                 href: 'https://github.com/input-output-hk/mithril/wiki/Logbook'
               },
