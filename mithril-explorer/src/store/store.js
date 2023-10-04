@@ -1,4 +1,5 @@
 import {configureStore} from "@reduxjs/toolkit";
+import {poolsSlice} from "./poolsSlice";
 import {initialState as settingsInitialState, settingsSlice} from "./settingsSlice";
 import default_available_aggregators from "../aggregators-list";
 import {checkUrl} from "../utils";
@@ -65,6 +66,7 @@ export function initStoreFromLocalStorage(initialAggregator) {
 export const storeBuilder = (initialAggregator) => configureStore({
   reducer: {
     settings: settingsSlice.reducer,
+    pools: poolsSlice.reducer,
   },
   preloadedState: initStoreFromLocalStorage(initialAggregator),
 });
