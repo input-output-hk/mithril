@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Card, CardGroup, ListGroup} from "react-bootstrap";
 import {useSelector} from "react-redux";
+import PartyId from "../PartyId";
 import PoolTicker from "../PoolTicker";
 import RawJsonButton from "../RawJsonButton";
 import SignedEntityType from "../SignedEntityType";
@@ -74,7 +75,7 @@ export default function PendingCertificate(props) {
                     {pendingCertificate.signers.map(signer =>
                       <ListGroup.Item key={signer.party_id}>
                         <PoolTicker partyId={signer.party_id} aggregator={aggregator}/><br/>
-                        {signer.party_id}
+                        <PartyId partyId={signer.party_id}/>
                         {signer.verification_key_signature &&
                           <div className="float-end">
                             <VerifiedBadge tooltip="Verified Signer"/>
@@ -98,7 +99,7 @@ export default function PendingCertificate(props) {
                     {pendingCertificate.next_signers.map(signer =>
                       <ListGroup.Item key={signer.party_id}>
                         <PoolTicker partyId={signer.party_id} aggregator={aggregator}/><br/>
-                        {signer.party_id}
+                        <PartyId partyId={signer.party_id}/>
                         {signer.verification_key_signature &&
                           <div className="float-end">
                             <VerifiedBadge tooltip="Verified Signer"/>

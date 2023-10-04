@@ -7,6 +7,7 @@ import ProtocolParameters from "../ProtocolParameters";
 import PoolTicker from "../PoolTicker";
 import VerifiedBadge from '../VerifiedBadge';
 import {selectedAggregator} from "../../store/settingsSlice";
+import PartyId from "../PartyId";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -96,8 +97,8 @@ export default function CertificateModal(props) {
                                 <VerifiedBadge tooltip="Verified Signer"/>
                               }
                             </td>
-                            <td>{signer.party_id}</td>
-                            <td><PoolTicker aggregator={aggregator} partyId={signer.party_id} /></td>
+                            <td><PartyId partyId={signer.party_id}/></td>
+                            <td><PoolTicker aggregator={aggregator} partyId={signer.party_id}/></td>
                             <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                           </tr>
                         )}

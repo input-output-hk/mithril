@@ -13,6 +13,14 @@ const formatCurrency = (number, maximumFractionDigits = 2) => number.toLocaleStr
   maximumFractionDigits: maximumFractionDigits,
 });
 
+function formatPartyId(partyId) {
+  if ((typeof partyId === 'string' || partyId instanceof String) && partyId.length > 15) {
+    return partyId.slice(0, 10) + "…" + partyId.slice(-5)
+  } else {
+    return partyId;
+  }
+}
+
 function formatStake(lovelace) {
   // Credits to Jasser Mark Arioste for the original idea:
   // https://reacthustle.com/blog/how-to-convert-number-to-kmb-format-in-javascript
@@ -89,5 +97,6 @@ module.exports = {
   setChartJsDefaults,
   toAda,
   formatCurrency,
-  formatBytes
+  formatBytes,
+  formatPartyId,
 }
