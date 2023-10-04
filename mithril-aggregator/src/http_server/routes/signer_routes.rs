@@ -213,7 +213,7 @@ mod handlers {
                     .map(|s| SignerTickerMessage {
                         party_id: s.signer_id,
                         pool_ticker: s.pool_ticker,
-                        has_registered: s.registered_at.is_some(),
+                        has_registered: s.last_registered_at.is_some(),
                     })
                     .collect();
                 Ok(reply::json(&message, StatusCode::OK))
@@ -548,14 +548,14 @@ mod tests {
                         pool_ticker: None,
                         created_at: Default::default(),
                         updated_at: Default::default(),
-                        registered_at: None,
+                        last_registered_at: None,
                     },
                     SignerRecord {
                         signer_id: "pool_with_ticker".to_string(),
                         pool_ticker: Some("pool_ticker".to_string()),
                         created_at: Default::default(),
                         updated_at: Default::default(),
-                        registered_at: None,
+                        last_registered_at: None,
                     },
                 ])
             })

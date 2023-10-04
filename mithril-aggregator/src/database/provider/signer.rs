@@ -31,8 +31,8 @@ pub struct SignerRecord {
     /// Date and time when the signer was updated.
     pub updated_at: DateTime<Utc>,
 
-    /// Date and time when the signer first registered.
-    pub registered_at: Option<DateTime<Utc>>,
+    /// Date and time when the signer registered for the last time.
+    pub last_registered_at: Option<DateTime<Utc>>,
 }
 
 impl SqLiteEntity for SignerRecord {
@@ -63,7 +63,7 @@ impl SqLiteEntity for SignerRecord {
                     ))
                 })?
                 .with_timezone(&Utc),
-            registered_at: registered_at
+            last_registered_at: registered_at
                 .map(|d| match DateTime::parse_from_rfc3339(d) {
                     Ok(date) => Ok(date.with_timezone(&Utc)),
                     Err(e) => Err(HydrationError::InvalidData(format!(
@@ -82,7 +82,11 @@ impl SqLiteEntity for SignerRecord {
         projection.add_field("pool_ticker", "{:signer:}.pool_ticker", "text");
         projection.add_field("created_at", "{:signer:}.created_at", "text");
         projection.add_field("updated_at", "{:signer:}.updated_at", "text");
-        projection.add_field("registered_at", "{:signer:}.registered_at", "text");
+        projection.add_field(
+            "last_registered_at",
+            "{:signer:}.last_registered_at",
+            "text",
+        );
 
         projection
     }
@@ -150,7 +154,7 @@ impl<'conn> RegisterSignerRecordProvider<'conn> {
 
     fn get_register_condition(&self, signer_record: SignerRecord) -> WhereCondition {
         WhereCondition::new(
-            "(signer_id, pool_ticker, created_at, updated_at, registered_at) values (?*, ?*, ?*, ?*, ?*)",
+            "(signer_id, pool_ticker, created_at, updated_at, last_registered_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_record.signer_id),
                 signer_record
@@ -160,7 +164,7 @@ impl<'conn> RegisterSignerRecordProvider<'conn> {
                 Value::String(signer_record.created_at.to_rfc3339()),
                 Value::String(signer_record.updated_at.to_rfc3339()),
                 signer_record
-                    .registered_at
+                    .last_registered_at
                     .map(|d| Value::String(d.to_rfc3339()))
                     .unwrap_or(Value::Null),
             ],
@@ -193,7 +197,7 @@ impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
 
         format!(
             "insert into signer {condition} on conflict (signer_id) do update set \
-            updated_at = excluded.updated_at, registered_at = excluded.registered_at returning {projection}"
+            updated_at = excluded.updated_at, last_registered_at = excluded.last_registered_at returning {projection}"
         )
     }
 }
@@ -210,7 +214,7 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
     }
 
     fn get_import_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
-        let columns = "(signer_id, pool_ticker, created_at, updated_at, registered_at)";
+        let columns = "(signer_id, pool_ticker, created_at, updated_at, last_registered_at)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
             .take(signer_records.len())
             .collect();
@@ -226,7 +230,7 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
                     Value::String(signer_record.created_at.to_rfc3339()),
                     Value::String(signer_record.updated_at.to_rfc3339()),
                     signer_record
-                        .registered_at
+                        .last_registered_at
                         .map(|d| Value::String(d.to_rfc3339()))
                         .unwrap_or(Value::Null),
                 ]
@@ -295,7 +299,7 @@ impl SignerStore {
         Self { connection }
     }
 
-    /// Import a signer in the database, its registered_at date will be left empty
+    /// Import a signer in the database, its last_registered_at date will be left empty
     pub async fn import_signer(
         &self,
         signer_id: String,
@@ -310,14 +314,14 @@ impl SignerStore {
             pool_ticker,
             created_at,
             updated_at,
-            registered_at: None,
+            last_registered_at: None,
         };
         provider.persist(signer_record)?;
 
         Ok(())
     }
 
-    /// Create many signers at once in the database, their registered_at date will be left empty
+    /// Create many signers at once in the database, their last_registered_at date will be left empty
     pub async fn import_many_signers(
         &self,
         pool_ticker_by_id: HashMap<String, Option<String>>,
@@ -334,7 +338,7 @@ impl SignerStore {
                 pool_ticker,
                 created_at,
                 updated_at,
-                registered_at: None,
+                last_registered_at: None,
             })
             .collect();
 
@@ -357,7 +361,7 @@ impl SignerRecorder for SignerStore {
             pool_ticker: None,
             created_at,
             updated_at,
-            registered_at,
+            last_registered_at: registered_at,
         };
         provider.persist(signer_record)?;
 
@@ -396,7 +400,7 @@ mod tests {
                 updated_at: DateTime::parse_from_rfc3339("2024-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
-                registered_at: Some(
+                last_registered_at: Some(
                     DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                         .unwrap()
                         .with_timezone(&Utc),
@@ -442,7 +446,7 @@ mod tests {
                     (
                         5,
                         signer_record
-                            .registered_at
+                            .last_registered_at
                             .map(|d| Value::String(d.to_rfc3339()))
                             .unwrap_or(Value::Null),
                     ),
@@ -461,7 +465,7 @@ mod tests {
 
         assert_eq!(
             "s.signer_id as signer_id, s.pool_ticker as pool_ticker, s.created_at as created_at, \
-             s.updated_at as updated_at, s.registered_at as registered_at"
+             s.updated_at as updated_at, s.last_registered_at as last_registered_at"
                 .to_string(),
             projection.expand(aliases)
         );
@@ -489,7 +493,7 @@ mod tests {
         let (values, params) = condition.expand();
 
         assert_eq!(
-            "(signer_id, pool_ticker, created_at, updated_at, registered_at) values (?1, ?2, ?3, ?4, ?5)".to_string(),
+            "(signer_id, pool_ticker, created_at, updated_at, last_registered_at) values (?1, ?2, ?3, ?4, ?5)".to_string(),
             values
         );
         assert_eq!(
@@ -498,7 +502,7 @@ mod tests {
                 Value::String(signer_record.pool_ticker.unwrap()),
                 Value::String(signer_record.created_at.to_rfc3339()),
                 Value::String(signer_record.updated_at.to_rfc3339()),
-                Value::String(signer_record.registered_at.unwrap().to_rfc3339()),
+                Value::String(signer_record.last_registered_at.unwrap().to_rfc3339()),
             ],
             params
         );
@@ -513,7 +517,7 @@ mod tests {
         let (values, params) = condition.expand();
 
         assert_eq!(
-            "(signer_id, pool_ticker, created_at, updated_at, registered_at) values (?1, ?2, ?3, ?4, ?5), (?6, ?7, ?8, ?9, ?10)",
+            "(signer_id, pool_ticker, created_at, updated_at, last_registered_at) values (?1, ?2, ?3, ?4, ?5), (?6, ?7, ?8, ?9, ?10)",
             &values
         );
         assert_eq!(
@@ -522,12 +526,12 @@ mod tests {
                 Value::String(signer_records[0].pool_ticker.to_owned().unwrap()),
                 Value::String(signer_records[0].created_at.to_rfc3339()),
                 Value::String(signer_records[0].updated_at.to_rfc3339()),
-                Value::String(signer_records[0].registered_at.unwrap().to_rfc3339()),
+                Value::String(signer_records[0].last_registered_at.unwrap().to_rfc3339()),
                 Value::String(signer_records[1].signer_id.to_owned()),
                 Value::String(signer_records[1].pool_ticker.to_owned().unwrap()),
                 Value::String(signer_records[1].created_at.to_rfc3339()),
                 Value::String(signer_records[1].updated_at.to_rfc3339()),
-                Value::String(signer_records[1].registered_at.unwrap().to_rfc3339()),
+                Value::String(signer_records[1].last_registered_at.unwrap().to_rfc3339()),
             ],
             params
         );
@@ -674,7 +678,7 @@ mod tests {
             assert!(
                 signer_records_stored
                     .iter()
-                    .all(|s| s.registered_at.is_some()),
+                    .all(|s| s.last_registered_at.is_some()),
                 "registering a signer should set the registration date"
             )
         }
@@ -711,7 +715,7 @@ mod tests {
             assert!(
                 signer_records_stored
                     .iter()
-                    .all(|s| s.registered_at.is_none()),
+                    .all(|s| s.last_registered_at.is_none()),
                 "imported signer should not have a registration date"
             )
         }
@@ -743,7 +747,7 @@ mod tests {
         assert!(
             signer_records_stored
                 .iter()
-                .all(|s| s.registered_at.is_none()),
+                .all(|s| s.last_registered_at.is_none()),
             "imported signer should not have a registration date"
         );
     }
