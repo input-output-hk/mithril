@@ -9,12 +9,12 @@ members = [
   "mithril-common",
   "mithril-signer",
   "mithril-stm",
-  "mithril-test-lab/mithril-end-to-end"
+  "mithril-test-lab/mithril-end-to-end",
 ]
 
 [workspace.package]
 authors = ["dev@iohk.io"]
-documentation =  "https://mithril.network/doc"
+documentation = "https://mithril.network/doc"
 edition = "2021"
 homepage = "https://mithril.network"
 license = "Apache-2.0"
