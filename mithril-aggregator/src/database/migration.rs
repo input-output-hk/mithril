@@ -591,5 +591,15 @@ update signed_entity
 where signed_entity.signed_entity_type_id = 2;
         "#,
         ),
+        // Migration 19
+        // Alter `signer` table to add `last_registered_at` field with base value copied from the
+        // `created_at` field.
+        SqlMigration::new(
+            19,
+            r#"
+alter table signer add column last_registered_at text null;
+update signer set last_registered_at = created_at; 
+        "#,
+        ),
     ]
 }

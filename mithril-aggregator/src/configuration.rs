@@ -121,6 +121,12 @@ pub struct Configuration {
     /// Specific parameters when [snapshot_compression_algorithm][Self::snapshot_compression_algorithm]
     /// is set to [zstandard][CompressionAlgorithm::Zstandard].
     pub zstandard_parameters: Option<ZstandardCompressionParameters>,
+
+    /// Url to CExplorer list of pools to import as signer in the database.
+    pub cexplorer_pools_url: Option<String>,
+
+    /// Time interval at which the signers in [Self::cexplorer_pools_url] will be imported (in minutes).
+    pub signer_importer_run_interval: u64,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -188,6 +194,8 @@ impl Configuration {
             era_reader_adapter_params: None,
             snapshot_compression_algorithm: CompressionAlgorithm::Zstandard,
             zstandard_parameters: Some(ZstandardCompressionParameters::default()),
+            cexplorer_pools_url: None,
+            signer_importer_run_interval: 1,
         }
     }
 
@@ -262,6 +270,9 @@ pub struct DefaultConfiguration {
 
     /// Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp)
     pub snapshot_use_cdn_domain: String,
+
+    /// Signer importer run interval default setting
+    pub signer_importer_run_interval: u64,
 }
 
 impl Default for DefaultConfiguration {
@@ -279,6 +290,7 @@ impl Default for DefaultConfiguration {
             disable_digests_cache: "false".to_string(),
             snapshot_compression_algorithm: "zstandard".to_string(),
             snapshot_use_cdn_domain: "false".to_string(),
+            signer_importer_run_interval: 720,
         }
     }
 }
@@ -368,6 +380,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.snapshot_use_cdn_domain),
+            ),
+        );
+        result.insert(
+            "signer_importer_run_interval".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.signer_importer_run_interval),
             ),
         );
 

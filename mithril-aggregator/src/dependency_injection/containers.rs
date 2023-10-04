@@ -16,10 +16,9 @@ use mithril_common::{
     BeaconProvider,
 };
 
-use crate::database::provider::CertificateRepository;
 use crate::{
     configuration::*,
-    database::provider::{SignedEntityStorer, StakePoolStore},
+    database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
     services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
@@ -123,6 +122,9 @@ pub struct DependencyContainer {
 
     /// Signed Entity storer
     pub signed_entity_storer: Arc<dyn SignedEntityStorer>,
+
+    /// Signer getter service
+    pub signer_getter: Arc<dyn SignerGetter>,
 }
 
 #[doc(hidden)]
@@ -285,9 +287,9 @@ impl DependencyContainer {
     async fn fill_verification_key_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
         for signer in signers {
             self.signer_recorder
-                .record_signer_id(signer.party_id.clone())
+                .record_signer_registration(signer.party_id.clone())
                 .await
-                .expect("record_signer_id should not fail");
+                .expect("record_signer_registration should not fail");
             self.verification_key_store
                 .save_verification_key(target_epoch, signer.clone())
                 .await

@@ -2,7 +2,8 @@ use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
-use slog_scope::{crit, debug, info};
+use slog_scope::{crit, debug, info, warn};
+use std::time::Duration;
 use std::{net::IpAddr, path::PathBuf};
 use tokio::{sync::oneshot, task::JoinSet};
 
@@ -132,6 +133,36 @@ impl ServeCommand {
 
             Ok(())
         });
+
+        // Create a SignersImporter only if the `cexplorer_pools_url` is provided in the config.
+        if let Some(cexplorer_pools_url) = config.cexplorer_pools_url {
+            match dependencies_builder
+                .create_signer_importer(&cexplorer_pools_url)
+                .await
+            {
+                Ok(service) => {
+                    join_set.spawn(async move {
+                        // Wait 5s to let the other services the time to start before running
+                        // the first import.
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        service
+                            .run_forever(Duration::from_secs(
+                                // Import interval are in minutes
+                                config.signer_importer_run_interval * 60,
+                            ))
+                            .await;
+                        Ok(())
+                    });
+                }
+                Err(error) => {
+                    warn!(
+                        "Failed to build the `SignersImporter`:\n url to import `{}`\n Error: {:?}",
+                        cexplorer_pools_url, error
+                    );
+                }
+            }
+        }
+
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
         dependencies_builder.vanish();
 

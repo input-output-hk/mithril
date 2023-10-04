@@ -2,7 +2,7 @@ mod artifact_routes;
 mod certificate_routes;
 mod epoch_routes;
 mod middlewares;
-mod reply;
+pub(crate) mod reply;
 mod root_routes;
 pub mod router;
 mod signatures_routes;

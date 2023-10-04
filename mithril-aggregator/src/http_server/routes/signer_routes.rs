@@ -8,7 +8,9 @@ const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 pub fn routes(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    register_signer(dependency_manager.clone()).or(registered_signers(dependency_manager))
+    register_signer(dependency_manager.clone())
+        .or(registered_signers(dependency_manager.clone()))
+        .or(signers_tickers(dependency_manager))
 }
 
 /// POST /register-signer
@@ -31,6 +33,17 @@ fn register_signer(
         .and_then(handlers::register_signer)
 }
 
+/// Get /signers/tickers
+fn signers_tickers(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("signers" / "tickers")
+        .and(warp::get())
+        .and(middlewares::with_config(dependency_manager.clone()))
+        .and(middlewares::with_signer_getter(dependency_manager))
+        .and_then(handlers::signers_tickers)
+}
+
 /// Get /signers/registered/:epoch
 fn registered_signers(
     dependency_manager: Arc<DependencyContainer>,
@@ -42,9 +55,14 @@ fn registered_signers(
 }
 
 mod handlers {
-    use crate::entities::SignerRegistrationsMessage;
+    use crate::database::provider::SignerGetter;
+    use crate::entities::{
+        SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
+    };
     use crate::event_store::{EventMessage, TransmitterService};
-    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
+    use crate::{
+        http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
+    };
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
@@ -187,6 +205,35 @@ mod handlers {
             }
         }
     }
+
+    pub async fn signers_tickers(
+        configuration: Configuration,
+        signer_getter: Arc<dyn SignerGetter>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: signers/tickers");
+        let network = configuration.network;
+
+        match signer_getter.get_all().await {
+            Ok(signers) => {
+                let signers: Vec<_> = signers
+                    .into_iter()
+                    .map(|s| SignerTickerListItemMessage {
+                        party_id: s.signer_id,
+                        pool_ticker: s.pool_ticker,
+                        has_registered: s.last_registered_at.is_some(),
+                    })
+                    .collect();
+                Ok(reply::json(
+                    &SignersTickersMessage { network, signers },
+                    StatusCode::OK,
+                ))
+            }
+            Err(err) => {
+                warn!("registered_signers::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -204,6 +251,7 @@ mod tests {
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};
 
+    use crate::database::provider::{MockSignerGetter, SignerRecord};
     use crate::{
         http_server::SERVER_BASE_PATH, initialize_dependencies,
         signer_registerer::MockSignerRegisterer, store::MockVerificationKeyStorer,
@@ -492,6 +540,81 @@ mod tests {
             APISpec::get_all_spec_files(),
             method,
             &format!("{base_path}/{{epoch}}"),
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_signers_tickers_get_ok() {
+        let mut mock_signer_getter = MockSignerGetter::new();
+        mock_signer_getter
+            .expect_get_all()
+            .return_once(|| {
+                Ok(vec![
+                    SignerRecord {
+                        signer_id: "pool_without_ticker".to_string(),
+                        pool_ticker: None,
+                        created_at: Default::default(),
+                        updated_at: Default::default(),
+                        last_registered_at: None,
+                    },
+                    SignerRecord {
+                        signer_id: "pool_with_ticker".to_string(),
+                        pool_ticker: Some("pool_ticker".to_string()),
+                        created_at: Default::default(),
+                        updated_at: Default::default(),
+                        last_registered_at: None,
+                    },
+                ])
+            })
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signer_getter = Arc::new(mock_signer_getter);
+
+        let method = Method::GET.as_str();
+        let path = "/signers/tickers";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_signers_tickers_get_ko() {
+        let mut mock_signer_getter = MockSignerGetter::new();
+        mock_signer_getter
+            .expect_get_all()
+            .return_once(|| Err(anyhow!("an error")))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signer_getter = Arc::new(mock_signer_getter);
+
+        let method = Method::GET.as_str();
+        let path = "/signers/tickers";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
             "application/json",
             &Null,
             &response,
