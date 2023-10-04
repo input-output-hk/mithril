@@ -208,6 +208,12 @@ variable "mithril_aggregator_auth_password" {
   default     = ""
 }
 
+variable "mithril_aggregator_cexplorer_pools_url" {
+  type        = string
+  description = "The CExplorer url of the list of pools that is used by the mithril aggregator"
+  default     = ""
+}
+
 variable "prometheus_auth_username" {
   type        = string
   description = "The username for authentication on local prometheus endpoint"
