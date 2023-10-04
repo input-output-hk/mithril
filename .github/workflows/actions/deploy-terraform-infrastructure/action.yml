@@ -79,6 +79,9 @@ inputs:
   mithril_aggregator_zstandard_parameters_workers: 
     description: Mithril aggregator snapshot zstandard number of workers.
     required: false
+  mithril_aggregator_cexplorer_pools_url:
+    description: CExplorer url of the list of pools that is used by the mithril aggregator.
+    required: false
   prometheus_auth_username: 
     description: Prometheus metrics endpoint username.
     required: false
@@ -152,6 +155,7 @@ runs:
         mithril_aggregator_snapshot_compression_algorithm = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
         mithril_aggregator_zstandard_parameters_level     = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
         mithril_aggregator_zstandard_parameters_workers   = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
+        mithril_aggregator_cexplorer_pools_url            = "${{ inputs.mithril_aggregator_cexplorer_pools_url }}"
         prometheus_auth_username                          = "${{ inputs.prometheus_auth_username }}"
         prometheus_auth_password                          = "${{ inputs.prometheus_auth_password }}"
         prometheus_ingest_host                            = "${{ inputs.prometheus_ingest_host }}"
