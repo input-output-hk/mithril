@@ -56,10 +56,7 @@ use crate::{
         MithrilStakeDistributionService, MithrilTickerService, SignedEntityService,
         StakeDistributionService, TickerService,
     },
-    tools::{
-        CExplorerSignerTickerRetriever, GcpFileUploader, GenesisToolsDependency,
-        SignerTickersImporter,
-    },
+    tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
     DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
@@ -1097,18 +1094,16 @@ impl DependenciesBuilder {
         Ok(dependencies)
     }
 
-    /// Create a [SignerTickersImporter] instance.
-    pub async fn create_signer_ticker_importer(
+    /// Create a [SignersImporter] instance.
+    pub async fn create_signer_importer(
         &mut self,
         cexplorer_pools_url: &str,
-    ) -> Result<SignerTickersImporter> {
-        let retriever = CExplorerSignerTickerRetriever::new(
-            cexplorer_pools_url,
-            Some(Duration::from_secs(30)),
-        )?;
+    ) -> Result<SignersImporter> {
+        let retriever =
+            CExplorerSignerRetriever::new(cexplorer_pools_url, Some(Duration::from_secs(30)))?;
         let persister = self.get_signer_store().await?;
 
-        Ok(SignerTickersImporter::new(Arc::new(retriever), persister))
+        Ok(SignersImporter::new(Arc::new(retriever), persister))
     }
 
     /// Create [TickerService] instance.

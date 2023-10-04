@@ -134,11 +134,10 @@ impl ServeCommand {
             Ok(())
         });
 
-        // Create a [SignerTickersImporter] only if the `cexplorer_pools_url` is provided in the
-        // config.
+        // Create a SignersImporter only if the `cexplorer_pools_url` is provided in the config.
         if let Some(cexplorer_pools_url) = config.cexplorer_pools_url {
             match dependencies_builder
-                .create_signer_ticker_importer(&cexplorer_pools_url)
+                .create_signer_importer(&cexplorer_pools_url)
                 .await
             {
                 Ok(service) => {
@@ -148,8 +147,8 @@ impl ServeCommand {
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         service
                             .run_forever(Duration::from_secs(
-                                // Signer Ticker Interval are in minutes
-                                config.signer_ticker_run_interval * 60,
+                                // Import interval are in minutes
+                                config.signer_importer_run_interval * 60,
                             ))
                             .await;
                         Ok(())
@@ -157,7 +156,7 @@ impl ServeCommand {
                 }
                 Err(error) => {
                     warn!(
-                        "Failed to build the `SignerTickersImporter` fetching url `{}`. Error: {:?}",
+                        "Failed to build the `SignersImporter`:\n url to import `{}`\n Error: {:?}",
                         cexplorer_pools_url, error
                     );
                 }

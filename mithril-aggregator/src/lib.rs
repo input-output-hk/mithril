@@ -58,6 +58,9 @@ pub use store::{
     CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer,
     VerificationKeyStore, VerificationKeyStorer,
 };
+pub use tools::{
+    CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
+};
 
 #[cfg(test)]
 pub use dependency_injection::tests::initialize_dependencies;

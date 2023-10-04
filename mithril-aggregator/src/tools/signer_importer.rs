@@ -16,17 +16,17 @@ use slog_scope::{info, warn};
 
 pub type PoolTicker = String;
 
-/// Tool that can import a list of Signer including their Pool Tickers
-pub struct SignerTickersImporter {
-    retriever: Arc<dyn SignerTickersRetriever>,
-    persister: Arc<dyn SignerTickersPersister>,
+/// Tool that can import a list of signers
+pub struct SignersImporter {
+    retriever: Arc<dyn SignersImporterRetriever>,
+    persister: Arc<dyn SignersImporterPersister>,
 }
 
-impl SignerTickersImporter {
-    /// [SignerTickersImporter] factory
+impl SignersImporter {
+    /// [SignersImporter] factory
     pub fn new(
-        retriever: Arc<dyn SignerTickersRetriever>,
-        persister: Arc<dyn SignerTickersPersister>,
+        retriever: Arc<dyn SignersImporterRetriever>,
+        persister: Arc<dyn SignersImporterPersister>,
     ) -> Self {
         Self {
             retriever,
@@ -36,7 +36,7 @@ impl SignerTickersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        info!("🔧 Signer Ticker Importer: starting");
+        info!("🔧 Signer Importer: starting");
         let items = self
             .retriever
             .retrieve()
@@ -55,35 +55,37 @@ impl SignerTickersImporter {
         loop {
             interval.tick().await;
             if let Err(error) = self.run().await {
-                warn!("Signer ticker retriever failed: Error: «{:?}».", error);
+                warn!("Signer retriever failed: Error: «{:?}».", error);
             }
             info!(
-                "🔧 Signer Ticker Importer: Cycle finished, Sleeping for {} min",
+                "🔧 Signer Importer: Cycle finished, Sleeping for {} min",
                 run_interval.as_secs() / 60
             );
         }
     }
 }
 
+/// Trait that define how a [SignersImporter] retrieve the signers to import.
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait SignerTickersRetriever: Sync + Send {
+pub trait SignersImporterRetriever: Sync + Send {
     /// Retrieve the signers list.
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>>;
 }
 
+/// Trait that define how a [SignersImporter] persist the retrieved signers.
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait SignerTickersPersister: Sync + Send {
+pub trait SignersImporterPersister: Sync + Send {
     /// Persist the given list of signers.
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()>;
 }
 
 #[async_trait]
-impl SignerTickersPersister for SignerStore {
+impl SignersImporterPersister for SignerStore {
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()> {
         info!(
-            "🔧 Signer Ticker Importer: persisting retrieved data in the database";
+            "🔧 Signer Importer: persisting retrieved data in the database";
             "number_of_signer_to_insert" => signers.len()
         );
         self.import_many_signers(signers).await?;
@@ -92,15 +94,15 @@ impl SignerTickersPersister for SignerStore {
     }
 }
 
-/// A [SignerTickersRetriever] fetching signers data from CExplorer.
-pub struct CExplorerSignerTickerRetriever {
+/// A [SignersImporterRetriever] fetching signers data from CExplorer.
+pub struct CExplorerSignerRetriever {
     /// Url from which a SPO list using the CExplorer format will be fetch.
     source_url: Url,
     client: reqwest::Client,
 }
 
-impl CExplorerSignerTickerRetriever {
-    /// Create a new [CExplorerSignerTickerRetriever] that will fetch data from the given url.
+impl CExplorerSignerRetriever {
+    /// Create a new [CExplorerSignerRetriever] that will fetch data from the given url.
     pub(crate) fn new<T: IntoUrl>(source_url: T, timeout: Option<Duration>) -> StdResult<Self> {
         let source_url = source_url
             .into_url()
@@ -118,10 +120,10 @@ impl CExplorerSignerTickerRetriever {
 }
 
 #[async_trait]
-impl SignerTickersRetriever for CExplorerSignerTickerRetriever {
+impl SignersImporterRetriever for CExplorerSignerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
         info!(
-            "🔧 Signer Ticker Importer: retrieving data from source";
+            "🔧 Signer Importer: retrieving data from source";
             "source_url" => &self.source_url.as_str()
         );
         let response = self
@@ -167,7 +169,7 @@ impl SPOItem {
     }
 
     /// Consume this item to convert it to a result ready to be yield by a
-    /// [SignerTickersRetriever::retrieve] implementation.
+    /// [SignersImporterRetriever::retrieve] implementation.
     fn extract(self) -> (PartyId, Option<PoolTicker>) {
         let is_name_empty = self.is_name_empty();
         let (pool_id, name) = (self.pool_id, self.name);
@@ -181,7 +183,7 @@ mod tests {
     use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
     use sqlite::Connection;
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeMap, BTreeSet};
     use std::convert::Infallible;
     use std::sync::Arc;
     use tokio::sync::Mutex;
@@ -282,15 +284,15 @@ mod tests {
         }));
 
         let retriever =
-            CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+            CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();
         let result = retriever
             .retrieve()
             .await
             .expect("Retriever should not fail");
 
         assert_eq!(
-            result,
-            HashMap::from([
+            result.into_iter().collect::<BTreeMap<_, _>>(),
+            BTreeMap::from([
                 ("pool1".to_string(), None),
                 ("pool2".to_string(), None),
                 ("pool3".to_string(), Some("whatever2".to_string())),
@@ -305,7 +307,7 @@ mod tests {
         );
 
         let retriever =
-            CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+            CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();
         retriever
             .retrieve()
             .await
@@ -317,7 +319,7 @@ mod tests {
         let server = test_http_server(warp::path("list").map(|| r#"{ "data": [ {"pool_" ] }"#));
 
         let retriever =
-            CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+            CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();
         retriever
             .retrieve()
             .await
@@ -331,7 +333,7 @@ mod tests {
             Ok::<&str, Infallible>(r#"{"data":[]}"#)
         }));
 
-        let retriever = CExplorerSignerTickerRetriever::new(
+        let retriever = CExplorerSignerRetriever::new(
             format!("{}/list", server.url()),
             Some(Duration::from_millis(10)),
         )
@@ -345,7 +347,7 @@ mod tests {
     #[tokio::test]
     async fn persist_list_of_two_signers_one_with_ticker_the_other_without() {
         let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
-        let mut retriever = MockSignerTickersRetriever::new();
+        let mut retriever = MockSignersImporterRetriever::new();
         retriever.expect_retrieve().returning(|| {
             Ok(HashMap::from([
                 ("pool1".to_string(), Some("[Pool name test]".to_string())),
@@ -353,7 +355,7 @@ mod tests {
             ]))
         });
 
-        let importer = SignerTickersImporter::new(
+        let importer = SignersImporter::new(
             Arc::new(retriever),
             Arc::new(SignerStore::new(connection.clone())),
         );
@@ -386,7 +388,7 @@ mod tests {
         )
         .await
         .unwrap();
-        let mut retriever = MockSignerTickersRetriever::new();
+        let mut retriever = MockSignersImporterRetriever::new();
         retriever.expect_retrieve().returning(|| {
             Ok(HashMap::from([
                 ("pool1".to_string(), Some("[Updated Pool name]".to_string())),
@@ -397,7 +399,7 @@ mod tests {
             ]))
         });
 
-        let importer = SignerTickersImporter::new(
+        let importer = SignersImporter::new(
             Arc::new(retriever),
             Arc::new(SignerStore::new(connection.clone())),
         );
@@ -446,10 +448,9 @@ mod tests {
         }"#
         }));
 
-        let importer = SignerTickersImporter::new(
+        let importer = SignersImporter::new(
             Arc::new(
-                CExplorerSignerTickerRetriever::new(format!("{}/list", server.url()), None)
-                    .unwrap(),
+                CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap(),
             ),
             Arc::new(SignerStore::new(connection.clone())),
         );
