@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from 'react';
 import {Card, CardGroup, ListGroup} from "react-bootstrap";
 import {useSelector} from "react-redux";
+import PoolTicker from "../PoolTicker";
 import RawJsonButton from "../RawJsonButton";
 import SignedEntityType from "../SignedEntityType";
 import VerifiedBadge from '../VerifiedBadge';
@@ -9,6 +10,7 @@ import {selectedAggregator} from "../../store/settingsSlice";
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
   const pendingCertificateEndpoint = useSelector((state) => `${selectedAggregator(state)}/certificate-pending`);
+  const aggregator = useSelector(selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -68,9 +70,10 @@ export default function PendingCertificate(props) {
                 ? <div>No Signers registered</div>
                 : <>
                   <ListGroup variant="flush">
-                    <ListGroup.Item><b>Party id</b></ListGroup.Item>
+                    <ListGroup.Item><b>Pools</b></ListGroup.Item>
                     {pendingCertificate.signers.map(signer =>
                       <ListGroup.Item key={signer.party_id}>
+                        <PoolTicker partyId={signer.party_id} aggregator={aggregator}/><br/>
                         {signer.party_id}
                         {signer.verification_key_signature &&
                           <div className="float-end">
@@ -91,9 +94,10 @@ export default function PendingCertificate(props) {
                 ? <div>No Signers registered for next epoch</div>
                 : <>
                   <ListGroup variant="flush">
-                    <ListGroup.Item><b>Party id</b></ListGroup.Item>
+                    <ListGroup.Item><b>Pools</b></ListGroup.Item>
                     {pendingCertificate.next_signers.map(signer =>
                       <ListGroup.Item key={signer.party_id}>
+                        <PoolTicker partyId={signer.party_id} aggregator={aggregator}/><br/>
                         {signer.party_id}
                         {signer.verification_key_signature &&
                           <div className="float-end">

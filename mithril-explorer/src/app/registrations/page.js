@@ -11,6 +11,7 @@ import LinkButton from "../../components/LinkButton";
 import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import PoolTicker from "../../components/PoolTicker";
 
 Chart.register(
   ArcElement,
@@ -244,6 +245,7 @@ export default function Registrations() {
                 <tr>
                   <th>#</th>
                   <th>Party id</th>
+                  <th>Pool Ticker</th>
                   <th style={{textAlign: "end"}}>Stake</th>
                 </tr>
                 </thead>
@@ -252,6 +254,7 @@ export default function Registrations() {
                   <tr key={signer.party_id}>
                     <td>{index}</td>
                     <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                    <td><PoolTicker aggregator={aggregator} partyId={signer.party_id}/></td>
                     <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                   </tr>
                 )}

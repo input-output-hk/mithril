@@ -27,4 +27,12 @@ export const updatePoolsForAggregator = createAsyncThunk('pools/updateForAggrega
         });
 });
 
+export const getPool = (state, aggregator, poolId) => {
+    const data = state.pools[aggregator];
+    return {
+        network: data?.network,
+        ...data?.pools.find(pool => pool.party_id === poolId)
+    };
+};
+
 export default poolsSlice.reducer;

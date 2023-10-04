@@ -3,13 +3,15 @@ import {Badge, Button, Col, Container, ListGroup, Modal, Row, Table} from "react
 import {useSelector} from "react-redux";
 import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
-import VerifiedBadge from '../VerifiedBadge';
 import ProtocolParameters from "../ProtocolParameters";
+import PoolTicker from "../PoolTicker";
+import VerifiedBadge from '../VerifiedBadge';
 import {selectedAggregator} from "../../store/settingsSlice";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
   const certificateEndpoint = useSelector((state) => `${selectedAggregator(state)}/certificate/${props.hash}`);
+  const aggregator = useSelector(selectedAggregator);
 
   useEffect(() => {
     if (!props.hash) {
@@ -82,6 +84,7 @@ export default function CertificateModal(props) {
                         <tr>
                           <th></th>
                           <th>Party id</th>
+                          <th>Pool ticker</th>
                           <th style={{textAlign: "end"}}>Stake</th>
                         </tr>
                         </thead>
@@ -94,6 +97,7 @@ export default function CertificateModal(props) {
                               }
                             </td>
                             <td>{signer.party_id}</td>
+                            <td><PoolTicker aggregator={aggregator} partyId={signer.party_id} /></td>
                             <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                           </tr>
                         )}
