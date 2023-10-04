@@ -12,36 +12,36 @@ repository = { workspace = true }
 [dependencies]
 anyhow = "1.0.75"
 async-trait = "0.1.73"
-chrono = { version = "0.4.26", features = ["serde"] }
-clap = { version = "4.3.22", features = ["derive", "env", "cargo"] }
+chrono = { version = "0.4.31", features = ["serde"] }
+clap = { version = "4.4.6", features = ["derive", "env", "cargo"] }
 cloud-storage = "0.11.1"
 config = "0.13.3"
 flate2 = "1.0.27"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common" }
-openssl = { version = "0.10.56", features = ["vendored"], optional = true }
+openssl = { version = "0.10.57", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
-reqwest = { version = "0.11.18", features = ["json"] }
-semver = "1.0.18"
-serde = { version = "1.0.183", features = ["derive"] }
-serde_json = "1.0.105"
+reqwest = { version = "0.11.22", features = ["json"] }
+semver = "1.0.19"
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
 serde_yaml = "0.9.25"
-sha2 = "0.10.7"
+sha2 = "0.10.8"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
-slog-async = "2.7.0"
+slog-async = "2.8.0"
 slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
-sqlite = { version = "0.31.0", features = ["bundled"] }
+sqlite = { version = "0.31.1", features = ["bundled"] }
 tar = "0.4.40"
-thiserror = "1.0.47"
+thiserror = "1.0.49"
 tokio = { version = "1.32.0", features = ["full"] }
-tokio-util = { version = "0.7.8", features = ["codec"] }
+tokio-util = { version = "0.7.9", features = ["codec"] }
 typetag = "0.2.13"
 uuid = { version = "1.4.1", features = ["v4", "fast-rng", "macro-diagnostics"] }
-warp = "0.3.5"
+warp = "0.3.6"
 zstd = { version = "0.12.4", features = ["zstdmt"] }
 
 [dev-dependencies]
@@ -51,7 +51,7 @@ mithril-common = { path = "../mithril-common", features = [
 ] }
 mockall = "0.11.4"
 slog-term = "2.9.0"
-tempfile = "3.7.1"
+tempfile = "3.8.0"
 
 [features]
 portable = [
