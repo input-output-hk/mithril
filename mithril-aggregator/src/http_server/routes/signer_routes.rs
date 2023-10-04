@@ -39,6 +39,7 @@ fn signers_tickers(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "tickers")
         .and(warp::get())
+        .and(middlewares::with_config(dependency_manager.clone()))
         .and(middlewares::with_signer_getter(dependency_manager))
         .and_then(handlers::signers_tickers)
 }
@@ -55,9 +56,13 @@ fn registered_signers(
 
 mod handlers {
     use crate::database::provider::SignerGetter;
-    use crate::entities::{SignerRegistrationsMessage, SignerTickerMessage};
+    use crate::entities::{
+        SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
+    };
     use crate::event_store::{EventMessage, TransmitterService};
-    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
+    use crate::{
+        http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
+    };
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
@@ -202,21 +207,26 @@ mod handlers {
     }
 
     pub async fn signers_tickers(
+        configuration: Configuration,
         signer_getter: Arc<dyn SignerGetter>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: signers/tickers");
+        let network = configuration.network;
 
         match signer_getter.get_all().await {
             Ok(signers) => {
-                let message: Vec<_> = signers
+                let signers: Vec<_> = signers
                     .into_iter()
-                    .map(|s| SignerTickerMessage {
+                    .map(|s| SignerTickerListItemMessage {
                         party_id: s.signer_id,
                         pool_ticker: s.pool_ticker,
                         has_registered: s.last_registered_at.is_some(),
                     })
                     .collect();
-                Ok(reply::json(&message, StatusCode::OK))
+                Ok(reply::json(
+                    &SignersTickersMessage { network, signers },
+                    StatusCode::OK,
+                ))
             }
             Err(err) => {
                 warn!("registered_signers::error"; "error" => ?err);

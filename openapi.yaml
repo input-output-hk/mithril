@@ -308,9 +308,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/SignerTickerMessage"
+                $ref: "#/components/schemas/SignersTickersMessage"
         "412":
           description: API version mismatch
         default:
@@ -661,8 +659,8 @@ components:
           $ref: "#/components/schemas/Epoch"
         registrations:
           type: array
-          items: 
-            $ref: "#/components/schemas/SignerRegistrationsListItemMessage" 
+          items:
+            $ref: "#/components/schemas/SignerRegistrationsListItemMessage"
       example:
         {
           "registered_at": 420,
@@ -686,7 +684,38 @@ components:
           description: The unique identifier of the signer
           type: string
 
-    SignerTickerMessage:
+    SignersTickersMessage:
+      description: represents the list of signers known by the aggregator
+      type: object
+      required:
+        - network
+        - signers
+      properties:
+        network:
+          description: Cardano network of the aggregator
+          type: string
+          format: bytes
+        signers:
+          description: Known signers
+          items:
+            $ref: "#/components/schemas/SignerTickerListItemMessage"
+      example:
+        {
+          "network": "mainnet",
+          "signers": [
+            {
+              "party_id": "pool1234567890",
+              "pool_ticker": "[Pool_Name]",
+              "has_registered": true
+            },
+            {
+              "party_id": "pool0987654321",
+              "has_registered": false
+            }
+          ]
+        }
+
+    SignerTickerListItemMessage:
       description: represents a known signer with its pool ticker
       type: object
       additionalProperties: true

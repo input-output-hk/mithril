@@ -9,4 +9,4 @@ pub use open_message::OpenMessage;
 pub use signer_registration_message::{
     SignerRegistrationsListItemMessage, SignerRegistrationsMessage,
 };
-pub use signer_ticker_message::SignerTickerMessage;
+pub use signer_ticker_message::{SignerTickerListItemMessage, SignersTickersMessage};
