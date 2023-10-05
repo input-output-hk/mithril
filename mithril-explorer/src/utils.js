@@ -91,6 +91,27 @@ function setChartJsDefaults(chartJs) {
   chartJs.defaults.elements.bar.borderWidth = 1;
 }
 
+function getCExplorerUrlForPool(network, partyId) {
+  const urlWithoutNetwork = `cexplorer.io/pool/${partyId}`;
+  let url = undefined;
+
+  switch (network) {
+    case 'mainnet':
+      url = `https://${urlWithoutNetwork}`;
+      break;
+    case 'preprod':
+      url = `https://preprod.${urlWithoutNetwork}`;
+      break;
+    case 'preview':
+      url = `https://preview.${urlWithoutNetwork}`;
+      break;
+    default:
+      break;
+  }
+
+  return url;
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -99,4 +120,5 @@ module.exports = {
   formatCurrency,
   formatBytes,
   formatPartyId,
+  getCExplorerUrlForPool,
 }
