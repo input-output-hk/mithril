@@ -13,7 +13,7 @@ import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import PoolTicker from "../../components/PoolTicker";
-import {updatePoolsForAggregator} from "../../store/poolsSlice";
+import {refreshPoolsCaches, updatePoolsForAggregator} from "../../store/poolsSlice";
 import PartyId from "../../components/PartyId";
 
 Chart.register(
@@ -80,6 +80,7 @@ export default function Registrations() {
           console.error("Fetch current epoch in epoch-settings error:", error);
         });
 
+      dispatch(refreshPoolsCaches());
       dispatch(updatePoolsForAggregator(aggregator));
     } else {
       setCurrentError(error);
