@@ -258,7 +258,7 @@ export default function Registrations() {
                 {registrations.map((signer, index) =>
                   <tr key={signer.party_id}>
                     <td>{index}</td>
-                    <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                    <td className="text-break"><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
                     <td><PoolTicker aggregator={aggregator} partyId={signer.party_id}/></td>
                     <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                   </tr>
