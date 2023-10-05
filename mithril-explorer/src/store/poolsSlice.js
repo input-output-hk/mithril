@@ -1,16 +1,23 @@
-import {createAsyncThunk, createSlice} from "@reduxjs/toolkit";
-import {selectedAggregator} from "./settingsSlice";
+import {createAsyncThunk, createSelector, createSlice} from "@reduxjs/toolkit";
 
 export const poolsSlice = createSlice({
     name: 'pools',
-    initialState: {},
+    initialState: { list: [] },
     reducers: {},
     extraReducers: builder => builder.addCase(updatePoolsForAggregator.fulfilled, (state, action) => {
-        state[action.payload.aggregator] = {
-            date: action.payload.date,
-            network: action.payload.network,
-            pools: action.payload.pools,
-        };
+        let existing = poolsForAggregator(state, action.payload.aggregator);
+
+        if (existing) {
+            existing.date = action.payload.date;
+            existing.pools = action.payload.pools;
+        } else {
+            state.list.push({
+                aggregator: action.payload.aggregator,
+                date: action.payload.date,
+                network: action.payload.network,
+                pools: action.payload.pools,
+            });
+        }
     })
 });
 
@@ -27,12 +34,26 @@ export const updatePoolsForAggregator = createAsyncThunk('pools/updateForAggrega
         });
 });
 
-export const getPool = (state, aggregator, poolId) => {
-    const data = state.pools[aggregator];
-    return {
-        network: data?.network,
-        ...data?.pools.find(pool => pool.party_id === poolId)
-    };
+const poolsForAggregator = (state, aggregator) => {
+    return state.list.find(poolsData => poolsData.aggregator === aggregator);
 };
+
+export const getPool = createSelector([
+        state => state.pools,
+        (state, aggregator, poolId) => {
+    return {
+        aggregator: aggregator,
+        poolId: poolId
+    }},
+    ],
+    (pools, args) => {
+    const aggregator = poolsForAggregator(pools, args.aggregator);
+    const data = aggregator?.pools.find(pool => pool.party_id === args.poolId);
+
+    return {
+        network: aggregator?.network,
+        ...data,
+    };
+});
 
 export default poolsSlice.reducer;

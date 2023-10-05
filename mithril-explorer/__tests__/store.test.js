@@ -8,6 +8,7 @@ import {
 } from "../src/store/settingsSlice";
 import default_available_aggregators from "../src/aggregators-list";
 import {initStore} from "./helpers";
+import {poolsSlice} from "../src/store/poolsSlice";
 
 describe('Store Initialization', () => {
   it('init with settings initialState without local storage', () => {
@@ -19,6 +20,7 @@ describe('Store Initialization', () => {
   it('init with local storage saved state', () => {
     let aggregators = [...default_available_aggregators, "https://aggregator.test"];
     let expected = {
+      pools: poolsSlice.getInitialState(),
       settings: {
         ...settingsSlice.getInitialState(),
         selectedAggregator: aggregators.at(aggregators.length - 1),
@@ -36,6 +38,7 @@ describe('Store Initialization', () => {
     const initialAggregator = default_available_aggregators.at(1);
     let aggregators = [...default_available_aggregators, "https://aggregator.test"];
     let expected = {
+      pools: poolsSlice.getInitialState(),
       settings: {
         ...settingsSlice.getInitialState(),
         selectedAggregator: aggregators.at(aggregators.length - 1),
