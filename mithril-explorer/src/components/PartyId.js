@@ -11,14 +11,13 @@ export default function PartyId({partyId}) {
     }
 
     return (
-        <>
-            <Button variant="link" onClick={copyToClipboard} size="md" className="p-0">
-                <i className="bi bi-copy" style={{color: 'black'}}></i>
-            </Button>
-            <> </>
-            <OverlayTrigger overlay={<Tooltip>{partyId}</Tooltip>}>
-                <span>{formatPartyId(partyId)}</span>
+        <span className="text-break">
+            {partyId}<> </>
+            <OverlayTrigger overlay={<Tooltip>Copy</Tooltip>}>
+                <Button variant="link" onClick={copyToClipboard} size="md" className="p-0">
+                    <i className="bi bi-copy" style={{color: 'black'}}></i>
+                </Button>
             </OverlayTrigger>
-        </>
+        </span>
     );
 }
