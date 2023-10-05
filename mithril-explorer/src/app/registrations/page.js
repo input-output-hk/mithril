@@ -2,6 +2,7 @@
 
 import {useSearchParams} from "next/navigation";
 import {useCallback, useEffect, useState} from "react";
+import {useDispatch} from "react-redux";
 import {checkUrl, setChartJsDefaults, toAda} from "../../utils";
 import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
 import {ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip} from 'chart.js';
@@ -11,6 +12,9 @@ import LinkButton from "../../components/LinkButton";
 import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
 import VerifiedBadge from "../../components/VerifiedBadge";
+import PoolTicker from "../../components/PoolTicker";
+import {updatePoolsForAggregator} from "../../store/poolsSlice";
+import PartyId from "../../components/PartyId";
 
 Chart.register(
   ArcElement,
@@ -25,6 +29,7 @@ Chart.register(
 setChartJsDefaults(Chart);
 
 export default function Registrations() {
+  const dispatch = useDispatch();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [currentError, setCurrentError] = useState(undefined);
@@ -74,6 +79,8 @@ export default function Registrations() {
           setCurrentEpoch(undefined);
           console.error("Fetch current epoch in epoch-settings error:", error);
         });
+
+      dispatch(updatePoolsForAggregator(aggregator));
     } else {
       setCurrentError(error);
     }
@@ -244,6 +251,7 @@ export default function Registrations() {
                 <tr>
                   <th>#</th>
                   <th>Party id</th>
+                  <th>Pool Ticker</th>
                   <th style={{textAlign: "end"}}>Stake</th>
                 </tr>
                 </thead>
@@ -251,7 +259,12 @@ export default function Registrations() {
                 {registrations.map((signer, index) =>
                   <tr key={signer.party_id}>
                     <td>{index}</td>
-                    <td><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                    <td className="text-break">
+                      <VerifiedBadge tooltip="Verified Signer"/>
+                      {' '}
+                      <PartyId partyId={signer.party_id}/>
+                    </td>
+                    <td><PoolTicker aggregator={aggregator} partyId={signer.party_id}/></td>
                     <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                   </tr>
                 )}

@@ -11,6 +11,7 @@ import SnapshotsList from '../components/Artifacts/SnapshotsList';
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
 import {aggregatorSearchParam} from "../constants";
 import {selectAggregator, selectedAggregator as currentlySelectedAggregator} from "../store/settingsSlice";
+import {updatePoolsForAggregator} from "../store/poolsSlice";
 
 // Disable SSR for the following components since they use data from the store that are not
 // available server sides (because those data can be read from the local storage).
@@ -26,6 +27,7 @@ export default function Explorer() {
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
 
+
   // Update the aggregator in the url query
   useEffect(() => {
     const aggregatorInUrl = searchParams.get(aggregatorSearchParam);
@@ -37,6 +39,8 @@ export default function Explorer() {
       setIsUpdatingAggregatorInUrl(true);
       router.push("?" + params.toString(), undefined, {shallow: true});
     }
+
+    dispatch(updatePoolsForAggregator(selectedAggregator));
   }, [selectedAggregator]);
 
   // Allow navigation to work (previous, next)
