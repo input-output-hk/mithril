@@ -11,11 +11,11 @@ export default function PoolTicker({aggregator, partyId, ...props}) {
 
     useEffect(() => {
         if (pool?.network) {
-            setUrl(getCExplorerUrlForPool(pool.network, pool.party_id));
+            setUrl(getCExplorerUrlForPool(pool.network, partyId));
         } else {
             setUrl(undefined);
         }
-    }, [pool.party_id, pool.network])
+    }, [partyId, pool.network])
 
     return (url !== undefined)
             ? <>
@@ -27,7 +27,7 @@ export default function PoolTicker({aggregator, partyId, ...props}) {
                                style={{verticalAlign:"text-top"}}
                                width={20} height={20}/>
                         <> </>
-                        {pool.pool_ticker}
+                        {pool.pool_ticker ?? "Not available"}
                     </span>
                 </OverlayTrigger>
             </a>

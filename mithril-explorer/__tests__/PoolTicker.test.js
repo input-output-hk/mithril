@@ -71,4 +71,51 @@ describe('PoolTicker', () => {
     expect(screen.getByText(poolTicker));
     expect(screen.getByRole('link')).toHaveAttribute('href', getCExplorerUrlForPool(network, partyId));
   });
+
+  it.each(["mainnet", "preprod", "preview"])
+  ('Not available Pool ticker on %s network still show link to cexplorer', (network) => {
+    const partyId = "pool1zmtm8yef33z2n7x4nn0kvv9xpzjuj7725p9y9m5t960g5qy51ua";
+    renderPoolTickerComponent(
+        "myaggregator",
+        partyId,
+        {
+          pools: {
+            ...poolsSlice.getInitialState(),
+            list: [
+              {
+                aggregator: "myaggregator",
+                network: network,
+                pools: [{
+                  "party_id": partyId,
+                  "has_registered": true,
+                }],
+              }],
+          },
+        });
+
+    expect(screen.getByText("Not available"));
+    expect(screen.getByRole('link')).toHaveAttribute('href', getCExplorerUrlForPool(network, partyId));
+  });
+
+  it.each(["mainnet", "preprod", "preview"])
+  ('Not available Pool ticker on %s network still show link to cexplorer even without pools data', (network) => {
+    const partyId = "pool1zmtm8yef33z2n7x4nn0kvv9xpzjuj7725p9y9m5t960g5qy51ua";
+    renderPoolTickerComponent(
+        "myaggregator",
+        partyId,
+        {
+          pools: {
+            ...poolsSlice.getInitialState(),
+            list: [
+              {
+                aggregator: "myaggregator",
+                network: network,
+                pools: [],
+              }],
+          },
+        });
+
+    expect(screen.getByText("Not available"));
+    expect(screen.getByRole('link')).toHaveAttribute('href', getCExplorerUrlForPool(network, partyId));
+  });
 });
