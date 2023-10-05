@@ -14,6 +14,7 @@ import RawJsonButton from "../../components/RawJsonButton";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import PoolTicker from "../../components/PoolTicker";
 import {updatePoolsForAggregator} from "../../store/poolsSlice";
+import PartyId from "../../components/PartyId";
 
 Chart.register(
   ArcElement,
@@ -258,7 +259,11 @@ export default function Registrations() {
                 {registrations.map((signer, index) =>
                   <tr key={signer.party_id}>
                     <td>{index}</td>
-                    <td className="text-break"><VerifiedBadge tooltip="Verified Signer"/>{' '}{signer.party_id}</td>
+                    <td className="text-break">
+                      <VerifiedBadge tooltip="Verified Signer"/>
+                      {' '}
+                      <PartyId partyId={signer.party_id}/>
+                    </td>
                     <td><PoolTicker aggregator={aggregator} partyId={signer.party_id}/></td>
                     <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
                   </tr>
