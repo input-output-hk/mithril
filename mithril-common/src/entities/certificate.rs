@@ -130,7 +130,7 @@ impl PartialOrd for Certificate {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // Order by beacon first then per hash
         match self.beacon.partial_cmp(&other.beacon) {
-            Some(ordering) if ordering == Ordering::Equal => self.hash.partial_cmp(&other.hash),
+            Some(Ordering::Equal) => self.hash.partial_cmp(&other.hash),
             Some(other) => Some(other),
             // Beacons may be not comparable (most likely because the network isn't the same) in
             // that case we can still order per hash

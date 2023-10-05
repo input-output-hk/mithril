@@ -32,7 +32,7 @@ impl CertificateClient {
         let response = self.http_client.get_content(&url).await;
 
         match response {
-            Err(e) if matches!(e, AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
+            Err(AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
             Ok(response) => {
                 let message =

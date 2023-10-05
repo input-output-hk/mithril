@@ -154,7 +154,7 @@ impl SqlMigration {
 
 impl PartialOrd for SqlMigration {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.version.partial_cmp(&other.version)
+        Some(self.version.cmp(&other.version))
     }
 }
 
