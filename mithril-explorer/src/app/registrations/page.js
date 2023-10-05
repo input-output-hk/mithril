@@ -2,6 +2,7 @@
 
 import {useSearchParams} from "next/navigation";
 import {useCallback, useEffect, useState} from "react";
+import {useDispatch} from "react-redux";
 import {checkUrl, setChartJsDefaults, toAda} from "../../utils";
 import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
 import {ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip} from 'chart.js';
@@ -12,6 +13,7 @@ import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import PoolTicker from "../../components/PoolTicker";
+import {updatePoolsForAggregator} from "../../store/poolsSlice";
 
 Chart.register(
   ArcElement,
@@ -26,6 +28,7 @@ Chart.register(
 setChartJsDefaults(Chart);
 
 export default function Registrations() {
+  const dispatch = useDispatch();
   const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(true);
   const [currentError, setCurrentError] = useState(undefined);
@@ -75,6 +78,8 @@ export default function Registrations() {
           setCurrentEpoch(undefined);
           console.error("Fetch current epoch in epoch-settings error:", error);
         });
+
+      dispatch(updatePoolsForAggregator(aggregator));
     } else {
       setCurrentError(error);
     }
