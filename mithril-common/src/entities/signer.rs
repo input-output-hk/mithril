@@ -152,7 +152,7 @@ impl PartialEq for SignerWithStake {
 
 impl PartialOrd for SignerWithStake {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.party_id.cmp(&other.party_id))
+        Some(self.cmp(other))
     }
 }
 
