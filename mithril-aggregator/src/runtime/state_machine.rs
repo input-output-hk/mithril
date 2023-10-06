@@ -75,14 +75,14 @@ impl AggregatorRuntime {
     ) -> Result<Self, RuntimeError> {
         info!("initializing runtime");
 
-        let state = if init_state.is_none() {
+        let state = if let Some(init_state) = init_state {
+            trace!("got initial state from caller");
+            init_state
+        } else {
             trace!("idle state, no current beacon");
             AggregatorState::Idle(IdleState {
                 current_beacon: None,
             })
-        } else {
-            trace!("got initial state from caller");
-            init_state.unwrap()
         };
 
         Ok::<Self, RuntimeError>(Self {

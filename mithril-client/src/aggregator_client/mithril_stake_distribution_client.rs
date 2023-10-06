@@ -50,7 +50,7 @@ impl MithrilStakeDistributionClient {
 
                 Ok(Some(stake_distribution_entity))
             }
-            Err(e) if matches!(e, AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
+            Err(AggregatorHTTPClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
         }
     }

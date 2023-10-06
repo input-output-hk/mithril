@@ -194,9 +194,7 @@ impl SnapshotService for MithrilClientSnapshotService {
             .show(&self.expand_eventual_snapshot_alias(digest).await?)
             .await
             .map_err(|e| match &e.downcast_ref::<AggregatorHTTPClientError>() {
-                Some(error)
-                    if matches!(error, &&AggregatorHTTPClientError::RemoteServerLogical(_)) =>
-                {
+                Some(AggregatorHTTPClientError::RemoteServerLogical(_)) => {
                     SnapshotServiceError::SnapshotNotFound(digest.to_owned()).into()
                 }
                 _ => e,
