@@ -1,0 +1,13 @@
+[package]
+name = "poc-utxo-reader"
+version = "0.0.1"
+description = "A PoC of an UTxO reader from immutable files"
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]
+pallas = "0.19.1"
