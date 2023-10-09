@@ -102,13 +102,15 @@ jobs:
       
       - name: Test explorer
         working-directory: mithril-explorer
-        run: |
-          make test
+        run: make test
+
+      - name: Check explorer
+        working-directory: mithril-explorer
+        run: make lint
 
       - name: Build Explorer
         working-directory: mithril-explorer
-        run: |
-          make build
+        run: make build
 
       - name: Publish Explorer build
         uses: actions/upload-artifact@v3

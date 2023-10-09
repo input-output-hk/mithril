@@ -1,16 +1,18 @@
-import React, {useEffect, useState} from 'react';
-import {Card, CardGroup, ListGroup} from "react-bootstrap";
-import {useSelector} from "react-redux";
+import React, { useEffect, useState } from "react";
+import { Card, CardGroup, ListGroup } from "react-bootstrap";
+import { useSelector } from "react-redux";
 import PartyId from "../PartyId";
 import PoolTicker from "../PoolTicker";
 import RawJsonButton from "../RawJsonButton";
 import SignedEntityType from "../SignedEntityType";
-import VerifiedBadge from '../VerifiedBadge';
-import {selectedAggregator} from "../../store/settingsSlice";
+import VerifiedBadge from "../VerifiedBadge";
+import { selectedAggregator } from "../../store/settingsSlice";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
-  const pendingCertificateEndpoint = useSelector((state) => `${selectedAggregator(state)}/certificate-pending`);
+  const pendingCertificateEndpoint = useSelector(
+    (state) => `${selectedAggregator(state)}/certificate-pending`,
+  );
   const aggregator = useSelector(selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
@@ -22,9 +24,9 @@ export default function PendingCertificate(props) {
 
     let fetchPendingCertificate = () => {
       fetch(pendingCertificateEndpoint)
-        .then(response => response.status === 200 ? response.json() : {})
-        .then(data => setPendingCertificate(data))
-        .catch(error => {
+        .then((response) => (response.status === 200 ? response.json() : {}))
+        .then((data) => setPendingCertificate(data))
+        .catch((error) => {
           setPendingCertificate({});
           console.error("Fetch certificate-pending error:", error);
         });
@@ -41,17 +43,14 @@ export default function PendingCertificate(props) {
     <div className={props.className}>
       <h2>
         Pending Certificate
-        {Object.entries(pendingCertificate).length !== 0 &&
-          <RawJsonButton
-            href={pendingCertificateEndpoint}
-            variant="outline-light"
-            size="sm"/>
-        }
+        {Object.entries(pendingCertificate).length !== 0 && (
+          <RawJsonButton href={pendingCertificateEndpoint} variant="outline-light" size="sm" />
+        )}
       </h2>
 
-      {Object.entries(pendingCertificate).length === 0
-        ? <p>No pending certificate available</p>
-        :
+      {Object.entries(pendingCertificate).length === 0 ? (
+        <p>No pending certificate available</p>
+      ) : (
         <CardGroup>
           <Card>
             <Card.Body>
@@ -61,59 +60,67 @@ export default function PendingCertificate(props) {
                 <ListGroup.Item>Epoch: {pendingCertificate.beacon.epoch}</ListGroup.Item>
               </ListGroup>
               <Card.Title>Entity Type</Card.Title>
-              <SignedEntityType signedEntityType={pendingCertificate.entity_type}/>
+              <SignedEntityType signedEntityType={pendingCertificate.entity_type} />
             </Card.Body>
           </Card>
           <Card>
             <Card.Body>
               <Card.Title>Signers</Card.Title>
-              {pendingCertificate.signers.length === 0
-                ? <div>No Signers registered</div>
-                : <>
+              {pendingCertificate.signers.length === 0 ? (
+                <div>No Signers registered</div>
+              ) : (
+                <>
                   <ListGroup variant="flush">
-                    <ListGroup.Item><b>Pools</b></ListGroup.Item>
-                    {pendingCertificate.signers.map(signer =>
+                    <ListGroup.Item>
+                      <b>Pools</b>
+                    </ListGroup.Item>
+                    {pendingCertificate.signers.map((signer) => (
                       <ListGroup.Item key={signer.party_id}>
-                        <PoolTicker partyId={signer.party_id} aggregator={aggregator}/><br/>
-                        <PartyId partyId={signer.party_id}/>
-                        {signer.verification_key_signature &&
+                        <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                        <br />
+                        <PartyId partyId={signer.party_id} />
+                        {signer.verification_key_signature && (
                           <div className="float-end">
-                            <VerifiedBadge tooltip="Verified Signer"/>
+                            <VerifiedBadge tooltip="Verified Signer" />
                           </div>
-                        }
+                        )}
                       </ListGroup.Item>
-                    )}
+                    ))}
                   </ListGroup>
                 </>
-              }
+              )}
             </Card.Body>
           </Card>
           <Card>
             <Card.Body>
               <Card.Title>Next Signers</Card.Title>
-              {pendingCertificate.next_signers.length === 0
-                ? <div>No Signers registered for next epoch</div>
-                : <>
+              {pendingCertificate.next_signers.length === 0 ? (
+                <div>No Signers registered for next epoch</div>
+              ) : (
+                <>
                   <ListGroup variant="flush">
-                    <ListGroup.Item><b>Pools</b></ListGroup.Item>
-                    {pendingCertificate.next_signers.map(signer =>
+                    <ListGroup.Item>
+                      <b>Pools</b>
+                    </ListGroup.Item>
+                    {pendingCertificate.next_signers.map((signer) => (
                       <ListGroup.Item key={signer.party_id}>
-                        <PoolTicker partyId={signer.party_id} aggregator={aggregator}/><br/>
-                        <PartyId partyId={signer.party_id}/>
-                        {signer.verification_key_signature &&
+                        <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                        <br />
+                        <PartyId partyId={signer.party_id} />
+                        {signer.verification_key_signature && (
                           <div className="float-end">
-                            <VerifiedBadge tooltip="Verified Signer"/>
+                            <VerifiedBadge tooltip="Verified Signer" />
                           </div>
-                        }
+                        )}
                       </ListGroup.Item>
-                    )}
+                    ))}
                   </ListGroup>
                 </>
-              }
+              )}
             </Card.Body>
           </Card>
         </CardGroup>
-      }
+      )}
     </div>
   );
 }

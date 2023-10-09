@@ -1,7 +1,7 @@
-import React from 'react';
-import {ListGroup} from "react-bootstrap";
+import React from "react";
+import { ListGroup } from "react-bootstrap";
 
-export default function ProtocolParameters({protocolParameters}) {
+export default function ProtocolParameters({ protocolParameters }) {
   return (
     <ListGroup horizontal>
       <ListGroup.Item>k: {protocolParameters?.k}</ListGroup.Item>

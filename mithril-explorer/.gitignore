@@ -14,6 +14,7 @@
 
 # production
 /build
+/explorer
 
 # misc
 .DS_Store

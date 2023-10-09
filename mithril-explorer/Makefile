@@ -29,6 +29,10 @@ watch-test: yarn.lock
 
 lint:
 	yarn run lint
+	yarn run pretty:check
+
+format:
+	yarn run pretty:write
 
 clean:
 	rm -rf build
@@ -55,3 +59,5 @@ upgrade: clean install
 		jest@latest \
 		jest-environment-jsdom@latest \
 		next-router-mock@latest \
+		prettier@latest \
+		prettier-eslint@latest

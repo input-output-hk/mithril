@@ -1,1 +1,1 @@
-export const aggregatorSearchParam = 'aggregator';
+export const aggregatorSearchParam = "aggregator";
