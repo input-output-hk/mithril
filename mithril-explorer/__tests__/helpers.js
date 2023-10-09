@@ -1,7 +1,7 @@
-import {saveToLocalStorage, storeBuilder} from "../src/store/store";
-import * as mockRouter from 'next-router-mock';
+import { saveToLocalStorage, storeBuilder } from "../src/store/store";
+import * as mockRouter from "next-router-mock";
 
-const baseLocation = 'http://localhost';
+const baseLocation = "http://localhost";
 
 function initStore(default_state = undefined) {
   if (default_state) {
@@ -31,7 +31,7 @@ const mockNextNavigation = {
  */
 function resetLocation() {
   setLocation(new URL(baseLocation));
-  mockRouter.memoryRouter.setCurrentUrl('/');
+  mockRouter.memoryRouter.setCurrentUrl("/");
 }
 
 /**
@@ -41,14 +41,14 @@ function resetLocation() {
  * @param url The new location
  */
 function setLocation(url) {
-  Object.defineProperty(window, 'location', {
+  Object.defineProperty(window, "location", {
     set(v) {
       this._href = v;
     },
     get() {
       return this._href;
-    }
-  })
+    },
+  });
 
   window.location = url;
 }
@@ -69,4 +69,4 @@ module.exports = {
   setLocation,
   setLocationToAggregator,
   resetLocation,
-}
+};

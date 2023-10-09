@@ -1,7 +1,7 @@
-import React, {useEffect, useState} from 'react';
-import {ListGroup} from "react-bootstrap";
+import React, { useEffect, useState } from "react";
+import { ListGroup } from "react-bootstrap";
 
-export default function SignedEntityType({signedEntityType}) {
+export default function SignedEntityType({ signedEntityType }) {
   const [entityName, setEntityName] = useState("");
   const [beacon, setBeacon] = useState({});
 
@@ -11,8 +11,8 @@ export default function SignedEntityType({signedEntityType}) {
 
     if (type_name === "MithrilStakeDistribution" || type_name === "CardanoStakeDistribution") {
       setBeacon({
-        epoch: signedEntityType[type_name]
-      })
+        epoch: signedEntityType[type_name],
+      });
     } else {
       setBeacon(signedEntityType[type_name] ?? {});
     }
@@ -25,9 +25,11 @@ export default function SignedEntityType({signedEntityType}) {
       </ListGroup.Item>
       <ListGroup.Item>
         <ListGroup horizontal="xxl">
-          {Object.entries(beacon).map(([key, value]) =>
-            <ListGroup.Item key={key}>{key}: {value}</ListGroup.Item>
-          )}
+          {Object.entries(beacon).map(([key, value]) => (
+            <ListGroup.Item key={key}>
+              {key}: {value}
+            </ListGroup.Item>
+          ))}
         </ListGroup>
       </ListGroup.Item>
     </ListGroup>

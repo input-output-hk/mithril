@@ -1,6 +1,6 @@
-import {createSlice} from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import default_available_aggregators from "../aggregators-list";
-import {checkUrl} from "../utils";
+import { checkUrl } from "../utils";
 
 export const initialState = {
   autoUpdate: true,
@@ -11,7 +11,7 @@ export const initialState = {
 };
 
 export const settingsSlice = createSlice({
-  name: 'settings',
+  name: "settings",
   initialState: initialState,
   reducers: {
     setUpdateInterval: (state, action) => {
@@ -25,17 +25,16 @@ export const settingsSlice = createSlice({
         return state;
       }
 
-      const availableAggregators =
-        state.availableAggregators.includes(action.payload)
-          ? state.availableAggregators
-          : [...state.availableAggregators, action.payload];
+      const availableAggregators = state.availableAggregators.includes(action.payload)
+        ? state.availableAggregators
+        : [...state.availableAggregators, action.payload];
 
       return {
         ...state,
         selectedAggregator: action.payload,
         availableAggregators: availableAggregators,
         canRemoveSelected: !default_available_aggregators.includes(action.payload),
-      }
+      };
     },
     removeSelectedAggregator: (state) => {
       if (default_available_aggregators.includes(state.selectedAggregator)) {
@@ -45,19 +44,19 @@ export const settingsSlice = createSlice({
       return {
         ...state,
         selectedAggregator: state.availableAggregators.at(0),
-        availableAggregators: state.availableAggregators.filter(a => a !== state.selectedAggregator),
-        canRemoveSelected: !default_available_aggregators.includes(state.availableAggregators.at(0)),
-      }
-    }
-  }
+        availableAggregators: state.availableAggregators.filter(
+          (a) => a !== state.selectedAggregator,
+        ),
+        canRemoveSelected: !default_available_aggregators.includes(
+          state.availableAggregators.at(0),
+        ),
+      };
+    },
+  },
 });
 
-export const {
-  setUpdateInterval,
-  toggleAutoUpdate,
-  selectAggregator,
-  removeSelectedAggregator
-} = settingsSlice.actions;
+export const { setUpdateInterval, toggleAutoUpdate, selectAggregator, removeSelectedAggregator } =
+  settingsSlice.actions;
 
 export const selectedAggregator = (state) => state.settings.selectedAggregator;
 

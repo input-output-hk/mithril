@@ -1,14 +1,23 @@
 "use client";
 
-import {useSearchParams} from "next/navigation";
-import {useCallback, useEffect, useState} from "react";
-import {useDispatch} from "react-redux";
-import {checkUrl, setChartJsDefaults, toAda} from "../../utils";
-import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstrap";
-import {ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip} from 'chart.js';
-import {Bar, Pie} from "react-chartjs-2";
-import {aggregatorSearchParam} from "../../constants";
-import {updatePoolsForAggregator} from "../../store/poolsSlice";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { useDispatch } from "react-redux";
+import { checkUrl, setChartJsDefaults, toAda } from "../../utils";
+import { Alert, ButtonGroup, Col, Row, Spinner, Stack, Table } from "react-bootstrap";
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  Title,
+  Tooltip,
+} from "chart.js";
+import { Bar, Pie } from "react-chartjs-2";
+import { aggregatorSearchParam } from "../../constants";
+import { updatePoolsForAggregator } from "../../store/poolsSlice";
 import LinkButton from "../../components/LinkButton";
 import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
@@ -16,15 +25,7 @@ import VerifiedBadge from "../../components/VerifiedBadge";
 import PoolTicker from "../../components/PoolTicker";
 import PartyId from "../../components/PartyId";
 
-Chart.register(
-  ArcElement,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
 setChartJsDefaults(Chart);
 
@@ -38,11 +39,14 @@ export default function Registrations() {
   const [signingEpoch, setSigningEpoch] = useState(undefined);
   const [currentEpoch, setCurrentEpoch] = useState(undefined);
   const [registrations, setRegistrations] = useState([]);
-  const [charts, setCharts] = useState({stakesBreakdown: {}, signersWeigth: {}});
+  const [charts, setCharts] = useState({
+    stakesBreakdown: {},
+    signersWeigth: {},
+  });
 
   useEffect(() => {
     const aggregator = searchParams.get(aggregatorSearchParam);
-    const epoch = Number(searchParams.get('epoch'));
+    const epoch = Number(searchParams.get("epoch"));
     let error = undefined;
     setAggregator(aggregator);
     setRegistrationEpoch(epoch);
@@ -55,8 +59,8 @@ export default function Registrations() {
 
     if (error === undefined) {
       fetch(`${aggregator}/signers/registered/${epoch}`)
-        .then(response => response.status === 200 ? response.json() : {})
-        .then(data => {
+        .then((response) => (response.status === 200 ? response.json() : {}))
+        .then((data) => {
           setSigningEpoch(data.signing_at);
           setRegistrations(data.registrations);
           setCharts({
@@ -65,7 +69,7 @@ export default function Registrations() {
           });
           setIsLoading(false);
         })
-        .catch(error => {
+        .catch((error) => {
           setSigningEpoch(undefined);
           setRegistrations([]);
           setIsLoading(false);
@@ -73,9 +77,9 @@ export default function Registrations() {
         });
 
       fetch(`${aggregator}/epoch-settings`)
-        .then(response => response.status === 200 ? response.json() : {})
-        .then(data => setCurrentEpoch(data?.epoch))
-        .catch(error => {
+        .then((response) => (response.status === 200 ? response.json() : {}))
+        .then((data) => setCurrentEpoch(data?.epoch))
+        .catch((error) => {
           setCurrentEpoch(undefined);
           console.error("Fetch current epoch in epoch-settings error:", error);
         });
@@ -114,10 +118,12 @@ export default function Registrations() {
 
     return {
       labels: labels,
-      datasets: [{
-        label: 'Number of signers',
-        data: data,
-      }],
+      datasets: [
+        {
+          label: "Number of signers",
+          data: data,
+        },
+      ],
     };
   }
 
@@ -126,10 +132,12 @@ export default function Registrations() {
 
     return {
       labels: registrations.map((r) => r.party_id),
-      datasets: [{
-        label: 'Stake (₳)',
-        data: registrations.map((r) => toAda(r.stake)),
-      }],
+      datasets: [
+        {
+          label: "Stake (₳)",
+          data: registrations.map((r) => toAda(r.stake)),
+        },
+      ],
     };
   }
 
@@ -143,13 +151,16 @@ export default function Registrations() {
     }
   }
 
-  const navigateToUrl = useCallback((epoch) => {
-    const params = new URLSearchParams();
-    params.set("aggregator", aggregator);
-    params.set("epoch", epoch);
+  const navigateToUrl = useCallback(
+    (epoch) => {
+      const params = new URLSearchParams();
+      params.set("aggregator", aggregator);
+      params.set("epoch", epoch);
 
-    return `/registrations?${params.toString()}`;
-  }, [aggregator]);
+      return `/registrations?${params.toString()}`;
+    },
+    [aggregator],
+  );
 
   const navigateToPreviousUrl = navigateToUrl(registrationEpoch - 1);
   const navigateToCurrentUrl = navigateToUrl(currentEpoch);
@@ -158,11 +169,12 @@ export default function Registrations() {
   if (currentError !== undefined) {
     let errorDescription = "";
     switch (currentError) {
-      case 'invalidEpoch':
+      case "invalidEpoch":
         errorDescription = "The given epoch isn't an integer, please correct it and try again.";
         break;
-      case 'invalidAggregatorUrl':
-        errorDescription = "The given aggregator isn't a valid url, please correct it and try again.";
+      case "invalidAggregatorUrl":
+        errorDescription =
+          "The given aggregator isn't a valid url, please correct it and try again.";
         break;
       default:
         errorDescription = "Something went wrong";
@@ -183,104 +195,119 @@ export default function Registrations() {
   return (
     <Stack gap={3}>
       <h2>
-        Registrations {' '}
+        Registrations{" "}
         <RawJsonButton
           href={`${aggregator}/signers/registered/${registrationEpoch}`}
           variant="outline-light"
-          size="sm"/>
+          size="sm"
+        />
       </h2>
       <Row>
         <Table>
           <tbody>
-          <tr>
-            <td><strong>Aggregator:</strong></td>
-            <td>{aggregator}</td>
-          </tr>
-          <tr>
-            <td><strong>Registration epoch:</strong></td>
-            <td>{registrationEpoch}</td>
-          </tr>
-          <tr>
-            <td><strong>Signing at epoch:</strong></td>
-            <td>{signingEpoch ?? '?'}</td>
-          </tr>
-          <tr>
-            <td><strong>Number of signers:</strong></td>
-            <td>{registrations?.length ?? 0}</td>
-          </tr>
-          <tr>
-            <td><strong>Total stakes:</strong></td>
-            <td><Stake lovelace={registrations?.reduce((acc, reg) => acc + reg.stake, 0) ?? 0}/></td>
-          </tr>
+            <tr>
+              <td>
+                <strong>Aggregator:</strong>
+              </td>
+              <td>{aggregator}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Registration epoch:</strong>
+              </td>
+              <td>{registrationEpoch}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Signing at epoch:</strong>
+              </td>
+              <td>{signingEpoch ?? "?"}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Number of signers:</strong>
+              </td>
+              <td>{registrations?.length ?? 0}</td>
+            </tr>
+            <tr>
+              <td>
+                <strong>Total stakes:</strong>
+              </td>
+              <td>
+                <Stake lovelace={registrations?.reduce((acc, reg) => acc + reg.stake, 0) ?? 0} />
+              </td>
+            </tr>
           </tbody>
         </Table>
       </Row>
       <Row>
         <div>
-          {Number.isInteger(registrationEpoch) &&
+          {Number.isInteger(registrationEpoch) && (
             <ButtonGroup>
               <LinkButton href={navigateToPreviousUrl}>
                 Previous Epoch ({registrationEpoch - 1})
               </LinkButton>
-              <LinkButton href={navigateToCurrentUrl}
-                          disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
+              <LinkButton
+                href={navigateToCurrentUrl}
+                disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
                 Current Epoch ({currentEpoch})
               </LinkButton>
-              <LinkButton href={navigateToNextUrl}
-                          disabled={currentEpoch <= registrationEpoch}>
+              <LinkButton href={navigateToNextUrl} disabled={currentEpoch <= registrationEpoch}>
                 Next Epoch ({registrationEpoch + 1})
               </LinkButton>
             </ButtonGroup>
-          }
+          )}
         </div>
       </Row>
-      {isLoading
-        ? <Spinner animation="grow"/>
-        : registrations === undefined || registrations.length === 0
-          ?
-          <Alert variant="info">
-            <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
-            <p>{getNoRegistrationsMessage()}</p>
-          </Alert>
-          :
-          <Row>
-            <Col xs={12} sm={12} md={7}>
-              <h3>Signers</h3>
-              <Table responsive striped>
-                <thead>
+      {isLoading ? (
+        <Spinner animation="grow" />
+      ) : registrations === undefined || registrations.length === 0 ? (
+        <Alert variant="info">
+          <Alert.Heading>No registrations for epoch {registrationEpoch}</Alert.Heading>
+          <p>{getNoRegistrationsMessage()}</p>
+        </Alert>
+      ) : (
+        <Row>
+          <Col xs={12} sm={12} md={7}>
+            <h3>Signers</h3>
+            <Table responsive striped>
+              <thead>
                 <tr>
                   <th>#</th>
                   <th>Party id</th>
                   <th>Pool Ticker</th>
-                  <th style={{textAlign: "end"}}>Stake</th>
+                  <th style={{ textAlign: "end" }}>Stake</th>
                 </tr>
-                </thead>
-                <tbody>
-                {registrations.map((signer, index) =>
+              </thead>
+              <tbody>
+                {registrations.map((signer, index) => (
                   <tr key={signer.party_id}>
                     <td>{index}</td>
                     <td className="text-break">
-                      <VerifiedBadge tooltip="Verified Signer"/>
-                      {' '}
-                      <PartyId partyId={signer.party_id}/>
+                      <VerifiedBadge tooltip="Verified Signer" />{" "}
+                      <PartyId partyId={signer.party_id} />
                     </td>
-                    <td><PoolTicker aggregator={aggregator} partyId={signer.party_id}/></td>
-                    <td style={{textAlign: "end"}}><Stake lovelace={signer.stake}/></td>
+                    <td>
+                      <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
+                    </td>
+                    <td style={{ textAlign: "end" }}>
+                      <Stake lovelace={signer.stake} />
+                    </td>
                   </tr>
-                )}
-                </tbody>
-              </Table>
-            </Col>
-            <Col xs={12} sm={12} md={5}>
-              <Stack gap={3}>
-                <h3>Stakes breakdown</h3>
-                <Bar data={charts.stakesBreakdown}/>
-                <h3>Signers weight</h3>
-                <Pie data={charts.signersWeigth}/>
-              </Stack>
-            </Col>
-          </Row>
-      }
+                ))}
+              </tbody>
+            </Table>
+          </Col>
+          <Col xs={12} sm={12} md={5}>
+            <Stack gap={3}>
+              <h3>Stakes breakdown</h3>
+              <Bar data={charts.stakesBreakdown} />
+              <h3>Signers weight</h3>
+              <Pie data={charts.signersWeigth} />
+            </Stack>
+          </Col>
+        </Row>
+      )}
     </Stack>
   );
 }

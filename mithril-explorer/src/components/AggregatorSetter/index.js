@@ -1,7 +1,7 @@
-import React, {useState} from 'react';
-import {Button, Col, Form, InputGroup, OverlayTrigger, Tooltip} from "react-bootstrap";
-import {useDispatch, useSelector} from "react-redux";
-import {removeSelectedAggregator, selectAggregator} from "../../store/settingsSlice";
+import React, { useState } from "react";
+import { Button, Col, Form, InputGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { useDispatch, useSelector } from "react-redux";
+import { removeSelectedAggregator, selectAggregator } from "../../store/settingsSlice";
 import AddAggregatorModal from "./AddAggregatorModal";
 
 export default function AggregatorSetter(props) {
@@ -13,16 +13,13 @@ export default function AggregatorSetter(props) {
 
   function copySelected() {
     if (window.isSecureContext && selectedAggregator) {
-      navigator.clipboard.writeText(selectedAggregator).then(() => {
-      });
+      navigator.clipboard.writeText(selectedAggregator).then(() => {});
     }
   }
 
   return (
     <>
-      <AddAggregatorModal
-        show={showAddModal}
-        onAskClose={() => toggleAddModal(false)}/>
+      <AddAggregatorModal show={showAddModal} onAskClose={() => toggleAddModal(false)} />
 
       <Form.Group as={Col} className={props.className}>
         <Form.Label>Aggregator:</Form.Label>
@@ -30,7 +27,7 @@ export default function AggregatorSetter(props) {
           <Button variant="outline-success" onClick={() => toggleAddModal(true)}>
             <i className="bi bi-plus-circle"></i>
           </Button>
-          {canRemoveSelected &&
+          {canRemoveSelected && (
             <>
               <Button variant="outline-danger" onClick={() => dispatch(removeSelectedAggregator())}>
                 <i className="bi bi-dash-circle"></i>
@@ -41,11 +38,15 @@ export default function AggregatorSetter(props) {
                 </Button>
               </OverlayTrigger>
             </>
-          }
-          <Form.Select value={selectedAggregator} onChange={(e) => dispatch(selectAggregator(e.target.value))}>
-            {availableAggregators.map((aggregator, index) =>
-              <option key={"agg-" + index} value={aggregator}>{aggregator}</option>
-            )}
+          )}
+          <Form.Select
+            value={selectedAggregator}
+            onChange={(e) => dispatch(selectAggregator(e.target.value))}>
+            {availableAggregators.map((aggregator, index) => (
+              <option key={"agg-" + index} value={aggregator}>
+                {aggregator}
+              </option>
+            ))}
           </Form.Select>
           <OverlayTrigger overlay={<Tooltip>Copy url</Tooltip>}>
             <Button variant="outline-secondary" onClick={copySelected}>

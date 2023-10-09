@@ -1,8 +1,8 @@
-import React, {useState} from 'react';
-import {Button, Form, FormGroup, Modal} from "react-bootstrap";
-import {useDispatch} from "react-redux";
-import {selectAggregator} from "../../store/settingsSlice";
-import {checkUrl} from "../../utils";
+import React, { useState } from "react";
+import { Button, Form, FormGroup, Modal } from "react-bootstrap";
+import { useDispatch } from "react-redux";
+import { selectAggregator } from "../../store/settingsSlice";
+import { checkUrl } from "../../utils";
 
 export default function AddAggregatorModal(props) {
   const [value, setValue] = useState("");
@@ -35,9 +35,7 @@ export default function AddAggregatorModal(props) {
       aria-labelledby="add-aggregator-title"
       centered>
       <Modal.Header closeButton>
-        <Modal.Title id="add-aggregator-title">
-          New aggregator source
-        </Modal.Title>
+        <Modal.Title id="add-aggregator-title">New aggregator source</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
@@ -47,12 +45,11 @@ export default function AddAggregatorModal(props) {
             <Form.Control
               type="url"
               value={value}
-              onChange={e => setValue(e.target.value)}
+              onChange={(e) => setValue(e.target.value)}
               isInvalid={isInvalid}
-              autoFocus/>
-            <Form.Control.Feedback type="invalid">
-              Invalid URL
-            </Form.Control.Feedback>
+              autoFocus
+            />
+            <Form.Control.Feedback type="invalid">Invalid URL</Form.Control.Feedback>
           </FormGroup>
         </Form>
       </Modal.Body>

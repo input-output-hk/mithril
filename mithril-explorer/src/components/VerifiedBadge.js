@@ -1,5 +1,5 @@
-import React from 'react';
-import {OverlayTrigger, Tooltip} from "react-bootstrap";
+import React from "react";
+import { OverlayTrigger, Tooltip } from "react-bootstrap";
 
 export default function VerifiedBadge(props) {
   return (
