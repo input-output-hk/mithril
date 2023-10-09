@@ -40,19 +40,19 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: epoch_settings");
 
-        match multi_signer.read().await.get_current_beacon().await {
-            Some(beacon) => {
+        match multi_signer.read().await.get_current_epoch().await {
+            Some(epoch) => {
                 match (
                     protocol_parameters_store
-                        .get_protocol_parameters(beacon.epoch)
+                        .get_protocol_parameters(epoch)
                         .await,
                     protocol_parameters_store
-                        .get_protocol_parameters(beacon.epoch.next())
+                        .get_protocol_parameters(epoch.next())
                         .await,
                 ) {
                     (Ok(Some(protocol_parameters)), Ok(Some(next_protocol_parameters))) => {
                         let epoch_settings = EpochSettings {
-                            epoch: beacon.epoch,
+                            epoch,
                             protocol_parameters,
                             next_protocol_parameters,
                         };

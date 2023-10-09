@@ -12,7 +12,7 @@ use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION},
     entities::{
-        Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
+        Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
         SignedEntityType, SingleSignatures,
     },
     StdResult,
@@ -29,6 +29,7 @@ use crate::{
         OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
     },
     entities::OpenMessage,
+    services::TickerService,
     MultiSigner,
 };
 
@@ -139,6 +140,8 @@ pub struct MithrilCertifierService {
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    // todo: should be removed after certificate rework (we should replace the beacon with a signed entity)
+    ticker_service: Arc<dyn TickerService>,
     _logger: Logger,
 }
 
@@ -152,6 +155,7 @@ impl MithrilCertifierService {
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         multi_signer: Arc<RwLock<dyn MultiSigner>>,
+        ticker_service: Arc<dyn TickerService>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -161,6 +165,7 @@ impl MithrilCertifierService {
             multi_signer,
             certificate_verifier,
             genesis_verifier,
+            ticker_service,
             _logger: logger,
         }
     }
@@ -325,6 +330,23 @@ impl CertifierService for MithrilCertifierService {
         let protocol_version = PROTOCOL_VERSION.to_string();
         let initiated_at = open_message.created_at;
         let sealed_at = Utc::now();
+        let beacon = match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(epoch)
+            | SignedEntityType::CardanoStakeDistribution(epoch) => {
+                // Note: certificate should contains a signed entity instead of a beacon, this is
+                // a workaround to get what's missing even if it's not 100% accurate.
+                let beacon = self
+                    .ticker_service
+                    .get_current_immutable_beacon()
+                    .await
+                    .with_context(|| "Could not retrieve current beacon to create certificate")?;
+                Beacon {
+                    epoch: *epoch,
+                    ..beacon
+                }
+            }
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => beacon.clone(),
+        };
         let metadata = CertificateMetadata::new(
             protocol_version,
             // TODO remove this multi_signer call ↓
@@ -352,8 +374,7 @@ impl CertifierService for MithrilCertifierService {
 
         let certificate = Certificate::new(
             parent_certificate_hash,
-            // TODO: remove this multi_signer call ↓
-            multi_signer.get_current_beacon().await.unwrap(),
+            beacon,
             metadata,
             open_message.protocol_message.clone(),
             multi_signer
@@ -473,6 +494,7 @@ mod tests {
         let certificate_verifier = dependency_builder.get_certificate_verifier().await.unwrap();
         let genesis_verifier = dependency_builder.get_genesis_verifier().await.unwrap();
         let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
+        let ticker_service = dependency_builder.get_ticker_service().await.unwrap();
         let logger = dependency_builder.get_logger().await.unwrap();
 
         MithrilCertifierService::new(
@@ -482,6 +504,7 @@ mod tests {
             certificate_verifier,
             genesis_verifier,
             multi_signer,
+            ticker_service,
             logger,
         )
     }
@@ -519,7 +542,7 @@ mod tests {
             .multi_signer
             .write()
             .await
-            .update_current_beacon(beacon.clone())
+            .update_current_epoch(beacon.epoch)
             .await
             .unwrap();
 
@@ -558,7 +581,7 @@ mod tests {
             .multi_signer
             .write()
             .await
-            .update_current_beacon(beacon.clone())
+            .update_current_epoch(beacon.epoch)
             .await
             .unwrap();
 
@@ -628,7 +651,7 @@ mod tests {
             .multi_signer
             .write()
             .await
-            .update_current_beacon(beacon.clone())
+            .update_current_epoch(beacon.epoch)
             .await
             .unwrap();
 

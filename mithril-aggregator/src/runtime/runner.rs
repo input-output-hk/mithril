@@ -263,7 +263,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .multi_signer
             .write()
             .await
-            .update_current_beacon(new_beacon.to_owned())
+            .update_current_epoch(new_beacon.epoch)
             .await?;
         Ok(())
     }
@@ -278,12 +278,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     .multi_signer
                     .read()
                     .await
-                    .get_current_beacon()
+                    .get_current_epoch()
                     .await
                     .ok_or_else(|| {
-                        RuntimeError::keep_state("Current beacon is not available", None)
+                        RuntimeError::keep_state("Current epoch is not available", None)
                     })?
-                    .epoch
                     .offset_to_recording_epoch(),
             )
             .await?
@@ -403,12 +402,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         let signers = match multi_signer.get_signers().await {
             Ok(signers) => signers,
-            Err(ProtocolError::Beacon(_)) => vec![],
+            Err(ProtocolError::Epoch(_)) => vec![],
             Err(e) => return Err(e.into()),
         };
         let next_signers = match multi_signer.get_next_signers_with_stake().await {
             Ok(signers) => signers,
-            Err(ProtocolError::Beacon(_)) => vec![],
+            Err(ProtocolError::Epoch(_)) => vec![],
             Err(e) => return Err(e.into()),
         };
 
@@ -648,15 +647,15 @@ pub mod tests {
         let res = runner.update_beacon(&beacon).await;
 
         assert!(res.is_ok());
-        let stored_beacon = deps
+        let stored_epoch = deps
             .multi_signer
             .read()
             .await
-            .get_current_beacon()
+            .get_current_epoch()
             .await
             .unwrap();
 
-        assert_eq!(beacon, stored_beacon);
+        assert_eq!(beacon.epoch, stored_epoch);
     }
 
     #[tokio::test]

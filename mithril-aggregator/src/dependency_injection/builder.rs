@@ -1142,6 +1142,7 @@ impl DependenciesBuilder {
         let certificate_verifier = self.get_certificate_verifier().await?;
         let genesis_verifier = self.get_genesis_verifier().await?;
         let multi_signer = self.get_multi_signer().await?;
+        let ticker_service = self.get_ticker_service().await?;
         let logger = self.get_logger().await?;
 
         Ok(Arc::new(MithrilCertifierService::new(
@@ -1151,6 +1152,7 @@ impl DependenciesBuilder {
             certificate_verifier,
             genesis_verifier,
             multi_signer,
+            ticker_service,
             logger,
         )))
     }

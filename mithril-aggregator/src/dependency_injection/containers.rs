@@ -230,7 +230,7 @@ impl DependencyContainer {
             let mut multi_signer = self.multi_signer.write().await;
 
             multi_signer
-                .update_current_beacon(last_beacon)
+                .update_current_epoch(last_beacon.epoch)
                 .await
                 .expect("setting the beacon should not fail");
             multi_signer

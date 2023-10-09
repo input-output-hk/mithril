@@ -67,7 +67,7 @@ impl GenesisTools {
         let mut multi_signer = dependencies.multi_signer.write().await;
         let beacon_provider = dependencies.beacon_provider.clone();
         let beacon = beacon_provider.get_current_beacon().await?;
-        multi_signer.update_current_beacon(beacon.clone()).await?;
+        multi_signer.update_current_epoch(beacon.epoch).await?;
 
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
