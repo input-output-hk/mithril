@@ -8,12 +8,12 @@ import {Alert, ButtonGroup, Col, Row, Spinner, Stack, Table} from "react-bootstr
 import {ArcElement, BarElement, CategoryScale, Chart, Legend, LinearScale, Title, Tooltip} from 'chart.js';
 import {Bar, Pie} from "react-chartjs-2";
 import {aggregatorSearchParam} from "../../constants";
+import {updatePoolsForAggregator} from "../../store/poolsSlice";
 import LinkButton from "../../components/LinkButton";
 import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
 import VerifiedBadge from "../../components/VerifiedBadge";
 import PoolTicker from "../../components/PoolTicker";
-import {updatePoolsForAggregator} from "../../store/poolsSlice";
 import PartyId from "../../components/PartyId";
 
 Chart.register(

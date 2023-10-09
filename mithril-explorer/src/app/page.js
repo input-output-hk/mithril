@@ -27,7 +27,6 @@ export default function Explorer() {
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
 
-
   // Update the aggregator in the url query
   useEffect(() => {
     const aggregatorInUrl = searchParams.get(aggregatorSearchParam);
