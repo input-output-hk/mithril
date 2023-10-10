@@ -4493,6 +4493,7 @@ name = "poc-utxo-reader"
 version = "0.0.1"
 dependencies = [
  "pallas",
+ "rayon",
 ]
 
 [[package]]
