@@ -16,3 +16,12 @@ pub mod utils;
 
 pub use entities::*;
 pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};
+
+/// `mithril-common` re-exports
+pub mod common {
+    pub use mithril_common::{
+        entities::{Beacon, CompressionAlgorithm::Zstandard, Epoch},
+        messages::SnapshotMessage,
+        StdResult,
+    };
+}
