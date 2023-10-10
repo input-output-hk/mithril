@@ -789,6 +789,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     }
 
     /// Batch verify a set of signatures, with different messages and avks.
+    #[cfg(feature = "batch-verify-aggregates")]
     pub fn batch_verify(
         stm_signatures: &[Self],
         msgs: &[Vec<u8>],
