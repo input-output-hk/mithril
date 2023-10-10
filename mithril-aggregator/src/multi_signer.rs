@@ -9,7 +9,7 @@ use mithril_common::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolMultiSignature,
         ProtocolParameters, ProtocolStakeDistribution,
     },
-    entities::{self, Epoch, SignerWithStake, StakeDistribution},
+    entities::{self, Epoch, SignerWithStake},
     protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
     store::StakeStorer,
     StdError,
@@ -91,12 +91,6 @@ pub trait MultiSigner: Sync + Send {
     async fn get_next_protocol_parameters(
         &self,
     ) -> Result<Option<ProtocolParameters>, ProtocolError>;
-
-    /// Update stake distribution
-    async fn update_stake_distribution(
-        &mut self,
-        stakes: &ProtocolStakeDistribution,
-    ) -> Result<(), ProtocolError>;
 
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
@@ -328,28 +322,6 @@ impl MultiSigner for MultiSignerImpl {
         self.get_protocol_parameters_at_epoch(epoch).await
     }
 
-    /// Update stake distribution
-    async fn update_stake_distribution(
-        &mut self,
-        stakes: &ProtocolStakeDistribution,
-    ) -> Result<(), ProtocolError> {
-        debug!("Update stake distribution"; "stakes" => #?stakes);
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_recording_epoch();
-        let stakes = StakeDistribution::from_iter(stakes.iter().cloned());
-        self.stake_store
-            .save_stakes(epoch, stakes)
-            .await
-            .with_context(|| {
-                format!("Multi Signer can not update stake distribution for epoch '{epoch}'")
-            })
-            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
-
-        Ok(())
-    }
-
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
@@ -499,10 +471,9 @@ impl MultiSigner for MultiSignerImpl {
 mod tests {
     use super::*;
     use crate::{store::VerificationKeyStore, ProtocolParametersStore};
-    use mithril_common::entities::Beacon;
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        entities::{PartyId, SignedEntityType},
+        entities::{Beacon, PartyId, SignedEntityType, StakeDistribution},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
@@ -605,12 +576,19 @@ mod tests {
     #[tokio::test]
     async fn test_multi_signer_stake_distribution_ok() {
         let mut multi_signer = setup_multi_signer().await;
+        let stake_store = multi_signer.stake_store.clone();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let mut stake_distribution_expected = fixture.protocol_stake_distribution();
 
         stake_distribution_expected.sort_by_key(|k| k.0.clone());
-        multi_signer
-            .update_stake_distribution(&stake_distribution_expected)
+        stake_store
+            .save_stakes(
+                multi_signer
+                    .current_epoch
+                    .unwrap()
+                    .offset_to_recording_epoch(),
+                fixture.stake_distribution(),
+            )
             .await
             .expect("update stake distribution failed");
 
@@ -644,6 +622,7 @@ mod tests {
     #[tokio::test]
     async fn test_multi_signer_multi_signature_ok() {
         let mut multi_signer = setup_multi_signer().await;
+        let stake_store = multi_signer.stake_store.clone();
         let verification_key_store = multi_signer.verification_key_store.clone();
         let start_epoch = multi_signer.current_epoch.unwrap();
 
@@ -656,10 +635,11 @@ mod tests {
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
 
-        let stake_distribution = fixture.protocol_stake_distribution();
-
-        multi_signer
-            .update_stake_distribution(&stake_distribution)
+        stake_store
+            .save_stakes(
+                start_epoch.offset_to_recording_epoch(),
+                fixture.stake_distribution(),
+            )
             .await
             .expect("update stake distribution failed");
         for signer_with_stake in &fixture.signers_with_stake() {
