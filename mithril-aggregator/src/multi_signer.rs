@@ -92,14 +92,6 @@ pub trait MultiSigner: Sync + Send {
         &self,
     ) -> Result<Option<ProtocolParameters>, ProtocolError>;
 
-    /// Get stake distribution
-    async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError>;
-
-    /// Get next stake distribution
-    /// i.e. the stake distribution that will be used at the next epoch
-    async fn get_next_stake_distribution(&self)
-        -> Result<ProtocolStakeDistribution, ProtocolError>;
-
     /// Update stake distribution
     async fn update_stake_distribution(
         &mut self,
@@ -257,6 +249,28 @@ impl MultiSignerImpl {
             ))),
         }
     }
+
+    /// Get stake distribution
+    async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get stake distribution");
+        let epoch = self
+            .current_epoch
+            .ok_or(ProtocolError::UnavailableEpoch)?
+            .offset_to_signer_retrieval_epoch()?;
+        self.get_stake_distribution_at_epoch(epoch).await
+    }
+
+    /// Get next stake distribution
+    async fn get_next_stake_distribution(
+        &self,
+    ) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get next stake distribution");
+        let epoch = self
+            .current_epoch
+            .ok_or(ProtocolError::UnavailableEpoch)?
+            .offset_to_next_signer_retrieval_epoch();
+        self.get_stake_distribution_at_epoch(epoch).await
+    }
 }
 
 #[async_trait]
@@ -312,28 +326,6 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or(ProtocolError::UnavailableEpoch)?
             .offset_to_next_signer_retrieval_epoch();
         self.get_protocol_parameters_at_epoch(epoch).await
-    }
-
-    /// Get stake distribution
-    async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
-        debug!("Get stake distribution");
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_signer_retrieval_epoch()?;
-        self.get_stake_distribution_at_epoch(epoch).await
-    }
-
-    /// Get next stake distribution
-    async fn get_next_stake_distribution(
-        &self,
-    ) -> Result<ProtocolStakeDistribution, ProtocolError> {
-        debug!("Get next stake distribution");
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_next_signer_retrieval_epoch();
-        self.get_stake_distribution_at_epoch(epoch).await
     }
 
     /// Update stake distribution
