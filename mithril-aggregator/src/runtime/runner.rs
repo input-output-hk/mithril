@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use slog_scope::{debug, info, warn};
 use std::{path::Path, path::PathBuf, sync::Arc};
 
-use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
     SignedEntityType,
@@ -12,7 +11,6 @@ use mithril_common::store::StakeStorer;
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::entities::OpenMessage;
-use crate::RuntimeError;
 use crate::{DependencyContainer, ProtocolError};
 
 #[cfg(test)]
@@ -270,50 +268,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
-        let exists_stake_distribution = !self
-            .dependencies
-            .stake_store
-            .get_stakes(
-                self.dependencies
-                    .multi_signer
-                    .read()
-                    .await
-                    .get_current_epoch()
-                    .await
-                    .ok_or_else(|| {
-                        RuntimeError::keep_state("Current epoch is not available", None)
-                    })?
-                    .offset_to_recording_epoch(),
-            )
-            .await?
-            .unwrap_or_default()
-            .is_empty();
-        if exists_stake_distribution {
-            return Ok(());
-        }
-
-        let stake_distribution = self
-            .dependencies
-            .chain_observer
-            .get_current_stake_distribution()
-            .await?
-            .ok_or_else(|| {
-                RunnerError::MissingStakeDistribution(format!(
-                    "Chain observer: no stake distribution for beacon {new_beacon:?}."
-                ))
-            })?;
-        let stake_distribution = stake_distribution
-            .iter()
-            .map(|(party_id, stake)| (party_id.to_owned(), *stake))
-            .collect::<ProtocolStakeDistribution>();
-
-        Ok(self
-            .dependencies
-            .multi_signer
-            .write()
+        self.dependencies
+            .stake_distribution_service
+            .update_stake_distribution()
             .await
-            .update_stake_distribution(&stake_distribution)
-            .await?)
+            .with_context(|| format!("AggregatorRunner could not update stake distribution for beacon: '{new_beacon}'"))
     }
 
     async fn open_signer_registration_round(&self, new_beacon: &Beacon) -> StdResult<()> {
@@ -565,7 +524,7 @@ pub mod tests {
         entities::OpenMessage,
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
-        services::MockCertifierService,
+        services::{MithrilStakeDistributionService, MockCertifierService},
         DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -578,8 +537,8 @@ pub mod tests {
         signable_builder::SignableBuilderService,
         store::StakeStorer,
         test_utils::{fake_data, MithrilFixtureBuilder},
+        BeaconProviderImpl, CardanoNetwork, StdResult,
     };
-    use mithril_common::{BeaconProviderImpl, CardanoNetwork, StdResult};
     use mockall::{mock, predicate::eq};
     use std::sync::Arc;
 
@@ -663,6 +622,10 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         let chain_observer = Arc::new(FakeObserver::default());
         deps.chain_observer = chain_observer.clone();
+        deps.stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
+            deps.stake_store.clone(),
+            chain_observer.clone(),
+        ));
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
@@ -672,10 +635,6 @@ pub mod tests {
         chain_observer
             .set_signers(fixture.signers_with_stake())
             .await;
-        runner
-            .update_beacon(&beacon)
-            .await
-            .expect("setting the beacon should not fail");
         runner
             .update_stake_distribution(&beacon)
             .await

@@ -72,10 +72,6 @@ impl From<StdError> for RuntimeError {
 // TODO: Are these errors still relevant, do we need to remove them?
 #[allow(clippy::enum_variant_names)]
 pub enum RunnerError {
-    /// No stake distribution found
-    #[error("Missing stake distribution: '{0}'.")]
-    MissingStakeDistribution(String),
-
     /// Missing protocol parameters
     #[error("Missing protocol parameters: '{0}'.")]
     MissingProtocolParameters(String),
