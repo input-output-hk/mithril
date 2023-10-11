@@ -1,3 +1,25 @@
+//! ## Snapshot Service
+//!
+//! This module contains the service to interact with a given Mithril Aggregator
+//! in order to list / show / download snapshots.
+//!
+//! ```
+//! use config::{builder::DefaultState, ConfigBuilder};
+
+//! use mithril_client::common::*;
+//! use mithril_client::{dependencies::DependenciesBuilder, services::SnapshotService};
+//!
+//! let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
+//!     .set_default("genesis_verification_key", "WRITE THE VKEY HERE").unwrap()
+//!     .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator").unwrap();
+//! let config = Arc::new(config_builder.build().unwrap());
+//! let snapshot_service = DependenciesBuilder::new(config)
+//!     .get_snapshot_service()
+//!     .await.unwrap();
+//! let snapshot_message = snapshot_service.show("DIGEST").await.unwrap();
+//!
+//! assert_eq!("DIGEST", snapshot_message.digest);
+//! ```
 use anyhow::Context;
 use async_trait::async_trait;
 use futures::Future;
@@ -14,8 +36,6 @@ use thiserror::Error;
 use tokio::{select, time::sleep};
 
 use mithril_common::{
-    certificate_chain::CertificateVerifier,
-    crypto_helper::{ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
     digesters::ImmutableDigester,
     entities::{Certificate, ProtocolMessagePartKey, SignedEntity, Snapshot},
     messages::{SnapshotListItemMessage, SnapshotMessage},
@@ -24,6 +44,7 @@ use mithril_common::{
 
 use crate::{
     aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient},
+    common::{CertificateVerifier, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
     utils::{
         DownloadProgressReporter, ProgressOutputType, ProgressPrinter, SnapshotUnpacker,
         SnapshotUnpackerError,

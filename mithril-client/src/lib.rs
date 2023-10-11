@@ -19,6 +19,8 @@ pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAda
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::{
+        certificate_chain::CertificateVerifier,
+        crypto_helper::{ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
         entities::{Beacon, CompressionAlgorithm::Zstandard, Epoch},
         messages::SnapshotMessage,
         StdResult,

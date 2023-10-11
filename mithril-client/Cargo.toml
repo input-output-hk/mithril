@@ -56,4 +56,4 @@ mockall = "0.11.4"
 [features]
 portable = ["mithril-common/portable"]
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
-build-binary = ["clap"]
+build-binary = ["dep:clap"]
