@@ -52,7 +52,7 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        CertifierService, MithrilCertifierService, MithrilSignedEntityService,
+        CertifierService, MithrilCertifierService, MithrilEpochService, MithrilSignedEntityService,
         MithrilStakeDistributionService, MithrilTickerService, SignedEntityService,
         StakeDistributionService, TickerService,
     },
@@ -64,7 +64,7 @@ use crate::{
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
-use super::{DependenciesBuilderError, Result};
+use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
@@ -180,6 +180,9 @@ pub struct DependenciesBuilder {
     /// Certifier service
     pub certifier_service: Option<Arc<dyn CertifierService>>,
 
+    /// Epoch service.
+    pub epoch_service: Option<EpochServiceWrapper>,
+
     /// Signed Entity storer
     pub signed_entity_storer: Option<Arc<dyn SignedEntityStorer>>,
 }
@@ -220,6 +223,7 @@ impl DependenciesBuilder {
             signable_builder_service: None,
             signed_entity_service: None,
             certifier_service: None,
+            epoch_service: None,
             signed_entity_storer: None,
         }
     }
@@ -933,6 +937,29 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
+        let stake_distribution_service = self.get_stake_distribution_service().await?;
+        let verification_key_store = self.get_verification_key_store().await?;
+        let protocol_parameters_store = self.get_protocol_parameters_store().await?;
+
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_distribution_service,
+            protocol_parameters_store,
+            verification_key_store,
+        )));
+
+        Ok(epoch_service)
+    }
+
+    /// [EpochService][crate::services::EpochService] service
+    pub async fn get_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
+        if self.epoch_service.is_none() {
+            self.epoch_service = Some(self.build_epoch_service().await?);
+        }
+
+        Ok(self.epoch_service.as_ref().cloned().unwrap())
+    }
+
     async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
         let signed_entity_storer = Arc::new(SignedEntityStoreAdapter::new(
             self.get_sqlite_connection().await?,
@@ -980,6 +1007,7 @@ impl DependenciesBuilder {
             signable_builder_service: self.get_signable_builder_service().await?,
             signed_entity_service: self.get_signed_entity_service().await?,
             certifier_service: self.get_certifier_service().await?,
+            epoch_service: self.get_epoch_service().await?,
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,

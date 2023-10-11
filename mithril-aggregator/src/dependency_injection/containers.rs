@@ -16,6 +16,7 @@ use mithril_common::{
     BeaconProvider,
 };
 
+use crate::services::EpochService;
 use crate::{
     configuration::*,
     database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
@@ -28,8 +29,11 @@ use crate::{
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
 };
 
-/// MultiSignerWrapper wraps a MultiSigner
+/// MultiSignerWrapper wraps a [MultiSigner]
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
+
+/// EpochServiceWrapper wraps a [EpochService]
+pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyContainer {
@@ -116,6 +120,9 @@ pub struct DependencyContainer {
 
     /// Certifier Service
     pub certifier_service: Arc<dyn CertifierService>,
+
+    /// Epoch service
+    pub epoch_service: EpochServiceWrapper,
 
     /// Ticker Service
     pub ticker_service: Arc<dyn TickerService>,
