@@ -17,6 +17,7 @@ use mithril_common::{
 
 use crate::{entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStorer};
 
+use crate::dependency_injection::EpochServiceWrapper;
 #[cfg(test)]
 use mockall::automock;
 
@@ -160,17 +161,11 @@ pub trait MultiSigner: Sync + Send {
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
-    /// Epoch that is currently used
     current_epoch: Option<Epoch>,
-
-    /// Verification key store
     verification_key_store: Arc<dyn VerificationKeyStorer>,
-
-    /// Stake store
     stake_store: Arc<dyn StakeStorer>,
-
-    /// Protocol parameters store
     protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
+    epoch_service: EpochServiceWrapper,
 }
 
 impl MultiSignerImpl {
@@ -179,6 +174,7 @@ impl MultiSignerImpl {
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         stake_store: Arc<dyn StakeStorer>,
         protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
+        epoch_service: EpochServiceWrapper,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
@@ -186,6 +182,7 @@ impl MultiSignerImpl {
             verification_key_store,
             stake_store,
             protocol_parameters_store,
+            epoch_service,
         }
     }
 
@@ -418,20 +415,16 @@ impl MultiSigner for MultiSignerImpl {
             single_signature.party_id, single_signature.won_indexes, message
         );
 
-        let protocol_parameters = self
-            .get_protocol_parameters()
-            .await?
-            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
-
-        let signers_with_stakes = self.get_signers_with_stake().await?;
-
-        let protocol_multi_signer =
-            self.create_protocol_multi_signer(&signers_with_stakes, &protocol_parameters)?;
+        let lock = self.epoch_service.read().await;
+        let protocol_multi_signer = lock
+            .protocol_multi_signer()
+            .with_context(|| "multi-signer could not get protocol multi-signer from epoch service")
+            .map_err(ProtocolError::Core)?;
 
         protocol_multi_signer
             .verify_single_signature(message, single_signature)
             .with_context(|| "Multi Signer can not verify single signature for message '{message}'")
-            .map_err(|e| ProtocolError::Core(anyhow!(e)))
+            .map_err(ProtocolError::Core)
     }
 
     /// Creates a multi signature from single signatures
@@ -440,15 +433,12 @@ impl MultiSigner for MultiSignerImpl {
         open_message: &OpenMessage,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("MultiSigner:create_multi_signature({open_message:?})");
-        let protocol_parameters = self
-            .get_protocol_parameters()
-            .await?
-            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
 
-        let signers_with_stakes = self.get_signers_with_stake().await?;
-
-        let protocol_multi_signer =
-            self.create_protocol_multi_signer(&signers_with_stakes, &protocol_parameters)?;
+        let lock = self.epoch_service.read().await;
+        let protocol_multi_signer = lock
+            .protocol_multi_signer()
+            .with_context(|| "multi-signer could not get protocol multi-signer from epoch service")
+            .map_err(ProtocolError::Core)?;
 
         match protocol_multi_signer.aggregate_single_signatures(
             &open_message.single_signatures,
@@ -470,25 +460,35 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::database::provider::{
+        apply_all_migrations_to_db, disable_foreign_key_support, StakePoolStore,
+    };
+    use crate::services::{MithrilEpochService, MithrilStakeDistributionService};
     use crate::{store::VerificationKeyStore, ProtocolParametersStore};
+    use mithril_common::chain_observer::FakeObserver;
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        entities::{Beacon, PartyId, SignedEntityType, StakeDistribution},
-        store::{adapter::MemoryAdapter, StakeStore},
+        entities::{Beacon, PartyId, SignedEntityType},
+        store::adapter::MemoryAdapter,
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
+    use sqlite::Connection;
     use std::{collections::HashMap, sync::Arc};
+    use tokio::sync::{Mutex, RwLock};
 
     async fn setup_multi_signer() -> MultiSignerImpl {
-        let epoch = fake_data::beacon().epoch;
-        let verification_key_store = VerificationKeyStore::new(Box::new(
+        let beacon = fake_data::beacon();
+        let epoch = beacon.epoch;
+
+        let connection = Connection::open(":memory:").unwrap();
+        apply_all_migrations_to_db(&connection).unwrap();
+        disable_foreign_key_support(&connection).unwrap();
+
+        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
-        ));
-        let stake_store = StakeStore::new(
-            Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
-            None,
-        );
-        let protocol_parameters_store = ProtocolParametersStore::new(
+        )));
+        let stake_store = Arc::new(StakePoolStore::new(Arc::new(Mutex::new(connection)), None));
+        let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
             Box::new(
                 MemoryAdapter::<Epoch, entities::ProtocolParameters>::new(Some(vec![
                     (
@@ -507,11 +507,21 @@ mod tests {
                 .unwrap(),
             ),
             None,
-        );
+        ));
+        let chain_observer = Arc::new(FakeObserver::new(Some(beacon)));
+
         let mut multi_signer = MultiSignerImpl::new(
-            Arc::new(verification_key_store),
-            Arc::new(stake_store),
-            Arc::new(protocol_parameters_store),
+            verification_key_store.clone(),
+            stake_store.clone(),
+            protocol_parameters_store.clone(),
+            Arc::new(RwLock::new(MithrilEpochService::new(
+                Arc::new(MithrilStakeDistributionService::new(
+                    stake_store,
+                    chain_observer,
+                )),
+                protocol_parameters_store,
+                verification_key_store,
+            ))),
         );
 
         multi_signer
@@ -624,7 +634,8 @@ mod tests {
         let mut multi_signer = setup_multi_signer().await;
         let stake_store = multi_signer.stake_store.clone();
         let verification_key_store = multi_signer.verification_key_store.clone();
-        let start_epoch = multi_signer.current_epoch.unwrap();
+        let epoch_service = multi_signer.epoch_service.clone();
+        let epoch = multi_signer.current_epoch.unwrap();
 
         let message = setup_message();
         let protocol_parameters = setup_protocol_parameters();
@@ -635,28 +646,28 @@ mod tests {
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
 
-        stake_store
-            .save_stakes(
-                start_epoch.offset_to_recording_epoch(),
-                fixture.stake_distribution(),
-            )
-            .await
-            .expect("update stake distribution failed");
-        for signer_with_stake in &fixture.signers_with_stake() {
-            verification_key_store
-                .save_verification_key(
-                    start_epoch.offset_to_recording_epoch(),
-                    signer_with_stake.to_owned(),
-                )
+        for epoch in [
+            epoch.offset_to_signer_retrieval_epoch().unwrap(),
+            epoch.offset_to_next_signer_retrieval_epoch(),
+        ] {
+            stake_store
+                .save_stakes(epoch, fixture.stake_distribution())
                 .await
-                .expect("register should have succeeded");
+                .expect("update stake distribution failed");
+            for signer_with_stake in &fixture.signers_with_stake() {
+                verification_key_store
+                    .save_verification_key(epoch, signer_with_stake.to_owned())
+                    .await
+                    .expect("register should have succeeded");
+            }
         }
 
-        offset_epoch(
-            &mut multi_signer,
-            Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
-        )
-        .await;
+        epoch_service
+            .write()
+            .await
+            .inform_epoch(epoch)
+            .await
+            .unwrap();
 
         let mut signatures = Vec::new();
 
@@ -695,7 +706,7 @@ mod tests {
         );
 
         let mut open_message = OpenMessage {
-            epoch: start_epoch,
+            epoch,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(Beacon {
                 epoch: multi_signer.current_epoch.unwrap(),
                 ..fake_data::beacon()

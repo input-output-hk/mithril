@@ -344,6 +344,7 @@ impl DependenciesBuilder {
             self.get_verification_key_store().await?,
             self.get_stake_store().await?,
             self.get_protocol_parameters_store().await?,
+            self.get_epoch_service().await?,
         );
 
         Ok(Arc::new(RwLock::new(multi_signer)))
