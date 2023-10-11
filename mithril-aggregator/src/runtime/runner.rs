@@ -116,7 +116,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()>;
 
     /// Certifier inform new epoch
-    async fn certifier_inform_new_epoch(&self, epoch: &Epoch) -> StdResult<()>;
+    async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Create new open message
     async fn create_open_message(
@@ -497,10 +497,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn certifier_inform_new_epoch(&self, epoch: &Epoch) -> StdResult<()> {
+    async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
         self.dependencies
             .certifier_service
-            .inform_epoch(*epoch)
+            .inform_epoch(epoch)
+            .await?;
+        self.dependencies
+            .epoch_service
+            .write()
+            .await
+            .inform_epoch(epoch)
             .await?;
 
         Ok(())
@@ -532,7 +538,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
+            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, StakeDistribution,
         },
         signable_builder::SignableBuilderService,
         store::StakeStorer,
@@ -556,16 +562,20 @@ pub mod tests {
         }
     }
 
-    async fn init_runner_from_dependencies(deps: DependencyContainer) -> AggregatorRunner {
+    async fn build_runner_with_fixture_data(deps: DependencyContainer) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let current_epoch = deps
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .unwrap()
+            .unwrap();
         deps.init_state_from_fixture(
             &fixture,
-            &[deps
-                .chain_observer
-                .get_current_epoch()
-                .await
-                .unwrap()
-                .unwrap()],
+            &[
+                current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                current_epoch,
+            ],
         )
         .await;
 
@@ -862,18 +872,23 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_certifier_inform_new_epoch() {
+    async fn test_inform_new_epoch() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
             .returning(|_| Ok(()))
             .times(1);
-
         let mut deps = initialize_dependencies().await;
+        let current_epoch = deps
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .unwrap()
+            .unwrap();
         deps.certifier_service = Arc::new(mock_certifier_service);
+        let runner = build_runner_with_fixture_data(deps).await;
 
-        let runner = AggregatorRunner::new(Arc::new(deps));
-        runner.certifier_inform_new_epoch(&Epoch(1)).await.unwrap();
+        runner.inform_new_epoch(current_epoch).await.unwrap();
     }
 
     #[tokio::test]
@@ -901,7 +916,7 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
@@ -932,7 +947,7 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
@@ -972,7 +987,7 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
@@ -1024,7 +1039,7 @@ pub mod tests {
         deps.certifier_service = Arc::new(mock_certifier_service);
         deps.signable_builder_service = Arc::new(mock_signable_builder_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
@@ -1067,7 +1082,7 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
