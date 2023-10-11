@@ -4,21 +4,27 @@
 //! in order to list / show / download snapshots.
 //!
 //! ```
+//! use std::sync::Arc;
 //! use config::{builder::DefaultState, ConfigBuilder};
 
 //! use mithril_client::common::*;
 //! use mithril_client::{dependencies::DependenciesBuilder, services::SnapshotService};
 //!
-//! let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
-//!     .set_default("genesis_verification_key", "WRITE THE VKEY HERE").unwrap()
-//!     .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator").unwrap();
-//! let config = Arc::new(config_builder.build().unwrap());
-//! let snapshot_service = DependenciesBuilder::new(config)
-//!     .get_snapshot_service()
-//!     .await.unwrap();
-//! let snapshot_message = snapshot_service.show("DIGEST").await.unwrap();
+//! #[tokio::main]
+//! async fn main() -> StdResult<()> {
+//!     let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
+//!         .set_default("genesis_verification_key", "WRITE THE VKEY HERE")?
+//!         .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator")?;
+//!     let config = Arc::new(config_builder.build()?);
+//!     let snapshot_service = DependenciesBuilder::new(config)
+//!         .get_snapshot_service()
+//!         .await?;
+//!     let snapshot_message = snapshot_service.show("DIGEST").await?;
 //!
-//! assert_eq!("DIGEST", snapshot_message.digest);
+//!     assert_eq!("DIGEST", snapshot_message.digest);
+//!
+//!     Ok(())
+//! }
 //! ```
 use anyhow::Context;
 use async_trait::async_trait;

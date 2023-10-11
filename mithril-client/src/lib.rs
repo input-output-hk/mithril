@@ -7,6 +7,7 @@
 //!
 
 pub mod aggregator_client;
+pub mod client;
 pub mod dependencies;
 mod entities;
 mod message_adapters;
@@ -21,8 +22,9 @@ pub mod common {
     pub use mithril_common::{
         certificate_chain::CertificateVerifier,
         crypto_helper::{ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
-        entities::{Beacon, CompressionAlgorithm::Zstandard, Epoch},
+        entities::{Beacon, CompressionAlgorithm, Epoch},
+        messages::SnapshotListItemMessage,
         messages::SnapshotMessage,
-        StdResult,
+        StdError, StdResult,
     };
 }

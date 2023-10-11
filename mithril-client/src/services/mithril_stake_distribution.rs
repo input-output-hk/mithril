@@ -4,20 +4,29 @@
 //! in order to list / download mithril stake distributions.
 //!
 //! ```
+//! use std::sync::Arc;
 //! use config::{builder::DefaultState, ConfigBuilder};
 
 //! use mithril_client::common::StdResult;
 //! use mithril_client::dependencies::DependenciesBuilder;
 //! use mithril_client::services::MithrilStakeDistributionService;
 //!
-//! let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
-//!     .set_default("genesis_verification_key", "WRITE THE VKEY HERE").unwrap()
-//!     .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator").unwrap();
-//! let config = Arc::new(config_builder.build().unwrap());
-//! let stake_distribution_service = DependenciesBuilder::new(config)
-//!     .get_mithril_stake_distribution_service()
-//!     .await.unwrap();
-//! let messages = stake_distribution_service.list().await.unwrap();
+//! #[tokio::main]
+//! async fn main() -> StdResult<()> {
+//!     let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
+//!         .set_default("genesis_verification_key", "WRITE THE VKEY HERE")?
+//!         .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator")?;
+//!     let config = Arc::new(config_builder.build()?);
+//!     let stake_distribution_service = DependenciesBuilder::new(config)
+//!         .get_mithril_stake_distribution_service()
+//!         .await?;
+//!
+//!     for message in stake_distribution_service.list().await? {
+//!         println!("Stake distribution hash = {}", message.hash);
+//!     }
+//!
+//!     Ok(())
+//! }
 //! ```
 use anyhow::Context;
 use async_trait::async_trait;

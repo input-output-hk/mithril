@@ -13,6 +13,13 @@ repository = { workspace = true }
 name = "mithril-client"
 required-features = ["build-binary"]
 
+[lib]
+# Explicit name otherwise cargo deb crash because it will search for
+# 'libmithril-client' but rust lib by default compile the lib with the name
+# 'libmithril_client' (note the underscore instead of a hyphen).
+crate-type = ["lib", "cdylib", "staticlib"]
+name = "mithril_client"
+
 [dependencies]
 anyhow = "1.0.75"
 async-recursion = "1.0.5"
@@ -52,8 +59,12 @@ zstd = "0.13.0"
 httpmock = "0.6.8"
 mithril-common = { path = "../mithril-common" }
 mockall = "0.11.4"
+warp = "0.3"
+
+[target.'cfg(windows)'.dependencies]
+mithril-common = { path = "../mithril-common", features = [ "windows-compat" ] }
 
 [features]
 portable = ["mithril-common/portable"]
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
-build-binary = ["dep:clap"]
+build-binary = ["clap"]
