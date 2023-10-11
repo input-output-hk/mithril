@@ -6,7 +6,7 @@ use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, Config, ConfigBuilder};
 use mithril_common::StdResult;
 
-use crate::{dependencies::DependenciesBuilder, MithrilStakeDistributionListItem};
+use mithril_client::{dependencies::DependenciesBuilder, MithrilStakeDistributionListItem};
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]

@@ -7,7 +7,7 @@ use config::{builder::DefaultState, Config, ConfigBuilder};
 
 use mithril_common::StdResult;
 
-use crate::{dependencies::DependenciesBuilder, SnapshotListItem};
+use mithril_client::{dependencies::DependenciesBuilder, SnapshotListItem};
 
 /// Clap command to list existing snapshots
 #[derive(Parser, Debug, Clone)]

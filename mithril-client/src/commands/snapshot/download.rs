@@ -5,7 +5,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_common::{messages::FromMessageAdapter, StdResult};
 
-use crate::{
+use mithril_client::{
     dependencies::DependenciesBuilder, utils::ProgressOutputType, FromSnapshotMessageAdapter,
 };
 

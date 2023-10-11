@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use mithril_common::{messages::SnapshotMessage, StdResult};
 
-use crate::{dependencies::DependenciesBuilder, SnapshotFieldItem};
+use mithril_client::{dependencies::DependenciesBuilder, SnapshotFieldItem};
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]

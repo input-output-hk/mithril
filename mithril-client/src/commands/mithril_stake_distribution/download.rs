@@ -5,7 +5,7 @@ use clap::Parser;
 use config::{builder::DefaultState, Config, ConfigBuilder};
 use mithril_common::StdResult;
 
-use crate::dependencies::DependenciesBuilder;
+use mithril_client::dependencies::DependenciesBuilder;
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
