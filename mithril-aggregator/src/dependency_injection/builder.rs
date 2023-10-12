@@ -342,7 +342,6 @@ impl DependenciesBuilder {
     async fn build_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
         let multi_signer = MultiSignerImpl::new(
             self.get_verification_key_store().await?,
-            self.get_stake_store().await?,
             self.get_protocol_parameters_store().await?,
             self.get_epoch_service().await?,
         );
@@ -939,12 +938,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
-        let stake_distribution_service = self.get_stake_distribution_service().await?;
         let verification_key_store = self.get_verification_key_store().await?;
         let protocol_parameters_store = self.get_protocol_parameters_store().await?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
-            stake_distribution_service,
             protocol_parameters_store,
             verification_key_store,
         )));

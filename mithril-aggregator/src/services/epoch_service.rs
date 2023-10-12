@@ -8,7 +8,6 @@ use mithril_common::entities::{Epoch, ProtocolParameters, SignerWithStake};
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
 
-use crate::services::StakeDistributionService;
 use crate::{ProtocolParametersStorer, VerificationKeyStorer};
 
 /// Errors dedicated to the CertifierService.
@@ -70,7 +69,6 @@ struct EpochData {
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
     current_epoch_data: Option<EpochData>,
-    stake_distribution_service: Arc<dyn StakeDistributionService>,
     protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
     verification_key_store: Arc<dyn VerificationKeyStorer>,
 }
@@ -78,54 +76,30 @@ pub struct MithrilEpochService {
 impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
-        stake_distribution_service: Arc<dyn StakeDistributionService>,
         protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Self {
         Self {
             current_epoch_data: None,
-            stake_distribution_service,
             protocol_parameters_store,
             verification_key_store,
         }
     }
 
-    // todo: this should be entirely retrieved from one source instead of two.
     async fn get_signers_with_stake_at_epoch(
         &self,
         signer_retrieval_epoch: Epoch,
     ) -> StdResult<Vec<SignerWithStake>> {
-        let stake_distribution = self
-            .stake_distribution_service
-            .get_stake_distribution(signer_retrieval_epoch)
-            .await
-            .with_context(|| {
-                format!("Epoch service could not obtains stake distribution for epoch: {signer_retrieval_epoch}")
-            })?;
-        let mut signers = self
+        let signers = self
             .verification_key_store
-            .get_verification_keys(signer_retrieval_epoch)
+            .get_signers(signer_retrieval_epoch)
             .await?
             .ok_or(EpochServiceError::UnavailableData(
                 signer_retrieval_epoch,
                 "signers verification keys".to_string(),
             ))?;
 
-        Ok(stake_distribution
-            .into_iter()
-            .filter_map(|(party_id, stake)| {
-                signers.remove(&party_id).map(|signer| {
-                    SignerWithStake::new(
-                        party_id,
-                        signer.verification_key,
-                        signer.verification_key_signature,
-                        signer.operational_certificate,
-                        signer.kes_period,
-                        stake,
-                    )
-                })
-            })
-            .collect())
+        Ok(signers)
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
@@ -338,10 +312,8 @@ mod tests {
     use mithril_common::entities::PartyId;
     use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mockall::predicate::eq;
     use std::collections::{BTreeSet, HashMap};
 
-    use crate::services::MockStakeDistributionService;
     use crate::{ProtocolParametersStore, VerificationKeyStore};
 
     use super::*;
@@ -435,21 +407,8 @@ mod tests {
             .unwrap(),
         ));
 
-        let mut stake_service = MockStakeDistributionService::new();
-        stake_service
-            .expect_get_stake_distribution()
-            .with(eq(signer_retrieval_epoch))
-            .returning(move |_| Ok(fixture.stake_distribution()));
-        stake_service
-            .expect_get_stake_distribution()
-            .with(eq(next_signer_retrieval_epoch))
-            .returning(move |_| Ok(fixture2.stake_distribution()));
-
-        let mut service = MithrilEpochService::new(
-            Arc::new(stake_service),
-            Arc::new(protocol_parameters_store),
-            Arc::new(vkey_store),
-        );
+        let mut service =
+            MithrilEpochService::new(Arc::new(protocol_parameters_store), Arc::new(vkey_store));
 
         service
             .inform_epoch(epoch)
