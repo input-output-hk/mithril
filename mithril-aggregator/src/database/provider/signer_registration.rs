@@ -466,6 +466,23 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         }
     }
 
+    async fn get_signers(&self, epoch: Epoch) -> StdResult<Option<Vec<SignerWithStake>>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignerRegistrationRecordProvider::new(connection);
+        let cursor = provider
+            .get_by_epoch(&epoch)
+            .with_context(|| format!("get verification key failure, epoch: {epoch}"))
+            .map_err(AdapterError::GeneralError)?;
+
+        let signer_with_stakes: Vec<SignerWithStake> =
+            cursor.map(|record| (record.into())).collect();
+
+        match signer_with_stakes.is_empty() {
+            true => Ok(None),
+            false => Ok(Some(signer_with_stakes)),
+        }
+    }
+
     async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
         let connection = &*self.connection.lock().await;
         let _deleted_records = DeleteSignerRegistrationRecordProvider::new(connection)
