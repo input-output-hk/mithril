@@ -11,12 +11,10 @@ use mithril_common::store::StakeStorer;
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::entities::OpenMessage;
-use crate::{DependencyContainer, ProtocolError};
+use crate::DependencyContainer;
 
 #[cfg(test)]
 use mockall::automock;
-
-use super::error::RunnerError;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -83,8 +81,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage>;
 
-    /// Return the actual pending certificate from the multisigner.
-    async fn create_new_pending_certificate_from_multisigner(
+    /// Create a new pending certificate.
+    async fn create_new_pending_certificate(
         &self,
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
@@ -354,51 +352,34 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(protocol_message)
     }
 
-    async fn create_new_pending_certificate_from_multisigner(
+    async fn create_new_pending_certificate(
         &self,
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
         debug!("RUNNER: create new pending certificate from multisigner");
-        let multi_signer = self.dependencies.multi_signer.read().await;
+        let epoch_service = self.dependencies.epoch_service.read().await;
 
-        let signers = match multi_signer.get_signers().await {
-            Ok(signers) => signers,
-            Err(ProtocolError::Epoch(_)) => vec![],
-            Err(e) => return Err(e.into()),
-        };
-        let next_signers = match multi_signer.get_next_signers_with_stake().await {
-            Ok(signers) => signers,
-            Err(ProtocolError::Epoch(_)) => vec![],
-            Err(e) => return Err(e.into()),
-        };
+        let signers = epoch_service.current_signers_with_stake()?;
+        let next_signers = epoch_service.next_signers_with_stake()?;
 
         let protocol_parameters =
-            multi_signer
-                .get_protocol_parameters()
-                .await?
-                .ok_or_else(|| {
-                    RunnerError::MissingProtocolParameters(format!(
-                        "no current protocol parameters found for beacon {beacon:?}"
-                    ))
+            epoch_service
+                .current_protocol_parameters()
+                .with_context(|| {
+                    format!("no current protocol parameters found for beacon {beacon:?}")
                 })?;
-
-        let next_protocol_parameters = multi_signer
-            .get_next_protocol_parameters()
-            .await?
-            .ok_or_else(|| {
-                RunnerError::MissingProtocolParameters(format!(
-                    "no next protocol parameters found for beacon {beacon:?}"
-                ))
-            })?;
+        let next_protocol_parameters = epoch_service
+            .next_protocol_parameters()
+            .with_context(|| format!("no next protocol parameters found for beacon {beacon:?}"))?;
 
         let pending_certificate = CertificatePending::new(
             beacon,
             signed_entity_type.to_owned(),
-            protocol_parameters.into(),
-            next_protocol_parameters.into(),
-            signers,
-            next_signers.into_iter().map(|s| s.into()).collect(),
+            protocol_parameters.clone(),
+            next_protocol_parameters.clone(),
+            signers.clone().into_iter().map(|s| s.into()).collect(),
+            next_signers.clone().into_iter().map(|s| s.into()).collect(),
         );
 
         Ok(pending_certificate)
@@ -774,7 +755,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_create_new_pending_certificate_from_multisigner() {
+    async fn test_create_new_pending_certificate() {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
@@ -792,9 +773,10 @@ pub mod tests {
             &protocol_parameters.clone(),
         )
         .await;
+        runner.inform_new_epoch(beacon.epoch).await.unwrap();
 
         let mut certificate = runner
-            .create_new_pending_certificate_from_multisigner(beacon.clone(), &signed_entity_type)
+            .create_new_pending_certificate(beacon.clone(), &signed_entity_type)
             .await
             .unwrap();
         certificate.signers.sort_by_key(|s| s.party_id.clone());
@@ -902,7 +884,6 @@ pub mod tests {
             .await
             .unwrap()
             .unwrap();
-        deps.certifier_service = Arc::new(mock_certifier_service);
         let runner = build_runner_with_fixture_data(deps).await;
 
         runner.inform_new_epoch(current_epoch).await.unwrap();

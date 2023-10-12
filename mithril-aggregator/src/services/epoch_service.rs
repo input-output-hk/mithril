@@ -228,6 +228,112 @@ impl EpochService for MithrilEpochService {
 }
 
 #[cfg(test)]
+pub struct FakeEpochService {
+    epoch_data: Option<EpochData>,
+    inform_epoch_error: Option<()>,
+}
+
+#[cfg(test)]
+impl FakeEpochService {
+    /// Note: protocol multi signers and current/next avk will be computed using the given protocol
+    /// parameters and signers.
+    pub fn with_data(
+        epoch: Epoch,
+        protocol_parameters: &ProtocolParameters,
+        next_protocol_parameters: &ProtocolParameters,
+        signers: &[SignerWithStake],
+        next_signers: &[SignerWithStake],
+    ) -> Self {
+        let protocol_multi_signer = SignerBuilder::new(signers, protocol_parameters)
+            .with_context(|| "Could not build protocol_multi_signer for epoch service")
+            .unwrap()
+            .build_multi_signer();
+        let next_protocol_multi_signer = SignerBuilder::new(signers, protocol_parameters)
+            .with_context(|| "Could not build protocol_multi_signer for epoch service")
+            .unwrap()
+            .build_multi_signer();
+
+        Self {
+            epoch_data: Some(EpochData {
+                epoch,
+                protocol_parameters: protocol_parameters.clone(),
+                next_protocol_parameters: next_protocol_parameters.clone(),
+                aggregate_verification_key: protocol_multi_signer
+                    .compute_aggregate_verification_key(),
+                next_aggregate_verification_key: next_protocol_multi_signer
+                    .compute_aggregate_verification_key(),
+                signers: signers.to_vec(),
+                next_signers: next_signers.to_vec(),
+                protocol_multi_signer,
+            }),
+            inform_epoch_error: None,
+        }
+    }
+
+    /// Note: using this will make all 'get' method from [EpochService] trait
+    /// return a [EpochServiceError::NotYetInitialized] error.
+    pub fn without_data() -> Self {
+        Self {
+            epoch_data: None,
+            inform_epoch_error: None,
+        }
+    }
+
+    pub fn enable_inform_epoch_error(&mut self) {
+        self.inform_epoch_error = Some(());
+    }
+
+    fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
+        self.epoch_data
+            .as_ref()
+            .ok_or(EpochServiceError::NotYetInitialized)
+    }
+}
+
+#[cfg(test)]
+#[async_trait]
+impl EpochService for FakeEpochService {
+    async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
+        match self.inform_epoch_error {
+            None => Ok(()),
+            Some(_) => anyhow::bail!("Inform epoch fake error, given epoch: {epoch}"),
+        }
+    }
+
+    fn epoch_of_current_data(&self) -> StdResult<Epoch> {
+        Ok(self.unwrap_data()?.epoch)
+    }
+
+    fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self.unwrap_data()?.protocol_parameters)
+    }
+
+    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self.unwrap_data()?.next_protocol_parameters)
+    }
+
+    fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
+        Ok(&self.unwrap_data()?.aggregate_verification_key)
+    }
+
+    fn next_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
+        Ok(&self.unwrap_data()?.next_aggregate_verification_key)
+    }
+
+    fn current_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
+        Ok(&self.unwrap_data()?.signers)
+    }
+
+    fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
+        Ok(&self.unwrap_data()?.next_signers)
+    }
+
+    fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
+        Ok(&self.unwrap_data()?.protocol_multi_signer)
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use mithril_common::entities::PartyId;
     use mithril_common::store::adapter::MemoryAdapter;

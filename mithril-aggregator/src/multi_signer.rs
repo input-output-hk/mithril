@@ -79,19 +79,11 @@ pub trait MultiSigner: Sync + Send {
     /// Update current epoch
     async fn update_current_epoch(&mut self, epoch: Epoch) -> Result<(), ProtocolError>;
 
-    /// Get protocol parameters
-    async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError>;
-
     /// Update protocol parameters
     async fn update_protocol_parameters(
         &mut self,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError>;
-
-    /// Get next protocol parameters
-    async fn get_next_protocol_parameters(
-        &self,
-    ) -> Result<Option<ProtocolParameters>, ProtocolError>;
 
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
@@ -103,47 +95,12 @@ pub trait MultiSigner: Sync + Send {
     /// Compute stake distribution aggregate verification key
     async fn compute_stake_distribution_aggregate_verification_key(
         &self,
-    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
-        let signers_with_stake = self.get_signers_with_stake().await?;
-        let protocol_parameters = self
-            .get_protocol_parameters()
-            .await?
-            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
-        Ok(self
-            .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
-            .await?)
-    }
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError>;
 
     /// Compute next stake distribution aggregate verification key
     async fn compute_next_stake_distribution_aggregate_verification_key(
         &self,
-    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
-        let next_signers_with_stake = self.get_next_signers_with_stake().await?;
-        let protocol_parameters = self
-            .get_next_protocol_parameters()
-            .await?
-            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
-        Ok(self
-            .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
-            .await?)
-    }
-
-    /// Get signers
-    async fn get_signers(&self) -> Result<Vec<entities::Signer>, ProtocolError> {
-        debug!("Get signers");
-        Ok(self
-            .get_signers_with_stake()
-            .await?
-            .into_iter()
-            .map(|signer| signer.into())
-            .collect::<Vec<entities::Signer>>())
-    }
-
-    /// Get signers with stake
-    async fn get_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError>;
-
-    /// Get signers for the next epoch with their stake
-    async fn get_next_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError>;
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError>;
 
     /// Verify a single signature
     async fn verify_single_signature(
@@ -221,10 +178,30 @@ impl MultiSignerImpl {
         Ok(stakes.into_iter().collect::<ProtocolStakeDistribution>())
     }
 
+    async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError> {
+        debug!("Get protocol parameters");
+        let epoch = self
+            .current_epoch
+            .ok_or(ProtocolError::UnavailableEpoch)?
+            .offset_to_signer_retrieval_epoch()?;
+        self.get_protocol_parameters_at_epoch(epoch).await
+    }
+
+    async fn get_next_protocol_parameters(
+        &self,
+    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
+        debug!("Get next protocol parameters");
+        let epoch = self
+            .current_epoch
+            .ok_or(ProtocolError::UnavailableEpoch)?
+            .offset_to_next_signer_retrieval_epoch();
+        self.get_protocol_parameters_at_epoch(epoch).await
+    }
+
     /// Get the [protocol parameters][ProtocolParameters] for the given `epoch`
     async fn get_protocol_parameters_at_epoch(
         &self,
-        epoch: entities::Epoch,
+        epoch: Epoch,
     ) -> Result<Option<ProtocolParameters>, ProtocolError> {
         debug!("Get protocol parameters at epoch"; "epoch"=> #?epoch);
 
@@ -261,74 +238,6 @@ impl MultiSignerImpl {
             .ok_or(ProtocolError::UnavailableEpoch)?
             .offset_to_next_signer_retrieval_epoch();
         self.get_stake_distribution_at_epoch(epoch).await
-    }
-}
-
-#[async_trait]
-impl MultiSigner for MultiSignerImpl {
-    async fn get_current_epoch(&self) -> Option<Epoch> {
-        self.current_epoch
-    }
-
-    async fn update_current_epoch(&mut self, epoch: Epoch) -> Result<(), ProtocolError> {
-        debug!("Update update_current_epoch to {:?}", epoch);
-        self.current_epoch = Some(epoch);
-
-        Ok(())
-    }
-
-    // TODO: protocol parameters should ALWAYS be available
-    /// Get protocol parameters
-    async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get protocol parameters");
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_signer_retrieval_epoch()?;
-        self.get_protocol_parameters_at_epoch(epoch).await
-    }
-
-    /// Update protocol parameters
-    async fn update_protocol_parameters(
-        &mut self,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), ProtocolError> {
-        debug!("Update protocol parameters to {:?}", protocol_parameters);
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_protocol_parameters_recording_epoch();
-
-        self.protocol_parameters_store
-            .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
-            .await.with_context(|| format!("Multi Signer can not update protocol parameters '{protocol_parameters:?}' for epoch '{epoch}'"))
-            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
-
-        Ok(())
-    }
-
-    /// Get next protocol parameters
-    async fn get_next_protocol_parameters(
-        &self,
-    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get next protocol parameters");
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_next_signer_retrieval_epoch();
-        self.get_protocol_parameters_at_epoch(epoch).await
-    }
-
-    /// Compute aggregate verification key from stake distribution
-    async fn compute_aggregate_verification_key(
-        &self,
-        signers_with_stakes: &[SignerWithStake],
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
-        let protocol_multi_signer =
-            self.create_protocol_multi_signer(signers_with_stakes, protocol_parameters)?;
-
-        Ok(protocol_multi_signer.compute_aggregate_verification_key())
     }
 
     async fn get_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError> {
@@ -377,10 +286,11 @@ impl MultiSigner for MultiSignerImpl {
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
-            .await.with_context(|| {
+            .await
+            .with_context(|| {
                 format!(
-                    "Multi Signer can not retrieve next signers verification keys for epoch '{epoch}'"
-                )
+                "Multi Signer can not retrieve next signers verification keys for epoch '{epoch}'"
+            )
             })
             .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?
             .unwrap_or_default();
@@ -402,6 +312,77 @@ impl MultiSigner for MultiSignerImpl {
                 })
             })
             .collect())
+    }
+}
+
+#[async_trait]
+impl MultiSigner for MultiSignerImpl {
+    async fn get_current_epoch(&self) -> Option<Epoch> {
+        self.current_epoch
+    }
+
+    async fn update_current_epoch(&mut self, epoch: Epoch) -> Result<(), ProtocolError> {
+        debug!("Update update_current_epoch to {:?}", epoch);
+        self.current_epoch = Some(epoch);
+
+        Ok(())
+    }
+
+    /// Update protocol parameters
+    async fn update_protocol_parameters(
+        &mut self,
+        protocol_parameters: &ProtocolParameters,
+    ) -> Result<(), ProtocolError> {
+        debug!("Update protocol parameters to {:?}", protocol_parameters);
+        let epoch = self
+            .current_epoch
+            .ok_or(ProtocolError::UnavailableEpoch)?
+            .offset_to_protocol_parameters_recording_epoch();
+
+        self.protocol_parameters_store
+            .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
+            .await.with_context(|| format!("Multi Signer can not update protocol parameters '{protocol_parameters:?}' for epoch '{epoch}'"))
+            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
+
+        Ok(())
+    }
+
+    /// Compute aggregate verification key from stake distribution
+    async fn compute_aggregate_verification_key(
+        &self,
+        signers_with_stakes: &[SignerWithStake],
+        protocol_parameters: &ProtocolParameters,
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
+        let protocol_multi_signer =
+            self.create_protocol_multi_signer(signers_with_stakes, protocol_parameters)?;
+
+        Ok(protocol_multi_signer.compute_aggregate_verification_key())
+    }
+
+    async fn compute_stake_distribution_aggregate_verification_key(
+        &self,
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
+        let signers_with_stake = self.get_signers_with_stake().await?;
+        let protocol_parameters = self
+            .get_protocol_parameters()
+            .await?
+            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
+        Ok(self
+            .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
+            .await?)
+    }
+
+    async fn compute_next_stake_distribution_aggregate_verification_key(
+        &self,
+    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
+        let next_signers_with_stake = self.get_next_signers_with_stake().await?;
+        let protocol_parameters = self
+            .get_next_protocol_parameters()
+            .await?
+            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
+        Ok(self
+            .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
+            .await?)
     }
 
     /// Verify a single signature
@@ -560,26 +541,21 @@ mod tests {
     #[tokio::test]
     async fn test_multi_signer_protocol_parameters_ok() {
         let mut multi_signer = setup_multi_signer().await;
+        let protocol_parameter_store = multi_signer.protocol_parameters_store.clone();
+        let current_epoch = multi_signer.current_epoch.unwrap();
 
-        let protocol_parameters_expected = setup_protocol_parameters();
+        let protocol_parameters_expected = fake_data::protocol_parameters();
         multi_signer
-            .update_protocol_parameters(&protocol_parameters_expected)
+            .update_protocol_parameters(&protocol_parameters_expected.clone().into())
             .await
             .expect("update protocol parameters failed");
 
-        offset_epoch(
-            &mut multi_signer,
-            Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
-        )
-        .await;
-
-        let protocol_parameters = multi_signer
-            .get_protocol_parameters()
+        let protocol_parameters = protocol_parameter_store
+            .get_protocol_parameters(current_epoch.offset_to_protocol_parameters_recording_epoch())
             .await
-            .expect("protocol parameters should have been retrieved");
-        let protocol_parameters: entities::ProtocolParameters = protocol_parameters.unwrap().into();
-        let protocol_parameters_expected: entities::ProtocolParameters =
-            protocol_parameters_expected.into();
+            .expect("protocol parameters should have been retrieved")
+            .unwrap();
+
         assert_eq!(protocol_parameters_expected, protocol_parameters);
     }
 

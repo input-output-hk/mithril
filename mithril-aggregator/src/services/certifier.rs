@@ -33,6 +33,8 @@ use crate::{
     MultiSigner,
 };
 
+use crate::dependency_injection::EpochServiceWrapper;
+
 #[cfg(test)]
 use mockall::automock;
 
@@ -142,6 +144,7 @@ pub struct MithrilCertifierService {
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
     // todo: should be removed after certificate rework (we should replace the beacon with a signed entity)
     ticker_service: Arc<dyn TickerService>,
+    epoch_service: EpochServiceWrapper,
     _logger: Logger,
 }
 
@@ -156,6 +159,7 @@ impl MithrilCertifierService {
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         multi_signer: Arc<RwLock<dyn MultiSigner>>,
         ticker_service: Arc<dyn TickerService>,
+        epoch_service: EpochServiceWrapper,
         logger: Logger,
     ) -> Self {
         Self {
@@ -166,6 +170,7 @@ impl MithrilCertifierService {
             certificate_verifier,
             genesis_verifier,
             ticker_service,
+            epoch_service,
             _logger: logger,
         }
     }
@@ -307,7 +312,7 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
-        let multi_signer = self.multi_signer.write().await;
+        let multi_signer = self.multi_signer.read().await;
         let multi_signature = match multi_signer.create_multi_signature(&open_message).await? {
             None => {
                 debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
@@ -319,11 +324,11 @@ impl CertifierService for MithrilCertifierService {
             }
         };
 
+        let epoch_service = self.epoch_service.read().await;
         let signer_ids = open_message.get_signers_id();
-        // todo: use epoch service for this data
-        let signers = multi_signer
-            .get_signers_with_stake()
-            .await?
+        let signers = epoch_service
+            .current_signers_with_stake()?
+            .clone()
             .into_iter()
             .filter(|signer| signer_ids.contains(&signer.party_id))
             .collect::<Vec<_>>();
@@ -350,12 +355,7 @@ impl CertifierService for MithrilCertifierService {
         };
         let metadata = CertificateMetadata::new(
             protocol_version,
-            // TODO remove this multi_signer call ↓
-            multi_signer
-                .get_protocol_parameters()
-                .await?
-                .unwrap()
-                .into(),
+            epoch_service.current_protocol_parameters()?.clone(),
             initiated_at,
             sealed_at,
             signers,
@@ -378,9 +378,7 @@ impl CertifierService for MithrilCertifierService {
             beacon,
             metadata,
             open_message.protocol_message.clone(),
-            multi_signer
-                .compute_stake_distribution_aggregate_verification_key()
-                .await?,
+            epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(multi_signature),
         );
 
@@ -483,6 +481,7 @@ mod tests {
             let genesis_verifier = dependency_builder.get_genesis_verifier().await.unwrap();
             let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
             let ticker_service = dependency_builder.get_ticker_service().await.unwrap();
+            let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
             let logger = dependency_builder.get_logger().await.unwrap();
 
             Self::new(
@@ -493,6 +492,7 @@ mod tests {
                 genesis_verifier,
                 multi_signer,
                 ticker_service,
+                epoch_service,
                 logger,
             )
         }

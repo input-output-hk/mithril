@@ -65,14 +65,3 @@ impl From<StdError> for RuntimeError {
         }
     }
 }
-
-/// Errors returned when the runner cannot fulfil its missions with no subsystem
-/// to fail.
-#[derive(Debug, Error)]
-// TODO: Are these errors still relevant, do we need to remove them?
-#[allow(clippy::enum_variant_names)]
-pub enum RunnerError {
-    /// Missing protocol parameters
-    #[error("Missing protocol parameters: '{0}'.")]
-    MissingProtocolParameters(String),
-}

@@ -906,9 +906,9 @@ impl DependenciesBuilder {
 
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let signed_entity_storer = self.build_signed_entity_storer().await?;
-        let multi_signer = self.get_multi_signer().await?;
+        let epoch_service = self.get_epoch_service().await?;
         let mithril_stake_distribution_artifact_builder =
-            Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
+            Arc::new(MithrilStakeDistributionArtifactBuilder::new(epoch_service));
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
@@ -1172,6 +1172,7 @@ impl DependenciesBuilder {
         let genesis_verifier = self.get_genesis_verifier().await?;
         let multi_signer = self.get_multi_signer().await?;
         let ticker_service = self.get_ticker_service().await?;
+        let epoch_service = self.get_epoch_service().await?;
         let logger = self.get_logger().await?;
 
         Ok(Arc::new(MithrilCertifierService::new(
@@ -1182,6 +1183,7 @@ impl DependenciesBuilder {
             genesis_verifier,
             multi_signer,
             ticker_service,
+            epoch_service,
             logger,
         )))
     }

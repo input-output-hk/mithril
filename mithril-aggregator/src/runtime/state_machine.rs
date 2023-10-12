@@ -379,10 +379,7 @@ impl AggregatorRuntime {
 
         let certificate_pending = self
             .runner
-            .create_new_pending_certificate_from_multisigner(
-                new_beacon.clone(),
-                &open_message.signed_entity_type,
-            )
+            .create_new_pending_certificate(new_beacon.clone(), &open_message.signed_entity_type)
             .await?;
         self.runner
             .save_pending_certificate(certificate_pending.clone())
@@ -630,7 +627,7 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_create_new_pending_certificate_from_multisigner()
+            .expect_create_new_pending_certificate()
             .once()
             .returning(|_, _| Ok(fake_data::certificate_pending()));
         runner

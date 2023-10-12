@@ -1,32 +1,21 @@
 use async_trait::async_trait;
-use std::sync::Arc;
-use thiserror::Error;
-use tokio::sync::RwLock;
 
 use super::ArtifactBuilder;
-use crate::MultiSigner;
+use crate::dependency_injection::EpochServiceWrapper;
 use mithril_common::{
     entities::{Certificate, Epoch, MithrilStakeDistribution},
     StdResult,
 };
 
-/// Error linked to [MithrilStakeDistributionArtifactBuilder].
-#[derive(Debug, Error)]
-pub enum MithrilStakeDistributionArtifactBuilderError {
-    /// Protocol parameters are missing
-    #[error("Missing protocol parameter for epoch: '{0}'.")]
-    MissingProtocolParameters(Epoch),
-}
-
 /// A [MithrilStakeDistributionArtifact] builder
 pub struct MithrilStakeDistributionArtifactBuilder {
-    multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    epoch_service: EpochServiceWrapper,
 }
 
 impl MithrilStakeDistributionArtifactBuilder {
     /// MithrilStakeDistribution artifact builder factory
-    pub fn new(multi_signer: Arc<RwLock<dyn MultiSigner>>) -> Self {
-        Self { multi_signer }
+    pub fn new(epoch_service: EpochServiceWrapper) -> Self {
+        Self { epoch_service }
     }
 }
 
@@ -37,14 +26,12 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
         epoch: Epoch,
         _certificate: &Certificate,
     ) -> StdResult<MithrilStakeDistribution> {
-        let multi_signer = self.multi_signer.read().await;
-        let protocol_parameters = multi_signer.get_next_protocol_parameters().await?.ok_or(
-            MithrilStakeDistributionArtifactBuilderError::MissingProtocolParameters(epoch),
-        )?;
+        let epoch_service = self.epoch_service.read().await;
+        let protocol_parameters = epoch_service.next_protocol_parameters()?;
         Ok(MithrilStakeDistribution::new(
             epoch,
-            multi_signer.get_next_signers_with_stake().await?,
-            &protocol_parameters.into(),
+            epoch_service.next_signers_with_stake()?.clone(),
+            &protocol_parameters.clone(),
         ))
     }
 }
@@ -52,27 +39,27 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
 #[cfg(test)]
 mod tests {
     use mithril_common::{crypto_helper::ProtocolParameters, test_utils::fake_data};
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     use super::*;
 
-    use crate::multi_signer::MockMultiSigner;
+    use crate::services::FakeEpochService;
 
     #[tokio::test]
     async fn should_compute_valid_artifact() {
         let signers_with_stake = fake_data::signers_with_stakes(5);
-        let signers_with_stake_clone = signers_with_stake.clone();
         let certificate = fake_data::certificate("certificate-123".to_string());
         let protocol_parameters = fake_data::protocol_parameters();
-        let protocol_parameters_clone = protocol_parameters.clone();
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_next_signers_with_stake()
-            .return_once(move || Ok(signers_with_stake_clone));
-        mock_multi_signer
-            .expect_get_next_protocol_parameters()
-            .return_once(move || Ok(Some(protocol_parameters_clone.into())));
+        let epoch_service = FakeEpochService::with_data(
+            Epoch(1),
+            &protocol_parameters,
+            &protocol_parameters,
+            &signers_with_stake,
+            &signers_with_stake,
+        );
         let mithril_stake_distribution_artifact_builder =
-            MithrilStakeDistributionArtifactBuilder::new(Arc::new(RwLock::new(mock_multi_signer)));
+            MithrilStakeDistributionArtifactBuilder::new(Arc::new(RwLock::new(epoch_service)));
         let artifact = mithril_stake_distribution_artifact_builder
             .compute_artifact(Epoch(1), &certificate)
             .await
