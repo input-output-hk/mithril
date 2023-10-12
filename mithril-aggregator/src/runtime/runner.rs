@@ -115,7 +115,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Update the EraChecker with EraReader information.
     async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()>;
 
-    /// Certifier inform new epoch
+    /// Do cleanup needed when a new epoch is detected
+    async fn new_epoch_cleanup(&self, epoch: Epoch) -> StdResult<()>;
+
+    /// Ask services to update themselves for the new epoch
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Create new open message
@@ -497,11 +500,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
+    async fn new_epoch_cleanup(&self, epoch: Epoch) -> StdResult<()> {
         self.dependencies
             .certifier_service
             .inform_epoch(epoch)
             .await?;
+
+        Ok(())
+    }
+
+    async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
         self.dependencies
             .epoch_service
             .write()
@@ -538,7 +546,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, StakeDistribution,
+            Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
         },
         signable_builder::SignableBuilderService,
         store::StakeStorer,
@@ -872,13 +880,22 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_inform_new_epoch() {
+    async fn test_new_epoch_cleanup() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
             .returning(|_| Ok(()))
             .times(1);
         let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+        let runner = AggregatorRunner::new(Arc::new(deps));
+
+        runner.new_epoch_cleanup(Epoch(1)).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_inform_new_epoch() {
+        let deps = initialize_dependencies().await;
         let current_epoch = deps
             .chain_observer
             .get_current_epoch()
