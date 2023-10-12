@@ -114,7 +114,7 @@ impl AggregatorRuntime {
                         message: _,
                         nested_error: _,
                     } => {
-                        crit!("state machine: a critical error occurred: {e}");
+                        crit!("state machine: a critical error occurred: {e:?}");
 
                         return Err(e);
                     }
@@ -126,7 +126,7 @@ impl AggregatorRuntime {
                             "KeepState Error: {message}. Nested error: «{}».",
                             nested_error
                                 .as_ref()
-                                .map(|e| format!("{e}"))
+                                .map(|e| format!("{e:?}"))
                                 .unwrap_or("None".into())
                         );
                     }
@@ -138,7 +138,7 @@ impl AggregatorRuntime {
                             "ReInit Error: {message}. Nested error: «{}».",
                             nested_error
                                 .as_ref()
-                                .map(|e| format!("{e}"))
+                                .map(|e| format!("{e:?}"))
                                 .unwrap_or("None".into())
                         );
                         self.state = AggregatorState::Idle(IdleState {
