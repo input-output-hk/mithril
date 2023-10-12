@@ -1114,7 +1114,7 @@ impl DependenciesBuilder {
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
             protocol_parameters_store: self.get_protocol_parameters_store().await?,
-            multi_signer: self.get_multi_signer().await?,
+            verification_key_store: self.get_verification_key_store().await?,
         };
 
         Ok(dependencies)
