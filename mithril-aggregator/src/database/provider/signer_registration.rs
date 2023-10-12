@@ -9,7 +9,7 @@ use mithril_common::{
     crypto_helper::KESPeriod,
     entities::{
         Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature,
-        PartyId, Signer, SignerWithStake, Stake, StakeDistribution,
+        PartyId, Signer, SignerWithStake, Stake,
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -492,27 +492,6 @@ impl VerificationKeyStorer for SignerRegistrationStore {
             .collect::<Vec<_>>();
 
         Ok(())
-    }
-
-    async fn get_stake_distribution_for_epoch(
-        &self,
-        epoch: Epoch,
-    ) -> StdResult<Option<StakeDistribution>> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignerRegistrationRecordProvider::new(connection);
-        let cursor = provider
-            .get_by_epoch(&epoch)
-            .with_context(|| format!("get stake distribution failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
-
-        let stake_distribution = StakeDistribution::from_iter(
-            cursor.map(|r| (r.signer_id, r.stake.unwrap_or_default())),
-        );
-
-        match stake_distribution.is_empty() {
-            true => Ok(None),
-            false => Ok(Some(stake_distribution)),
-        }
     }
 }
 

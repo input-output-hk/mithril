@@ -1,4 +1,4 @@
-use mithril_common::entities::{Epoch, PartyId, Stake, StakeDistribution};
+use mithril_common::entities::{Epoch, PartyId, SignerWithStake, Stake};
 use serde::{Deserialize, Serialize};
 
 /// Message structure of signer registrations for an epoch.
@@ -25,11 +25,14 @@ pub struct SignerRegistrationsListItemMessage {
 }
 
 impl SignerRegistrationsMessage {
-    /// Build a [SignerRegistrationsMessage] from a [stake distribution][StakeDistribution].
-    pub fn new(registered_at: Epoch, stake_distribution: StakeDistribution) -> Self {
-        let registrations: Vec<SignerRegistrationsListItemMessage> = stake_distribution
+    /// Build a [SignerRegistrationsMessage] from a list of signers with stake.
+    pub fn new(registered_at: Epoch, signers_with_stake: Vec<SignerWithStake>) -> Self {
+        let registrations: Vec<SignerRegistrationsListItemMessage> = signers_with_stake
             .into_iter()
-            .map(|(party_id, stake)| SignerRegistrationsListItemMessage { party_id, stake })
+            .map(|signer| SignerRegistrationsListItemMessage {
+                party_id: signer.party_id,
+                stake: signer.stake,
+            })
             .collect();
 
         Self {

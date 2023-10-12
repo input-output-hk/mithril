@@ -4,7 +4,7 @@ use mithril_common::StdResult;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
-use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake, StakeDistribution};
+use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::store::adapter::StoreAdapter;
 
 #[cfg(test)]
@@ -38,12 +38,6 @@ pub trait VerificationKeyStorer: Sync + Send {
 
     /// Prune all verification keys that are at or below the given epoch.
     async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()>;
-
-    /// Return the parties that are stored at the given epoch.
-    async fn get_stake_distribution_for_epoch(
-        &self,
-        epoch: Epoch,
-    ) -> StdResult<Option<StakeDistribution>>;
 }
 
 /// Store for the `VerificationKey`.
@@ -126,19 +120,6 @@ impl VerificationKeyStorer for VerificationKeyStore {
 
         Ok(())
     }
-
-    async fn get_stake_distribution_for_epoch(
-        &self,
-        epoch: Epoch,
-    ) -> StdResult<Option<StakeDistribution>> {
-        let record = self.adapter.read().await.get_record(&epoch).await?;
-        Ok(record.map(|r| {
-            StakeDistribution::from_iter(
-                r.into_iter()
-                    .map(|(party_id, signer)| (party_id, signer.stake)),
-            )
-        }))
-    }
 }
 
 /// Macro that generate tests that a [VerificationKeyStorer] must pass
@@ -170,11 +151,6 @@ macro_rules! test_verification_key_storer {
             }
 
             #[tokio::test]
-            async fn get_stake_distribution_for_empty_epoch() {
-                test_suite::get_stake_distribution_for_empty_epoch(&$store_builder).await;
-            }
-
-            #[tokio::test]
             async fn get_verification_keys_for_existing_epoch() {
                 test_suite::get_verification_keys_for_existing_epoch(&$store_builder).await;
             }
@@ -182,11 +158,6 @@ macro_rules! test_verification_key_storer {
             #[tokio::test]
             async fn get_signers_for_existing_epoch() {
                 test_suite::get_signers_for_existing_epoch(&$store_builder).await;
-            }
-
-            #[tokio::test]
-            async fn get_stake_distribution_for_existing_epoch() {
-                test_suite::get_stake_distribution_for_existing_epoch(&$store_builder).await;
             }
 
             #[tokio::test]
@@ -203,7 +174,7 @@ pub(crate) use test_verification_key_storer;
 #[macro_use]
 #[cfg(test)]
 pub mod test_suite {
-    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake, StakeDistribution};
+    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
     use mithril_common::test_utils::fake_keys;
     use std::collections::{BTreeMap, BTreeSet, HashMap};
     use std::sync::Arc;
@@ -315,17 +286,6 @@ pub mod test_suite {
         assert!(res.is_none());
     }
 
-    pub async fn get_stake_distribution_for_empty_epoch(store_builder: &StoreBuilder) {
-        let signers = build_signers(2, 1);
-        let store = store_builder(signers);
-        let res = store
-            .get_stake_distribution_for_epoch(Epoch(0))
-            .await
-            .unwrap();
-
-        assert!(res.is_none());
-    }
-
     pub async fn get_verification_keys_for_existing_epoch(store_builder: &StoreBuilder) {
         let signers = build_signers(2, 2);
         let store = store_builder(signers.clone());
@@ -362,26 +322,6 @@ pub mod test_suite {
             .map(|x| BTreeSet::from_iter(x.into_iter()));
 
         assert_eq!(expected_signers, res);
-    }
-
-    pub async fn get_stake_distribution_for_existing_epoch(store_builder: &StoreBuilder) {
-        let signers = build_signers(2, 2);
-        let store = store_builder(signers.clone());
-
-        let expected: Option<StakeDistribution> = signers
-            .into_iter()
-            .filter(|(e, _)| e == 1)
-            .map(|(_, signers)| {
-                StakeDistribution::from_iter(signers.into_iter().map(|(p, s)| (p, s.stake)))
-            })
-            .next();
-        let res = store
-            .get_stake_distribution_for_epoch(Epoch(1))
-            .await
-            .unwrap()
-            .map(|x| BTreeMap::from_iter(x.into_iter()));
-
-        assert_eq!(expected, res);
     }
 
     pub async fn can_prune_keys_from_given_epoch_retention_limit(store_builder: &StoreBuilder) {
