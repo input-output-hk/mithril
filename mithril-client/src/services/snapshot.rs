@@ -19,9 +19,10 @@
 //!     let snapshot_service = DependenciesBuilder::new(config)
 //!         .get_snapshot_service()
 //!         .await?;
-//!     let snapshot_message = snapshot_service.show("DIGEST").await?;
 //!
-//!     assert_eq!("DIGEST", snapshot_message.digest);
+//!     for message in snapshot_service.list().await? {
+//!         println!("Snapshot digest = {}", message.digest);
+//!     }
 //!
 //!     Ok(())
 //! }

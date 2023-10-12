@@ -41,14 +41,16 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          build-args: --features bundle_openssl
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --features build-binary
+          libraries-build-args: --package mithril-stm --package mithril-client
+          common-build-args: --features bundle_openssl
 
       - name: Build Debian packages
         shell: bash
         run: |
-          cargo deb --no-build -p mithril-aggregator
-          cargo deb --no-build -p mithril-signer
-          cargo deb --no-build -p mithril-client
+          cargo deb --no-build --package mithril-aggregator
+          cargo deb --no-build --package mithril-signer
+          cargo deb --no-build --package mithril-client
       
       - name: Publish Debian packages
         uses: actions/upload-artifact@v3
@@ -80,9 +82,15 @@ jobs:
         include:
         # Only build client on windows & mac
         - os: macos-12
-          build-args: -p mithril-client
+          binaries-build-args: --bin mithril-client --features build-binary
+          libraries-build-args: --package mithril-stm --package mithril-client
+          common-build-args: --features bundle_openssl
         - os: windows-latest
-          build-args: -p mithril-client 
+          # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
+          # hack in mithril common cargo.toml doesn't apply (we have no idea why).
+          binaries-build-args: --bins --package mithril-client --features build-binary
+          libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend
+          common-build-args: --features bundle_openssl
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -97,7 +105,9 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          build-args: --features bundle_openssl ${{ matrix.build-args }}
+          binaries-build-args: ${{ matrix.binaries-build-args }}
+          libraries-build-args: ${{ matrix.libraries-build-args }}
+          common-build-args: ${{ matrix.common-build-args }}
   
   test:
     strategy:

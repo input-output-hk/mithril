@@ -15,6 +15,7 @@
 //!     println!("Snapshot id={}, size={}", snapshot.digest, snapshot.size);
 //!
 //!     Ok(())
+//! }
 //! ```
 //!
 use std::sync::Arc;

@@ -14,11 +14,18 @@ name = "mithril-client"
 required-features = ["build-binary"]
 
 [lib]
-# Explicit name otherwise cargo deb crash because it will search for
-# 'libmithril-client' but rust lib by default compile the lib with the name
-# 'libmithril_client' (note the underscore instead of a hyphen).
 crate-type = ["lib", "cdylib", "staticlib"]
-name = "mithril_client"
+
+[package.metadata.deb]
+depends = "$auto"
+section = "utility"
+features = ["build-binary"]
+extended-description = """Shows, downloads and verifies certified blockchain artifacts.
+
+Run `mithril-client --help` to display the available options."""
+assets = [
+    ["../target/release/mithril-client", "usr/bin/", "755"],
+]
 
 [dependencies]
 anyhow = "1.0.75"
@@ -60,9 +67,6 @@ httpmock = "0.6.8"
 mithril-common = { path = "../mithril-common" }
 mockall = "0.11.4"
 warp = "0.3"
-
-[target.'cfg(windows)'.dependencies]
-mithril-common = { path = "../mithril-common", features = [ "windows-compat" ] }
 
 [features]
 portable = ["mithril-common/portable"]
