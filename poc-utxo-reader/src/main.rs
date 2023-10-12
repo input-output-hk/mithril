@@ -1,13 +1,8 @@
-#![allow(unused_imports)]
-#![allow(unused_variables)]
-#![allow(dead_code)]
-use pallas::{
-    codec::minicbor::{decode::Tokenizer, Decoder},
-    ledger::traverse::{
-        probe::{block_era, Outcome},
-        Era, MultiEraBlock, MultiEraInput, MultiEraOutput,
-    },
+use pallas::ledger::traverse::{
+    probe::{block_era, Outcome},
+    MultiEraBlock,
 };
+use poc_utxo_reader::ledger::*;
 use rayon::prelude::*;
 use std::{
     cmp::min,
@@ -16,55 +11,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-type SlotNumber = u64;
-type BlockNumber = u64;
-type Address = String;
-type Lovelace = u64;
-type TransactionHash = String;
-type TransactionIndex = u64;
 type StdResult<T> = Result<T, String>;
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-struct TransactionInput {
-    hash: TransactionHash,
-    index: TransactionIndex,
-}
-
-#[derive(Debug)]
-struct TransactionOutput {
-    hash: TransactionHash,
-    index: TransactionIndex,
-    address: Address,
-    amount: Lovelace,
-}
-
-impl From<&TransactionOutput> for TransactionInput {
-    fn from(value: &TransactionOutput) -> Self {
-        TransactionInput {
-            hash: value.hash.to_owned(),
-            index: value.index,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Transaction {
-    hash: TransactionHash,
-    inputs: Vec<TransactionInput>,
-    outputs: Vec<TransactionOutput>,
-}
-
-#[derive(Debug)]
-struct Block {
-    era: Era,
-    number: BlockNumber,
-    slot: SlotNumber,
-    transactions: Vec<Transaction>,
-    total_transactions: u64,
-}
-
-type AddressTransactionHistory = BTreeMap<Address, Vec<TransactionHash>>;
-type UnspentTransactionxOutput = HashMap<TransactionInput, Address>;
 
 fn main() -> StdResult<()> {
     let immutable_directory_path = "./db/preprod/immutable";
@@ -74,6 +21,9 @@ fn main() -> StdResult<()> {
 
     let blocks_by_immutable_file: BTreeMap<_, _> = immutable_chunk_file_paths
         .par_iter()
+        .rev()
+        .take(10)
+        .rev()
         .map(|immutable_chunk_file_path| {
             (
                 immutable_chunk_file_path,
