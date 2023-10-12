@@ -4492,6 +4492,8 @@ dependencies = [
 name = "poc-utxo-reader"
 version = "0.0.1"
 dependencies = [
+ "anyhow",
+ "hex",
  "pallas",
  "rayon",
 ]

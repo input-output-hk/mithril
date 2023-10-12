@@ -10,5 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
+anyhow = "1.0.75"
+hex = "0.4.3"
 pallas = "0.19.1"
 rayon = "1.8.0"

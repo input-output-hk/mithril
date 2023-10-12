@@ -1,204 +1,87 @@
-use pallas::ledger::traverse::{
-    probe::{block_era, Outcome},
-    MultiEraBlock,
-};
-use poc_utxo_reader::ledger::*;
+use poc_utxo_reader::{errors::*, immutable_parser::*, ledger::*};
 use rayon::prelude::*;
 use std::{
-    cmp::min,
-    collections::{BTreeMap, HashMap},
-    fs,
+    collections::BTreeMap,
     path::{Path, PathBuf},
 };
 
-type StdResult<T> = Result<T, String>;
-
 fn main() -> StdResult<()> {
-    let immutable_directory_path = "./db/preprod/immutable";
+    let immutable_directory_path = "./db/preprod-500/immutable";
     eprintln!(">> Scanning {immutable_directory_path:?} immutable files...");
 
-    let immutable_chunk_file_paths = list_immutable_files(Path::new(immutable_directory_path))?;
+    let max_immutable_files = 10000;
+    let immutable_chunk_file_paths: Vec<_> =
+        list_immutable_files(Path::new(immutable_directory_path))?
+            .into_iter()
+            .take(max_immutable_files)
+            .collect();
 
+    let fast_compute = false;
+    let ledger = if fast_compute {
+        compute_ledger_parallel(&immutable_chunk_file_paths)?
+    } else {
+        compute_ledger_sequential(&immutable_chunk_file_paths)?
+    };
+
+    println!(
+        "Ledger history: {:#?}",
+        ledger.get_transactions_for_all_addresses_()
+    );
+
+    Ok(())
+}
+
+/// Compute ledger with sequential parsing of blocks from immutable files (slower, less memory usage)
+fn compute_ledger_sequential(immutable_chunk_file_paths: &[PathBuf]) -> StdResult<Ledger> {
+    let mut ledger = Ledger::default();
+    for immutable_chunk_file_path in immutable_chunk_file_paths {
+        eprintln!(
+            ">> Compute addresses transaction history for blocks from {immutable_chunk_file_path:?}",
+        );
+        let blocks = read_blocks_from_immutable_file(immutable_chunk_file_path).unwrap();
+
+        verify_blocks(blocks.iter().collect())?;
+
+        let transactions: Vec<_> = blocks
+            .into_iter()
+            .flat_map(|block| block.transactions)
+            .collect();
+        ledger.save_transactions(&transactions)?;
+    }
+
+    Ok(ledger)
+}
+
+/// Compute ledger with parallelized parsing of blocks from immutable files (faster, nore memory usage)
+fn compute_ledger_parallel(immutable_chunk_file_paths: &[PathBuf]) -> StdResult<Ledger> {
     let blocks_by_immutable_file: BTreeMap<_, _> = immutable_chunk_file_paths
         .par_iter()
-        .rev()
-        .take(10)
-        .rev()
         .map(|immutable_chunk_file_path| {
             (
                 immutable_chunk_file_path,
-                read_immutable_file(immutable_chunk_file_path).unwrap(),
+                read_blocks_from_immutable_file(immutable_chunk_file_path).unwrap(),
             )
         })
         .collect();
-    let (total_blocks, total_transactions) = blocks_by_immutable_file
-        .iter()
-        .flat_map(|blocks| blocks.1)
-        .fold((0, 0), |acc, block| {
-            (acc.0 + 1, acc.1 + block.total_transactions)
-        });
-    eprintln!(
-        ">> Found {total_blocks} blocks with {total_transactions} transactions in {} immutable files",
-        immutable_chunk_file_paths.len()
-    );
 
-    let mut transactions_history: AddressTransactionHistory = BTreeMap::new();
-    for (immutable_file_path, blocks) in &blocks_by_immutable_file {
+    verify_blocks(
+        blocks_by_immutable_file
+            .iter()
+            .flat_map(|blocks| blocks.1)
+            .collect(),
+    )?;
+
+    let mut ledger = Ledger::default();
+    for (immutable_file_path, blocks) in blocks_by_immutable_file {
         eprintln!(
             ">> Compute addresses transaction history for blocks from {immutable_file_path:?}",
         );
-        compute_transaction_history_from_blocks(&mut transactions_history, blocks)?;
-    }
-    println!("{:#?}", transactions_history);
-
-    Ok(())
-}
-
-fn list_immutable_files(directory_path: &Path) -> StdResult<Vec<PathBuf>> {
-    let entries = fs::read_dir(directory_path).unwrap();
-    let mut immutable_chunk_file_paths = Vec::new();
-    for entry in entries {
-        let path = entry.unwrap().path();
-        let extension = path.extension().unwrap();
-        if extension.to_str().unwrap() == "chunk" {
-            immutable_chunk_file_paths.push(path);
-        }
-    }
-    immutable_chunk_file_paths.sort();
-    immutable_chunk_file_paths.pop().unwrap(); // Keep only up to penultimate chunk
-
-    Ok(immutable_chunk_file_paths)
-}
-
-fn read_immutable_file(file_path: &Path) -> StdResult<Vec<Block>> {
-    let cbor = fs::read(file_path).expect("Should have been able to read the file");
-
-    let mut blocks_start_byte_index: Vec<_> = (0..cbor.len())
-        .filter(|&byte_index| {
-            let cbor_header_maybe = &cbor[byte_index..min(byte_index + 2, cbor.len())];
-            match block_era(cbor_header_maybe) {
-                Outcome::Matched(_) | Outcome::EpochBoundary => true,
-                Outcome::Inconclusive => false,
-            }
-        })
-        .collect();
-    blocks_start_byte_index.push(cbor.len() + 1);
-
-    let mut blocks = Vec::new();
-    let mut last_start_byte_index = 0;
-    for block_start_index in blocks_start_byte_index.into_iter().skip(1) {
-        let maybe_end_byte_index = min(block_start_index, cbor.len());
-        if let Ok(multi_era_block) =
-            MultiEraBlock::decode(&cbor[last_start_byte_index..maybe_end_byte_index])
-        {
-            let block = convert_multi_era_block_to_block(multi_era_block)?;
-            blocks.push(block);
-            last_start_byte_index = block_start_index;
-        }
+        let transactions: Vec<_> = blocks
+            .into_iter()
+            .flat_map(|block| block.transactions)
+            .collect();
+        ledger.save_transactions(&transactions)?;
     }
 
-    eprintln!(
-        ">>>> Found {} blocks in {:?} immutable file",
-        blocks.len(),
-        file_path
-    );
-
-    Ok(blocks)
-}
-
-fn convert_multi_era_block_to_block(multi_era_block: MultiEraBlock) -> StdResult<Block> {
-    let mut transactions = Vec::new();
-    for tx in &multi_era_block.txs() {
-        let tx_hash = tx.hash();
-        let mut transactions_inputs = Vec::new();
-        for tx_input in tx.consumes() {
-            transactions_inputs.push(TransactionInput {
-                hash: tx_input.hash().to_string(),
-                index: tx_input.index(),
-            });
-        }
-        let mut transactions_outputs = Vec::new();
-        for (index, tx_output) in tx.produces() {
-            let address = match tx_output.address().unwrap().to_bech32() {
-                Ok(address) => address,
-                Err(_) => tx_output.address().unwrap().to_hex(),
-            };
-            transactions_outputs.push(TransactionOutput {
-                hash: tx_hash.to_string(),
-                index: index as u64,
-                address,
-                amount: tx_output.lovelace_amount(),
-            });
-        }
-        let transaction = Transaction {
-            hash: tx_hash.to_string(),
-            inputs: transactions_inputs,
-            outputs: transactions_outputs,
-        };
-        transactions.push(transaction);
-    }
-    let block = Block {
-        era: multi_era_block.era(),
-        number: multi_era_block.number(),
-        slot: multi_era_block.slot(),
-        transactions,
-        total_transactions: multi_era_block.tx_count() as u64,
-    };
-
-    Ok(block)
-}
-
-fn compute_transaction_history_from_blocks(
-    transactions_history: &mut AddressTransactionHistory,
-    blocks: &[Block],
-) -> StdResult<()> {
-    let save_transaction_for_address =
-        |transactions_history: &mut AddressTransactionHistory, address, transaction_hash| {
-            if let Some(transactions_history_address) = transactions_history.get_mut(&address) {
-                if !transactions_history_address.contains(&transaction_hash) {
-                    transactions_history_address.push(transaction_hash);
-                }
-            } else {
-                transactions_history.insert(address, vec![transaction_hash]);
-            }
-        };
-
-    let mut unspent_transaction_outputs: UnspentTransactionxOutput = HashMap::new();
-    let save_unspent_transaction_output =
-        |unspent_transaction_outputs: &mut UnspentTransactionxOutput,
-         tx_output: &TransactionOutput| {
-            let address = tx_output.address.to_owned();
-            let tx_input = tx_output.into();
-            unspent_transaction_outputs.insert(tx_input, address.to_owned());
-        };
-    let delete_unspent_transaction_output =
-        |unspent_transaction_outputs: &mut UnspentTransactionxOutput,
-         tx_input: &TransactionInput| {
-            unspent_transaction_outputs.remove(tx_input);
-        };
-
-    for block in blocks {
-        for tx in &block.transactions {
-            for tx_input in &tx.inputs {
-                if let Some(address) = unspent_transaction_outputs.get(tx_input) {
-                    save_transaction_for_address(
-                        transactions_history,
-                        address.to_owned(),
-                        tx.hash.to_owned(),
-                    );
-                }
-                delete_unspent_transaction_output(&mut unspent_transaction_outputs, tx_input);
-            }
-            for tx_output in &tx.outputs {
-                save_transaction_for_address(
-                    transactions_history,
-                    tx_output.address.to_owned(),
-                    tx_output.hash.to_owned(),
-                );
-                save_unspent_transaction_output(&mut unspent_transaction_outputs, tx_output);
-            }
-        }
-    }
-
-    Ok(())
+    Ok(ledger)
 }
