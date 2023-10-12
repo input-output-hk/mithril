@@ -188,14 +188,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: no open message found, a new one will be created";
                     "signed_entity_type" => ?signed_entity_type
                 );
-                // In order to fix flakiness in the end to end tests, we are
-                // compelled to update the beacon (of the multi-signer) This
-                // avoids the computation of the next AVK on the wrong epoch (in
-                // 'compute_protocol_message')
-                // TODO: remove 'current_beacon' from the multi-signer state
-                // which will avoid this fix
-                let chain_beacon: Beacon = self.get_beacon_from_chain().await?;
-                self.update_beacon(&chain_beacon).await?;
                 let protocol_message = self.compute_protocol_message(signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
 
                 Some(
@@ -339,12 +331,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
 
-        let multi_signer = self.dependencies.multi_signer.write().await;
+        let epoch_service = self.dependencies.epoch_service.read().await;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            multi_signer
-                .compute_next_stake_distribution_aggregate_verification_key()
-                .await?
+            epoch_service
+                .next_aggregate_verification_key()?
                 .to_json_hex()
                 .with_context(|| "convert next avk to json hex failure")?,
         );
@@ -760,7 +751,6 @@ pub mod tests {
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
         let signed_entity_type = SignedEntityType::dummy();
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -800,8 +790,6 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
 
         runner
@@ -818,8 +806,6 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
         deps.certificate_pending_store
             .save(pending_certificate.clone())
@@ -837,8 +823,6 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
 
         let cert = runner.drop_pending_certificate().await.unwrap();
         assert_eq!(None, cert);
@@ -915,6 +899,13 @@ pub mod tests {
         deps.certifier_service = Arc::new(mock_certifier_service);
 
         let runner = build_runner_with_fixture_data(deps).await;
+        let current_epoch = runner
+            .dependencies
+            .ticker_service
+            .get_current_epoch()
+            .await
+            .unwrap();
+        runner.inform_new_epoch(current_epoch).await.unwrap();
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
@@ -1038,6 +1029,13 @@ pub mod tests {
         deps.signable_builder_service = Arc::new(mock_signable_builder_service);
 
         let runner = build_runner_with_fixture_data(deps).await;
+        let current_epoch = runner
+            .dependencies
+            .ticker_service
+            .get_current_epoch()
+            .await
+            .unwrap();
+        runner.inform_new_epoch(current_epoch).await.unwrap();
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
