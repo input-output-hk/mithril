@@ -564,6 +564,7 @@ pub mod tests {
             &[
                 current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
                 current_epoch,
+                current_epoch.next(),
             ],
         )
         .await;

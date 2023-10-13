@@ -55,6 +55,7 @@ mod tests {
             Epoch(1),
             &protocol_parameters,
             &protocol_parameters,
+            &protocol_parameters,
             &signers_with_stake,
             &signers_with_stake,
         );

@@ -459,9 +459,9 @@ impl CertifierService for MithrilCertifierService {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
-        dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner, Configuration,
+        dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner,
+        services::FakeEpochService, Configuration,
     };
     use mithril_common::{
         entities::{Beacon, ProtocolMessagePartKey},
@@ -507,6 +507,12 @@ mod tests {
         let configuration = Configuration::new_sample();
         let mut dependency_builder = DependenciesBuilder::new(configuration);
 
+        if let Some(epoch) = current_epoch {
+            dependency_builder.epoch_service = Some(Arc::new(RwLock::new(
+                FakeEpochService::from_fixture(epoch, fixture),
+            )));
+        }
+
         let dependency_manager = dependency_builder
             .build_dependency_container()
             .await
@@ -514,14 +520,6 @@ mod tests {
         dependency_manager
             .init_state_from_fixture(fixture, epochs_with_signers)
             .await;
-
-        if let Some(epoch) = current_epoch {
-            let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
-            let mut epoch_service = epoch_service.write().await;
-
-            epoch_service.inform_epoch(epoch).await.unwrap();
-            epoch_service.precompute_epoch_data().await.unwrap();
-        }
 
         MithrilCertifierService::from_deps(dependency_builder).await
     }

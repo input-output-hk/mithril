@@ -49,11 +49,14 @@ pub trait EpochService: Sync + Send {
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
-    /// Get protocol parameters for current epoch
+    /// Get protocol parameters used in current epoch (associated with the previous epoch)
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
 
-    /// Get next protocol parameters for next epoch
+    /// Get next protocol parameters used in next epoch (associated with the actual epoch)
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+
+    /// Get upcoming protocol parameters used in next epoch (associated with the next epoch)
+    fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
 
     /// Get aggregate verification key for current epoch
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey>;
@@ -75,6 +78,7 @@ struct EpochData {
     epoch: Epoch,
     protocol_parameters: ProtocolParameters,
     next_protocol_parameters: ProtocolParameters,
+    upcoming_protocol_parameters: ProtocolParameters,
     signers: Vec<SignerWithStake>,
     next_signers: Vec<SignerWithStake>,
 }
@@ -120,6 +124,21 @@ impl MithrilEpochService {
         Ok(signers)
     }
 
+    async fn get_protocol_parameters(
+        &self,
+        epoch: Epoch,
+        name: &str,
+    ) -> StdResult<ProtocolParameters> {
+        let parameters = self
+            .protocol_parameters_store
+            .get_protocol_parameters(epoch)
+            .await
+            .with_context(|| format!("Epoch service failed to obtain {name}"))?
+            .ok_or(EpochServiceError::UnavailableData(epoch, name.to_string()))?;
+
+        Ok(parameters)
+    }
+
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
         self.epoch_data
             .as_ref()
@@ -146,23 +165,17 @@ impl EpochService for MithrilEpochService {
             })?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
         let current_protocol_parameters = self
-            .protocol_parameters_store
-            .get_protocol_parameters(signer_retrieval_epoch)
-            .await
-            .with_context(|| "Epoch service failed to obtains current protocol parameters")?
-            .ok_or(EpochServiceError::UnavailableData(
-                signer_retrieval_epoch,
-                "protocol parameters".to_string(),
-            ))?;
+            .get_protocol_parameters(signer_retrieval_epoch, "current protocol parameters")
+            .await?;
         let next_protocol_parameters = self
-            .protocol_parameters_store
-            .get_protocol_parameters(next_signer_retrieval_epoch)
-            .await
-            .with_context(|| "Epoch service failed to obtains next protocol parameters")?
-            .ok_or(EpochServiceError::UnavailableData(
-                signer_retrieval_epoch,
-                "protocol parameters".to_string(),
-            ))?;
+            .get_protocol_parameters(next_signer_retrieval_epoch, "next protocol parameters")
+            .await?;
+        let upcoming_protocol_parameters = self
+            .get_protocol_parameters(
+                next_signer_retrieval_epoch.next(),
+                "upcoming protocol parameters",
+            )
+            .await?;
 
         let current_signers = self
             .get_signers_with_stake_at_epoch(signer_retrieval_epoch)
@@ -175,6 +188,7 @@ impl EpochService for MithrilEpochService {
             epoch,
             protocol_parameters: current_protocol_parameters,
             next_protocol_parameters,
+            upcoming_protocol_parameters,
             signers: current_signers,
             next_signers,
         });
@@ -221,6 +235,10 @@ impl EpochService for MithrilEpochService {
         Ok(&self.unwrap_data()?.next_protocol_parameters)
     }
 
+    fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self.unwrap_data()?.upcoming_protocol_parameters)
+    }
+
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
         Ok(&self.unwrap_computed_data()?.aggregate_verification_key)
     }
@@ -258,6 +276,7 @@ impl FakeEpochService {
         epoch: Epoch,
         protocol_parameters: &ProtocolParameters,
         next_protocol_parameters: &ProtocolParameters,
+        upcoming_protocol_parameters: &ProtocolParameters,
         signers: &[SignerWithStake],
         next_signers: &[SignerWithStake],
     ) -> Self {
@@ -275,6 +294,7 @@ impl FakeEpochService {
                 epoch,
                 protocol_parameters: protocol_parameters.clone(),
                 next_protocol_parameters: next_protocol_parameters.clone(),
+                upcoming_protocol_parameters: upcoming_protocol_parameters.clone(),
                 signers: signers.to_vec(),
                 next_signers: next_signers.to_vec(),
             }),
@@ -296,6 +316,7 @@ impl FakeEpochService {
     ) -> Self {
         Self::with_data(
             epoch,
+            &fixture.protocol_parameters(),
             &fixture.protocol_parameters(),
             &fixture.protocol_parameters(),
             &fixture.signers_with_stake(),
@@ -366,6 +387,10 @@ impl EpochService for FakeEpochService {
         Ok(&self.unwrap_data()?.next_protocol_parameters)
     }
 
+    fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self.unwrap_data()?.upcoming_protocol_parameters)
+    }
+
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
         Ok(&self.unwrap_computed_data()?.aggregate_verification_key)
     }
@@ -391,7 +416,7 @@ impl EpochService for FakeEpochService {
 mod tests {
     use mithril_common::entities::PartyId;
     use mithril_common::store::adapter::MemoryAdapter;
-    use mithril_common::test_utils::{MithrilFixture, MithrilFixtureBuilder};
+    use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use std::collections::{BTreeSet, HashMap};
 
     use crate::{ProtocolParametersStore, VerificationKeyStore};
@@ -403,6 +428,7 @@ mod tests {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
+        upcoming_protocol_parameters: ProtocolParameters,
         signers: BTreeSet<SignerWithStake>,
         next_signers: BTreeSet<SignerWithStake>,
     }
@@ -419,6 +445,7 @@ mod tests {
                 epoch: service.epoch_of_current_data()?,
                 protocol_parameters: service.current_protocol_parameters()?.clone(),
                 next_protocol_parameters: service.next_protocol_parameters()?.clone(),
+                upcoming_protocol_parameters: service.upcoming_protocol_parameters()?.clone(),
                 signers: service
                     .current_signers_with_stake()?
                     .clone()
@@ -456,6 +483,7 @@ mod tests {
         epoch: Epoch,
         current_epoch_fixture: &MithrilFixture,
         next_epoch_fixture: &MithrilFixture,
+        upcoming_protocol_parameters: &ProtocolParameters,
     ) -> MithrilEpochService {
         let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch().unwrap();
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
@@ -470,6 +498,10 @@ mod tests {
                     (
                         next_signer_retrieval_epoch,
                         next_epoch_fixture.protocol_parameters(),
+                    ),
+                    (
+                        next_signer_retrieval_epoch.next(),
+                        upcoming_protocol_parameters.clone(),
                     ),
                 ]))
                 .unwrap(),
@@ -500,9 +532,16 @@ mod tests {
             .with_protocol_parameters(ProtocolParameters::new(8, 80, 0.80))
             .with_signers(5)
             .build();
+        let upcoming_protocol_parameters = fake_data::protocol_parameters();
 
         let epoch = Epoch(5);
-        let mut service = build_service(epoch, &current_epoch_fixture, &next_epoch_fixture).await;
+        let mut service = build_service(
+            epoch,
+            &current_epoch_fixture,
+            &next_epoch_fixture,
+            &upcoming_protocol_parameters,
+        )
+        .await;
 
         service
             .inform_epoch(epoch)
@@ -519,6 +558,7 @@ mod tests {
                 epoch,
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                upcoming_protocol_parameters,
                 signers: current_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
@@ -540,7 +580,13 @@ mod tests {
             .build();
 
         let epoch = Epoch(5);
-        let mut service = build_service(epoch, &current_epoch_fixture, &next_epoch_fixture).await;
+        let mut service = build_service(
+            epoch,
+            &current_epoch_fixture,
+            &next_epoch_fixture,
+            &fake_data::protocol_parameters(),
+        )
+        .await;
 
         service
             .inform_epoch(epoch)
@@ -569,7 +615,8 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let avk = fixture.compute_avk();
         let epoch = Epoch(4);
-        let mut service = build_service(epoch, &fixture, &fixture).await;
+        let mut service =
+            build_service(epoch, &fixture, &fixture, &fake_data::protocol_parameters()).await;
         service.computed_epoch_data = Some(ComputedEpochData {
             aggregate_verification_key: avk.clone(),
             next_aggregate_verification_key: avk.clone(),
@@ -592,7 +639,13 @@ mod tests {
     #[tokio::test]
     async fn cant_get_data_if_inform_epoch_has_not_been_called() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let service = build_service(Epoch(4), &fixture, &fixture).await;
+        let service = build_service(
+            Epoch(4),
+            &fixture,
+            &fixture,
+            &fake_data::protocol_parameters(),
+        )
+        .await;
 
         for (name, res) in [
             (
@@ -606,6 +659,10 @@ mod tests {
             (
                 "next_protocol_parameters",
                 service.next_protocol_parameters().err(),
+            ),
+            (
+                "upcoming_protocol_parameters",
+                service.upcoming_protocol_parameters().err(),
             ),
             (
                 "current_signers_with_stake",
@@ -642,12 +699,19 @@ mod tests {
     async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data(
     ) {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut service = build_service(Epoch(4), &fixture, &fixture).await;
+        let mut service = build_service(
+            Epoch(4),
+            &fixture,
+            &fixture,
+            &fake_data::protocol_parameters(),
+        )
+        .await;
         service.inform_epoch(Epoch(4)).await.unwrap();
 
         assert!(service.epoch_of_current_data().is_ok());
         assert!(service.current_protocol_parameters().is_ok());
         assert!(service.next_protocol_parameters().is_ok());
+        assert!(service.upcoming_protocol_parameters().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());
 

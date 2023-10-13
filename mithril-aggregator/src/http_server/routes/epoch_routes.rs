@@ -38,8 +38,8 @@ mod handlers {
 
         match (
             epoch_service.epoch_of_current_data(),
-            epoch_service.current_protocol_parameters(),
             epoch_service.next_protocol_parameters(),
+            epoch_service.upcoming_protocol_parameters(),
         ) {
             (Ok(epoch), Ok(protocol_parameters), Ok(next_protocol_parameters)) => {
                 let epoch_settings = EpochSettings {
