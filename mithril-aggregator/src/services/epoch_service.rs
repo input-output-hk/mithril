@@ -91,6 +91,8 @@ struct ComputedEpochData {
 
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
+    /// Protocol parameters that will be inserted when inform_epoch is called
+    future_protocol_parameters: ProtocolParameters,
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
@@ -100,10 +102,12 @@ pub struct MithrilEpochService {
 impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
+        future_protocol_parameters: ProtocolParameters,
         protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Self {
         Self {
+            future_protocol_parameters,
             epoch_data: None,
             computed_epoch_data: None,
             protocol_parameters_store,
@@ -139,6 +143,25 @@ impl MithrilEpochService {
         Ok(parameters)
     }
 
+    async fn insert_future_protocol_parameters(&self, actual_epoch: Epoch) -> StdResult<()> {
+        let recording_epoch = actual_epoch.offset_to_protocol_parameters_recording_epoch();
+
+        debug!(
+            "EpochService: inserting protocol parameters in epoch {}",
+            recording_epoch;
+            "protocol_parameters" => ?self.future_protocol_parameters
+        );
+
+        self.protocol_parameters_store
+            .save_protocol_parameters(
+                recording_epoch,
+                self.future_protocol_parameters.clone(),
+            )
+            .await
+            .with_context(|| format!("Epoch service failed to insert future_protocol_parameters to epoch {recording_epoch}"))
+            .map(|_| ())
+    }
+
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
         self.epoch_data
             .as_ref()
@@ -159,11 +182,14 @@ impl EpochService for MithrilEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
         debug!("EpochService::inform_epoch(epoch: {epoch:?})");
 
+        self.insert_future_protocol_parameters(epoch).await?;
+
         let signer_retrieval_epoch =
             epoch.offset_to_signer_retrieval_epoch().with_context(|| {
                 format!("EpochService could not compute signer retrieval epoch from epoch: {epoch}")
             })?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
+
         let current_protocol_parameters = self
             .get_protocol_parameters(signer_retrieval_epoch, "current protocol parameters")
             .await?;
@@ -419,6 +445,7 @@ mod tests {
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use std::collections::{BTreeSet, HashMap};
 
+    use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;
     use crate::{ProtocolParametersStore, VerificationKeyStore};
 
     use super::*;
@@ -479,14 +506,38 @@ mod tests {
             .collect()
     }
 
+    enum ServiceBuilderParameters {
+        DifferentFixtureForSecondEpoch(MithrilFixture),
+        UpcomingProtocolParameters(ProtocolParameters),
+        WithFutureProtocolParameters(ProtocolParameters),
+    }
+
+    /// By default will copy data from the given fixture for all epochs, can be fined tuned
+    /// with the [ServiceBuilderParameters].
     async fn build_service(
         epoch: Epoch,
         current_epoch_fixture: &MithrilFixture,
-        next_epoch_fixture: &MithrilFixture,
-        upcoming_protocol_parameters: &ProtocolParameters,
+        additional_params: &[ServiceBuilderParameters],
     ) -> MithrilEpochService {
         let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch().unwrap();
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
+        let mut next_epoch_fixture = current_epoch_fixture;
+        let mut upcoming_protocol_parameters = current_epoch_fixture.protocol_parameters();
+        let mut future_protocol_parameters = current_epoch_fixture.protocol_parameters();
+
+        for params in additional_params {
+            match params {
+                ServiceBuilderParameters::DifferentFixtureForSecondEpoch(fixture) => {
+                    next_epoch_fixture = fixture
+                }
+                ServiceBuilderParameters::UpcomingProtocolParameters(params) => {
+                    upcoming_protocol_parameters = params.clone()
+                }
+                ServiceBuilderParameters::WithFutureProtocolParameters(params) => {
+                    future_protocol_parameters = params.clone()
+                }
+            }
+        }
 
         let protocol_parameters_store = ProtocolParametersStore::new(
             Box::new(
@@ -522,7 +573,11 @@ mod tests {
             .unwrap(),
         ));
 
-        MithrilEpochService::new(Arc::new(protocol_parameters_store), Arc::new(vkey_store))
+        MithrilEpochService::new(
+            future_protocol_parameters,
+            Arc::new(protocol_parameters_store),
+            Arc::new(vkey_store),
+        )
     }
 
     #[tokio::test]
@@ -538,8 +593,14 @@ mod tests {
         let mut service = build_service(
             epoch,
             &current_epoch_fixture,
-            &next_epoch_fixture,
-            &upcoming_protocol_parameters,
+            &[
+                ServiceBuilderParameters::DifferentFixtureForSecondEpoch(
+                    next_epoch_fixture.clone(),
+                ),
+                ServiceBuilderParameters::UpcomingProtocolParameters(
+                    upcoming_protocol_parameters.clone(),
+                ),
+            ],
         )
         .await;
 
@@ -583,8 +644,9 @@ mod tests {
         let mut service = build_service(
             epoch,
             &current_epoch_fixture,
-            &next_epoch_fixture,
-            &fake_data::protocol_parameters(),
+            &[ServiceBuilderParameters::DifferentFixtureForSecondEpoch(
+                next_epoch_fixture.clone(),
+            )],
         )
         .await;
 
@@ -615,8 +677,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let avk = fixture.compute_avk();
         let epoch = Epoch(4);
-        let mut service =
-            build_service(epoch, &fixture, &fixture, &fake_data::protocol_parameters()).await;
+        let mut service = build_service(epoch, &fixture, &[]).await;
         service.computed_epoch_data = Some(ComputedEpochData {
             aggregate_verification_key: avk.clone(),
             next_aggregate_verification_key: avk.clone(),
@@ -637,15 +698,45 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cant_get_data_if_inform_epoch_has_not_been_called() {
+    async fn inform_epoch_insert_future_protocol_parameters_in_the_store() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let service = build_service(
-            Epoch(4),
+        let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
+        let epoch = Epoch(4);
+        let mut service = build_service(
+            epoch,
             &fixture,
-            &fixture,
-            &fake_data::protocol_parameters(),
+            &[WithFutureProtocolParameters(
+                future_protocol_parameters.clone(),
+            )],
         )
         .await;
+
+        service
+            .inform_epoch(epoch)
+            .await
+            .expect("inform_epoch should not fail");
+
+        let inserted_protocol_parameters = service
+            .protocol_parameters_store
+            .get_protocol_parameters(epoch.offset_to_protocol_parameters_recording_epoch())
+            .await
+            .unwrap_or_else(|_| {
+                panic!(
+                    "protocol parameters should have been inserted for epoch {}",
+                    epoch.offset_to_protocol_parameters_recording_epoch()
+                )
+            });
+
+        assert_eq!(
+            inserted_protocol_parameters,
+            Some(future_protocol_parameters)
+        );
+    }
+
+    #[tokio::test]
+    async fn cant_get_data_if_inform_epoch_has_not_been_called() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let service = build_service(Epoch(4), &fixture, &[]).await;
 
         for (name, res) in [
             (
@@ -699,13 +790,7 @@ mod tests {
     async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data(
     ) {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut service = build_service(
-            Epoch(4),
-            &fixture,
-            &fixture,
-            &fake_data::protocol_parameters(),
-        )
-        .await;
+        let mut service = build_service(Epoch(4), &fixture, &[]).await;
         service.inform_epoch(Epoch(4)).await.unwrap();
 
         assert!(service.epoch_of_current_data().is_ok());

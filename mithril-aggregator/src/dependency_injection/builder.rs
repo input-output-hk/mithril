@@ -941,6 +941,7 @@ impl DependenciesBuilder {
         let protocol_parameters_store = self.get_protocol_parameters_store().await?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            self.configuration.protocol_parameters.clone(),
             protocol_parameters_store,
             verification_key_store,
         )));
