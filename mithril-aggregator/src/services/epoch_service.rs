@@ -244,6 +244,19 @@ impl FakeEpochService {
         }
     }
 
+    pub fn from_fixture(
+        epoch: Epoch,
+        fixture: &mithril_common::test_utils::MithrilFixture,
+    ) -> Self {
+        Self::with_data(
+            epoch,
+            &fixture.protocol_parameters(),
+            &fixture.protocol_parameters(),
+            &fixture.signers_with_stake(),
+            &fixture.signers_with_stake(),
+        )
+    }
+
     /// Note: using this will make all 'get' method from [EpochService] trait
     /// return a [EpochServiceError::NotYetInitialized] error.
     pub fn without_data() -> Self {

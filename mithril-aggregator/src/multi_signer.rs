@@ -5,18 +5,15 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::{
-    crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolMultiSignature,
-        ProtocolParameters,
-    },
+    crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature, ProtocolParameters},
     entities::{self, Epoch, SignerWithStake},
     protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
     StdError,
 };
 
-use crate::{entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStorer};
-
 use crate::dependency_injection::EpochServiceWrapper;
+use crate::{entities::OpenMessage, ProtocolParametersStorer};
+
 #[cfg(test)]
 use mockall::automock;
 
@@ -84,11 +81,6 @@ pub trait MultiSigner: Sync + Send {
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError>;
 
-    /// Compute next stake distribution aggregate verification key
-    async fn compute_next_stake_distribution_aggregate_verification_key(
-        &self,
-    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError>;
-
     /// Verify a single signature
     async fn verify_single_signature(
         &self,
@@ -106,7 +98,6 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     current_epoch: Option<Epoch>,
-    verification_key_store: Arc<dyn VerificationKeyStorer>,
     protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
     epoch_service: EpochServiceWrapper,
 }
@@ -114,14 +105,12 @@ pub struct MultiSignerImpl {
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
     pub fn new(
-        verification_key_store: Arc<dyn VerificationKeyStorer>,
         protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
         epoch_service: EpochServiceWrapper,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
             current_epoch: None,
-            verification_key_store,
             protocol_parameters_store,
             epoch_service,
         }
@@ -142,70 +131,6 @@ impl MultiSignerImpl {
                 .build_multi_signer();
 
         Ok(protocol_multi_signer)
-    }
-
-    /// Compute aggregate verification key from stake distribution
-    async fn compute_aggregate_verification_key(
-        &self,
-        signers_with_stakes: &[SignerWithStake],
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
-        let protocol_multi_signer =
-            self.create_protocol_multi_signer(signers_with_stakes, protocol_parameters)?;
-
-        Ok(protocol_multi_signer.compute_aggregate_verification_key())
-    }
-
-    async fn get_next_protocol_parameters(
-        &self,
-    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get next protocol parameters");
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_next_signer_retrieval_epoch();
-        self.get_protocol_parameters_at_epoch(epoch).await
-    }
-
-    /// Get the [protocol parameters][ProtocolParameters] for the given `epoch`
-    async fn get_protocol_parameters_at_epoch(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get protocol parameters at epoch"; "epoch"=> #?epoch);
-
-        match self
-            .protocol_parameters_store
-            .get_protocol_parameters(epoch)
-            .await
-        {
-            Ok(Some(protocol_parameters)) => Ok(Some(protocol_parameters.into())),
-            Ok(None) => Ok(None),
-            Err(e) => Err(ProtocolError::StoreError(anyhow!(e).context(
-                "Multi Signer can not retrieve protocol parameters for epoch '{epoch}'",
-            ))),
-        }
-    }
-
-    async fn get_next_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError> {
-        debug!("Get next signers with stake");
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_next_signer_retrieval_epoch();
-        let signers = self
-            .verification_key_store
-            .get_signers(epoch)
-            .await
-            .with_context(|| {
-                format!(
-                "Multi Signer can not retrieve next signers verification keys for epoch '{epoch}'"
-            )
-            })
-            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?
-            .unwrap_or_default();
-
-        Ok(signers)
     }
 }
 
@@ -239,19 +164,6 @@ impl MultiSigner for MultiSignerImpl {
             .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
 
         Ok(())
-    }
-
-    async fn compute_next_stake_distribution_aggregate_verification_key(
-        &self,
-    ) -> Result<ProtocolAggregateVerificationKey, ProtocolError> {
-        let next_signers_with_stake = self.get_next_signers_with_stake().await?;
-        let protocol_parameters = self
-            .get_next_protocol_parameters()
-            .await?
-            .ok_or(ProtocolError::UnavailableProtocolParameters)?;
-        Ok(self
-            .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
-            .await?)
     }
 
     /// Verify a single signature
@@ -310,24 +222,21 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::MithrilEpochService;
-    use crate::{store::VerificationKeyStore, ProtocolParametersStore};
+    use crate::services::{EpochService, FakeEpochService};
+    use crate::ProtocolParametersStore;
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        entities::{Beacon, PartyId, SignedEntityType},
+        entities::{Beacon, SignedEntityType},
         store::adapter::MemoryAdapter,
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
-    use std::{collections::HashMap, sync::Arc};
+    use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    async fn setup_multi_signer() -> MultiSignerImpl {
-        let beacon = fake_data::beacon();
-        let epoch = beacon.epoch;
-
-        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
-        )));
+    async fn setup_multi_signer(
+        epoch: Epoch,
+        epoch_service: Arc<RwLock<dyn EpochService>>,
+    ) -> MultiSignerImpl {
         let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
             Box::new(
                 MemoryAdapter::<Epoch, entities::ProtocolParameters>::new(Some(vec![
@@ -349,14 +258,8 @@ mod tests {
             None,
         ));
 
-        let mut multi_signer = MultiSignerImpl::new(
-            verification_key_store.clone(),
-            protocol_parameters_store.clone(),
-            Arc::new(RwLock::new(MithrilEpochService::new(
-                protocol_parameters_store,
-                verification_key_store,
-            ))),
-        );
+        let mut multi_signer =
+            MultiSignerImpl::new(protocol_parameters_store.clone(), epoch_service);
 
         multi_signer
             .update_current_epoch(epoch)
@@ -387,9 +290,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_protocol_parameters_ok() {
-        let mut multi_signer = setup_multi_signer().await;
+        let current_epoch = Epoch(5);
+        let mut multi_signer = setup_multi_signer(
+            current_epoch,
+            Arc::new(RwLock::new(FakeEpochService::without_data())),
+        )
+        .await;
         let protocol_parameter_store = multi_signer.protocol_parameters_store.clone();
-        let current_epoch = multi_signer.current_epoch.unwrap();
 
         let protocol_parameters_expected = fake_data::protocol_parameters();
         multi_signer
@@ -408,38 +315,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_multi_signature_ok() {
-        let mut multi_signer = setup_multi_signer().await;
-        let verification_key_store = multi_signer.verification_key_store.clone();
-        let epoch_service = multi_signer.epoch_service.clone();
-        let epoch = multi_signer.current_epoch.unwrap();
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let protocol_parameters = fixture.protocol_parameters();
+        let multi_signer = setup_multi_signer(
+            epoch,
+            Arc::new(RwLock::new(FakeEpochService::from_fixture(epoch, &fixture))),
+        )
+        .await;
 
         let message = setup_message();
-        let protocol_parameters = setup_protocol_parameters();
-        multi_signer
-            .update_protocol_parameters(&protocol_parameters)
-            .await
-            .expect("update protocol parameters failed");
-
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-
-        for epoch in [
-            epoch.offset_to_signer_retrieval_epoch().unwrap(),
-            epoch.offset_to_next_signer_retrieval_epoch(),
-        ] {
-            for signer_with_stake in &fixture.signers_with_stake() {
-                verification_key_store
-                    .save_verification_key(epoch, signer_with_stake.to_owned())
-                    .await
-                    .expect("register should have succeeded");
-            }
-        }
-
-        epoch_service
-            .write()
-            .await
-            .inform_epoch(epoch)
-            .await
-            .unwrap();
 
         let mut signatures = Vec::new();
 
