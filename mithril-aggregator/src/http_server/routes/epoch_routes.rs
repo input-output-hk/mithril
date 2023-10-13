@@ -15,68 +15,44 @@ fn epoch_settings(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch-settings")
         .and(warp::get())
-        .and(middlewares::with_protocol_parameters_store(
-            dependency_manager.clone(),
-        ))
-        .and(middlewares::with_multi_signer(dependency_manager))
+        .and(middlewares::with_epoch_service(dependency_manager))
         .and_then(handlers::epoch_settings)
 }
 
 mod handlers {
-    use crate::dependency_injection::MultiSignerWrapper;
+    use crate::dependency_injection::EpochServiceWrapper;
     use crate::http_server::routes::reply;
-    use crate::{ProtocolParametersStorer, ToEpochSettingsMessageAdapter};
+    use crate::ToEpochSettingsMessageAdapter;
     use mithril_common::entities::EpochSettings;
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
-    use std::sync::Arc;
     use warp::http::StatusCode;
 
     /// Epoch Settings
     pub async fn epoch_settings(
-        protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
-        multi_signer: MultiSignerWrapper,
+        epoch_service: EpochServiceWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: epoch_settings");
+        let epoch_service = epoch_service.read().await;
 
-        match multi_signer.read().await.get_current_epoch().await {
-            Some(epoch) => {
-                match (
-                    protocol_parameters_store
-                        .get_protocol_parameters(epoch)
-                        .await,
-                    protocol_parameters_store
-                        .get_protocol_parameters(epoch.next())
-                        .await,
-                ) {
-                    (Ok(Some(protocol_parameters)), Ok(Some(next_protocol_parameters))) => {
-                        let epoch_settings = EpochSettings {
-                            epoch,
-                            protocol_parameters,
-                            next_protocol_parameters,
-                        };
-                        let epoch_settings_message =
-                            ToEpochSettingsMessageAdapter::adapt(epoch_settings);
-                        Ok(reply::json(&epoch_settings_message, StatusCode::OK))
-                    }
-                    (Ok(None), Ok(Some(_))) | (Ok(Some(_)), Ok(None)) | (Ok(None), Ok(None)) => {
-                        warn!("epoch_settings::could_not_retrieve_protocol_parameters");
-                        Ok(reply::internal_server_error(
-                            "could_not_retrieve_protocol_parameters".to_string(),
-                        ))
-                    }
-                    (Err(err), _) | (_, Err(err)) => {
-                        warn!("epoch_settings::error"; "error" => ?err);
-                        Ok(reply::internal_server_error(err.to_string()))
-                    }
-                }
+        match (
+            epoch_service.epoch_of_current_data(),
+            epoch_service.current_protocol_parameters(),
+            epoch_service.next_protocol_parameters(),
+        ) {
+            (Ok(epoch), Ok(protocol_parameters), Ok(next_protocol_parameters)) => {
+                let epoch_settings = EpochSettings {
+                    epoch,
+                    protocol_parameters: protocol_parameters.clone(),
+                    next_protocol_parameters: next_protocol_parameters.clone(),
+                };
+                let epoch_settings_message = ToEpochSettingsMessageAdapter::adapt(epoch_settings);
+                Ok(reply::json(&epoch_settings_message, StatusCode::OK))
             }
-            None => {
-                warn!("epoch_settings::could_not_retrieve_epoch");
-                Ok(reply::internal_server_error(
-                    "could_not_retrieve_epoch".to_string(),
-                ))
+            (Err(err), _, _) | (_, Err(err), _) | (_, _, Err(err)) => {
+                warn!("epoch_settings::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
             }
         }
     }

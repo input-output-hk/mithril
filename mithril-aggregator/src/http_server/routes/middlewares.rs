@@ -1,13 +1,12 @@
 use crate::{
-    dependency_injection::MultiSignerWrapper,
+    database::provider::SignerGetter,
+    dependency_injection::EpochServiceWrapper,
     event_store::{EventMessage, TransmitterService},
-    services::CertifierService,
-    services::{SignedEntityService, TickerService},
-    CertificatePendingStore, Configuration, DependencyContainer, ProtocolParametersStorer,
-    SignerRegisterer, VerificationKeyStorer,
+    services::{CertifierService, SignedEntityService, TickerService},
+    CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
+    VerificationKeyStorer,
 };
 
-use crate::database::provider::SignerGetter;
 use mithril_common::{api_version::APIVersionProvider, BeaconProvider};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -18,20 +17,6 @@ pub(crate) fn with_certificate_pending_store(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<CertificatePendingStore>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.certificate_pending_store.clone())
-}
-
-/// With protocol parameters store
-pub(crate) fn with_protocol_parameters_store(
-    dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<dyn ProtocolParametersStorer>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.protocol_parameters_store.clone())
-}
-
-/// With multi signer middleware
-pub fn with_multi_signer(
-    dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (MultiSignerWrapper,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.multi_signer.clone())
 }
 
 /// With signer registerer middleware
@@ -81,6 +66,13 @@ pub fn with_ticker_service(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<dyn TickerService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.ticker_service.clone())
+}
+
+/// With epoch service middleware
+pub fn with_epoch_service(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (EpochServiceWrapper,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.epoch_service.clone())
 }
 
 /// With signed entity service
