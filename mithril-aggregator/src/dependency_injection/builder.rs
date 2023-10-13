@@ -340,10 +340,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
-        let multi_signer = MultiSignerImpl::new(
-            self.get_protocol_parameters_store().await?,
-            self.get_epoch_service().await?,
-        );
+        let multi_signer = MultiSignerImpl::new(self.get_epoch_service().await?);
 
         Ok(Arc::new(RwLock::new(multi_signer)))
     }

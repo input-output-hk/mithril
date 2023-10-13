@@ -651,13 +651,6 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let certifier_service =
             setup_certifier_service(&fixture, &epochs_with_signers, Some(beacon.epoch)).await;
-        certifier_service
-            .multi_signer
-            .write()
-            .await
-            .update_current_epoch(beacon.epoch)
-            .await
-            .unwrap();
 
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)

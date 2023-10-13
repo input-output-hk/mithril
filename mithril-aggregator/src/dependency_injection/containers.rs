@@ -1,5 +1,5 @@
 use sqlite::Connection;
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::{Mutex, RwLock};
 
 use mithril_common::{
@@ -8,7 +8,7 @@ use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
-    entities::{Certificate, Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
+    entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     store::StakeStorer,
@@ -135,13 +135,6 @@ pub struct DependencyContainer {
 }
 
 #[doc(hidden)]
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SimulateFromChainParams {
-    /// Will set the multi_signer protocol parameters & beacon to the one in contained in the latest certificate.
-    SetupMultiSigner,
-}
-
-#[doc(hidden)]
 impl DependencyContainer {
     /// `TEST METHOD ONLY`
     ///
@@ -175,75 +168,6 @@ impl DependencyContainer {
                 .await;
             self.fill_stakes_store(*epoch, fixture.signers_with_stake())
                 .await;
-        }
-    }
-
-    /// `TEST METHOD ONLY`
-    ///
-    /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator genesis state
-    /// using the data from a precomputed certificate_chain.
-    ///
-    /// Arguments:
-    pub async fn init_state_from_chain(
-        &self,
-        certificate_chain: &[Certificate],
-        additional_params: Vec<SimulateFromChainParams>,
-    ) {
-        if certificate_chain.is_empty() {
-            panic!("The given certificate chain must contains at least one certificate");
-        }
-
-        let mut certificate_chain = certificate_chain.to_vec();
-        certificate_chain.sort_by(|left, right| {
-            left.beacon
-                .partial_cmp(&right.beacon)
-                .expect("The given certificates should all share the same network")
-        });
-        let last_certificate = certificate_chain.last().unwrap().clone();
-        let last_beacon = last_certificate.beacon.clone();
-        let last_protocol_parameters = last_certificate.metadata.protocol_parameters.clone();
-
-        let mut parameters_per_epoch: HashMap<Epoch, (Vec<SignerWithStake>, ProtocolParameters)> =
-            HashMap::new();
-        for certificate in certificate_chain.iter() {
-            if parameters_per_epoch.contains_key(&certificate.beacon.epoch) {
-                continue;
-            }
-
-            parameters_per_epoch.insert(
-                certificate.beacon.epoch,
-                (
-                    certificate.metadata.signers.clone(),
-                    certificate.metadata.protocol_parameters.clone(),
-                ),
-            );
-        }
-
-        for (epoch, params) in parameters_per_epoch {
-            self.protocol_parameters_store
-                .save_protocol_parameters(epoch, params.1)
-                .await
-                .expect("save_protocol_parameters should not fail");
-            self.fill_verification_key_store(epoch, &params.0).await;
-            self.fill_stakes_store(epoch, params.0.to_vec()).await;
-        }
-
-        self.certificate_repository
-            .create_many_certificates(certificate_chain)
-            .await
-            .expect("certificate_repository::create_many_certificates should not fail");
-
-        if additional_params.contains(&SimulateFromChainParams::SetupMultiSigner) {
-            let mut multi_signer = self.multi_signer.write().await;
-
-            multi_signer
-                .update_current_epoch(last_beacon.epoch)
-                .await
-                .expect("setting the beacon should not fail");
-            multi_signer
-                .update_protocol_parameters(&last_protocol_parameters.into())
-                .await
-                .expect("updating protocol parameters should not fail");
         }
     }
 

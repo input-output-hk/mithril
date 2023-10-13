@@ -59,9 +59,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()>;
 
-    /// Update the multisigner with the given beacon.
-    async fn update_beacon(&self, new_beacon: &Beacon) -> StdResult<()>;
-
     /// Read the stake distribution from the blockchain and store it.
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()>;
 
@@ -70,10 +67,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
-
-    /// Update the multisigner with the protocol parameters from configuration.
-    async fn update_protocol_parameters_in_multisigner(&self, new_beacon: &Beacon)
-        -> StdResult<()>;
 
     /// Compute the protocol message
     async fn compute_protocol_message(
@@ -247,18 +240,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    // TODO: is this still useful?
-    async fn update_beacon(&self, new_beacon: &Beacon) -> StdResult<()> {
-        debug!("RUNNER: update beacon"; "beacon" => #?new_beacon);
-        self.dependencies
-            .multi_signer
-            .write()
-            .await
-            .update_current_epoch(new_beacon.epoch)
-            .await?;
-        Ok(())
-    }
-
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
         self.dependencies
@@ -292,31 +273,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .signer_registration_round_opener
             .close_registration_round()
             .await
-    }
-
-    async fn update_protocol_parameters_in_multisigner(
-        &self,
-        new_beacon: &Beacon,
-    ) -> StdResult<()> {
-        debug!("RUNNER: update protocol parameters"; "beacon" => #?new_beacon);
-        let protocol_parameters = self.dependencies.config.protocol_parameters.clone();
-
-        self.update_beacon(new_beacon)
-            .await
-            .with_context(|| format!("AggregatorRunner can not update beacon: '{new_beacon}'"))?;
-        self.dependencies
-            .multi_signer
-            .write()
-            .await
-            .update_protocol_parameters(&protocol_parameters.clone().into())
-            .await
-            .map_err(|e| anyhow!(e))
-            .with_context(|| {
-                format!(
-                    "Multi Signer can not update protocol parameters: '{:?}'",
-                    &protocol_parameters
-                )
-            })
     }
 
     async fn compute_protocol_message(
@@ -569,11 +525,7 @@ pub mod tests {
         )
         .await;
 
-        let runner = AggregatorRunner::new(Arc::new(deps));
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
-
-        runner
+        AggregatorRunner::new(Arc::new(deps))
     }
 
     #[tokio::test]
@@ -595,26 +547,6 @@ pub mod tests {
         // Retrieves the expected beacon
         let res = runner.get_beacon_from_chain().await;
         assert_eq!(expected_beacon, res.unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_update_beacon() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        let res = runner.update_beacon(&beacon).await;
-
-        assert!(res.is_ok());
-        let stored_epoch = deps
-            .multi_signer
-            .read()
-            .await
-            .get_current_epoch()
-            .await
-            .unwrap();
-
-        assert_eq!(beacon.epoch, stored_epoch);
     }
 
     #[tokio::test]
@@ -721,38 +653,6 @@ pub mod tests {
 
         let saved_current_round = signer_registration_round_opener.get_current_round().await;
         assert!(saved_current_round.is_none());
-    }
-
-    #[tokio::test]
-    async fn test_update_protocol_parameters_in_multisigner() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner
-            .update_beacon(&beacon)
-            .await
-            .expect("setting the beacon should not fail");
-        runner
-            .update_protocol_parameters_in_multisigner(&beacon)
-            .await
-            .expect("updating protocol parameters should not return an error");
-
-        let current_protocol_parameters = deps.config.protocol_parameters.clone();
-
-        let saved_protocol_parameters = deps
-            .protocol_parameters_store
-            .get_protocol_parameters(beacon.epoch.offset_to_protocol_parameters_recording_epoch())
-            .await
-            .unwrap()
-            .unwrap_or_else(|| {
-                panic!(
-                    "should have protocol parameters for the epoch {:?}",
-                    beacon.epoch
-                )
-            });
-
-        assert_eq!(current_protocol_parameters, saved_protocol_parameters);
     }
 
     #[tokio::test]

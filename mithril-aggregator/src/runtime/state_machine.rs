@@ -271,8 +271,6 @@ impl AggregatorRuntime {
     ) -> Result<(), RuntimeError> {
         trace!("trying transition from IDLE to READY state");
 
-        self.runner.update_beacon(&new_beacon).await?;
-
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
             self.runner.close_signer_registration_round().await?;
@@ -284,9 +282,6 @@ impl AggregatorRuntime {
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
-                .await?;
-            self.runner
-                .update_protocol_parameters_in_multisigner(&new_beacon)
                 .await?;
             self.runner.precompute_epoch_data().await?;
         }
@@ -375,7 +370,6 @@ impl AggregatorRuntime {
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
-        self.runner.update_beacon(&new_beacon).await?;
 
         let certificate_pending = self
             .runner
@@ -435,16 +429,6 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters_in_multisigner()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
             .expect_is_certificate_chain_valid()
             .once()
             .returning(|_| Err(anyhow!("error")));
@@ -500,16 +484,6 @@ mod tests {
             .returning(|| Ok(()));
         runner
             .expect_open_signer_registration_round()
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_protocol_parameters_in_multisigner()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -619,11 +593,6 @@ mod tests {
                 };
                 Ok(Some(open_message))
             });
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
         runner
             .expect_create_new_pending_certificate()
             .once()
@@ -798,11 +767,6 @@ mod tests {
             .expect_get_beacon_from_chain()
             .once()
             .returning(|| Ok(fake_data::beacon()));
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
         runner
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))

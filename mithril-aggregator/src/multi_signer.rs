@@ -1,206 +1,86 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog_scope::{debug, warn};
-use std::sync::Arc;
-use thiserror::Error;
 
 use mithril_common::{
-    crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature, ProtocolParameters},
-    entities::{self, Epoch, SignerWithStake},
-    protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder},
-    StdError,
+    crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
+    entities::{self},
+    StdResult,
 };
 
 use crate::dependency_injection::EpochServiceWrapper;
-use crate::{entities::OpenMessage, ProtocolParametersStorer};
+use crate::entities::OpenMessage;
 
 #[cfg(test)]
 use mockall::automock;
-
-/// Error type for multi signer service.
-#[derive(Error, Debug)]
-pub enum ProtocolError {
-    /// Signer is already registered.
-    #[error("signer already registered")]
-    ExistingSigner,
-
-    /// Signer was not registered.
-    #[error("signer did not register")]
-    UnregisteredParty,
-
-    /// Signer registration failed.
-    #[error("signer registration failed")]
-    FailedSignerRegistration(#[source] StdError),
-
-    /// Single signature already recorded.
-    #[error("single signature already recorded")]
-    ExistingSingleSignature(entities::PartyId),
-
-    /// Mithril STM library returned an error.
-    #[error("core error")]
-    Core(#[source] StdError),
-
-    /// No message available.
-    #[error("no message available")]
-    UnavailableMessage,
-
-    /// No protocol parameters available.
-    #[error("no protocol parameters available")]
-    UnavailableProtocolParameters,
-
-    /// No clerk available.
-    #[error("no clerk available")]
-    UnavailableClerk,
-
-    /// No epoch available.
-    #[error("no epoch available")]
-    UnavailableEpoch,
-
-    /// Store error.
-    #[error("store error")]
-    StoreError(#[source] StdError),
-
-    /// Epoch error.
-    #[error("epoch error")]
-    Epoch(#[from] entities::EpochError),
-}
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
-    /// Get current epoch
-    async fn get_current_epoch(&self) -> Option<Epoch>;
-
-    /// Update current epoch
-    async fn update_current_epoch(&mut self, epoch: Epoch) -> Result<(), ProtocolError>;
-
-    /// Update protocol parameters
-    async fn update_protocol_parameters(
-        &mut self,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), ProtocolError>;
-
     /// Verify a single signature
     async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
-    ) -> Result<(), ProtocolError>;
+    ) -> StdResult<()>;
 
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
         open_message: &OpenMessage,
-    ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
+    ) -> StdResult<Option<ProtocolMultiSignature>>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
-    current_epoch: Option<Epoch>,
-    protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
     epoch_service: EpochServiceWrapper,
 }
 
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
-    pub fn new(
-        protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
-        epoch_service: EpochServiceWrapper,
-    ) -> Self {
+    pub fn new(epoch_service: EpochServiceWrapper) -> Self {
         debug!("New MultiSignerImpl created");
-        Self {
-            current_epoch: None,
-            protocol_parameters_store,
-            epoch_service,
-        }
-    }
-
-    /// Creates a protocol multi signer
-    pub fn create_protocol_multi_signer(
-        &self,
-        signers_with_stake: &[SignerWithStake],
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<ProtocolMultiSigner, ProtocolError> {
-        debug!("Create protocol_multi_signer");
-
-        let protocol_multi_signer =
-            SignerBuilder::new(signers_with_stake, &(*protocol_parameters).into())
-                .with_context(|| "Multi Signer can not build a protocol multi signer")
-                .map_err(|e| ProtocolError::Core(anyhow!(e)))?
-                .build_multi_signer();
-
-        Ok(protocol_multi_signer)
+        Self { epoch_service }
     }
 }
 
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
-    async fn get_current_epoch(&self) -> Option<Epoch> {
-        self.current_epoch
-    }
-
-    async fn update_current_epoch(&mut self, epoch: Epoch) -> Result<(), ProtocolError> {
-        debug!("Update update_current_epoch to {:?}", epoch);
-        self.current_epoch = Some(epoch);
-
-        Ok(())
-    }
-
-    /// Update protocol parameters
-    async fn update_protocol_parameters(
-        &mut self,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), ProtocolError> {
-        debug!("Update protocol parameters to {:?}", protocol_parameters);
-        let epoch = self
-            .current_epoch
-            .ok_or(ProtocolError::UnavailableEpoch)?
-            .offset_to_protocol_parameters_recording_epoch();
-
-        self.protocol_parameters_store
-            .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
-            .await.with_context(|| format!("Multi Signer can not update protocol parameters '{protocol_parameters:?}' for epoch '{epoch}'"))
-            .map_err(|e| ProtocolError::StoreError(anyhow!(e)))?;
-
-        Ok(())
-    }
-
     /// Verify a single signature
     async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
         single_signature: &entities::SingleSignatures,
-    ) -> Result<(), ProtocolError> {
+    ) -> StdResult<()> {
         debug!(
             "Verify single signature from {} at indexes {:?} for message {:?}",
             single_signature.party_id, single_signature.won_indexes, message
         );
 
-        let lock = self.epoch_service.read().await;
-        let protocol_multi_signer = lock
-            .protocol_multi_signer()
-            .with_context(|| "multi-signer could not get protocol multi-signer from epoch service")
-            .map_err(ProtocolError::Core)?;
+        let epoch_service = self.epoch_service.read().await;
+        let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
+            "Multi Signer could not get protocol multi-signer from epoch service"
+        })?;
 
         protocol_multi_signer
             .verify_single_signature(message, single_signature)
-            .with_context(|| "Multi Signer can not verify single signature for message '{message}'")
-            .map_err(ProtocolError::Core)
+            .with_context(|| {
+                format!("Multi Signer can not verify single signature for message '{message:?}'")
+            })
     }
 
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
         open_message: &OpenMessage,
-    ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
+    ) -> StdResult<Option<ProtocolMultiSignature>> {
         debug!("MultiSigner:create_multi_signature({open_message:?})");
 
-        let lock = self.epoch_service.read().await;
-        let protocol_multi_signer = lock
-            .protocol_multi_signer()
-            .with_context(|| "multi-signer could not get protocol multi-signer from epoch service")
-            .map_err(ProtocolError::Core)?;
+        let epoch_service = self.epoch_service.read().await;
+        let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
+            "Multi Signer could not get protocol multi-signer from epoch service"
+        })?;
 
         match protocol_multi_signer.aggregate_single_signatures(
             &open_message.single_signatures,
@@ -211,10 +91,10 @@ impl MultiSigner for MultiSignerImpl {
                 warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
                 Ok(None)
             }
-            Err(err) => Err(ProtocolError::Core(anyhow!(err).context(format!(
+            Err(err) => Err(anyhow!(err).context(format!(
                 "Multi Signer can not create multi-signature for entity type '{:?}'",
                 open_message.signed_entity_type
-            )))),
+            ))),
         }
     }
 }
@@ -222,51 +102,15 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::services::{EpochService, FakeEpochService};
-    use crate::ProtocolParametersStore;
+    use crate::services::FakeEpochService;
+    use mithril_common::entities::SignerWithStake;
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        entities::{Beacon, SignedEntityType},
-        store::adapter::MemoryAdapter,
+        entities::{Beacon, Epoch, SignedEntityType},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use std::sync::Arc;
     use tokio::sync::RwLock;
-
-    async fn setup_multi_signer(
-        epoch: Epoch,
-        epoch_service: Arc<RwLock<dyn EpochService>>,
-    ) -> MultiSignerImpl {
-        let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
-            Box::new(
-                MemoryAdapter::<Epoch, entities::ProtocolParameters>::new(Some(vec![
-                    (
-                        epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                        fake_data::protocol_parameters(),
-                    ),
-                    (
-                        epoch.offset_to_next_signer_retrieval_epoch(),
-                        fake_data::protocol_parameters(),
-                    ),
-                    (
-                        epoch.offset_to_next_signer_retrieval_epoch().next(),
-                        fake_data::protocol_parameters(),
-                    ),
-                ]))
-                .unwrap(),
-            ),
-            None,
-        ));
-
-        let mut multi_signer =
-            MultiSignerImpl::new(protocol_parameters_store.clone(), epoch_service);
-
-        multi_signer
-            .update_current_epoch(epoch)
-            .await
-            .expect("update_current_beacon should not fail");
-        multi_signer
-    }
 
     fn take_signatures_until_quorum_is_almost_reached(
         signatures: &mut Vec<entities::SingleSignatures>,
@@ -289,40 +133,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_signer_protocol_parameters_ok() {
-        let current_epoch = Epoch(5);
-        let mut multi_signer = setup_multi_signer(
-            current_epoch,
-            Arc::new(RwLock::new(FakeEpochService::without_data())),
-        )
-        .await;
-        let protocol_parameter_store = multi_signer.protocol_parameters_store.clone();
-
-        let protocol_parameters_expected = fake_data::protocol_parameters();
-        multi_signer
-            .update_protocol_parameters(&protocol_parameters_expected.clone().into())
-            .await
-            .expect("update protocol parameters failed");
-
-        let protocol_parameters = protocol_parameter_store
-            .get_protocol_parameters(current_epoch.offset_to_protocol_parameters_recording_epoch())
-            .await
-            .expect("protocol parameters should have been retrieved")
-            .unwrap();
-
-        assert_eq!(protocol_parameters_expected, protocol_parameters);
-    }
-
-    #[tokio::test]
     async fn test_multi_signer_multi_signature_ok() {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let protocol_parameters = fixture.protocol_parameters();
-        let multi_signer = setup_multi_signer(
-            epoch,
-            Arc::new(RwLock::new(FakeEpochService::from_fixture(epoch, &fixture))),
-        )
-        .await;
+        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(
+            FakeEpochService::from_fixture(epoch, &fixture),
+        )));
 
         let message = setup_message();
 
@@ -365,7 +182,7 @@ mod tests {
         let mut open_message = OpenMessage {
             epoch,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(Beacon {
-                epoch: multi_signer.current_epoch.unwrap(),
+                epoch,
                 ..fake_data::beacon()
             }),
             protocol_message: message.clone(),

@@ -115,7 +115,6 @@ mod tests {
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
         services::{CertifierServiceError, MockCertifierService},
-        ProtocolError,
     };
 
     use super::*;
@@ -267,7 +266,7 @@ mod tests {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Err(ProtocolError::Core(anyhow!("an error occurred")).into()));
+            .return_once(move |_, _| Err(anyhow!("an error occurred")));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
