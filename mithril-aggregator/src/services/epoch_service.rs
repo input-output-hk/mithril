@@ -182,8 +182,6 @@ impl EpochService for MithrilEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
         debug!("EpochService::inform_epoch(epoch: {epoch:?})");
 
-        self.insert_future_protocol_parameters(epoch).await?;
-
         let signer_retrieval_epoch =
             epoch.offset_to_signer_retrieval_epoch().with_context(|| {
                 format!("EpochService could not compute signer retrieval epoch from epoch: {epoch}")
@@ -221,6 +219,16 @@ impl EpochService for MithrilEpochService {
         self.computed_epoch_data = None;
 
         Ok(())
+    }
+
+    async fn update_protocol_parameters(&mut self) -> StdResult<()> {
+        debug!("EpochService::update_protocol_parameters");
+
+        let data = self.unwrap_data().with_context(|| {
+            "can't update protocol parameters if inform_epoch has not been called first"
+        })?;
+
+        self.insert_future_protocol_parameters(data.epoch).await
     }
 
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
@@ -290,8 +298,9 @@ impl EpochService for MithrilEpochService {
 pub struct FakeEpochService {
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
-    inform_epoch_error: Option<()>,
-    precompute_epoch_data_error: Option<()>,
+    inform_epoch_error: bool,
+    update_protocol_parameters_error: bool,
+    precompute_epoch_data_error: bool,
 }
 
 #[cfg(test)]
@@ -331,8 +340,9 @@ impl FakeEpochService {
                     .compute_aggregate_verification_key(),
                 protocol_multi_signer,
             }),
-            inform_epoch_error: None,
-            precompute_epoch_data_error: None,
+            inform_epoch_error: false,
+            update_protocol_parameters_error: false,
+            precompute_epoch_data_error: false,
         }
     }
 
@@ -356,17 +366,21 @@ impl FakeEpochService {
         Self {
             epoch_data: None,
             computed_epoch_data: None,
-            inform_epoch_error: None,
-            precompute_epoch_data_error: None,
+            inform_epoch_error: false,
+            update_protocol_parameters_error: false,
+            precompute_epoch_data_error: false,
         }
     }
 
-    pub fn enable_inform_epoch_error(&mut self) {
-        self.inform_epoch_error = Some(());
-    }
-
-    pub fn enable_precompute_epoch_data_error(&mut self) {
-        self.precompute_epoch_data_error = Some(());
+    pub fn toggle_errors(
+        &mut self,
+        inform_epoch: bool,
+        update_protocol_parameters: bool,
+        precompute_epoch: bool,
+    ) {
+        self.inform_epoch_error = inform_epoch;
+        self.update_protocol_parameters_error = update_protocol_parameters;
+        self.precompute_epoch_data_error = precompute_epoch;
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
@@ -388,17 +402,24 @@ impl FakeEpochService {
 #[async_trait]
 impl EpochService for FakeEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
-        match self.inform_epoch_error {
-            None => Ok(()),
-            Some(_) => anyhow::bail!("inform_epoch fake error, given epoch: {epoch}"),
+        if self.inform_epoch_error {
+            anyhow::bail!("inform_epoch fake error, given epoch: {epoch}");
         }
+        Ok(())
+    }
+
+    async fn update_protocol_parameters(&mut self) -> StdResult<()> {
+        if self.update_protocol_parameters_error {
+            anyhow::bail!("update_protocol_parameters fake error");
+        }
+        Ok(())
     }
 
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
-        match self.precompute_epoch_data_error {
-            None => Ok(()),
-            Some(_) => anyhow::bail!("precompute_epoch_data fake error"),
+        if self.precompute_epoch_data_error {
+            anyhow::bail!("precompute_epoch_data fake error");
         }
+        Ok(())
     }
 
     fn epoch_of_current_data(&self) -> StdResult<Epoch> {
@@ -533,9 +554,7 @@ mod tests {
                 ServiceBuilderParameters::UpcomingProtocolParameters(params) => {
                     upcoming_protocol_parameters = params.clone()
                 }
-                ServiceBuilderParameters::WithFutureProtocolParameters(params) => {
-                    future_protocol_parameters = params.clone()
-                }
+                WithFutureProtocolParameters(params) => future_protocol_parameters = params.clone(),
             }
         }
 
@@ -698,7 +717,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn inform_epoch_insert_future_protocol_parameters_in_the_store() {
+    async fn update_protocol_parameters_insert_future_protocol_parameters_in_the_store() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
         let epoch = Epoch(4);
@@ -715,6 +734,10 @@ mod tests {
             .inform_epoch(epoch)
             .await
             .expect("inform_epoch should not fail");
+        service
+            .update_protocol_parameters()
+            .await
+            .expect("update_protocol_parameters should not fail");
 
         let inserted_protocol_parameters = service
             .protocol_parameters_store

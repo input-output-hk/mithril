@@ -283,6 +283,7 @@ impl AggregatorRuntime {
             self.runner
                 .open_signer_registration_round(&new_beacon)
                 .await?;
+            self.runner.update_protocol_parameters().await?;
             self.runner.precompute_epoch_data().await?;
         }
 
@@ -443,6 +444,10 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
+            .expect_update_protocol_parameters()
+            .once()
+            .returning(|| Ok(()));
+        runner
             .expect_precompute_epoch_data()
             .once()
             .returning(|| Ok(()));
@@ -500,6 +505,10 @@ mod tests {
             .with(predicate::eq(fake_data::beacon().epoch))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_update_protocol_parameters()
+            .once()
+            .returning(|| Ok(()));
         runner
             .expect_precompute_epoch_data()
             .once()

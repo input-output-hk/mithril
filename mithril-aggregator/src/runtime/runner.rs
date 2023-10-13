@@ -68,6 +68,9 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
 
+    /// Ask the EpochService to update the protocol parameters.
+    async fn update_protocol_parameters(&self) -> StdResult<()>;
+
     /// Compute the protocol message
     async fn compute_protocol_message(
         &self,
@@ -272,6 +275,15 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         self.dependencies
             .signer_registration_round_opener
             .close_registration_round()
+            .await
+    }
+
+    async fn update_protocol_parameters(&self) -> StdResult<()> {
+        self.dependencies
+            .epoch_service
+            .write()
+            .await
+            .update_protocol_parameters()
             .await
     }
 
@@ -783,7 +795,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_inform_new_epoch_update_protocol_parameters() {
+    async fn test_update_protocol_parameters() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
@@ -799,6 +811,10 @@ pub mod tests {
 
         let runner = build_runner_with_fixture_data(deps).await;
         runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner
+            .update_protocol_parameters()
+            .await
+            .expect("update_protocol_parameters should not fail");
 
         let saved_protocol_parameters = protocol_parameters_store
             .get_protocol_parameters(insert_epoch)
