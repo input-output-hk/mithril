@@ -113,11 +113,11 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Update the EraChecker with EraReader information.
     async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()>;
 
-    /// Do cleanup needed when a new epoch is detected
-    async fn new_epoch_cleanup(&self, epoch: Epoch) -> StdResult<()>;
-
     /// Ask services to update themselves for the new epoch
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
+
+    /// Precompute what doesn't change for the actual epoch
+    async fn precompute_epoch_data(&self) -> StdResult<()>;
 
     /// Create new open message
     async fn create_open_message(
@@ -472,16 +472,23 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn new_epoch_cleanup(&self, epoch: Epoch) -> StdResult<()> {
+    async fn precompute_epoch_data(&self) -> StdResult<()> {
         self.dependencies
-            .certifier_service
-            .inform_epoch(epoch)
+            .epoch_service
+            .write()
+            .await
+            .precompute_epoch_data()
             .await?;
 
         Ok(())
     }
 
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
+        self.dependencies
+            .certifier_service
+            .inform_epoch(epoch)
+            .await?;
+
         self.dependencies
             .epoch_service
             .write()
@@ -506,6 +513,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::services::FakeEpochService;
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -518,7 +526,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
+            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, StakeDistribution,
         },
         signable_builder::SignableBuilderService,
         store::StakeStorer,
@@ -527,6 +535,7 @@ pub mod tests {
     };
     use mockall::{mock, predicate::eq};
     use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     mock! {
         SignableBuilderServiceImpl { }
@@ -846,31 +855,50 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_new_epoch_cleanup() {
+    async fn test_inform_new_epoch() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
             .returning(|_| Ok(()))
             .times(1);
+
         let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-        let runner = AggregatorRunner::new(Arc::new(deps));
-
-        runner.new_epoch_cleanup(Epoch(1)).await.unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_inform_new_epoch() {
-        let deps = initialize_dependencies().await;
         let current_epoch = deps
             .chain_observer
             .get_current_epoch()
             .await
             .unwrap()
             .unwrap();
-        let runner = build_runner_with_fixture_data(deps).await;
+
+        deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
+            current_epoch,
+            &MithrilFixtureBuilder::default().build(),
+        )));
+
+        let runner = AggregatorRunner::new(Arc::new(deps));
 
         runner.inform_new_epoch(current_epoch).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_precompute_epoch_data() {
+        let mut deps = initialize_dependencies().await;
+        let current_epoch = deps
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .unwrap()
+            .unwrap();
+
+        deps.epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
+            current_epoch,
+            &MithrilFixtureBuilder::default().build(),
+        )));
+
+        let runner = AggregatorRunner::new(Arc::new(deps));
+
+        runner.precompute_epoch_data().await.unwrap();
     }
 
     #[tokio::test]
@@ -886,6 +914,9 @@ pub mod tests {
         let open_message_clone = open_message_expected.clone();
 
         let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_inform_epoch()
+            .return_once(|_| Ok(()));
         mock_certifier_service
             .expect_get_open_message()
             .return_once(|_| Ok(None))
@@ -906,6 +937,7 @@ pub mod tests {
             .await
             .unwrap();
         runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()
@@ -1004,6 +1036,9 @@ pub mod tests {
 
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
+            .expect_inform_epoch()
+            .return_once(|_| Ok(()));
+        mock_certifier_service
             .expect_get_open_message()
             .with(eq(open_message_already_certified
                 .signed_entity_type
@@ -1036,6 +1071,7 @@ pub mod tests {
             .await
             .unwrap();
         runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
             .get_current_non_certified_open_message()

@@ -280,7 +280,7 @@ impl AggregatorRuntime {
                 .update_era_checker(&new_beacon)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.new_epoch_cleanup(new_beacon.epoch).await?;
+            self.runner.inform_new_epoch(new_beacon.epoch).await?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
@@ -288,7 +288,7 @@ impl AggregatorRuntime {
             self.runner
                 .update_protocol_parameters_in_multisigner(&new_beacon)
                 .await?;
-            self.runner.inform_new_epoch(new_beacon.epoch).await?;
+            self.runner.precompute_epoch_data().await?;
         }
 
         self.runner
@@ -454,15 +454,14 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_new_epoch_cleanup()
-            .with(predicate::eq(fake_data::beacon().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
             .expect_inform_new_epoch()
             .with(predicate::eq(fake_data::beacon().epoch))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_precompute_epoch_data()
+            .once()
+            .returning(|| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -523,15 +522,14 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_new_epoch_cleanup()
-            .with(predicate::eq(fake_data::beacon().epoch))
-            .once()
-            .returning(|_| Ok(()));
-        runner
             .expect_inform_new_epoch()
             .with(predicate::eq(fake_data::beacon().epoch))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_precompute_epoch_data()
+            .once()
+            .returning(|| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {

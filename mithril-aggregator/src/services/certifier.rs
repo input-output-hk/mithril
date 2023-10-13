@@ -498,7 +498,7 @@ mod tests {
         }
     }
 
-    /// Note: If current_epoch is provided the [EpochService] [EpochService::]
+    /// Note: If current_epoch is provided the [EpochService] will be automatically initialized
     async fn setup_certifier_service(
         fixture: &MithrilFixture,
         epochs_with_signers: &[Epoch],
@@ -516,15 +516,11 @@ mod tests {
             .await;
 
         if let Some(epoch) = current_epoch {
-            dependency_builder
-                .get_epoch_service()
-                .await
-                .unwrap()
-                .write()
-                .await
-                .inform_epoch(epoch)
-                .await
-                .unwrap();
+            let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
+            let mut epoch_service = epoch_service.write().await;
+
+            epoch_service.inform_epoch(epoch).await.unwrap();
+            epoch_service.precompute_epoch_data().await.unwrap();
         }
 
         MithrilCertifierService::from_deps(dependency_builder).await
