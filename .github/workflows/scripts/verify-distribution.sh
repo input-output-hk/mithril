@@ -51,10 +51,10 @@ You must see:
 \`\`\`
 ./***YOUR_ASSET_FILE***: OK
 \`\`\`
-* **Step 5**: Download the public key file from this link [gpg-public.key](${DOWNLOAD_URL_BASE}/gpg-public.key) and save it in the same folder as the asset
+* **Step 5**: Download the public key file from this link [public-key.gpg](${DOWNLOAD_URL_BASE}/public-key.gpg) and save it in the same folder as the asset
 * **Step 6**: Then import the GPG public key:
 \`\`\`
-gpg --import ./gpg-public.key
+gpg --import ./public-key.gpg
 \`\`\`
 You must see something like:
 \`\`\`
@@ -64,7 +64,7 @@ gpg:               imported: 1
 \`\`\`
 * **Step 7**: Then verify the GPG signature of the checksum file:
 \`\`\`
-gpg --verify ./gpg-public.key ./CHECKSUM.asc
+gpg --verify ./public-key.gpg ./CHECKSUM.asc
 \`\`\`
 You must see something like:
 \`\`\`
