@@ -1,5 +1,5 @@
 ---
-title: Mithril Protocol’s Mainnet Beta Launch
+title: Mithril Relay Security Advisory
 authors:
   - name: Mithril Team
 tags: [spo, mithril signer, mithril relay, mainnet, production, beta, security]
