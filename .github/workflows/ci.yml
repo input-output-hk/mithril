@@ -331,6 +331,33 @@ jobs:
           push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
 
+  publish-crate-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [ mithril-stm ]
+          
+    runs-on: ubuntu-22.04
+    needs:
+      - build
+      - test
+      - run-test-lab
+      - check
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+        
+      - name: Publish package to crates.io
+        uses: ./.github/workflows/actions/publish-crate-package
+        with:
+          dry_run: "true"
+          package: ${{ matrix.package }}
+
   unstable-release:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
     runs-on: ubuntu-22.04
@@ -494,3 +521,4 @@ jobs:
           loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
           loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
           loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
+
