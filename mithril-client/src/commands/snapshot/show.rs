@@ -1,12 +1,15 @@
 use anyhow::Context;
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
-use config::{builder::DefaultState, Config, ConfigBuilder};
-use std::sync::Arc;
+use config::{builder::DefaultState, ConfigBuilder};
+use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::{messages::SnapshotMessage, StdResult};
 
-use mithril_client::{dependencies::DependenciesBuilder, SnapshotFieldItem};
+use mithril_client::{
+    dependencies::{ConfigParameters, DependenciesBuilder},
+    SnapshotFieldItem,
+};
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]
@@ -24,8 +27,11 @@ pub struct SnapshotShowCommand {
 impl SnapshotShowCommand {
     /// Snapshot Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config: Config = config_builder.build()?;
-        let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
+        let config = config_builder.build()?;
+        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+            config.try_deserialize::<HashMap<String, String>>()?,
+        ));
+        let mut dependencies_builder = DependenciesBuilder::new(params);
         let snapshot_service = dependencies_builder
             .get_snapshot_service()
             .await

@@ -23,9 +23,7 @@ features = ["build-binary"]
 extended-description = """Shows, downloads and verifies certified blockchain artifacts.
 
 Run `mithril-client --help` to display the available options."""
-assets = [
-    ["../target/release/mithril-client", "usr/bin/", "755"],
-]
+assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
 
 [dependencies]
 anyhow = "1.0.75"
@@ -34,7 +32,7 @@ async-trait = "0.1.73"
 chrono = { version = "0.4.31", features = ["serde"] }
 clap = { version = "4.4.6", features = ["derive", "env"], optional = true }
 cli-table = "0.4.7"
-config = "0.13.3"
+config = { version = "0.13.3", optional = true }
 directories = "5.0.1"
 flate2 = "1.0.27"
 flume = "0.11.0"
@@ -71,4 +69,4 @@ warp = "0.3"
 [features]
 portable = ["mithril-common/portable"]
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
-build-binary = ["clap"]
+build-binary = ["clap", "config"]

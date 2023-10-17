@@ -96,36 +96,6 @@ Run in debug mode with the default configuration:
 make debug
 ```
 
-## Use the mithril-client library in your own code
-
-First, add `mithril-client` crate in the Cargo.toml of your project by running the following cargo command:
-
-```bash
-cargo add mithril-client
-```
-
-Now, it is possible to use the functions provided by the crate.
-For example:
-
-```rust
-use config::{builder::DefaultState, ConfigBuilder};
-
-use mithril_client::common::StdResult;
-use mithril_client::dependencies::DependenciesBuilder;
-use mithril_client::services::MithrilStakeDistributionService;
-
-let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
-    .set_default("genesis_verification_key", "WRITE THE VKEY HERE").unwrap()
-    .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator").unwrap();
-let config = Arc::new(config_builder.build().unwrap());
-let stake_distribution_service = DependenciesBuilder::new(config)
-    .get_mithril_stake_distribution_service()
-    .await.unwrap();
-let messages = stake_distribution_service.list().await.unwrap();
-```
-
-For more information about `mithril-client` crate, please see the [Rust documentation](https://mithril.network/rust-doc/mithril_client/index.html)
-
 ## Release the build and run the binary
 
 Build and run in release mode with the default configuration:

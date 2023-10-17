@@ -1,12 +1,14 @@
 use anyhow::Context;
 use clap::Parser;
-use config::{builder::DefaultState, Config, ConfigBuilder};
-use std::{path::PathBuf, sync::Arc};
+use config::{builder::DefaultState, ConfigBuilder};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use mithril_common::{messages::FromMessageAdapter, StdResult};
 
 use mithril_client::{
-    dependencies::DependenciesBuilder, utils::ProgressOutputType, FromSnapshotMessageAdapter,
+    dependencies::{ConfigParameters, DependenciesBuilder},
+    utils::ProgressOutputType,
+    FromSnapshotMessageAdapter,
 };
 
 /// Clap command to download the snapshot and verify the certificate.
@@ -31,12 +33,11 @@ pub struct SnapshotDownloadCommand {
 impl SnapshotDownloadCommand {
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config_builder = config_builder
-            .set_default("genesis_verification_key", "")
-            .unwrap();
-        let config: Config = config_builder.build()?;
-        let config = Arc::new(config);
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let config = config_builder.build()?;
+        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+            config.try_deserialize::<HashMap<String, String>>()?,
+        ));
+        let mut dependencies_builder = DependenciesBuilder::new(params.clone());
         let snapshot_service = dependencies_builder
             .get_snapshot_service()
             .await
@@ -58,17 +59,16 @@ impl SnapshotDownloadCommand {
             .download(
                 &snapshot_entity,
                 &self.download_dir,
-                &config
-                    .get_string("genesis_verification_key")
-                    .with_context(|| {
-                        format!(
-                            "Snapshot Service can not download and verify the snapshot for digest: '{}'",
-                            self.digest
-                        )
-                    })?,
+                &params.get_or("genesis_verification_key", ""),
                 progress_output_type,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Snapshot Service can not download and verify the snapshot for digest: '{}'",
+                    self.digest
+                )
+            })?;
 
         if self.json {
             println!(

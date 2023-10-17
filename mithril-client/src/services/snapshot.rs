@@ -5,18 +5,17 @@
 //!
 //! ```
 //! use std::sync::Arc;
-//! use config::{builder::DefaultState, ConfigBuilder};
 
 //! use mithril_client::common::*;
-//! use mithril_client::{dependencies::DependenciesBuilder, services::SnapshotService};
+//! use mithril_client::{dependencies::{ConfigParameters, DependenciesBuilder}, services::SnapshotService};
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
-//!         .set_default("genesis_verification_key", "WRITE THE VKEY HERE")?
-//!         .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator")?;
-//!     let config = Arc::new(config_builder.build()?);
-//!     let snapshot_service = DependenciesBuilder::new(config)
+//!     let mut config = ConfigParameters::default();
+//!     config
+//!         .add_parameter("genesis_verification_key", "YOUR_GENESIS_VERIFICATION_KEY")
+//!         .add_parameter("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator");
+//!     let snapshot_service = DependenciesBuilder::new(Arc::new(config))
 //!         .get_snapshot_service()
 //!         .await?;
 //!
@@ -347,7 +346,6 @@ impl SnapshotService for MithrilClientSnapshotService {
 mod tests {
     use anyhow::anyhow;
     use chrono::{DateTime, Utc};
-    use config::{builder::DefaultState, ConfigBuilder};
     use flate2::{write::GzEncoder, Compression};
     use mithril_common::{
         crypto_helper::tests_setup::setup_genesis,
@@ -367,7 +365,7 @@ mod tests {
 
     use crate::{
         aggregator_client::{AggregatorClient, MockAggregatorHTTPClient},
-        dependencies::DependenciesBuilder,
+        dependencies::{ConfigParameters, DependenciesBuilder},
         services::mock::*,
         FromSnapshotMessageAdapter,
     };
@@ -470,14 +468,7 @@ mod tests {
     }
 
     fn get_dep_builder(http_client: Arc<dyn AggregatorClient>) -> DependenciesBuilder {
-        let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default();
-        let config = config_builder
-            .set_default("download_dir", "")
-            .unwrap()
-            .build()
-            .unwrap();
-
-        let mut builder = DependenciesBuilder::new(Arc::new(config));
+        let mut builder = DependenciesBuilder::new(Arc::new(ConfigParameters::default()));
         builder.certificate_verifier = Some(Arc::new(MockCertificateVerifierImpl::new()));
         builder.immutable_digester = Some(Arc::new(DumbImmutableDigester::new("digest", true)));
         builder.aggregator_client = Some(http_client);

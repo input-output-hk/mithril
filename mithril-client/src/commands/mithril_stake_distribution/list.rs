@@ -1,12 +1,15 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
-use config::{builder::DefaultState, Config, ConfigBuilder};
+use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::StdResult;
 
-use mithril_client::{dependencies::DependenciesBuilder, MithrilStakeDistributionListItem};
+use mithril_client::{
+    dependencies::{ConfigParameters, DependenciesBuilder},
+    MithrilStakeDistributionListItem,
+};
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]
@@ -19,8 +22,11 @@ pub struct MithrilStakeDistributionListCommand {
 impl MithrilStakeDistributionListCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config: Config = config_builder.build()?;
-        let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
+        let config = config_builder.build()?;
+        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+            config.try_deserialize::<HashMap<String, String>>()?,
+        ));
+        let mut dependencies_builder = DependenciesBuilder::new(params);
         let service = dependencies_builder
             .get_mithril_stake_distribution_service()
             .await

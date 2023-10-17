@@ -23,8 +23,10 @@ pub mod common {
         certificate_chain::CertificateVerifier,
         crypto_helper::{ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
         entities::{Beacon, CompressionAlgorithm, Epoch},
-        messages::SnapshotListItemMessage,
-        messages::SnapshotMessage,
+        messages::{
+            MithrilStakeDistributionListMessage, SnapshotListItemMessage, SnapshotListMessage,
+            SnapshotMessage,
+        },
         StdError, StdResult,
     };
 }

@@ -5,19 +5,17 @@
 //!
 //! ```
 //! use std::sync::Arc;
-//! use config::{builder::DefaultState, ConfigBuilder};
-
 //! use mithril_client::common::StdResult;
-//! use mithril_client::dependencies::DependenciesBuilder;
+//! use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
 //! use mithril_client::services::MithrilStakeDistributionService;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
-//!         .set_default("genesis_verification_key", "WRITE THE VKEY HERE")?
-//!         .set_default("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator")?;
-//!     let config = Arc::new(config_builder.build()?);
-//!     let stake_distribution_service = DependenciesBuilder::new(config)
+//!     let mut config = ConfigParameters::default();
+//!     config
+//!         .add_parameter("genesis_verification_key", "YOUR_GENESIS_VERIFICATION_KEY")
+//!         .add_parameter("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator");
+//!     let stake_distribution_service = DependenciesBuilder::new(Arc::new(config))
 //!         .get_mithril_stake_distribution_service()
 //!         .await?;
 //!

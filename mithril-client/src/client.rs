@@ -1,16 +1,15 @@
 //! Client module
 //!
-//! The client wraps the tedious initialization of the Mithril Client services;
-//! It offers a simple API to use the underlying mechanics of the library.
+//! The client wraps the initialization of the Mithril Client services and provides a simple API for the library
 //!
 //! ```
-//! use mithril-client::client::Client;
-//! use mithril-client::common::*:
+//! use mithril_client::client::Client;
+//! use mithril_client::common::*;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let client = Client::new("WRITE THE VKEY HERE", &http_server.url()).await?;
-//!     let snapshot = client.show_snapshot(&snapshot_message.digest).await?;
+//!     let client = Client::new("https://aggregator.release-preprod.api.mithril.network/aggregator", "YOUR_GENESIS_VERIFICATION_KEY").await?;
+//!     let snapshot = client.show_snapshot("5a1288f7164bec049f34e46002e939f4c609a0ddf86636fdc4180ea22342cab7").await?;
 //!
 //!     println!("Snapshot id={}, size={}", snapshot.digest, snapshot.size);
 //!
@@ -20,12 +19,8 @@
 //!
 use std::sync::Arc;
 
-use crate::dependencies::DependenciesBuilder;
+use crate::dependencies::{ConfigParameters, DependenciesBuilder};
 use anyhow::Context;
-use config::builder::DefaultState;
-use config::ConfigBuilder;
-use mithril_common::messages::MithrilStakeDistributionListMessage;
-use mithril_common::StdResult;
 
 use crate::common::*;
 use crate::services::{MithrilStakeDistributionService, SnapshotService};
@@ -37,19 +32,20 @@ pub struct Client {
 
 impl Client {
     /// Client constructor
-    pub async fn new(genesis_verification_key: &str, aggregator_endpoint: &str) -> StdResult<Self> {
-        let config_builder: ConfigBuilder<DefaultState> = ConfigBuilder::default()
-            .set_default("genesis_verification_key", genesis_verification_key)?
-            .set_default("aggregator_endpoint", aggregator_endpoint)?;
-        let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config_builder.build()?));
+    pub async fn new(aggregator_endpoint: &str, genesis_verification_key: &str) -> StdResult<Self> {
+        let mut config = ConfigParameters::default();
+        config
+            .add_parameter("genesis_verification_key", genesis_verification_key)
+            .add_parameter("aggregator_endpoint", aggregator_endpoint);
+        let mut dependencies_builder = DependenciesBuilder::new(Arc::new(config));
         let snapshot_service = dependencies_builder
             .get_snapshot_service()
             .await
-            .with_context(|| "Cannot instanciate Client.")?;
+            .with_context(|| "Cannot instantiate Client")?;
         let mithril_stake_distribution_service = dependencies_builder
             .get_mithril_stake_distribution_service()
             .await
-            .with_context(|| "Cannot instanciate Client")?;
+            .with_context(|| "Cannot instantiate Client")?;
 
         Ok(Self {
             snapshot_service,
@@ -94,7 +90,7 @@ mod tests {
             warp::path!("artifact" / "snapshot" / String)
                 .map(move |_digest| json_snapshot_message.clone()),
         );
-        let client = Client::new("WRITE THE VKEY HERE", &http_server.url()).await?;
+        let client = Client::new(&http_server.url(), "WRITE THE VKEY HERE").await?;
         let response = client.show_snapshot(&snapshot_message.digest).await?;
 
         assert_eq!(snapshot_message, response);
@@ -116,7 +112,7 @@ mod tests {
         let http_server = test_http_server(
             warp::path!("artifact" / "snapshots").map(move || json_snapshot_list_message.clone()),
         );
-        let client = Client::new("WRITE THE VKEY HERE", &http_server.url()).await?;
+        let client = Client::new(&http_server.url(), "WRITE THE VKEY HERE").await?;
         let response = client.list_snapshots().await?;
 
         assert_eq!(snapshot_list_message, response);
@@ -139,7 +135,7 @@ mod tests {
             warp::path!("artifact" / "mithril-stake-distributions")
                 .map(move || mithril_stake_distribution_list_message_json.clone()),
         );
-        let client = Client::new("WRITE THE VKEY HERE", &http_server.url()).await?;
+        let client = Client::new(&http_server.url(), "WRITE THE VKEY HERE").await?;
         let response = client.list_mithril_stake_distributions().await?;
 
         assert_eq!(mithril_stake_distribution_list_message, response);

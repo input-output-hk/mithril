@@ -1,11 +1,11 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use clap::Parser;
-use config::{builder::DefaultState, Config, ConfigBuilder};
+use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::StdResult;
 
-use mithril_client::dependencies::DependenciesBuilder;
+use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
@@ -26,12 +26,14 @@ pub struct MithrilStakeDistributionDownloadCommand {
 impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config_builder = config_builder
+        let config = config_builder
             .set_default("genesis_verification_key", "")
-            .unwrap();
-        let config: Config = config_builder.build()?;
-        let config = Arc::new(config);
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+            .unwrap()
+            .build()?;
+        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+            config.try_deserialize::<HashMap<String, String>>()?,
+        ));
+        let mut dependencies_builder = DependenciesBuilder::new(params.clone());
         let service = dependencies_builder
             .get_mithril_stake_distribution_service()
             .await
@@ -43,7 +45,7 @@ impl MithrilStakeDistributionDownloadCommand {
             .download(
                 &self.artifact_hash,
                 &self.download_dir,
-                &config.get_string("genesis_verification_key")?,
+                &params.get_or("genesis_verification_key", ""),
             )
             .await
             .with_context(|| {
