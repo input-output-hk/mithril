@@ -1,0 +1,21 @@
+[package]
+name = "mithril-relay"
+version = "0.1.0"
+description = "A Mithril relay"
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.75"
+mithril-common = { path = "../mithril-common" }
+reqwest = { version = "0.11.22", features = ["json"] }
+serde = { version = "1.0.188", features = ["derive"] }
+serde_json = "1.0.107"
+serde_yaml = "0.9.25"
+tokio = { version = "1.32.0", features = ["full"] }

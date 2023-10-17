@@ -2436,6 +2436,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-relay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mithril-common",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-signer"
 version = "0.2.90"
 dependencies = [
