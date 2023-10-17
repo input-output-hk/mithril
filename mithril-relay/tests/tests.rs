@@ -10,13 +10,14 @@ use reqwest::StatusCode;
 async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let topic_name = "mithril/signatures";
     let mut relay = Relay::new(topic_name);
-    let address = relay.start().await.expect("Relay start failed");
+    let relay_address = relay.start().await.expect("Relay start failed");
     let p2p_client = P2PClient::new(topic_name);
+    let _p2p_address = p2p_client.start().expect("P2P client start failed");
 
     let signature_message_sent = RegisterSignatureMessage::dummy();
 
     let response = reqwest::Client::new()
-        .post(format!("{}/register-signatures", address))
+        .post(format!("http://{}/register-signatures", relay_address))
         .json(&signature_message_sent)
         .send()
         .await;

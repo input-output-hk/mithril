@@ -4,6 +4,7 @@ use mithril_common::{
     test_utils::test_http_server::{test_http_server, TestHttpServer},
     StdResult,
 };
+use reqwest::StatusCode;
 use warp::Filter;
 
 pub struct Relay {
@@ -16,16 +17,10 @@ impl Relay {
     }
 
     pub async fn start(&mut self) -> StdResult<SocketAddr> {
-        let server = test_http_server(warp::path("register-signatures").map(|| {
-            r#"{
-            "data": [
-                {"pool_id": "pool1", "name": ""},
-                {"pool_id": "pool2", "name": "[] "},
-                {"pool_id": "pool3", "name": "whatever"},
-                {"pool_id": "pool3", "name": "whatever2"}
-            ]
-        }"#
-        }));
+        let server = test_http_server(
+            warp::path("register-signatures")
+                .map(|| warp::reply::with_status(warp::reply::reply(), StatusCode::CREATED)),
+        );
         let address = server.address();
         self.server = Some(server);
 

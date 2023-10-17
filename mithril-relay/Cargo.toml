@@ -13,6 +13,19 @@ repository = { workspace = true }
 
 [dependencies]
 anyhow = "1.0.75"
+libp2p = { version = "0.52.3", features = [
+    "tcp",
+    "dns",
+    "async-std",
+    "noise",
+    "yamux",
+    "websocket",
+    "ping",
+    "macros",
+    "gossipsub",
+    "noise",
+    "tokio",
+] }
 mithril-common = { path = "../mithril-common" }
 reqwest = { version = "0.11.22", features = ["json"] }
 serde = { version = "1.0.188", features = ["derive"] }
