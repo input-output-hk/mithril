@@ -59,7 +59,7 @@ We expect a description of
 - what this is roughly about (e.g. description of a new API endpoint or message format).
 
 Note that we do NOT require a detailed technical description, but are much more
-interested in *why* a feature is needed. This also helps in understanding the
+interested in _why_ a feature is needed. This also helps in understanding the
 relevance and ultimately the priority of such an item.
 
 ## Making changes
@@ -93,6 +93,7 @@ something merged we usually require:
 - Quality of changes is ensured - through new or updated automated tests in [GitHub Actions](https://github.com/input-output-hk/mithril/actions)
 - Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
 - Well-scoped - we prefer multiple PRs, rather than a big one
+- All your commits must be [signed](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits) in order to be merged in the `main` branch
 
 ### Versioning & Changelog
 
