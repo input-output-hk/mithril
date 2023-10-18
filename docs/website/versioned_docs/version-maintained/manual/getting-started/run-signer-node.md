@@ -430,7 +430,7 @@ sudo bash -c 'cat > /etc/squid/squid.conf << EOF
 http_port **YOUR_RELAY_LISTENING_PORT**
 
 # ACL for internal IP of your block producer node
-acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP**
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_IP**
 
 # ACL for aggregator endpoint
 acl aggregator_domain dstdomain .mithril.network
@@ -533,7 +533,7 @@ EOF'
 :::
 
 With this configuration, the proxy will:
-- accept incoming traffic originating from the internal IP of the block-producing machine
+- accept incoming traffic originating from the IP of the block-producing machine
 - accept incoming traffic directed to the listening port of the proxy
 - accept incoming HTTPS traffic proxied to `mithril.network` domain hosts
 - anonymize completely the traffic and avoid disclosing any information about the block-producing machine
@@ -581,7 +581,7 @@ You need to allow incoming traffic on the listening port of the **Mithril relay*
 Assuming you are using [`Uncomplicated Firewall`](https://en.wikipedia.org/wiki/Uncomplicated_Firewall) (`0.36+`), the command to open that traffic is:
 
 ```bash
-sudo ufw allow from **YOUR_BLOCK_PRODUCER_INTERNAL_IP** to any port **YOUR_RELAY_LISTENING_PORT** proto tcp
+sudo ufw allow from **YOUR_BLOCK_PRODUCER_IP** to any port **YOUR_RELAY_LISTENING_PORT** proto tcp
 ```
 
 :::tip
@@ -597,7 +597,7 @@ sudo ufw allow from 192.168.1.75 to any port 3128 proto tcp
 Assuming you are using [`Iptables`](https://en.wikipedia.org/wiki/Iptables) (`1.8.7+`), the command to open that traffic is:
 
 ```bash
-sudo iptables -A INPUT -s **YOUR_BLOCK_PRODUCER_INTERNAL_IP** -p tcp --dport **YOUR_RELAY_LISTENING_PORT** -j ACCEPT
+sudo iptables -A INPUT -s **YOUR_BLOCK_PRODUCER_IP** -p tcp --dport **YOUR_RELAY_LISTENING_PORT** -j ACCEPT
 sudo iptables -L -v
 sudo service netfilter-persistent save
 ```
