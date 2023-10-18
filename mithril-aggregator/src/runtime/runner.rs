@@ -93,10 +93,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         pending_certificate: CertificatePending,
     ) -> StdResult<()>;
 
-    /// Drop the multisigner's actual pending certificate.
+    /// Drop the actual pending certificate in the store.
     async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
-    /// Create multi-signature.
+    /// Tell the certifier to try to create a new certificate.
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -133,7 +133,7 @@ pub struct AggregatorRunner {
 }
 
 impl AggregatorRunner {
-    /// Create a new instance of the Aggrergator Runner.
+    /// Create a new instance of the Aggregator Runner.
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
         Self { dependencies }
     }
@@ -310,7 +310,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
-        debug!("RUNNER: create new pending certificate from multisigner");
+        debug!("RUNNER: create new pending certificate");
         let epoch_service = self.dependencies.epoch_service.read().await;
 
         let signers = epoch_service.current_signers_with_stake()?;
@@ -368,7 +368,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
-        debug!("RUNNER: create multi-signature");
+        debug!("RUNNER: create_certificate");
 
         self.dependencies
             .certifier_service
