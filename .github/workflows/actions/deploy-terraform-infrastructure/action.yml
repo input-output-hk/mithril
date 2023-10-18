@@ -3,9 +3,8 @@ description: |
   Deploy the infrastructure of a Mithril network with terraform.
 inputs:
   dry_run:
-    description: Dry run will apply the terraform infrastructure, just plan it.
+    description: Dry run will not apply the terraform infrastructure, just plan it.
     required: true
-    default: "true"
   terraform_backend_bucket:
     description: terraform backend bucket used to store terraform state.
     required: true
