@@ -23,3 +23,7 @@ pub fn bad_request(label: String, message: String) -> Box<dyn warp::Reply> {
 pub fn internal_server_error<T: Into<InternalServerError>>(message: T) -> Box<dyn warp::Reply> {
     json(&message.into(), StatusCode::INTERNAL_SERVER_ERROR)
 }
+
+pub fn service_unavailable<T: Into<InternalServerError>>(message: T) -> Box<dyn warp::Reply> {
+    json(&message.into(), StatusCode::SERVICE_UNAVAILABLE)
+}

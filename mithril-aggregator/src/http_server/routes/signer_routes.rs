@@ -96,7 +96,7 @@ mod handlers {
                 None => {
                     let err = SignerRegistrationError::RegistrationRoundNotYetOpened;
                     warn!("register_signer::error"; "error" => ?err);
-                    return Ok(reply::internal_server_error(err.to_string()));
+                    return Ok(reply::service_unavailable(err.to_string()));
                 }
             },
         };
@@ -158,6 +158,12 @@ mod handlers {
                 Ok(reply::bad_request(
                     "failed_signer_registration".to_string(),
                     err.to_string(),
+                ))
+            }
+            Err(SignerRegistrationError::RegistrationRoundNotYetOpened) => {
+                warn!("register_signer::registration_round_not_yed_opened");
+                Ok(reply::service_unavailable(
+                    SignerRegistrationError::RegistrationRoundNotYetOpened.to_string(),
                 ))
             }
             Err(err) => {
@@ -394,6 +400,39 @@ mod tests {
                     "an error occurred".to_string(),
                 ))
             });
+        mock_signer_registerer
+            .expect_get_current_round()
+            .return_once(|| None);
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
+
+        let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&signer)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &signer,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_post_ko_503() {
+        let mut mock_signer_registerer = MockSignerRegisterer::new();
+        mock_signer_registerer
+            .expect_register_signer()
+            .return_once(|_, _| Err(SignerRegistrationError::RegistrationRoundNotYetOpened));
         mock_signer_registerer
             .expect_get_current_round()
             .return_once(|| None);

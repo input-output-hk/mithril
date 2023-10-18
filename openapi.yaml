@@ -341,6 +341,12 @@ paths:
                 $ref: "#/components/schemas/Error"
         "412":
           description: API version mismatch
+        "503":
+          description: signer registration is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         default:
           description: signer registration error
           content:

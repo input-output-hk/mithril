@@ -21,7 +21,7 @@ use mockall::automock;
 #[derive(Error, Debug)]
 pub enum SignerRegistrationError {
     /// No signer registration round opened yet
-    #[error("a signer registration round has not yet to be opened")]
+    #[error("a signer registration round is not opened yet, please try again later")]
     RegistrationRoundNotYetOpened,
 
     /// Registration round for unexpected epoch
