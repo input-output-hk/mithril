@@ -73,7 +73,7 @@ mod handlers {
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
             Err(err) => {
                 warn!("certificate_pending::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
@@ -94,7 +94,7 @@ mod handlers {
             )),
             Err(err) => {
                 warn!("certificate_certificates::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
@@ -120,7 +120,7 @@ mod handlers {
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
                 warn!("certificate_certificate_hash::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }

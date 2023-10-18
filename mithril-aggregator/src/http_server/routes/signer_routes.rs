@@ -201,7 +201,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("registered_signers::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
@@ -230,7 +230,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("registered_signers::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
