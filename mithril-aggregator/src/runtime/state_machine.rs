@@ -199,7 +199,7 @@ impl AggregatorRuntime {
                     });
                 } else if let Some(open_message) = self
                     .runner
-                    .get_current_non_certified_open_message()
+                    .get_current_non_certified_open_message(&chain_beacon)
                     .await.with_context(|| "AggregatorRuntime can not get the current non certified open message")?
                 {
                     // transition READY > SIGNING
@@ -566,7 +566,7 @@ mod tests {
         runner
             .expect_get_current_non_certified_open_message()
             .once()
-            .returning(|| Ok(None));
+            .returning(|_| Ok(None));
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
                 current_beacon: beacon.clone(),
@@ -595,7 +595,7 @@ mod tests {
         runner
             .expect_get_current_non_certified_open_message()
             .once()
-            .returning(|| {
+            .returning(|_| {
                 let open_message = OpenMessage {
                     is_certified: false,
                     ..OpenMessage::dummy()

@@ -54,7 +54,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> StdResult<Option<OpenMessage>>;
 
     /// Retrieves the current non certified open message.
-    async fn get_current_non_certified_open_message(&self) -> StdResult<Option<OpenMessage>>;
+    async fn get_current_non_certified_open_message(
+        &self,
+        current_beacon: &Beacon,
+    ) -> StdResult<Option<OpenMessage>>;
 
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()>;
@@ -197,23 +200,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(open_message_maybe)
     }
 
-    async fn get_current_non_certified_open_message(&self) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_non_certified_open_message");
+    async fn get_current_non_certified_open_message(
+        &self,
+        current_beacon: &Beacon,
+    ) -> StdResult<Option<OpenMessage>> {
+        debug!("RUNNER: get_current_non_certified_open_message"; "beacon" => #?current_beacon);
         let signed_entity_types = vec![
-            SignedEntityType::MithrilStakeDistribution(
-                self.dependencies
-                    .ticker_service
-                    .get_current_epoch()
-                    .await
-                    .with_context(|| "DependencyContainer can not get current epoch")?,
-            ),
-            SignedEntityType::CardanoImmutableFilesFull(
-                self.dependencies
-                    .ticker_service
-                    .get_current_immutable_beacon()
-                    .await
-                    .with_context(|| "DependencyContainer can not get current immutable beacon")?,
-            ),
+            SignedEntityType::MithrilStakeDistribution(current_beacon.epoch),
+            SignedEntityType::CardanoImmutableFilesFull(current_beacon.clone()),
         ];
 
         for signed_entity_type in signed_entity_types {
@@ -848,10 +842,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: false,
             ..OpenMessage::dummy()
         };
@@ -884,7 +877,7 @@ pub mod tests {
         runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -893,10 +886,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: false,
             ..OpenMessage::dummy()
         };
@@ -915,7 +907,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -924,10 +916,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
             ..OpenMessage::dummy()
         };
@@ -955,7 +946,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -964,10 +955,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
             ..OpenMessage::dummy()
         };
@@ -1018,7 +1008,7 @@ pub mod tests {
         runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -1027,10 +1017,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_already_certified_mithril_stake_distribution = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
             ..OpenMessage::dummy()
         };
@@ -1061,7 +1050,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert!(open_message_returned.is_none());
