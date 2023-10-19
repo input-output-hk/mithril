@@ -2,13 +2,12 @@ use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use clap::Parser;
-use cli_table::{print_stdout, WithTitle};
+use cli_table::{format::Justify, print_stdout, Cell, Table};
 
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_client::{
     common::StdResult,
     dependencies::{ConfigParameters, DependenciesBuilder},
-    SnapshotListItem,
 };
 
 /// Clap command to list existing snapshots
@@ -41,9 +40,29 @@ impl SnapshotListCommand {
         } else {
             let items = items
                 .into_iter()
-                .map(SnapshotListItem::from)
-                .collect::<Vec<_>>();
-            print_stdout(items.with_title())?;
+                .map(|item| {
+                    vec![
+                        format!("{}", item.beacon.epoch).cell(),
+                        format!("{}", item.beacon.immutable_file_number).cell(),
+                        item.beacon.network.cell(),
+                        item.digest.cell(),
+                        item.size.cell(),
+                        item.locations.join(",").cell(),
+                        item.created_at.to_string().cell(),
+                    ]
+                })
+                .collect::<Vec<_>>()
+                .table()
+                .title(vec![
+                    "Epoch".cell(),
+                    "Immutable".cell(),
+                    "Network".cell(),
+                    "Digest".cell(),
+                    "Size".cell().justify(Justify::Right),
+                    "Locations".cell().justify(Justify::Right),
+                    "Created".cell().justify(Justify::Right),
+                ]);
+            print_stdout(items)?;
         }
 
         Ok(())
