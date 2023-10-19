@@ -902,13 +902,14 @@ impl CoreVerifier {
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
     pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
-        let total_stake: Stake = 0;
+        let mut total_stake: Stake = 3;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
-            let (_, overflow) = total_stake.overflowing_add(signer.1);
+            let (res, overflow) = total_stake.overflowing_add(signer.1);
             if overflow {
                 panic!("Total stake overflow");
             }
+            total_stake = res;
             unique_parties.insert(MTLeaf(signer.0, signer.1));
         }
 
@@ -1633,5 +1634,31 @@ mod tests {
                 _ => unreachable!(),
             }
         }
+    }
+
+    #[test]
+    fn debug_total_stake_calc(){
+        let nparties = 5;
+        let m = 12;
+        let k = 3;
+
+        let params = StmParameters { m, k, phi_f: 0.2 };
+        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+
+        let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
+        let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
+
+        let stakes = (0..nparties)
+            .map(|_| 1 + (rng.next_u64() % 9999))
+            .collect::<Vec<_>>();
+
+        for stake in stakes {
+            let initializer = StmInitializer::setup(params, stake, &mut rng);
+            initializers.push(initializer.clone());
+            public_signers.push((initializer.verification_key().vk, initializer.stake));
+        }
+
+        let core_verifier = CoreVerifier::setup(&public_signers);
+        println!("Total stake test: {}", core_verifier.total_stake);
     }
 }
