@@ -26,9 +26,7 @@ import { updatePoolsForAggregator } from "../../store/poolsSlice";
 import LinkButton from "../../components/LinkButton";
 import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
-import VerifiedBadge from "../../components/VerifiedBadge";
-import PoolTicker from "../../components/PoolTicker";
-import PartyId from "../../components/PartyId";
+import SignerTable from "../../components/SignerTable";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
@@ -223,33 +221,7 @@ export default function Registrations() {
         <Row>
           <Col xs={12} sm={12} md={7}>
             <h3>Signers</h3>
-            <Table responsive striped>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Party id</th>
-                  <th>Pool Ticker</th>
-                  <th style={{ textAlign: "end" }}>Stake</th>
-                </tr>
-              </thead>
-              <tbody>
-                {registrations.map((signer, index) => (
-                  <tr key={signer.party_id}>
-                    <td>{index}</td>
-                    <td>
-                      <VerifiedBadge tooltip="Verified Signer" />{" "}
-                      <PartyId partyId={signer.party_id} />
-                    </td>
-                    <td>
-                      <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
-                    </td>
-                    <td style={{ textAlign: "end" }}>
-                      <Stake lovelace={signer.stake} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <SignerTable signers={registrations} aggregator={aggregator} displayIndexes />
           </Col>
           <Col xs={12} sm={12} md={5}>
             <Stack gap={3}>

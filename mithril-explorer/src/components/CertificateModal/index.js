@@ -7,9 +7,7 @@ import { selectedAggregator } from "../../store/settingsSlice";
 import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
 import ProtocolParameters from "../ProtocolParameters";
-import PoolTicker from "../PoolTicker";
-import VerifiedBadge from "../VerifiedBadge";
-import PartyId from "../PartyId";
+import SignerTable from "../SignerTable";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -149,31 +147,10 @@ export default function CertificateModal(props) {
                           retrieval or the signing process
                         </div>
                       ) : (
-                        <Table responsive>
-                          <thead>
-                            <tr>
-                              <th>Party id</th>
-                              <th>Pool ticker</th>
-                              <th style={{ textAlign: "end" }}>Stake</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {certificate.metadata.signers.map((signer) => (
-                              <tr key={signer.party_id}>
-                                <td>
-                                  <VerifiedBadge tooltip="Verified Signer" />{" "}
-                                  <PartyId partyId={signer.party_id} />
-                                </td>
-                                <td>
-                                  <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
-                                </td>
-                                <td style={{ textAlign: "end" }}>
-                                  <Stake lovelace={signer.stake} />
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </Table>
+                        <SignerTable
+                          signers={certificate.metadata.signers}
+                          aggregator={aggregator}
+                        />
                       )}
                     </Accordion.Body>
                   </Accordion.Item>
