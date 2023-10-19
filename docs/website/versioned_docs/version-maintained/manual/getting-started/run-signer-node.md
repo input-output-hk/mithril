@@ -234,7 +234,7 @@ Replace this value with the correct user. We assume that the user used to run th
   * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
   * `ERA_READER_ADAPTER_TYPE=cardano-chain`: replace `cardano-chain` with the era reader adapter type used in your Mithril network
   * `ERA_READER_ADAPTER_PARAMS={"address": "...", "verification_key": "..."}`: replace `{"address": "...", "verification_key": "..."}` with the era reader parameters that you need to compute by running the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'`
-  * `RELAY_ENDPOINT=http://192.168.1.50:3128` **(optional)**: this is the endpoint of the **Mithril relay**, which is required for **production** deployment only. For **naive** deployment, do not set this variable in your environment file.
+  * `RELAY_ENDPOINT=http://192.168.1.50:3132` **(optional)**: this is the endpoint of the **Mithril relay**, which is required for **production** deployment only. For **naive** deployment, do not set this variable in your environment file.
 :::
 
 :::tip
@@ -248,7 +248,7 @@ Here is an **example** set of values for **release-preprod** that will be used i
 * ****YOUR_ERA_READER_ADAPTER_TYPE****: `cardano-chain`
 * ****YOUR_ERA_READER_ADAPTER_PARAMS****: `{"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}`
 * ****YOUR_RELAY_ENDPOINT****: `192.168.1.50`
-* ****YOUR_RELAY_LISTENING_PORT****: `3128`
+* ****YOUR_RELAY_LISTENING_PORT****: `3132`
 * ****YOUR_BLOCK_PRODUCER_INTERNAL_IP****: `192.168.1.75`
 * ****YOUR_SIGNER_LOGS_PATH****: `/var/log/syslog`
 * ****YOUR_PARTY_ID****: `pool1hp72sauk0g0yqm4dzllz0pz6j93gewhllkzphn4hykkfmne43y`
@@ -294,7 +294,7 @@ DATA_STORES_DIRECTORY=/opt/mithril/stores
 STORE_RETENTION_LIMIT=5
 ERA_READER_ADAPTER_TYPE=cardano-chain
 ERA_READER_ADAPTER_PARAMS={"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}
-RELAY_ENDPOINT=http://192.168.1.50:3128
+RELAY_ENDPOINT=http://192.168.1.50:3132
 EOF'
 ```
 
@@ -392,6 +392,23 @@ Finally, monitor the logs of the service:
 tail /var/log/syslog
 ```
 
+### Rotating the KES keys
+
+:::danger
+
+When the KES keys expire, the Mithril signer is unable to register with the Mithril protocol.
+
+:::
+
+After rotating the KES keys on your Cardano block producer, we recommend following this upgrade procedure for your Mithril signer node:
+1. Update the `KES_SECRET_KEY_PATH` entry of your environment file to reflect the location of the **new KES secret key file**.
+2. Update the `OPERATIONAL_CERTIFICATE_PATH` entry of your environment file to reflect the location of the **new operational certificate file**.
+3. Restart your Mithril signer service with the following command:
+```bash
+sudo systemctl restart mithril-signer
+```
+4. Check the logs of your signer node and make sure that it has successfully registered after restarting (the following log should be displayed: `STATE MACHINE: new cycle: Registered`).
+
 ## Set up the Mithril relay node
 
 :::caution
@@ -426,7 +443,7 @@ Prepare the forward proxy configuration file:
 
 ```bash
 sudo bash -c 'cat > /etc/squid/squid.conf << EOF
-# Listening port (port 3128 is recommended)
+# Listening port (port 3132 is recommended)
 http_port **YOUR_RELAY_LISTENING_PORT**
 
 # ACL for internal IP of your block producer node
@@ -481,8 +498,8 @@ Here is an example of the aforementioned command created with the example set fo
 
 ```bash
 sudo bash -c 'cat > /etc/squid/squid.conf << EOF
-# Listening port (port 3128 is recommended)
-http_port 3128
+# Listening port (port 3132 is recommended)
+http_port 3132
 
 # ACL for internal IP of your block producer node
 acl block_producer_internal_ip src 192.168.1.75
@@ -528,6 +545,19 @@ cache deny all
 # Deny everything else
 http_access deny all
 EOF'
+```
+
+:::
+
+:::tip
+
+In case you are using the same Cardano relay for multiple Cardano block producers, you will need to add a new line per block producer for authorizing its internal IP:
+
+```bash
+# ACL for internal IP of your block producer node
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_1**
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_2**
+acl block_producer_internal_ip src **YOUR_BLOCK_PRODUCER_INTERNAL_IP_3**
 ```
 
 :::
@@ -589,7 +619,7 @@ sudo ufw allow from **YOUR_BLOCK_PRODUCER_INTERNAL_IP** to any port **YOUR_RELAY
 Here is an example of the aforementioned command created with the example set for `release-preprod`:
 
 ```bash
-sudo ufw allow from 192.168.1.75 to any port 3128 proto tcp
+sudo ufw allow from 192.168.1.75 to any port 3132 proto tcp
 ```
 
 :::
@@ -607,7 +637,7 @@ sudo service netfilter-persistent save
 Here is an example of the aforementioned command created with the example set for `release-preprod`:
 
 ```bash
-sudo iptables -A INPUT -s 192.168.1.75 -p tcp --dport 3128 -j ACCEPT
+sudo iptables -A INPUT -s 192.168.1.75 -p tcp --dport 3132 -j ACCEPT
 sudo iptables -L -v
 sudo service netfilter-persistent save
 ```
