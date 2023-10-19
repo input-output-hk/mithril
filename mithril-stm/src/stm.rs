@@ -1634,31 +1634,15 @@ mod tests {
                 _ => unreachable!(),
             }
         }
-    }
 
-    #[test]
-    fn debug_total_stake_calc(){
-        let nparties = 5;
-        let m = 12;
-        let k = 3;
-
-        let params = StmParameters { m, k, phi_f: 0.2 };
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-
-        let mut public_signers: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties);
-        let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nparties);
-
-        let stakes = (0..nparties)
-            .map(|_| 1 + (rng.next_u64() % 9999))
-            .collect::<Vec<_>>();
-
-        for stake in stakes {
-            let initializer = StmInitializer::setup(params, stake, &mut rng);
-            initializers.push(initializer.clone());
-            public_signers.push((initializer.verification_key().vk, initializer.stake));
+        #[test]
+        fn test_total_stake_core_verifier(nparties in 2_usize..30,
+                              m in 10_u64..20,
+                              k in 1_u64..5,) {
+            let params = StmParameters { m, k, phi_f: 0.2 };
+            let (_initializers, public_signers) = setup_equal_core_parties(params, nparties);
+            let core_verifier = CoreVerifier::setup(&public_signers);
+            assert_ne!(core_verifier.total_stake, 0, "Total stake is 0.");
         }
-
-        let core_verifier = CoreVerifier::setup(&public_signers);
-        println!("Total stake test: {}", core_verifier.total_stake);
     }
 }
