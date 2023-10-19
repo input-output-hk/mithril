@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Button, Col, Container, ListGroup, Modal, Row, Table } from "react-bootstrap";
+import { Accordion, Badge, Button, Col, Container, Modal, Row, Table } from "react-bootstrap";
+import { Bar } from "react-chartjs-2";
 import { useSelector } from "react-redux";
+import { computeStakeShapesDataset } from "../../charts";
+import { selectedAggregator } from "../../store/settingsSlice";
 import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
 import ProtocolParameters from "../ProtocolParameters";
 import PoolTicker from "../PoolTicker";
 import VerifiedBadge from "../VerifiedBadge";
-import { selectedAggregator } from "../../store/settingsSlice";
 import PartyId from "../PartyId";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
+  const [charts, setCharts] = useState({
+    stakesBreakdown: {},
+  });
   const certificateEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/certificate/${props.hash}`,
   );
@@ -23,7 +28,12 @@ export default function CertificateModal(props) {
 
     fetch(certificateEndpoint)
       .then((response) => (response.status === 200 ? response.json() : {}))
-      .then((data) => setCertificate(data))
+      .then((data) => {
+        setCertificate(data);
+        setCharts({
+          stakesBreakdown: computeStakeShapesDataset(data.metadata.signers),
+        });
+      })
       .catch((error) => {
         setCertificate({});
         console.error("Fetch certificate error:", error);
@@ -55,65 +65,120 @@ export default function CertificateModal(props) {
         ) : (
           <Container>
             <Row md={1} xl="auto">
-              <Col xl={4}>
+              <Col xl={4} className="mb-3">
                 <h4>Beacon</h4>
-                <ListGroup className="margin-bottom--md" variant="flush">
-                  <ListGroup.Item>Network: {certificate.beacon.network}</ListGroup.Item>
-                  <ListGroup.Item>Epoch: {certificate.beacon.epoch}</ListGroup.Item>
-                  <ListGroup.Item>
-                    Immutable File Number: {certificate.beacon.immutable_file_number}
-                  </ListGroup.Item>
-                </ListGroup>
+                <Table className="mb-3">
+                  <tbody>
+                    <tr>
+                      <td>
+                        <em>Network:</em>
+                      </td>
+                      <td>{certificate.beacon.network}</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <em>Epoch:</em>
+                      </td>
+                      <td>{certificate.beacon.epoch}</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <em>Immutable File Number:</em>
+                      </td>
+                      <td>{certificate.beacon.immutable_file_number}</td>
+                    </tr>
+                  </tbody>
+                </Table>
                 <h4>Protocol Parameters</h4>
-                <ProtocolParameters protocolParameters={certificate.metadata.parameters} />
+                <ProtocolParameters
+                  className="mb-3"
+                  protocolParameters={certificate.metadata.parameters}
+                />
+                <h4>Statistics</h4>
+                <Table className="mb-0">
+                  <tbody>
+                    <tr>
+                      <td>
+                        <em>Number of signers:</em>
+                      </td>
+                      <td>{certificate?.metadata.signers.length ?? 0}</td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <em>Total stakes:</em>
+                      </td>
+                      <td>
+                        <Stake
+                          lovelace={
+                            certificate?.metadata.signers.reduce((acc, s) => acc + s.stake, 0) ?? 0
+                          }
+                        />
+                      </td>
+                    </tr>
+                  </tbody>
+                </Table>
               </Col>
-              <Col xl={8}>
-                <h4>Signers</h4>
+              <Col xl={8} className="mb-1">
                 {certificate.genesis_signature !== "" ? (
                   <div>
-                    This is the chain Genesis Certificate, since it&apos;s manually created it
-                    doesn&apos;t contain any Signers.
-                  </div>
-                ) : certificate.metadata.signers.length === 0 ? (
-                  <div>
-                    No Signers for this certificate, something went wrong either with the data
-                    retrieval or the signing process
+                    This is the chain{" "}
+                    <em>
+                      <strong>Genesis Certificate</strong>
+                    </em>
+                    , since it&apos;s manually created it doesn&apos;t contain any Signers.
                   </div>
                 ) : (
                   <>
-                    <Table responsive>
-                      <thead>
-                        <tr>
-                          <th></th>
-                          <th>Party id</th>
-                          <th>Pool ticker</th>
-                          <th style={{ textAlign: "end" }}>Stake</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {certificate.metadata.signers.map((signer) => (
-                          <tr key={signer.party_id}>
-                            <td>
-                              {signer.verification_key_signature && (
-                                <VerifiedBadge tooltip="Verified Signer" />
-                              )}
-                            </td>
-                            <td>
-                              <PartyId partyId={signer.party_id} />
-                            </td>
-                            <td>
-                              <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
-                            </td>
-                            <td style={{ textAlign: "end" }}>
-                              <Stake lovelace={signer.stake} />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
+                    <h4>Stakes breakdown</h4>
+                    <Bar data={charts.stakesBreakdown} />
                   </>
                 )}
               </Col>
+            </Row>
+            <Row>
+              {certificate.genesis_signature === "" && (
+                <Accordion>
+                  <Accordion.Item eventKey="signers">
+                    <Accordion.Header>
+                      <h4>Signers</h4>
+                    </Accordion.Header>
+                    <Accordion.Body>
+                      {certificate.metadata.signers.length === 0 ? (
+                        <div>
+                          No Signers for this certificate, something went wrong either with the data
+                          retrieval or the signing process
+                        </div>
+                      ) : (
+                        <Table responsive>
+                          <thead>
+                            <tr>
+                              <th>Party id</th>
+                              <th>Pool ticker</th>
+                              <th style={{ textAlign: "end" }}>Stake</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {certificate.metadata.signers.map((signer) => (
+                              <tr key={signer.party_id}>
+                                <td>
+                                  <VerifiedBadge tooltip="Verified Signer" />{" "}
+                                  <PartyId partyId={signer.party_id} />
+                                </td>
+                                <td>
+                                  <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
+                                </td>
+                                <td style={{ textAlign: "end" }}>
+                                  <Stake lovelace={signer.stake} />
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </Table>
+                      )}
+                    </Accordion.Body>
+                  </Accordion.Item>
+                </Accordion>
+              )}
             </Row>
           </Container>
         )}

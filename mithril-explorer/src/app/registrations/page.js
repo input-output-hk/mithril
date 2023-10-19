@@ -236,7 +236,7 @@ export default function Registrations() {
                 {registrations.map((signer, index) => (
                   <tr key={signer.party_id}>
                     <td>{index}</td>
-                    <td className="text-break">
+                    <td>
                       <VerifiedBadge tooltip="Verified Signer" />{" "}
                       <PartyId partyId={signer.party_id} />
                     </td>

@@ -5,17 +5,28 @@ import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Col, Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  Title,
+  Tooltip,
+} from "chart.js";
+import CertificatesList from "../components/Artifacts/CertificatesList";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
 import SnapshotsList from "../components/Artifacts/SnapshotsList";
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
 import { aggregatorSearchParam } from "../constants";
+import { setChartJsDefaults } from "../charts";
 import {
   selectAggregator,
   selectedAggregator as currentlySelectedAggregator,
 } from "../store/settingsSlice";
 import { updatePoolsForAggregator } from "../store/poolsSlice";
-import CertificatesList from "../components/Artifacts/CertificatesList";
 
 // Disable SSR for the following components since they use data from the store that are not
 // available server sides (because those data can be read from the local storage).
@@ -23,6 +34,9 @@ const AggregatorSetter = dynamic(() => import("../components/AggregatorSetter"),
 const IntervalSetter = dynamic(() => import("../components/IntervalSetter"), {
   ssr: false,
 });
+
+Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+setChartJsDefaults(Chart);
 
 export default function Explorer() {
   const router = useRouter();
