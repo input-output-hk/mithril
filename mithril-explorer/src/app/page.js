@@ -15,6 +15,7 @@ import {
   selectedAggregator as currentlySelectedAggregator,
 } from "../store/settingsSlice";
 import { updatePoolsForAggregator } from "../store/poolsSlice";
+import CertificatesList from "../components/Artifacts/CertificatesList";
 
 // Disable SSR for the following components since they use data from the store that are not
 // available server sides (because those data can be read from the local storage).
@@ -80,6 +81,9 @@ export default function Explorer() {
         </Tab>
         <Tab title="Mithril Stake Distribution" eventKey="mithrilStakeDistribution">
           <MithrilStakeDistributionsList />
+        </Tab>
+        <Tab title="Certificates" eventKey="certificates">
+          <CertificatesList />
         </Tab>
       </Tabs>
     </Stack>
