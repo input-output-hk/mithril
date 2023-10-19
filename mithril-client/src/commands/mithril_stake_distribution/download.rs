@@ -1,8 +1,12 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::Context;
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
 
 use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
@@ -19,16 +23,20 @@ pub struct MithrilStakeDistributionDownloadCommand {
     /// Directory where the Mithril Stake Distribution will be downloaded. By default, a
     /// subdirectory will be created in this directory to extract and verify the
     /// certificate.
-    #[clap(long, default_value = ".")]
-    download_dir: PathBuf,
+    #[clap(long)]
+    download_dir: Option<PathBuf>,
+
+    /// Genesis Verification Key to check the certifiate chain.
+    #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
+    genesis_verification_key: Option<String>,
 }
 
 impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder
-            .set_default("genesis_verification_key", "")
-            .unwrap()
+            .set_default("download_dir", ".")?
+            .add_source(self.clone())
             .build()?;
         let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
@@ -44,8 +52,8 @@ impl MithrilStakeDistributionDownloadCommand {
         let filepath = service
             .download(
                 &self.artifact_hash,
-                &self.download_dir,
-                &params.get_or("genesis_verification_key", ""),
+                Path::new(&params.require("download_dir")?),
+                &params.require("genesis_verification_key")?,
             )
             .await
             .with_context(|| {
@@ -62,5 +70,40 @@ impl MithrilStakeDistributionDownloadCommand {
         );
 
         Ok(())
+    }
+}
+
+impl Source for MithrilStakeDistributionDownloadCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut map = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        if let Some(download_dir) = self.download_dir.clone() {
+            map.insert(
+                "download_dir".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(download_dir.to_str().ok_or_else(|| {
+                        config::ConfigError::Message(format!(
+                            "Could not read download directory: '{}'.",
+                            download_dir.display()
+                        ))
+                    })?),
+                ),
+            );
+        }
+
+        if let Some(genesis_verification_key) = self.genesis_verification_key.clone() {
+            map.insert(
+                "genesis_verification_key".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(genesis_verification_key)),
+            );
+        }
+
+        Ok(map)
     }
 }
