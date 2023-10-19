@@ -76,12 +76,12 @@ export default function Explorer() {
   return (
     <Stack gap={3}>
       <Form>
-        <Row xs={1} sm={2}>
+        <Row xs={1} sm={2} className="row-gap-2">
           <AggregatorSetter />
           <IntervalSetter />
         </Row>
       </Form>
-      <Row>
+      <Row className="row-gap-3">
         <Col xs={12} sm={4} lg={3} xl={2}>
           <EpochSettings />
         </Col>
