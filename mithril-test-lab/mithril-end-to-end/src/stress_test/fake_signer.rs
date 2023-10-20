@@ -166,6 +166,8 @@ pub async fn register_signatures_to_aggregator(
 
             match response.status() {
                 StatusCode::CREATED => Ok(()),
+                // Certificate already certified
+                StatusCode::GONE => Ok(()),
                 status => Err(LoadError::SignaturesRegistrationError {
                     expected_http_code: 201,
                     got_http_code: status.as_u16() as u32,
