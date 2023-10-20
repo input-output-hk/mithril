@@ -8,7 +8,7 @@ use mithril_common::{
     StdResult,
 };
 use reqwest::StatusCode;
-use slog_scope::{info, warn};
+use slog_scope::warn;
 use thiserror::Error;
 use tokio::task::JoinSet;
 
@@ -117,11 +117,11 @@ pub async fn download_certificate_chain(
 }
 
 pub async fn clients_scenario(endpoint: String, num_clients: usize) -> StdResult<usize> {
-    info!(">> Run clients scenario with {num_clients} clients");
-
     let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
+    // todo: redraw this progress bar but in a MultiProgressBar, drawing it as is create
+    // a blinking progress bar in the cli since we are doing other operation at the same time.
     let progress_bar =
-        ProgressBar::with_draw_target(Some(num_clients as u64), ProgressDrawTarget::stdout());
+        ProgressBar::with_draw_target(Some(num_clients as u64), ProgressDrawTarget::hidden());
 
     let http_client = Arc::new(reqwest::Client::new());
     for _client_index in 0..num_clients {

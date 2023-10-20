@@ -302,9 +302,8 @@ mod tests {
 
     #[tokio::test]
     async fn retriever_handle_http_data_fetching_error() {
-        let server = test_http_server(
-            warp::path("list").map(|| reply::internal_server_error("whatever".to_string())),
-        );
+        let server =
+            test_http_server(warp::path("list").map(|| reply::internal_server_error("whatever")));
 
         let retriever =
             CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();

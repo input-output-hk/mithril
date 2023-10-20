@@ -3,22 +3,18 @@ use async_trait::async_trait;
 use slog_scope::{debug, info, warn};
 use std::{path::Path, path::PathBuf, sync::Arc};
 
-use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityType,
+    SignedEntityType, Signer,
 };
 use mithril_common::store::StakeStorer;
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::entities::OpenMessage;
-use crate::RuntimeError;
-use crate::{DependencyContainer, ProtocolError};
+use crate::DependencyContainer;
 
 #[cfg(test)]
 use mockall::automock;
-
-use super::error::RunnerError;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -58,13 +54,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> StdResult<Option<OpenMessage>>;
 
     /// Retrieves the current non certified open message.
-    async fn get_current_non_certified_open_message(&self) -> StdResult<Option<OpenMessage>>;
+    async fn get_current_non_certified_open_message(
+        &self,
+        current_beacon: &Beacon,
+    ) -> StdResult<Option<OpenMessage>>;
 
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()>;
-
-    /// Update the multisigner with the given beacon.
-    async fn update_beacon(&self, new_beacon: &Beacon) -> StdResult<()>;
 
     /// Read the stake distribution from the blockchain and store it.
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()>;
@@ -75,9 +71,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
 
-    /// Update the multisigner with the protocol parameters from configuration.
-    async fn update_protocol_parameters_in_multisigner(&self, new_beacon: &Beacon)
-        -> StdResult<()>;
+    /// Ask the EpochService to update the protocol parameters.
+    async fn update_protocol_parameters(&self) -> StdResult<()>;
 
     /// Compute the protocol message
     async fn compute_protocol_message(
@@ -85,8 +80,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage>;
 
-    /// Return the actual pending certificate from the multisigner.
-    async fn create_new_pending_certificate_from_multisigner(
+    /// Create a new pending certificate.
+    async fn create_new_pending_certificate(
         &self,
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
@@ -98,10 +93,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         pending_certificate: CertificatePending,
     ) -> StdResult<()>;
 
-    /// Drop the multisigner's actual pending certificate.
+    /// Drop the actual pending certificate in the store.
     async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
-    /// Create multi-signature.
+    /// Tell the certifier to try to create a new certificate.
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -117,8 +112,11 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Update the EraChecker with EraReader information.
     async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()>;
 
-    /// Certifier inform new epoch
-    async fn certifier_inform_new_epoch(&self, epoch: &Epoch) -> StdResult<()>;
+    /// Ask services to update themselves for the new epoch
+    async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
+
+    /// Precompute what doesn't change for the actual epoch
+    async fn precompute_epoch_data(&self) -> StdResult<()>;
 
     /// Create new open message
     async fn create_open_message(
@@ -135,7 +133,7 @@ pub struct AggregatorRunner {
 }
 
 impl AggregatorRunner {
-    /// Create a new instance of the Aggrergator Runner.
+    /// Create a new instance of the Aggregator Runner.
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
         Self { dependencies }
     }
@@ -189,14 +187,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: no open message found, a new one will be created";
                     "signed_entity_type" => ?signed_entity_type
                 );
-                // In order to fix flakiness in the end to end tests, we are
-                // compelled to update the beacon (of the multi-signer) This
-                // avoids the computation of the next AVK on the wrong epoch (in
-                // 'compute_protocol_message')
-                // TODO: remove 'current_beacon' from the multi-signer state
-                // which will avoid this fix
-                let chain_beacon: Beacon = self.get_beacon_from_chain().await?;
-                self.update_beacon(&chain_beacon).await?;
                 let protocol_message = self.compute_protocol_message(signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
 
                 Some(
@@ -210,23 +200,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(open_message_maybe)
     }
 
-    async fn get_current_non_certified_open_message(&self) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_non_certified_open_message");
+    async fn get_current_non_certified_open_message(
+        &self,
+        current_beacon: &Beacon,
+    ) -> StdResult<Option<OpenMessage>> {
+        debug!("RUNNER: get_current_non_certified_open_message"; "beacon" => #?current_beacon);
         let signed_entity_types = vec![
-            SignedEntityType::MithrilStakeDistribution(
-                self.dependencies
-                    .ticker_service
-                    .get_current_epoch()
-                    .await
-                    .with_context(|| "DependencyContainer can not get current epoch")?,
-            ),
-            SignedEntityType::CardanoImmutableFilesFull(
-                self.dependencies
-                    .ticker_service
-                    .get_current_immutable_beacon()
-                    .await
-                    .with_context(|| "DependencyContainer can not get current immutable beacon")?,
-            ),
+            SignedEntityType::MithrilStakeDistribution(current_beacon.epoch),
+            SignedEntityType::CardanoImmutableFilesFull(current_beacon.clone()),
         ];
 
         for signed_entity_type in signed_entity_types {
@@ -256,65 +237,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    // TODO: is this still useful?
-    async fn update_beacon(&self, new_beacon: &Beacon) -> StdResult<()> {
-        debug!("RUNNER: update beacon"; "beacon" => #?new_beacon);
-        self.dependencies
-            .multi_signer
-            .write()
-            .await
-            .update_current_beacon(new_beacon.to_owned())
-            .await?;
-        Ok(())
-    }
-
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()> {
         debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
-        let exists_stake_distribution = !self
-            .dependencies
-            .stake_store
-            .get_stakes(
-                self.dependencies
-                    .multi_signer
-                    .read()
-                    .await
-                    .get_current_beacon()
-                    .await
-                    .ok_or_else(|| {
-                        RuntimeError::keep_state("Current beacon is not available", None)
-                    })?
-                    .epoch
-                    .offset_to_recording_epoch(),
-            )
-            .await?
-            .unwrap_or_default()
-            .is_empty();
-        if exists_stake_distribution {
-            return Ok(());
-        }
-
-        let stake_distribution = self
-            .dependencies
-            .chain_observer
-            .get_current_stake_distribution()
-            .await?
-            .ok_or_else(|| {
-                RunnerError::MissingStakeDistribution(format!(
-                    "Chain observer: no stake distribution for beacon {new_beacon:?}."
-                ))
-            })?;
-        let stake_distribution = stake_distribution
-            .iter()
-            .map(|(party_id, stake)| (party_id.to_owned(), *stake))
-            .collect::<ProtocolStakeDistribution>();
-
-        Ok(self
-            .dependencies
-            .multi_signer
-            .write()
+        self.dependencies
+            .stake_distribution_service
+            .update_stake_distribution()
             .await
-            .update_stake_distribution(&stake_distribution)
-            .await?)
+            .with_context(|| format!("AggregatorRunner could not update stake distribution for beacon: '{new_beacon}'"))
     }
 
     async fn open_signer_registration_round(&self, new_beacon: &Beacon) -> StdResult<()> {
@@ -343,29 +272,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn update_protocol_parameters_in_multisigner(
-        &self,
-        new_beacon: &Beacon,
-    ) -> StdResult<()> {
-        debug!("RUNNER: update protocol parameters"; "beacon" => #?new_beacon);
-        let protocol_parameters = self.dependencies.config.protocol_parameters.clone();
-
-        self.update_beacon(new_beacon)
-            .await
-            .with_context(|| format!("AggregatorRunner can not update beacon: '{new_beacon}'"))?;
+    async fn update_protocol_parameters(&self) -> StdResult<()> {
         self.dependencies
-            .multi_signer
+            .epoch_service
             .write()
             .await
-            .update_protocol_parameters(&protocol_parameters.clone().into())
+            .update_protocol_parameters()
             .await
-            .map_err(|e| anyhow!(e))
-            .with_context(|| {
-                format!(
-                    "Multi Signer can not update protocol parameters: '{:?}'",
-                    &protocol_parameters
-                )
-            })
     }
 
     async fn compute_protocol_message(
@@ -380,12 +293,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
 
-        let multi_signer = self.dependencies.multi_signer.write().await;
+        let epoch_service = self.dependencies.epoch_service.read().await;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
-            multi_signer
-                .compute_next_stake_distribution_aggregate_verification_key()
-                .await?
+            epoch_service
+                .next_aggregate_verification_key()?
                 .to_json_hex()
                 .with_context(|| "convert next avk to json hex failure")?,
         );
@@ -393,51 +305,34 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(protocol_message)
     }
 
-    async fn create_new_pending_certificate_from_multisigner(
+    async fn create_new_pending_certificate(
         &self,
         beacon: Beacon,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
-        debug!("RUNNER: create new pending certificate from multisigner");
-        let multi_signer = self.dependencies.multi_signer.read().await;
+        debug!("RUNNER: create new pending certificate");
+        let epoch_service = self.dependencies.epoch_service.read().await;
 
-        let signers = match multi_signer.get_signers().await {
-            Ok(signers) => signers,
-            Err(ProtocolError::Beacon(_)) => vec![],
-            Err(e) => return Err(e.into()),
-        };
-        let next_signers = match multi_signer.get_next_signers_with_stake().await {
-            Ok(signers) => signers,
-            Err(ProtocolError::Beacon(_)) => vec![],
-            Err(e) => return Err(e.into()),
-        };
+        let signers = epoch_service.current_signers_with_stake()?;
+        let next_signers = epoch_service.next_signers_with_stake()?;
 
         let protocol_parameters =
-            multi_signer
-                .get_protocol_parameters()
-                .await?
-                .ok_or_else(|| {
-                    RunnerError::MissingProtocolParameters(format!(
-                        "no current protocol parameters found for beacon {beacon:?}"
-                    ))
+            epoch_service
+                .current_protocol_parameters()
+                .with_context(|| {
+                    format!("no current protocol parameters found for beacon {beacon:?}")
                 })?;
-
-        let next_protocol_parameters = multi_signer
-            .get_next_protocol_parameters()
-            .await?
-            .ok_or_else(|| {
-                RunnerError::MissingProtocolParameters(format!(
-                    "no next protocol parameters found for beacon {beacon:?}"
-                ))
-            })?;
+        let next_protocol_parameters = epoch_service
+            .next_protocol_parameters()
+            .with_context(|| format!("no next protocol parameters found for beacon {beacon:?}"))?;
 
         let pending_certificate = CertificatePending::new(
             beacon,
             signed_entity_type.to_owned(),
-            protocol_parameters.into(),
-            next_protocol_parameters.into(),
-            signers,
-            next_signers.into_iter().map(|s| s.into()).collect(),
+            protocol_parameters.clone(),
+            next_protocol_parameters.clone(),
+            Signer::vec_from(signers.clone()),
+            Signer::vec_from(next_signers.clone()),
         );
 
         Ok(pending_certificate)
@@ -473,7 +368,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
-        debug!("RUNNER: create multi-signature");
+        debug!("RUNNER: create_certificate");
 
         self.dependencies
             .certifier_service
@@ -539,10 +434,28 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn certifier_inform_new_epoch(&self, epoch: &Epoch) -> StdResult<()> {
+    async fn precompute_epoch_data(&self) -> StdResult<()> {
+        self.dependencies
+            .epoch_service
+            .write()
+            .await
+            .precompute_epoch_data()
+            .await?;
+
+        Ok(())
+    }
+
+    async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
         self.dependencies
             .certifier_service
-            .inform_epoch(*epoch)
+            .inform_epoch(epoch)
+            .await?;
+
+        self.dependencies
+            .epoch_service
+            .write()
+            .await
+            .inform_epoch(epoch)
             .await?;
 
         Ok(())
@@ -562,11 +475,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::services::FakeEpochService;
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
-        services::MockCertifierService,
+        services::{MithrilStakeDistributionService, MockCertifierService},
         DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
@@ -574,15 +488,17 @@ pub mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
+            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, Signer,
+            StakeDistribution,
         },
         signable_builder::SignableBuilderService,
         store::StakeStorer,
         test_utils::{fake_data, MithrilFixtureBuilder},
+        BeaconProviderImpl, CardanoNetwork, StdResult,
     };
-    use mithril_common::{BeaconProviderImpl, CardanoNetwork, StdResult};
     use mockall::{mock, predicate::eq};
     use std::sync::Arc;
+    use tokio::sync::RwLock;
 
     mock! {
         SignableBuilderServiceImpl { }
@@ -598,24 +514,25 @@ pub mod tests {
         }
     }
 
-    async fn init_runner_from_dependencies(deps: DependencyContainer) -> AggregatorRunner {
+    async fn build_runner_with_fixture_data(deps: DependencyContainer) -> AggregatorRunner {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let current_epoch = deps
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .unwrap()
+            .unwrap();
         deps.init_state_from_fixture(
             &fixture,
-            &[deps
-                .chain_observer
-                .get_current_epoch()
-                .await
-                .unwrap()
-                .unwrap()],
+            &[
+                current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                current_epoch,
+                current_epoch.next(),
+            ],
         )
         .await;
 
-        let runner = AggregatorRunner::new(Arc::new(deps));
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
-
-        runner
+        AggregatorRunner::new(Arc::new(deps))
     }
 
     #[tokio::test]
@@ -640,30 +557,14 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_beacon() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        let res = runner.update_beacon(&beacon).await;
-
-        assert!(res.is_ok());
-        let stored_beacon = deps
-            .multi_signer
-            .read()
-            .await
-            .get_current_beacon()
-            .await
-            .unwrap();
-
-        assert_eq!(beacon, stored_beacon);
-    }
-
-    #[tokio::test]
     async fn test_update_stake_distribution() {
         let mut deps = initialize_dependencies().await;
         let chain_observer = Arc::new(FakeObserver::default());
         deps.chain_observer = chain_observer.clone();
+        deps.stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
+            deps.stake_store.clone(),
+            chain_observer.clone(),
+        ));
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
@@ -673,10 +574,6 @@ pub mod tests {
         chain_observer
             .set_signers(fixture.signers_with_stake())
             .await;
-        runner
-            .update_beacon(&beacon)
-            .await
-            .expect("setting the beacon should not fail");
         runner
             .update_stake_distribution(&beacon)
             .await
@@ -766,44 +663,11 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_protocol_parameters_in_multisigner() {
+    async fn test_create_new_pending_certificate() {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner
-            .update_beacon(&beacon)
-            .await
-            .expect("setting the beacon should not fail");
-        runner
-            .update_protocol_parameters_in_multisigner(&beacon)
-            .await
-            .expect("updating protocol parameters should not return an error");
-
-        let current_protocol_parameters = deps.config.protocol_parameters.clone();
-
-        let saved_protocol_parameters = deps
-            .protocol_parameters_store
-            .get_protocol_parameters(beacon.epoch.offset_to_protocol_parameters_recording_epoch())
-            .await
-            .unwrap()
-            .unwrap_or_else(|| {
-                panic!(
-                    "should have protocol parameters for the epoch {:?}",
-                    beacon.epoch
-                )
-            });
-
-        assert_eq!(current_protocol_parameters, saved_protocol_parameters);
-    }
-
-    #[tokio::test]
-    async fn test_create_new_pending_certificate_from_multisigner() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
         let signed_entity_type = SignedEntityType::dummy();
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -816,9 +680,10 @@ pub mod tests {
             &protocol_parameters.clone(),
         )
         .await;
+        runner.inform_new_epoch(beacon.epoch).await.unwrap();
 
         let mut certificate = runner
-            .create_new_pending_certificate_from_multisigner(beacon.clone(), &signed_entity_type)
+            .create_new_pending_certificate(beacon.clone(), &signed_entity_type)
             .await
             .unwrap();
         certificate.signers.sort_by_key(|s| s.party_id.clone());
@@ -828,8 +693,8 @@ pub mod tests {
             signed_entity_type,
             protocol_parameters.clone(),
             protocol_parameters,
-            current_signers.into_iter().map(|s| s.into()).collect(),
-            next_signers.into_iter().map(|s| s.into()).collect(),
+            Signer::vec_from(current_signers),
+            Signer::vec_from(next_signers),
         );
         expected.signers.sort_by_key(|s| s.party_id.clone());
         expected.next_signers.sort_by_key(|s| s.party_id.clone());
@@ -842,8 +707,6 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
 
         runner
@@ -860,8 +723,6 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
         deps.certificate_pending_store
             .save(pending_certificate.clone())
@@ -879,8 +740,6 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
-        runner.update_beacon(&beacon).await.unwrap();
 
         let cert = runner.drop_pending_certificate().await.unwrap();
         assert_eq!(None, cert);
@@ -904,7 +763,34 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_certifier_inform_new_epoch() {
+    async fn test_inform_new_epoch() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_inform_epoch()
+            .returning(|_| Ok(()))
+            .times(1);
+
+        let mut deps = initialize_dependencies().await;
+        let current_epoch = deps
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .unwrap()
+            .unwrap();
+
+        deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
+            current_epoch,
+            &MithrilFixtureBuilder::default().build(),
+        )));
+
+        let runner = AggregatorRunner::new(Arc::new(deps));
+
+        runner.inform_new_epoch(current_epoch).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_update_protocol_parameters() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
@@ -913,24 +799,62 @@ pub mod tests {
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
+        let protocol_parameters_store = deps.protocol_parameters_store.clone();
+        let expected_protocol_parameters = deps.config.protocol_parameters.clone();
+        let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
+        let insert_epoch = current_epoch.offset_to_protocol_parameters_recording_epoch();
+
+        let runner = build_runner_with_fixture_data(deps).await;
+        runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner
+            .update_protocol_parameters()
+            .await
+            .expect("update_protocol_parameters should not fail");
+
+        let saved_protocol_parameters = protocol_parameters_store
+            .get_protocol_parameters(insert_epoch)
+            .await
+            .unwrap()
+            .unwrap_or_else(|| panic!("should have protocol parameters for epoch {insert_epoch}",));
+
+        assert_eq!(expected_protocol_parameters, saved_protocol_parameters);
+    }
+
+    #[tokio::test]
+    async fn test_precompute_epoch_data() {
+        let mut deps = initialize_dependencies().await;
+        let current_epoch = deps
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .unwrap()
+            .unwrap();
+
+        deps.epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
+            current_epoch,
+            &MithrilFixtureBuilder::default().build(),
+        )));
 
         let runner = AggregatorRunner::new(Arc::new(deps));
-        runner.certifier_inform_new_epoch(&Epoch(1)).await.unwrap();
+
+        runner.precompute_epoch_data().await.unwrap();
     }
 
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: false,
             ..OpenMessage::dummy()
         };
         let open_message_clone = open_message_expected.clone();
 
         let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_inform_epoch()
+            .return_once(|_| Ok(()));
         mock_certifier_service
             .expect_get_open_message()
             .return_once(|_| Ok(None))
@@ -943,10 +867,18 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
+        let current_epoch = runner
+            .dependencies
+            .ticker_service
+            .get_current_epoch()
+            .await
+            .unwrap();
+        runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -955,10 +887,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: false,
             ..OpenMessage::dummy()
         };
@@ -974,10 +905,10 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -986,10 +917,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
             ..OpenMessage::dummy()
         };
@@ -1014,10 +944,10 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -1026,10 +956,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
             ..OpenMessage::dummy()
         };
@@ -1041,6 +970,9 @@ pub mod tests {
         let open_message_clone = open_message_expected.clone();
 
         let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_inform_epoch()
+            .return_once(|_| Ok(()));
         mock_certifier_service
             .expect_get_open_message()
             .with(eq(open_message_already_certified
@@ -1066,10 +998,18 @@ pub mod tests {
         deps.certifier_service = Arc::new(mock_certifier_service);
         deps.signable_builder_service = Arc::new(mock_signable_builder_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
+        let current_epoch = runner
+            .dependencies
+            .ticker_service
+            .get_current_epoch()
+            .await
+            .unwrap();
+        runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -1078,10 +1018,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
     ) {
+        let beacon = fake_data::beacon();
         let open_message_already_certified_mithril_stake_distribution = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
-                fake_data::beacon().epoch,
-            ),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
             ..OpenMessage::dummy()
         };
@@ -1109,10 +1048,10 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = init_runner_from_dependencies(deps).await;
+        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message()
+            .get_current_non_certified_open_message(&beacon)
             .await
             .unwrap();
         assert!(open_message_returned.is_none());

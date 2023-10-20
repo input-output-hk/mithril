@@ -114,7 +114,7 @@ impl AggregatorRuntime {
                         message: _,
                         nested_error: _,
                     } => {
-                        crit!("state machine: a critical error occurred: {e}");
+                        crit!("state machine: a critical error occurred: {e:?}");
 
                         return Err(e);
                     }
@@ -126,7 +126,7 @@ impl AggregatorRuntime {
                             "KeepState Error: {message}. Nested error: «{}».",
                             nested_error
                                 .as_ref()
-                                .map(|e| format!("{e}"))
+                                .map(|e| format!("{e:?}"))
                                 .unwrap_or("None".into())
                         );
                     }
@@ -138,7 +138,7 @@ impl AggregatorRuntime {
                             "ReInit Error: {message}. Nested error: «{}».",
                             nested_error
                                 .as_ref()
-                                .map(|e| format!("{e}"))
+                                .map(|e| format!("{e:?}"))
                                 .unwrap_or("None".into())
                         );
                         self.state = AggregatorState::Idle(IdleState {
@@ -199,7 +199,7 @@ impl AggregatorRuntime {
                     });
                 } else if let Some(open_message) = self
                     .runner
-                    .get_current_non_certified_open_message()
+                    .get_current_non_certified_open_message(&chain_beacon)
                     .await.with_context(|| "AggregatorRuntime can not get the current non certified open message")?
                 {
                     // transition READY > SIGNING
@@ -271,8 +271,6 @@ impl AggregatorRuntime {
     ) -> Result<(), RuntimeError> {
         trace!("trying transition from IDLE to READY state");
 
-        self.runner.update_beacon(&new_beacon).await?;
-
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
             self.runner.close_signer_registration_round().await?;
@@ -280,16 +278,13 @@ impl AggregatorRuntime {
                 .update_era_checker(&new_beacon)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner
-                .certifier_inform_new_epoch(&new_beacon.epoch)
-                .await?;
+            self.runner.inform_new_epoch(new_beacon.epoch).await?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
                 .await?;
-            self.runner
-                .update_protocol_parameters_in_multisigner(&new_beacon)
-                .await?;
+            self.runner.update_protocol_parameters().await?;
+            self.runner.precompute_epoch_data().await?;
         }
 
         self.runner
@@ -376,14 +371,10 @@ impl AggregatorRuntime {
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
-        self.runner.update_beacon(&new_beacon).await?;
 
         let certificate_pending = self
             .runner
-            .create_new_pending_certificate_from_multisigner(
-                new_beacon.clone(),
-                &open_message.signed_entity_type,
-            )
+            .create_new_pending_certificate(new_beacon.clone(), &open_message.signed_entity_type)
             .await?;
         self.runner
             .save_pending_certificate(certificate_pending.clone())
@@ -439,16 +430,6 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters_in_multisigner()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
             .expect_is_certificate_chain_valid()
             .once()
             .returning(|_| Err(anyhow!("error")));
@@ -458,10 +439,18 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_certifier_inform_new_epoch()
+            .expect_inform_new_epoch()
             .with(predicate::eq(fake_data::beacon().epoch))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_update_protocol_parameters()
+            .once()
+            .returning(|| Ok(()));
+        runner
+            .expect_precompute_epoch_data()
+            .once()
+            .returning(|| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -503,16 +492,6 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters_in_multisigner()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
             .expect_is_certificate_chain_valid()
             .once()
             .returning(|_| Ok(()));
@@ -522,10 +501,18 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_certifier_inform_new_epoch()
+            .expect_inform_new_epoch()
             .with(predicate::eq(fake_data::beacon().epoch))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_update_protocol_parameters()
+            .once()
+            .returning(|| Ok(()));
+        runner
+            .expect_precompute_epoch_data()
+            .once()
+            .returning(|| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -579,7 +566,7 @@ mod tests {
         runner
             .expect_get_current_non_certified_open_message()
             .once()
-            .returning(|| Ok(None));
+            .returning(|_| Ok(None));
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
                 current_beacon: beacon.clone(),
@@ -608,7 +595,7 @@ mod tests {
         runner
             .expect_get_current_non_certified_open_message()
             .once()
-            .returning(|| {
+            .returning(|_| {
                 let open_message = OpenMessage {
                     is_certified: false,
                     ..OpenMessage::dummy()
@@ -616,12 +603,7 @@ mod tests {
                 Ok(Some(open_message))
             });
         runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_create_new_pending_certificate_from_multisigner()
+            .expect_create_new_pending_certificate()
             .once()
             .returning(|_, _| Ok(fake_data::certificate_pending()));
         runner
@@ -794,11 +776,6 @@ mod tests {
             .expect_get_beacon_from_chain()
             .once()
             .returning(|| Ok(fake_data::beacon()));
-        runner
-            .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
         runner
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))

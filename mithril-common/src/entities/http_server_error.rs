@@ -1,3 +1,4 @@
+use crate::StdError;
 use serde::{Deserialize, Serialize};
 
 /// Representation of a Internal Server Error raised by an http server
@@ -11,6 +12,24 @@ impl InternalServerError {
     /// InternalServerError factory
     pub fn new(message: String) -> InternalServerError {
         InternalServerError { message }
+    }
+}
+
+impl From<String> for InternalServerError {
+    fn from(message: String) -> Self {
+        InternalServerError::new(message)
+    }
+}
+
+impl From<&str> for InternalServerError {
+    fn from(message: &str) -> Self {
+        InternalServerError::new(message.to_string())
+    }
+}
+
+impl From<StdError> for InternalServerError {
+    fn from(error: StdError) -> Self {
+        InternalServerError::new(format!("{error:?}"))
     }
 }
 

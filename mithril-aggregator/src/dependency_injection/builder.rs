@@ -52,7 +52,7 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        CertifierService, MithrilCertifierService, MithrilSignedEntityService,
+        CertifierService, MithrilCertifierService, MithrilEpochService, MithrilSignedEntityService,
         MithrilStakeDistributionService, MithrilTickerService, SignedEntityService,
         StakeDistributionService, TickerService,
     },
@@ -64,7 +64,7 @@ use crate::{
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
-use super::{DependenciesBuilderError, Result};
+use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
@@ -180,6 +180,9 @@ pub struct DependenciesBuilder {
     /// Certifier service
     pub certifier_service: Option<Arc<dyn CertifierService>>,
 
+    /// Epoch service.
+    pub epoch_service: Option<EpochServiceWrapper>,
+
     /// Signed Entity storer
     pub signed_entity_storer: Option<Arc<dyn SignedEntityStorer>>,
 }
@@ -220,6 +223,7 @@ impl DependenciesBuilder {
             signable_builder_service: None,
             signed_entity_service: None,
             certifier_service: None,
+            epoch_service: None,
             signed_entity_storer: None,
         }
     }
@@ -336,11 +340,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
-        let multi_signer = MultiSignerImpl::new(
-            self.get_verification_key_store().await?,
-            self.get_stake_store().await?,
-            self.get_protocol_parameters_store().await?,
-        );
+        let multi_signer = MultiSignerImpl::new(self.get_epoch_service().await?);
 
         Ok(Arc::new(RwLock::new(multi_signer)))
     }
@@ -901,9 +901,9 @@ impl DependenciesBuilder {
 
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let signed_entity_storer = self.build_signed_entity_storer().await?;
-        let multi_signer = self.get_multi_signer().await?;
+        let epoch_service = self.get_epoch_service().await?;
         let mithril_stake_distribution_artifact_builder =
-            Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
+            Arc::new(MithrilStakeDistributionArtifactBuilder::new(epoch_service));
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
@@ -931,6 +931,28 @@ impl DependenciesBuilder {
         }
 
         Ok(self.signed_entity_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
+        let verification_key_store = self.get_verification_key_store().await?;
+        let protocol_parameters_store = self.get_protocol_parameters_store().await?;
+
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            self.configuration.protocol_parameters.clone(),
+            protocol_parameters_store,
+            verification_key_store,
+        )));
+
+        Ok(epoch_service)
+    }
+
+    /// [EpochService][crate::services::EpochService] service
+    pub async fn get_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
+        if self.epoch_service.is_none() {
+            self.epoch_service = Some(self.build_epoch_service().await?);
+        }
+
+        Ok(self.epoch_service.as_ref().cloned().unwrap())
     }
 
     async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
@@ -980,6 +1002,7 @@ impl DependenciesBuilder {
             signable_builder_service: self.get_signable_builder_service().await?,
             signed_entity_service: self.get_signed_entity_service().await?,
             certifier_service: self.get_certifier_service().await?,
+            epoch_service: self.get_epoch_service().await?,
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
@@ -1088,7 +1111,7 @@ impl DependenciesBuilder {
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
             protocol_parameters_store: self.get_protocol_parameters_store().await?,
-            multi_signer: self.get_multi_signer().await?,
+            verification_key_store: self.get_verification_key_store().await?,
         };
 
         Ok(dependencies)
@@ -1142,6 +1165,8 @@ impl DependenciesBuilder {
         let certificate_verifier = self.get_certificate_verifier().await?;
         let genesis_verifier = self.get_genesis_verifier().await?;
         let multi_signer = self.get_multi_signer().await?;
+        let ticker_service = self.get_ticker_service().await?;
+        let epoch_service = self.get_epoch_service().await?;
         let logger = self.get_logger().await?;
 
         Ok(Arc::new(MithrilCertifierService::new(
@@ -1151,6 +1176,8 @@ impl DependenciesBuilder {
             certificate_verifier,
             genesis_verifier,
             multi_signer,
+            ticker_service,
+            epoch_service,
             logger,
         )))
     }

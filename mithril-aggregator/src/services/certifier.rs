@@ -12,7 +12,7 @@ use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION},
     entities::{
-        Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
+        Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
         SignedEntityType, SingleSignatures,
     },
     StdResult,
@@ -29,8 +29,11 @@ use crate::{
         OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
     },
     entities::OpenMessage,
+    services::TickerService,
     MultiSigner,
 };
+
+use crate::dependency_injection::EpochServiceWrapper;
 
 #[cfg(test)]
 use mockall::automock;
@@ -139,6 +142,9 @@ pub struct MithrilCertifierService {
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    // todo: should be removed after certificate rework (we should replace the beacon with a signed entity)
+    ticker_service: Arc<dyn TickerService>,
+    epoch_service: EpochServiceWrapper,
     _logger: Logger,
 }
 
@@ -152,6 +158,8 @@ impl MithrilCertifierService {
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         multi_signer: Arc<RwLock<dyn MultiSigner>>,
+        ticker_service: Arc<dyn TickerService>,
+        epoch_service: EpochServiceWrapper,
         logger: Logger,
     ) -> Self {
         Self {
@@ -161,6 +169,8 @@ impl MithrilCertifierService {
             multi_signer,
             certificate_verifier,
             genesis_verifier,
+            ticker_service,
+            epoch_service,
             _logger: logger,
         }
     }
@@ -302,7 +312,7 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
-        let multi_signer = self.multi_signer.write().await;
+        let multi_signer = self.multi_signer.read().await;
         let multi_signature = match multi_signer.create_multi_signature(&open_message).await? {
             None => {
                 debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
@@ -314,10 +324,11 @@ impl CertifierService for MithrilCertifierService {
             }
         };
 
+        let epoch_service = self.epoch_service.read().await;
         let signer_ids = open_message.get_signers_id();
-        let signers = multi_signer
-            .get_signers_with_stake()
-            .await?
+        let signers = epoch_service
+            .current_signers_with_stake()?
+            .clone()
             .into_iter()
             .filter(|signer| signer_ids.contains(&signer.party_id))
             .collect::<Vec<_>>();
@@ -325,14 +336,26 @@ impl CertifierService for MithrilCertifierService {
         let protocol_version = PROTOCOL_VERSION.to_string();
         let initiated_at = open_message.created_at;
         let sealed_at = Utc::now();
+        let beacon = match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(epoch)
+            | SignedEntityType::CardanoStakeDistribution(epoch) => {
+                // Note: certificate should contains a signed entity instead of a beacon, this is
+                // a workaround to get what's missing even if it's not 100% accurate.
+                let beacon = self
+                    .ticker_service
+                    .get_current_immutable_beacon()
+                    .await
+                    .with_context(|| "Could not retrieve current beacon to create certificate")?;
+                Beacon {
+                    epoch: *epoch,
+                    ..beacon
+                }
+            }
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => beacon.clone(),
+        };
         let metadata = CertificateMetadata::new(
             protocol_version,
-            // TODO remove this multi_signer call ↓
-            multi_signer
-                .get_protocol_parameters()
-                .await?
-                .unwrap()
-                .into(),
+            epoch_service.current_protocol_parameters()?.clone(),
             initiated_at,
             sealed_at,
             signers,
@@ -352,13 +375,10 @@ impl CertifierService for MithrilCertifierService {
 
         let certificate = Certificate::new(
             parent_certificate_hash,
-            // TODO: remove this multi_signer call ↓
-            multi_signer.get_current_beacon().await.unwrap(),
+            beacon,
             metadata,
             open_message.protocol_message.clone(),
-            multi_signer
-                .compute_stake_distribution_aggregate_verification_key()
-                .await?,
+            epoch_service.current_aggregate_verification_key()?.clone(),
             CertificateSignature::MultiSignature(multi_signature),
         );
 
@@ -439,9 +459,9 @@ impl CertifierService for MithrilCertifierService {
 
 #[cfg(test)]
 mod tests {
-
     use crate::{
-        dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner, Configuration,
+        dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner,
+        services::FakeEpochService, Configuration,
     };
     use mithril_common::{
         entities::{Beacon, ProtocolMessagePartKey},
@@ -450,13 +470,48 @@ mod tests {
 
     use super::*;
 
+    impl MithrilCertifierService {
+        async fn from_deps(mut dependency_builder: DependenciesBuilder) -> Self {
+            let connection = dependency_builder.get_sqlite_connection().await.unwrap();
+            let open_message_repository = Arc::new(OpenMessageRepository::new(connection.clone()));
+            let single_signature_repository =
+                Arc::new(SingleSignatureRepository::new(connection.clone()));
+            let certificate_repository = Arc::new(CertificateRepository::new(connection));
+            let certificate_verifier = dependency_builder.get_certificate_verifier().await.unwrap();
+            let genesis_verifier = dependency_builder.get_genesis_verifier().await.unwrap();
+            let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
+            let ticker_service = dependency_builder.get_ticker_service().await.unwrap();
+            let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
+            let logger = dependency_builder.get_logger().await.unwrap();
+
+            Self::new(
+                open_message_repository,
+                single_signature_repository,
+                certificate_repository,
+                certificate_verifier,
+                genesis_verifier,
+                multi_signer,
+                ticker_service,
+                epoch_service,
+                logger,
+            )
+        }
+    }
+
+    /// Note: If current_epoch is provided the [EpochService] will be automatically initialized
     async fn setup_certifier_service(
         fixture: &MithrilFixture,
         epochs_with_signers: &[Epoch],
+        current_epoch: Option<Epoch>,
     ) -> MithrilCertifierService {
         let configuration = Configuration::new_sample();
         let mut dependency_builder = DependenciesBuilder::new(configuration);
-        let connection = dependency_builder.get_sqlite_connection().await.unwrap();
+
+        if let Some(epoch) = current_epoch {
+            dependency_builder.epoch_service = Some(Arc::new(RwLock::new(
+                FakeEpochService::from_fixture(epoch, fixture),
+            )));
+        }
 
         let dependency_manager = dependency_builder
             .build_dependency_container()
@@ -466,24 +521,7 @@ mod tests {
             .init_state_from_fixture(fixture, epochs_with_signers)
             .await;
 
-        let open_message_repository = Arc::new(OpenMessageRepository::new(connection.clone()));
-        let single_signature_repository =
-            Arc::new(SingleSignatureRepository::new(connection.clone()));
-        let certificate_repository = Arc::new(CertificateRepository::new(connection));
-        let certificate_verifier = dependency_builder.get_certificate_verifier().await.unwrap();
-        let genesis_verifier = dependency_builder.get_genesis_verifier().await.unwrap();
-        let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
-        let logger = dependency_builder.get_logger().await.unwrap();
-
-        MithrilCertifierService::new(
-            open_message_repository,
-            single_signature_repository,
-            certificate_repository,
-            certificate_verifier,
-            genesis_verifier,
-            multi_signer,
-            logger,
-        )
+        MithrilCertifierService::from_deps(dependency_builder).await
     }
 
     #[tokio::test]
@@ -494,7 +532,7 @@ mod tests {
         let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
             .await
@@ -514,14 +552,8 @@ mod tests {
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service
-            .multi_signer
-            .write()
-            .await
-            .update_current_beacon(beacon.clone())
-            .await
-            .unwrap();
+        let certifier_service =
+            setup_certifier_service(&fixture, &epochs_with_signers, Some(beacon.epoch)).await;
 
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
@@ -553,14 +585,8 @@ mod tests {
         let mut protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service
-            .multi_signer
-            .write()
-            .await
-            .update_current_beacon(beacon.clone())
-            .await
-            .unwrap();
+        let certifier_service =
+            setup_certifier_service(&fixture, &epochs_with_signers, Some(beacon.epoch)).await;
 
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
@@ -591,7 +617,7 @@ mod tests {
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
         let mut open_message = certifier_service
             .open_message_repository
             .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
@@ -623,14 +649,8 @@ mod tests {
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
-        certifier_service
-            .multi_signer
-            .write()
-            .await
-            .update_current_beacon(beacon.clone())
-            .await
-            .unwrap();
+        let certifier_service =
+            setup_certifier_service(&fixture, &epochs_with_signers, Some(beacon.epoch)).await;
 
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
@@ -702,7 +722,7 @@ mod tests {
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
         certifier_service
             .create_certificate(&signed_entity_type)
             .await
@@ -717,7 +737,7 @@ mod tests {
         let epoch = beacon.epoch;
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
         certifier_service
             .open_message_repository
             .create_open_message(epoch, &signed_entity_type, &protocol_message)
@@ -740,7 +760,8 @@ mod tests {
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
+        let mut certifier_service =
+            setup_certifier_service(&fixture, &epochs_with_signers, None).await;
         certifier_service.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
@@ -756,7 +777,7 @@ mod tests {
     #[tokio::test]
     async fn test_epoch_gap_certificate_chain() {
         let builder = MithrilFixtureBuilder::default();
-        let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
+        let certifier_service = setup_certifier_service(&builder.build(), &[], None).await;
         let certificate = fake_data::genesis_certificate("whatever");
         let epoch = certificate.beacon.epoch + 2;
         certifier_service
@@ -781,7 +802,7 @@ mod tests {
     #[tokio::test]
     async fn test_epoch_gap_certificate_chain_ok() {
         let builder = MithrilFixtureBuilder::default();
-        let certifier_service = setup_certifier_service(&builder.build(), &[]).await;
+        let certifier_service = setup_certifier_service(&builder.build(), &[], None).await;
         let certificate = fake_data::genesis_certificate("whatever");
         let epoch = certificate.beacon.epoch + 1;
         certifier_service

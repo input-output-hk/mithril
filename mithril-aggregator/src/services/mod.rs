@@ -10,11 +10,13 @@
 //! Each service is defined by a public API (a trait) that is used in the controllers (runtimes).
 
 mod certifier;
+mod epoch_service;
 mod signed_entity;
 mod stake_distribution;
 mod ticker;
 
 pub use certifier::*;
+pub use epoch_service::*;
 pub use signed_entity::*;
 pub use stake_distribution::*;
 pub use ticker::*;

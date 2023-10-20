@@ -96,7 +96,7 @@ mod handlers {
                 None => {
                     let err = SignerRegistrationError::RegistrationRoundNotYetOpened;
                     warn!("register_signer::error"; "error" => ?err);
-                    return Ok(reply::internal_server_error(err.to_string()));
+                    return Ok(reply::service_unavailable(err.to_string()));
                 }
             },
         };
@@ -160,6 +160,12 @@ mod handlers {
                     err.to_string(),
                 ))
             }
+            Err(SignerRegistrationError::RegistrationRoundNotYetOpened) => {
+                warn!("register_signer::registration_round_not_yed_opened");
+                Ok(reply::service_unavailable(
+                    SignerRegistrationError::RegistrationRoundNotYetOpened.to_string(),
+                ))
+            }
             Err(err) => {
                 warn!("register_signer::error"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
@@ -188,11 +194,11 @@ mod handlers {
         // The given epoch is the epoch at which the signer registered, the store works on
         // the recording epoch so we need to offset.
         match verification_key_store
-            .get_stake_distribution_for_epoch(registered_at.offset_to_recording_epoch())
+            .get_signers(registered_at.offset_to_recording_epoch())
             .await
         {
-            Ok(Some(stake_distribution)) => {
-                let message = SignerRegistrationsMessage::new(registered_at, stake_distribution);
+            Ok(Some(signers)) => {
+                let message = SignerRegistrationsMessage::new(registered_at, signers);
                 Ok(reply::json(&message, StatusCode::OK))
             }
             Ok(None) => {
@@ -201,7 +207,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("registered_signers::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
@@ -230,7 +236,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("registered_signers::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
@@ -242,7 +248,6 @@ mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::{
         crypto_helper::ProtocolRegistrationError,
-        entities::StakeDistribution,
         messages::RegisterSignerMessage,
         store::adapter::AdapterError,
         test_utils::{apispec::APISpec, fake_data},
@@ -423,19 +428,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_register_signer_post_ko_503() {
+        let mut mock_signer_registerer = MockSignerRegisterer::new();
+        mock_signer_registerer
+            .expect_register_signer()
+            .return_once(|_, _| Err(SignerRegistrationError::RegistrationRoundNotYetOpened));
+        mock_signer_registerer
+            .expect_get_current_round()
+            .return_once(|| None);
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
+
+        let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&signer)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &signer,
+            &response,
+        );
+    }
+
+    #[tokio::test]
     async fn test_registered_signers_get_offset_given_epoch_to_registration_epoch() {
         let asked_epoch = Epoch(1);
         let expected_retrieval_epoch = asked_epoch.offset_to_recording_epoch();
-        let stake_distribution = StakeDistribution::from_iter(
-            fake_data::signers_with_stakes(3)
-                .into_iter()
-                .map(|s| (s.party_id, s.stake)),
-        );
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
-            .expect_get_stake_distribution_for_epoch()
+            .expect_get_signers()
             .with(eq(expected_retrieval_epoch))
-            .return_once(|_| Ok(Some(stake_distribution)))
+            .return_once(|_| Ok(Some(fake_data::signers_with_stakes(3))))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
@@ -457,15 +490,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_registered_signers_get_ok() {
-        let stake_distribution = StakeDistribution::from_iter(
-            fake_data::signers_with_stakes(3)
-                .into_iter()
-                .map(|s| (s.party_id, s.stake)),
-        );
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
-            .expect_get_stake_distribution_for_epoch()
-            .return_once(|_| Ok(Some(stake_distribution)))
+            .expect_get_signers()
+            .return_once(|_| Ok(Some(fake_data::signers_with_stakes(3))))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
@@ -493,7 +521,7 @@ mod tests {
     async fn test_registered_signers_get_ok_noregistration() {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
-            .expect_get_stake_distribution_for_epoch()
+            .expect_get_signers()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
@@ -522,7 +550,7 @@ mod tests {
     async fn test_registered_signers_get_ko() {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
-            .expect_get_stake_distribution_for_epoch()
+            .expect_get_signers()
             .return_once(|_| Err(AdapterError::GeneralError(anyhow!("invalid query")).into()));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);

@@ -62,7 +62,7 @@ pub mod handlers {
             }
             Err(err) => {
                 warn!("list_artifacts_mithril_stake_distribution"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }
@@ -88,7 +88,7 @@ pub mod handlers {
             }
             Err(err) => {
                 warn!("get_mithril_stake_distribution_details::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }

@@ -53,7 +53,7 @@ mod handlers {
             )),
             Err(err) => {
                 warn!("root::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
+                Ok(reply::internal_server_error(err))
             }
         }
     }

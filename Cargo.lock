@@ -2179,7 +2179,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.3.111"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2257,7 +2257,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.126"
+version = "0.2.127"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2303,7 +2303,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.2.20"
+version = "0.2.21"
 dependencies = [
  "anyhow",
  "async-recursion",

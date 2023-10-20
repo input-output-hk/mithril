@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use std::{fs::File, io::prelude::*, io::Write, path::Path, sync::Arc};
-use tokio::sync::RwLock;
 
 use mithril_common::{
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
@@ -9,15 +8,16 @@ use mithril_common::{
         ProtocolGenesisVerifier,
     },
     entities::{Beacon, ProtocolParameters},
+    protocol::SignerBuilder,
     BeaconProvider, StdResult,
 };
 
 use crate::database::provider::CertificateRepository;
-use crate::{MultiSigner, ProtocolParametersStorer};
+use crate::{ProtocolParametersStorer, VerificationKeyStorer};
 
 pub struct GenesisToolsDependency {
-    /// Multi-signer service.
-    pub multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    /// Verification key store
+    pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Beacon provider service.
     pub beacon_provider: Arc<dyn BeaconProvider>,
@@ -64,24 +64,39 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
-        let mut multi_signer = dependencies.multi_signer.write().await;
         let beacon_provider = dependencies.beacon_provider.clone();
         let beacon = beacon_provider.get_current_beacon().await?;
-        multi_signer.update_current_beacon(beacon.clone()).await?;
 
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_repository = dependencies.certificate_repository.clone();
         let protocol_parameters_store = dependencies.protocol_parameters_store.clone();
 
+        let protocol_params_epoch = beacon.epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_parameters = protocol_parameters_store
+            .get_protocol_parameters(protocol_params_epoch)
+            .await?
+            .ok_or_else(|| {
+                anyhow!("Missing protocol parameters for epoch {protocol_params_epoch}")
+            })?;
+
+        let genesis_avk_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch();
+        let genesis_avk_protocol_parameters = protocol_parameters_store
             .get_protocol_parameters(beacon.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
-            .ok_or_else(|| anyhow!("Missing protocol parameters"))?;
+            .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;
+        let genesis_signers = dependencies
+            .verification_key_store
+            .get_signers(genesis_avk_epoch)
+            .await?
+            .ok_or_else(|| anyhow!("Missing signers for epoch {genesis_avk_epoch}"))?;
 
-        let genesis_avk = multi_signer
-            .compute_next_stake_distribution_aggregate_verification_key()
-            .await?;
+        let protocol_multi_signer =
+            SignerBuilder::new(&genesis_signers, &genesis_avk_protocol_parameters)
+                .with_context(|| "Could not build a multi signer to compute the genesis avk")?
+                .build_multi_signer();
+
+        let genesis_avk = protocol_multi_signer.compute_aggregate_verification_key();
 
         Ok(Self::new(
             protocol_parameters,

@@ -165,9 +165,16 @@ async fn main_scenario(
 
     info!(">> Send the Signer Key Registrations payloads");
     parameters.reporter.start("signers registration");
+    fake_signer::try_register_signer_until_registration_round_is_open(
+        &parameters.aggregator,
+        &parameters.signers_fixture.signers()[0],
+        current_epoch + 1,
+        Duration::from_secs(60),
+    )
+    .await?;
     let errors = fake_signer::register_signers_to_aggregator(
         &parameters.aggregator,
-        &parameters.signers_fixture.signers(),
+        &parameters.signers_fixture.signers()[1..],
         current_epoch + 1,
     )
     .await?;

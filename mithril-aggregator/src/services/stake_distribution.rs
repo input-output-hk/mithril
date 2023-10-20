@@ -17,6 +17,9 @@ use mithril_common::{
 
 use crate::database::provider::StakePoolStore;
 
+#[cfg(test)]
+use mockall::automock;
+
 /// Errors related to the [StakeDistributionService].
 #[derive(Debug)]
 pub enum StakePoolDistributionServiceError {
@@ -86,6 +89,7 @@ impl Display for StakePoolDistributionServiceError {
 impl std::error::Error for StakePoolDistributionServiceError {}
 
 /// Responsible of synchronizing with Cardano stake distribution.
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait StakeDistributionService: Sync + Send {
     /// Return the stake distribution fot the given epoch.
