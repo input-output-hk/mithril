@@ -60,6 +60,11 @@ impl Signer {
         }
     }
 
+    /// Convert the given values to a vec of signers.
+    pub fn vec_from<T: Into<Signer>>(from: Vec<T>) -> Vec<Self> {
+        from.into_iter().map(|f| f.into()).collect()
+    }
+
     /// Computes the hash of Signer
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();

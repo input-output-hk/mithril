@@ -5,7 +5,7 @@ use std::{path::Path, path::PathBuf, sync::Arc};
 
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityType,
+    SignedEntityType, Signer,
 };
 use mithril_common::store::StakeStorer;
 use mithril_common::{CardanoNetwork, StdResult};
@@ -331,8 +331,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             signed_entity_type.to_owned(),
             protocol_parameters.clone(),
             next_protocol_parameters.clone(),
-            signers.clone().into_iter().map(|s| s.into()).collect(),
-            next_signers.clone().into_iter().map(|s| s.into()).collect(),
+            Signer::vec_from(signers.clone()),
+            Signer::vec_from(next_signers.clone()),
         );
 
         Ok(pending_certificate)
@@ -488,7 +488,8 @@ pub mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, StakeDistribution,
+            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, Signer,
+            StakeDistribution,
         },
         signable_builder::SignableBuilderService,
         store::StakeStorer,
@@ -692,8 +693,8 @@ pub mod tests {
             signed_entity_type,
             protocol_parameters.clone(),
             protocol_parameters,
-            current_signers.into_iter().map(|s| s.into()).collect(),
-            next_signers.into_iter().map(|s| s.into()).collect(),
+            Signer::vec_from(current_signers),
+            Signer::vec_from(next_signers),
         );
         expected.signers.sort_by_key(|s| s.party_id.clone());
         expected.next_signers.sort_by_key(|s| s.party_id.clone());
