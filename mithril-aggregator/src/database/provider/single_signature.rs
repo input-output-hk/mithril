@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, Value};
+use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+
 use uuid::Uuid;
 
 use mithril_common::{
@@ -280,12 +280,12 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
 
 /// Service to deal with single_signature (read & write).
 pub struct SingleSignatureRepository {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 }
 
 impl SingleSignatureRepository {
     /// Create a new SingleSignatureStoreAdapter service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
         Self { connection }
     }
 
@@ -295,13 +295,12 @@ impl SingleSignatureRepository {
         single_signature: &SingleSignatures,
         open_message: &OpenMessageRecord,
     ) -> StdResult<SingleSignatureRecord> {
-        let connection = self.connection.lock().await;
         let single_signature = SingleSignatureRecord::try_from_single_signatures(
             single_signature,
             &open_message.open_message_id,
             open_message.epoch.offset_to_signer_retrieval_epoch()?,
         )?;
-        let provider = UpdateSingleSignatureRecordProvider::new(&connection);
+        let provider = UpdateSingleSignatureRecordProvider::new(&self.connection);
 
         provider.persist(single_signature)
     }
@@ -347,7 +346,7 @@ mod tests {
 
     #[test]
     fn get_single_signature_record_by_epoch() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
         let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
         let condition = provider
@@ -364,7 +363,7 @@ mod tests {
 
     #[test]
     fn get_single_signature_record_by_signer_id() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signer_id("signer-123".to_string())
@@ -377,7 +376,7 @@ mod tests {
 
     #[test]
     fn get_single_signature_record_by_registration_epoch() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
         let condition = provider
             .condition_by_registration_epoch(&Epoch(17))
@@ -397,7 +396,7 @@ mod tests {
             Epoch(1),
         )
         .unwrap();
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
         let condition = provider.get_update_condition(&single_signature_record);
         let (values, params) = condition.expand();
@@ -425,7 +424,7 @@ mod tests {
     async fn test_get_single_signature_records() {
         let single_signature_records_src = setup_single_signature_records(2, 3, 4);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
@@ -499,7 +498,7 @@ mod tests {
         let single_signature_records = setup_single_signature_records(2, 3, 4);
         let single_signature_records_copy = single_signature_records.clone();
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
 

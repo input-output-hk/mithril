@@ -6,9 +6,9 @@ use mithril_common::{
 };
 
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, Row, Value};
+use sqlite::{Connection, ConnectionWithFullMutex, Row, Value};
 use std::sync::Arc;
-use tokio::sync::Mutex;
+
 use uuid::Uuid;
 
 /// ## OpenMessage
@@ -483,12 +483,12 @@ order by open_message.created_at desc, open_message.rowid desc
 /// This is a business oriented layer to perform actions on the database through
 /// providers.
 pub struct OpenMessageRepository {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 }
 
 impl OpenMessageRepository {
     /// Instanciate service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
         Self { connection }
     }
 
@@ -497,8 +497,7 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
-        let lock = self.connection.lock().await;
-        let provider = OpenMessageProvider::new(&lock);
+        let provider = OpenMessageProvider::new(&self.connection);
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
             .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
@@ -512,8 +511,7 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
-        let lock = self.connection.lock().await;
-        let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
+        let provider = OpenMessageWithSingleSignaturesProvider::new(&self.connection);
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
             .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
@@ -529,8 +527,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessageRecord> {
-        let lock = self.connection.lock().await;
-        let provider = InsertOpenMessageProvider::new(&lock);
+        let provider = InsertOpenMessageProvider::new(&self.connection);
         let filters = provider.get_insert_condition(epoch, signed_entity_type, protocol_message)?;
         let mut cursor = provider.find(filters)?;
 
@@ -544,8 +541,7 @@ impl OpenMessageRepository {
         &self,
         open_message: &OpenMessageRecord,
     ) -> StdResult<OpenMessageRecord> {
-        let lock = self.connection.lock().await;
-        let provider = UpdateOpenMessageProvider::new(&lock);
+        let provider = UpdateOpenMessageProvider::new(&self.connection);
         let filters = provider.get_update_condition(open_message)?;
         let mut cursor = provider.find(filters)?;
 
@@ -557,8 +553,7 @@ impl OpenMessageRepository {
     /// Remove all the [OpenMessageRecord] for the strictly previous epochs of the given epoch in the database.
     /// It returns the number of messages removed.
     pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
-        let lock = self.connection.lock().await;
-        let provider = DeleteOpenMessageProvider::new(&lock);
+        let provider = DeleteOpenMessageProvider::new(&self.connection);
         let filters = provider.get_epoch_condition(epoch);
         let cursor = provider.find(filters)?;
 
@@ -581,17 +576,17 @@ mod tests {
 
     use super::*;
 
-    async fn get_connection() -> Arc<Mutex<Connection>> {
+    async fn get_connection() -> Arc<ConnectionWithFullMutex> {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let connection = builder.get_sqlite_connection().await.unwrap();
         {
-            let lock = connection.lock().await;
-            lock.execute(
-                r#"insert into epoch_setting(epoch_setting_id, protocol_parameters)
+            connection
+                .execute(
+                    r#"insert into epoch_setting(epoch_setting_id, protocol_parameters)
 values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0.65 }');"#,
-            )
-            .unwrap();
+                )
+                .unwrap();
         }
 
         connection
@@ -629,12 +624,12 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         insert_golden_open_message_with_signature(&connection);
 
-        let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
+        let repository = OpenMessageRepository::new(Arc::new(connection));
         repository
             .get_open_message(&SignedEntityType::MithrilStakeDistribution(Epoch(275)))
             .await
@@ -692,7 +687,7 @@ else json_group_array( \
 
     #[test]
     fn provider_epoch_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
         let (expr, params) = provider.get_epoch_condition(Epoch(12)).expand();
 
@@ -702,7 +697,7 @@ else json_group_array( \
 
     #[test]
     fn provider_message_type_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
         let beacon = Beacon {
             network: "whatever".to_string(),
@@ -731,7 +726,7 @@ else json_group_array( \
 
     #[test]
     fn provider_message_id_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
         let (expr, params) = provider
             .get_open_message_id_condition("cecd7983-8b3a-42b1-b778-6d75e87828ee")
@@ -748,7 +743,7 @@ else json_group_array( \
 
     #[test]
     fn insert_provider_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = InsertOpenMessageProvider::new(&connection);
         let epoch = Epoch(12);
         let (expr, params) = provider
@@ -781,7 +776,7 @@ else json_group_array( \
 
     #[test]
     fn update_provider_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = UpdateOpenMessageProvider::new(&connection);
         let open_message = OpenMessageRecord {
             open_message_id: Uuid::new_v4(),
@@ -816,7 +811,7 @@ else json_group_array( \
 
     #[test]
     fn delete_provider_epoch_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = DeleteOpenMessageProvider::new(&connection);
         let (expr, params) = provider.get_epoch_condition(Epoch(12)).expand();
 
@@ -874,8 +869,7 @@ else json_group_array( \
         );
 
         let message = {
-            let lock = connection.lock().await;
-            let provider = OpenMessageProvider::new(&lock);
+            let provider = OpenMessageProvider::new(&connection);
             let mut cursor = provider
                 .find(WhereCondition::new(
                     "open_message_id = ?*",
@@ -953,10 +947,10 @@ else json_group_array( \
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_exist() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let repository = OpenMessageRepository::new(connection.clone());
 
         let open_message = repository
@@ -976,8 +970,7 @@ else json_group_array( \
                 })
                 .collect();
         {
-            let conn = connection.lock().await;
-            insert_single_signatures_in_db(&conn, single_signature_records).unwrap();
+            insert_single_signatures_in_db(&connection, single_signature_records).unwrap();
         }
 
         let open_message_with_single_signatures = repository
@@ -993,10 +986,10 @@ else json_group_array( \
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_not_exist() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
-        let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
+        let repository = OpenMessageRepository::new(Arc::new(connection));
 
         let open_message = OpenMessageRecord::dummy();
         repository

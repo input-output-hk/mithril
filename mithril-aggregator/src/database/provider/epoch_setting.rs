@@ -1,8 +1,7 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use sqlite::{Connection, Value};
+use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use mithril_common::{
     entities::{Epoch, ProtocolParameters},
@@ -241,7 +240,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
 
 /// Service to deal with epoch settings (read & write).
 pub struct EpochSettingStore {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 
     /// Number of epochs before previous records will be pruned at the next call to
     /// [save_protocol_parameters][EpochSettingStore::save_protocol_parameters].
@@ -250,7 +249,7 @@ pub struct EpochSettingStore {
 
 impl EpochSettingStore {
     /// Create a new EpochSetting service
-    pub fn new(connection: Arc<Mutex<Connection>>, retention_limit: Option<u64>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>, retention_limit: Option<u64>) -> Self {
         Self {
             connection,
             retention_limit,
@@ -265,9 +264,8 @@ impl ProtocolParametersStorer for EpochSettingStore {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> StdResult<Option<ProtocolParameters>> {
-        let connection = &*self.connection.lock().await;
-        let provider = UpdateEpochSettingProvider::new(connection);
-        connection
+        let provider = UpdateEpochSettingProvider::new(&self.connection);
+        self.connection
             .execute("begin transaction")
             .with_context(|| "could not begin transaction to update protocol parameters")
             .map_err(AdapterError::QueryError)?;
@@ -278,13 +276,13 @@ impl ProtocolParametersStorer for EpochSettingStore {
 
         // Prune useless old epoch settings.
         if let Some(threshold) = self.retention_limit {
-            let _ = DeleteEpochSettingProvider::new(connection)
+            let _ = DeleteEpochSettingProvider::new(&self.connection)
                 .prune(epoch - threshold)
                 .map_err(AdapterError::QueryError)?
                 .count();
         }
 
-        connection
+        self.connection
             .execute("commit transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
 
@@ -292,8 +290,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
-        let connection = &*self.connection.lock().await;
-        let provider = EpochSettingProvider::new(connection);
+        let provider = EpochSettingProvider::new(&self.connection);
         let mut cursor = provider
             .get_by_epoch(&epoch)
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;
@@ -363,7 +360,7 @@ mod tests {
 
     #[test]
     fn get_epoch_setting_by_epoch() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = EpochSettingProvider::new(&connection);
         let condition = provider.condition_by_epoch(&Epoch(17)).unwrap();
         let (filter, values) = condition.expand();
@@ -374,7 +371,7 @@ mod tests {
 
     #[test]
     fn update_epoch_setting() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = UpdateEpochSettingProvider::new(&connection);
         let condition = provider.get_update_condition(Epoch(1), ProtocolParameters::new(1, 2, 1.0));
         let (values, params) = condition.expand();
@@ -394,7 +391,7 @@ mod tests {
 
     #[test]
     fn delete() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = DeleteEpochSettingProvider::new(&connection);
         let condition = provider.get_delete_condition_by_epoch(Epoch(5));
         let (condition, params) = condition.expand();
@@ -405,7 +402,7 @@ mod tests {
 
     #[test]
     fn prune() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = DeleteEpochSettingProvider::new(&connection);
         let condition = provider.get_prune_condition(Epoch(5));
         let (condition, params) = condition.expand();
@@ -416,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_get_epoch_settings() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_epoch_setting_db(&connection, &[1, 2, 3]).unwrap();
 
         let provider = EpochSettingProvider::new(&connection);
@@ -447,7 +444,7 @@ mod tests {
 
     #[test]
     fn test_update_epoch_setting() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_epoch_setting_db(&connection, &[3]).unwrap();
 
         let provider = UpdateEpochSettingProvider::new(&connection);
@@ -477,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_delete() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
@@ -497,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_prune() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
@@ -517,11 +514,11 @@ mod tests {
 
     #[tokio::test]
     async fn save_protocol_parameters_prune_older_epoch_settings() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: u64 = 5;
         setup_epoch_setting_db(&connection, &[1, 2]).unwrap();
         let store = EpochSettingStore::new(
-            Arc::new(Mutex::new(connection)),
+            Arc::new(connection),
             Some(EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD),
         );
 

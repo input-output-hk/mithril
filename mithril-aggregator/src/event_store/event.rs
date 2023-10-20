@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
-use sqlite::Connection;
-use std::sync::Mutex;
+use sqlite::{Connection, ConnectionWithFullMutex};
+
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::sqlite::{
@@ -145,12 +145,12 @@ impl<'conn> Provider<'conn> for EventPersisterProvider<'conn> {
 /// The EventPersister is the adapter to persist EventMessage turning them into
 /// Event.
 pub struct EventPersister {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 }
 
 impl EventPersister {
     /// Instanciate an EventPersister
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
         Self { connection }
     }
 
@@ -174,8 +174,7 @@ impl EventPersister {
 
     /// Save an EventMessage in the database.
     pub fn persist(&self, message: EventMessage) -> StdResult<Event> {
-        let connection = &*self.connection.lock().unwrap();
-        let provider = EventPersisterProvider::new(connection);
+        let provider = EventPersisterProvider::new(&self.connection);
         let log_message = message.clone();
         let mut rows = provider.find(self.get_persist_parameters(message)?)?;
 
@@ -202,7 +201,7 @@ mod tests {
 
     #[test]
     fn provider_sql() {
-        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
+        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
         let persister = EventPersister::new(connection);
         let message = EventMessage::new("source", "action", "content");
         let (parameters, values) = persister.get_persist_parameters(message).unwrap().expand();
@@ -216,7 +215,7 @@ mod tests {
 
     #[test]
     fn can_persist_event() -> StdResult<()> {
-        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
+        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
         let persister = EventPersister::new(connection);
         let message = EventMessage::new("source", "action", "content");
 

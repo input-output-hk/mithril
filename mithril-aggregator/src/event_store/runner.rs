@@ -2,10 +2,7 @@ use anyhow::Context;
 use mithril_common::StdResult;
 use slog_scope::{debug, info};
 use sqlite::Connection;
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{path::PathBuf, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use super::{EventMessage, EventPersister};
@@ -27,10 +24,10 @@ impl EventStore {
     pub async fn run(&mut self, file: Option<PathBuf>) -> StdResult<()> {
         let connection = {
             let connection = match file {
-                Some(path) => Connection::open(path)?,
-                None => Connection::open(":memory:")?,
+                Some(path) => Connection::open_with_full_mutex(path)?,
+                None => Connection::open_with_full_mutex(":memory:")?,
             };
-            Arc::new(Mutex::new(connection))
+            Arc::new(connection)
         };
         let persister = EventPersister::new(connection);
         info!("monitoring: starting event loop to log messages.");

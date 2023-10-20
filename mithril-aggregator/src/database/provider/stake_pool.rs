@@ -1,10 +1,9 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, Value};
+use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::ops::Not;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use mithril_common::{
     entities::{Epoch, PartyId, Stake, StakeDistribution},
@@ -223,7 +222,7 @@ impl<'conn> DeleteStakePoolProvider<'conn> {
 
 /// Service to deal with stake pools (read & write).
 pub struct StakePoolStore {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 
     /// Number of epochs before previous records will be pruned at the next call to
     /// [save_protocol_parameters][StakePoolStore::save_stakes].
@@ -232,7 +231,7 @@ pub struct StakePoolStore {
 
 impl StakePoolStore {
     /// Create a new StakePool service
-    pub fn new(connection: Arc<Mutex<Connection>>, retention_limit: Option<u64>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>, retention_limit: Option<u64>) -> Self {
         Self {
             connection,
             retention_limit,
@@ -247,10 +246,9 @@ impl StakeStorer for StakePoolStore {
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> StdResult<Option<StakeDistribution>> {
-        let connection = &*self.connection.lock().await;
-        let provider = InsertOrReplaceStakePoolProvider::new(connection);
+        let provider = InsertOrReplaceStakePoolProvider::new(&self.connection);
         let mut new_stakes = StakeDistribution::new();
-        connection
+        self.connection
             .execute("begin transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
 
@@ -266,13 +264,13 @@ impl StakeStorer for StakePoolStore {
 
         // Prune useless old stake distributions.
         if let Some(threshold) = self.retention_limit {
-            let _ = DeleteStakePoolProvider::new(connection)
+            let _ = DeleteStakePoolProvider::new(&self.connection)
                 .prune(epoch - threshold)
                 .map_err(AdapterError::QueryError)?
                 .count();
         }
 
-        connection
+        self.connection
             .execute("commit transaction")
             .map_err(|e| AdapterError::QueryError(e.into()))?;
 
@@ -280,8 +278,7 @@ impl StakeStorer for StakePoolStore {
     }
 
     async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let connection = &*self.connection.lock().await;
-        let provider = StakePoolProvider::new(connection);
+        let provider = StakePoolProvider::new(&self.connection);
         let cursor = provider
             .get_by_epoch(&epoch)
             .with_context(|| format!("get stakes failure, epoch: {epoch}"))
@@ -357,7 +354,7 @@ mod tests {
 
     #[test]
     fn get_pool_by_epoch() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = StakePoolProvider::new(&connection);
         let condition = provider.condition_by_epoch(&Epoch(17)).unwrap();
         let (filter, values) = condition.expand();
@@ -368,7 +365,7 @@ mod tests {
 
     #[test]
     fn insert_or_replace_stake_pool() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = InsertOrReplaceStakePoolProvider::new(&connection);
         let condition = provider.get_insert_or_replace_condition("pool_id", Epoch(1), 1000);
         let (values, params) = condition.expand();
@@ -392,7 +389,7 @@ mod tests {
 
     #[test]
     fn prune() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = DeleteStakePoolProvider::new(&connection);
         let condition = provider.get_prune_condition(Epoch(5));
         let (condition, params) = condition.expand();
@@ -403,7 +400,7 @@ mod tests {
 
     #[test]
     fn test_get_stake_pools() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_stake_db(&connection, &[1, 2, 3]).unwrap();
 
         let provider = StakePoolProvider::new(&connection);
@@ -431,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_update_stakes() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_stake_db(&connection, &[3]).unwrap();
 
         let provider = InsertOrReplaceStakePoolProvider::new(&connection);
@@ -453,7 +450,7 @@ mod tests {
 
     #[test]
     fn test_prune() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_stake_db(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteStakePoolProvider::new(&connection);
@@ -473,13 +470,11 @@ mod tests {
 
     #[tokio::test]
     async fn save_protocol_parameters_prune_older_epoch_settings() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 10;
         setup_stake_db(&connection, &[1, 2]).unwrap();
-        let store = StakePoolStore::new(
-            Arc::new(Mutex::new(connection)),
-            Some(STAKE_POOL_PRUNE_EPOCH_THRESHOLD),
-        );
+        let store =
+            StakePoolStore::new(Arc::new(connection), Some(STAKE_POOL_PRUNE_EPOCH_THRESHOLD));
 
         store
             .save_stakes(

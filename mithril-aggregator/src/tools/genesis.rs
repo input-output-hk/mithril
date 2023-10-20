@@ -207,7 +207,6 @@ mod tests {
     };
     use sqlite::Connection;
     use std::{fs, path::PathBuf};
-    use tokio::sync::Mutex;
 
     use super::*;
 
@@ -241,10 +240,9 @@ mod tests {
         Arc<ProtocolGenesisVerifier>,
         Arc<dyn CertificateVerifier>,
     ) {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
-        let certificate_store =
-            Arc::new(CertificateRepository::new(Arc::new(Mutex::new(connection))));
+        let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_avk = create_fake_genesis_avk();
         let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());

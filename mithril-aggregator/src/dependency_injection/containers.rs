@@ -1,6 +1,6 @@
-use sqlite::Connection;
+use sqlite::ConnectionWithFullMutex;
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -43,7 +43,7 @@ pub struct DependencyContainer {
     /// SQLite database connection
     /// This is not a real service but is is needed to instantiate all store
     /// services. Shall be private dependency.
-    pub sqlite_connection: Arc<Mutex<Connection>>,
+    pub sqlite_connection: Arc<ConnectionWithFullMutex>,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
