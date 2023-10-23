@@ -902,7 +902,7 @@ impl CoreVerifier {
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
     pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
-        let mut total_stake: Stake = 3;
+        let mut total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
             let (res, overflow) = total_stake.overflowing_add(signer.1);
