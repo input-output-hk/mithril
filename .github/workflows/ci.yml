@@ -140,9 +140,10 @@ jobs:
         run: cargo nextest run --no-run ${{ matrix.test-args }}
 
       - name: Run tests
-        shell: bash
-        run: |
-          cargo nextest run --profile ci ${{ matrix.test-args }}
+        run: cargo nextest run --profile ci ${{ matrix.test-args }}
+
+      - name: Run doc tests
+        run: cargo test --doc ${{ matrix.test-args }}
           
       - name: Rename junit file to include runner info
         shell: bash
