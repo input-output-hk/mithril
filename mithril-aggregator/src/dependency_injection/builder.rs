@@ -23,7 +23,7 @@ use mithril_common::{
         CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
     },
     signable_builder::{MithrilSignableBuilderService, SignableBuilderService},
-    store::adapter::{MemoryAdapter, StoreAdapter},
+    store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
 };
 use semver::Version;
@@ -359,15 +359,30 @@ impl DependenciesBuilder {
 
     async fn build_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
         let adapter: Box<dyn StoreAdapter<Key = String, Record = CertificatePending>> =
-            {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for PendingCertificate Store."
+            match self.configuration.environment {
+                ExecutionEnvironment::Production => {
+                    let adapter = SQLiteAdapter::new_full_mutex(
+                        "pending_certificate",
+                        self.get_sqlite_connection().await?,
+                    )
+                    .map_err(|e| DependenciesBuilderError::Initialization {
+                        message: "Cannot create SQLite adapter for PendingCertificate Store."
                             .to_string(),
                         error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
+                    })?;
+
+                    Box::new(adapter)
+                }
+                _ => {
+                    let adapter = MemoryAdapter::new(None).map_err(|e| {
+                        DependenciesBuilderError::Initialization {
+                            message: "Cannot create Memory adapter for PendingCertificate Store."
+                                .to_string(),
+                            error: Some(e.into()),
+                        }
+                    })?;
+                    Box::new(adapter)
+                }
             };
 
         Ok(Arc::new(CertificatePendingStore::new(adapter)))
