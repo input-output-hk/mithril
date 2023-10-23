@@ -9,10 +9,12 @@ use reqwest::StatusCode;
 #[tokio::test]
 async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let topic_name = "mithril/signatures";
-    let mut relay = Relay::new(topic_name);
-    let relay_address = relay.start().await.expect("Relay start failed");
-    let p2p_client = P2PClient::new(topic_name);
-    let _p2p_address = p2p_client.start().expect("P2P client start failed");
+    let relay = Relay::start(topic_name).await.expect("Relay start failed");
+    let relay_address = relay.address();
+    println!("relay_address={relay_address:?}");
+    let mut p2p_client = P2PClient::new(topic_name)
+        .start()
+        .expect("P2P client start failed");
 
     let signature_message_sent = RegisterSignatureMessage::dummy();
 
@@ -32,9 +34,9 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
         Err(err) => panic!("Post `/register-signatures` failed: {err:?}"),
     }
 
-    let signature_message_received = p2p_client
-        .consume()
-        .await
-        .expect("should have received a single signature");
-    assert_eq!(signature_message_sent, signature_message_received);
+    loop {
+        if let Ok(Some(signature_message_received)) = p2p_client.consume().await {
+            assert_eq!(signature_message_sent, signature_message_received);
+        }
+    }
 }

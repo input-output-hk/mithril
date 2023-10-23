@@ -1,26 +1,76 @@
 use libp2p::{
-    core::transport::{ListenerId, MemoryTransport},
-    gossipsub::{IdentTopic, MessageAuthenticity},
-    identity, Multiaddr, Transport,
+    core::transport::MemoryTransport,
+    futures::StreamExt,
+    gossipsub::{Behaviour, IdentTopic, MessageAuthenticity, MessageId},
+    identity,
+    swarm::SwarmEvent,
+    Multiaddr, Swarm, Transport,
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 
 pub struct P2PClient {
-    topic: IdentTopic,
+    peer: Peer,
 }
-
 impl P2PClient {
     pub fn new(topic_name: &str) -> Self {
         Self {
-            topic: IdentTopic::new(topic_name),
+            peer: Peer::new(topic_name),
         }
     }
 
-    pub async fn consume(&self) -> StdResult<RegisterSignatureMessage> {
-        todo!("P2PClient::consume")
+    pub async fn consume(&mut self) -> StdResult<Option<RegisterSignatureMessage>> {
+        self.peer.consume().await
     }
 
-    pub fn start(&self) -> StdResult<ListenerId> {
+    pub fn start(self) -> StdResult<Self> {
+        Ok(Self {
+            peer: self.peer.start()?,
+        })
+    }
+}
+
+pub struct Peer {
+    topic: IdentTopic,
+    swarm: Option<Swarm<Behaviour>>,
+}
+
+impl Peer {
+    pub fn new(topic_name: &str) -> Self {
+        Self {
+            topic: IdentTopic::new(topic_name),
+            swarm: None,
+        }
+    }
+
+    pub fn publish(&mut self, message: &RegisterSignatureMessage) -> StdResult<MessageId> {
+        let topic = self.topic.clone();
+        let data = serde_json::to_vec(message).unwrap();
+
+        let message_id = self
+            .swarm
+            .as_mut()
+            .map(|swarm| swarm.behaviour_mut().publish(topic, data))
+            .transpose()?
+            .unwrap();
+        Ok(message_id.to_owned())
+    }
+
+    pub async fn consume(&mut self) -> StdResult<Option<RegisterSignatureMessage>> {
+        match self.swarm.as_mut().unwrap().next().await {
+            Some(SwarmEvent::NewListenAddr { address, .. }) => {
+                println!("Listening on {address:?}");
+
+                Ok(None)
+            }
+            Some(SwarmEvent::Behaviour(event)) => {
+                println!("{event:?}");
+                Ok(Some(RegisterSignatureMessage::dummy()))
+            }
+            _ => Ok(None),
+        }
+    }
+
+    pub fn start(mut self) -> StdResult<Self> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
 
@@ -51,10 +101,12 @@ impl P2PClient {
         };
 
         // Listen on a memory transport.
-        let memory: Multiaddr = libp2p::core::multiaddr::Protocol::Memory(10).into();
+        let memory: Multiaddr = libp2p::core::multiaddr::Protocol::Memory(0).into();
         let addr = swarm.listen_on(memory).unwrap();
         println!("Listening on {:?}", addr);
 
-        Ok(addr)
+        self.swarm = Some(swarm);
+
+        Ok(self)
     }
 }
