@@ -15,7 +15,6 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import CertificatesList from "../components/Artifacts/CertificatesList";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
 import SnapshotsList from "../components/Artifacts/SnapshotsList";
@@ -96,9 +95,14 @@ export default function Explorer() {
         <Tab title="Mithril Stake Distribution" eventKey="mithrilStakeDistribution">
           <MithrilStakeDistributionsList />
         </Tab>
+        {/*todo: uncomment the following lines (don't forget the import) & remove this comment*/}
+        {/*  for now until the aggregator performances issues are fixed we won't enable the Certificates tab*/}
+        {/*  as it's the heaviest data route. */}
+        {/*
         <Tab title="Certificates" eventKey="certificates">
           <CertificatesList />
         </Tab>
+        */}
       </Tabs>
     </Stack>
   );
