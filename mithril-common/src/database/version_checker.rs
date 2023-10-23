@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use slog::{debug, error, info, Logger};
-use sqlite::Connection;
-use std::{cmp::Ordering, collections::BTreeSet, ops::Deref, sync::Arc};
-use tokio::sync::Mutex;
+use sqlite::{Connection, ConnectionWithFullMutex};
+use std::{cmp::Ordering, collections::BTreeSet, sync::Arc};
 
 use super::{
     ApplicationNodeType, DatabaseVersion, DatabaseVersionProvider, DatabaseVersionUpdater,
@@ -15,7 +14,7 @@ use crate::StdResult;
 /// Struct to perform application version check in the database.
 pub struct DatabaseVersionChecker {
     /// Pathbuf to the SQLite3 file.
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 
     /// Application type which vesion is verified.
     application_type: ApplicationNodeType,
@@ -32,7 +31,7 @@ impl DatabaseVersionChecker {
     pub fn new(
         logger: Logger,
         application_type: ApplicationNodeType,
-        connection: Arc<Mutex<Connection>>,
+        connection: Arc<ConnectionWithFullMutex>,
     ) -> Self {
         let migrations = BTreeSet::new();
 
@@ -54,13 +53,11 @@ impl DatabaseVersionChecker {
     /// Apply migrations
     pub async fn apply(&self) -> StdResult<()> {
         debug!(&self.logger, "check database version",);
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
-        let provider = DatabaseVersionProvider::new(connection);
+        let provider = DatabaseVersionProvider::new(&self.connection);
         provider
             .create_table_if_not_exists(&self.application_type)
             .with_context(|| "Can not create table 'db_version' while applying migrations")?;
-        let updater = DatabaseVersionUpdater::new(connection);
+        let updater = DatabaseVersionUpdater::new(&self.connection);
         let db_version = provider
             .get_application_version(&self.application_type)?
             .with_context(|| "Can not get application version while applying migrations")
@@ -78,7 +75,7 @@ impl DatabaseVersionChecker {
                     "Database needs upgrade from version '{}' to version '{}', applying new migrations…",
                     db_version.version, migration_version
                 );
-                self.apply_migrations(&db_version, &updater, connection)?;
+                self.apply_migrations(&db_version, &updater, &self.connection)?;
                 info!(
                     &self.logger,
                     "database upgraded to version '{}'", migration_version
@@ -180,9 +177,11 @@ mod tests {
 
     use super::*;
 
-    async fn check_database_version(connection: Arc<Mutex<Connection>>, db_version: DbVersion) {
-        let lock = connection.lock().await;
-        let provider = DatabaseVersionProvider::new(lock.deref());
+    async fn check_database_version(
+        connection: Arc<ConnectionWithFullMutex>,
+        db_version: DbVersion,
+    ) {
+        let provider = DatabaseVersionProvider::new(&connection);
         let version = provider
             .get_application_version(&ApplicationNodeType::Aggregator)
             .unwrap()
@@ -191,7 +190,7 @@ mod tests {
         assert_eq!(db_version, version.version);
     }
 
-    fn create_sqlite_file(name: &str) -> StdResult<(PathBuf, Connection)> {
+    fn create_sqlite_file(name: &str) -> StdResult<(PathBuf, ConnectionWithFullMutex)> {
         let dirpath = std::env::temp_dir().join("mithril_test_database");
         std::fs::create_dir_all(&dirpath).unwrap();
         let filepath = dirpath.join(name);
@@ -200,15 +199,13 @@ mod tests {
             std::fs::remove_file(filepath.as_path()).unwrap();
         }
 
-        let connection =
-            Connection::open(&filepath).with_context(|| "connection to sqlite file failure")?;
+        let connection = Connection::open_with_full_mutex(&filepath)
+            .with_context(|| "connection to sqlite file failure")?;
 
         Ok((filepath, connection))
     }
 
-    async fn get_table_whatever_column_count(cnt_mutex: Arc<Mutex<Connection>>) -> i64 {
-        let lock = cnt_mutex.lock().await;
-        let connection = lock.deref();
+    async fn get_table_whatever_column_count(connection: Arc<ConnectionWithFullMutex>) -> i64 {
         let sql = "select count(*) as column_count from pragma_table_info('whatever');";
         let column_count = connection
             .prepare(sql)
@@ -226,7 +223,7 @@ mod tests {
     async fn test_upgrade_with_migration() {
         let (_filepath, connection) =
             create_sqlite_file("test_upgrade_with_migration.sqlite3").unwrap();
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -287,7 +284,7 @@ mod tests {
     async fn starting_with_migration() {
         let (_filepath, connection) =
             create_sqlite_file("starting_with_migration.sqlite3").unwrap();
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -311,7 +308,7 @@ mod tests {
     /// * further migrations are not played.
     async fn test_failing_migration() {
         let (_filepath, connection) = create_sqlite_file("test_failing_migration.sqlite3").unwrap();
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -343,7 +340,7 @@ mod tests {
     #[tokio::test]
     async fn test_fail_downgrading() {
         let (_filepath, connection) = create_sqlite_file("test_fail_downgrading.sqlite3").unwrap();
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,

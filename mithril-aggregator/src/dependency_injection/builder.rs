@@ -33,7 +33,7 @@ use sqlite::{Connection, ConnectionWithFullMutex};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
-        Mutex, RwLock,
+        RwLock,
     },
     time::Duration,
 };
@@ -236,23 +236,6 @@ impl DependenciesBuilder {
             _ => self.configuration.data_stores_directory.clone(),
         };
 
-        {
-            // Check database migrations
-            let mut db_checker = DatabaseVersionChecker::new(
-                self.get_logger().await?,
-                ApplicationNodeType::Aggregator,
-                Arc::new(Mutex::new(Connection::open(&path).unwrap())),
-            );
-
-            for migration in crate::database::migration::get_migrations() {
-                db_checker.add_migration(migration);
-            }
-            db_checker
-                .apply()
-                .await
-                .with_context(|| "Database migration error")?;
-        }
-
         let connection = Connection::open_with_full_mutex(&path)
             .map(Arc::new)
             .map_err(|e| DependenciesBuilderError::Initialization {
@@ -263,15 +246,29 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             })?;
 
+        // Check database migrations
+        let mut db_checker = DatabaseVersionChecker::new(
+            self.get_logger().await?,
+            ApplicationNodeType::Aggregator,
+            connection.clone(),
+        );
+
+        for migration in crate::database::migration::get_migrations() {
+            db_checker.add_migration(migration);
+        }
+
         // configure session
         connection
-            // .lock()
-            // .await
             .execute("pragma foreign_keys=true")
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "SQLite initialization: could not enable FOREIGN KEY support.".to_string(),
                 error: Some(e.into()),
             })?;
+
+        db_checker
+            .apply()
+            .await
+            .with_context(|| "Database migration error")?;
 
         Ok(connection)
     }
@@ -358,32 +355,32 @@ impl DependenciesBuilder {
     }
 
     async fn build_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = String, Record = CertificatePending>> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => {
-                    let adapter = SQLiteAdapter::new_full_mutex(
-                        "pending_certificate",
-                        self.get_sqlite_connection().await?,
-                    )
-                    .map_err(|e| DependenciesBuilderError::Initialization {
-                        message: "Cannot create SQLite adapter for PendingCertificate Store."
-                            .to_string(),
-                        error: Some(e.into()),
-                    })?;
-
-                    Box::new(adapter)
-                }
-                _ => {
-                    let adapter = MemoryAdapter::new(None).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: "Cannot create Memory adapter for PendingCertificate Store."
+        let adapter: Box<dyn StoreAdapter<Key = String, Record = CertificatePending>> = match self
+            .configuration
+            .environment
+        {
+            ExecutionEnvironment::Production => {
+                let adapter =
+                    SQLiteAdapter::new("pending_certificate", self.get_sqlite_connection().await?)
+                        .map_err(|e| DependenciesBuilderError::Initialization {
+                            message: "Cannot create SQLite adapter for PendingCertificate Store."
                                 .to_string(),
                             error: Some(e.into()),
-                        }
-                    })?;
-                    Box::new(adapter)
-                }
-            };
+                        })?;
+
+                Box::new(adapter)
+            }
+            _ => {
+                let adapter = MemoryAdapter::new(None).map_err(|e| {
+                    DependenciesBuilderError::Initialization {
+                        message: "Cannot create Memory adapter for PendingCertificate Store."
+                            .to_string(),
+                        error: Some(e.into()),
+                    }
+                })?;
+                Box::new(adapter)
+            }
+        };
 
         Ok(Arc::new(CertificatePendingStore::new(adapter)))
     }
