@@ -59,11 +59,9 @@ export default function EpochSettings(props) {
       <Card>
         <Card.Body>
           <Card.Title>Current Epoch</Card.Title>
-          <ListGroup variant="flush">
-            <ListGroup.Item>{epochSettings.epoch}</ListGroup.Item>
-          </ListGroup>
+          <div className="mb-2 ps-3">{epochSettings.epoch}</div>
           <Card.Title>Protocol Parameters</Card.Title>
-          <ProtocolParameters protocolParameters={epochSettings.protocol} />
+          <ProtocolParameters className="mb-2" protocolParameters={epochSettings.protocol} />
           <Card.Title>Next Protocol Parameters</Card.Title>
           <ProtocolParameters protocolParameters={epochSettings.next_protocol} />
         </Card.Body>

@@ -3,7 +3,12 @@
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
-import { checkUrl, setChartJsDefaults, toAda } from "../../utils";
+import {
+  computeSignersWeightDataset,
+  computeStakeShapesDataset,
+  setChartJsDefaults,
+} from "../../charts";
+import { checkUrl } from "../../utils";
 import { Alert, ButtonGroup, Col, Row, Spinner, Stack, Table } from "react-bootstrap";
 import {
   ArcElement,
@@ -21,12 +26,9 @@ import { updatePoolsForAggregator } from "../../store/poolsSlice";
 import LinkButton from "../../components/LinkButton";
 import Stake from "../../components/Stake";
 import RawJsonButton from "../../components/RawJsonButton";
-import VerifiedBadge from "../../components/VerifiedBadge";
-import PoolTicker from "../../components/PoolTicker";
-import PartyId from "../../components/PartyId";
+import SignerTable from "../../components/SignerTable";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
-
 setChartJsDefaults(Chart);
 
 export default function Registrations() {
@@ -41,7 +43,7 @@ export default function Registrations() {
   const [registrations, setRegistrations] = useState([]);
   const [charts, setCharts] = useState({
     stakesBreakdown: {},
-    signersWeigth: {},
+    signersWeight: {},
   });
 
   useEffect(() => {
@@ -64,8 +66,8 @@ export default function Registrations() {
           setSigningEpoch(data.signing_at);
           setRegistrations(data.registrations);
           setCharts({
-            stakesBreakdown: computeStakeShapes(data.registrations),
-            signersWeigth: computeSignersWeigth(data.registrations),
+            stakesBreakdown: computeStakeShapesDataset(data.registrations),
+            signersWeight: computeSignersWeightDataset(data.registrations),
           });
           setIsLoading(false);
         })
@@ -89,57 +91,6 @@ export default function Registrations() {
       setCurrentError(error);
     }
   }, [searchParams]);
-
-  function computeStakeShapes(registrationsList) {
-    const registrations = registrationsList ?? [];
-
-    const labels = [
-      "< 1M₳",
-      "≥ 1M₳ < 10M₳",
-      "≥ 10M₳ < 25M₳",
-      "≥ 25M₳ < 50M₳",
-      "≥ 50M₳ < 75M₳",
-      "≥ 75M₳ < 100M₳",
-      "≥ 100M₳",
-    ];
-
-    const toMillionAda = (lovelace) => lovelace / 1000000000000;
-    const stakes = registrations.map((r) => toMillionAda(r.stake));
-
-    let data = [
-      stakes.filter((stake) => stake < 1).length,
-      stakes.filter((stake) => stake >= 1 && stake < 10).length,
-      stakes.filter((stake) => stake >= 10 && stake < 25).length,
-      stakes.filter((stake) => stake >= 25 && stake < 50).length,
-      stakes.filter((stake) => stake >= 50 && stake < 75).length,
-      stakes.filter((stake) => stake >= 75 && stake < 100).length,
-      stakes.filter((stake) => stake > 100).length,
-    ];
-
-    return {
-      labels: labels,
-      datasets: [
-        {
-          label: "Number of signers",
-          data: data,
-        },
-      ],
-    };
-  }
-
-  function computeSignersWeigth(registrationsList) {
-    const registrations = registrationsList ?? [];
-
-    return {
-      labels: registrations.map((r) => r.party_id),
-      datasets: [
-        {
-          label: "Stake (₳)",
-          data: registrations.map((r) => toAda(r.stake)),
-        },
-      ],
-    };
-  }
 
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {
@@ -270,40 +221,14 @@ export default function Registrations() {
         <Row>
           <Col xs={12} sm={12} md={7}>
             <h3>Signers</h3>
-            <Table responsive striped>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Party id</th>
-                  <th>Pool Ticker</th>
-                  <th style={{ textAlign: "end" }}>Stake</th>
-                </tr>
-              </thead>
-              <tbody>
-                {registrations.map((signer, index) => (
-                  <tr key={signer.party_id}>
-                    <td>{index}</td>
-                    <td className="text-break">
-                      <VerifiedBadge tooltip="Verified Signer" />{" "}
-                      <PartyId partyId={signer.party_id} />
-                    </td>
-                    <td>
-                      <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
-                    </td>
-                    <td style={{ textAlign: "end" }}>
-                      <Stake lovelace={signer.stake} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
+            <SignerTable signers={registrations} aggregator={aggregator} displayIndexes />
           </Col>
           <Col xs={12} sm={12} md={5}>
             <Stack gap={3}>
               <h3>Stakes breakdown</h3>
               <Bar data={charts.stakesBreakdown} />
               <h3>Signers weight</h3>
-              <Pie data={charts.signersWeigth} />
+              <Pie data={charts.signersWeight} />
             </Stack>
           </Col>
         </Row>

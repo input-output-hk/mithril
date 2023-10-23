@@ -5,11 +5,22 @@ import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Col, Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
+import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  Title,
+  Tooltip,
+} from "chart.js";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
 import SnapshotsList from "../components/Artifacts/SnapshotsList";
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
 import { aggregatorSearchParam } from "../constants";
+import { setChartJsDefaults } from "../charts";
 import {
   selectAggregator,
   selectedAggregator as currentlySelectedAggregator,
@@ -22,6 +33,9 @@ const AggregatorSetter = dynamic(() => import("../components/AggregatorSetter"),
 const IntervalSetter = dynamic(() => import("../components/IntervalSetter"), {
   ssr: false,
 });
+
+Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+setChartJsDefaults(Chart);
 
 export default function Explorer() {
   const router = useRouter();
@@ -61,12 +75,12 @@ export default function Explorer() {
   return (
     <Stack gap={3}>
       <Form>
-        <Row xs={1} sm={2}>
+        <Row xs={1} sm={2} className="row-gap-2">
           <AggregatorSetter />
           <IntervalSetter />
         </Row>
       </Form>
-      <Row>
+      <Row className="row-gap-3">
         <Col xs={12} sm={4} lg={3} xl={2}>
           <EpochSettings />
         </Col>
@@ -81,6 +95,14 @@ export default function Explorer() {
         <Tab title="Mithril Stake Distribution" eventKey="mithrilStakeDistribution">
           <MithrilStakeDistributionsList />
         </Tab>
+        {/*todo: uncomment the following lines (don't forget the import) & remove this comment*/}
+        {/*  for now until the aggregator performances issues are fixed we won't enable the Certificates tab*/}
+        {/*  as it's the heaviest data route. */}
+        {/*
+        <Tab title="Certificates" eventKey="certificates">
+          <CertificatesList />
+        </Tab>
+        */}
       </Tabs>
     </Stack>
   );

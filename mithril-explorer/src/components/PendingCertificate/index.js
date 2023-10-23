@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, CardGroup, ListGroup } from "react-bootstrap";
+import { Accordion, Card, CardGroup, ListGroup } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import PartyId from "../PartyId";
 import PoolTicker from "../PoolTicker";
@@ -55,7 +55,7 @@ export default function PendingCertificate(props) {
           <Card>
             <Card.Body>
               <Card.Title>Beacon</Card.Title>
-              <ListGroup className="margin-bottom--md" variant="flush">
+              <ListGroup className="mb-2" variant="flush">
                 <ListGroup.Item>Network: {pendingCertificate.beacon.network}</ListGroup.Item>
                 <ListGroup.Item>Epoch: {pendingCertificate.beacon.epoch}</ListGroup.Item>
               </ListGroup>
@@ -65,57 +65,59 @@ export default function PendingCertificate(props) {
           </Card>
           <Card>
             <Card.Body>
-              <Card.Title>Signers</Card.Title>
               {pendingCertificate.signers.length === 0 ? (
                 <div>No Signers registered</div>
               ) : (
-                <>
-                  <ListGroup variant="flush">
-                    <ListGroup.Item>
-                      <b>Pools</b>
-                    </ListGroup.Item>
-                    {pendingCertificate.signers.map((signer) => (
-                      <ListGroup.Item key={signer.party_id}>
-                        <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
-                        <br />
-                        <PartyId partyId={signer.party_id} />
-                        {signer.verification_key_signature && (
-                          <div className="float-end">
-                            <VerifiedBadge tooltip="Verified Signer" />
-                          </div>
-                        )}
-                      </ListGroup.Item>
-                    ))}
-                  </ListGroup>
-                </>
-              )}
-            </Card.Body>
-          </Card>
-          <Card>
-            <Card.Body>
-              <Card.Title>Next Signers</Card.Title>
-              {pendingCertificate.next_signers.length === 0 ? (
-                <div>No Signers registered for next epoch</div>
-              ) : (
-                <>
-                  <ListGroup variant="flush">
-                    <ListGroup.Item>
-                      <b>Pools</b>
-                    </ListGroup.Item>
-                    {pendingCertificate.next_signers.map((signer) => (
-                      <ListGroup.Item key={signer.party_id}>
-                        <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
-                        <br />
-                        <PartyId partyId={signer.party_id} />
-                        {signer.verification_key_signature && (
-                          <div className="float-end">
-                            <VerifiedBadge tooltip="Verified Signer" />
-                          </div>
-                        )}
-                      </ListGroup.Item>
-                    ))}
-                  </ListGroup>
-                </>
+                <Accordion>
+                  <Accordion.Item eventKey="signers">
+                    <Accordion.Header>
+                      <h4>Signers ({pendingCertificate.signers.length})</h4>
+                    </Accordion.Header>
+                    <Accordion.Body>
+                      <ListGroup variant="flush">
+                        <ListGroup.Item>
+                          <b>Pools</b>
+                        </ListGroup.Item>
+                        {pendingCertificate.signers.map((signer) => (
+                          <ListGroup.Item key={signer.party_id}>
+                            <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                            <br />
+                            <PartyId partyId={signer.party_id} />
+                            {signer.verification_key_signature && (
+                              <div className="float-end">
+                                <VerifiedBadge tooltip="Verified Signer" />
+                              </div>
+                            )}
+                          </ListGroup.Item>
+                        ))}
+                      </ListGroup>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                  <Accordion.Item eventKey="next-signers">
+                    <Accordion.Header>
+                      <h4>Next Signers ({pendingCertificate.next_signers.length})</h4>
+                    </Accordion.Header>
+                    <Accordion.Body>
+                      <ListGroup variant="flush">
+                        <ListGroup.Item>
+                          <b>Pools</b>
+                        </ListGroup.Item>
+                        {pendingCertificate.next_signers.map((signer) => (
+                          <ListGroup.Item key={signer.party_id}>
+                            <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                            <br />
+                            <PartyId partyId={signer.party_id} />
+                            {signer.verification_key_signature && (
+                              <div className="float-end">
+                                <VerifiedBadge tooltip="Verified Signer" />
+                              </div>
+                            )}
+                          </ListGroup.Item>
+                        ))}
+                      </ListGroup>
+                    </Accordion.Body>
+                  </Accordion.Item>
+                </Accordion>
               )}
             </Card.Body>
           </Card>
