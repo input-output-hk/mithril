@@ -3,9 +3,7 @@ use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use sqlite::{Connection, ConnectionWithFullMutex, State, Statement};
-use std::ops::Deref;
 use std::{marker::PhantomData, sync::Arc, thread::sleep, time::Duration};
-use tokio::sync::Mutex;
 
 use super::{AdapterError, StoreAdapter};
 
@@ -14,14 +12,9 @@ type Result<T> = std::result::Result<T, AdapterError>;
 const DELAY_MS_ON_LOCK: u32 = 50;
 const NB_RETRIES_ON_LOCK: u32 = 3;
 
-enum MultiThreadedConnection {
-    TokioMutex(Arc<Mutex<Connection>>),
-    SqliteMutex(Arc<ConnectionWithFullMutex>),
-}
-
 /// Store adapter for SQLite3
 pub struct SQLiteAdapter<K, V> {
-    connection: MultiThreadedConnection,
+    connection: Arc<ConnectionWithFullMutex>,
     table: String,
     key: PhantomData<K>,
     value: PhantomData<V>,
@@ -33,33 +26,13 @@ where
     V: DeserializeOwned,
 {
     /// Create a new SQLiteAdapter instance.
-    pub fn new(table_name: &str, connection: Arc<Mutex<Connection>>) -> Result<Self> {
-        {
-            let conn = &*connection
-                .try_lock()
-                .map_err(|e| AdapterError::InitializationError(e.into()))?;
-            Self::check_table_exists(conn, table_name)?;
-        }
-
-        Ok(Self {
-            connection: MultiThreadedConnection::TokioMutex(connection),
-            table: table_name.to_owned(),
-            key: PhantomData,
-            value: PhantomData,
-        })
-    }
-
-    /// Create a new SQLiteAdapter instance.
-    pub fn new_full_mutex(
-        table_name: &str,
-        connection: Arc<ConnectionWithFullMutex>,
-    ) -> Result<Self> {
+    pub fn new(table_name: &str, connection: Arc<ConnectionWithFullMutex>) -> Result<Self> {
         {
             Self::check_table_exists(&connection, table_name)?;
         }
 
         Ok(Self {
-            connection: MultiThreadedConnection::SqliteMutex(connection),
+            connection,
             table: table_name.to_owned(),
             key: PhantomData,
             value: PhantomData,
@@ -164,12 +137,16 @@ where
     }
 }
 
-impl<K, V> SQLiteAdapter<K, V>
+#[async_trait]
+impl<K, V> StoreAdapter for SQLiteAdapter<K, V>
 where
     K: Send + Sync + Serialize + DeserializeOwned,
     V: Send + Sync + Serialize + DeserializeOwned,
 {
-    fn execute_store_record(&self, connection: &Connection, key: &K, record: &V) -> Result<()> {
+    type Key = K;
+    type Record = V;
+
+    async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
         let sql = format!(
             "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
             self.table
@@ -180,7 +157,8 @@ where
                     .context("SQLite adapter error: could not serialize value before insertion"),
             )
         })?;
-        let mut statement = connection
+        let mut statement = self
+            .connection
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
@@ -199,19 +177,19 @@ where
         Ok(())
     }
 
-    fn fetch_record(&self, connection: &Connection, key: &K) -> Result<Option<V>> {
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
         let sql = format!("select value from {} where key_hash = ?1", self.table);
-        let statement = self.get_statement_for_key(connection, sql, key)?;
+        let statement = self.get_statement_for_key(&self.connection, sql, key)?;
 
         self.fetch_maybe_one_value(statement)
     }
 
-    fn fetch_record_exists(&self, connection: &Connection, key: &K) -> Result<bool> {
+    async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
         let sql = format!(
             "select exists(select 1 from {} where key_hash = ?1) as record_exists",
             self.table
         );
-        let mut statement = self.get_statement_for_key(connection, sql, key)?;
+        let mut statement = self.get_statement_for_key(&self.connection, sql, key)?;
         statement
             .next()
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -226,16 +204,13 @@ where
             .map(|res| res == 1)
     }
 
-    fn fetch_last_n_records(
-        &self,
-        connection: &Connection,
-        how_many: usize,
-    ) -> Result<Vec<(K, V)>> {
+    async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
         let sql = format!(
             "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
             self.table
         );
-        let mut statement = connection
+        let mut statement = self
+            .connection
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
@@ -255,98 +230,21 @@ where
 
         Ok(results)
     }
-}
-
-#[async_trait]
-impl<K, V> StoreAdapter for SQLiteAdapter<K, V>
-where
-    K: Send + Sync + Serialize + DeserializeOwned,
-    V: Send + Sync + Serialize + DeserializeOwned,
-{
-    type Key = K;
-    type Record = V;
-
-    async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
-        match &self.connection {
-            MultiThreadedConnection::TokioMutex(connection) => {
-                let lock = connection.lock().await;
-                self.execute_store_record(lock.deref(), key, record)
-            }
-            MultiThreadedConnection::SqliteMutex(connection) => {
-                self.execute_store_record(connection, key, record)
-            }
-        }
-    }
-
-    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        match &self.connection {
-            MultiThreadedConnection::TokioMutex(connection) => {
-                let lock = connection.lock().await;
-                self.fetch_record(lock.deref(), key)
-            }
-            MultiThreadedConnection::SqliteMutex(connection) => self.fetch_record(connection, key),
-        }
-    }
-
-    async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
-        match &self.connection {
-            MultiThreadedConnection::TokioMutex(connection) => {
-                let lock = connection.lock().await;
-                self.fetch_record_exists(lock.deref(), key)
-            }
-            MultiThreadedConnection::SqliteMutex(connection) => {
-                self.fetch_record_exists(connection, key)
-            }
-        }
-    }
-
-    async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
-        match &self.connection {
-            MultiThreadedConnection::TokioMutex(connection) => {
-                let lock = connection.lock().await;
-                self.fetch_last_n_records(lock.deref(), how_many)
-            }
-            MultiThreadedConnection::SqliteMutex(connection) => {
-                self.fetch_last_n_records(connection, how_many)
-            }
-        }
-    }
 
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>> {
         let sql = format!(
             "delete from {} where key_hash = ?1 returning value",
             self.table
         );
+        let statement = self.get_statement_for_key(&self.connection, sql, key)?;
 
-        match &self.connection {
-            MultiThreadedConnection::TokioMutex(connection) => {
-                let lock = connection.lock().await;
-                let connection = lock.deref();
-                let statement = self.get_statement_for_key(connection, sql, key)?;
-                self.fetch_maybe_one_value(statement)
-            }
-            MultiThreadedConnection::SqliteMutex(connection) => {
-                let statement = self.get_statement_for_key(connection, sql, key)?;
-                self.fetch_maybe_one_value(statement)
-            }
-        }
+        self.fetch_maybe_one_value(statement)
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
-        match &self.connection {
-            MultiThreadedConnection::TokioMutex(connection) => {
-                let lock = connection.lock().await;
-                let connection = lock.deref();
-                let iterator = SQLiteResultIterator::new(connection, &self.table)?;
+        let iterator = SQLiteResultIterator::new(&self.connection, &self.table)?;
 
-                Ok(Box::new(iterator))
-            }
-            MultiThreadedConnection::SqliteMutex(connection) => {
-                let iterator = SQLiteResultIterator::new(connection, &self.table)?;
-
-                Ok(Box::new(iterator))
-            }
-        }
+        Ok(Box::new(iterator))
     }
 }
 
@@ -394,8 +292,8 @@ impl<V> Iterator for SQLiteResultIterator<V> {
 
 #[cfg(test)]
 mod tests {
+
     use sqlite::Value;
-    use std::path::Path;
     use std::{
         fs::{create_dir_all, remove_file},
         path::PathBuf,
@@ -422,7 +320,7 @@ mod tests {
         dirpath.join(format!("{test_name}.sqlite3"))
     }
 
-    fn init_db(test_name: &str) -> PathBuf {
+    fn init_db(test_name: &str, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
         let filepath = get_file_path(test_name);
 
         if filepath.exists() {
@@ -433,287 +331,175 @@ mod tests {
                 )
             });
         }
-
-        filepath
-    }
-
-    fn tokio_mutex_adapter(db_path: &Path, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
-        let table_name = tablename.unwrap_or(TABLE_NAME);
-
-        let connection = Arc::new(Mutex::new(Connection::open(db_path).unwrap()));
-        SQLiteAdapter::new(table_name, connection).unwrap()
-    }
-
-    fn full_mutex_adapter(db_path: &Path, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
-        let table_name = tablename.unwrap_or(TABLE_NAME);
-
-        let connection_full_mutex = Arc::new(Connection::open_with_full_mutex(db_path).unwrap());
-        SQLiteAdapter::new_full_mutex(table_name, connection_full_mutex).unwrap()
+        let tablename = tablename.unwrap_or(TABLE_NAME);
+        let connection = Arc::new(Connection::open_with_full_mutex(filepath).unwrap());
+        SQLiteAdapter::new(tablename, connection).unwrap()
     }
 
     #[tokio::test]
-    async fn test_store_record_tokio_mutex() {
-        let test_name = "test_store_record_tokio_mutex";
-        let db_path = init_db(test_name);
+    async fn test_store_record() {
+        let test_name = "test_store_record";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        let filepath = get_file_path(test_name);
+        let connection = Connection::open(&filepath).unwrap_or_else(|_| {
+            panic!(
+                "Expecting to be able to open SQLite file '{}'.",
+                filepath.display()
+            )
+        });
+        let mut cursor = connection
+            .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
+            .unwrap()
+            .into_iter();
+        let row = cursor
+            .try_next()
+            .unwrap()
+            .expect("Expecting at least one row in the result set.");
+        assert_eq!(Value::Integer(1), row[1]);
+        assert_eq!(Value::String("\"one\"".to_string()), row[2]);
 
-        runner::run_test_store_record(&db_path, tokio_mutex_adapter(&db_path, None)).await;
+        // We must drop the cursor else the db will be locked
+        drop(cursor);
+
+        adapter.store_record(&1, &"zwei".to_string()).await.unwrap();
+        let mut statement = connection
+            .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
+            .unwrap();
+        let mut cursor = statement.iter();
+        let row = cursor
+            .try_next()
+            .unwrap()
+            .expect("Expecting at least one row in the result set.");
+        assert_eq!(Value::String("\"zwei\"".to_string()), row[2]);
     }
 
     #[tokio::test]
-    async fn test_store_record_full_mutex() {
-        let test_name = "test_store_record_full_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_store_record(&db_path, full_mutex_adapter(&db_path, None)).await;
+    async fn test_get_record() {
+        let test_name = "test_get_record";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
+        adapter
+            .store_record(&3, &"three".to_string())
+            .await
+            .unwrap();
+        assert_eq!(
+            Some("one".to_string()),
+            adapter.get_record(&1).await.unwrap()
+        );
+        assert_eq!(
+            Some("three".to_string()),
+            adapter.get_record(&3).await.unwrap()
+        );
+        assert_eq!(
+            Some("two".to_string()),
+            adapter.get_record(&2).await.unwrap()
+        );
+        assert_eq!(None, adapter.get_record(&4).await.unwrap());
     }
 
     #[tokio::test]
-    async fn test_get_record_tokio_mutex() {
-        let test_name = "test_get_record_tokio_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_get_record(tokio_mutex_adapter(&db_path, None)).await;
+    async fn test_get_iterator() {
+        let test_name = "test_get_iterator";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
+        adapter
+            .store_record(&3, &"three".to_string())
+            .await
+            .unwrap();
+        let collection: Vec<(usize, String)> =
+            adapter.get_iter().await.unwrap().enumerate().collect();
+        assert_eq!(
+            vec![
+                (0, "three".to_string()),
+                (1, "two".to_string()),
+                (2, "one".to_string()),
+            ],
+            collection
+        );
     }
 
     #[tokio::test]
-    async fn test_get_record_full_mutex() {
-        let test_name = "test_get_record_full_mutex";
-        let db_path = init_db(test_name);
+    async fn test_record_exists() {
+        let test_name = "test_record_exists";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
 
-        runner::run_test_get_record(full_mutex_adapter(&db_path, None)).await;
+        assert!(adapter.record_exists(&1).await.unwrap());
+        assert!(adapter.record_exists(&2).await.unwrap());
+        assert!(!adapter.record_exists(&3).await.unwrap());
     }
 
     #[tokio::test]
-    async fn test_get_iterator_tokio_mutex() {
-        let test_name = "test_get_iterator_tokio_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_get_iterator(full_mutex_adapter(&db_path, None)).await;
+    async fn test_remove() {
+        let test_name = "test_remove";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
+        let record = adapter
+            .remove(&1)
+            .await
+            .expect("removing an existing record should not fail")
+            .expect("removing an existing record should return the deleted record");
+        assert_eq!("one".to_string(), record);
+        let empty = adapter
+            .remove(&1)
+            .await
+            .expect("removing a non existing record should not fail");
+        assert!(empty.is_none());
     }
 
     #[tokio::test]
-    async fn test_get_iterator_full_mutex() {
-        let test_name = "test_get_iterator_full_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_get_iterator(full_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn test_record_exists_tokio_mutex() {
-        let test_name = "test_record_exists_tokio_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_record_exists(tokio_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn test_record_exists_full_mutex() {
-        let test_name = "test_record_exists_full_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_record_exists(full_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn test_remove_tokio_mutex() {
-        let test_name = "test_remove_tokio_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_remove(tokio_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn test_remove_full_mutex() {
-        let test_name = "test_remove_full_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_remove(full_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn test_get_last_n_records_tokio_mutex() {
-        let test_name = "test_get_last_n_records_tokio_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_get_last_n_records(tokio_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn test_get_last_n_records_full_mutex() {
-        let test_name = "test_get_last_n_records_full_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_test_get_last_n_records(full_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn check_get_last_n_modified_records_tokio_mutex() {
-        let test_name = "check_get_last_n_modified_records_tokio_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_check_get_last_n_modified_records(tokio_mutex_adapter(&db_path, None)).await;
-    }
-
-    #[tokio::test]
-    async fn check_get_last_n_modified_records_full_mutex() {
-        let test_name = "check_get_last_n_modified_records_full_mutex";
-        let db_path = init_db(test_name);
-
-        runner::run_check_get_last_n_modified_records(full_mutex_adapter(&db_path, None)).await;
-    }
-
-    mod runner {
-        use super::*;
-
-        pub async fn run_test_store_record(
-            filepath: &Path,
-            mut adapter: SQLiteAdapter<u64, String>,
-        ) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            let connection = Connection::open(filepath).unwrap_or_else(|_| {
-                panic!(
-                    "Expecting to be able to open SQLite file '{}'.",
-                    filepath.display()
-                )
-            });
-            let mut cursor = connection
-                .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
-                .unwrap()
-                .into_iter();
-            let row = cursor
-                .try_next()
-                .unwrap()
-                .expect("Expecting at least one row in the result set.");
-            assert_eq!(Value::Integer(1), row[1]);
-            assert_eq!(Value::String("\"one\"".to_string()), row[2]);
-
-            // We must drop the cursor else the db will be locked
-            drop(cursor);
-
-            adapter.store_record(&1, &"zwei".to_string()).await.unwrap();
-            let mut statement = connection
-                .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
-                .unwrap();
-            let mut cursor = statement.iter();
-            let row = cursor
-                .try_next()
-                .unwrap()
-                .expect("Expecting at least one row in the result set.");
-            assert_eq!(Value::String("\"zwei\"".to_string()), row[2]);
-        }
-
-        pub async fn run_test_get_record(mut adapter: SQLiteAdapter<u64, String>) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            adapter.store_record(&2, &"two".to_string()).await.unwrap();
+    async fn test_get_last_n_records() {
+        let test_name = "test_get_last_n_records";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
+        adapter
+            .store_record(&3, &"three".to_string())
+            .await
+            .unwrap();
+        assert_eq!(
+            vec![(3_u64, "three".to_string())],
             adapter
-                .store_record(&3, &"three".to_string())
+                .get_last_n_records(1)
                 .await
-                .unwrap();
-            assert_eq!(
-                Some("one".to_string()),
-                adapter.get_record(&1).await.unwrap()
-            );
-            assert_eq!(
-                Some("three".to_string()),
-                adapter.get_record(&3).await.unwrap()
-            );
-            assert_eq!(
-                Some("two".to_string()),
-                adapter.get_record(&2).await.unwrap()
-            );
-            assert_eq!(None, adapter.get_record(&4).await.unwrap());
-        }
-
-        pub async fn run_test_record_exists(mut adapter: SQLiteAdapter<u64, String>) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            adapter.store_record(&2, &"two".to_string()).await.unwrap();
-
-            assert!(adapter.record_exists(&1).await.unwrap());
-            assert!(adapter.record_exists(&2).await.unwrap());
-            assert!(!adapter.record_exists(&3).await.unwrap());
-        }
-
-        pub async fn run_test_get_iterator(mut adapter: SQLiteAdapter<u64, String>) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            adapter.store_record(&2, &"two".to_string()).await.unwrap();
+                .expect("get last N records should not fail")
+        );
+        assert_eq!(
+            vec![
+                (3_u64, "three".to_string()),
+                (2_u64, "two".to_string()),
+                (1_u64, "one".to_string()),
+            ],
             adapter
-                .store_record(&3, &"three".to_string())
+                .get_last_n_records(5)
                 .await
-                .unwrap();
-            let collection: Vec<(usize, String)> =
-                adapter.get_iter().await.unwrap().enumerate().collect();
-            assert_eq!(
-                vec![
-                    (0, "three".to_string()),
-                    (1, "two".to_string()),
-                    (2, "one".to_string()),
-                ],
-                collection
-            );
-        }
+                .expect("get last N records should not fail")
+        );
+    }
 
-        pub async fn run_test_remove(mut adapter: SQLiteAdapter<u64, String>) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            adapter.store_record(&2, &"two".to_string()).await.unwrap();
-            let record = adapter
-                .remove(&1)
-                .await
-                .expect("removing an existing record should not fail")
-                .expect("removing an existing record should return the deleted record");
-            assert_eq!("one".to_string(), record);
-            let empty = adapter
-                .remove(&1)
-                .await
-                .expect("removing a non existing record should not fail");
-            assert!(empty.is_none());
-        }
-
-        pub async fn run_test_get_last_n_records(mut adapter: SQLiteAdapter<u64, String>) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            adapter.store_record(&2, &"two".to_string()).await.unwrap();
-            adapter
-                .store_record(&3, &"three".to_string())
-                .await
-                .unwrap();
-            assert_eq!(
-                vec![(3_u64, "three".to_string())],
-                adapter
-                    .get_last_n_records(1)
-                    .await
-                    .expect("get last N records should not fail")
-            );
-            assert_eq!(
-                vec![
-                    (3_u64, "three".to_string()),
-                    (2_u64, "two".to_string()),
-                    (1_u64, "one".to_string()),
-                ],
-                adapter
-                    .get_last_n_records(5)
-                    .await
-                    .expect("get last N records should not fail")
-            );
-        }
-
-        pub async fn run_check_get_last_n_modified_records(
-            mut adapter: SQLiteAdapter<u64, String>,
-        ) {
-            adapter.store_record(&1, &"one".to_string()).await.unwrap();
-            adapter.store_record(&2, &"two".to_string()).await.unwrap();
-            adapter
-                .store_record(&3, &"three".to_string())
-                .await
-                .unwrap();
-            adapter
-                .store_record(&1, &"updated record".to_string())
-                .await
-                .unwrap();
-            let values = adapter.get_last_n_records(2).await.unwrap();
-            assert_eq!(
-                vec![(3, "three".to_string()), (2, "two".to_string())],
-                values
-            );
-        }
+    #[tokio::test]
+    async fn check_get_last_n_modified_records() {
+        let test_name = "check_get_last_n_modified_records";
+        let mut adapter = init_db(test_name, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
+        adapter.store_record(&2, &"two".to_string()).await.unwrap();
+        adapter
+            .store_record(&3, &"three".to_string())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&1, &"updated record".to_string())
+            .await
+            .unwrap();
+        let values = adapter.get_last_n_records(2).await.unwrap();
+        assert_eq!(
+            vec![(3, "three".to_string()), (2, "two".to_string())],
+            values
+        );
     }
 }
