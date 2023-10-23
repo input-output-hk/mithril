@@ -1642,7 +1642,7 @@ mod tests {
             let params = StmParameters { m, k, phi_f: 0.2 };
             let (_initializers, public_signers) = setup_equal_core_parties(params, nparties);
             let core_verifier = CoreVerifier::setup(&public_signers);
-            assert_ne!(core_verifier.total_stake, 0, "Total stake is 0.");
+            assert_eq!(nparties as u64, core_verifier.total_stake, "Total stake expected: {}, got: {}.", nparties, core_verifier.total_stake);
         }
     }
 }
