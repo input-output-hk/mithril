@@ -477,14 +477,11 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         signed_entities: Vec<SignedEntityRecord>,
     ) -> StdResult<Vec<SignedEntityRecord>> {
         let provider = UpdateSignedEntityProvider::new(&self.connection);
-        self.connection.execute("begin transaction")?;
         let mut updated_records = vec![];
 
         for record in signed_entities {
             updated_records.push(provider.persist(&record)?);
         }
-
-        self.connection.execute("commit transaction")?;
 
         Ok(updated_records)
     }

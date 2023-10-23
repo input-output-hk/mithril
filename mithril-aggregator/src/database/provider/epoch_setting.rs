@@ -265,11 +265,6 @@ impl ProtocolParametersStorer for EpochSettingStore {
         protocol_parameters: ProtocolParameters,
     ) -> StdResult<Option<ProtocolParameters>> {
         let provider = UpdateEpochSettingProvider::new(&self.connection);
-        self.connection
-            .execute("begin transaction")
-            .with_context(|| "could not begin transaction to update protocol parameters")
-            .map_err(AdapterError::QueryError)?;
-
         let epoch_setting_record = provider.persist(epoch, protocol_parameters).map_err(|e| {
             AdapterError::GeneralError(e.context("persist protocol parameters failure"))
         })?;
@@ -281,10 +276,6 @@ impl ProtocolParametersStorer for EpochSettingStore {
                 .map_err(AdapterError::QueryError)?
                 .count();
         }
-
-        self.connection
-            .execute("commit transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
 
         Ok(Some(epoch_setting_record.protocol_parameters))
     }

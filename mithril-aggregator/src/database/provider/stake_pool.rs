@@ -248,10 +248,6 @@ impl StakeStorer for StakePoolStore {
         stakes: StakeDistribution,
     ) -> StdResult<Option<StakeDistribution>> {
         let provider = InsertOrReplaceStakePoolProvider::new(&self.connection);
-        self.connection
-            .execute("begin transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-
         let pools = provider
             .persist_many(
                 stakes
@@ -269,10 +265,6 @@ impl StakeStorer for StakePoolStore {
                 .map_err(AdapterError::QueryError)?
                 .count();
         }
-
-        self.connection
-            .execute("commit transaction")
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
 
         Ok(Some(StakeDistribution::from_iter(
             pools.into_iter().map(|p| (p.stake_pool_id, p.stake)),
