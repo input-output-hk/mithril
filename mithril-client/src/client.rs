@@ -2,13 +2,13 @@
 //!
 //! The client wraps the initialization of the Mithril Client services and provides a simple API for the library
 //!
-//! ```
+//! ```no_run
 //! use mithril_client::client::Client;
 //! use mithril_client::common::*;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let client = Client::new("https://aggregator.release-preprod.api.mithril.network/aggregator", "YOUR_GENESIS_VERIFICATION_KEY").await?;
+//!     let client = Client::new("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").await?;
 //!     let snapshot = client.show_snapshot("5a1288f7164bec049f34e46002e939f4c609a0ddf86636fdc4180ea22342cab7").await?;
 //!
 //!     println!("Snapshot id={}, size={}", snapshot.digest, snapshot.size);

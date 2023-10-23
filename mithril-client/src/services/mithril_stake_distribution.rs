@@ -3,7 +3,7 @@
 //! This module contains the service to interact with a given Mithril Aggregator
 //! in order to list / download mithril stake distributions.
 //!
-//! ```
+//! ```no_run
 //! use std::sync::Arc;
 //! use mithril_client::common::StdResult;
 //! use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
@@ -14,7 +14,7 @@
 //!     let mut config = ConfigParameters::default();
 //!     config
 //!         .add_parameter("genesis_verification_key", "YOUR_GENESIS_VERIFICATION_KEY")
-//!         .add_parameter("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator");
+//!         .add_parameter("aggregator_endpoint", "YOUR_AGGREGATOR_ENDPOINT");
 //!     let stake_distribution_service = DependenciesBuilder::new(Arc::new(config))
 //!         .get_mithril_stake_distribution_service()
 //!         .await?;

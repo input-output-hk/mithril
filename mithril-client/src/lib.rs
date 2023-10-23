@@ -13,13 +13,13 @@
 //! Below are some examples describing the use of the library's functions from your own project:
 //!
 //! - [client::Client::show_snapshot]
-//! ```
+//! ```no_run
 //! use mithril_client::client::Client;
 //! use mithril_client::common::StdResult;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let client = Client::new("https://aggregator.release-preprod.api.mithril.network/aggregator", "YOUR_GENESIS_VERIFICATION_KEY").await?;
+//!     let client = Client::new("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").await?;
 //!     let snapshot = client.show_snapshot("5a1288f7164bec049f34e46002e939f4c609a0ddf86636fdc4180ea22342cab7").await?;
 //!
 //!     println!("Snapshot id={}, size={}", snapshot.digest, snapshot.size);
@@ -29,13 +29,13 @@
 //! ```
 //!
 //! - [client::Client::list_snapshots]
-//! ```
+//! ```no_run
 //! use mithril_client::client::Client;
 //! use mithril_client::common::StdResult;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let client = Client::new("https://aggregator.release-preprod.api.mithril.network/aggregator", "YOUR_GENESIS_VERIFICATION_KEY").await?;
+//!     let client = Client::new("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").await?;
 //!     let snapshots = client.list_snapshots().await?;
 //!
 //!     for snapshot in snapshots {
@@ -47,13 +47,13 @@
 //! ```
 //!
 //! - [client::Client::list_mithril_stake_distributions]
-//! ```
+//! ```no_run
 //! use mithril_client::client::Client;
 //! use mithril_client::common::StdResult;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
-//!     let client = Client::new("https://aggregator.release-preprod.api.mithril.network/aggregator", "YOUR_GENESIS_VERIFICATION_KEY").await?;
+//!     let client = Client::new("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").await?;
 //!     let stake_distributions = client.list_mithril_stake_distributions().await?;
 //!
 //!     for stake_distribution in stake_distributions {

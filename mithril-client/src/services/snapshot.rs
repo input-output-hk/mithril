@@ -3,9 +3,8 @@
 //! This module contains the service to interact with a given Mithril Aggregator
 //! in order to list / show / download snapshots.
 //!
-//! ```
+//! ```no_run
 //! use std::sync::Arc;
-
 //! use mithril_client::common::*;
 //! use mithril_client::{dependencies::{ConfigParameters, DependenciesBuilder}, services::SnapshotService};
 //!
@@ -14,7 +13,7 @@
 //!     let mut config = ConfigParameters::default();
 //!     config
 //!         .add_parameter("genesis_verification_key", "YOUR_GENESIS_VERIFICATION_KEY")
-//!         .add_parameter("aggregator_endpoint", "https://aggregator.release-preprod.api.mithril.network/aggregator");
+//!         .add_parameter("aggregator_endpoint", "YOUR_AGGREGATOR_ENDPOINT");
 //!     let snapshot_service = DependenciesBuilder::new(Arc::new(config))
 //!         .get_snapshot_service()
 //!         .await?;
