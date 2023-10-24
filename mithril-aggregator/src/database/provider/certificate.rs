@@ -1,9 +1,8 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, Value};
+use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::{iter::repeat, sync::Arc};
-use tokio::sync::Mutex;
 
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
@@ -540,19 +539,18 @@ impl<'conn> DeleteCertificateProvider<'conn> {
 
 /// Database frontend API for Certificate queries.
 pub struct CertificateRepository {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 }
 
 impl CertificateRepository {
     /// Instantiate a new repository
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
         Self { connection }
     }
 
     /// Return the certificate corresponding to the given hash if any.
     pub async fn get_certificate(&self, hash: &str) -> StdResult<Option<Certificate>> {
-        let lock = self.connection.lock().await;
-        let provider = CertificateRecordProvider::new(&lock);
+        let provider = CertificateRecordProvider::new(&self.connection);
         let mut cursor = provider.get_by_certificate_id(hash)?;
 
         Ok(cursor.next().map(|v| v.into()))
@@ -560,8 +558,7 @@ impl CertificateRepository {
 
     /// Return the latest certificates.
     pub async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>> {
-        let lock = self.connection.lock().await;
-        let provider = CertificateRecordProvider::new(&lock);
+        let provider = CertificateRecordProvider::new(&self.connection);
         let cursor = provider.get_all()?;
 
         Ok(cursor.take(last_n).map(|v| v.into()).collect())
@@ -574,8 +571,7 @@ impl CertificateRepository {
         &self,
         epoch: Epoch,
     ) -> StdResult<Option<Certificate>> {
-        let lock = self.connection.lock().await;
-        let provider = MasterCertificateProvider::new(&lock);
+        let provider = MasterCertificateProvider::new(&self.connection);
         let mut cursor = provider.find(provider.get_master_certificate_condition(epoch))?;
 
         Ok(cursor.next().map(|c| c.into()))
@@ -583,8 +579,7 @@ impl CertificateRepository {
 
     /// Create a new certificate in the database.
     pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
-        let lock = self.connection.lock().await;
-        let provider = InsertCertificateRecordProvider::new(&lock);
+        let provider = InsertCertificateRecordProvider::new(&self.connection);
 
         provider.persist(certificate.into()).map(|r| r.into())
     }
@@ -594,8 +589,7 @@ impl CertificateRepository {
         &self,
         certificates: Vec<Certificate>,
     ) -> StdResult<Vec<Certificate>> {
-        let lock = self.connection.lock().await;
-        let provider = InsertCertificateRecordProvider::new(&lock);
+        let provider = InsertCertificateRecordProvider::new(&self.connection);
         let records: Vec<CertificateRecord> =
             certificates.into_iter().map(|cert| cert.into()).collect();
         let new_certificates = provider.persist_many(records)?;
@@ -613,8 +607,7 @@ impl CertificateRepository {
             .map(|c| c.hash.as_str())
             .collect::<Vec<_>>();
 
-        let connection = self.connection.lock().await;
-        let provider = DeleteCertificateProvider::new(&connection);
+        let provider = DeleteCertificateProvider::new(&self.connection);
         let _ = provider.delete_by_ids(&ids)?.collect::<Vec<_>>();
 
         Ok(())
@@ -785,7 +778,7 @@ mod tests {
 
     #[test]
     fn test_golden_master() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_certificate_db(&connection, vec![]).unwrap();
         insert_golden_certificate(&connection);
 
@@ -836,7 +829,7 @@ mod tests {
 
     #[test]
     fn get_certificate_record_by_epoch() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = CertificateRecordProvider::new(&connection);
         let condition = provider.condition_by_epoch(&Epoch(17)).unwrap();
         let (filter, values) = condition.expand();
@@ -847,7 +840,7 @@ mod tests {
 
     #[test]
     fn get_certificate_record_by_certificate_id() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = CertificateRecordProvider::new(&connection);
         let condition = provider
             .condition_by_certificate_id("certificate-123")
@@ -862,7 +855,7 @@ mod tests {
     fn insert_certificate_condition() {
         let (certificates, _) = setup_certificate_chain(2, 1);
         let certificate_record: CertificateRecord = certificates.first().unwrap().to_owned().into();
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = InsertCertificateRecordProvider::new(&connection);
         let condition = provider.get_insert_condition(&certificate_record);
         let (values, params) = condition.expand();
@@ -898,7 +891,7 @@ mod tests {
         let (certificates, _) = setup_certificate_chain(2, 1);
         let certificates_records: Vec<CertificateRecord> =
             certificates.into_iter().map(|c| c.into()).collect();
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = InsertCertificateRecordProvider::new(&connection);
         let condition = provider.get_insert_many_condition(&certificates_records);
         let (values, params) = condition.expand();
@@ -948,7 +941,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
     fn test_get_certificate_records() {
         let (certificates, _) = setup_certificate_chain(20, 7);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_certificate_db(&connection, certificates.clone()).unwrap();
 
         let provider = CertificateRecordProvider::new(&connection);
@@ -987,7 +980,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
     fn test_insert_certificate_record() {
         let (certificates, _) = setup_certificate_chain(5, 2);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_certificate_db(&connection, Vec::new()).unwrap();
 
         let provider = InsertCertificateRecordProvider::new(&connection);
@@ -1005,7 +998,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let certificates_records: Vec<CertificateRecord> =
             certificates.into_iter().map(|cert| cert.into()).collect();
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_certificate_db(&connection, Vec::new()).unwrap();
 
         let provider = InsertCertificateRecordProvider::new(&connection);
@@ -1018,7 +1011,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
 
     #[tokio::test]
     async fn master_certificate_condition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = MasterCertificateProvider::new(&connection);
         let condition = provider.get_master_certificate_condition(Epoch(10));
         let (condition_str, parameters) = condition.expand();
@@ -1037,8 +1030,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         {
-            let lock = connection.lock().await;
-            let provider = InsertCertificateRecordProvider::new(&lock);
+            let provider = InsertCertificateRecordProvider::new(&connection);
 
             for certificate in certificates.iter().rev() {
                 provider.persist(certificate.to_owned().into()).unwrap();
@@ -1064,8 +1056,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         {
-            let lock = connection.lock().await;
-            let provider = InsertCertificateRecordProvider::new(&lock);
+            let provider = InsertCertificateRecordProvider::new(&connection);
 
             for certificate in certificates.iter().rev() {
                 provider.persist(certificate.to_owned().into()).unwrap();
@@ -1082,11 +1073,10 @@ protocol_message, signers, initiated_at, sealed_at) values \
     }
 
     async fn insert_certificate_records(
-        connection: Arc<Mutex<Connection>>,
+        connection: Arc<ConnectionWithFullMutex>,
         records: Vec<CertificateRecord>,
     ) {
-        let lock = connection.lock().await;
-        let provider = InsertCertificateRecordProvider::new(&lock);
+        let provider = InsertCertificateRecordProvider::new(&connection);
 
         for certificate in records {
             provider.persist(certificate).unwrap();
@@ -1325,8 +1315,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         {
-            let lock = connection.lock().await;
-            let provider = InsertCertificateRecordProvider::new(&lock);
+            let provider = InsertCertificateRecordProvider::new(&connection);
 
             for certificate in certificates.iter().rev() {
                 provider.persist(certificate.to_owned().into()).unwrap();
@@ -1357,8 +1346,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         assert_eq!(certificates[4].hash, certificate.hash);
         {
             let connection = deps.get_sqlite_connection().await.unwrap();
-            let lock = connection.lock().await;
-            let provider = CertificateRecordProvider::new(&lock);
+            let provider = CertificateRecordProvider::new(&connection);
             let mut cursor = provider
                 .get_by_certificate_id(&certificates[4].hash)
                 .unwrap();
@@ -1372,7 +1360,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
 
     #[test]
     fn delete_certificates_condition_correctly_joins_given_ids() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = DeleteCertificateProvider::new(&connection);
         let condition = provider.get_delete_by_ids_condition(&["a", "b", "c"]);
         let (condition, params) = condition.expand();

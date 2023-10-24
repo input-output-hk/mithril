@@ -1,10 +1,9 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, Value};
+use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::collections::HashMap;
 use std::iter::repeat;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use mithril_common::sqlite::{
     EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
@@ -290,12 +289,12 @@ pub trait SignerGetter: Sync + Send {
 
 /// Service to deal with signer (read & write).
 pub struct SignerStore {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
 }
 
 impl SignerStore {
     /// Create a new SignerStore service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
         Self { connection }
     }
 
@@ -305,8 +304,7 @@ impl SignerStore {
         signer_id: String,
         pool_ticker: Option<String>,
     ) -> StdResult<()> {
-        let connection = &*self.connection.lock().await;
-        let provider = ImportSignerRecordProvider::new(connection);
+        let provider = ImportSignerRecordProvider::new(&self.connection);
         let created_at = Utc::now();
         let updated_at = created_at;
         let signer_record = SignerRecord {
@@ -326,8 +324,7 @@ impl SignerStore {
         &self,
         pool_ticker_by_id: HashMap<String, Option<String>>,
     ) -> StdResult<()> {
-        let connection = &*self.connection.lock().await;
-        let provider = ImportSignerRecordProvider::new(connection);
+        let provider = ImportSignerRecordProvider::new(&self.connection);
 
         let created_at = Utc::now();
         let updated_at = created_at;
@@ -351,8 +348,7 @@ impl SignerStore {
 #[async_trait]
 impl SignerRecorder for SignerStore {
     async fn record_signer_registration(&self, signer_id: String) -> StdResult<()> {
-        let connection = &*self.connection.lock().await;
-        let provider = RegisterSignerRecordProvider::new(connection);
+        let provider = RegisterSignerRecordProvider::new(&self.connection);
         let created_at = Utc::now();
         let updated_at = created_at;
         let registered_at = Some(created_at);
@@ -372,8 +368,7 @@ impl SignerRecorder for SignerStore {
 #[async_trait]
 impl SignerGetter for SignerStore {
     async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignerRecordProvider::new(connection);
+        let provider = SignerRecordProvider::new(&self.connection);
         let cursor = provider.get_all()?;
 
         Ok(cursor.collect())
@@ -473,7 +468,7 @@ mod tests {
 
     #[test]
     fn get_signer_record_by_signer_id() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = SignerRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signer_id("signer-123".to_string())
@@ -487,7 +482,7 @@ mod tests {
     #[test]
     fn insert_signer_record() {
         let signer_record = fake_signer_records(1).first().unwrap().to_owned();
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = RegisterSignerRecordProvider::new(&connection);
         let condition = provider.get_register_condition(signer_record.clone());
         let (values, params) = condition.expand();
@@ -511,7 +506,7 @@ mod tests {
     #[test]
     fn update_signer_record() {
         let signer_records = fake_signer_records(2);
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         let provider = ImportSignerRecordProvider::new(&connection);
         let condition = provider.get_import_condition(signer_records.clone());
         let (values, params) = condition.expand();
@@ -541,7 +536,7 @@ mod tests {
     fn test_get_signer_records() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = SignerRecordProvider::new(&connection);
@@ -575,7 +570,7 @@ mod tests {
     fn test_insert_signer_record() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
         let provider = RegisterSignerRecordProvider::new(&connection);
@@ -596,7 +591,7 @@ mod tests {
     fn test_update_signer_record() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = ImportSignerRecordProvider::new(&connection);
@@ -619,7 +614,7 @@ mod tests {
         let mut signer_records_fake = fake_signer_records(5);
         signer_records_fake.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = ImportSignerRecordProvider::new(&connection);
@@ -640,10 +635,10 @@ mod tests {
     async fn test_get_all_signers() {
         let signer_records = fake_signer_records(5);
         let expected: Vec<_> = signer_records.iter().rev().cloned().collect();
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, signer_records).unwrap();
 
-        let store = SignerStore::new(Arc::new(Mutex::new(connection)));
+        let store = SignerStore::new(Arc::new(connection));
 
         let stored_signers = store
             .get_all()
@@ -657,10 +652,10 @@ mod tests {
     async fn test_signer_recorder() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let store_recorder = SignerStore::new(connection.clone());
 
         for signer_record in signer_records_fake.clone() {
@@ -668,8 +663,7 @@ mod tests {
                 .record_signer_registration(signer_record.signer_id.clone())
                 .await
                 .expect("record_signer_registration should not fail");
-            let connection = &*connection.lock().await;
-            let provider = SignerRecordProvider::new(connection);
+            let provider = SignerRecordProvider::new(&connection);
             let signer_records_stored: Vec<SignerRecord> = provider
                 .get_by_signer_id(signer_record.signer_id)
                 .unwrap()
@@ -688,10 +682,10 @@ mod tests {
     async fn test_store_import_signer() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
-        let connection = Arc::new(Mutex::new(connection));
+        let connection = Arc::new(connection);
         let store = SignerStore::new(connection.clone());
 
         for signer_record in signer_records_fake {
@@ -702,8 +696,7 @@ mod tests {
                 )
                 .await
                 .expect("import_signer should not fail");
-            let connection = &*connection.lock().await;
-            let provider = SignerRecordProvider::new(connection);
+            let provider = SignerRecordProvider::new(&connection);
             let signer_records_stored: Vec<SignerRecord> = provider
                 .get_by_signer_id(signer_record.signer_id)
                 .unwrap()
@@ -728,9 +721,9 @@ mod tests {
             .map(|r| (r.signer_id, r.pool_ticker))
             .collect();
 
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
-        let store = SignerStore::new(Arc::new(Mutex::new(connection)));
+        let store = SignerStore::new(Arc::new(connection));
 
         store
             .import_many_signers(signers_fake.clone().into_iter().collect())

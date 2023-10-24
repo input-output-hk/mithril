@@ -182,11 +182,11 @@ impl SPOItem {
 mod tests {
     use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
-    use sqlite::Connection;
+    use sqlite::{Connection, ConnectionWithFullMutex};
     use std::collections::{BTreeMap, BTreeSet};
     use std::convert::Infallible;
     use std::sync::Arc;
-    use tokio::sync::Mutex;
+
     use warp::Filter;
 
     use crate::database::provider::{
@@ -218,8 +218,8 @@ mod tests {
         }
     }
 
-    fn connection_without_foreign_key_support() -> Connection {
-        let connection = Connection::open(":memory:").unwrap();
+    fn connection_without_foreign_key_support() -> ConnectionWithFullMutex {
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
 
@@ -227,7 +227,7 @@ mod tests {
     }
 
     async fn fill_signer_db(
-        connection: Arc<Mutex<Connection>>,
+        connection: Arc<ConnectionWithFullMutex>,
         test_signers: &[TestSigner],
     ) -> StdResult<()> {
         let store = SignerStore::new(connection);
@@ -242,7 +242,7 @@ mod tests {
     }
 
     async fn get_all_signers(
-        connection: Arc<Mutex<Connection>>,
+        connection: Arc<ConnectionWithFullMutex>,
     ) -> StdResult<BTreeSet<TestSigner>> {
         let store = SignerStore::new(connection);
 
@@ -345,7 +345,7 @@ mod tests {
 
     #[tokio::test]
     async fn persist_list_of_two_signers_one_with_ticker_the_other_without() {
-        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let connection = Arc::new(connection_without_foreign_key_support());
         let mut retriever = MockSignersImporterRetriever::new();
         retriever.expect_retrieve().returning(|| {
             Ok(HashMap::from([
@@ -375,7 +375,7 @@ mod tests {
 
     #[tokio::test]
     async fn persist_update_existing_data() {
-        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let connection = Arc::new(connection_without_foreign_key_support());
         fill_signer_db(
             connection.clone(),
             &[
@@ -422,7 +422,7 @@ mod tests {
 
     #[tokio::test]
     async fn importer_integration_test() {
-        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let connection = Arc::new(connection_without_foreign_key_support());
         fill_signer_db(
             connection.clone(),
             &[

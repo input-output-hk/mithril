@@ -29,11 +29,11 @@ use mithril_common::{
 use semver::Version;
 use slog::Logger;
 use slog_scope::debug;
-use sqlite::Connection;
+use sqlite::{Connection, ConnectionWithFullMutex};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
-        Mutex, RwLock,
+        RwLock,
     },
     time::Duration,
 };
@@ -84,7 +84,7 @@ pub struct DependenciesBuilder {
     pub configuration: Configuration,
 
     /// SQLite database connection
-    pub sqlite_connection: Option<Arc<Mutex<Connection>>>,
+    pub sqlite_connection: Option<Arc<ConnectionWithFullMutex>>,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
@@ -228,15 +228,16 @@ impl DependenciesBuilder {
         }
     }
 
-    async fn build_sqlite_connection(&self) -> Result<Arc<Mutex<Connection>>> {
+    async fn build_sqlite_connection(&self) -> Result<Arc<ConnectionWithFullMutex>> {
         let path = match self.configuration.environment {
             ExecutionEnvironment::Production => {
                 self.configuration.get_sqlite_dir().join(SQLITE_FILE)
             }
             _ => self.configuration.data_stores_directory.clone(),
         };
-        let connection = Connection::open(&path)
-            .map(|c| Arc::new(Mutex::new(c)))
+
+        let connection = Connection::open_with_full_mutex(&path)
+            .map(Arc::new)
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: format!(
                     "SQLite initialization: could not open connection with string '{}'.",
@@ -244,6 +245,7 @@ impl DependenciesBuilder {
                 ),
                 error: Some(e.into()),
             })?;
+
         // Check database migrations
         let mut db_checker = DatabaseVersionChecker::new(
             self.get_logger().await?,
@@ -257,8 +259,6 @@ impl DependenciesBuilder {
 
         // configure session
         connection
-            .lock()
-            .await
             .execute("pragma foreign_keys=true")
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "SQLite initialization: could not enable FOREIGN KEY support.".to_string(),
@@ -274,7 +274,7 @@ impl DependenciesBuilder {
     }
 
     /// Get SQLite connection
-    pub async fn get_sqlite_connection(&mut self) -> Result<Arc<Mutex<Connection>>> {
+    pub async fn get_sqlite_connection(&mut self) -> Result<Arc<ConnectionWithFullMutex>> {
         if self.sqlite_connection.is_none() {
             self.sqlite_connection = Some(self.build_sqlite_connection().await?);
         }

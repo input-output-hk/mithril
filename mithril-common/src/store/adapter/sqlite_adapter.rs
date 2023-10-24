@@ -2,10 +2,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use sqlite::{Connection, State, Statement};
-use std::ops::Deref;
+use sqlite::{Connection, ConnectionWithFullMutex, State, Statement};
 use std::{marker::PhantomData, sync::Arc, thread::sleep, time::Duration};
-use tokio::sync::Mutex;
 
 use super::{AdapterError, StoreAdapter};
 
@@ -16,7 +14,7 @@ const NB_RETRIES_ON_LOCK: u32 = 3;
 
 /// Store adapter for SQLite3
 pub struct SQLiteAdapter<K, V> {
-    connection: Arc<Mutex<Connection>>,
+    connection: Arc<ConnectionWithFullMutex>,
     table: String,
     key: PhantomData<K>,
     value: PhantomData<V>,
@@ -28,12 +26,9 @@ where
     V: DeserializeOwned,
 {
     /// Create a new SQLiteAdapter instance.
-    pub fn new(table_name: &str, connection: Arc<Mutex<Connection>>) -> Result<Self> {
+    pub fn new(table_name: &str, connection: Arc<ConnectionWithFullMutex>) -> Result<Self> {
         {
-            let conn = &*connection
-                .try_lock()
-                .map_err(|e| AdapterError::InitializationError(e.into()))?;
-            Self::check_table_exists(conn, table_name)?;
+            Self::check_table_exists(&connection, table_name)?;
         }
 
         Ok(Self {
@@ -152,8 +147,6 @@ where
     type Record = V;
 
     async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
         let sql = format!(
             "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
             self.table
@@ -164,7 +157,8 @@ where
                     .context("SQLite adapter error: could not serialize value before insertion"),
             )
         })?;
-        let mut statement = connection
+        let mut statement = self
+            .connection
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
@@ -184,22 +178,18 @@ where
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
         let sql = format!("select value from {} where key_hash = ?1", self.table);
-        let statement = self.get_statement_for_key(connection, sql, key)?;
+        let statement = self.get_statement_for_key(&self.connection, sql, key)?;
 
         self.fetch_maybe_one_value(statement)
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
         let sql = format!(
             "select exists(select 1 from {} where key_hash = ?1) as record_exists",
             self.table
         );
-        let mut statement = self.get_statement_for_key(connection, sql, key)?;
+        let mut statement = self.get_statement_for_key(&self.connection, sql, key)?;
         statement
             .next()
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -215,13 +205,12 @@ where
     }
 
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
         let sql = format!(
             "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
             self.table
         );
-        let mut statement = connection
+        let mut statement = self
+            .connection
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         statement
@@ -247,17 +236,13 @@ where
             "delete from {} where key_hash = ?1 returning value",
             self.table
         );
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
-        let statement = self.get_statement_for_key(connection, sql, key)?;
+        let statement = self.get_statement_for_key(&self.connection, sql, key)?;
 
         self.fetch_maybe_one_value(statement)
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
-        let lock = self.connection.lock().await;
-        let connection = lock.deref();
-        let iterator = SQLiteResultIterator::new(connection, &self.table)?;
+        let iterator = SQLiteResultIterator::new(&self.connection, &self.table)?;
 
         Ok(Box::new(iterator))
     }
@@ -347,7 +332,7 @@ mod tests {
             });
         }
         let tablename = tablename.unwrap_or(TABLE_NAME);
-        let connection = Arc::new(Mutex::new(Connection::open(filepath).unwrap()));
+        let connection = Arc::new(Connection::open_with_full_mutex(filepath).unwrap());
         SQLiteAdapter::new(tablename, connection).unwrap()
     }
 

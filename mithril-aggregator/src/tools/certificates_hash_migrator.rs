@@ -198,20 +198,19 @@ mod test {
         },
         StdResult,
     };
-    use sqlite::Connection;
+    use sqlite::{Connection, ConnectionWithFullMutex};
     use std::{collections::HashMap, sync::Arc};
-    use tokio::sync::Mutex;
 
     use super::CertificatesHashMigrator;
 
-    fn connection_with_foreign_key_support() -> Connection {
-        let connection = Connection::open(":memory:").unwrap();
+    fn connection_with_foreign_key_support() -> ConnectionWithFullMutex {
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
 
         connection
     }
 
-    fn connection_without_foreign_key_support() -> Connection {
+    fn connection_without_foreign_key_support() -> ConnectionWithFullMutex {
         let connection = connection_with_foreign_key_support();
         disable_foreign_key_support(&connection).unwrap();
 
@@ -247,7 +246,7 @@ mod test {
     }
 
     async fn fill_certificates_and_signed_entities_in_db(
-        connection: Arc<Mutex<Connection>>,
+        connection: Arc<ConnectionWithFullMutex>,
         certificates_and_signed_entity: &[(Certificate, Option<SignedEntityTypeDiscriminants>)],
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let certificate_repository = CertificateRepository::new(connection.clone());
@@ -410,7 +409,7 @@ mod test {
     }
 
     async fn get_certificates_and_signed_entities(
-        connection: Arc<Mutex<Connection>>,
+        connection: Arc<ConnectionWithFullMutex>,
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let mut result = vec![];
         let certificate_repository = CertificateRepository::new(connection.clone());
@@ -436,7 +435,7 @@ mod test {
     }
 
     async fn run_migration_test(
-        sqlite_connection: Arc<Mutex<Connection>>,
+        sqlite_connection: Arc<ConnectionWithFullMutex>,
         certificates_and_signed_entity: Vec<(Certificate, Option<SignedEntityTypeDiscriminants>)>,
     ) {
         // Arrange
@@ -493,13 +492,13 @@ mod test {
 
     #[tokio::test]
     async fn migrate_genesis_certificate() {
-        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let connection = Arc::new(connection_without_foreign_key_support());
         run_migration_test(connection, vec![(dummy_genesis("old_hash", 1, 1), None)]).await;
     }
 
     #[tokio::test]
     async fn migrate_a_chain_of_one_genesis_and_one_mithril_stake_distribution() {
-        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let connection = Arc::new(connection_without_foreign_key_support());
         run_migration_test(
             connection,
             vec![
@@ -516,7 +515,7 @@ mod test {
     #[tokio::test]
     async fn migrate_a_chain_with_one_genesis_spanning_multiple_epochs_and_multiple_signed_entities(
     ) {
-        let connection = Arc::new(Mutex::new(connection_with_foreign_key_support()));
+        let connection = Arc::new(connection_with_foreign_key_support());
         run_migration_test(
             connection,
             vec![
@@ -552,7 +551,7 @@ mod test {
 
     #[tokio::test]
     async fn migrate_a_chain_with_multiple_genesis_spanning_multiple_epochs() {
-        let connection = Arc::new(Mutex::new(connection_with_foreign_key_support()));
+        let connection = Arc::new(connection_with_foreign_key_support());
         run_migration_test(
             connection,
             vec![
@@ -586,7 +585,7 @@ mod test {
 
     #[tokio::test]
     async fn should_fail_if_any_hash_doesnt_change() {
-        let connection = Arc::new(Mutex::new(connection_without_foreign_key_support()));
+        let connection = Arc::new(connection_without_foreign_key_support());
         let certificate = {
             let mut cert = dummy_genesis("whatever", 1, 2);
             cert.hash = cert.compute_hash();

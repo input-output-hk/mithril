@@ -46,7 +46,6 @@ mod tests {
     use std::{cmp::min, sync::Arc};
 
     use sqlite::Connection;
-    use tokio::sync::Mutex;
 
     use crate::store::adapter::SQLiteAdapter;
 
@@ -85,7 +84,7 @@ mod tests {
     }
 
     async fn get_adapter(data_len: u64) -> SQLiteAdapter<u64, String> {
-        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
+        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
         let mut adapter: SQLiteAdapter<u64, String> =
             SQLiteAdapter::new("whatever", connection).unwrap();
 

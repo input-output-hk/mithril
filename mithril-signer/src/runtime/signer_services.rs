@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use sqlite::Connection;
+use sqlite::{Connection, ConnectionWithFullMutex};
 use std::{fs, sync::Arc};
-use tokio::sync::Mutex;
 
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -137,9 +136,9 @@ impl<'a> ProductionServiceBuilder<'a> {
         Ok(Some(Arc::new(cache_provider)))
     }
 
-    async fn build_sqlite_connection(&self) -> StdResult<Arc<Mutex<Connection>>> {
+    async fn build_sqlite_connection(&self) -> StdResult<Arc<ConnectionWithFullMutex>> {
         let sqlite_db_path = self.config.get_sqlite_file()?;
-        let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
+        let sqlite_connection = Arc::new(Connection::open_with_full_mutex(sqlite_db_path)?);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Signer,
