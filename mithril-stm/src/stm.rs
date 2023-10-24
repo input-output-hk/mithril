@@ -902,13 +902,14 @@ impl CoreVerifier {
     ///     * Calculate the total stake of the eligible signers,
     ///     * Sort the eligible signers.
     pub fn setup(public_signers: &[(VerificationKey, Stake)]) -> Self {
-        let total_stake: Stake = 0;
+        let mut total_stake: Stake = 0;
         let mut unique_parties = HashSet::new();
         for signer in public_signers.iter() {
-            let (_, overflow) = total_stake.overflowing_add(signer.1);
+            let (res, overflow) = total_stake.overflowing_add(signer.1);
             if overflow {
                 panic!("Total stake overflow");
             }
+            total_stake = res;
             unique_parties.insert(MTLeaf(signer.0, signer.1));
         }
 
@@ -1632,6 +1633,16 @@ mod tests {
                 Err(CoreVerifierError::IndexNotUnique) => unreachable!(),
                 _ => unreachable!(),
             }
+        }
+
+        #[test]
+        fn test_total_stake_core_verifier(nparties in 2_usize..30,
+                              m in 10_u64..20,
+                              k in 1_u64..5,) {
+            let params = StmParameters { m, k, phi_f: 0.2 };
+            let (_initializers, public_signers) = setup_equal_core_parties(params, nparties);
+            let core_verifier = CoreVerifier::setup(&public_signers);
+            assert_eq!(nparties as u64, core_verifier.total_stake, "Total stake expected: {}, got: {}.", nparties, core_verifier.total_stake);
         }
     }
 }
