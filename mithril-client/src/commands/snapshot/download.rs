@@ -1,12 +1,18 @@
 use anyhow::Context;
 use clap::Parser;
-use config::{builder::DefaultState, Config, ConfigBuilder};
-use std::{path::PathBuf, sync::Arc};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use mithril_common::{messages::FromMessageAdapter, StdResult};
 
-use crate::{
-    dependencies::DependenciesBuilder, utils::ProgressOutputType, FromSnapshotMessageAdapter,
+use mithril_client::{
+    dependencies::{ConfigParameters, DependenciesBuilder},
+    utils::ProgressOutputType,
+    FromSnapshotMessageAdapter,
 };
 
 /// Clap command to download the snapshot and verify the certificate.
@@ -24,19 +30,22 @@ pub struct SnapshotDownloadCommand {
     /// Directory where the snapshot will be downloaded. By default, a
     /// subdirectory will be created in this directory to extract and verify the
     /// certificate.
-    #[clap(long, default_value = ".")]
-    download_dir: PathBuf,
+    #[clap(long)]
+    download_dir: Option<PathBuf>,
+
+    /// Genesis Verification Key to check the certifiate chain.
+    #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
+    genesis_verification_key: Option<String>,
 }
 
 impl SnapshotDownloadCommand {
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        let config_builder = config_builder
-            .set_default("genesis_verification_key", "")
-            .unwrap();
-        let config: Config = config_builder.build()?;
-        let config = Arc::new(config);
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let config = config_builder.add_source(self.clone()).build()?;
+        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+            config.try_deserialize::<HashMap<String, String>>()?,
+        ));
+        let mut dependencies_builder = DependenciesBuilder::new(params.clone());
         let snapshot_service = dependencies_builder
             .get_snapshot_service()
             .await
@@ -57,18 +66,17 @@ impl SnapshotDownloadCommand {
         let filepath = snapshot_service
             .download(
                 &snapshot_entity,
-                &self.download_dir,
-                &config
-                    .get_string("genesis_verification_key")
-                    .with_context(|| {
-                        format!(
-                            "Snapshot Service can not download and verify the snapshot for digest: '{}'",
-                            self.digest
-                        )
-                    })?,
+                Path::new(&params.require("download_dir")?),
+                &params.require("genesis_verification_key")?,
                 progress_output_type,
             )
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Snapshot Service can not download and verify the snapshot for digest: '{}'",
+                    self.digest
+                )
+            })?;
 
         if self.json {
             println!(
@@ -95,5 +103,40 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
         }
 
         Ok(())
+    }
+}
+
+impl Source for SnapshotDownloadCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut map = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        if let Some(download_dir) = self.download_dir.clone() {
+            map.insert(
+                "download_dir".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(download_dir.to_str().ok_or_else(|| {
+                        config::ConfigError::Message(format!(
+                            "Could not read download directory: '{}'.",
+                            download_dir.display()
+                        ))
+                    })?),
+                ),
+            );
+        }
+
+        if let Some(genesis_verification_key) = self.genesis_verification_key.clone() {
+            map.insert(
+                "genesis_verification_key".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(genesis_verification_key)),
+            );
+        }
+
+        Ok(map)
     }
 }

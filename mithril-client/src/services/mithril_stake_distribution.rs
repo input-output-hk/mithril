@@ -1,3 +1,31 @@
+//! ## Mithril Stake Distribution Service
+//!
+//! This module contains the service to interact with a given Mithril Aggregator
+//! in order to list / download mithril stake distributions.
+//!
+//! ```no_run
+//! use std::sync::Arc;
+//! use mithril_client::common::StdResult;
+//! use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
+//! use mithril_client::services::MithrilStakeDistributionService;
+//!
+//! #[tokio::main]
+//! async fn main() -> StdResult<()> {
+//!     let mut config = ConfigParameters::default();
+//!     config
+//!         .add_parameter("genesis_verification_key", "YOUR_GENESIS_VERIFICATION_KEY")
+//!         .add_parameter("aggregator_endpoint", "YOUR_AGGREGATOR_ENDPOINT");
+//!     let stake_distribution_service = DependenciesBuilder::new(Arc::new(config))
+//!         .get_mithril_stake_distribution_service()
+//!         .await?;
+//!
+//!     for message in stake_distribution_service.list().await? {
+//!         println!("Stake distribution hash = {}", message.hash);
+//!     }
+//!
+//!     Ok(())
+//! }
+//! ```
 use anyhow::Context;
 use async_trait::async_trait;
 use std::{

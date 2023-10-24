@@ -1,18 +1,21 @@
 #![doc = include_str!("../README.md")]
 
-use clap::{Parser, Subcommand};
-use config::builder::DefaultState;
-use config::{ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_client::commands::mithril_stake_distribution::MithrilStakeDistributionCommands;
-use mithril_common::StdResult;
-use slog::{Drain, Level, Logger};
-use slog_scope::debug;
+mod commands;
+
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_client::commands::snapshot::*;
+use clap::{Parser, Subcommand};
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use slog::{Drain, Level, Logger};
+use slog_scope::debug;
 
-/// CLI args
+use mithril_client::common::StdResult;
+
+use commands::{
+    mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
+};
+
 #[derive(Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
@@ -38,7 +41,7 @@ pub struct Args {
     pub config_directory: PathBuf,
 
     /// Override configuration Aggregator endpoint URL.
-    #[clap(long)]
+    #[clap(long, env = "AGGREGATOR_ENDPOINT")]
     aggregator_endpoint: Option<String>,
 }
 
@@ -49,7 +52,6 @@ impl Args {
         debug!("Reading configuration file '{}'.", filename);
         let config: ConfigBuilder<DefaultState> = config::Config::builder()
             .add_source(config::File::with_name(&filename).required(false))
-            .add_source(config::Environment::default())
             .add_source(self.clone())
             .set_default("download_dir", "")?;
 

@@ -117,12 +117,11 @@ impl AggregatorHTTPClient {
         debug!("Prepare request with version: {current_api_version}");
         let request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
-        let response =
-            request_builder.send().await.map_err(|e| {
-                AggregatorHTTPClientError::SubsystemError(anyhow!(e).context(
-                    "Cannot perform a GET against the Aggregator HTTP server (url='{url}'",
-                ))
-            })?;
+        let response = request_builder.send().await.map_err(|e| {
+            AggregatorHTTPClientError::SubsystemError(anyhow!(e).context(format!(
+                "Cannot perform a GET against the Aggregator HTTP server (url='{url}')"
+            )))
+        })?;
 
         match response.status() {
             StatusCode::OK => Ok(response),

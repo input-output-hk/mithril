@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
@@ -40,7 +38,9 @@ impl MithrilStakeDistributionMessage {
             signers_with_stake: vec![SignerWithStakeMessagePart::dummy()],
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
-            created_at: DateTime::from_str("2023-06-13 17:05:41").unwrap(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
             protocol_parameters: fake_data::protocol_parameters(),
         }
     }
@@ -65,7 +65,9 @@ mod tests {
             ],
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
-            created_at: DateTime::from_str("2023-06-13T17:05:41Z").unwrap(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+            .unwrap()
+            .with_timezone(&Utc),
             protocol_parameters: fake_data::protocol_parameters(),
         }
     }
@@ -84,7 +86,7 @@ mod tests {
             ],
             "hash": "hash-123",
             "certificate_hash": "cert-hash-123",
-            "created_at": "2023-06-13T17:05:41Z",
+            "created_at": "2023-01-19T13:43:05.618857482Z",
             "protocol_parameters": {"k": 5, "m": 100, "phi_f": 0.65 }
         }"#;
         let message: MithrilStakeDistributionMessage = serde_json::from_str(json).expect(

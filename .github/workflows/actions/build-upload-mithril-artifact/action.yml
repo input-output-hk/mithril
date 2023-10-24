@@ -1,10 +1,15 @@
 name: build-upload-mithril-artifact
 description: Build the Mithril workspace & publish the artifacts using 'actions/upload-artifact'
 inputs:
-  build-args:
-    description: Arguments to pass to 'cargo build'
+  binaries-build-args:
+    description: Arguments to pass to 'cargo build' for binaries
+    required: true
+  libraries-build-args:
+    description: Arguments to pass to 'cargo build --lib' for libraries
+    required: true
+  common-build-args:
+    description: Arguments that will be passed to both bin & lib 'cargo build'
     required: false
-    default: '--features portable -p mithril-aggregator -p mithril-client -p mithril-common -p mithril-signer -p mithril-stm'
 runs:
   using: "composite"
   steps:
@@ -19,23 +24,26 @@ runs:
         pip3 install toml
         python3 ./.github/workflows/scripts/edit-cargo-toml-version.py -l "${{ steps.label.outputs.short_sha }}"
 
-    - name: Cargo build - Distribution
+    - name: Cargo build - Binaries - Distribution
       shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
-      run: cargo build --release ${{ inputs.build-args }}
-        
+      run: cargo build --release ${{ inputs.binaries-build-args }} ${{ inputs.common-build-args }}
+
+    - name: Cargo build - Libraries - Distribution
+      shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
+      # Build only the libraries for the crates that are published to crates.io
+      run: cargo build --lib --release ${{ inputs.libraries-build-args }} ${{ inputs.common-build-args }}
+
     - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
       uses: actions/upload-artifact@v3
       with:
         name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
         path: |
           target/release/libmithril_stm.*
-          target/release/libmithril_common.*
+          target/release/libmithril_client.*
           target/release/mithril-aggregator
           target/release/mithril-aggregator.exe
           target/release/mithril-client
           target/release/mithril-client.exe
           target/release/mithril-signer
           target/release/mithril-signer.exe
-          target/release/mithrildemo
-          target/release/mithrildemo.exe
         if-no-files-found: error

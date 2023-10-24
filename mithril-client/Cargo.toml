@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.4.12"
+version = "0.4.13"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -9,14 +9,30 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
+[[bin]]
+name = "mithril-client"
+required-features = ["build-binary"]
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[package.metadata.deb]
+depends = "$auto"
+section = "utility"
+features = ["build-binary"]
+extended-description = """Shows, downloads and verifies certified blockchain artifacts.
+
+Run `mithril-client --help` to display the available options."""
+assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
+
 [dependencies]
 anyhow = "1.0.75"
 async-recursion = "1.0.5"
 async-trait = "0.1.73"
 chrono = { version = "0.4.31", features = ["serde"] }
-clap = { version = "4.4.6", features = ["derive", "env"] }
-cli-table = "0.4.7"
-config = "0.13.3"
+clap = { version = "4.4.6", features = ["derive", "env"], optional = true }
+cli-table = { version = "0.4.7", optional = true }
+config = { version = "0.13.3", optional = true }
 directories = "5.0.1"
 flate2 = "1.0.27"
 flume = "0.11.0"
@@ -48,7 +64,9 @@ zstd = "0.13.0"
 httpmock = "0.6.8"
 mithril-common = { path = "../mithril-common" }
 mockall = "0.11.4"
+warp = "0.3"
 
 [features]
 portable = ["mithril-common/portable"]
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
+build-binary = ["clap", "config", "cli-table"]
