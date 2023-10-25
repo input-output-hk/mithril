@@ -579,7 +579,7 @@ impl CertificateRepository {
     /// Return the latest certificates.
     pub async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>> {
         let provider = CertificateRecordProvider::new(&self.connection);
-        let cursor = provider.get_all()?;
+        let cursor = provider.get_latest(last_n)?;
 
         Ok(cursor.map(|v| v.into()).collect())
     }
