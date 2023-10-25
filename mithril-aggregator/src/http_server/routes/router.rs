@@ -33,7 +33,7 @@ pub fn routes(
 ) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
-        .allow_headers(vec!["content-type"])
+        .allow_headers(vec!["content-type", MITHRIL_API_VERSION_HEADER])
         .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
     warp::any()
