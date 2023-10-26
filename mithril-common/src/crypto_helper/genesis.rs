@@ -87,10 +87,16 @@ impl ProtocolGenesisVerifier {
         self.verification_key
     }
 
-    /// Verifies the signature of a message
+    /// Verifies the genesis signature of a message
+    pub fn verify(&self, message: &[u8], signature: &ProtocolGenesisSignature) -> StdResult<()> {
+        self.verification_key.verify(message, signature)
+    }
+}
+
+impl ProtocolGenesisVerificationKey {
+    /// Verifies the genesis signature of a message
     pub fn verify(&self, message: &[u8], signature: &ProtocolGenesisSignature) -> StdResult<()> {
         Ok(self
-            .verification_key
             .verify_strict(message, signature)
             .map_err(|e| ProtocolGenesisError(anyhow!(e)))?)
     }

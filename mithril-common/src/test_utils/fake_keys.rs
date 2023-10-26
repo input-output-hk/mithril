@@ -304,6 +304,18 @@ pub const fn signer_verification_key_signature<'a>() -> [&'a str; 2] {
     ]
 }
 
+/// A list of pre json hex encoded [ed25519_dalek::VerifyingKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.VerifyingKey.html)
+pub const fn genesis_verification_key<'a>() -> [&'a str; 2] {
+    [
+        "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138\
+        382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c323\
+        5322c3138302c37322c3133342c3133372c3234372c3136312c36385d",
+        "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c\
+        3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3\
+        232392c322c3234392c3230352c3230352c33392c3233352c34345d",
+    ]
+}
+
 /// A list of pre json hex encoded [OpCert][crate::crypto_helper::OpCert]
 pub const fn operational_certificate<'a>() -> [&'a str; 2] {
     [
@@ -356,6 +368,7 @@ pub const fn aggregate_verification_key<'a>() -> [&'a str; 3] {
 #[cfg(test)]
 mod test {
     use super::*;
+    use ed25519_dalek::VerifyingKey;
     use kes_summed_ed25519::kes::Sum6KesSig;
     use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
     use serde::{de::DeserializeOwned, Serialize};
@@ -450,6 +463,11 @@ mod test {
         assert_can_deserialize_using_key_decode_hex::<Sum6KesSig>(
             &signer_verification_key_signature(),
         );
+    }
+
+    #[test]
+    fn assert_encoded_genesis_verification_key_are_still_matching_concrete_type() {
+        assert_can_deserialize_using_key_decode_hex::<VerifyingKey>(&genesis_verification_key());
     }
 
     #[test]
