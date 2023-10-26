@@ -222,7 +222,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_certificate_verifier(&mut self) -> StdResult<Arc<dyn CertificateVerifier>> {
-        let verifier = MithrilCertificateVerifier::new(self.get_logger().await?);
+        let verifier = MithrilCertificateVerifier::new(
+            self.get_logger().await?,
+            self.get_certificate_client().await?,
+        );
 
         Ok(Arc::new(verifier))
     }

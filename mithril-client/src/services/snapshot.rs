@@ -161,11 +161,7 @@ impl MithrilClientSnapshotService {
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
         self.certificate_verifier
-            .verify_certificate_chain(
-                certificate.clone(),
-                self.certificate_client.clone(),
-                &genesis_verifier,
-            )
+            .verify_certificate_chain(certificate.clone(), &genesis_verifier.to_verification_key())
             .await?;
 
         Ok(())
@@ -458,7 +454,7 @@ mod tests {
         let mut certificate_verifier = MockCertificateVerifierImpl::new();
         certificate_verifier
             .expect_verify_certificate_chain()
-            .returning(|_, _, _| Ok(()))
+            .returning(|_, _| Ok(()))
             .times(1);
 
         let dumb_digester = DumbImmutableDigester::new("snapshot-digest-123", true);

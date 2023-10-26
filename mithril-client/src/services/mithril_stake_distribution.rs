@@ -36,9 +36,7 @@ use thiserror::Error;
 
 use mithril_common::{
     certificate_chain::CertificateVerifier,
-    crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
-    },
+    crypto_helper::{ProtocolAggregateVerificationKey, ProtocolGenesisVerificationKey},
     entities::{MithrilStakeDistribution, ProtocolMessagePartKey},
     messages::MithrilStakeDistributionListItemMessage,
     protocol::SignerBuilder,
@@ -185,11 +183,7 @@ impl MithrilStakeDistributionService for AppMithrilStakeDistributionService {
                 })
                 .map_err(MithrilStakeDistributionServiceError::InvalidParameters)?;
         self.certificate_verifier
-            .verify_certificate_chain(
-                certificate.clone(),
-                self.certificate_client.clone(),
-                &ProtocolGenesisVerifier::from_verification_key(genesis_verification_key),
-            )
+            .verify_certificate_chain(certificate.clone(), &genesis_verification_key)
             .await?;
 
         let avk = self
@@ -289,10 +283,10 @@ mod tests {
     }
 
     /// Instantiate a Genesis Signer and its associated Verifier
-    pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
+    pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerificationKey) {
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_verifier = genesis_signer.create_genesis_verifier();
-        (genesis_signer, genesis_verifier)
+        (genesis_signer, genesis_verifier.to_verification_key())
     }
 
     #[tokio::test]
@@ -302,10 +296,14 @@ mod tests {
             Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
         });
         let http_client = Arc::new(http_client);
+        let certificate_client = Arc::new(CertificateClient::new(http_client.clone()));
         let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
-            Arc::new(CertificateClient::new(http_client.clone())),
-            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+            certificate_client.clone(),
+            Arc::new(MithrilCertificateVerifier::new(
+                slog_scope::logger(),
+                certificate_client,
+            )),
         );
         let list = service.list().await.unwrap();
 
@@ -338,7 +336,7 @@ mod tests {
         let mut certificate_verifier = MockCertificateVerifierImpl::new();
         certificate_verifier
             .expect_verify_certificate_chain()
-            .returning(|_, _, _| Ok(()))
+            .returning(|_, _| Ok(()))
             .times(1);
         certificate_verifier
             .expect_verify_protocol_message()
@@ -351,8 +349,7 @@ mod tests {
         );
 
         let dirpath = std::env::temp_dir().join("test_download_ok");
-        let (_, genesis_verifier) = setup_genesis();
-        let genesis_verification_key = genesis_verifier.to_verification_key();
+        let (_, genesis_verification_key) = setup_genesis();
         let filepath = service
             .download(
                 "hash-123",
@@ -391,7 +388,7 @@ mod tests {
         let mut certificate_verifier = MockCertificateVerifierImpl::new();
         certificate_verifier
             .expect_verify_certificate_chain()
-            .returning(|_, _, _| Ok(()))
+            .returning(|_, _| Ok(()))
             .times(1);
         certificate_verifier
             .expect_verify_protocol_message()
@@ -404,8 +401,7 @@ mod tests {
         );
 
         let dirpath = std::env::temp_dir().join("test_download_ko");
-        let (_, genesis_verifier) = setup_genesis();
-        let genesis_verification_key = genesis_verifier.to_verification_key();
+        let (_, genesis_verification_key) = setup_genesis();
         let _error = service
             .download(
                 "hash-123",
@@ -418,12 +414,15 @@ mod tests {
 
     #[tokio::test]
     async fn expand_eventual_artifact_hash_alias_should_returns_hash() {
-        let http_client = MockAggregatorHTTPClient::new();
-        let http_client = Arc::new(http_client);
+        let http_client = Arc::new(MockAggregatorHTTPClient::new());
+        let certificate_client = Arc::new(CertificateClient::new(http_client.clone()));
         let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
-            Arc::new(CertificateClient::new(http_client.clone())),
-            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+            certificate_client.clone(),
+            Arc::new(MithrilCertificateVerifier::new(
+                slog_scope::logger(),
+                certificate_client,
+            )),
         );
 
         let hash = service
@@ -441,10 +440,14 @@ mod tests {
             Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
         });
         let http_client = Arc::new(http_client);
+        let certificate_client = Arc::new(CertificateClient::new(http_client.clone()));
         let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
-            Arc::new(CertificateClient::new(http_client.clone())),
-            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+            certificate_client.clone(),
+            Arc::new(MithrilCertificateVerifier::new(
+                slog_scope::logger(),
+                certificate_client,
+            )),
         );
 
         let hash = service
@@ -462,10 +465,14 @@ mod tests {
             Ok(serde_json::to_string(&get_stake_distribution_list_message()).unwrap())
         });
         let http_client = Arc::new(http_client);
+        let certificate_client = Arc::new(CertificateClient::new(http_client.clone()));
         let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
-            Arc::new(CertificateClient::new(http_client.clone())),
-            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+            certificate_client.clone(),
+            Arc::new(MithrilCertificateVerifier::new(
+                slog_scope::logger(),
+                certificate_client,
+            )),
         );
 
         let hash = service
@@ -483,10 +490,14 @@ mod tests {
             .expect_get_content()
             .returning(|_| Ok("[]".to_string()));
         let http_client = Arc::new(http_client);
+        let certificate_client = Arc::new(CertificateClient::new(http_client.clone()));
         let service = AppMithrilStakeDistributionService::new(
             Arc::new(MithrilStakeDistributionClient::new(http_client.clone())),
-            Arc::new(CertificateClient::new(http_client.clone())),
-            Arc::new(MithrilCertificateVerifier::new(slog_scope::logger())),
+            certificate_client.clone(),
+            Arc::new(MithrilCertificateVerifier::new(
+                slog_scope::logger(),
+                certificate_client,
+            )),
         );
 
         let err = service
