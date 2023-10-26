@@ -3,6 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use libp2p::Multiaddr;
 use mithril_common::{
     messages::RegisterSignatureMessage,
     test_utils::test_http_server::{test_http_server, TestHttpServer},
@@ -15,12 +16,13 @@ use crate::peer::Peer;
 
 pub struct Relay {
     server: TestHttpServer,
+    pub peer: Arc<Mutex<Peer>>,
 }
 
 impl Relay {
     pub async fn start(topic_name: &str) -> StdResult<Self> {
-        let peer = Arc::new(Mutex::new(Peer::new(topic_name).start()?));
-
+        let peer = Arc::new(Mutex::new(Peer::new(topic_name).start().await?));
+        let peer_reference = peer.clone();
         let server = test_http_server(warp::path("register-signatures").and(warp::post()).map(
             move || {
                 let mut peer = peer.lock().unwrap();
@@ -30,10 +32,18 @@ impl Relay {
             },
         ));
 
-        Ok(Self { server })
+        Ok(Self {
+            server,
+            peer: peer_reference,
+        })
     }
 
     pub fn address(&self) -> SocketAddr {
         self.server.address()
+    }
+
+    pub fn peer_address(&self) -> Option<Multiaddr> {
+        let peer = self.peer.lock().unwrap();
+        peer.addr.to_owned()
     }
 }

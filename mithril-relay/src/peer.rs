@@ -1,16 +1,16 @@
 use libp2p::{
-    core::transport::MemoryTransport,
     futures::StreamExt,
     gossipsub::{Behaviour, IdentTopic, MessageAuthenticity, MessageId},
     identity,
     swarm::SwarmEvent,
-    Multiaddr, Swarm, Transport,
+    tcp, Multiaddr, Swarm, Transport,
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 
 pub struct P2PClient {
-    peer: Peer,
+    pub peer: Peer,
 }
+
 impl P2PClient {
     pub fn new(topic_name: &str) -> Self {
         Self {
@@ -22,16 +22,17 @@ impl P2PClient {
         self.peer.consume().await
     }
 
-    pub fn start(self) -> StdResult<Self> {
+    pub async fn start(self) -> StdResult<Self> {
         Ok(Self {
-            peer: self.peer.start()?,
+            peer: self.peer.start().await?,
         })
     }
 }
 
 pub struct Peer {
-    topic: IdentTopic,
-    swarm: Option<Swarm<Behaviour>>,
+    pub topic: IdentTopic,
+    pub swarm: Option<Swarm<Behaviour>>,
+    pub addr: Option<Multiaddr>,
 }
 
 impl Peer {
@@ -39,6 +40,7 @@ impl Peer {
         Self {
             topic: IdentTopic::new(topic_name),
             swarm: None,
+            addr: None,
         }
     }
 
@@ -70,13 +72,13 @@ impl Peer {
         }
     }
 
-    pub fn start(mut self) -> StdResult<Self> {
+    pub async fn start(mut self) -> StdResult<Self> {
         let local_key = identity::Keypair::generate_ed25519();
         let local_peer_id = local_key.public().to_peer_id();
 
         // Set up an encrypted TCP Transport over yamux
         // This is test transport (memory).
-        let transport = MemoryTransport::default()
+        let transport = tcp::tokio::Transport::new(tcp::Config::default())
             .upgrade(libp2p::core::upgrade::Version::V1)
             .authenticate(libp2p::noise::Config::new(&local_key).unwrap())
             .multiplex(libp2p::yamux::Config::default())
@@ -94,19 +96,35 @@ impl Peer {
             let mut gossipsub: libp2p::gossipsub::Behaviour =
                 libp2p::gossipsub::Behaviour::new(message_authenticity, gossipsub_config).unwrap();
             // subscribe to the topic
-            let _ = gossipsub.subscribe(&self.topic);
+            let res = gossipsub.subscribe(&self.topic).unwrap();
+            print!("Subscription:{res:?}");
+
             // create the swarm
             libp2p::swarm::SwarmBuilder::with_tokio_executor(transport, gossipsub, local_peer_id)
                 .build()
         };
 
         // Listen on a memory transport.
-        let memory: Multiaddr = libp2p::core::multiaddr::Protocol::Memory(0).into();
-        let addr = swarm.listen_on(memory).unwrap();
-        println!("Listening on {:?}", addr);
+        let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse()?;
+        let _listener_id = swarm.listen_on(addr.clone()).unwrap();
+
+        loop {
+            if let Some(SwarmEvent::NewListenAddr { address, .. }) = swarm.next().await {
+                println!("Listening on {:?}", address);
+                self.addr = Some(address);
+                break;
+            }
+        }
 
         self.swarm = Some(swarm);
 
         Ok(self)
+    }
+
+    pub fn dial(&mut self, addr: Multiaddr) -> StdResult<()> {
+        println!("Dialing {addr:?}");
+        self.swarm.as_mut().unwrap().dial(addr)?;
+
+        Ok(())
     }
 }
