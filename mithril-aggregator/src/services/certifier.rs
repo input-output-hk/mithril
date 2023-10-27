@@ -383,11 +383,7 @@ impl CertifierService for MithrilCertifierService {
         );
 
         self.certificate_verifier
-            .verify_certificate(
-                &certificate,
-                self.certificate_repository.clone(),
-                &self.genesis_verifier,
-            )
+            .verify_certificate(&certificate, &self.genesis_verifier.to_verification_key())
             .await
             .with_context(|| {
                 format!(
@@ -444,8 +440,7 @@ impl CertifierService for MithrilCertifierService {
             self.certificate_verifier
                 .verify_certificate_chain(
                     certificate.to_owned(),
-                    self.certificate_repository.clone(),
-                    &self.genesis_verifier,
+                    &self.genesis_verifier.to_verification_key(),
                 )
                 .await
                 .with_context(|| "CertificateVerifier can not verify certificate chain")?;
@@ -692,8 +687,7 @@ mod tests {
             .certificate_verifier
             .verify_certificate(
                 &certificate_created,
-                certifier_service.certificate_repository.clone(),
-                &certifier_service.genesis_verifier,
+                &certifier_service.genesis_verifier.to_verification_key(),
             )
             .await
             .unwrap();

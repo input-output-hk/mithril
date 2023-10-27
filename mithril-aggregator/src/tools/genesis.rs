@@ -182,7 +182,10 @@ impl GenesisTools {
             genesis_signature,
         )?;
         self.certificate_verifier
-            .verify_genesis_certificate(&genesis_certificate, &self.genesis_verifier)
+            .verify_genesis_certificate(
+                &genesis_certificate,
+                &self.genesis_verifier.to_verification_key(),
+            )
             .await?;
         self.certificate_repository
             .create_certificate(genesis_certificate.clone())
@@ -243,7 +246,10 @@ mod tests {
         let connection = Connection::open_with_full_mutex(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
-        let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
+        let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            certificate_store.clone(),
+        ));
         let genesis_avk = create_fake_genesis_avk();
         let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
         let genesis_tools = GenesisTools::new(
@@ -295,7 +301,10 @@ mod tests {
 
         assert_eq!(1, last_certificates.len());
         certificate_verifier
-            .verify_genesis_certificate(&last_certificates[0], &genesis_verifier)
+            .verify_genesis_certificate(
+                &last_certificates[0],
+                &genesis_verifier.to_verification_key(),
+            )
             .await
             .expect(
                 "verify_genesis_certificate should successfully validate the genesis certificate",
@@ -317,7 +326,10 @@ mod tests {
 
         assert_eq!(1, last_certificates.len());
         certificate_verifier
-            .verify_genesis_certificate(&last_certificates[0], &genesis_verifier)
+            .verify_genesis_certificate(
+                &last_certificates[0],
+                &genesis_verifier.to_verification_key(),
+            )
             .await
             .expect(
                 "verify_genesis_certificate should successfully validate the genesis certificate",

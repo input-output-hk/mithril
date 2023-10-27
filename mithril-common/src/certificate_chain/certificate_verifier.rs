@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use super::CertificateRetriever;
 use crate::crypto_helper::{
-    ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerifier,
+    ProtocolAggregateVerificationKey, ProtocolGenesisError, ProtocolGenesisVerificationKey,
     ProtocolMultiSignature,
 };
 use crate::entities::{
@@ -66,7 +66,7 @@ pub trait CertificateVerifier: Send + Sync {
     async fn verify_genesis_certificate(
         &self,
         genesis_certificate: &Certificate,
-        genesis_verifier: &ProtocolGenesisVerifier,
+        genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<()>;
 
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
@@ -76,8 +76,7 @@ pub trait CertificateVerifier: Send + Sync {
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
-        certificate_retriever: Arc<dyn CertificateRetriever>,
-        genesis_verifier: &ProtocolGenesisVerifier,
+        genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<Option<Certificate>>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
@@ -85,16 +84,11 @@ pub trait CertificateVerifier: Send + Sync {
     async fn verify_certificate_chain(
         &self,
         certificate: Certificate,
-        certificate_retriever: Arc<dyn CertificateRetriever>,
-        genesis_verifier: &ProtocolGenesisVerifier,
+        genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<()> {
         let mut certificate = certificate;
         while let Some(previous_certificate) = self
-            .verify_certificate(
-                &certificate,
-                certificate_retriever.clone(),
-                genesis_verifier,
-            )
+            .verify_certificate(&certificate, genesis_verification_key)
             .await?
         {
             certificate = previous_certificate;
@@ -119,13 +113,17 @@ pub trait CertificateVerifier: Send + Sync {
 pub struct MithrilCertificateVerifier {
     /// The logger where the logs should be written
     logger: Logger,
+    certificate_retriever: Arc<dyn CertificateRetriever>,
 }
 
 impl MithrilCertificateVerifier {
     /// MithrilCertificateVerifier factory
-    pub fn new(logger: Logger) -> Self {
+    pub fn new(logger: Logger, certificate_retriever: Arc<dyn CertificateRetriever>) -> Self {
         debug!(logger, "New MithrilCertificateVerifier created");
-        Self { logger }
+        Self {
+            logger,
+            certificate_retriever,
+        }
     }
 
     /// Verify a multi signature
@@ -156,7 +154,6 @@ impl MithrilCertificateVerifier {
         &self,
         certificate: &Certificate,
         signature: &ProtocolMultiSignature,
-        certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> StdResult<Option<Certificate>> {
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
@@ -164,7 +161,8 @@ impl MithrilCertificateVerifier {
             &certificate.aggregate_verification_key,
             &certificate.metadata.protocol_parameters,
         )?;
-        let previous_certificate = certificate_retriever
+        let previous_certificate = self
+            .certificate_retriever
             .get_certificate_details(&certificate.previous_hash)
             .await
             .map_err(|e| anyhow!(e))
@@ -240,19 +238,18 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_genesis_certificate(
         &self,
         genesis_certificate: &Certificate,
-        genesis_verifier: &ProtocolGenesisVerifier,
+        genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<()> {
         let genesis_signature = match &genesis_certificate.signature {
             CertificateSignature::GenesisSignature(signature) => Ok(signature),
             _ => Err(CertificateVerifierError::InvalidGenesisCertificateProvided),
         }?;
 
-        genesis_verifier
+        genesis_verification_key
             .verify(
                 genesis_certificate.signed_message.as_bytes(),
                 genesis_signature,
             )
-            .map_err(|e| anyhow!(e))
             .with_context(|| "Certificate verifier failed verifying a genesis certificate")?;
 
         Ok(())
@@ -262,8 +259,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
-        certificate_retriever: Arc<dyn CertificateRetriever>,
-        genesis_verifier: &ProtocolGenesisVerifier,
+        genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<Option<Certificate>> {
         debug!(
             self.logger,
@@ -286,12 +282,12 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         } else {
             match &certificate.signature {
                 CertificateSignature::GenesisSignature(_signature) => {
-                    self.verify_genesis_certificate(certificate, genesis_verifier)
+                    self.verify_genesis_certificate(certificate, genesis_verification_key)
                         .await?;
                     Ok(None)
                 }
                 CertificateSignature::MultiSignature(signature) => {
-                    self.verify_standard_certificate(certificate, signature, certificate_retriever)
+                    self.verify_standard_certificate(certificate, signature)
                         .await
                 }
             }
@@ -348,7 +344,10 @@ mod tests {
             .unwrap()
             .into();
 
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(MockCertificateRetrieverImpl::new()),
+        );
         let message_tampered = message_hash[1..].to_vec();
         assert!(
             verifier
@@ -384,13 +383,12 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let verify = verifier
-            .verify_certificate(
-                &fake_certificate1,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
-            )
+            .verify_certificate(&fake_certificate1, &genesis_verifier.to_verification_key())
             .await;
         verify.expect("unexpected error");
     }
@@ -408,13 +406,12 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let verify = verifier
-            .verify_certificate(
-                &fake_certificate1,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
-            )
+            .verify_certificate(&fake_certificate1, &genesis_verifier.to_verification_key())
             .await;
         verify.expect("unexpected error");
     }
@@ -434,13 +431,12 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let error = verifier
-            .verify_certificate(
-                &fake_certificate1,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
-            )
+            .verify_certificate(&fake_certificate1, &genesis_verifier.to_verification_key())
             .await
             .expect_err("verify_certificate_chain should fail");
         let error = error
@@ -476,13 +472,12 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let error = verifier
-            .verify_certificate(
-                &fake_certificate1,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
-            )
+            .verify_certificate(&fake_certificate1, &genesis_verifier.to_verification_key())
             .await
             .expect_err("verify_certificate_chain should fail");
         let error = error
@@ -504,13 +499,12 @@ mod tests {
         let mut fake_certificate1 = fake_certificates[0].clone();
         fake_certificate1.hash = "another-hash".to_string();
         let mock_certificate_retriever = MockCertificateRetrieverImpl::new();
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let error = verifier
-            .verify_certificate(
-                &fake_certificate1,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
-            )
+            .verify_certificate(&fake_certificate1, &genesis_verifier.to_verification_key())
             .await
             .expect_err("verify_certificate_chain should fail");
         let error = error
@@ -537,12 +531,14 @@ mod tests {
                 .returning(move |_| Ok(fake_certificate.clone()))
                 .times(1);
         }
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let verify = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
+                &genesis_verifier.to_verification_key(),
             )
             .await;
         verify.expect("unexpected error");
@@ -568,12 +564,14 @@ mod tests {
                 .returning(move |_| Ok(fake_certificate.clone()))
                 .times(1);
         }
-        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(
+            slog_scope::logger(),
+            Arc::new(mock_certificate_retriever),
+        );
         let error = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
-                Arc::new(mock_certificate_retriever),
-                &genesis_verifier,
+                &genesis_verifier.to_verification_key(),
             )
             .await
             .expect_err("verify_certificate_chain should fail");

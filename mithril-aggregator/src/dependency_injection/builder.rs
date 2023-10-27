@@ -621,7 +621,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
-        let verifier = Arc::new(MithrilCertificateVerifier::new(self.get_logger().await?));
+        let verifier = Arc::new(MithrilCertificateVerifier::new(
+            self.get_logger().await?,
+            self.get_certificate_repository().await?,
+        ));
 
         Ok(verifier)
     }
