@@ -5,7 +5,7 @@ use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_client::{
+use mithril_client_cli::{
     common::StdResult,
     dependencies::{ConfigParameters, DependenciesBuilder},
 };

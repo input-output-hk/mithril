@@ -68,8 +68,8 @@ tokio = { version = "1.32.0", features = ["full"] }
 If the goal is just to use the existing certificates, it is easier to use the `Client` structure:
 
 ```rust
-use mithril_client::client::Client;
-use mithril_client::common::*;
+use mithril_client_cli::client::Client;
+use mithril_client_cli::common::*;
 
 #[tokio::main]
 async fn main() -> StdResult<()> {
@@ -87,8 +87,8 @@ async fn main() -> StdResult<()> {
 Here is an example of the code for the release-preprod network:
 
 ```rust
-use mithril_client::client::Client;
-use mithril_client::common::*;
+use mithril_client_cli::client::Client;
+use mithril_client_cli::common::*;
 
 #[tokio::main]
 async fn main() -> StdResult<()> {

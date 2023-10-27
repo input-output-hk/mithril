@@ -5,8 +5,8 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use mithril_client::common::*;
-//! use mithril_client::{dependencies::{ConfigParameters, DependenciesBuilder}, services::SnapshotService};
+//! use mithril_client_cli::common::*;
+//! use mithril_client_cli::{dependencies::{ConfigParameters, DependenciesBuilder}, services::SnapshotService};
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {

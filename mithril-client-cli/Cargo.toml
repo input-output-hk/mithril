@@ -14,10 +14,6 @@ name = "mithril-client"
 path = "src/main.rs"
 required-features = ["build-binary"]
 
-[lib]
-name = "mithril_client"
-crate-type = ["lib", "cdylib", "staticlib"]
-
 [package.metadata.deb]
 depends = "$auto"
 section = "utility"
