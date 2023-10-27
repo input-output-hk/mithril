@@ -2218,7 +2218,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "mithril-client"
+name = "mithril-client-cli"
 version = "0.4.14"
 dependencies = [
  "anyhow",

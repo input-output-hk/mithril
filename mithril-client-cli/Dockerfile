@@ -13,17 +13,18 @@ WORKDIR /app
 COPY . .
 
 # Build the app using a dummy main in order to cache dependencies
-RUN mv /app/mithril-client /app/mithril-client.1 && mkdir -p /app/mithril-client/src
-COPY mithril-client/Cargo.toml /app/mithril-client/
-RUN echo "fn  main () {}" > /app/mithril-client/src/main.rs
-RUN cargo build --release -p mithril-client --manifest-path /app/mithril-client/Cargo.toml
+RUN mv /app/mithril-client-cli /app/mithril-client-cli.1 && mkdir -p /app/mithril-client-cli/src
+COPY mithril-client-cli/Cargo.toml /app/mithril-client-cli/
+RUN echo "fn  main () {}" > /app/mithril-client-cli/src/main.rs
+RUN touch /app/mithril-client-cli/src/lib.rs
+RUN cargo build --release --bin mithril-client --manifest-path /app/mithril-client-cli/Cargo.toml -F build-binary
 
 # Rollback the rest of the files into the container
-RUN rm -rf /app/mithril-client && mv /app/mithril-client.1 /app/mithril-client
-COPY ./mithril-client/src/main.rs /app/mithril-client/src/
+RUN rm -rf /app/mithril-client-cli && mv /app/mithril-client-cli.1 /app/mithril-client-cli
+COPY ./mithril-client-cli/src/main.rs /app/mithril-client-cli/src/
 
 # Build the binary
-RUN cargo build --release -p mithril-client
+RUN cargo build --release --bin mithril-client -F build-binary
 RUN /app/target/release/mithril-client --version
 
 ###############################
@@ -41,7 +42,7 @@ COPY --from=rustbuilder /etc/passwd /etc/passwd
 COPY --from=rustbuilder /app/target/release/mithril-client /app/bin/mithril-client
 
 # Copy the config files
-COPY --from=rustbuilder /app/mithril-client/config /app/config
+COPY --from=rustbuilder /app/mithril-client-cli/config /app/config
 
 #Workdir
 WORKDIR /app/

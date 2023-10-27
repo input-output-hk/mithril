@@ -1287,7 +1287,7 @@ if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
   echo ">>>> Building Mithril Aggregator node Docker image"
   cd mithril-aggregator && make docker-build > /dev/null && cd ..
   echo ">>>> Building Mithril Client node Docker image"
-  cd mithril-client && make docker-build > /dev/null && cd ..
+  cd mithril-client-cli && make docker-build > /dev/null && cd ..
   echo ">>>> Building Mithril Signer node Docker image"
   cd mithril-signer && make docker-build > /dev/null && cd ..
   cd $PWD

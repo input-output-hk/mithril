@@ -1,5 +1,5 @@
 [package]
-name = "mithril-client"
+name = "mithril-client-cli"
 version = "0.4.14"
 description = "A Mithril Client"
 authors = { workspace = true }
@@ -11,9 +11,11 @@ repository = { workspace = true }
 
 [[bin]]
 name = "mithril-client"
+path = "src/main.rs"
 required-features = ["build-binary"]
 
 [lib]
+name = "mithril_client"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [package.metadata.deb]

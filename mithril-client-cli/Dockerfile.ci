@@ -13,10 +13,10 @@ RUN mkdir -p /app/bin
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy the executable
-COPY mithril-client/mithril-client /app/bin/mithril-client
+COPY mithril-client-cli/mithril-client /app/bin/mithril-client
 
 # Copy the config files
-COPY mithril-client/config /app/config
+COPY mithril-client-cli/config /app/config
 
 # Workdir
 WORKDIR /app/

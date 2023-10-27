@@ -87,7 +87,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client, mithril-signer ]
+        project: [ mithril-aggregator, mithril-client-cli, mithril-signer ]
     
     permissions:
       contents: read
