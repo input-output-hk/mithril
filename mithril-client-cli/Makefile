@@ -11,7 +11,7 @@ all: test build
 
 build:
 	# We use 'portable' feature to avoid SIGILL crashes
-	${CARGO} build --release --features portable
+	${CARGO} build --release --features portable,build-binary
 	cp ../target/release/mithril-client .
 
 run: build
@@ -38,7 +38,7 @@ doc:
 	${CARGO} doc --no-deps --open
 
 docker-build:
-	cd ../ && docker build -t mithril/mithril-client -f mithril-client/Dockerfile .
+	cd ../ && docker build -t mithril/mithril-client -f mithril-client-cli/Dockerfile .
 
 docker-run:
 	docker run --rm --name='mithril-client' mithril/mithril-client

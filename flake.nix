@@ -103,7 +103,7 @@
         packages = {
           default = mithril;
           inherit mithril mithril-stm mithril-common;
-          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts {};
+          mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {};
           mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {};
           mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {};
           mithrildemo = buildPackage ./demo/protocol-demo/Cargo.toml mithril.cargoArtifacts {};
@@ -111,7 +111,7 @@
         };
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [self'.packages.mithril-client];
+          inputsFrom = [self'.packages.mithril-client-cli];
 
           nativeBuildInputs = [
             pkgs.cargo
