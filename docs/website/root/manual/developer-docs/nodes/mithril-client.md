@@ -34,7 +34,7 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 | Node | Source repository | Rust documentation | Docker packages |
 |:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
+**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
 
 ## Pre-requisites
 
@@ -67,7 +67,7 @@ git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 Change the directory: 
 
 ```bash
-cd mithril/mithril-client
+cd mithril/mithril-client-cli
 ```
 
 ## Development testing and building
