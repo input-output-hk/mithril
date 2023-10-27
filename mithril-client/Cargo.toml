@@ -1,0 +1,15 @@
+[package]
+name = "mithril-client"
+version = "0.5.0"
+description = "Mithril Client library"
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]

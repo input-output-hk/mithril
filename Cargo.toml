@@ -5,6 +5,7 @@ resolver = "2"
 members = [
   "demo/protocol-demo",
   "mithril-aggregator",
+  "mithril-client",
   "mithril-client-cli",
   "mithril-common",
   "mithril-signer",
