@@ -13,18 +13,19 @@ repository = { workspace = true }
 
 [dependencies]
 anyhow = "1.0.75"
-libp2p = { version = "0.52.3", features = [
-    "tcp",
-    "dns",
-    "async-std",
-    "noise",
-    "yamux",
-    "websocket",
-    "ping",
-    "macros",
-    "gossipsub",
-    "noise",
+libp2p = { version = "0.52.4", features = [
     "tokio",
+    "gossipsub",
+    "dns",
+    "identify",
+    "kad",
+    "macros",
+    "noise",
+    "ping",
+    "pnet",
+    "tcp",
+    "websocket",
+    "yamux",
 ] }
 mithril-common = { path = "../mithril-common" }
 reqwest = { version = "0.11.22", features = ["json"] }

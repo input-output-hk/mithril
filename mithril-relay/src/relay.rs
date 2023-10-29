@@ -12,7 +12,7 @@ use mithril_common::{
 use reqwest::StatusCode;
 use warp::Filter;
 
-use crate::peer::Peer;
+use crate::peer::{Peer, PeerEvent};
 
 pub struct Relay {
     server: TestHttpServer,
@@ -45,5 +45,10 @@ impl Relay {
     pub fn peer_address(&self) -> Option<Multiaddr> {
         let peer = self.peer.lock().unwrap();
         peer.addr.to_owned()
+    }
+
+    pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
+        let mut peer = self.peer.lock().unwrap();
+        peer.tick_swarm().await
     }
 }
