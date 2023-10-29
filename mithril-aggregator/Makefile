@@ -6,7 +6,7 @@ all: test build
 
 build:
 	# We use 'portable' feature to avoid SIGILL crashes
-	${CARGO} build --release --features portable
+	${CARGO} build --release --features portable,bundle_openssl
 	cp ../target/release/mithril-aggregator .
 
 run: build
@@ -31,6 +31,9 @@ doc:
 
 docker-build:
 	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile .
+
+docker-build-ci: build
+	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile.ci --build-arg DOCKER_IMAGE_FROM .
 
 docker-run:
 	docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator serve
