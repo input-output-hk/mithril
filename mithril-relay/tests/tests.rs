@@ -1,7 +1,8 @@
 use libp2p::gossipsub;
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_relay::{
-    peer::{P2PClient, PeerBehaviourEvent, PeerEvent},
+    client::P2PClient,
+    peer::{PeerBehaviourEvent, PeerEvent},
     relay::Relay,
 };
 use reqwest::StatusCode;
@@ -71,8 +72,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     loop {
         let _ = relay.tick_peer().await.unwrap();
         if let Some(p2p_client_event) = p2p_client.tick_peer().await.unwrap() {
-            if let Ok(Some(signature_message_received)) = p2p_client.consume(p2p_client_event).await
-            {
+            if let Ok(Some(signature_message_received)) = p2p_client.consume(p2p_client_event) {
                 println!("P2P Client consumed signature: {signature_message_received:#?}");
                 assert_eq!(signature_message_sent, signature_message_received);
                 break;
