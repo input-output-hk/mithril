@@ -23,14 +23,17 @@ impl Relay {
     pub async fn start(topic_name: &str) -> StdResult<Self> {
         let peer = Arc::new(Mutex::new(Peer::new(topic_name).start().await?));
         let peer_reference = peer.clone();
-        let server = test_http_server(warp::path("register-signatures").and(warp::post()).map(
-            move || {
-                let mut peer = peer.lock().unwrap();
-                peer.publish(&RegisterSignatureMessage::dummy()).unwrap();
+        let server = test_http_server(
+            warp::path("register-signatures")
+                .and(warp::post())
+                .and(warp::body::json())
+                .map(move |signature_message: RegisterSignatureMessage| {
+                    let mut peer = peer.lock().unwrap();
+                    peer.publish(&signature_message).unwrap();
 
-                warp::reply::with_status(warp::reply::reply(), StatusCode::CREATED)
-            },
-        ));
+                    warp::reply::with_status(warp::reply::reply(), StatusCode::CREATED)
+                }),
+        );
 
         Ok(Self {
             server,

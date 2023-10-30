@@ -26,7 +26,8 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
         .dial(relay_peer_address)
         .expect("the p2pclient dial to the relay should be successful");
 
-    let signature_message_sent = RegisterSignatureMessage::dummy();
+    let mut signature_message_sent = RegisterSignatureMessage::dummy();
+    signature_message_sent.party_id = format!("{}-new", signature_message_sent.party_id);
 
     let total_peers = 2;
     let mut total_connected_peers = 0;

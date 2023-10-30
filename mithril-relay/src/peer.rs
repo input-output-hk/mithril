@@ -21,8 +21,8 @@ impl P2PClient {
     ) -> StdResult<Option<RegisterSignatureMessage>> {
         match event {
             PeerEvent::Behaviour {
-                event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { .. }),
-            } => Ok(Some(RegisterSignatureMessage::dummy())),
+                event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
+            } => Ok(Some(serde_json::from_slice(&message.data)?)),
             _ => Ok(None),
         }
     }
