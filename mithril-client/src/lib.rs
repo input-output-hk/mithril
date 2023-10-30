@@ -50,3 +50,16 @@ pub mod common {
         },
     };
 }
+
+#[cfg(test)]
+pub(crate) mod test_utils {
+    use slog::Drain;
+    use std::sync::Arc;
+
+    pub fn test_logger() -> slog::Logger {
+        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+        slog::Logger::root(Arc::new(drain), slog::o!())
+    }
+}

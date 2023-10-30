@@ -118,6 +118,10 @@ impl Certificate {
     pub fn is_chaining_to_itself(&self) -> bool {
         self.hash == self.previous_hash
     }
+
+    pub fn match_message(&self, message: &ProtocolMessage) -> bool {
+        message.compute_hash() == self.signed_message
+    }
 }
 
 impl PartialEq for Certificate {
