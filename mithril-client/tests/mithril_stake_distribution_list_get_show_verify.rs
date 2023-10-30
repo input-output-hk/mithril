@@ -10,12 +10,13 @@ use std::sync::Arc;
 use warp::Filter;
 
 fn spawn_fake_aggregator(msd_hash: &str, certificate_hash: &str) -> TestHttpServer {
-    let mithril_stake_distribution_json = serde_json::to_string(&MithrilStakeDistribution {
+    let mithril_stake_distribution = MithrilStakeDistribution {
         hash: msd_hash.to_string(),
         certificate_hash: certificate_hash.to_string(),
         ..MithrilStakeDistribution::dummy()
-    })
-    .unwrap();
+    };
+    let mithril_stake_distribution_json =
+        serde_json::to_string(&mithril_stake_distribution).unwrap();
     let mithril_stake_distribution_list_json = serde_json::to_string(&vec![
         MithrilStakeDistributionListItem {
             hash: msd_hash.to_string(),
@@ -25,8 +26,13 @@ fn spawn_fake_aggregator(msd_hash: &str, certificate_hash: &str) -> TestHttpServ
         MithrilStakeDistributionListItem::dummy(),
     ])
     .unwrap();
+
+    let message = Message::compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+        .expect("Computing msd message should not fail");
+
     let certificate_json = serde_json::to_string(&CertificateMessage {
         hash: certificate_hash.to_string(),
+        signed_message: message.compute_hash(),
         ..CertificateMessage::dummy()
     })
     .unwrap();
@@ -81,7 +87,13 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         .await
         .expect("Validating the chain should not fail");
 
-    let message = Message::compute_mithril_stake_distribution_message(&mithril_stake_distribution);
+    let message = Message::compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+        .expect("Computing msd message should not fail");
 
-    assert!(certificate.match_message(&message));
+    assert!(
+        certificate.match_message(&message),
+        "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
+        certificate.signed_message,
+        message.compute_hash()
+    );
 }
