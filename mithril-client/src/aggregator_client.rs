@@ -1,8 +1,8 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use futures::StreamExt;
-use reqwest::{Client, Response, StatusCode};
+use reqwest::{Response, StatusCode, Url};
 use semver::Version;
 use slog_scope::debug;
 use std::{path::Path, sync::Arc};
@@ -41,35 +41,42 @@ pub enum AggregatorClientError {
 /// API that defines a client for the Aggregator
 #[async_trait]
 pub trait AggregatorClient: Sync + Send {
-    /// Get the content back from the Aggregator, the URL is a relative path for a resource
-    async fn get_content(&self, url: &str) -> Result<String, AggregatorClientError>;
+    /// Get the content back from the Aggregator, the endpoint is a relative path from the
+    /// aggregator route url.
+    async fn get_content(&self, endpoint: &str) -> Result<String, AggregatorClientError>;
 
     /// Download and unpack large archives on the disk
     async fn download_unpack(
         &self,
-        url: &str,
+        endpoint: &str,
         target_dir: &Path,
         compression_algorithm: CompressionAlgorithm,
     ) -> Result<(), AggregatorClientError>;
 
-    /// Test if the given URL points to a valid location & existing content.
-    async fn probe(&self, url: &str) -> Result<(), AggregatorClientError>;
+    /// Test if the given endpoint is a valid location for the aggregator & has existing content.
+    async fn probe(&self, endpoint: &str) -> Result<(), AggregatorClientError>;
 }
 
 /// Responsible of HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
-    aggregator_endpoint: String,
+    http_client: reqwest::Client,
+    aggregator_url: Url,
     api_versions: Arc<RwLock<Vec<Version>>>,
 }
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new(aggregator_endpoint: &str, api_versions: Vec<Version>) -> Self {
+    pub fn new(aggregator_endpoint: Url, api_versions: Vec<Version>) -> MithrilResult<Self> {
         debug!("New AggregatorHTTPClient created");
-        Self {
-            aggregator_endpoint: aggregator_endpoint.to_owned(),
+        let http_client = reqwest::ClientBuilder::new()
+            .build()
+            .with_context(|| "Building http client for Aggregator client failed")?;
+
+        Ok(Self {
+            http_client,
+            aggregator_url: aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
-        }
+        })
     }
 
     /// Computes the current api version
@@ -98,9 +105,9 @@ impl AggregatorHTTPClient {
 
     /// Perform a HTTP GET request on the Aggregator and return the given JSON
     #[async_recursion]
-    async fn get(&self, url: &str) -> Result<Response, AggregatorClientError> {
+    async fn get(&self, url: Url) -> Result<Response, AggregatorClientError> {
         debug!("GET url='{url}'.");
-        let request_builder = Client::new().get(url.to_owned());
+        let request_builder = self.http_client.get(url.clone());
         let current_api_version = self
             .compute_current_api_version()
             .await
@@ -135,46 +142,6 @@ impl AggregatorHTTPClient {
         }
     }
 
-    /// Issue a POST HTTP request.
-    #[async_recursion]
-    async fn post(&self, url: &str, json: &str) -> Result<Response, AggregatorClientError> {
-        debug!("POST url='{url}' json='{json}'.");
-        let request_builder = Client::new().post(url.to_owned()).body(json.to_owned());
-        let current_api_version = self
-            .compute_current_api_version()
-            .await
-            .unwrap()
-            .to_string();
-        debug!("Prepare request with version: {current_api_version}");
-        let request_builder =
-            request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
-
-        let response = request_builder.send().await.map_err(|e| {
-            AggregatorClientError::SubsystemError(
-                anyhow!(e).context("Error while POSTing data '{json}' to URL='{url}'."),
-            )
-        })?;
-
-        match response.status() {
-            StatusCode::OK | StatusCode::CREATED => Ok(response),
-            StatusCode::PRECONDITION_FAILED => {
-                if self.discard_current_api_version().await.is_some()
-                    && !self.api_versions.read().await.is_empty()
-                {
-                    return self.post(url, json).await;
-                }
-
-                Err(self.handle_api_error(&response).await)
-            }
-            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "Url='{url} not found"
-            ))),
-            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                "Unhandled error {status_code}"
-            ))),
-        }
-    }
-
     /// API version error handling
     async fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
@@ -190,14 +157,25 @@ impl AggregatorHTTPClient {
             ))
         }
     }
+
+    fn get_url_for_endpoint(&self, endpoint: &str) -> Result<Url, AggregatorClientError> {
+        self.aggregator_url
+            .join(endpoint)
+            .with_context(|| {
+                format!(
+                    "Invalid url when joining given endpoint, '{endpoint}', to aggregator url '{}'",
+                    self.aggregator_url
+                )
+            })
+            .map_err(AggregatorClientError::SubsystemError)
+    }
 }
 
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorClient for AggregatorHTTPClient {
-    async fn get_content(&self, url: &str) -> Result<String, AggregatorClientError> {
-        let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
-        let response = self.get(&url).await?;
+    async fn get_content(&self, endpoint: &str) -> Result<String, AggregatorClientError> {
+        let response = self.get(self.get_url_for_endpoint(endpoint)?).await?;
         let content = format!("{response:?}");
 
         response.text().await.map_err(|e| {
@@ -209,7 +187,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 
     async fn download_unpack(
         &self,
-        url: &str,
+        endpoint: &str,
         target_dir: &Path,
         compression_algorithm: CompressionAlgorithm,
     ) -> Result<(), AggregatorClientError> {
@@ -221,7 +199,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         }
 
         let mut downloaded_bytes: u64 = 0;
-        let mut remote_stream = self.get(url).await?.bytes_stream();
+        let mut remote_stream = self
+            .get(self.get_url_for_endpoint(endpoint)?)
+            .await?
+            .bytes_stream();
         let (sender, receiver) = flume::bounded(5);
 
         let dest_dir = target_dir.to_path_buf();
@@ -267,9 +248,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         Ok(())
     }
 
-    async fn probe(&self, url: &str) -> Result<(), AggregatorClientError> {
-        debug!("HEAD url='{url}'.");
-        let request_builder = Client::new().head(url.to_owned());
+    async fn probe(&self, endpoint: &str) -> Result<(), AggregatorClientError> {
+        debug!("HEAD url='{endpoint}'.");
+        let url = self.get_url_for_endpoint(endpoint)?;
+        let request_builder = self.http_client.head(url.to_owned());
         let response = request_builder.send().await.map_err(|e| {
             AggregatorClientError::SubsystemError(
                 anyhow!(e).context("Cannot perform a HEAD for url='{url}'"),
