@@ -1281,27 +1281,38 @@ cat >> start-mithril.sh <<EOF
 
 echo ">> Start Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
-  echo ">> Build Mithril node Docker images"
-  PWD=$(pwd)
-  cd ../../../
-  echo ">>>> Building Mithril Aggregator node Docker image"
-  cd mithril-aggregator && make docker-build > /dev/null && cd ..
-  echo ">>>> Building Mithril Client node Docker image"
-  cd mithril-client-cli && make docker-build > /dev/null && cd ..
-  echo ">>>> Building Mithril Signer node Docker image"
-  cd mithril-signer && make docker-build > /dev/null && cd ..
-  cd $PWD
-fi
-
-if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
   export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
   export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
   export MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
+  echo ">> Build Mithril node Docker images"
+  PWD=$(pwd)
+  cd ../../../
+  if [ -z "\${MITHRIL_NODE_DOCKER_BUILD_TYPE}" ]; then 
+    MITHRIL_NODE_DOCKER_BUILD_TYPE=ci
+  fi
+  if [ -z "\${MITHRIL_NODE_DOCKER_CI_IMAGE_FROM}" ]; then 
+    MITHRIL_NODE_DOCKER_CI_IMAGE_FROM=debian:12-slim
+  fi
+  export DOCKER_IMAGE_FROM=\$MITHRIL_NODE_DOCKER_CI_IMAGE_FROM
+  if [ "\${MITHRIL_NODE_DOCKER_BUILD_TYPE}" = "ci" ]; then
+    DOCKER_BUILD_CMD="make docker-build-ci" 
+  else
+    DOCKER_BUILD_CMD="make docker-build"
+  fi
+  echo ">>>> Docker builder will build images with command: '\$DOCKER_BUILD_CMD'"
+  echo ">>>> Building Mithril Aggregator node Docker image"
+  cd mithril-aggregator && \$DOCKER_BUILD_CMD && cd ..
+  echo ">>>> Building Mithril Client node Docker image"
+  cd mithril-client-cli && \$DOCKER_BUILD_CMD && cd ..
+  echo ">>>> Building Mithril Signer node Docker image"
+  cd mithril-signer && \$DOCKER_BUILD_CMD && cd ..
+  cd $PWD
 else
   export MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
   export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
   export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
 fi
+
 docker compose rm -f
 docker compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
 

@@ -46,6 +46,21 @@ NODES=cardano ./devnet-run.sh
 # Run devnet with Mithril nodes only
 NODES=mithril ./devnet-run.sh
 
+# Build Mithril Docker images available options
+## from locally built binaries (fast build times, enabled by default)
+./devnet-run.sh
+### or
+MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
+
+## from locally built binaries with a custom slim image used as Docker image source 
+### This configuration depends on the version of 'glibc' on your computer
+### 'debian:12-slim': default value, works on Ubuntu 22.04
+### 'debian:11-slim': works on Ubuntu 20.04
+MITHRIL_NODE_DOCKER_CI_IMAGE_FROM=debian:11-slim MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
+
+## from rust builder in Docker (slower build times, always works)
+MITHRIL_NODE_DOCKER_BUILD_TYPE=legacy ./devnet-run.sh
+
 # Logs devnet
 ./devnet-log.sh
 

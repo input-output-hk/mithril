@@ -6,7 +6,7 @@ all: test build
 
 build:
 	# We use 'portable' feature to avoid SIGILL crashes
-	${CARGO} build --release --features portable
+	${CARGO} build --release --features portable,bundle_openssl
 	cp ../target/release/mithril-signer .
 
 run: build
@@ -31,6 +31,9 @@ doc:
 
 docker-build:
 	cd ../ && docker build -t mithril/mithril-signer -f mithril-signer/Dockerfile .
+
+docker-build-ci: build
+	cd ../ && docker build -t mithril/mithril-signer -f mithril-signer/Dockerfile.ci --build-arg DOCKER_IMAGE_FROM .
 
 docker-run:
 	docker run --rm --name='mithril-signer' mithril/mithril-signer

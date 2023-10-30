@@ -34,8 +34,6 @@ echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
 echo ">> Cardano SPO nodes: ${NUM_POOL_NODES}"
 echo ">> Cardano Slot Length: ${SLOT_LENGTH}s"
 echo ">> Cardano Epoch Length: ${EPOCH_LENGTH}s"
-echo ">> Info: Mithril Aggregator will be attached to the first Cardano BFT node"
-echo ">> Info: Mithril Signers will be attached to each Cardano SPO node"
 rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES} ${SLOT_LENGTH} ${EPOCH_LENGTH}> /dev/null
 echo
 
@@ -54,6 +52,8 @@ fi
 
 # Start devnet Mithril nodes
 if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
+    echo ">> Info: Mithril Aggregator will be attached to the first Cardano BFT node"
+    echo ">> Info: Mithril Signers will be attached to each Cardano SPO node"
     echo "====================================================================="
     echo " Start Mithril nodes"
     echo "====================================================================="

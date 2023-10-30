@@ -1,7 +1,8 @@
 # Creates a docker image to run an executable built outside of the image
 # This relies on the fact the mithril-signer executable has been built
 # on a debian-compatible x86-64 environment
-FROM debian:11-slim
+ARG DOCKER_IMAGE_FROM=debian:11-slim
+FROM $DOCKER_IMAGE_FROM
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
