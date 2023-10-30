@@ -18,7 +18,7 @@ pub mod aggregator_client;
 // mod message_adapters;
 // pub mod services;
 mod certificate_client;
-pub mod client_builder;
+pub mod client;
 mod message_adapters;
 mod mithril_stake_distribution_client;
 mod snapshot_client;
