@@ -78,10 +78,17 @@ impl SnapshotDownloadCommand {
                 )
             })?;
 
+        let canonicalized_filepath = filepath.canonicalize().with_context(|| {
+            format!(
+                "Could not get canonicalized filepath of '{}'",
+                filepath.display()
+            )
+        })?;
+
         if self.json {
             println!(
                 r#"{{"db_directory": "{}"}}"#,
-                filepath.canonicalize()?.display()
+                canonicalized_filepath.display()
             );
         } else {
             println!(
@@ -97,7 +104,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
                 &self.digest,
                 filepath.display(),
                 snapshot_entity.artifact.cardano_node_version,
-                filepath.display(),
+                canonicalized_filepath.display(),
                 snapshot_entity.artifact.beacon.network,
             );
         }

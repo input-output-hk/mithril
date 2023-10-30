@@ -47,7 +47,7 @@ impl SnapshotListCommand {
                         item.beacon.network.cell(),
                         item.digest.cell(),
                         item.size.cell(),
-                        item.locations.join(",").cell(),
+                        format!("{}", item.locations.len()).cell(),
                         item.created_at.to_string().cell(),
                     ]
                 })
