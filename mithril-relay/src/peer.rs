@@ -1,6 +1,10 @@
+use std::time::Duration;
+
 use libp2p::{
-    core::upgrade::Version, futures::StreamExt, gossipsub, noise, ping, swarm, tcp, yamux,
-    Multiaddr, Swarm, Transport,
+    core::upgrade::Version,
+    futures::StreamExt,
+    gossipsub::{self, ValidationMode},
+    noise, ping, swarm, tcp, yamux, Multiaddr, Swarm, Transport,
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 
@@ -53,7 +57,14 @@ impl Peer {
             Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
                 Ok(Some(PeerEvent::ListeningOnAddr { address }))
             }
-            Some(swarm::SwarmEvent::Behaviour(event)) => Ok(Some(PeerEvent::Behaviour { event })),
+            Some(swarm::SwarmEvent::Behaviour(event)) => {
+                println!(">> Received behaviour event: {event:#?}");
+                Ok(Some(PeerEvent::Behaviour { event }))
+            }
+            Some(event) => {
+                println!(">> Received other event: {event:#?}");
+                Ok(None)
+            }
             _ => Ok(None),
         }
     }
@@ -76,6 +87,11 @@ impl Peer {
             .with_behaviour(|key| {
                 let gossipsub_config = gossipsub::ConfigBuilder::default()
                     .max_transmit_size(262144)
+                    .heartbeat_initial_delay(Duration::from_millis(100))
+                    .heartbeat_interval(Duration::from_millis(200))
+                    .history_length(10)
+                    .history_gossip(10)
+                    .validation_mode(ValidationMode::Strict)
                     .build()?;
                 Ok(PeerBehaviour {
                     gossipsub: gossipsub::Behaviour::new(

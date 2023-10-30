@@ -1,4 +1,4 @@
-use libp2p::gossipsub;
+use libp2p::{gossipsub, Multiaddr};
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 
 use crate::peer::{Peer, PeerBehaviourEvent, PeerEvent};
@@ -31,5 +31,9 @@ impl P2PClient {
         Ok(Self {
             peer: self.peer.start().await?,
         })
+    }
+
+    pub fn address(&self) -> Option<Multiaddr> {
+        self.peer.addr.to_owned()
     }
 }
