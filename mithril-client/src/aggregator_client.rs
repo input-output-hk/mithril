@@ -38,23 +38,111 @@ pub enum AggregatorClientError {
     SubsystemError(#[source] MithrilError),
 }
 
+/// All operations that can be asked to an [AggregatorClient].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum AggregatorRequest {
+    /// What can be read from an [AggregatorClient].
+    Read(AggregatorReadRequest),
+    /// What can be downloaded from an [AggregatorClient].
+    Download(AggregatorDownloadRequest),
+}
+
+impl AggregatorRequest {
+    /// Get the request route relative to the aggregator root url.
+    pub fn route(&self) -> String {
+        match self {
+            AggregatorRequest::Read(request) => request.route(),
+            AggregatorRequest::Download(request) => request.route(),
+        }
+    }
+}
+
+/// What can be read from an [AggregatorClient].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum AggregatorReadRequest {
+    /// Get a specific [certificate][crate::MithrilCertificate] from the aggregator
+    GetCertificate {
+        /// Hash of the certificate to retrieve
+        hash: String,
+    },
+    /// Lists the aggregator [certificates][crate::MithrilCertificate]
+    ListCertificates,
+    /// Get a specific [mithril stake distribution][crate::MithrilStakeDistribution] from the aggregator
+    GetMithrilStakeDistribution {
+        /// Hash of the mithril stake distribution to retrieve
+        hash: String,
+    },
+    /// Lists the aggregator [mithril stake distribution][crate::MithrilStakeDistribution]
+    ListMithrilStakeDistributions,
+    /// Get a specific [snapshot][crate::Snapshot] from the aggregator
+    GetSnapshot {
+        /// Digest of the snapshot to retrieve
+        digest: String,
+    },
+    /// Lists the aggregator [snapshots][crate::Snapshot]
+    ListSnapshots,
+}
+
+impl AggregatorReadRequest {
+    /// Get the request route relative to the aggregator root url.
+    pub fn route(&self) -> String {
+        match self {
+            AggregatorReadRequest::GetCertificate { hash } => {
+                format!("certificate/{hash}")
+            }
+            AggregatorReadRequest::ListCertificates => "certificates/".to_string(),
+            AggregatorReadRequest::GetMithrilStakeDistribution { hash } => {
+                format!("artifact/mithril-stake-distribution/{hash}")
+            }
+            AggregatorReadRequest::ListMithrilStakeDistributions => {
+                "artifact/mithril-stake-distributions".to_string()
+            }
+            AggregatorReadRequest::GetSnapshot { digest } => {
+                format!("artifact/snapshot/{}", digest)
+            }
+            AggregatorReadRequest::ListSnapshots => "artifact/snapshots".to_string(),
+        }
+    }
+}
+
+/// What can be downloaded from an [AggregatorClient].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum AggregatorDownloadRequest {
+    /// Ask to download a snapshot from the given location
+    Snapshot {
+        /// Location of the snapshot
+        location: String,
+    },
+}
+
+impl AggregatorDownloadRequest {
+    /// Get the request route relative to the aggregator root url.
+    pub fn route(&self) -> String {
+        match self {
+            AggregatorDownloadRequest::Snapshot { location } => location.to_string(),
+        }
+    }
+}
+
 /// API that defines a client for the Aggregator
 #[async_trait]
 pub trait AggregatorClient: Sync + Send {
-    /// Get the content back from the Aggregator, the endpoint is a relative path from the
-    /// aggregator route url.
-    async fn get_content(&self, endpoint: &str) -> Result<String, AggregatorClientError>;
+    /// Get the content back from the Aggregator
+    async fn get_content(
+        &self,
+        request: AggregatorReadRequest,
+    ) -> Result<String, AggregatorClientError>;
 
     /// Download and unpack large archives on the disk
     async fn download_unpack(
         &self,
-        endpoint: &str,
+        request: AggregatorDownloadRequest,
         target_dir: &Path,
         compression_algorithm: CompressionAlgorithm,
     ) -> Result<(), AggregatorClientError>;
 
     /// Test if the given endpoint is a valid location for the aggregator & has existing content.
-    async fn probe(&self, endpoint: &str) -> Result<(), AggregatorClientError>;
+    async fn probe(&self, request: AggregatorRequest) -> Result<(), AggregatorClientError>;
 }
 
 /// Responsible of HTTP transport and API version check.
@@ -174,8 +262,13 @@ impl AggregatorHTTPClient {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorClient for AggregatorHTTPClient {
-    async fn get_content(&self, endpoint: &str) -> Result<String, AggregatorClientError> {
-        let response = self.get(self.get_url_for_endpoint(endpoint)?).await?;
+    async fn get_content(
+        &self,
+        request: AggregatorReadRequest,
+    ) -> Result<String, AggregatorClientError> {
+        let response = self
+            .get(self.get_url_for_endpoint(&request.route())?)
+            .await?;
         let content = format!("{response:?}");
 
         response.text().await.map_err(|e| {
@@ -187,7 +280,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 
     async fn download_unpack(
         &self,
-        endpoint: &str,
+        request: AggregatorDownloadRequest,
         target_dir: &Path,
         compression_algorithm: CompressionAlgorithm,
     ) -> Result<(), AggregatorClientError> {
@@ -200,7 +293,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         let mut downloaded_bytes: u64 = 0;
         let mut remote_stream = self
-            .get(self.get_url_for_endpoint(endpoint)?)
+            .get(self.get_url_for_endpoint(&request.route())?)
             .await?
             .bytes_stream();
         let (sender, receiver) = flume::bounded(5);
@@ -248,9 +341,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         Ok(())
     }
 
-    async fn probe(&self, endpoint: &str) -> Result<(), AggregatorClientError> {
+    async fn probe(&self, request: AggregatorRequest) -> Result<(), AggregatorClientError> {
+        let endpoint = request.route();
         debug!("HEAD url='{endpoint}'.");
-        let url = self.get_url_for_endpoint(endpoint)?;
+        let url = self.get_url_for_endpoint(&endpoint)?;
         let request_builder = self.http_client.head(url.to_owned());
         let response = request_builder.send().await.map_err(|e| {
             AggregatorClientError::SubsystemError(

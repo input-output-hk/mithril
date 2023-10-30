@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError};
+use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorReadRequest};
 use anyhow::Context;
 
 use crate::{MithrilResult, MithrilStakeDistribution, MithrilStakeDistributionListItem};
@@ -18,14 +18,11 @@ impl MithrilStakeDistributionClient {
 
     /// Fetch a list of signed MithrilStakeDistribution
     pub async fn list(&self) -> MithrilResult<Vec<MithrilStakeDistributionListItem>> {
-        let url = "artifact/mithril-stake-distributions";
         let response = self
             .aggregator_client
-            .get_content(url)
+            .get_content(AggregatorReadRequest::ListMithrilStakeDistributions)
             .await
-            .with_context(|| {
-                format!("MithrilStakeDistribution Client can not get the artifact list at '{url}'")
-            })?;
+            .with_context(|| "MithrilStakeDistribution Client can not get the artifact list")?;
         let items = serde_json::from_str::<Vec<MithrilStakeDistributionListItem>>(&response)
             .with_context(|| "MithrilStakeDistribution Client can not deserialize artifact list")?;
 
@@ -34,15 +31,17 @@ impl MithrilStakeDistributionClient {
 
     /// Download the given stake distribution. If it cannot be found, a None is returned.
     pub async fn get(&self, hash: &str) -> MithrilResult<Option<MithrilStakeDistribution>> {
-        let url = format!("artifact/mithril-stake-distribution/{hash}");
-
-        match self.aggregator_client.get_content(&url).await {
+        match self
+            .aggregator_client
+            .get_content(AggregatorReadRequest::GetMithrilStakeDistribution {
+                hash: hash.to_string(),
+            })
+            .await
+        {
             Ok(content) => {
                 let stake_distribution_entity: MithrilStakeDistribution =
                     serde_json::from_str(&content).with_context(|| {
-                        format!(
-                        "MithrilStakeDistribution Client can not deserialize artifact at '{url}'"
-                    )
+                        "MithrilStakeDistribution Client can not deserialize artifact"
                     })?;
 
                 Ok(Some(stake_distribution_entity))

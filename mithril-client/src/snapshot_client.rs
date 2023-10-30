@@ -5,7 +5,9 @@ use slog_scope::warn;
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-use crate::aggregator_client::AggregatorClient;
+use crate::aggregator_client::{
+    AggregatorClient, AggregatorDownloadRequest, AggregatorReadRequest, AggregatorRequest,
+};
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -35,12 +37,11 @@ impl SnapshotClient {
 
     /// Return a list of available snapshots
     pub async fn list(&self) -> MithrilResult<Vec<SnapshotListItem>> {
-        let url = "artifact/snapshots";
         let response = self
             .aggregator_client
-            .get_content(url)
+            .get_content(AggregatorReadRequest::ListSnapshots)
             .await
-            .with_context(|| format!("Snapshot Client can not get the artifact list at '{url}'"))?;
+            .with_context(|| "Snapshot Client can not get the artifact list")?;
         let items = serde_json::from_str::<Vec<SnapshotListItem>>(&response)
             .with_context(|| "Snapshot Client can not deserialize artifact list")?;
 
@@ -49,12 +50,13 @@ impl SnapshotClient {
 
     /// Return a snapshot based on the given digest (list to get the digests)
     pub async fn show(&self, digest: &str) -> MithrilResult<Snapshot> {
-        let url = format!("artifact/snapshot/{}", digest);
         let response = self
             .aggregator_client
-            .get_content(&url)
+            .get_content(AggregatorReadRequest::GetSnapshot {
+                digest: digest.to_string(),
+            })
             .await
-            .with_context(|| format!("Snapshot Client can not get the artifact at '{url}'"))?;
+            .with_context(|| "Snapshot Client can not get the artifact")?;
         let message = serde_json::from_str::<Snapshot>(&response).with_context(|| {
             format!("Snapshot Client can not deserialize artifact for digest '{digest}'")
         })?;
@@ -68,12 +70,20 @@ impl SnapshotClient {
         snapshot: &Snapshot,
         target_dir: &Path,
     ) -> MithrilResult<()> {
-        for url in snapshot.locations.as_slice() {
-            if self.aggregator_client.probe(url).await.is_ok() {
+        for location in snapshot.locations.as_slice() {
+            let request = AggregatorDownloadRequest::Snapshot {
+                location: location.to_owned(),
+            };
+            if self
+                .aggregator_client
+                .probe(AggregatorRequest::Download(request.clone()))
+                .await
+                .is_ok()
+            {
                 return match self
                     .aggregator_client
                     .download_unpack(
-                        url,
+                        request,
                         target_dir,
                         snapshot.compression_algorithm.unwrap_or_default(),
                     )
@@ -86,7 +96,7 @@ impl SnapshotClient {
                         Ok(())
                     }
                     Err(e) => {
-                        warn!("Failed downloading snapshot from '{url}' Error: {e}.");
+                        warn!("Failed downloading snapshot from '{location}' Error: {e}.");
                         Err(e.into())
                     }
                 };
