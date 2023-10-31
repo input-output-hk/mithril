@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::mpsc::TryRecvError};
+use std::net::SocketAddr;
 
 use libp2p::Multiaddr;
 use mithril_common::{
@@ -7,7 +7,7 @@ use mithril_common::{
     StdResult,
 };
 use reqwest::StatusCode;
-use std::sync::mpsc;
+use tokio::sync::mpsc::{self};
 use warp::Filter;
 
 use crate::peer::{Peer, PeerEvent};
@@ -15,12 +15,12 @@ use crate::peer::{Peer, PeerEvent};
 pub struct Relay {
     server: TestHttpServer,
     pub peer: Peer,
-    pub message_rx: mpsc::Receiver<RegisterSignatureMessage>,
+    pub message_rx: mpsc::UnboundedReceiver<RegisterSignatureMessage>,
 }
 
 impl Relay {
     pub async fn start(topic_name: &str) -> StdResult<Self> {
-        let (tx, rx) = mpsc::channel::<RegisterSignatureMessage>();
+        let (tx, rx) = mpsc::unbounded_channel::<RegisterSignatureMessage>();
         let peer = Peer::new(topic_name).start().await?;
         let server = test_http_server(
             warp::path("register-signatures")
@@ -47,24 +47,26 @@ impl Relay {
         self.peer.addr.to_owned()
     }
 
-    pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
-        match self.message_rx.try_recv() {
-            Ok(signature_message) => {
-                println!(" ");
-                println!("************************************************");
-                println!("Relay publish signature: {signature_message:#?}");
-                println!("************************************************");
-                println!(" ");
-                self.peer.publish(&signature_message)?;
-            }
-            Err(TryRecvError::Empty) => {
-                //println!("No message available");
-            }
-            Err(error) => {
-                panic!("Queue disconnected: {}", error);
-            }
-        };
-
-        self.peer.tick_swarm().await
+    pub async fn tick(&mut self) -> StdResult<Option<PeerEvent>> {
+        tokio::select! {
+            message = self.message_rx.recv()  => {
+                match message {
+                    Some(signature_message) => {
+                        println!(" ");
+                        println!("************************************************");
+                        println!("Relay publish signature: {signature_message:#?}");
+                        println!("************************************************");
+                        println!(" ");
+                        self.peer.publish(&signature_message)?;
+                        Ok(None)
+                    }
+                    None => {
+                        println!("No message available");
+                        Ok(None)
+                    }
+                }
+            },
+            event =  self.peer.tick_swarm() => {event}
+        }
     }
 }

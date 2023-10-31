@@ -14,7 +14,7 @@ async fn main() {
             let relay_address = relay.address();
             println!(">> Relay_address is '{relay_address:?}'");
             loop {
-                relay.tick_peer().await.unwrap();
+                relay.tick().await.unwrap();
             }
         }
         "client" => {
@@ -29,7 +29,7 @@ async fn main() {
                 .dial(dial_to_address.clone())
                 .expect("P2P client dial to the relay should not fail");
             loop {
-                if let Some(p2p_client_event) = p2p_client.tick_peer().await.unwrap() {
+                if let Some(p2p_client_event) = p2p_client.tick().await.unwrap() {
                     if let Ok(Some(signature_message_received)) =
                         p2p_client.consume(p2p_client_event)
                     {

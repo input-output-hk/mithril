@@ -42,7 +42,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
         println!(">> Subscribed peers: {total_peers_connected_}/{total_peers}");
         if let Some(PeerEvent::Behaviour {
             event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Subscribed { .. }),
-        }) = relay.tick_peer().await.unwrap()
+        }) = relay.tick().await.unwrap()
         {
             println!("Relay has subscribed to gossipsub topic");
             total_peers_connected_ += 1;
@@ -50,7 +50,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
         for p2p_client in p2p_clients.iter_mut() {
             if let Some(PeerEvent::Behaviour {
                 event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Subscribed { .. }),
-            }) = p2p_client.tick_peer().await.unwrap()
+            }) = p2p_client.tick().await.unwrap()
             {
                 println!("P2P Client has subscribed to gossipsub topic");
                 total_peers_connected_ += 1;
@@ -83,9 +83,9 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     println!("Wait for P2P clients to receive the signature");
     let mut total_peers_has_received_message = 0;
     loop {
-        let _ = relay.tick_peer().await.unwrap();
+        let _ = relay.tick().await.unwrap();
         for p2p_client in p2p_clients.iter_mut() {
-            if let Some(p2p_client_event) = p2p_client.tick_peer().await.unwrap() {
+            if let Some(p2p_client_event) = p2p_client.tick().await.unwrap() {
                 if let Ok(Some(signature_message_received)) = p2p_client.consume(p2p_client_event) {
                     println!("P2P Client consumed signature: {signature_message_received:#?}");
                     assert_eq!(signature_message_sent, signature_message_received);
