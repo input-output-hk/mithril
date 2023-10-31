@@ -1,12 +1,20 @@
-use crate::{MithrilResult, MithrilStakeDistribution};
+use crate::{MithrilResult, MithrilStakeDistribution, Snapshot};
 use anyhow::Context;
-use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey, SignerWithStake};
+use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
 use mithril_common::messages::SignerWithStakeMessagePart;
 use mithril_common::protocol::SignerBuilder;
+use std::path::Path;
 
 pub struct Message;
 
 impl Message {
+    pub async fn compute_snapshot_message(
+        snapshot: &Snapshot,
+        unpacked_snapshot_directory: &Path,
+    ) -> MithrilResult<ProtocolMessage> {
+        todo!()
+    }
+
     pub fn compute_mithril_stake_distribution_message(
         mithril_stake_distribution: &MithrilStakeDistribution,
     ) -> MithrilResult<ProtocolMessage> {

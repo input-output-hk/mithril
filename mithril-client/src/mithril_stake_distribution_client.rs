@@ -29,7 +29,7 @@ impl MithrilStakeDistributionClient {
         Ok(items)
     }
 
-    /// Download the given stake distribution. If it cannot be found, a None is returned.
+    /// Get the given stake distribution data. If it cannot be found, a None is returned.
     pub async fn get(&self, hash: &str) -> MithrilResult<Option<MithrilStakeDistribution>> {
         match self
             .aggregator_client

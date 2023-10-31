@@ -6,7 +6,8 @@ use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 use crate::aggregator_client::{
-    AggregatorClient, AggregatorDownloadRequest, AggregatorReadRequest, AggregatorRequest,
+    AggregatorClient, AggregatorClientError, AggregatorDownloadRequest, AggregatorReadRequest,
+    AggregatorRequest,
 };
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
@@ -48,20 +49,24 @@ impl SnapshotClient {
         Ok(items)
     }
 
-    /// Return a snapshot based on the given digest (list to get the digests)
-    pub async fn show(&self, digest: &str) -> MithrilResult<Snapshot> {
-        let response = self
+    /// Get the given snapshot data. If it cannot be found, a None is returned.
+    pub async fn get(&self, digest: &str) -> MithrilResult<Option<Snapshot>> {
+        match self
             .aggregator_client
             .get_content(AggregatorReadRequest::GetSnapshot {
                 digest: digest.to_string(),
             })
             .await
-            .with_context(|| "Snapshot Client can not get the artifact")?;
-        let message = serde_json::from_str::<Snapshot>(&response).with_context(|| {
-            format!("Snapshot Client can not deserialize artifact for digest '{digest}'")
-        })?;
+        {
+            Ok(content) => {
+                let snapshot: Snapshot = serde_json::from_str(&content)
+                    .with_context(|| "Snapshot Client can not deserialize artifact")?;
 
-        Ok(message)
+                Ok(Some(snapshot))
+            }
+            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 
     /// Download and unpack the given snapshot to the given directory
