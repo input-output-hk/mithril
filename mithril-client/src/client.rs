@@ -2,6 +2,7 @@ use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 use crate::certificate_client::CertificateClient;
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
+use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 use anyhow::{anyhow, Context};
 use mithril_common::api_version::APIVersionProvider;
@@ -35,6 +36,7 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
 }
 
 impl ClientBuilder {
@@ -45,6 +47,7 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            snapshot_downloader: None,
         }
     }
 
@@ -70,6 +73,14 @@ impl ClientBuilder {
             Some(client) => client,
         };
 
+        let snapshot_downloader = match self.snapshot_downloader {
+            None => Arc::new(
+                HttpSnapshotDownloader::new()
+                    .with_context(|| "Building snapshot downloader failed")?,
+            ),
+            Some(snapshot_downloader) => snapshot_downloader,
+        };
+
         let genesis_verification_key =
             ProtocolGenesisVerificationKey::try_from(self.genesis_verification_key)
                 .with_context(|| "Invalid genesis verification key")?;
@@ -93,7 +104,7 @@ impl ClientBuilder {
         let mithril_stake_distribution_client = Arc::new(MithrilStakeDistributionClient::new(
             aggregator_client.clone(),
         ));
-        let snapshot_client = Arc::new(SnapshotClient::new(aggregator_client));
+        let snapshot_client = Arc::new(SnapshotClient::new(aggregator_client, snapshot_downloader));
 
         Ok(Client {
             certificate_client,
@@ -108,6 +119,7 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            snapshot_downloader: None,
         }
     }
 
@@ -124,6 +136,14 @@ impl ClientBuilder {
         certificate_verifier: Arc<dyn CertificateVerifier>,
     ) -> ClientBuilder {
         self.certificate_verifier = Some(certificate_verifier);
+        self
+    }
+
+    pub fn with_snapshot_downloader(
+        mut self,
+        snapshot_downloader: Arc<dyn SnapshotDownloader>,
+    ) -> ClientBuilder {
+        self.snapshot_downloader = Some(snapshot_downloader);
         self
     }
 }

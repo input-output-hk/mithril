@@ -1,11 +1,10 @@
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use futures::StreamExt;
 use reqwest::{Response, StatusCode, Url};
 use semver::Version;
 use slog_scope::debug;
-use std::{path::Path, sync::Arc};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -14,8 +13,6 @@ use mockall::automock;
 
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
-use crate::common::CompressionAlgorithm;
-use crate::utils::SnapshotUnpacker;
 use crate::{MithrilError, MithrilResult};
 
 /// Error tied with the Aggregator client
@@ -38,28 +35,9 @@ pub enum AggregatorClientError {
     SubsystemError(#[source] MithrilError),
 }
 
-/// All operations that can be asked to an [AggregatorClient].
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AggregatorRequest {
-    /// What can be read from an [AggregatorClient].
-    Read(AggregatorReadRequest),
-    /// What can be downloaded from an [AggregatorClient].
-    Download(AggregatorDownloadRequest),
-}
-
-impl AggregatorRequest {
-    /// Get the request route relative to the aggregator root url.
-    pub fn route(&self) -> String {
-        match self {
-            AggregatorRequest::Read(request) => request.route(),
-            AggregatorRequest::Download(request) => request.route(),
-        }
-    }
-}
-
 /// What can be read from an [AggregatorClient].
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AggregatorReadRequest {
+pub enum AggregatorRequest {
     /// Get a specific [certificate][crate::MithrilCertificate] from the aggregator
     GetCertificate {
         /// Hash of the certificate to retrieve
@@ -83,43 +61,24 @@ pub enum AggregatorReadRequest {
     ListSnapshots,
 }
 
-impl AggregatorReadRequest {
+impl AggregatorRequest {
     /// Get the request route relative to the aggregator root url.
     pub fn route(&self) -> String {
         match self {
-            AggregatorReadRequest::GetCertificate { hash } => {
+            AggregatorRequest::GetCertificate { hash } => {
                 format!("certificate/{hash}")
             }
-            AggregatorReadRequest::ListCertificates => "certificates/".to_string(),
-            AggregatorReadRequest::GetMithrilStakeDistribution { hash } => {
+            AggregatorRequest::ListCertificates => "certificates/".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution { hash } => {
                 format!("artifact/mithril-stake-distribution/{hash}")
             }
-            AggregatorReadRequest::ListMithrilStakeDistributions => {
+            AggregatorRequest::ListMithrilStakeDistributions => {
                 "artifact/mithril-stake-distributions".to_string()
             }
-            AggregatorReadRequest::GetSnapshot { digest } => {
+            AggregatorRequest::GetSnapshot { digest } => {
                 format!("artifact/snapshot/{}", digest)
             }
-            AggregatorReadRequest::ListSnapshots => "artifact/snapshots".to_string(),
-        }
-    }
-}
-
-/// What can be downloaded from an [AggregatorClient].
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum AggregatorDownloadRequest {
-    /// Ask to download a snapshot from the given location
-    Snapshot {
-        /// Location of the snapshot
-        location: String,
-    },
-}
-
-impl AggregatorDownloadRequest {
-    /// Get the request route relative to the aggregator root url.
-    pub fn route(&self) -> String {
-        match self {
-            AggregatorDownloadRequest::Snapshot { location } => location.to_string(),
+            AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
         }
     }
 }
@@ -130,19 +89,8 @@ pub trait AggregatorClient: Sync + Send {
     /// Get the content back from the Aggregator
     async fn get_content(
         &self,
-        request: AggregatorReadRequest,
+        request: AggregatorRequest,
     ) -> Result<String, AggregatorClientError>;
-
-    /// Download and unpack large archives on the disk
-    async fn download_unpack(
-        &self,
-        request: AggregatorDownloadRequest,
-        target_dir: &Path,
-        compression_algorithm: CompressionAlgorithm,
-    ) -> Result<(), AggregatorClientError>;
-
-    /// Test if the given endpoint is a valid location for the aggregator & has existing content.
-    async fn probe(&self, request: AggregatorRequest) -> Result<(), AggregatorClientError>;
 }
 
 /// Responsible of HTTP transport and API version check.
@@ -246,7 +194,7 @@ impl AggregatorHTTPClient {
         }
     }
 
-    fn get_url_for_endpoint(&self, endpoint: &str) -> Result<Url, AggregatorClientError> {
+    fn get_url_for_route(&self, endpoint: &str) -> Result<Url, AggregatorClientError> {
         self.aggregator_url
             .join(endpoint)
             .with_context(|| {
@@ -264,11 +212,9 @@ impl AggregatorHTTPClient {
 impl AggregatorClient for AggregatorHTTPClient {
     async fn get_content(
         &self,
-        request: AggregatorReadRequest,
+        request: AggregatorRequest,
     ) -> Result<String, AggregatorClientError> {
-        let response = self
-            .get(self.get_url_for_endpoint(&request.route())?)
-            .await?;
+        let response = self.get(self.get_url_for_route(&request.route())?).await?;
         let content = format!("{response:?}");
 
         response.text().await.map_err(|e| {
@@ -276,89 +222,5 @@ impl AggregatorClient for AggregatorHTTPClient {
                 "Could not find a JSON body in the response '{content}'."
             )))
         })
-    }
-
-    async fn download_unpack(
-        &self,
-        request: AggregatorDownloadRequest,
-        target_dir: &Path,
-        compression_algorithm: CompressionAlgorithm,
-    ) -> Result<(), AggregatorClientError> {
-        if !target_dir.is_dir() {
-            Err(AggregatorClientError::SubsystemError(
-                anyhow!("target path is not a directory or does not exist: `{target_dir:?}`")
-                    .context("Download-Unpack: prerequisite error"),
-            ))?;
-        }
-
-        let mut downloaded_bytes: u64 = 0;
-        let mut remote_stream = self
-            .get(self.get_url_for_endpoint(&request.route())?)
-            .await?
-            .bytes_stream();
-        let (sender, receiver) = flume::bounded(5);
-
-        let dest_dir = target_dir.to_path_buf();
-        let unpack_thread = tokio::task::spawn_blocking(move || -> MithrilResult<()> {
-            let unpacker = SnapshotUnpacker;
-            unpacker.unpack_snapshot(receiver, compression_algorithm, &dest_dir)
-        });
-
-        while let Some(item) = remote_stream.next().await {
-            let chunk = item.map_err(|e| {
-                AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "Download: Could not read from byte stream: {e}"
-                ))
-            })?;
-
-            sender.send_async(chunk.to_vec()).await.map_err(|e| {
-                AggregatorClientError::SubsystemError(anyhow!(e).context(format!(
-                    "Download: could not write {} bytes to stream.",
-                    chunk.len()
-                )))
-            })?;
-
-            downloaded_bytes += chunk.len() as u64;
-            // todo: report download progress here
-        }
-
-        drop(sender); // Signal EOF
-        unpack_thread
-            .await
-            .map_err(|join_error| {
-                AggregatorClientError::SubsystemError(anyhow!(join_error).context(format!(
-                    "Unpack: panic while unpacking to dir '{}'",
-                    target_dir.display()
-                )))
-            })?
-            .map_err(|unpack_error| {
-                AggregatorClientError::SubsystemError(anyhow!(unpack_error).context(format!(
-                    "Unpack: could not unpack to dir '{}'",
-                    target_dir.display()
-                )))
-            })?;
-
-        Ok(())
-    }
-
-    async fn probe(&self, request: AggregatorRequest) -> Result<(), AggregatorClientError> {
-        let endpoint = request.route();
-        debug!("HEAD url='{endpoint}'.");
-        let url = self.get_url_for_endpoint(&endpoint)?;
-        let request_builder = self.http_client.head(url.to_owned());
-        let response = request_builder.send().await.map_err(|e| {
-            AggregatorClientError::SubsystemError(
-                anyhow!(e).context("Cannot perform a HEAD for url='{url}'"),
-            )
-        })?;
-        match response.status() {
-            StatusCode::OK => Ok(()),
-            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "Url='{url} not found"
-            ))),
-            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                "Unhandled error {status_code}"
-            ))),
-        }
     }
 }

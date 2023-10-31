@@ -18,9 +18,9 @@ pub mod aggregator_client;
 mod certificate_client;
 pub mod client;
 pub mod message;
-mod message_adapters;
 mod mithril_stake_distribution_client;
 mod snapshot_client;
+pub mod snapshot_downloader;
 mod utils;
 
 // pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};

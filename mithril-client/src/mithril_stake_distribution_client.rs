@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorReadRequest};
+use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use anyhow::Context;
 
 use crate::{MithrilResult, MithrilStakeDistribution, MithrilStakeDistributionListItem};
@@ -20,7 +20,7 @@ impl MithrilStakeDistributionClient {
     pub async fn list(&self) -> MithrilResult<Vec<MithrilStakeDistributionListItem>> {
         let response = self
             .aggregator_client
-            .get_content(AggregatorReadRequest::ListMithrilStakeDistributions)
+            .get_content(AggregatorRequest::ListMithrilStakeDistributions)
             .await
             .with_context(|| "MithrilStakeDistribution Client can not get the artifact list")?;
         let items = serde_json::from_str::<Vec<MithrilStakeDistributionListItem>>(&response)
@@ -33,7 +33,7 @@ impl MithrilStakeDistributionClient {
     pub async fn get(&self, hash: &str) -> MithrilResult<Option<MithrilStakeDistribution>> {
         match self
             .aggregator_client
-            .get_content(AggregatorReadRequest::GetMithrilStakeDistribution {
+            .get_content(AggregatorRequest::GetMithrilStakeDistribution {
                 hash: hash.to_string(),
             })
             .await

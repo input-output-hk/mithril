@@ -4,8 +4,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use slog::Logger;
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorReadRequest};
-use crate::message_adapters::FromCertificateMessageAdapter;
+use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::MithrilResult;
 use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use mithril_common::{
@@ -95,7 +94,7 @@ impl InternalCertificateRetriever {
     async fn get(&self, certificate_hash: &str) -> MithrilResult<Option<Certificate>> {
         let response = self
             .aggregator_client
-            .get_content(AggregatorReadRequest::GetCertificate {
+            .get_content(AggregatorRequest::GetCertificate {
                 hash: certificate_hash.to_string(),
             })
             .await;
