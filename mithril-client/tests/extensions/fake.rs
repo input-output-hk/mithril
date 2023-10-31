@@ -4,11 +4,13 @@ use mithril_client::{
 };
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::digesters::DummyImmutableDb;
-use mithril_common::entities::Beacon;
+use mithril_common::entities::{Beacon, CompressionAlgorithm};
 use mithril_common::messages::CertificateMessage;
 use mithril_common::test_utils::fake_data;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
-use std::sync::Arc;
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
 use warp::Filter;
 
 use crate::extensions::mock;
@@ -79,24 +81,30 @@ impl FakeAggregator {
         snapshot_digest: &str,
         certificate_hash: &str,
         immutable_db: &DummyImmutableDb,
+        work_dir: &Path,
     ) -> TestHttpServer {
         let beacon = Beacon {
             immutable_file_number: immutable_db.last_immutable_number().unwrap(),
             ..fake_data::beacon()
         };
 
-        let snapshot_json = serde_json::to_string(&Snapshot {
+        // ugly horror needed to update the snapshot location after the server is started, server
+        // which need said snapshot to start.
+        let snapshot = Arc::new(RwLock::new(Snapshot {
             digest: snapshot_digest.to_string(),
             certificate_hash: certificate_hash.to_string(),
             beacon: beacon.clone(),
+            compression_algorithm: Some(CompressionAlgorithm::Zstandard),
             ..Snapshot::dummy()
-        })
-        .unwrap();
+        }));
+        let snapshot_clone = snapshot.clone();
+
         let snapshot_list_json = serde_json::to_string(&vec![
             SnapshotListItem {
                 digest: snapshot_digest.to_string(),
                 certificate_hash: certificate_hash.to_string(),
                 beacon: beacon.clone(),
+                compression_algorithm: Some(CompressionAlgorithm::Zstandard),
                 ..SnapshotListItem::dummy()
             },
             SnapshotListItem::dummy(),
@@ -115,12 +123,72 @@ impl FakeAggregator {
             .compute_hash();
         let certificate_json = serde_json::to_string(&certificate).unwrap();
 
-        test_http_server(
+        let snapshot_archive_path = build_fake_zstd_snapshot(immutable_db, work_dir);
+
+        let server = test_http_server(
             warp::path!("artifact" / "snapshots")
                 .map(move || snapshot_list_json.clone())
-                .or(warp::path!("artifact" / "snapshot" / String)
-                    .map(move |_hash| snapshot_json.clone()))
+                .or(
+                    warp::path!("artifact" / "snapshot" / String).map(move |_digest| {
+                        let data = snapshot_clone.read().unwrap();
+                        serde_json::to_string(&data.clone()).unwrap()
+                    }),
+                )
+                .or(warp::path!("artifact" / "snapshot" / String / "download")
+                    .and(warp::fs::file(snapshot_archive_path))
+                    .map(|_digest, reply: warp::fs::File| {
+                        let filepath = reply.path().to_path_buf();
+                        Box::new(warp::reply::with_header(
+                            reply,
+                            "Content-Disposition",
+                            format!(
+                                "attachment; filename=\"{}\"",
+                                filepath.file_name().unwrap().to_str().unwrap()
+                            ),
+                        )) as Box<dyn warp::Reply>
+                    }))
                 .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone())),
-        )
+        );
+
+        update_snapshot_location(&server.url(), snapshot_digest, snapshot);
+
+        server
     }
+}
+
+/// Compress the given db into an zstd archive in the given target directory.
+///
+/// return the path to the compressed archive.
+pub fn build_fake_zstd_snapshot(immutable_db: &DummyImmutableDb, target_dir: &Path) -> PathBuf {
+    let snapshot_name = format!(
+        "db-i{}.{}",
+        immutable_db.immutables_files.len(),
+        CompressionAlgorithm::Zstandard.tar_file_extension()
+    );
+    let target_file = target_dir.join(snapshot_name);
+    let tar_file = File::create(&target_file).unwrap();
+    let enc = zstd::Encoder::new(tar_file, 3).unwrap();
+    let mut tar = tar::Builder::new(enc);
+
+    tar.append_dir_all(".", immutable_db.dir.parent().unwrap())
+        .unwrap();
+
+    let zstd = tar.into_inner().unwrap();
+    zstd.finish().unwrap();
+
+    target_file
+}
+
+fn update_snapshot_location(
+    aggregator_url: &str,
+    snapshot_digest: &str,
+    snapshot: Arc<RwLock<Snapshot>>,
+) {
+    let snapshot_location =
+        format!("{aggregator_url}/artifact/snapshot/{snapshot_digest}/download",);
+    let mut snapshot_to_update = snapshot.write().unwrap();
+    *snapshot_to_update = Snapshot {
+        locations: vec![snapshot_location],
+        ..snapshot_to_update.clone()
+    };
 }
