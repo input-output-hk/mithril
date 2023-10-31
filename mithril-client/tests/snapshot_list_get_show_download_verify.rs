@@ -1,48 +1,59 @@
 mod extensions;
 
 use crate::extensions::mock;
-use mithril_client::client::ClientBuilder;
-use mithril_client::message::MessageBuilder;
-use mithril_client::{Snapshot, SnapshotListItem};
-use mithril_common::digesters::DummyImmutablesDbBuilder;
-use mithril_common::messages::CertificateMessage;
-use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
-use std::path::Path;
+
+use mithril_client::{client::ClientBuilder, message::MessageBuilder, Snapshot, SnapshotListItem};
+use mithril_common::{
+    digesters::{DummyImmutableDb, DummyImmutablesDbBuilder},
+    entities::Beacon,
+    messages::CertificateMessage,
+    test_utils::{
+        fake_data,
+        test_http_server::{test_http_server, TestHttpServer},
+    },
+};
 use std::sync::Arc;
 use warp::Filter;
 
 async fn spawn_fake_aggregator(
     snapshot_digest: &str,
     certificate_hash: &str,
-    immutable_db: &Path,
+    immutable_db: &DummyImmutableDb,
 ) -> TestHttpServer {
-    let snapshot = Snapshot {
+    let beacon = Beacon {
+        immutable_file_number: immutable_db.last_immutable_number().unwrap(),
+        ..fake_data::beacon()
+    };
+
+    let snapshot_json = serde_json::to_string(&Snapshot {
         digest: snapshot_digest.to_string(),
         certificate_hash: certificate_hash.to_string(),
+        beacon: beacon.clone(),
         ..Snapshot::dummy()
-    };
-    let snapshot_json = serde_json::to_string(&snapshot).unwrap();
+    })
+    .unwrap();
     let snapshot_list_json = serde_json::to_string(&vec![
         SnapshotListItem {
             digest: snapshot_digest.to_string(),
             certificate_hash: certificate_hash.to_string(),
+            beacon: beacon.clone(),
             ..SnapshotListItem::dummy()
         },
         SnapshotListItem::dummy(),
     ])
     .unwrap();
 
-    let message = MessageBuilder::new()
-        .compute_snapshot_message(&snapshot, immutable_db)
-        .await
-        .expect("Computing snapshot message should not fail");
-
-    let certificate_json = serde_json::to_string(&CertificateMessage {
+    let mut certificate = CertificateMessage {
         hash: certificate_hash.to_string(),
-        signed_message: message.compute_hash(),
+        beacon,
         ..CertificateMessage::dummy()
-    })
-    .unwrap();
+    };
+    certificate.signed_message = MessageBuilder::new()
+        .compute_snapshot_message(&certificate.clone().try_into().unwrap(), &immutable_db.dir)
+        .await
+        .expect("Computing snapshot message should not fail")
+        .compute_hash();
+    let certificate_json = serde_json::to_string(&certificate).unwrap();
 
     test_http_server(
         warp::path!("artifact" / "snapshots")
@@ -61,8 +72,9 @@ async fn snapshot_list_get_show_download_verify() {
     let certificate_hash = "certificate_hash";
     let immutable_db = DummyImmutablesDbBuilder::new("snapshot_list_get_show_download_verify")
         .with_immutables(&[1, 2, 3])
+        .append_immutable_trio()
         .build();
-    let fake_aggregator = spawn_fake_aggregator(digest, certificate_hash, &immutable_db.dir).await;
+    let fake_aggregator = spawn_fake_aggregator(digest, certificate_hash, &immutable_db).await;
     let mut mock_verifier = mock::MockCertificateVerifierImpl::new();
     mock_verifier
         .expect_verify_certificate_chain()
@@ -96,7 +108,7 @@ async fn snapshot_list_get_show_download_verify() {
     let unpacked_dir = &immutable_db.dir;
 
     let message = MessageBuilder::new()
-        .compute_snapshot_message(&snapshot, unpacked_dir)
+        .compute_snapshot_message(&certificate, unpacked_dir)
         .await
         .expect("Computing snapshot message should not fail");
 

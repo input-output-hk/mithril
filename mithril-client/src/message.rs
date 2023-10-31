@@ -1,4 +1,3 @@
-use crate::{MithrilResult, MithrilStakeDistribution, Snapshot};
 use anyhow::Context;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
@@ -7,6 +6,8 @@ use mithril_common::protocol::SignerBuilder;
 use slog::{o, Logger};
 use std::path::Path;
 use std::sync::Arc;
+
+use crate::{MithrilCertificate, MithrilResult, MithrilStakeDistribution};
 
 pub struct MessageBuilder {
     immutable_digester: Option<Arc<dyn ImmutableDigester>>,
@@ -42,12 +43,30 @@ impl MessageBuilder {
         }
     }
 
+    /// Compute a snapshot message based on its unpacked directory.
+    ///
+    /// Warning: this operation can be quite long depending on the snapshot size
     pub async fn compute_snapshot_message(
         &self,
-        snapshot: &Snapshot,
+        snapshot_certificate: &MithrilCertificate,
         unpacked_snapshot_directory: &Path,
     ) -> MithrilResult<ProtocolMessage> {
-        todo!()
+        let digester = self.get_immutable_digester();
+
+        let mut message = snapshot_certificate.protocol_message.clone();
+
+        let digest = digester
+            .compute_digest(unpacked_snapshot_directory, &snapshot_certificate.beacon)
+            .await
+            .with_context(|| {
+                format!(
+                    "Snapshot digest computation failed: unpacked_dir: '{}'",
+                    unpacked_snapshot_directory.display()
+                )
+            })?;
+        message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+
+        Ok(message)
     }
 
     pub fn compute_mithril_stake_distribution_message(
