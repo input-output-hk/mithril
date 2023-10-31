@@ -2,7 +2,7 @@ mod extensions;
 
 use crate::extensions::mock;
 use mithril_client::client::ClientBuilder;
-use mithril_client::message::Message;
+use mithril_client::message::MessageBuilder;
 use mithril_client::{MithrilStakeDistribution, MithrilStakeDistributionListItem};
 use mithril_common::messages::CertificateMessage;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
@@ -27,7 +27,8 @@ fn spawn_fake_aggregator(msd_hash: &str, certificate_hash: &str) -> TestHttpServ
     ])
     .unwrap();
 
-    let message = Message::compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+    let message = MessageBuilder::new()
+        .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
         .expect("Computing msd message should not fail");
 
     let certificate_json = serde_json::to_string(&CertificateMessage {
@@ -87,7 +88,8 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         .await
         .expect("Validating the chain should not fail");
 
-    let message = Message::compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+    let message = MessageBuilder::new()
+        .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
         .expect("Computing msd message should not fail");
 
     assert!(

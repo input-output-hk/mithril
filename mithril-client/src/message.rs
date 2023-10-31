@@ -1,14 +1,49 @@
 use crate::{MithrilResult, MithrilStakeDistribution, Snapshot};
 use anyhow::Context;
+use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
 use mithril_common::messages::SignerWithStakeMessagePart;
 use mithril_common::protocol::SignerBuilder;
+use slog::{o, Logger};
 use std::path::Path;
+use std::sync::Arc;
 
-pub struct Message;
+pub struct MessageBuilder {
+    immutable_digester: Option<Arc<dyn ImmutableDigester>>,
+    logger: Logger,
+}
 
-impl Message {
+impl MessageBuilder {
+    pub fn new() -> MessageBuilder {
+        let logger = Logger::root(slog::Discard, o!());
+        Self {
+            immutable_digester: None,
+            logger,
+        }
+    }
+
+    pub fn with_immutable_digester(
+        mut self,
+        immutable_digester: Arc<dyn ImmutableDigester>,
+    ) -> Self {
+        self.immutable_digester = Some(immutable_digester);
+        self
+    }
+
+    pub fn with_logger(mut self, logger: Logger) -> Self {
+        self.logger = logger;
+        self
+    }
+
+    fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
+        match self.immutable_digester.as_ref() {
+            None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
+            Some(digester) => digester.clone(),
+        }
+    }
+
     pub async fn compute_snapshot_message(
+        &self,
         snapshot: &Snapshot,
         unpacked_snapshot_directory: &Path,
     ) -> MithrilResult<ProtocolMessage> {
@@ -16,6 +51,7 @@ impl Message {
     }
 
     pub fn compute_mithril_stake_distribution_message(
+        &self,
         mithril_stake_distribution: &MithrilStakeDistribution,
     ) -> MithrilResult<ProtocolMessage> {
         let signers = SignerWithStakeMessagePart::try_into_signers(

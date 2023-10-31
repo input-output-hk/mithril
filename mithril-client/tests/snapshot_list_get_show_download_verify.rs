@@ -2,10 +2,8 @@ mod extensions;
 
 use crate::extensions::mock;
 use mithril_client::client::ClientBuilder;
-use mithril_client::message::Message;
-use mithril_client::{
-    MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
-};
+use mithril_client::message::MessageBuilder;
+use mithril_client::{Snapshot, SnapshotListItem};
 use mithril_common::digesters::DummyImmutablesDbBuilder;
 use mithril_common::messages::CertificateMessage;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
@@ -34,7 +32,8 @@ async fn spawn_fake_aggregator(
     ])
     .unwrap();
 
-    let message = Message::compute_snapshot_message(&snapshot, immutable_db)
+    let message = MessageBuilder::new()
+        .compute_snapshot_message(&snapshot, immutable_db)
         .await
         .expect("Computing snapshot message should not fail");
 
@@ -96,7 +95,8 @@ async fn snapshot_list_get_show_download_verify() {
         .expect("Validating the chain should not fail");
     let unpacked_dir = &immutable_db.dir;
 
-    let message = Message::compute_snapshot_message(&snapshot, unpacked_dir)
+    let message = MessageBuilder::new()
+        .compute_snapshot_message(&snapshot, unpacked_dir)
         .await
         .expect("Computing snapshot message should not fail");
 
