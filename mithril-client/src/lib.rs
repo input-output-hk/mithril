@@ -15,8 +15,6 @@
 //! todo: redo examples, look at the previous lib for inspiration
 
 pub mod aggregator_client;
-// mod message_adapters;
-// pub mod services;
 mod certificate_client;
 pub mod client;
 pub mod message;

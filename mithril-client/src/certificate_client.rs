@@ -14,7 +14,7 @@ use mithril_common::{
         MithrilCertificateVerifier,
     },
     entities::Certificate,
-    messages::{CertificateMessage, TryFromMessageAdapter},
+    messages::CertificateMessage,
 };
 use slog_scope::{crit, debug};
 
@@ -111,7 +111,7 @@ impl InternalCertificateRetriever {
                         e
                     })?;
 
-                Ok(Some(FromCertificateMessageAdapter::try_adapt(message)?))
+                Ok(Some(message.try_into()?))
             }
         }
     }
