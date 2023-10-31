@@ -4,6 +4,7 @@ mod cli_observer;
 mod fake_observer;
 mod interface;
 mod model;
+mod pallas_observer;
 
 pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner};
 pub use fake_observer::FakeObserver;
@@ -11,3 +12,4 @@ pub use interface::{ChainObserver, ChainObserverError, MockChainObserver};
 pub use model::{
     ChainAddress, TxDatum, TxDatumBuilder, TxDatumError, TxDatumFieldTypeName, TxDatumFieldValue,
 };
+pub use pallas_observer::PallasObserver;
