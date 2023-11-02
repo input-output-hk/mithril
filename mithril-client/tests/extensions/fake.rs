@@ -1,6 +1,7 @@
 use mithril_client::message::MessageBuilder;
 use mithril_client::{
-    MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
+    MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
+    Snapshot, SnapshotListItem,
 };
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::digesters::DummyImmutableDb;
@@ -153,6 +154,30 @@ impl FakeAggregator {
         update_snapshot_location(&server.url(), snapshot_digest, snapshot);
 
         server
+    }
+
+    pub fn spawn_with_certificate(certificate_hash_list: &[String]) -> TestHttpServer {
+        let certificate_json = serde_json::to_string(&CertificateMessage {
+            hash: certificate_hash_list[0].to_string(),
+            ..CertificateMessage::dummy()
+        })
+        .unwrap();
+        let certificate_list_json = serde_json::to_string(
+            &certificate_hash_list
+                .iter()
+                .map(|hash| MithrilCertificateListItem {
+                    hash: hash.clone(),
+                    ..MithrilCertificateListItem::dummy()
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        test_http_server(
+            warp::path!("certificates")
+                .map(move || certificate_list_json.clone())
+                .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone())),
+        )
     }
 }
 

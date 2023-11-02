@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::Logger;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::MithrilResult;
+use crate::{MithrilCertificateListItem, MithrilResult};
 use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use mithril_common::{
     certificate_chain::{
@@ -68,6 +68,19 @@ impl CertificateClient {
             verifier,
             genesis_verification_key,
         }
+    }
+
+    /// Fetch a list of signed certificates
+    pub async fn list(&self) -> MithrilResult<Vec<MithrilCertificateListItem>> {
+        let response = self
+            .aggregator_client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .with_context(|| "AggregatorClient can not get the certificate list")?;
+        let items = serde_json::from_str::<Vec<MithrilCertificateListItem>>(&response)
+            .with_context(|| "AggregatorClient can not deserialize certificate list")?;
+
+        Ok(items)
     }
 
     /// Get a single certificate full information from the aggregator.
@@ -142,6 +155,49 @@ mod tests {
     use crate::test_utils;
 
     use super::*;
+
+    #[tokio::test]
+    async fn get_certificate_list() {
+        let expected = vec![
+            MithrilCertificateListItem {
+                hash: "cert-hash-123".to_string(),
+                ..MithrilCertificateListItem::dummy()
+            },
+            MithrilCertificateListItem {
+                hash: "cert-hash-456".to_string(),
+                ..MithrilCertificateListItem::dummy()
+            },
+        ];
+        let message = expected.clone();
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+        let client = CertificateClient::new(
+            Arc::new(http_client),
+            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
+            test_utils::test_logger(),
+        );
+        let items = client.list().await.unwrap();
+
+        assert_eq!(expected, items);
+    }
+
+    #[tokio::test]
+    async fn get_certificate_empty_list() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client.expect_get_content().return_once(move |_| {
+            Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
+        });
+        let client = CertificateClient::new(
+            Arc::new(http_client),
+            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
+            test_utils::test_logger(),
+        );
+        let items = client.list().await.unwrap();
+
+        assert!(items.is_empty());
+    }
 
     #[tokio::test]
     async fn test_show_ok_some() {

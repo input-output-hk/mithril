@@ -68,7 +68,7 @@ impl AggregatorRequest {
             AggregatorRequest::GetCertificate { hash } => {
                 format!("certificate/{hash}")
             }
-            AggregatorRequest::ListCertificates => "certificates/".to_string(),
+            AggregatorRequest::ListCertificates => "certificates".to_string(),
             AggregatorRequest::GetMithrilStakeDistribution { hash } => {
                 format!("artifact/mithril-stake-distribution/{hash}")
             }
