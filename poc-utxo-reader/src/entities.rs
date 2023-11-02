@@ -35,7 +35,7 @@ pub struct TransactionOutputRef {
     pub index: TransactionIndex,
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct TransactionAddressRecord {
     pub hash: TransactionHash,
     pub quantity: Lovelace,

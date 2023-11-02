@@ -74,7 +74,7 @@ impl Ledger {
     }
 
     /// Get all addresses transaction history
-    pub fn get_transactions_for_all_addresses_(&self) -> &AddressesTransactionsHistory {
+    pub fn get_transactions_for_all_addresses(&self) -> &AddressesTransactionsHistory {
         &self.address_transactions
     }
 

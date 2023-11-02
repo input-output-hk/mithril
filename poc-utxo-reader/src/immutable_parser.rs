@@ -75,10 +75,10 @@ pub fn verify_blocks(blocks: Vec<&Block>) -> StdResult<()> {
 
 // List immutable files (chunks)
 pub fn list_immutable_files(directory_path: &Path) -> StdResult<Vec<PathBuf>> {
-    let entries = fs::read_dir(directory_path).unwrap();
+    let entries = fs::read_dir(directory_path)?;
     let mut immutable_chunk_file_paths = Vec::new();
     for entry in entries {
-        let path = entry.unwrap().path();
+        let path = entry?.path();
         let extension = path.extension().unwrap();
         if extension.to_str().unwrap() == "chunk" {
             immutable_chunk_file_paths.push(path);
