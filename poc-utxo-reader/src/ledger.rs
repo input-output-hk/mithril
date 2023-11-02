@@ -3,12 +3,13 @@ use anyhow::anyhow;
 use std::collections::{BTreeMap, HashMap};
 
 pub type AddressesTransactionsHistory = BTreeMap<Address, Vec<TransactionAddressRecord>>;
-pub type UnspentTransactionxOutputs = HashMap<TransactionOutputRef, TransactionOutput>;
+pub type UnspentTransactionOutputs = HashMap<TransactionOutputRef, TransactionOutput>;
 
 #[derive(Debug, Default)]
 pub struct Ledger {
     address_transactions: AddressesTransactionsHistory,
-    utxos: UnspentTransactionxOutputs,
+    address_utxos: AddressesUnspentTrnasaction
+    utxos: UnspentTransactionOutputs,
 }
 
 impl Ledger {

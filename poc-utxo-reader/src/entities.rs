@@ -1,6 +1,10 @@
 use crate::errors::*;
 use hex::ToHex;
-use pallas::ledger::{primitives::babbage::PseudoDatumOption, traverse::MultiEraBlock};
+use pallas::ledger::{
+    primitives::babbage::PseudoDatumOption,
+    traverse::{ComputeHash, MultiEraBlock},
+};
+use serde::{Deserialize, Serialize};
 
 pub type Era = String;
 pub type SlotNumber = u64;
@@ -11,7 +15,7 @@ pub type TransactionHash = String;
 pub type TransactionDataHash = String;
 pub type TransactionIndex = u64;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub struct TransactionInput {
     pub output_ref: TransactionOutputRef,
 }
@@ -22,34 +26,34 @@ impl From<TransactionOutputRef> for TransactionInput {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TransactionOutput {
     pub address: Address,
     pub quantity: Lovelace,
     pub data_hash: TransactionDataHash,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub struct TransactionOutputRef {
     pub hash: TransactionHash,
     pub index: TransactionIndex,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub struct TransactionAddressRecord {
     pub hash: TransactionHash,
     pub quantity: Lovelace,
     pub data_hash: TransactionDataHash,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Transaction {
     pub hash: TransactionHash,
     pub inputs: Vec<TransactionInput>,
     pub outputs: Vec<(TransactionIndex, TransactionOutput)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Block {
     pub era: Era,
     pub number: BlockNumber,
@@ -91,8 +95,9 @@ impl TryFrom<MultiEraBlock<'_>> for Block {
                                 PseudoDatumOption::Hash(hash) => {
                                     hash.as_slice().encode_hex::<String>()
                                 }
-                                // TODO: handle the case of Data
-                                PseudoDatumOption::Data(_cbor_wrap) => "".to_string(),
+                                PseudoDatumOption::Data(cbor_wrap) => {
+                                    cbor_wrap.compute_hash().as_slice().encode_hex::<String>()
+                                }
                             })
                             .unwrap_or_default(),
                     },
