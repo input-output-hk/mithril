@@ -112,9 +112,20 @@ impl AggregatorHTTPClient {
             .build()
             .with_context(|| "Building http client for Aggregator client failed")?;
 
+        // Trailing slash is significant because url::join
+        // (https://docs.rs/url/latest/url/struct.Url.html#method.join) will remove
+        // the 'path' part of the url if it doesn't end with a trailing slash.
+        let aggregator_url = if aggregator_endpoint.as_str().ends_with('/') {
+            aggregator_endpoint
+        } else {
+            let mut url = aggregator_endpoint.clone();
+            url.set_path(&format!("{}/", aggregator_endpoint.path()));
+            url
+        };
+
         Ok(Self {
             http_client,
-            aggregator_url: aggregator_endpoint,
+            aggregator_url,
             api_versions: Arc::new(RwLock::new(api_versions)),
             logger,
         })
@@ -230,5 +241,32 @@ impl AggregatorClient for AggregatorHTTPClient {
                 "Could not find a JSON body in the response '{content}'."
             )))
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn always_append_trailing_slash_at_build() {
+        for (expected, url) in [
+            ("http://www.test.net/", "http://www.test.net/"),
+            ("http://www.test.net/", "http://www.test.net"),
+            (
+                "http://www.test.net/aggregator/",
+                "http://www.test.net/aggregator/",
+            ),
+            (
+                "http://www.test.net/aggregator/",
+                "http://www.test.net/aggregator",
+            ),
+        ] {
+            let url = Url::parse(url).unwrap();
+            let client = AggregatorHTTPClient::new(url, vec![], crate::test_utils::test_logger())
+                .expect("building aggregator http client should not fail");
+
+            assert_eq!(expected, client.aggregator_url.as_str());
+        }
     }
 }
