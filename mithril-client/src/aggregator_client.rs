@@ -3,7 +3,7 @@ use async_recursion::async_recursion;
 use async_trait::async_trait;
 use reqwest::{Response, StatusCode, Url};
 use semver::Version;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -98,12 +98,16 @@ pub struct AggregatorHTTPClient {
     http_client: reqwest::Client,
     aggregator_url: Url,
     api_versions: Arc<RwLock<Vec<Version>>>,
+    logger: Logger,
 }
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new(aggregator_endpoint: Url, api_versions: Vec<Version>) -> MithrilResult<Self> {
-        debug!("New AggregatorHTTPClient created");
+    pub fn new(
+        aggregator_endpoint: Url,
+        api_versions: Vec<Version>,
+        logger: Logger,
+    ) -> MithrilResult<Self> {
         let http_client = reqwest::ClientBuilder::new()
             .build()
             .with_context(|| "Building http client for Aggregator client failed")?;
@@ -112,6 +116,7 @@ impl AggregatorHTTPClient {
             http_client,
             aggregator_url: aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
+            logger,
         })
     }
 
@@ -142,14 +147,17 @@ impl AggregatorHTTPClient {
     /// Perform a HTTP GET request on the Aggregator and return the given JSON
     #[async_recursion]
     async fn get(&self, url: Url) -> Result<Response, AggregatorClientError> {
-        debug!("GET url='{url}'.");
+        debug!(self.logger, "GET url='{url}'.");
         let request_builder = self.http_client.get(url.clone());
         let current_api_version = self
             .compute_current_api_version()
             .await
             .unwrap()
             .to_string();
-        debug!("Prepare request with version: {current_api_version}");
+        debug!(
+            self.logger,
+            "Prepare request with version: {current_api_version}"
+        );
         let request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
         let response = request_builder.send().await.map_err(|e| {

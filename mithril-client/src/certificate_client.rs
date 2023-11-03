@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::Logger;
+use slog::{crit, debug, Logger};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::{MithrilCertificateListItem, MithrilResult};
@@ -15,7 +15,6 @@ use mithril_common::{
     entities::Certificate,
     messages::CertificateMessage,
 };
-use slog_scope::{crit, debug};
 
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
@@ -30,6 +29,7 @@ pub struct CertificateClient {
 /// a [CertificateRetriever] as a dependency.
 struct InternalCertificateRetriever {
     aggregator_client: Arc<dyn AggregatorClient>,
+    logger: Logger,
 }
 
 impl CertificateClient {
@@ -41,6 +41,7 @@ impl CertificateClient {
     ) -> Self {
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
+            logger: logger.clone(),
         });
         let verifier = Arc::new(MithrilCertificateVerifier::new(logger, retriever.clone()));
 
@@ -57,9 +58,11 @@ impl CertificateClient {
         aggregator_client: Arc<dyn AggregatorClient>,
         genesis_verification_key: ProtocolGenesisVerificationKey,
         verifier: Arc<dyn CertificateVerifier>,
+        logger: Logger,
     ) -> Self {
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
+            logger,
         });
 
         Self {
@@ -118,8 +121,11 @@ impl InternalCertificateRetriever {
             Ok(response) => {
                 let message =
                     serde_json::from_str::<CertificateMessage>(&response).map_err(|e| {
-                        crit!("Could not create certificate from API message: {e}.");
-                        debug!("Certificate message = {response}");
+                        crit!(
+                            self.logger,
+                            "Could not create certificate from API message: {e}."
+                        );
+                        debug!(self.logger, "Certificate message = {response}");
                         e
                     })?;
 

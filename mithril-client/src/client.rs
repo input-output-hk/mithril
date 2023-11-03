@@ -9,6 +9,7 @@ use mithril_common::api_version::APIVersionProvider;
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use reqwest::Url;
+use slog::{o, Logger};
 use std::sync::Arc;
 
 pub struct Client {
@@ -37,6 +38,7 @@ pub struct ClientBuilder {
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
+    logger: Option<Logger>,
 }
 
 impl ClientBuilder {
@@ -48,10 +50,16 @@ impl ClientBuilder {
             aggregator_client: None,
             certificate_verifier: None,
             snapshot_downloader: None,
+            logger: None,
         }
     }
 
     pub fn build(self) -> MithrilResult<Client> {
+        let logger = match self.logger {
+            Some(logger) => logger,
+            None => Logger::root(slog::Discard, o!()),
+        };
+
         let aggregator_client = match self.aggregator_client {
             None => {
                 let url = self
@@ -66,6 +74,7 @@ impl ClientBuilder {
                         url,
                         APIVersionProvider::compute_all_versions_sorted()
                             .with_context(|| "Could not compute aggregator api versions")?,
+                        logger.clone(),
                     )
                     .with_context(|| "Building aggregator client failed")?,
                 )
@@ -75,7 +84,7 @@ impl ClientBuilder {
 
         let snapshot_downloader = match self.snapshot_downloader {
             None => Arc::new(
-                HttpSnapshotDownloader::new()
+                HttpSnapshotDownloader::new(logger.clone())
                     .with_context(|| "Building snapshot downloader failed")?,
             ),
             Some(snapshot_downloader) => snapshot_downloader,
@@ -86,25 +95,27 @@ impl ClientBuilder {
                 .with_context(|| "Invalid genesis verification key")?;
 
         let certificate_client = match self.certificate_verifier {
-            None => {
-                Arc::new(CertificateClient::new(
-                    aggregator_client.clone(),
-                    genesis_verification_key,
-                    //todo: configurable log
-                    slog_scope::logger(),
-                ))
-            }
+            None => Arc::new(CertificateClient::new(
+                aggregator_client.clone(),
+                genesis_verification_key,
+                logger.clone(),
+            )),
             Some(verifier) => Arc::new(CertificateClient::new_with_verifier(
                 aggregator_client.clone(),
                 genesis_verification_key,
                 verifier,
+                logger.clone(),
             )),
         };
 
         let mithril_stake_distribution_client = Arc::new(MithrilStakeDistributionClient::new(
             aggregator_client.clone(),
         ));
-        let snapshot_client = Arc::new(SnapshotClient::new(aggregator_client, snapshot_downloader));
+        let snapshot_client = Arc::new(SnapshotClient::new(
+            aggregator_client,
+            snapshot_downloader,
+            logger,
+        ));
 
         Ok(Client {
             certificate_client,
@@ -120,6 +131,7 @@ impl ClientBuilder {
             aggregator_client: None,
             certificate_verifier: None,
             snapshot_downloader: None,
+            logger: None,
         }
     }
 
@@ -144,6 +156,11 @@ impl ClientBuilder {
         snapshot_downloader: Arc<dyn SnapshotDownloader>,
     ) -> ClientBuilder {
         self.snapshot_downloader = Some(snapshot_downloader);
+        self
+    }
+
+    pub fn with_logger(mut self, logger: Logger) -> Self {
+        self.logger = Some(logger);
         self
     }
 }

@@ -1,7 +1,7 @@
 //! This module contains a struct to exchange snapshot information with the Aggregator
 
 use anyhow::Context;
-use slog_scope::warn;
+use slog::{warn, Logger};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
@@ -27,6 +27,7 @@ pub enum SnapshotClientError {
 pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     snapshot_downloader: Arc<dyn SnapshotDownloader>,
+    logger: Logger,
 }
 
 impl SnapshotClient {
@@ -34,10 +35,12 @@ impl SnapshotClient {
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         snapshot_downloader: Arc<dyn SnapshotDownloader>,
+        logger: Logger,
     ) -> Self {
         Self {
             aggregator_client,
             snapshot_downloader,
+            logger,
         }
     }
 
@@ -99,7 +102,10 @@ impl SnapshotClient {
                         Ok(())
                     }
                     Err(e) => {
-                        warn!("Failed downloading snapshot from '{location}' Error: {e}.");
+                        warn!(
+                            self.logger,
+                            "Failed downloading snapshot from '{location}' Error: {e}."
+                        );
                         Err(e)
                     }
                 };

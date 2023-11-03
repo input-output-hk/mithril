@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use futures::StreamExt;
 use reqwest::{Response, StatusCode};
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::path::Path;
 
 #[cfg(test)]
@@ -32,21 +32,24 @@ pub trait SnapshotDownloader: Sync + Send {
 /// A snapshot downloader that only handle download through HTTP.
 pub struct HttpSnapshotDownloader {
     http_client: reqwest::Client,
+    logger: Logger,
 }
 
 impl HttpSnapshotDownloader {
     /// HttpSnapshotDownloader factory
-    pub fn new() -> MithrilResult<Self> {
-        debug!("New HttpSnapshotDownloader created");
+    pub fn new(logger: Logger) -> MithrilResult<Self> {
         let http_client = reqwest::ClientBuilder::new()
             .build()
             .with_context(|| "Building http client for HttpSnapshotDownloader failed")?;
 
-        Ok(Self { http_client })
+        Ok(Self {
+            http_client,
+            logger,
+        })
     }
 
     async fn get(&self, location: &str) -> MithrilResult<Response> {
-        debug!("GET Snapshot location='{location}'.");
+        debug!(self.logger, "GET Snapshot location='{location}'.");
         let request_builder = self.http_client.get(location);
         let response = request_builder.send().await.with_context(|| {
             format!("Cannot perform a GET for the snapshot (location='{location}')")
@@ -114,7 +117,7 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
     }
 
     async fn probe(&self, location: &str) -> MithrilResult<()> {
-        debug!("HEAD Snapshot location='{location}'.");
+        debug!(self.logger, "HEAD Snapshot location='{location}'.");
 
         let request_builder = self.http_client.head(location);
         let response = request_builder.send().await.with_context(|| {
