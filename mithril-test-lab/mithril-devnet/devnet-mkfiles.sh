@@ -329,6 +329,10 @@ echo "====================================================================="
 mkdir shelley
 curl -s ${ALONZO_GENESIS_URL} -o shelley/genesis.alonzo.spec.json
 curl -s ${CONWAY_GENESIS_URL} -o shelley/genesis.conway.spec.json
+# Fix the error that crashes the startup of the devnet: 
+# `Command failed: genesis create  Error: Error while decoding Shelley genesis at: shelley/genesis.conway.spec.json Error: Error in $: key "genDelegs" not found`
+# The error is due to a missing field 'genDelegs' in the genesis configuration file downloaded. This fix adds it manually after the download.
+mv shelley/genesis.conway.spec.json shelley/genesis.conway.spec.json.tmp && cat shelley/genesis.conway.spec.json.tmp | jq '. += {"genDelegs":{}}' > shelley/genesis.conway.spec.json && rm shelley/genesis.conway.spec.json.tmp
 ./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley --start-time $(date -u +%Y-%m-%dT%H:%M:%SZ)
 mv shelley/genesis.spec.json shelley/genesis.spec.json.tmp && cat shelley/genesis.spec.json.tmp | jq . > shelley/genesis.spec.json && rm shelley/genesis.spec.json.tmp
 
