@@ -12,6 +12,9 @@ use reqwest::Url;
 use slog::{o, Logger};
 use std::sync::Arc;
 
+/// Structure that aggregate the available clients for each of the mithril types.
+///
+/// Use the [ClientBuilder] to instantiate it easily.
 pub struct Client {
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
@@ -19,19 +22,23 @@ pub struct Client {
 }
 
 impl Client {
+    /// Get the client that fetch and verify mithril certificates.
     pub fn certificate(&self) -> Arc<CertificateClient> {
         self.certificate_client.clone()
     }
 
+    /// Get the client that fetch mithril stake distributions.
     pub fn mithril_stake_distribution(&self) -> Arc<MithrilStakeDistributionClient> {
         self.mithril_stake_distribution_client.clone()
     }
 
+    /// Get the client that fetch and download mithril snapshots.
     pub fn snapshot(&self) -> Arc<SnapshotClient> {
         self.snapshot_client.clone()
     }
 }
 
+/// Builder than can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
     aggregator_url: Option<String>,
     genesis_verification_key: String,
@@ -42,7 +49,8 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    // note: easy alternative to `new().with_aggregator_client(..).with_certificate_verifier(..)`
+    /// Construct a new [ClientBuilder] that fetch data from the aggregator at the given url
+    /// and with the given genesis verification key.
     pub fn aggregator(url: &str, genesis_verification_key: &str) -> ClientBuilder {
         Self {
             aggregator_url: Some(url.to_string()),
@@ -54,6 +62,10 @@ impl ClientBuilder {
         }
     }
 
+    /// Returns a [Client] that uses the dependencies provided to the [ClientBuilder].
+    ///
+    /// For missing dependencies the builder will try to create them using default implementations
+    /// if possible.
     pub fn build(self) -> MithrilResult<Client> {
         let logger = match self.logger {
             Some(logger) => logger,
@@ -124,6 +136,10 @@ impl ClientBuilder {
         })
     }
 
+    /// Construct a new [ClientBuilder] without any dependencies set.
+    ///
+    /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
+    /// to request data from the aggregator.
     pub fn new(genesis_verification_key: &str) -> ClientBuilder {
         Self {
             aggregator_url: None,
@@ -135,6 +151,7 @@ impl ClientBuilder {
         }
     }
 
+    /// Set the [AggregatorClient] that will be used to request data to the aggregator.
     pub fn with_aggregator_client(
         mut self,
         aggregator_client: Arc<dyn AggregatorClient>,
@@ -143,6 +160,7 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the [CertificateVerifier] that will be used to validate certificates.
     pub fn with_certificate_verifier(
         mut self,
         certificate_verifier: Arc<dyn CertificateVerifier>,
@@ -151,6 +169,7 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the [SnapshotDownloader] that will be used to download snapshots.
     pub fn with_snapshot_downloader(
         mut self,
         snapshot_downloader: Arc<dyn SnapshotDownloader>,
@@ -159,6 +178,7 @@ impl ClientBuilder {
         self
     }
 
+    /// Set the [Logger] to use.
     pub fn with_logger(mut self, logger: Logger) -> Self {
         self.logger = Some(logger);
         self

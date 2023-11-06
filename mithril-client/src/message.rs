@@ -9,12 +9,14 @@ use std::sync::Arc;
 
 use crate::{MithrilCertificate, MithrilResult, MithrilStakeDistribution};
 
+/// A [MessageBuilder] can be used to compute the message of mithril artifacts.
 pub struct MessageBuilder {
     immutable_digester: Option<Arc<dyn ImmutableDigester>>,
     logger: Logger,
 }
 
 impl MessageBuilder {
+    /// Construct a new [MessageBuilder].
     pub fn new() -> MessageBuilder {
         let logger = Logger::root(slog::Discard, o!());
         Self {
@@ -23,6 +25,9 @@ impl MessageBuilder {
         }
     }
 
+    /// Set the [ImmutableDigester] to be used for the message computation for snapshot.
+    ///
+    /// If not set a default implementation will be used.
     pub fn with_immutable_digester(
         mut self,
         immutable_digester: Arc<dyn ImmutableDigester>,
@@ -31,6 +36,7 @@ impl MessageBuilder {
         self
     }
 
+    /// Set the [Logger] to use.
     pub fn with_logger(mut self, logger: Logger) -> Self {
         self.logger = logger;
         self
@@ -43,9 +49,9 @@ impl MessageBuilder {
         }
     }
 
-    /// Compute a snapshot message based on its unpacked directory.
+    /// Compute message for a snapshot (based on its unpacked directory).
     ///
-    /// Warning: this operation can be quite long depending on the snapshot size
+    /// Warning: this operation can be quite long depending on the snapshot size.
     pub async fn compute_snapshot_message(
         &self,
         snapshot_certificate: &MithrilCertificate,
@@ -69,6 +75,7 @@ impl MessageBuilder {
         Ok(message)
     }
 
+    /// Compute message for a mithril stake distribution.
     pub fn compute_mithril_stake_distribution_message(
         &self,
         mithril_stake_distribution: &MithrilStakeDistribution,
@@ -95,5 +102,11 @@ impl MessageBuilder {
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
+    }
+}
+
+impl Default for MessageBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
