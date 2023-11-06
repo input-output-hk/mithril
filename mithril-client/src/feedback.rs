@@ -10,6 +10,12 @@ pub enum MithrilEvent {
         /// Size of the downloaded archive
         size: u64,
     },
+    /// A snapshot download is in progress
+    SnapshotDownloadProgress {
+        // todo: add snapshot size for easier stats.
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+    },
     /// A snapshot download has completed
     SnapshotDownloadComplete,
 }
@@ -62,7 +68,14 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         match event {
             MithrilEvent::SnapshotDownloadStarted { size } => {
-                info!(self.logger, "Snapshot download started, size: {size}");
+                info!(self.logger, "Snapshot download started"; "size" => size);
+            }
+            MithrilEvent::SnapshotDownloadProgress { downloaded_bytes } => {
+                info!(
+                    self.logger,
+                    "Snapshot download in progress ...";
+                    "downloaded bytes" => downloaded_bytes
+                );
             }
             MithrilEvent::SnapshotDownloadComplete => {
                 info!(self.logger, "Snapshot download completed");
