@@ -9,6 +9,7 @@ use std::path::Path;
 use mockall::automock;
 
 use crate::common::CompressionAlgorithm;
+use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::utils::SnapshotUnpacker;
 use crate::MithrilResult;
 
@@ -32,18 +33,20 @@ pub trait SnapshotDownloader: Sync + Send {
 /// A snapshot downloader that only handle download through HTTP.
 pub struct HttpSnapshotDownloader {
     http_client: reqwest::Client,
+    feedback_sender: FeedbackSender,
     logger: Logger,
 }
 
 impl HttpSnapshotDownloader {
     /// HttpSnapshotDownloader factory
-    pub fn new(logger: Logger) -> MithrilResult<Self> {
+    pub fn new(feedback_sender: FeedbackSender, logger: Logger) -> MithrilResult<Self> {
         let http_client = reqwest::ClientBuilder::new()
             .build()
             .with_context(|| "Building http client for HttpSnapshotDownloader failed")?;
 
         Ok(Self {
             http_client,
+            feedback_sender,
             logger,
         })
     }
@@ -78,7 +81,6 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
                     .context("Download-Unpack: prerequisite error"),
             )?;
         }
-
         let mut downloaded_bytes: u64 = 0;
         let mut remote_stream = self.get(location).await?.bytes_stream();
         let (sender, receiver) = flume::bounded(5);
@@ -97,7 +99,9 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
             })?;
 
             downloaded_bytes += chunk.len() as u64;
-            // todo: report download progress here
+            self.feedback_sender
+                .send_event(MithrilEvent::SnapshotDownloadProgress { downloaded_bytes })
+                .await
         }
 
         drop(sender); // Signal EOF

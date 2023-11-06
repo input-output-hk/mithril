@@ -1,8 +1,10 @@
 mod extensions;
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
+use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{client::ClientBuilder, message::MessageBuilder};
 use mithril_common::digesters::DummyImmutablesDbBuilder;
+use std::sync::Arc;
 
 #[tokio::test]
 async fn snapshot_list_get_show_download_verify() {
@@ -20,6 +22,9 @@ async fn snapshot_list_get_show_download_verify() {
             .await;
     let client = ClientBuilder::aggregator(&fake_aggregator.url(), genesis_verification_key)
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
+        .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
+            extensions::test_logger(),
+        )))
         .build()
         .expect("Should be able to create a Client");
 

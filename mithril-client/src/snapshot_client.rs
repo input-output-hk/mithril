@@ -6,6 +6,7 @@ use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
+use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::snapshot_downloader::SnapshotDownloader;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
@@ -27,6 +28,7 @@ pub enum SnapshotClientError {
 pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     snapshot_downloader: Arc<dyn SnapshotDownloader>,
+    feedback_sender: FeedbackSender,
     logger: Logger,
 }
 
@@ -35,11 +37,13 @@ impl SnapshotClient {
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         snapshot_downloader: Arc<dyn SnapshotDownloader>,
+        feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> Self {
         Self {
             aggregator_client,
             snapshot_downloader,
+            feedback_sender,
             logger,
         }
     }
@@ -86,6 +90,11 @@ impl SnapshotClient {
     ) -> MithrilResult<()> {
         for location in snapshot.locations.as_slice() {
             if self.snapshot_downloader.probe(location).await.is_ok() {
+                self.feedback_sender
+                    .send_event(MithrilEvent::SnapshotDownloadStarted {
+                        size: snapshot.size,
+                    })
+                    .await;
                 return match self
                     .snapshot_downloader
                     .download_unpack(
@@ -98,7 +107,9 @@ impl SnapshotClient {
                     Ok(()) => {
                         // todo: add snapshot statistics to cli (it was previously done here)
                         // note: the snapshot download does not fail if the statistic call fails.
-
+                        self.feedback_sender
+                            .send_event(MithrilEvent::SnapshotDownloadComplete)
+                            .await;
                         Ok(())
                     }
                     Err(e) => {
@@ -119,5 +130,52 @@ impl SnapshotClient {
             locations,
         }
         .into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        aggregator_client::MockAggregatorHTTPClient, feedback::StackFeedbackReceiver,
+        snapshot_downloader::MockHttpSnapshotDownloader, test_utils,
+    };
+
+    use super::*;
+
+    #[tokio::test]
+    async fn download_unpack_send_feedbacks() {
+        let mut snapshot_downloader = MockHttpSnapshotDownloader::new();
+        snapshot_downloader.expect_probe().returning(|_| Ok(()));
+        snapshot_downloader
+            .expect_download_unpack()
+            .returning(|_, _, _, _, _| Ok(()));
+        let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+        let client = SnapshotClient::new(
+            Arc::new(MockAggregatorHTTPClient::new()),
+            Arc::new(snapshot_downloader),
+            FeedbackSender::new(&[feedback_receiver.clone()]),
+            test_utils::test_logger(),
+        );
+        let snapshot = Snapshot::dummy();
+
+        client
+            .download_unpack(&snapshot, Path::new(""))
+            .await
+            .expect("download should succeed");
+
+        let actual = feedback_receiver.stacked_events();
+        let id = actual[0].event_id();
+        let expected = vec![
+            MithrilEvent::SnapshotDownloadStarted {
+                digest: snapshot.digest,
+                download_id: id.to_string(),
+                size: snapshot.size,
+            },
+            MithrilEvent::SnapshotDownloadComplete {
+                download_id: id.to_string(),
+            },
+        ];
+
+        assert_eq!(actual, expected);
     }
 }

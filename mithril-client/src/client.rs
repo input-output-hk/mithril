@@ -1,5 +1,6 @@
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 use crate::certificate_client::CertificateClient;
+use crate::feedback::{FeedbackReceiver, FeedbackSender};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
@@ -46,6 +47,7 @@ pub struct ClientBuilder {
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
+    feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
 }
 
 impl ClientBuilder {
@@ -59,6 +61,23 @@ impl ClientBuilder {
             certificate_verifier: None,
             snapshot_downloader: None,
             logger: None,
+            feedback_receivers: vec![],
+        }
+    }
+
+    /// Construct a new [ClientBuilder] without any dependencies set.
+    ///
+    /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
+    /// to request data from the aggregator.
+    pub fn new(genesis_verification_key: &str) -> ClientBuilder {
+        Self {
+            aggregator_url: None,
+            genesis_verification_key: genesis_verification_key.to_string(),
+            aggregator_client: None,
+            certificate_verifier: None,
+            snapshot_downloader: None,
+            logger: None,
+            feedback_receivers: vec![],
         }
     }
 
@@ -71,6 +90,8 @@ impl ClientBuilder {
             Some(logger) => logger,
             None => Logger::root(slog::Discard, o!()),
         };
+
+        let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
         let aggregator_client = match self.aggregator_client {
             None => {
@@ -96,7 +117,7 @@ impl ClientBuilder {
 
         let snapshot_downloader = match self.snapshot_downloader {
             None => Arc::new(
-                HttpSnapshotDownloader::new(logger.clone())
+                HttpSnapshotDownloader::new(feedback_sender.clone(), logger.clone())
                     .with_context(|| "Building snapshot downloader failed")?,
             ),
             Some(snapshot_downloader) => snapshot_downloader,
@@ -126,6 +147,7 @@ impl ClientBuilder {
         let snapshot_client = Arc::new(SnapshotClient::new(
             aggregator_client,
             snapshot_downloader,
+            feedback_sender,
             logger,
         ));
 
@@ -134,21 +156,6 @@ impl ClientBuilder {
             mithril_stake_distribution_client,
             snapshot_client,
         })
-    }
-
-    /// Construct a new [ClientBuilder] without any dependencies set.
-    ///
-    /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
-    /// to request data from the aggregator.
-    pub fn new(genesis_verification_key: &str) -> ClientBuilder {
-        Self {
-            aggregator_url: None,
-            genesis_verification_key: genesis_verification_key.to_string(),
-            aggregator_client: None,
-            certificate_verifier: None,
-            snapshot_downloader: None,
-            logger: None,
-        }
     }
 
     /// Set the [AggregatorClient] that will be used to request data to the aggregator.
@@ -181,6 +188,14 @@ impl ClientBuilder {
     /// Set the [Logger] to use.
     pub fn with_logger(mut self, logger: Logger) -> Self {
         self.logger = Some(logger);
+        self
+    }
+
+    /// Add a [feedback receiver][FeedbackReceiver] to receive [events][crate::feedback::MithrilEvent]
+    /// for tasks that can have a long duration (ie: snapshot download or a long certificate chain
+    /// validation).
+    pub fn add_feedback_receiver(mut self, receiver: Arc<dyn FeedbackReceiver>) -> Self {
+        self.feedback_receivers.push(receiver);
         self
     }
 }
