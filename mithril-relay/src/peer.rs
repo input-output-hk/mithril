@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use libp2p::{
-    core::upgrade::Version,
+    core::{transport::MemoryTransport, upgrade::Version},
     futures::StreamExt,
     gossipsub::{self, ValidationMode},
     noise, ping, swarm, tcp, yamux, Multiaddr, Swarm, Transport,
@@ -53,16 +53,30 @@ impl Peer {
     }
 
     pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
+        println!(
+            ">> [{}] Reading next event",
+            self.swarm.as_ref().unwrap().local_peer_id()
+        );
         match self.swarm.as_mut().unwrap().next().await {
             Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
+                println!(
+                    ">> [{}] Received listening address event: {address:?}",
+                    self.swarm.as_ref().unwrap().local_peer_id()
+                );
                 Ok(Some(PeerEvent::ListeningOnAddr { address }))
             }
             Some(swarm::SwarmEvent::Behaviour(event)) => {
-                println!(">> Received behaviour event: {event:#?}");
+                println!(
+                    ">> [{}] Received behaviour event: {event:?}",
+                    self.swarm.as_ref().unwrap().local_peer_id()
+                );
                 Ok(Some(PeerEvent::Behaviour { event }))
             }
             Some(event) => {
-                println!(">> Received other event: {event:#?}");
+                println!(
+                    ">> [{}] Received other event: {event:?}",
+                    self.swarm.as_ref().unwrap().local_peer_id()
+                );
                 Ok(None)
             }
             _ => Ok(None),
@@ -82,6 +96,10 @@ impl Peer {
                     .upgrade(Version::V1Lazy)
                     .authenticate(noise_config)
                     .multiplex(yamux_config)
+                /* MemoryTransport::default()
+                .upgrade(libp2p::core::upgrade::Version::V1)
+                .authenticate(libp2p::noise::Config::new(key).unwrap())
+                .multiplex(libp2p::yamux::Config::default()) */
             })?
             .with_dns()?
             .with_behaviour(|key| {
@@ -110,12 +128,17 @@ impl Peer {
             .unwrap();
 
         let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse()?;
+        //let addr: Multiaddr = "/memory/0".parse()?;
         let _listener_id = swarm.listen_on(addr.clone()).unwrap();
         self.swarm = Some(swarm);
 
         loop {
             if let Some(PeerEvent::ListeningOnAddr { address }) = self.tick_swarm().await? {
-                println!(">> Listening on {:?}", address);
+                println!(
+                    ">> [{}] Listening on {:?}",
+                    self.swarm.as_ref().unwrap().local_peer_id(),
+                    address
+                );
                 self.addr = Some(address);
                 break;
             }
@@ -125,7 +148,10 @@ impl Peer {
     }
 
     pub fn dial(&mut self, addr: Multiaddr) -> StdResult<()> {
-        println!(">> Dialing {addr:?}");
+        println!(
+            ">> [{}] Dialing {addr:?}",
+            self.swarm.as_ref().unwrap().local_peer_id()
+        );
         self.swarm.as_mut().unwrap().dial(addr)?;
 
         Ok(())
