@@ -17,6 +17,7 @@
 pub mod aggregator_client;
 mod certificate_client;
 pub mod client;
+pub mod feedback;
 pub mod message;
 mod mithril_stake_distribution_client;
 mod snapshot_client;
