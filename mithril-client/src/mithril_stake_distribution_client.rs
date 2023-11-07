@@ -1,3 +1,47 @@
+//! This module defines how to exchange mithril stake distribution information with an Aggregator.
+//!
+//! To do so it defines a [MithrilStakeDistributionClient] exposes the following features:
+//!  - [get][MithrilStakeDistributionClient::get]: get a mithril stake distribution data from its hash
+//!  - [list][MithrilStakeDistributionClient::list]: get the list of available mithril stake distribution
+//!
+//! # Get a mithril stake distribution
+//!
+//! To get a mithril stake distribution using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let mithril_stake_distribution = client.mithril_stake_distribution().get("MITHRIL_STAKE_DISTRIBUTION_HASH").await?.unwrap();
+//!
+//! println!("Mithril stake distribution hash={}, epoch={}", mithril_stake_distribution.hash, mithril_stake_distribution.epoch);
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # List available mithril stake distributions
+//!
+//! To list available mithril stake distributions using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let mithril_stake_distributions = client.mithril_stake_distribution().list().await?;
+//!
+//! for mithril_stake_distribution in mithril_stake_distributions {
+//!     println!("Mithril stake distribution hash={}, epoch={}", mithril_stake_distribution.hash, mithril_stake_distribution.epoch);
+//! }
+//! #    Ok(())
+//! # }
+//! ```
+
 use std::sync::Arc;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};

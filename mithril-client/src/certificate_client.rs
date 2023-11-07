@@ -1,3 +1,66 @@
+//! This module defines how to exchange and validate certificate information with an Aggregator.
+//!
+//! To do so it defines a [CertificateClient] exposes the following features:
+//!  - [get][CertificateClient::get]: get a certificate data from its hash
+//!  - [list][CertificateClient::list]: get the list of available certificates
+//!  - [verify_chain][CertificateClient::verify_chain]: verify a certificate chain
+//!
+//! # Get a certificate
+//!
+//! To get a certificate using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let certificate = client.certificate().get("CERTIFICATE_HASH").await?.unwrap();
+//!
+//! println!("Certificate hash={}, signed_message={}", certificate.hash, certificate.signed_message);
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # List available certificates
+//!
+//! To list available certificates using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let certificates = client.certificate().list().await?;
+//!
+//! for certificate in certificates {
+//!     println!("Certificate hash={}, signed_message={}", certificate.hash, certificate.signed_message);
+//! }
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # Validate a certificate chain
+//!
+//! To validate a certificate using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let certificate = client.certificate().verify_chain("CERTIFICATE_HASH").await?;
+//!
+//! println!("Chain of Certificate (hash: {}) is valid", certificate.hash);
+//! #    Ok(())
+//! # }
+//! ```
+
 use std::sync::Arc;
 
 use anyhow::{anyhow, Context};

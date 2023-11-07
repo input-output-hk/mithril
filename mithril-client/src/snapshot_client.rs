@@ -1,4 +1,70 @@
-//! This module contains a struct to exchange snapshot information with the Aggregator
+//! This module defines how to exchange snapshot information with an Aggregator.
+//!
+//! To do so it defines a [SnapshotClient] exposes the following features:
+//!  - [get][SnapshotClient::get]: get a single snapshot data from its digest
+//!  - [list][SnapshotClient::list]: get the list of available snapshots
+//!  - [download_unpack][SnapshotClient::download_unpack]: download and unpack the tarball of a snapshot to a directory
+//!
+//! # Get a single snapshot
+//!
+//! To get a single snapshot using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//!
+//! println!("Snapshot digest={}, size={}", snapshot.digest, snapshot.size);
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # List available snapshots
+//!
+//! To list available snapshots using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let snapshots = client.snapshot().list().await?;
+//!
+//! for snapshot in snapshots {
+//!     println!("Snapshot digest={}, size={}", snapshot.digest, snapshot.size);
+//! }
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # Download a snapshot
+//!
+//! To download and simultaneously unpack the tarball of a snapshots using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # use mithril_client::client::ClientBuilder;
+//! # use mithril_client::MithrilResult;
+//! # use std::path::Path;
+//! #
+//! # #[tokio::main]
+//! # async fn main() -> MithrilResult<()> {
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let target_directory = Path::new("/home/user/download/");
+//! client
+//!    .snapshot()
+//!    .download_unpack(&snapshot, target_directory)
+//!    .await?;
+//!
+//! #    Ok(())
+//! # }
+//! ```
 
 use anyhow::Context;
 use slog::{warn, Logger};
