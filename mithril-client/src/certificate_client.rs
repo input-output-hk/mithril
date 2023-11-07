@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use slog::{crit, debug, Logger};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
+use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{MithrilCertificateListItem, MithrilResult};
 use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use mithril_common::{
@@ -22,6 +23,7 @@ pub struct CertificateClient {
     retriever: Arc<InternalCertificateRetriever>,
     verifier: Arc<dyn CertificateVerifier>,
     genesis_verification_key: ProtocolGenesisVerificationKey,
+    feedback_sender: FeedbackSender,
 }
 
 /// Internal type to implement the [InternalCertificateRetriever] trait and avoid a circular
@@ -37,6 +39,7 @@ impl CertificateClient {
     pub(crate) fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         genesis_verification_key: ProtocolGenesisVerificationKey,
+        feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> Self {
         let retriever = Arc::new(InternalCertificateRetriever {
@@ -50,6 +53,7 @@ impl CertificateClient {
             retriever,
             verifier,
             genesis_verification_key,
+            feedback_sender,
         }
     }
 
@@ -58,6 +62,7 @@ impl CertificateClient {
         aggregator_client: Arc<dyn AggregatorClient>,
         genesis_verification_key: ProtocolGenesisVerificationKey,
         verifier: Arc<dyn CertificateVerifier>,
+        feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> Self {
         let retriever = Arc::new(InternalCertificateRetriever {
@@ -70,6 +75,7 @@ impl CertificateClient {
             retriever,
             verifier,
             genesis_verification_key,
+            feedback_sender,
         }
     }
 
@@ -91,16 +97,46 @@ impl CertificateClient {
         self.retriever.get(certificate_hash).await
     }
 
-    /// Get given certificate if exist, validate the chain it belongs to, return the certificate if
+    /// Validate the chain starting with the certificate with given `certificate_hash`, return the certificate if
     /// chain valid.
+    ///
+    /// This method will fails if no certicate exists with the given `certificate_hash`.
     pub async fn verify_chain(&self, certificate_hash: &str) -> MithrilResult<Certificate> {
         let certificate = self.get(certificate_hash).await?.ok_or(anyhow!(
             "No certificate exist for hash '{certificate_hash}'"
         ))?;
+        let certificate_chain_validation_id = MithrilEvent::new_certificate_chain_validation_id();
+        self.feedback_sender
+            .send_event(MithrilEvent::CertificateChainValidationStarted {
+                certificate_chain_validation_id: certificate_chain_validation_id.clone(),
+            })
+            .await;
 
-        self.verifier
-            .verify_certificate_chain(certificate.clone(), &self.genesis_verification_key)
-            .await?;
+        let mut current_certificate = certificate.clone();
+        loop {
+            let previous_or_none = self
+                .verifier
+                .verify_certificate(&current_certificate, &self.genesis_verification_key)
+                .await?;
+
+            self.feedback_sender
+                .send_event(MithrilEvent::CertificateValidated {
+                    certificate_hash: current_certificate.hash.clone(),
+                    certificate_chain_validation_id: certificate_chain_validation_id.clone(),
+                })
+                .await;
+
+            match previous_or_none {
+                Some(previous_certificate) => current_certificate = previous_certificate,
+                None => break,
+            }
+        }
+
+        self.feedback_sender
+            .send_event(MithrilEvent::CertificateChainValidated {
+                certificate_chain_validation_id,
+            })
+            .await;
 
         Ok(certificate)
     }
@@ -153,14 +189,28 @@ impl CertificateRetriever for InternalCertificateRetriever {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::CertificateSignature;
-    use mithril_common::messages::{CertificateMetadataMessagePart, SignerWithStakeMessagePart};
+    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::test_utils::{fake_data, fake_keys};
+    use mockall::predicate::eq;
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
+    use crate::feedback::StackFeedbackReceiver;
     use crate::test_utils;
 
     use super::*;
+
+    fn build_client(
+        aggregator_client: impl AggregatorClient + 'static,
+        genesis_verification_key: Option<ProtocolGenesisVerificationKey>,
+    ) -> CertificateClient {
+        CertificateClient::new(
+            Arc::new(aggregator_client),
+            genesis_verification_key
+                .unwrap_or(fake_keys::genesis_verification_key()[0].try_into().unwrap()),
+            FeedbackSender::new(&[]),
+            test_utils::test_logger(),
+        )
+    }
 
     #[tokio::test]
     async fn get_certificate_list() {
@@ -175,15 +225,11 @@ mod tests {
             },
         ];
         let message = expected.clone();
-        let mut http_client = MockAggregatorHTTPClient::new();
-        http_client
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        aggregator_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-        let client = CertificateClient::new(
-            Arc::new(http_client),
-            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
-            test_utils::test_logger(),
-        );
+        let client = build_client(aggregator_client, None);
         let items = client.list().await.unwrap();
 
         assert_eq!(expected, items);
@@ -191,15 +237,13 @@ mod tests {
 
     #[tokio::test]
     async fn get_certificate_empty_list() {
-        let mut http_client = MockAggregatorHTTPClient::new();
-        http_client.expect_get_content().return_once(move |_| {
-            Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
-        });
-        let client = CertificateClient::new(
-            Arc::new(http_client),
-            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
-            test_utils::test_logger(),
-        );
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        aggregator_client
+            .expect_get_content()
+            .return_once(move |_| {
+                Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
+            });
+        let client = build_client(aggregator_client, None);
         let items = client.list().await.unwrap();
 
         assert!(items.is_empty());
@@ -207,54 +251,19 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_ok_some() {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
         let certificate_hash = "cert-hash-123".to_string();
         let certificate = fake_data::certificate(certificate_hash.clone());
         let expected_certificate = certificate.clone();
-        let previous_hash = certificate.previous_hash.clone();
-        http_client
+        aggregator_client
             .expect_get_content()
             .return_once(move |_| {
-                let (multi_signature, genesis_signature) = match certificate.signature {
-                    CertificateSignature::GenesisSignature(signature) => {
-                        (String::new(), signature.try_into().unwrap())
-                    }
-                    CertificateSignature::MultiSignature(signature) => {
-                        (signature.to_json_hex().unwrap(), String::new())
-                    }
-                };
-
-                let message = CertificateMessage {
-                    hash: certificate_hash.clone(),
-                    previous_hash: previous_hash.clone(),
-                    beacon: certificate.beacon.clone(),
-                    metadata: CertificateMetadataMessagePart {
-                        protocol_version: certificate.metadata.protocol_version.clone(),
-                        protocol_parameters: certificate.metadata.protocol_parameters.clone(),
-                        initiated_at: certificate.metadata.initiated_at,
-                        sealed_at: certificate.metadata.sealed_at,
-                        signers: SignerWithStakeMessagePart::from_signers(
-                            certificate.metadata.signers.clone(),
-                        ),
-                    },
-                    protocol_message: certificate.protocol_message.clone(),
-                    signed_message: certificate.signed_message.clone(),
-                    aggregate_verification_key: certificate
-                        .aggregate_verification_key
-                        .try_into()
-                        .unwrap(),
-                    multi_signature,
-                    genesis_signature,
-                };
+                let message: CertificateMessage = certificate.try_into().unwrap();
                 Ok(serde_json::to_string(&message).unwrap())
             })
             .times(1);
 
-        let certificate_client = CertificateClient::new(
-            Arc::new(http_client),
-            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
-            test_utils::test_logger(),
-        );
+        let certificate_client = build_client(aggregator_client, None);
         let cert = certificate_client
             .get("cert-hash-123")
             .await
@@ -266,8 +275,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_ok_none() {
-        let mut http_client = MockAggregatorHTTPClient::new();
-        http_client
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        aggregator_client
             .expect_get_content()
             .return_once(move |_| {
                 Err(AggregatorClientError::RemoteServerLogical(anyhow!(
@@ -276,11 +285,7 @@ mod tests {
             })
             .times(1);
 
-        let certificate_client = CertificateClient::new(
-            Arc::new(http_client),
-            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
-            test_utils::test_logger(),
-        );
+        let certificate_client = build_client(aggregator_client, None);
         assert!(certificate_client
             .get("cert-hash-123")
             .await
@@ -290,8 +295,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_ko() {
-        let mut http_client = MockAggregatorHTTPClient::new();
-        http_client
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        aggregator_client
             .expect_get_content()
             .return_once(move |_| {
                 Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
@@ -300,14 +305,100 @@ mod tests {
             })
             .times(1);
 
-        let certificate_client = CertificateClient::new(
-            Arc::new(http_client),
-            fake_keys::genesis_verification_key()[0].try_into().unwrap(),
-            test_utils::test_logger(),
-        );
+        let certificate_client = build_client(aggregator_client, None);
         certificate_client
             .get("cert-hash-123")
             .await
             .expect_err("The certificate client should fail here.");
+    }
+
+    #[tokio::test]
+    async fn validating_chain_send_feedbacks() {
+        let (chain, verifier) = setup_certificate_chain(3, 1);
+        let verification_key = verifier.to_verification_key();
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        let last_certificate_hash = chain.first().unwrap().hash.clone();
+
+        for certificate in chain.clone() {
+            let hash = certificate.hash.clone();
+            let message = serde_json::to_string(
+                &TryInto::<CertificateMessage>::try_into(certificate).unwrap(),
+            )
+            .unwrap();
+            aggregator_client
+                .expect_get_content()
+                .with(eq(AggregatorRequest::GetCertificate { hash }))
+                .returning(move |_| Ok(message.to_owned()));
+        }
+
+        let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+        let certificate_client = CertificateClient::new(
+            Arc::new(aggregator_client),
+            verification_key,
+            FeedbackSender::new(&[feedback_receiver.clone()]),
+            test_utils::test_logger(),
+        );
+
+        certificate_client
+            .verify_chain(&last_certificate_hash)
+            .await
+            .expect("Chain validation should succeed");
+
+        let actual = feedback_receiver.stacked_events();
+        let id = actual[0].event_id();
+
+        let expected = {
+            let mut vec = vec![MithrilEvent::CertificateChainValidationStarted {
+                certificate_chain_validation_id: id.to_string(),
+            }];
+            vec.extend(
+                chain
+                    .into_iter()
+                    .map(|c| MithrilEvent::CertificateValidated {
+                        certificate_chain_validation_id: id.to_string(),
+                        certificate_hash: c.hash,
+                    }),
+            );
+            vec.push(MithrilEvent::CertificateChainValidated {
+                certificate_chain_validation_id: id.to_string(),
+            });
+            vec
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[tokio::test]
+    async fn verify_chain_return_certificate_with_given_hash() {
+        let (chain, verifier) = setup_certificate_chain(3, 1);
+        let verification_key = verifier.to_verification_key();
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        let last_certificate_hash = chain.first().unwrap().hash.clone();
+
+        for certificate in chain.clone() {
+            let hash = certificate.hash.clone();
+            let message = serde_json::to_string(
+                &TryInto::<CertificateMessage>::try_into(certificate).unwrap(),
+            )
+            .unwrap();
+            aggregator_client
+                .expect_get_content()
+                .with(eq(AggregatorRequest::GetCertificate { hash }))
+                .returning(move |_| Ok(message.to_owned()));
+        }
+
+        let certificate_client = CertificateClient::new(
+            Arc::new(aggregator_client),
+            verification_key,
+            FeedbackSender::new(&[]),
+            test_utils::test_logger(),
+        );
+
+        let certificate = certificate_client
+            .verify_chain(&last_certificate_hash)
+            .await
+            .expect("Chain validation should succeed");
+
+        assert_eq!(certificate.hash, last_certificate_hash);
     }
 }

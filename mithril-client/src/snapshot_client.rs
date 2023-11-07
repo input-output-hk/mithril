@@ -90,7 +90,7 @@ impl SnapshotClient {
     ) -> MithrilResult<()> {
         for location in snapshot.locations.as_slice() {
             if self.snapshot_downloader.probe(location).await.is_ok() {
-                let download_id = MithrilEvent::new_download_id();
+                let download_id = MithrilEvent::new_snapshot_download_id();
                 self.feedback_sender
                     .send_event(MithrilEvent::SnapshotDownloadStarted {
                         digest: snapshot.digest.clone(),

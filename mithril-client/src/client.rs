@@ -131,12 +131,14 @@ impl ClientBuilder {
             None => Arc::new(CertificateClient::new(
                 aggregator_client.clone(),
                 genesis_verification_key,
+                feedback_sender.clone(),
                 logger.clone(),
             )),
             Some(verifier) => Arc::new(CertificateClient::new_with_verifier(
                 aggregator_client.clone(),
                 genesis_verification_key,
                 verifier,
+                feedback_sender.clone(),
                 logger.clone(),
             )),
         };

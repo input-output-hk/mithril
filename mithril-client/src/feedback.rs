@@ -29,12 +29,53 @@ pub enum MithrilEvent {
         /// Unique identifier used to track this specific snapshot download
         download_id: String,
     },
+    /// A certificate chain validation has started
+    CertificateChainValidationStarted {
+        /// Unique identifier used to track this specific certificate chain validation
+        certificate_chain_validation_id: String,
+    },
+    /// A individual certificate of a chain have been validated.
+    CertificateValidated {
+        /// Unique identifier used to track this specific certificate chain validation
+        certificate_chain_validation_id: String,
+        /// The validated certificate hash
+        certificate_hash: String,
+    },
+    /// The whole certificate chain is valid.
+    CertificateChainValidated {
+        /// Unique identifier used to track this specific certificate chain validation
+        certificate_chain_validation_id: String,
+    },
 }
 
 impl MithrilEvent {
     /// Generate a random unique identifier to identify a snapshot download
-    pub fn new_download_id() -> String {
+    pub fn new_snapshot_download_id() -> String {
         Uuid::new_v4().to_string()
+    }
+
+    /// Generate a random unique identifier to identify a certificate chain validation
+    pub fn new_certificate_chain_validation_id() -> String {
+        Uuid::new_v4().to_string()
+    }
+
+    #[cfg(test)]
+    pub(crate) fn event_id(&self) -> &str {
+        match self {
+            MithrilEvent::SnapshotDownloadStarted { download_id, .. } => download_id,
+            MithrilEvent::SnapshotDownloadProgress { download_id, .. } => download_id,
+            MithrilEvent::SnapshotDownloadComplete { download_id } => download_id,
+            MithrilEvent::CertificateChainValidationStarted {
+                certificate_chain_validation_id,
+            } => certificate_chain_validation_id,
+            MithrilEvent::CertificateValidated {
+                certificate_chain_validation_id,
+                ..
+            } => certificate_chain_validation_id,
+            MithrilEvent::CertificateChainValidated {
+                certificate_chain_validation_id,
+            } => certificate_chain_validation_id,
+        }
     }
 }
 
@@ -113,6 +154,35 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
             }
             MithrilEvent::SnapshotDownloadComplete { download_id } => {
                 info!(self.logger, "Snapshot download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::CertificateChainValidationStarted {
+                certificate_chain_validation_id,
+            } => {
+                info!(
+                    self.logger,
+                    "Certificate chain validation started";
+                    "certificate_chain_validation_id" => certificate_chain_validation_id,
+                );
+            }
+            MithrilEvent::CertificateValidated {
+                certificate_hash,
+                certificate_chain_validation_id,
+            } => {
+                info!(
+                    self.logger,
+                    "Certificate validated";
+                    "certificate_hash" => certificate_hash,
+                    "certificate_chain_validation_id" => certificate_chain_validation_id,
+                );
+            }
+            MithrilEvent::CertificateChainValidated {
+                certificate_chain_validation_id,
+            } => {
+                info!(
+                    self.logger,
+                    "Certificate chain validated";
+                    "certificate_chain_validation_id" => certificate_chain_validation_id,
+                );
             }
         };
     }
