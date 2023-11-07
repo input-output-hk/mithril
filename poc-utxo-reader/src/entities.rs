@@ -39,9 +39,11 @@ pub struct TransactionOutputRef {
     pub index: TransactionIndex,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
-pub struct TransactionAddressRecord {
-    pub hash: TransactionHash,
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct UnspentTransactionOutput {
+    pub address: Address,
+    pub tx_hash: TransactionHash,
+    pub tx_index: TransactionIndex,
     pub quantity: Lovelace,
     pub data_hash: TransactionDataHash,
 }
@@ -57,7 +59,7 @@ pub struct Transaction {
 pub struct Block {
     pub era: Era,
     pub number: BlockNumber,
-    pub slot: SlotNumber,
+    pub slot_number: SlotNumber,
     pub transactions: Vec<Transaction>,
 }
 
@@ -113,7 +115,7 @@ impl TryFrom<MultiEraBlock<'_>> for Block {
         let block = Block {
             era: multi_era_block.era().to_string(),
             number: multi_era_block.number(),
-            slot: multi_era_block.slot(),
+            slot_number: multi_era_block.slot(),
             transactions,
         };
 

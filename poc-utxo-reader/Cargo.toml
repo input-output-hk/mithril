@@ -17,3 +17,4 @@ pallas = "0.19.1"
 rayon = "1.8.0"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
+sqlite = { version = "0.31.1", features = ["bundled"] }

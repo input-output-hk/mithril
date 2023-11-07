@@ -1,131 +1,273 @@
+use std::collections::BTreeMap;
+
 use crate::{entities::*, errors::*};
-use anyhow::anyhow;
-use std::collections::{BTreeMap, HashMap};
+use sqlite::{ConnectionWithFullMutex, Value};
 
-pub type AddressesTransactionsHistory = BTreeMap<Address, Vec<TransactionAddressRecord>>;
-pub type UnspentTransactionOutputs = HashMap<TransactionOutputRef, TransactionOutput>;
-
-#[derive(Debug, Default)]
 pub struct Ledger {
-    address_transactions: AddressesTransactionsHistory,
-    address_utxos: AddressesUnspentTrnasaction
-    utxos: UnspentTransactionOutputs,
+    connection: ConnectionWithFullMutex,
 }
 
 impl Ledger {
-    /// Save a set of transactions to the ledger
-    pub fn save_transactions(&mut self, txs: &[Transaction]) -> StdResult<()> {
-        for tx in txs {
-            self.save_transaction(tx)?;
+    /// Ledger factory
+    pub fn new(connection: ConnectionWithFullMutex) -> StdResult<Self> {
+        Self::setup_db(&connection)?;
+        Ok(Self { connection })
+    }
+
+    pub fn setup_db(connection: &ConnectionWithFullMutex) -> StdResult<()> {
+        let query = r#"
+/* Create 'block' table */        
+CREATE TABLE IF NOT EXISTS block (
+    number        integer      not null,
+    slot_number   integer      not null,
+    era           text         not null,
+    primary key (number)
+);
+
+/* Create 'tx' table */
+CREATE TABLE IF NOT EXISTS tx (
+    hash          text         not null,
+    block_number  integer      not null,
+    primary key (hash),
+    foreign key (block_number) references block(number)
+);
+
+/* Create 'tx_out' table */
+CREATE TABLE IF NOT EXISTS tx_out (
+    tx_hash       text         not null,
+    tx_index      integer      not null,
+    address       text         not null,
+    quantity      integer      not null,
+    data_hash     text         not null,
+    primary key (tx_hash, tx_index),
+    foreign key (tx_hash) references tx(hash)
+);
+
+/* Create 'tx_in' table */
+CREATE TABLE IF NOT EXISTS tx_in (
+    tx_hash       text         not null,
+    tx_index      integer      not null,
+    primary key (tx_hash, tx_index),
+    foreign key (tx_hash) references tx(hash)
+);
+        "#;
+        Ok(connection.execute(query)?)
+    }
+
+    /// Save a set of blocks to the ledger
+    pub fn save_blocks(&self, blocks: &[Block]) -> StdResult<()> {
+        for block in blocks {
+            self.save_block(block)?;
+        }
+
+        Ok(())
+    }
+
+    /// Save a block to the ledger
+    pub fn save_block(&self, block: &Block) -> StdResult<()> {
+        if !block.transactions.is_empty() {
+            self.store_block_record(block)?;
+        }
+
+        for tx in &block.transactions {
+            self.save_transaction(tx, block.number)?;
         }
 
         Ok(())
     }
 
     /// Save a transaction to the ledger
-    pub fn save_transaction(&mut self, tx: &Transaction) -> StdResult<()> {
+    pub fn save_transaction(&self, tx: &Transaction, block_number: BlockNumber) -> StdResult<()> {
+        self.store_tx_record(tx, block_number)?;
+
         for tx_input in &tx.inputs {
-            if let Some(tx_output) = self.get_utxo(&tx_input.output_ref) {
-                self.add_transaction_record_for_address(
-                    tx_output.address.to_owned(),
-                    TransactionAddressRecord {
-                        hash: tx.hash.to_owned(),
-                        quantity: -tx_output.quantity,
-                        data_hash: tx_output.data_hash.to_owned(),
-                    },
-                );
-            } else if !self.utxos.is_empty() {
-                return Err(anyhow!(
-                    "Missing transaction output for input {tx_input:#?}"
-                ));
-            }
-            self.delete_utxo(&tx_input.output_ref);
+            self.store_tx_in_record(tx_input)?;
         }
         for (tx_output_index, tx_output) in &tx.outputs {
-            self.add_transaction_record_for_address(
-                tx_output.address.to_owned(),
-                TransactionAddressRecord {
-                    hash: tx.hash.to_owned(),
-                    quantity: tx_output.quantity,
-                    data_hash: tx_output.data_hash.to_owned(),
-                },
-            );
             let tx_output_ref = TransactionOutputRef {
                 hash: tx.hash.to_owned(),
                 index: *tx_output_index,
             };
-            self.save_utxo(tx_output.to_owned(), tx_output_ref);
+            self.store_tx_out_record(tx_output, &tx_output_ref)?;
         }
 
         Ok(())
     }
 
-    /// Add transaction record for address
-    pub(crate) fn add_transaction_record_for_address(
-        &mut self,
-        address: Address,
-        transaction_record: TransactionAddressRecord,
-    ) {
-        if let Some(transaction_records) = self.address_transactions.get_mut(&address) {
-            transaction_records.push(transaction_record); //TODO: deal with duplicates
-        } else {
-            self.address_transactions
-                .insert(address, vec![transaction_record]);
-        }
+    // Store a block record in the database
+    pub(crate) fn store_block_record(&self, block: &Block) -> StdResult<()> {
+        let query = "INSERT OR REPLACE INTO block (number, slot_number, era) VALUES (?1, ?2, ?3)";
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[
+            (1, Value::Integer(block.number as i64)),
+            (2, Value::Integer(block.slot_number as i64)),
+            (3, block.era.to_owned().into()),
+        ])?;
+        statement.next()?;
+
+        Ok(())
+    }
+
+    // Store a tx record in the database
+    pub(crate) fn store_tx_record(
+        &self,
+        tx: &Transaction,
+        block_number: BlockNumber,
+    ) -> StdResult<()> {
+        let query = "INSERT OR REPLACE INTO tx (hash, block_number) VALUES (?1, ?2)";
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[
+            (1, tx.hash.to_owned().into()),
+            (2, Value::Integer(block_number as i64)),
+        ])?;
+        statement.next()?;
+
+        Ok(())
+    }
+
+    // Store a tx_out record in the database
+    pub(crate) fn store_tx_out_record(
+        &self,
+        tx_out: &TransactionOutput,
+        tx_out_ref: &TransactionOutputRef,
+    ) -> StdResult<()> {
+        let query = "INSERT OR REPLACE INTO tx_out (tx_hash, tx_index, address, quantity, data_hash) VALUES (?1, ?2, ?3, ?4, ?5)";
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[
+            (1, tx_out_ref.hash.to_owned().into()),
+            (2, Value::Integer(tx_out_ref.index as i64)),
+            (3, tx_out.address.to_owned().into()),
+            (4, Value::Integer(tx_out.quantity as i64)),
+            (5, tx_out.data_hash.to_owned().into()),
+        ])?;
+        statement.next()?;
+
+        Ok(())
+    }
+
+    // Store a tx_in record in the database
+    pub(crate) fn store_tx_in_record(&self, tx_in: &TransactionInput) -> StdResult<()> {
+        let query = "INSERT OR REPLACE INTO tx_in (tx_hash, tx_index) VALUES (?1, ?2)";
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[
+            (1, tx_in.output_ref.hash.to_owned().into()),
+            (2, Value::Integer(tx_in.output_ref.index as i64)),
+        ])?;
+        statement.next()?;
+
+        Ok(())
     }
 
     /// Get all addresses transaction history
-    pub fn get_transactions_for_all_addresses(&self) -> &AddressesTransactionsHistory {
-        &self.address_transactions
+    pub fn get_utxos_for_all_addresses(
+        &self,
+        block_number: &BlockNumber,
+    ) -> StdResult<BTreeMap<Address, Vec<UnspentTransactionOutput>>> {
+        let query = r#"
+SELECT DISTINCT tx_out.address,
+    tx.hash AS tx_hash,
+    tx_out.tx_index,
+    tx_out.quantity,
+    tx_out.data_hash
+FROM tx_out
+    INNER JOIN tx ON tx.hash = tx_out.tx_hash
+    INNER JOIN block AS block_out ON tx.block_number = block_out.number
+    LEFT JOIN tx_in ON tx_out.tx_hash = tx_in.tx_hash
+    LEFT JOIN tx tx2 ON tx2.hash = tx_in.tx_hash
+    LEFT JOIN block block_in ON block_in.number = tx2.block_number
+WHERE block_out.number <= ?1
+    AND (tx_in.tx_hash IS NULL OR block_in.number > ?1)
+ORDER BY tx_out.rowid;        
+        "#;
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[(1, Value::Integer(*block_number as i64))])?;
+
+        let utxos: Vec<_> = statement
+            .into_iter()
+            .map(|row| row.unwrap())
+            .map(|row| UnspentTransactionOutput {
+                address: row.read::<&str, _>("address").to_string(),
+                tx_hash: row.read::<&str, _>("tx_hash").to_string(),
+                tx_index: row.read::<i64, _>("tx_index") as u64,
+                quantity: row.read::<i64, _>("quantity") as i128,
+                data_hash: row.read::<&str, _>("data_hash").to_string(),
+            })
+            .collect();
+
+        let mut utxos_by_address: BTreeMap<Address, Vec<UnspentTransactionOutput>> =
+            BTreeMap::new();
+        for utxo in utxos {
+            if let Some(utxos_for_address) = utxos_by_address.get_mut(&utxo.address) {
+                utxos_for_address.push(utxo);
+            } else {
+                utxos_by_address.insert(utxo.address.clone(), vec![utxo]);
+            }
+        }
+
+        Ok(utxos_by_address)
     }
 
     /// Get transaction history for an address
-    pub fn get_transactions_for_address(
+    pub fn get_utxos_for_address(
         &self,
         address: &Address,
-    ) -> Option<&Vec<TransactionAddressRecord>> {
-        self.address_transactions.get(address)
+        block_number: &BlockNumber,
+    ) -> StdResult<Vec<UnspentTransactionOutput>> {
+        let query = r#"
+SELECT DISTINCT tx_out.address,
+    tx.hash AS tx_hash,
+    tx_out.tx_index,
+    tx_out.quantity,
+    tx_out.data_hash
+FROM tx_out
+    INNER JOIN tx ON tx.hash = tx_out.tx_hash
+    INNER JOIN block AS block_out ON tx.block_number = block_out.number
+    LEFT JOIN tx_in ON tx_out.tx_hash = tx_in.tx_hash
+    LEFT JOIN tx tx2 ON tx2.hash = tx_in.tx_hash
+    LEFT JOIN block block_in ON block_in.number = tx2.block_number
+WHERE block_out.number <= ?1
+    AND (tx_in.tx_hash IS NULL OR block_in.number > ?1)
+    AND tx_out.address = ?2
+ORDER BY tx_out.rowid;        
+        "#;
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[
+            (1, Value::Integer(*block_number as i64)),
+            (2, address.to_owned().into()),
+        ])?;
+
+        Ok(statement
+            .into_iter()
+            .map(|row| row.unwrap())
+            .map(|row| UnspentTransactionOutput {
+                address: row.read::<&str, _>("address").to_string(),
+                tx_hash: row.read::<&str, _>("tx_hash").to_string(),
+                tx_index: row.read::<i64, _>("tx_index") as u64,
+                quantity: row.read::<i64, _>("quantity") as i128,
+                data_hash: row.read::<&str, _>("data_hash").to_string(),
+            })
+            .collect())
     }
 
     /// Get balance for an address
-    pub fn get_balance_for_address(&self, address: &Address) -> Lovelace {
-        let balance = if let Some(transactions) = self.address_transactions.get(address) {
-            transactions
-                .iter()
-                .fold(0, |acc, record| acc + record.quantity)
-        } else {
-            0
-        };
-
-        balance
-    }
-
-    ///.Get UTxO
-    pub(crate) fn get_utxo(
+    pub fn get_balance_for_address(
         &self,
-        tx_output_ref: &TransactionOutputRef,
-    ) -> Option<&TransactionOutput> {
-        self.utxos.get(tx_output_ref)
-    }
+        address: &Address,
+        block_number: &BlockNumber,
+    ) -> StdResult<Lovelace> {
+        let balance = self
+            .get_utxos_for_address(address, block_number)?
+            .iter()
+            .fold(0, |acc, record| acc + record.quantity);
 
-    /// Save UTxO
-    pub(crate) fn save_utxo(
-        &mut self,
-        tx_output: TransactionOutput,
-        tx_output_ref: TransactionOutputRef,
-    ) {
-        self.utxos.insert(tx_output_ref, tx_output);
-    }
-
-    /// Delete UTxO
-    pub(crate) fn delete_utxo(&mut self, tx_output_ref: &TransactionOutputRef) {
-        self.utxos.remove(tx_output_ref);
+        Ok(balance)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sqlite::Connection;
 
     fn fake_transaction_output(
         address: Address,
@@ -162,33 +304,17 @@ mod tests {
     }
 
     #[test]
-    fn ledger_should_save_and_delete_utxos() {
-        let mut ledger = Ledger::default();
-
-        let (tx_output_ref, tx_output) =
-            fake_transaction_output("addr_test_123".to_string(), 100, "hash-123".to_string(), 2);
-
-        let utxo = ledger.get_utxo(&tx_output_ref);
-        assert_eq!(None, utxo);
-
-        ledger.save_utxo(tx_output.clone(), tx_output_ref.clone());
-        let utxo = ledger.get_utxo(&tx_output_ref);
-        assert_eq!(Some(&tx_output), utxo);
-
-        ledger.delete_utxo(&tx_output_ref);
-        let utxo = ledger.get_utxo(&tx_output_ref);
-        assert_eq!(None, utxo);
-    }
-
-    #[test]
     fn ledger_should_return_correct_balance() {
-        let mut ledger = Ledger::default();
+        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let ledger = Ledger::new(connection).unwrap();
 
         let address1 = "addr_test_123".to_string();
         let address2 = "addr_test_456".to_string();
         let address3 = "addr_test_7896".to_string();
 
-        let balance = ledger.get_balance_for_address(&address1);
+        let balance = ledger
+            .get_balance_for_address(&address1, &u64::MAX)
+            .unwrap();
         assert_eq!(0, balance);
 
         let tx_hash1 = "hash-789".to_string();
@@ -204,13 +330,19 @@ mod tests {
             tx_hash1.clone(),
         );
         ledger
-            .save_transaction(&tx1)
+            .save_transaction(&tx1, 1)
             .expect("save transaction should not fail");
-        let balance1 = ledger.get_balance_for_address(&address1);
+        let balance1 = ledger
+            .get_balance_for_address(&address1, &u64::MAX)
+            .unwrap();
         assert_eq!(0, balance1);
-        let balance2 = ledger.get_balance_for_address(&address2);
+        let balance2 = ledger
+            .get_balance_for_address(&address2, &u64::MAX)
+            .unwrap();
         assert_eq!(0, balance2);
-        let balance3 = ledger.get_balance_for_address(&address3);
+        let balance3 = ledger
+            .get_balance_for_address(&address3, &u64::MAX)
+            .unwrap();
         assert_eq!(350, balance3);
 
         let tx_hash2 = "hash-000".to_string();
@@ -226,13 +358,19 @@ mod tests {
             tx_hash2,
         );
         ledger
-            .save_transaction(&tx2)
+            .save_transaction(&tx2, 1)
             .expect("save transaction should not fail");
-        let balance1 = ledger.get_balance_for_address(&address1);
+        let balance1 = ledger
+            .get_balance_for_address(&address1, &u64::MAX)
+            .unwrap();
         assert_eq!(250, balance1);
-        let balance2 = ledger.get_balance_for_address(&address2);
+        let balance2 = ledger
+            .get_balance_for_address(&address2, &u64::MAX)
+            .unwrap();
         assert_eq!(0, balance2);
-        let balance3 = ledger.get_balance_for_address(&address3);
+        let balance3 = ledger
+            .get_balance_for_address(&address3, &u64::MAX)
+            .unwrap();
         assert_eq!(100, balance3);
     }
 }
