@@ -18,12 +18,17 @@ use crate::MithrilResult;
 pub trait SnapshotDownloader: Sync + Send {
     /// Download and unpack a snapshot archives on the disk.
     ///
+    /// The `download_id` is a unique identifier that allow
+    /// [feedback receivers][crate::feedback::FeedbackReceiver] to track concurrent download.
+    ///
     /// Warning: this can be a quite long operation depending on the snapshot size.
     async fn download_unpack(
         &self,
         location: &str,
         target_dir: &Path,
         compression_algorithm: CompressionAlgorithm,
+        download_id: &str,
+        snapshot_size: u64,
     ) -> MithrilResult<()>;
 
     /// Test if the given snapshot location exist.
@@ -74,6 +79,8 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
         location: &str,
         target_dir: &Path,
         compression_algorithm: CompressionAlgorithm,
+        download_id: &str,
+        snapshot_size: u64,
     ) -> MithrilResult<()> {
         if !target_dir.is_dir() {
             Err(
@@ -100,7 +107,11 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
 
             downloaded_bytes += chunk.len() as u64;
             self.feedback_sender
-                .send_event(MithrilEvent::SnapshotDownloadProgress { downloaded_bytes })
+                .send_event(MithrilEvent::SnapshotDownloadProgress {
+                    download_id: download_id.to_owned(),
+                    downloaded_bytes,
+                    size: snapshot_size,
+                })
                 .await
         }
 

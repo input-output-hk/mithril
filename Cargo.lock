@@ -2242,6 +2242,7 @@ dependencies = [
  "tar",
  "thiserror",
  "tokio",
+ "uuid",
  "warp",
  "zstd",
 ]

@@ -1,23 +1,41 @@
 use async_trait::async_trait;
 use slog::{info, Logger};
 use std::sync::{Arc, RwLock};
+use uuid::Uuid;
 
 /// Event that can be reported by a [FeedbackReceiver].
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum MithrilEvent {
     /// A snapshot download has started
     SnapshotDownloadStarted {
+        /// Digest of the downloaded snapshot
+        digest: String,
+        /// Unique identifier used to track this specific snapshot download
+        download_id: String,
         /// Size of the downloaded archive
         size: u64,
     },
     /// A snapshot download is in progress
     SnapshotDownloadProgress {
-        // todo: add snapshot size for easier stats.
+        /// Unique identifier used to track this specific snapshot download
+        download_id: String,
         /// Number of bytes that have been downloaded
         downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
     },
     /// A snapshot download has completed
-    SnapshotDownloadComplete,
+    SnapshotDownloadComplete {
+        /// Unique identifier used to track this specific snapshot download
+        download_id: String,
+    },
+}
+
+impl MithrilEvent {
+    /// Generate a random unique identifier to identify a snapshot download
+    pub fn new_download_id() -> String {
+        Uuid::new_v4().to_string()
+    }
 }
 
 /// A sender of [MithrilEvent].
@@ -67,18 +85,34 @@ impl SlogFeedbackReceiver {
 impl FeedbackReceiver for SlogFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         match event {
-            MithrilEvent::SnapshotDownloadStarted { size } => {
-                info!(self.logger, "Snapshot download started"; "size" => size);
+            MithrilEvent::SnapshotDownloadStarted {
+                digest,
+                download_id,
+                size,
+            } => {
+                info!(
+                    self.logger,
+                    "Snapshot download started";
+                    "size" => size,
+                    "digest" => digest,
+                    "download_id" => download_id,
+                );
             }
-            MithrilEvent::SnapshotDownloadProgress { downloaded_bytes } => {
+            MithrilEvent::SnapshotDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            } => {
                 info!(
                     self.logger,
                     "Snapshot download in progress ...";
-                    "downloaded bytes" => downloaded_bytes
+                    "downloaded bytes" => downloaded_bytes,
+                    "size" => size,
+                    "download_id" => download_id,
                 );
             }
-            MithrilEvent::SnapshotDownloadComplete => {
-                info!(self.logger, "Snapshot download completed");
+            MithrilEvent::SnapshotDownloadComplete { download_id } => {
+                info!(self.logger, "Snapshot download completed"; "download_id" => download_id);
             }
         };
     }
@@ -135,15 +169,29 @@ mod tests {
         let sender = FeedbackSender::new(&[receiver.clone()]);
 
         sender
-            .send_event(SnapshotDownloadStarted { size: 10 })
+            .send_event(SnapshotDownloadStarted {
+                digest: "digest".to_string(),
+                download_id: "download_id".to_string(),
+                size: 10,
+            })
             .await;
-        sender.send_event(SnapshotDownloadComplete).await;
+        sender
+            .send_event(SnapshotDownloadComplete {
+                download_id: "download_id".to_string(),
+            })
+            .await;
 
         assert_eq!(
             receiver.stacked_events(),
             vec![
-                SnapshotDownloadStarted { size: 10 },
-                SnapshotDownloadComplete
+                SnapshotDownloadStarted {
+                    digest: "digest".to_string(),
+                    download_id: "download_id".to_string(),
+                    size: 10
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download_id".to_string()
+                }
             ]
         );
     }
@@ -160,22 +208,50 @@ mod tests {
 
         join_set.spawn(async move {
             // Step 1:
-            sender.send_event(SnapshotDownloadStarted { size: 1 }).await;
+            sender
+                .send_event(SnapshotDownloadStarted {
+                    digest: "digest1".to_string(),
+                    download_id: "download1".to_string(),
+                    size: 1,
+                })
+                .await;
             tokio::time::sleep(Duration::from_millis(2)).await;
             // Step 3:
-            sender.send_event(SnapshotDownloadComplete).await;
-            sender.send_event(SnapshotDownloadStarted { size: 2 }).await;
+            sender
+                .send_event(SnapshotDownloadComplete {
+                    download_id: "download3".to_string(),
+                })
+                .await;
+            sender
+                .send_event(SnapshotDownloadStarted {
+                    digest: "digest2".to_string(),
+                    download_id: "download2".to_string(),
+                    size: 2,
+                })
+                .await;
         });
 
         join_set.spawn(async move {
             // Step 2:
-            sender2.send_event(SnapshotDownloadComplete).await;
             sender2
-                .send_event(SnapshotDownloadStarted { size: 3 })
+                .send_event(SnapshotDownloadComplete {
+                    download_id: "download1".to_string(),
+                })
+                .await;
+            sender2
+                .send_event(SnapshotDownloadStarted {
+                    digest: "digest3".to_string(),
+                    download_id: "download3".to_string(),
+                    size: 3,
+                })
                 .await;
             tokio::time::sleep(Duration::from_millis(5)).await;
             // Step 4:
-            sender2.send_event(SnapshotDownloadComplete).await;
+            sender2
+                .send_event(SnapshotDownloadComplete {
+                    download_id: "download2".to_string(),
+                })
+                .await;
         });
 
         while let Some(res) = join_set.join_next().await {
@@ -185,12 +261,30 @@ mod tests {
         assert_eq!(
             receiver.stacked_events(),
             vec![
-                SnapshotDownloadStarted { size: 1 },
-                SnapshotDownloadComplete,
-                SnapshotDownloadStarted { size: 3 },
-                SnapshotDownloadComplete,
-                SnapshotDownloadStarted { size: 2 },
-                SnapshotDownloadComplete,
+                SnapshotDownloadStarted {
+                    digest: "digest1".to_string(),
+                    download_id: "download1".to_string(),
+                    size: 1
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download1".to_string()
+                },
+                SnapshotDownloadStarted {
+                    digest: "digest3".to_string(),
+                    download_id: "download3".to_string(),
+                    size: 3
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download3".to_string()
+                },
+                SnapshotDownloadStarted {
+                    digest: "digest2".to_string(),
+                    download_id: "download2".to_string(),
+                    size: 2
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download2".to_string()
+                },
             ]
         );
     }
@@ -204,21 +298,51 @@ mod tests {
 
         join_set.spawn(async move {
             // Step 1:
-            sender.send_event(SnapshotDownloadStarted { size: 1 }).await;
+            sender
+                .send_event(SnapshotDownloadStarted {
+                    digest: "digest1".to_string(),
+                    download_id: "download1".to_string(),
+                    size: 1,
+                })
+                .await;
             tokio::time::sleep(Duration::from_millis(10)).await;
 
             // Step 2:
-            sender.send_event(SnapshotDownloadComplete).await;
-            sender.send_event(SnapshotDownloadStarted { size: 2 }).await;
+            sender
+                .send_event(SnapshotDownloadComplete {
+                    download_id: "download1".to_string(),
+                })
+                .await;
+            sender
+                .send_event(SnapshotDownloadStarted {
+                    digest: "digest2".to_string(),
+                    download_id: "download2".to_string(),
+                    size: 2,
+                })
+                .await;
             tokio::time::sleep(Duration::from_millis(10)).await;
 
             // Step 3:
-            sender.send_event(SnapshotDownloadComplete).await;
-            sender.send_event(SnapshotDownloadStarted { size: 3 }).await;
+            sender
+                .send_event(SnapshotDownloadComplete {
+                    download_id: "download2".to_string(),
+                })
+                .await;
+            sender
+                .send_event(SnapshotDownloadStarted {
+                    digest: "digest3".to_string(),
+                    download_id: "download3".to_string(),
+                    size: 3,
+                })
+                .await;
             tokio::time::sleep(Duration::from_millis(10)).await;
 
             // Final step:
-            sender.send_event(SnapshotDownloadComplete).await;
+            sender
+                .send_event(SnapshotDownloadComplete {
+                    download_id: "download3".to_string(),
+                })
+                .await;
         });
 
         join_set.spawn(async move {
@@ -226,7 +350,11 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(3)).await;
             assert_eq!(
                 receiver2.stacked_events(),
-                vec![SnapshotDownloadStarted { size: 1 },]
+                vec![SnapshotDownloadStarted {
+                    digest: "digest1".to_string(),
+                    download_id: "download1".to_string(),
+                    size: 1
+                },]
             );
 
             // Wait for step 2 completion
@@ -234,9 +362,19 @@ mod tests {
             assert_eq!(
                 receiver2.stacked_events(),
                 vec![
-                    SnapshotDownloadStarted { size: 1 },
-                    SnapshotDownloadComplete,
-                    SnapshotDownloadStarted { size: 2 },
+                    SnapshotDownloadStarted {
+                        digest: "digest1".to_string(),
+                        download_id: "download1".to_string(),
+                        size: 1
+                    },
+                    SnapshotDownloadComplete {
+                        download_id: "download1".to_string()
+                    },
+                    SnapshotDownloadStarted {
+                        digest: "digest2".to_string(),
+                        download_id: "download2".to_string(),
+                        size: 2
+                    },
                 ]
             );
 
@@ -245,11 +383,27 @@ mod tests {
             assert_eq!(
                 receiver2.stacked_events(),
                 vec![
-                    SnapshotDownloadStarted { size: 1 },
-                    SnapshotDownloadComplete,
-                    SnapshotDownloadStarted { size: 2 },
-                    SnapshotDownloadComplete,
-                    SnapshotDownloadStarted { size: 3 },
+                    SnapshotDownloadStarted {
+                        digest: "digest1".to_string(),
+                        download_id: "download1".to_string(),
+                        size: 1
+                    },
+                    SnapshotDownloadComplete {
+                        download_id: "download1".to_string()
+                    },
+                    SnapshotDownloadStarted {
+                        digest: "digest2".to_string(),
+                        download_id: "download2".to_string(),
+                        size: 2
+                    },
+                    SnapshotDownloadComplete {
+                        download_id: "download2".to_string()
+                    },
+                    SnapshotDownloadStarted {
+                        digest: "digest3".to_string(),
+                        download_id: "download3".to_string(),
+                        size: 3
+                    },
                 ]
             );
         });
@@ -261,12 +415,30 @@ mod tests {
         assert_eq!(
             receiver.stacked_events(),
             vec![
-                SnapshotDownloadStarted { size: 1 },
-                SnapshotDownloadComplete,
-                SnapshotDownloadStarted { size: 2 },
-                SnapshotDownloadComplete,
-                SnapshotDownloadStarted { size: 3 },
-                SnapshotDownloadComplete,
+                SnapshotDownloadStarted {
+                    digest: "digest1".to_string(),
+                    download_id: "download1".to_string(),
+                    size: 1
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download1".to_string()
+                },
+                SnapshotDownloadStarted {
+                    digest: "digest2".to_string(),
+                    download_id: "download2".to_string(),
+                    size: 2
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download2".to_string()
+                },
+                SnapshotDownloadStarted {
+                    digest: "digest3".to_string(),
+                    download_id: "download3".to_string(),
+                    size: 3
+                },
+                SnapshotDownloadComplete {
+                    download_id: "download3".to_string()
+                },
             ]
         );
     }

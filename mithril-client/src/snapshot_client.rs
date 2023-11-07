@@ -90,8 +90,11 @@ impl SnapshotClient {
     ) -> MithrilResult<()> {
         for location in snapshot.locations.as_slice() {
             if self.snapshot_downloader.probe(location).await.is_ok() {
+                let download_id = MithrilEvent::new_download_id();
                 self.feedback_sender
                     .send_event(MithrilEvent::SnapshotDownloadStarted {
+                        digest: snapshot.digest.clone(),
+                        download_id: download_id.clone(),
                         size: snapshot.size,
                     })
                     .await;
@@ -101,6 +104,8 @@ impl SnapshotClient {
                         location,
                         target_dir,
                         snapshot.compression_algorithm.unwrap_or_default(),
+                        &download_id,
+                        snapshot.size,
                     )
                     .await
                 {
@@ -108,7 +113,7 @@ impl SnapshotClient {
                         // todo: add snapshot statistics to cli (it was previously done here)
                         // note: the snapshot download does not fail if the statistic call fails.
                         self.feedback_sender
-                            .send_event(MithrilEvent::SnapshotDownloadComplete)
+                            .send_event(MithrilEvent::SnapshotDownloadComplete { download_id })
                             .await;
                         Ok(())
                     }
