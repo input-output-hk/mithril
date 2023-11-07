@@ -1,11 +1,12 @@
 use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::{PartyId, Stake};
 
 /// This represents a stake owner.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Party {
     /// Party identifier as in the stake distribution
     pub party_id: PartyId,
