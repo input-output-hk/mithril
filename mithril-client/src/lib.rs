@@ -59,51 +59,10 @@ pub mod message;
 pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
 pub mod snapshot_downloader;
+mod type_alias;
 mod utils;
 
-/// Mithril result type, an alias of [anyhow::Result]
-pub type MithrilResult<T> = anyhow::Result<T>;
-
-/// Mithril error type, an alias of [anyhow::Error]
-pub type MithrilError = anyhow::Error;
-
-/// A Mithril snapshot of a Cardano Node database.
-pub type Snapshot = mithril_common::messages::SnapshotMessage;
-
-/// List item of Mithril snapshots
-///
-/// A data structure dedicated to snapshots listing.
-pub type SnapshotListItem = mithril_common::messages::SnapshotListItemMessage;
-
-/// A Mithril stake distribution.
-pub type MithrilStakeDistribution = mithril_common::messages::MithrilStakeDistributionMessage;
-
-/// List item of Mithril stake distribution.
-///
-/// A data structure dedicated to mithril stake distributions listing.
-pub type MithrilStakeDistributionListItem =
-    mithril_common::messages::MithrilStakeDistributionListItemMessage;
-
-/// A Mithril certificate.
-pub type MithrilCertificate = mithril_common::entities::Certificate;
-
-/// List item of certificates
-///
-/// A data structure dedicated to certificates listing.
-pub type MithrilCertificateListItem = mithril_common::messages::CertificateListItemMessage;
-
-/// `mithril-common` re-exports
-pub mod common {
-    pub use mithril_common::{
-        certificate_chain::CertificateVerifier,
-        crypto_helper::{ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
-        entities::{Beacon, CompressionAlgorithm, Epoch},
-        messages::{
-            MithrilStakeDistributionListMessage, SnapshotListItemMessage, SnapshotListMessage,
-            SnapshotMessage,
-        },
-    };
-}
+pub use type_alias::*;
 
 #[cfg(test)]
 pub(crate) mod test_utils {
