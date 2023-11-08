@@ -14,7 +14,10 @@ impl P2PClient {
         }
     }
 
-    pub fn consume(&mut self, event: PeerEvent) -> StdResult<Option<RegisterSignatureMessage>> {
+    pub fn convert_event(
+        &mut self,
+        event: PeerEvent,
+    ) -> StdResult<Option<RegisterSignatureMessage>> {
         match event {
             PeerEvent::Behaviour {
                 event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),

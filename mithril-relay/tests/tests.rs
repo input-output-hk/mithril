@@ -104,7 +104,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
 
             },
             event =  p2p_client1.tick() => {
-                if let Ok(Some(signature_message_received)) = p2p_client1.consume(event.unwrap().unwrap())
+                if let Ok(Some(signature_message_received)) = p2p_client1.convert_event(event.unwrap().unwrap())
                 {
                     println!("P2P Client consumed signature: {signature_message_received:#?}");
                     assert_eq!(signature_message_sent, signature_message_received);
@@ -112,7 +112,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
                 }
             }
             event =  p2p_client2.tick() => {
-                if let Ok(Some(signature_message_received)) = p2p_client2.consume(event.unwrap().unwrap())
+                if let Ok(Some(signature_message_received)) = p2p_client2.convert_event(event.unwrap().unwrap())
                 {
                     println!("P2P Client consumed signature: {signature_message_received:#?}");
                     assert_eq!(signature_message_sent, signature_message_received);

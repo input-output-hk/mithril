@@ -52,7 +52,7 @@ async fn main() -> StdResult<()> {
                 match p2p_client.tick().await {
                     Ok(Some(p2p_client_event)) => {
                         if let Ok(Some(signature_message_received)) =
-                            p2p_client.consume(p2p_client_event)
+                            p2p_client.convert_event(p2p_client_event)
                         {
                             println!(" ");
                             println!("************************************************");

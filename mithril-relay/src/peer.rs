@@ -1,12 +1,13 @@
-use std::time::Duration;
-
 use libp2p::{
-    core::{transport::MemoryTransport, upgrade::Version},
+    core::upgrade::Version,
     futures::StreamExt,
     gossipsub::{self, ValidationMode},
-    noise, ping, swarm, tcp, yamux, Multiaddr, Swarm, Transport,
+    noise, ping,
+    swarm::{self, DialError},
+    tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
+use std::time::Duration;
 
 // We create a custom network behaviour that combines gossipsub and ping.
 #[derive(swarm::NetworkBehaviour)]
@@ -17,8 +18,19 @@ pub struct PeerBehaviour {
 
 #[derive(Debug)]
 pub enum PeerEvent {
-    ListeningOnAddr { address: Multiaddr },
-    Behaviour { event: PeerBehaviourEvent },
+    ListeningOnAddr {
+        address: Multiaddr,
+    },
+    ConnectionEstablished {
+        peer_id: PeerId,
+    },
+    OutgoingConnectionError {
+        peer_id: Option<PeerId>,
+        error: DialError,
+    },
+    Behaviour {
+        event: PeerBehaviourEvent,
+    },
 }
 
 pub struct Peer {
@@ -65,6 +77,20 @@ impl Peer {
                 );
                 Ok(Some(PeerEvent::ListeningOnAddr { address }))
             }
+            Some(swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. }) => {
+                println!(
+                    ">> [{}] Received outgoing connection error event: to {peer_id:?} with error {error:?}",
+                    self.swarm.as_ref().unwrap().local_peer_id()
+                );
+                Ok(Some(PeerEvent::OutgoingConnectionError { peer_id, error }))
+            }
+            Some(swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
+                println!(
+                    ">> [{}] Received connection established event: to {peer_id:?}",
+                    self.swarm.as_ref().unwrap().local_peer_id()
+                );
+                Ok(Some(PeerEvent::ConnectionEstablished { peer_id }))
+            }
             Some(swarm::SwarmEvent::Behaviour(event)) => {
                 println!(
                     ">> [{}] Received behaviour event: {event:?}",
@@ -96,10 +122,6 @@ impl Peer {
                     .upgrade(Version::V1Lazy)
                     .authenticate(noise_config)
                     .multiplex(yamux_config)
-                /* MemoryTransport::default()
-                .upgrade(libp2p::core::upgrade::Version::V1)
-                .authenticate(libp2p::noise::Config::new(key).unwrap())
-                .multiplex(libp2p::yamux::Config::default()) */
             })?
             .with_dns()?
             .with_behaviour(|key| {
@@ -128,7 +150,6 @@ impl Peer {
             .unwrap();
 
         let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse()?;
-        //let addr: Multiaddr = "/memory/0".parse()?;
         let _listener_id = swarm.listen_on(addr.clone()).unwrap();
         self.swarm = Some(swarm);
 

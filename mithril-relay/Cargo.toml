@@ -14,7 +14,7 @@ repository = { workspace = true }
 [dependencies]
 anyhow = "1.0.75"
 clap = { version = "4.4.6", features = ["derive"] }
-libp2p = { version = "0.52.4", features = [
+libp2p = { version = "0.53", features = [
     "tokio",
     "gossipsub",
     "dns",
