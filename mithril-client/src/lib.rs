@@ -9,20 +9,17 @@
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!
-//! The [Client][client::Client] aggregates the queries of all of those types.
+//! The [Client] aggregates the queries of all of those types.
 //!
 //! # Example
 //!
 //! Below is a example describing the use of the most of library's functions together:
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::message::MessageBuilder;
-//! # use mithril_client::MithrilResult;
-//! # use std::path::Path;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::{ClientBuilder, MessageBuilder};
+//! use std::path::Path;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
 //! let snapshots = client.snapshot().list().await?;
@@ -53,15 +50,17 @@
 
 pub mod aggregator_client;
 pub mod certificate_client;
-pub mod client;
+mod client;
 pub mod feedback;
-pub mod message;
+mod message;
 pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
 pub mod snapshot_downloader;
 mod type_alias;
 mod utils;
 
+pub use client::*;
+pub use message::*;
 pub use type_alias::*;
 
 #[cfg(test)]

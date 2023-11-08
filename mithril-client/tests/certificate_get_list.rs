@@ -1,7 +1,7 @@
 mod extensions;
 
 use crate::extensions::fake::FakeAggregator;
-use mithril_client::client::ClientBuilder;
+use mithril_client::ClientBuilder;
 
 #[tokio::test]
 async fn certificate_get_list() {

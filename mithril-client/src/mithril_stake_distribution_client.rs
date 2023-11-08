@@ -9,11 +9,9 @@
 //! To get a mithril stake distribution using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let mithril_stake_distribution = client.mithril_stake_distribution().get("MITHRIL_STAKE_DISTRIBUTION_HASH").await?.unwrap();
 //!
@@ -27,11 +25,9 @@
 //! To list available mithril stake distributions using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let mithril_stake_distributions = client.mithril_stake_distribution().list().await?;
 //!

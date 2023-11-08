@@ -10,11 +10,9 @@
 //! To get a single snapshot using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
@@ -28,11 +26,9 @@
 //! To list available snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let snapshots = client.snapshot().list().await?;
 //!
@@ -48,20 +44,20 @@
 //! To download and simultaneously unpack the tarball of a snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! # use std::path::Path;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//! use std::path::Path;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//!
+//! // note: the directoy must already exists
 //! let target_directory = Path::new("/home/user/download/");
 //! client
 //!    .snapshot()
 //!    .download_unpack(&snapshot, target_directory)
 //!    .await?;
-//!
+//! #
 //! #    Ok(())
 //! # }
 //! ```

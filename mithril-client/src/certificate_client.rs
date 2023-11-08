@@ -10,11 +10,9 @@
 //! To get a certificate using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let certificate = client.certificate().get("CERTIFICATE_HASH").await?.unwrap();
 //!
@@ -28,12 +26,10 @@
 //! To list available certificates using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
-//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = mithril_client::ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let certificates = client.certificate().list().await?;
 //!
 //! for certificate in certificates {
@@ -48,11 +44,9 @@
 //! To validate a certificate using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
-//! # use mithril_client::client::ClientBuilder;
-//! # use mithril_client::MithrilResult;
-//! #
-//! # #[tokio::main]
-//! # async fn main() -> MithrilResult<()> {
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let certificate = client.certificate().verify_chain("CERTIFICATE_HASH").await?;
 //!

@@ -1,8 +1,7 @@
 mod extensions;
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
-use mithril_client::client::ClientBuilder;
-use mithril_client::message::MessageBuilder;
+use mithril_client::{ClientBuilder, MessageBuilder};
 
 #[tokio::test]
 async fn mithril_stake_distribution_list_get_show_verify() {

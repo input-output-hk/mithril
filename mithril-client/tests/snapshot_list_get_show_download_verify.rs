@@ -2,7 +2,7 @@ mod extensions;
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
 use mithril_client::feedback::SlogFeedbackReceiver;
-use mithril_client::{client::ClientBuilder, message::MessageBuilder};
+use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_common::digesters::DummyImmutablesDbBuilder;
 use std::sync::Arc;
 

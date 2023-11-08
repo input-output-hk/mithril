@@ -1,8 +1,7 @@
 use mithril_client::certificate_client::CertificateVerifier;
-use mithril_client::message::MessageBuilder;
 use mithril_client::{
-    MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
-    Snapshot, SnapshotListItem,
+    MessageBuilder, MithrilCertificateListItem, MithrilStakeDistribution,
+    MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
 };
 use mithril_common::digesters::DummyImmutableDb;
 use mithril_common::entities::{Beacon, CompressionAlgorithm};
