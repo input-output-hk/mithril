@@ -69,63 +69,40 @@ use slog::{crit, debug, Logger};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::feedback::{FeedbackSender, MithrilEvent};
-use crate::{MithrilCertificateListItem, MithrilResult};
+use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use mithril_common::{
     certificate_chain::{
-        CertificateRetriever, CertificateRetrieverError, CertificateVerifier,
-        MithrilCertificateVerifier,
+        CertificateRetriever, CertificateRetrieverError,
+        CertificateVerifier as CommonCertificateVerifier,
+        MithrilCertificateVerifier as CommonMithrilCertificateVerifier,
     },
     entities::Certificate,
     messages::CertificateMessage,
 };
+
+#[cfg(test)]
+use mockall::automock;
 
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     retriever: Arc<InternalCertificateRetriever>,
     verifier: Arc<dyn CertificateVerifier>,
-    genesis_verification_key: ProtocolGenesisVerificationKey,
-    feedback_sender: FeedbackSender,
 }
 
-/// Internal type to implement the [InternalCertificateRetriever] trait and avoid a circular
-/// dependency between the [CertificateClient] and the [MithrilCertificateVerifier] that need
-/// a [CertificateRetriever] as a dependency.
-struct InternalCertificateRetriever {
-    aggregator_client: Arc<dyn AggregatorClient>,
-    logger: Logger,
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait CertificateVerifier: Sync + Send {
+    /// Validate the chain starting with the certificate.
+    async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
 }
 
 impl CertificateClient {
     /// Constructor
-    pub(crate) fn new(
+    pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
-        genesis_verification_key: ProtocolGenesisVerificationKey,
-        feedback_sender: FeedbackSender,
-        logger: Logger,
-    ) -> Self {
-        let retriever = Arc::new(InternalCertificateRetriever {
-            aggregator_client: aggregator_client.clone(),
-            logger: logger.clone(),
-        });
-        let verifier = Arc::new(MithrilCertificateVerifier::new(logger, retriever.clone()));
-
-        Self {
-            aggregator_client,
-            retriever,
-            verifier,
-            genesis_verification_key,
-            feedback_sender,
-        }
-    }
-
-    /// Constructor
-    pub(crate) fn new_with_verifier(
-        aggregator_client: Arc<dyn AggregatorClient>,
-        genesis_verification_key: ProtocolGenesisVerificationKey,
         verifier: Arc<dyn CertificateVerifier>,
-        feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> Self {
         let retriever = Arc::new(InternalCertificateRetriever {
@@ -137,8 +114,6 @@ impl CertificateClient {
             aggregator_client,
             retriever,
             verifier,
-            genesis_verification_key,
-            feedback_sender,
         }
     }
 
@@ -148,15 +123,15 @@ impl CertificateClient {
             .aggregator_client
             .get_content(AggregatorRequest::ListCertificates)
             .await
-            .with_context(|| "AggregatorClient can not get the certificate list")?;
+            .with_context(|| "CertificateClient can not get the certificate list")?;
         let items = serde_json::from_str::<Vec<MithrilCertificateListItem>>(&response)
-            .with_context(|| "AggregatorClient can not deserialize certificate list")?;
+            .with_context(|| "CertificateClient can not deserialize certificate list")?;
 
         Ok(items)
     }
 
     /// Get a single certificate full information from the aggregator.
-    pub async fn get(&self, certificate_hash: &str) -> MithrilResult<Option<Certificate>> {
+    pub async fn get(&self, certificate_hash: &str) -> MithrilResult<Option<MithrilCertificate>> {
         self.retriever.get(certificate_hash).await
     }
 
@@ -164,10 +139,95 @@ impl CertificateClient {
     /// chain valid.
     ///
     /// This method will fails if no certicate exists with the given `certificate_hash`.
-    pub async fn verify_chain(&self, certificate_hash: &str) -> MithrilResult<Certificate> {
-        let certificate = self.get(certificate_hash).await?.ok_or(anyhow!(
+    pub async fn verify_chain(&self, certificate_hash: &str) -> MithrilResult<MithrilCertificate> {
+        let certificate = self.retriever.get(certificate_hash).await?.ok_or(anyhow!(
             "No certificate exist for hash '{certificate_hash}'"
         ))?;
+
+        self.verifier
+            .verify_chain(&certificate)
+            .await
+            .with_context(|| {
+                format!("Certicate chain of certificate '{certificate_hash}' is invalid")
+            })?;
+
+        Ok(certificate)
+    }
+}
+
+/// Internal type to implement the [InternalCertificateRetriever] trait and avoid a circular
+/// dependency between the [CertificateClient] and the [MithrilCertificateVerifier] that need
+/// a [CertificateRetriever] as a dependency.
+struct InternalCertificateRetriever {
+    aggregator_client: Arc<dyn AggregatorClient>,
+    logger: Logger,
+}
+
+impl InternalCertificateRetriever {
+    async fn get(&self, certificate_hash: &str) -> MithrilResult<Option<MithrilCertificate>> {
+        let response = self
+            .aggregator_client
+            .get_content(AggregatorRequest::GetCertificate {
+                hash: certificate_hash.to_string(),
+            })
+            .await;
+
+        match response {
+            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
+            Err(e) => Err(e.into()),
+            Ok(response) => {
+                let message =
+                    serde_json::from_str::<CertificateMessage>(&response).map_err(|e| {
+                        crit!(
+                            self.logger,
+                            "Could not create certificate from API message: {e}."
+                        );
+                        debug!(self.logger, "Certificate message = {response}");
+                        e
+                    })?;
+
+                Ok(Some(message))
+            }
+        }
+    }
+}
+
+pub struct MithrilCertificateVerifier {
+    internal_verifier: Arc<dyn CommonCertificateVerifier>,
+    genesis_verification_key: ProtocolGenesisVerificationKey,
+    feedback_sender: FeedbackSender,
+}
+
+impl MithrilCertificateVerifier {
+    pub fn new(
+        aggregator_client: Arc<dyn AggregatorClient>,
+        genesis_verification_key: &str,
+        feedback_sender: FeedbackSender,
+        logger: Logger,
+    ) -> MithrilResult<MithrilCertificateVerifier> {
+        let retriever = Arc::new(InternalCertificateRetriever {
+            aggregator_client: aggregator_client.clone(),
+            logger: logger.clone(),
+        });
+        let internal_verifier = Arc::new(CommonMithrilCertificateVerifier::new(
+            logger,
+            retriever.clone(),
+        ));
+        let genesis_verification_key =
+            ProtocolGenesisVerificationKey::try_from(genesis_verification_key)
+                .with_context(|| "Invalid genesis verification key")?;
+
+        Ok(Self {
+            internal_verifier,
+            genesis_verification_key,
+            feedback_sender,
+        })
+    }
+}
+
+#[async_trait]
+impl CertificateVerifier for MithrilCertificateVerifier {
+    async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()> {
         let certificate_chain_validation_id = MithrilEvent::new_certificate_chain_validation_id();
         self.feedback_sender
             .send_event(MithrilEvent::CertificateChainValidationStarted {
@@ -175,10 +235,10 @@ impl CertificateClient {
             })
             .await;
 
-        let mut current_certificate = certificate.clone();
+        let mut current_certificate = certificate.clone().try_into()?;
         loop {
             let previous_or_none = self
-                .verifier
+                .internal_verifier
                 .verify_certificate(&current_certificate, &self.genesis_verification_key)
                 .await?;
 
@@ -201,36 +261,7 @@ impl CertificateClient {
             })
             .await;
 
-        Ok(certificate)
-    }
-}
-
-impl InternalCertificateRetriever {
-    async fn get(&self, certificate_hash: &str) -> MithrilResult<Option<Certificate>> {
-        let response = self
-            .aggregator_client
-            .get_content(AggregatorRequest::GetCertificate {
-                hash: certificate_hash.to_string(),
-            })
-            .await;
-
-        match response {
-            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
-            Err(e) => Err(e.into()),
-            Ok(response) => {
-                let message =
-                    serde_json::from_str::<CertificateMessage>(&response).map_err(|e| {
-                        crit!(
-                            self.logger,
-                            "Could not create certificate from API message: {e}."
-                        );
-                        debug!(self.logger, "Certificate message = {response}");
-                        e
-                    })?;
-
-                Ok(Some(message.try_into()?))
-            }
-        }
+        Ok(())
     }
 }
 
@@ -242,7 +273,10 @@ impl CertificateRetriever for InternalCertificateRetriever {
     ) -> Result<Certificate, CertificateRetrieverError> {
         self.get(certificate_hash)
             .await
-            .map_err(|e| CertificateRetrieverError(anyhow!(e)))?
+            .map_err(CertificateRetrieverError)?
+            .map(|message| message.try_into())
+            .transpose()
+            .map_err(CertificateRetrieverError)?
             .ok_or(CertificateRetrieverError(anyhow!(format!(
                 "Certificate does not exist: '{}'",
                 certificate_hash
@@ -253,7 +287,7 @@ impl CertificateRetriever for InternalCertificateRetriever {
 #[cfg(test)]
 mod tests {
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::test_utils::{fake_data, fake_keys};
+    use mithril_common::test_utils::fake_data;
     use mockall::predicate::eq;
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
@@ -263,14 +297,12 @@ mod tests {
     use super::*;
 
     fn build_client(
-        aggregator_client: impl AggregatorClient + 'static,
-        genesis_verification_key: Option<ProtocolGenesisVerificationKey>,
+        aggregator_client: Arc<dyn AggregatorClient>,
+        verifier: Option<Arc<dyn CertificateVerifier>>,
     ) -> CertificateClient {
         CertificateClient::new(
-            Arc::new(aggregator_client),
-            genesis_verification_key
-                .unwrap_or(fake_keys::genesis_verification_key()[0].try_into().unwrap()),
-            FeedbackSender::new(&[]),
+            aggregator_client,
+            verifier.unwrap_or(Arc::new(MockCertificateVerifier::new())),
             test_utils::test_logger(),
         )
     }
@@ -292,8 +324,8 @@ mod tests {
         aggregator_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-        let client = build_client(aggregator_client, None);
-        let items = client.list().await.unwrap();
+        let certificate_client = build_client(Arc::new(aggregator_client), None);
+        let items = certificate_client.list().await.unwrap();
 
         assert_eq!(expected, items);
     }
@@ -306,8 +338,8 @@ mod tests {
             .return_once(move |_| {
                 Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
             });
-        let client = build_client(aggregator_client, None);
-        let items = client.list().await.unwrap();
+        let certificate_client = build_client(Arc::new(aggregator_client), None);
+        let items = certificate_client.list().await.unwrap();
 
         assert!(items.is_empty());
     }
@@ -326,12 +358,14 @@ mod tests {
             })
             .times(1);
 
-        let certificate_client = build_client(aggregator_client, None);
+        let certificate_client = build_client(Arc::new(aggregator_client), None);
         let cert = certificate_client
             .get("cert-hash-123")
             .await
             .unwrap()
-            .expect("The certificate should be found");
+            .expect("The certificate should be found")
+            .try_into()
+            .unwrap();
 
         assert_eq!(expected_certificate, cert);
     }
@@ -348,7 +382,7 @@ mod tests {
             })
             .times(1);
 
-        let certificate_client = build_client(aggregator_client, None);
+        let certificate_client = build_client(Arc::new(aggregator_client), None);
         assert!(certificate_client
             .get("cert-hash-123")
             .await
@@ -368,7 +402,7 @@ mod tests {
             })
             .times(1);
 
-        let certificate_client = build_client(aggregator_client, None);
+        let certificate_client = build_client(Arc::new(aggregator_client), None);
         certificate_client
             .get("cert-hash-123")
             .await
@@ -378,7 +412,7 @@ mod tests {
     #[tokio::test]
     async fn validating_chain_send_feedbacks() {
         let (chain, verifier) = setup_certificate_chain(3, 1);
-        let verification_key = verifier.to_verification_key();
+        let verification_key: String = verifier.to_verification_key().try_into().unwrap();
         let mut aggregator_client = MockAggregatorHTTPClient::new();
         let last_certificate_hash = chain.first().unwrap().hash.clone();
 
@@ -394,12 +428,19 @@ mod tests {
                 .returning(move |_| Ok(message.to_owned()));
         }
 
+        let aggregator_client = Arc::new(aggregator_client);
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-        let certificate_client = CertificateClient::new(
-            Arc::new(aggregator_client),
-            verification_key,
-            FeedbackSender::new(&[feedback_receiver.clone()]),
-            test_utils::test_logger(),
+        let certificate_client = build_client(
+            aggregator_client.clone(),
+            Some(Arc::new(
+                MithrilCertificateVerifier::new(
+                    aggregator_client,
+                    &verification_key,
+                    FeedbackSender::new(&[feedback_receiver.clone()]),
+                    test_utils::test_logger(),
+                )
+                .unwrap(),
+            )),
         );
 
         certificate_client
@@ -434,7 +475,7 @@ mod tests {
     #[tokio::test]
     async fn verify_chain_return_certificate_with_given_hash() {
         let (chain, verifier) = setup_certificate_chain(3, 1);
-        let verification_key = verifier.to_verification_key();
+        let verification_key: String = verifier.to_verification_key().try_into().unwrap();
         let mut aggregator_client = MockAggregatorHTTPClient::new();
         let last_certificate_hash = chain.first().unwrap().hash.clone();
 
@@ -450,11 +491,18 @@ mod tests {
                 .returning(move |_| Ok(message.to_owned()));
         }
 
-        let certificate_client = CertificateClient::new(
-            Arc::new(aggregator_client),
-            verification_key,
-            FeedbackSender::new(&[]),
-            test_utils::test_logger(),
+        let aggregator_client = Arc::new(aggregator_client);
+        let certificate_client = build_client(
+            aggregator_client.clone(),
+            Some(Arc::new(
+                MithrilCertificateVerifier::new(
+                    aggregator_client,
+                    &verification_key,
+                    FeedbackSender::new(&[]),
+                    test_utils::test_logger(),
+                )
+                .unwrap(),
+            )),
         );
 
         let certificate = certificate_client

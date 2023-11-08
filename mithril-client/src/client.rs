@@ -1,5 +1,7 @@
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
-use crate::certificate_client::CertificateClient;
+use crate::certificate_client::{
+    CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
+};
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
@@ -7,8 +9,6 @@ use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 use anyhow::{anyhow, Context};
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use reqwest::Url;
 use slog::{o, Logger};
 use std::sync::Arc;
@@ -123,25 +123,23 @@ impl ClientBuilder {
             Some(snapshot_downloader) => snapshot_downloader,
         };
 
-        let genesis_verification_key =
-            ProtocolGenesisVerificationKey::try_from(self.genesis_verification_key)
-                .with_context(|| "Invalid genesis verification key")?;
-
-        let certificate_client = match self.certificate_verifier {
-            None => Arc::new(CertificateClient::new(
-                aggregator_client.clone(),
-                genesis_verification_key,
-                feedback_sender.clone(),
-                logger.clone(),
-            )),
-            Some(verifier) => Arc::new(CertificateClient::new_with_verifier(
-                aggregator_client.clone(),
-                genesis_verification_key,
-                verifier,
-                feedback_sender.clone(),
-                logger.clone(),
-            )),
+        let certificate_verifier = match self.certificate_verifier {
+            None => Arc::new(
+                MithrilCertificateVerifier::new(
+                    aggregator_client.clone(),
+                    &self.genesis_verification_key,
+                    feedback_sender.clone(),
+                    logger.clone(),
+                )
+                .with_context(|| "Building certificate verifier failed")?,
+            ),
+            Some(verifier) => verifier,
         };
+        let certificate_client = Arc::new(CertificateClient::new(
+            aggregator_client.clone(),
+            certificate_verifier,
+            logger.clone(),
+        ));
 
         let mithril_stake_distribution_client = Arc::new(MithrilStakeDistributionClient::new(
             aggregator_client.clone(),

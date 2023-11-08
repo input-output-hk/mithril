@@ -78,6 +78,11 @@ impl CertificateMessage {
             genesis_signature: String::new(),
         }
     }
+
+    /// Check that the certificate signed message match the given protocol message.
+    pub fn match_message(&self, message: &ProtocolMessage) -> bool {
+        message.compute_hash() == self.signed_message
+    }
 }
 
 impl Debug for CertificateMessage {

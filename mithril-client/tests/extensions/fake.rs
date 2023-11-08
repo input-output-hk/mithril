@@ -1,9 +1,9 @@
+use mithril_client::certificate_client::CertificateVerifier;
 use mithril_client::message::MessageBuilder;
 use mithril_client::{
     MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
     Snapshot, SnapshotListItem,
 };
-use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::digesters::DummyImmutableDb;
 use mithril_common::entities::{Beacon, CompressionAlgorithm};
 use mithril_common::messages::CertificateMessage;
@@ -21,12 +21,7 @@ pub struct FakeCertificateVerifier;
 impl FakeCertificateVerifier {
     pub fn build_that_validate_any_certificate() -> Arc<dyn CertificateVerifier> {
         let mut mock_verifier = mock::MockCertificateVerifierImpl::new();
-        mock_verifier
-            .expect_verify_certificate_chain()
-            .returning(|_, _| Ok(()));
-        mock_verifier
-            .expect_verify_certificate()
-            .returning(|_, _| Ok(None));
+        mock_verifier.expect_verify_chain().returning(|_| Ok(()));
 
         Arc::new(mock_verifier)
     }
@@ -118,7 +113,7 @@ impl FakeAggregator {
             ..CertificateMessage::dummy()
         };
         certificate.signed_message = MessageBuilder::new()
-            .compute_snapshot_message(&certificate.clone().try_into().unwrap(), &immutable_db.dir)
+            .compute_snapshot_message(&certificate, &immutable_db.dir)
             .await
             .expect("Computing snapshot message should not fail")
             .compute_hash();
