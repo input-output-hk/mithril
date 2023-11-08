@@ -36,14 +36,17 @@ jobs:
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         shell: bash
-        run: cargo build --features portable --release --workspace --exclude mithril-aggregator --exclude mithril-client-cli --exclude mithril-signer --exclude mithril-stm
+        run: |
+          cargo build --features portable --release --workspace \
+              --exclude mithril-aggregator --exclude mithril-client-cli \
+              --exclude mithril-client --exclude mithril-signer \
+              --exclude mithril-stm
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --features build-binary
-          libraries-build-args: --package mithril-stm --package mithril-client-cli
-          common-build-args: --features bundle_openssl
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --features build-binary --features bundle_openssl
+          libraries-build-args: --package mithril-stm --package mithril-client
 
       - name: Build Debian packages
         shell: bash
@@ -82,15 +85,13 @@ jobs:
         include:
         # Only build client on windows & mac
         - os: macos-12
-          binaries-build-args: --bin mithril-client --features build-binary
-          libraries-build-args: --package mithril-stm --package mithril-client-cli
-          common-build-args: --features bundle_openssl
+          binaries-build-args: --bin mithril-client --features build-binary,bundle_openssl
+          libraries-build-args: --package mithril-stm --package mithril-client
         - os: windows-latest
           # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
           # hack in mithril common cargo.toml doesn't apply (we have no idea why).
-          binaries-build-args: --bins --package mithril-client-cli --features build-binary
-          libraries-build-args: --package mithril-stm --package mithril-client-cli --no-default-features --features num-integer-backend
-          common-build-args: --features bundle_openssl
+          binaries-build-args: --bins --package mithril-client-cli --features build-binary,bundle_openssl
+          libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend
     runs-on: ${{ matrix.os }}
     
     steps:
@@ -120,9 +121,9 @@ jobs:
             test-args: --features portable --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-12
-            test-args: -p mithril-client-cli
+            test-args: --package mithril-client --package mithril-client-cli
           - os: windows-latest
-            test-args: -p mithril-client-cli
+            test-args: --package mithril-client --package mithril-client-cli
     
     runs-on: ${{ matrix.os }}
     
