@@ -328,17 +328,6 @@ impl<'client> CertificateRecordProvider<'client> {
 
         Ok(certificate_record)
     }
-
-    /// Return the last N certificates
-    pub fn get_latest(&self, length: usize) -> StdResult<EntityCursor<CertificateRecord>> {
-        let filters = WhereCondition::new(
-            "c.ROWID > top_n.max_rowid - ?*",
-            vec![Value::Integer(length.try_into().unwrap_or(i64::MAX))],
-        );
-        let certificate_record = self.find(filters)?;
-
-        Ok(certificate_record)
-    }
 }
 
 impl<'client> Provider<'client> for CertificateRecordProvider<'client> {
@@ -349,18 +338,9 @@ impl<'client> Provider<'client> for CertificateRecordProvider<'client> {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:certificate:}", "c"), ("{:top_n:}", "top_n")]);
+        let aliases = SourceAlias::new(&[("{:certificate:}", "c")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-
-        format!(
-            r#"with
-    top_n (max_rowid) as (select max(ROWID) from certificate)
-  select {projection}
-  from certificate as c 
-    cross join top_n
-  where {condition}
-  order by ROWID desc"#
-        )
+        format!("select {projection} from certificate as c where {condition} order by ROWID desc")
     }
 }
 
@@ -579,9 +559,9 @@ impl CertificateRepository {
     /// Return the latest certificates.
     pub async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>> {
         let provider = CertificateRecordProvider::new(&self.connection);
-        let cursor = provider.get_latest(last_n)?;
+        let cursor = provider.get_all()?;
 
-        Ok(cursor.map(|v| v.into()).collect())
+        Ok(cursor.take(last_n).map(|v| v.into()).collect())
     }
 
     /// Return the first certificate signed per epoch as the reference
