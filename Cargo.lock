@@ -2229,6 +2229,7 @@ dependencies = [
  "flume",
  "futures",
  "httpmock",
+ "indicatif",
  "mithril-common",
  "mockall",
  "reqwest",
