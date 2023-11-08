@@ -7,6 +7,7 @@ use mithril_common::{
     StdResult,
 };
 use reqwest::StatusCode;
+use slog_scope::{debug, info};
 use tokio::sync::mpsc::{self};
 use warp::Filter;
 
@@ -20,6 +21,7 @@ pub struct Relay {
 
 impl Relay {
     pub async fn start(topic_name: &str) -> StdResult<Self> {
+        debug!("Relay: starting...");
         let (tx, rx) = mpsc::unbounded_channel::<RegisterSignatureMessage>();
         let peer = Peer::new(topic_name).start().await?;
         let server = test_http_server(
@@ -31,6 +33,7 @@ impl Relay {
                     warp::reply::with_status(warp::reply::reply(), StatusCode::CREATED)
                 }),
         );
+        info!("Relay: listening on"; "address" => format!("{:?}", server.address()));
 
         Ok(Self {
             server,
@@ -52,16 +55,12 @@ impl Relay {
             message = self.message_rx.recv()  => {
                 match message {
                     Some(signature_message) => {
-                        println!(" ");
-                        println!("************************************************");
-                        println!("Relay publish signature: {signature_message:#?}");
-                        println!("************************************************");
-                        println!(" ");
+                        info!("Relay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
                         self.peer.publish(&signature_message)?;
                         Ok(None)
                     }
                     None => {
-                        println!("No message available");
+                        debug!("Relay: no message available");
                         Ok(None)
                     }
                 }

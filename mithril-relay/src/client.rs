@@ -1,7 +1,7 @@
+use crate::peer::{Peer, PeerBehaviourEvent, PeerEvent};
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
-
-use crate::peer::{Peer, PeerBehaviourEvent, PeerEvent};
+use slog_scope::debug;
 
 pub struct P2PClient {
     pub peer: Peer,
@@ -31,6 +31,7 @@ impl P2PClient {
     }
 
     pub async fn start(self) -> StdResult<Self> {
+        debug!("P2P Client: starting...");
         Ok(Self {
             peer: self.peer.start().await?,
         })

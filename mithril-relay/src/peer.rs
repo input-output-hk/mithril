@@ -7,6 +7,7 @@ use libp2p::{
     tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
+use slog_scope::{debug, info};
 use std::time::Duration;
 
 // We create a custom network behaviour that combines gossipsub and ping.
@@ -65,44 +66,26 @@ impl Peer {
     }
 
     pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
-        println!(
-            ">> [{}] Reading next event",
-            self.swarm.as_ref().unwrap().local_peer_id()
-        );
+        debug!("Peer: reading next event"; "local_peer_id" => format!("{:?}", self.local_peer_id()));
         match self.swarm.as_mut().unwrap().next().await {
             Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
-                println!(
-                    ">> [{}] Received listening address event: {address:?}",
-                    self.swarm.as_ref().unwrap().local_peer_id()
-                );
+                debug!("Peer: received listening address event"; "address" => format!("{address:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 Ok(Some(PeerEvent::ListeningOnAddr { address }))
             }
             Some(swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. }) => {
-                println!(
-                    ">> [{}] Received outgoing connection error event: to {peer_id:?} with error {error:?}",
-                    self.swarm.as_ref().unwrap().local_peer_id()
-                );
+                debug!("Peer: received outgoing connection error event"; "error" => format!("{error:#?}"), "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 Ok(Some(PeerEvent::OutgoingConnectionError { peer_id, error }))
             }
             Some(swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
-                println!(
-                    ">> [{}] Received connection established event: to {peer_id:?}",
-                    self.swarm.as_ref().unwrap().local_peer_id()
-                );
+                debug!("Peer: received connection established event"; "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 Ok(Some(PeerEvent::ConnectionEstablished { peer_id }))
             }
             Some(swarm::SwarmEvent::Behaviour(event)) => {
-                println!(
-                    ">> [{}] Received behaviour event: {event:?}",
-                    self.swarm.as_ref().unwrap().local_peer_id()
-                );
+                debug!("Peer: received behaviour event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 Ok(Some(PeerEvent::Behaviour { event }))
             }
             Some(event) => {
-                println!(
-                    ">> [{}] Received other event: {event:?}",
-                    self.swarm.as_ref().unwrap().local_peer_id()
-                );
+                debug!("Peer: received other event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 Ok(None)
             }
             _ => Ok(None),
@@ -110,6 +93,7 @@ impl Peer {
     }
 
     pub async fn start(mut self) -> StdResult<Self> {
+        debug!("Peer: starting...");
         let mut swarm = libp2p::SwarmBuilder::with_new_identity()
             .with_tokio()
             .with_other_transport(|key| {
@@ -155,11 +139,7 @@ impl Peer {
 
         loop {
             if let Some(PeerEvent::ListeningOnAddr { address }) = self.tick_swarm().await? {
-                println!(
-                    ">> [{}] Listening on {:?}",
-                    self.swarm.as_ref().unwrap().local_peer_id(),
-                    address
-                );
+                info!("Peer: listening on"; "address" => format!("{address:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 self.addr = Some(address);
                 break;
             }
@@ -169,12 +149,13 @@ impl Peer {
     }
 
     pub fn dial(&mut self, addr: Multiaddr) -> StdResult<()> {
-        println!(
-            ">> [{}] Dialing {addr:?}",
-            self.swarm.as_ref().unwrap().local_peer_id()
-        );
+        debug!("Peer: dialing to"; "address" => format!("{addr:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
         self.swarm.as_mut().unwrap().dial(addr)?;
 
         Ok(())
+    }
+
+    pub fn local_peer_id(&self) -> Option<PeerId> {
+        self.swarm.as_ref().map(|s| s.local_peer_id().to_owned())
     }
 }

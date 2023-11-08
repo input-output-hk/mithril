@@ -3359,6 +3359,11 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "slog",
+ "slog-async",
+ "slog-bunyan",
+ "slog-scope",
+ "slog-term",
  "tokio",
  "warp",
 ]
