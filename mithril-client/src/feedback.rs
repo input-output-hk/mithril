@@ -1,4 +1,4 @@
-//! # Feedbacks
+//! # Long task feedbacks
 //!
 //! Even with a fast computer and network, some tasks can take more than a few
 //! seconds to run (or even more than an hour for a snapshot download).

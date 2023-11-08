@@ -1,3 +1,12 @@
+//! Snapshot tarball download and unpack mechanism.
+//!
+//! The [SnapshotDownloader] trait abstract how the download and unpack snapshots
+//! tarballs.
+//!
+//! Snapshots locations can be of various kinds, right now we only support HTTP
+//! download (using the [HttpSnapshotDownloader]) but other types may be added in
+//! the future.
+
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use futures::StreamExt;
@@ -43,7 +52,7 @@ pub struct HttpSnapshotDownloader {
 }
 
 impl HttpSnapshotDownloader {
-    /// HttpSnapshotDownloader factory
+    /// Constructs a new `HttpSnapshotDownloader`.
     pub fn new(feedback_sender: FeedbackSender, logger: Logger) -> MithrilResult<Self> {
         let http_client = reqwest::ClientBuilder::new()
             .build()

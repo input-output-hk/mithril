@@ -1,4 +1,4 @@
-//! This module defines how to exchange and validate certificate information with an Aggregator.
+//! A client to retrieve and validate certificates from an Aggregator.
 //!
 //! To do so it defines a [CertificateClient] exposes the following features:
 //!  - [get][CertificateClient::get]: get a certificate data from its hash
@@ -85,15 +85,16 @@ pub struct CertificateClient {
     verifier: Arc<dyn CertificateVerifier>,
 }
 
+/// API that defines how to validate certificates.
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertificateVerifier: Sync + Send {
-    /// Validate the chain starting with the certificate.
+    /// Validate the chain starting with the given certificate.
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
 }
 
 impl CertificateClient {
-    /// Constructor
+    /// Constructs a new `CertificateClient`.
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         verifier: Arc<dyn CertificateVerifier>,
@@ -186,6 +187,8 @@ impl InternalCertificateRetriever {
     }
 }
 
+/// Implementation of a [CertificateVerifier] that can send feedbacks using
+/// the [feedback][crate::feedback] mechanism.
 pub struct MithrilCertificateVerifier {
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
     genesis_verification_key: ProtocolGenesisVerificationKey,
@@ -193,6 +196,7 @@ pub struct MithrilCertificateVerifier {
 }
 
 impl MithrilCertificateVerifier {
+    /// Constructs a new `MithrilCertificateVerifier`.
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         genesis_verification_key: &str,

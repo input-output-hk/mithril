@@ -1,4 +1,4 @@
-//! This module defines how to exchange mithril stake distribution information with an Aggregator.
+//! A client to retrieve mithril stake distributions data from an Aggregator.
 //!
 //! To do so it defines a [MithrilStakeDistributionClient] exposes the following features:
 //!  - [get][MithrilStakeDistributionClient::get]: get a mithril stake distribution data from its hash
@@ -51,7 +51,7 @@ pub struct MithrilStakeDistributionClient {
 }
 
 impl MithrilStakeDistributionClient {
-    /// Constructor
+    /// Constructs a new `MithrilStakeDistributionClient`.
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
         Self { aggregator_client }
     }

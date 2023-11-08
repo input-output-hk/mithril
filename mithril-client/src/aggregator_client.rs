@@ -1,3 +1,12 @@
+//! Data exchange mechanisms with an Aggregator.
+//!
+//! The [AggregatorClient] trait abstract how the communication with an Aggregator
+//! is done.
+//! The clients that need to communicate only need to define their request using the
+//! [AggregatorRequest] enum.
+//!
+//! An implementation using HTTP is available: [AggregatorHTTPClient].
+
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
@@ -102,7 +111,7 @@ pub struct AggregatorHTTPClient {
 }
 
 impl AggregatorHTTPClient {
-    /// AggregatorHTTPClient factory
+    /// Constructs a new `AggregatorHTTPClient`
     pub fn new(
         aggregator_endpoint: Url,
         api_versions: Vec<Version>,

@@ -51,7 +51,7 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Construct a new [ClientBuilder] that fetch data from the aggregator at the given url
+    /// Constructs a new `ClientBuilder` that fetch data from the aggregator at the given url
     /// and with the given genesis verification key.
     pub fn aggregator(url: &str, genesis_verification_key: &str) -> ClientBuilder {
         Self {
@@ -65,7 +65,7 @@ impl ClientBuilder {
         }
     }
 
-    /// Construct a new [ClientBuilder] without any dependencies set.
+    /// Constructs a new `ClientBuilder` without any dependencies set.
     ///
     /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
     /// to request data from the aggregator.
@@ -81,7 +81,7 @@ impl ClientBuilder {
         }
     }
 
-    /// Returns a [Client] that uses the dependencies provided to the [ClientBuilder].
+    /// Returns a `Client` that uses the dependencies provided to this `ClientBuilder`.
     ///
     /// For missing dependencies the builder will try to create them using default implementations
     /// if possible.

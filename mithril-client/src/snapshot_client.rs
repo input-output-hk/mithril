@@ -1,4 +1,4 @@
-//! This module defines how to exchange snapshot information with an Aggregator.
+//! A client to retrieve snapshots data from an Aggregator.
 //!
 //! To do so it defines a [SnapshotClient] exposes the following features:
 //!  - [get][SnapshotClient::get]: get a single snapshot data from its digest
@@ -95,7 +95,7 @@ pub struct SnapshotClient {
 }
 
 impl SnapshotClient {
-    /// constructor
+    /// Constructs a new `SnapshotClient`.
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         snapshot_downloader: Arc<dyn SnapshotDownloader>,

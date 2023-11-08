@@ -8,7 +8,7 @@ use crate::common::CompressionAlgorithm;
 use crate::utils::StreamReader;
 use crate::MithrilResult;
 
-/// Check and unpack a downloaded archive in a given directory.
+/// Unpack a downloaded archive in a given directory.
 #[derive(Default)]
 pub struct SnapshotUnpacker;
 

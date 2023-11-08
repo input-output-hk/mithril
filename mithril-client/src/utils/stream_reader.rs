@@ -10,7 +10,7 @@ pub struct StreamReader {
 }
 
 impl StreamReader {
-    /// [StreamReader] factory
+    /// Constructs a new `StreamReader`.
     pub fn new(receiver: Receiver<Vec<u8>>) -> Self {
         Self {
             receiver,

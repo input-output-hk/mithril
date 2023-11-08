@@ -16,7 +16,7 @@ pub struct MessageBuilder {
 }
 
 impl MessageBuilder {
-    /// Construct a new [MessageBuilder].
+    /// Constructs a new `MessageBuilder`.
     pub fn new() -> MessageBuilder {
         let logger = Logger::root(slog::Discard, o!());
         Self {
