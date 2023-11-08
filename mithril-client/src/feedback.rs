@@ -1,3 +1,56 @@
+//! # Feedbacks
+//!
+//! Even with a fast computer and network, some tasks can take more than a few
+//! seconds to run (or even more than an hour for a snapshot download).
+//!
+//! Those tasks are:
+//! - Snapshot download
+//! - Certificate chain validation
+//!
+//! In order to have feedbacks for those tasks, a mechanism is available.
+//!
+//! Define your feedback receiver and implement the [FeedbackReceiver] trait to receive
+//! [events][MithrilEvent] with the [`handle_event`][FeedbackReceiver::handle_event] method.
+//! Then pass an instance of your receiver when building your `Client` using
+//! [`ClientBuilder::add_feedback_receiver`][crate::ClientBuilder::add_feedback_receiver] method.
+//!
+//! # Example
+//!
+//! Using the provided [SlogFeedbackReceiver] to log the events using a [slog] logger.
+//!
+//! ```no_run
+//! use std::sync::Arc;
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::{ClientBuilder, MessageBuilder, feedback::SlogFeedbackReceiver};
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY")
+//!     .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(build_logger())))
+//!     .build()?;
+//!
+//! let _ = client.certificate().verify_chain("CERTIFICATE_HASH").await?;
+//! #
+//! #    Ok(())
+//! # }
+//!
+//! pub fn build_logger() -> slog::Logger {
+//!   use slog::Drain;
+//!   let decorator = slog_term::TermDecorator::new().build();
+//!   let drain = slog_term::FullFormat::new(decorator).build().fuse();
+//!   let drain = slog_async::Async::new(drain).build().fuse();
+//!
+//!   slog::Logger::root(Arc::new(drain), slog::o!())
+//! }
+//! ```
+//!
+//! Running this code should yield the following logs (example run on _pre-release-preview_):
+//!
+//! ```shell
+//! Nov 08 14:41:40.436 INFO Certificate chain validation started, certificate_chain_validation_id: ab623989-b0ac-4031-8522-1370958bbb4e
+//! Nov 08 14:41:40.626 INFO Certificate validated, certificate_chain_validation_id: ab623989-b0ac-4031-8522-1370958bbb4e, certificate_hash: dd4d4299cfb817b5ee5987c3de7cf5f13bdcda69c968ef087effd550470dc081
+//! Nov 08 14:42:05.477 INFO Certificate validated, certificate_chain_validation_id: ab623989-b0ac-4031-8522-1370958bbb4e, certificate_hash: 660b3d426a95303254bb255a56bed443616ea63c4d721ea77433b920d7ebdf62
+//! Nov 08 14:42:05.477 INFO Certificate chain validated, certificate_chain_validation_id: ab623989-b0ac-4031-8522-1370958bbb4e
+//! ```
+
 use async_trait::async_trait;
 use slog::{info, Logger};
 use std::sync::{Arc, RwLock};

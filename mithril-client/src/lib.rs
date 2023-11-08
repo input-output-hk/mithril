@@ -11,6 +11,10 @@
 //!
 //! The [Client] aggregates the queries of all of those types.
 //!
+//! **NOTE:** Snapshot download and Certificate chain validation can take quite some time even with a fast
+//! computer and network.
+//! For those a feedback mechanism is available, more details on it in the [feedback] submodule.
+//!
 //! # Example
 //!
 //! Below is a example describing the use of the most of library's functions together:
