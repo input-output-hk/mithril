@@ -3,8 +3,8 @@ use super::{genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     entities::{
-        Certificate, CertificateSignature, Epoch, Party, ProtocolMessage, ProtocolMessagePartKey,
-        SignerWithStake, Stake,
+        Certificate, CertificateSignature, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+        SignerWithStake, Stake, StakeDistributionParty,
     },
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
@@ -249,7 +249,7 @@ pub fn setup_certificate_chain(
                     fake_certificate.metadata.signers = fixture
                         .signers_with_stake()
                         .into_iter()
-                        .map(|s| -> Party { s.into() })
+                        .map(|s| -> StakeDistributionParty { s.into() })
                         .collect();
 
                     let single_signatures = fixture

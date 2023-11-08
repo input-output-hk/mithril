@@ -8,8 +8,8 @@ use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{
         Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
-        HexEncodedAgregateVerificationKey, HexEncodedKey, Party, ProtocolMessage,
-        ProtocolParameters, ProtocolVersion,
+        HexEncodedAgregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
+        ProtocolVersion, StakeDistributionParty,
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -57,7 +57,7 @@ pub struct CertificateRecord {
     pub protocol_message: ProtocolMessage,
 
     /// The list of the active signers with their stakes and verification keys
-    pub signers: Vec<Party>,
+    pub signers: Vec<StakeDistributionParty>,
 
     /// Date and time when the certificate was initiated
     pub initiated_at: DateTime<Utc>,
@@ -214,7 +214,7 @@ impl SqLiteEntity for CertificateRecord {
             signers: serde_json::from_str(signers_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
-                        "Could not turn string '{signers_string}' to Vec<Party>. Error: {e}"
+                        "Could not turn string '{signers_string}' to Vec<StakeDistributionParty>. Error: {e}"
                     ))
                 },
             )?,

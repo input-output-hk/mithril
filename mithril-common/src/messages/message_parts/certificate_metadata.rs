@@ -1,4 +1,4 @@
-use crate::entities::{Party, ProtocolParameters, ProtocolVersion};
+use crate::entities::{ProtocolParameters, ProtocolVersion, StakeDistributionParty};
 
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub struct CertificateMetadataMessagePart {
 
     /// The list of the active signers with their stakes and verification keys
     /// part of METADATA(p,n)
-    pub signers: Vec<Party>,
+    pub signers: Vec<StakeDistributionParty>,
 }
 
 impl CertificateMetadataMessagePart {
@@ -45,11 +45,11 @@ impl CertificateMetadataMessagePart {
             initiated_at,
             sealed_at: initiated_at + Duration::seconds(100),
             signers: vec![
-                Party {
+                StakeDistributionParty {
                     party_id: "1".to_string(),
                     stake: 10,
                 },
-                Party {
+                StakeDistributionParty {
                     party_id: "2".to_string(),
                     stake: 20,
                 },
@@ -73,11 +73,11 @@ mod tests {
                 .unwrap()
                 .with_timezone(&Utc),
             signers: vec![
-                Party {
+                StakeDistributionParty {
                     party_id: "1".to_string(),
                     stake: 10,
                 },
-                Party {
+                StakeDistributionParty {
                     party_id: "2".to_string(),
                     stake: 20,
                 },

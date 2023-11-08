@@ -7,7 +7,7 @@ use super::{PartyId, Stake};
 
 /// This represents a stake owner.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Party {
+pub struct StakeDistributionParty {
     /// Party identifier as in the stake distribution
     pub party_id: PartyId,
 
@@ -15,7 +15,7 @@ pub struct Party {
     pub stake: Stake,
 }
 
-impl From<SignerWithStake> for Party {
+impl From<SignerWithStake> for StakeDistributionParty {
     fn from(value: SignerWithStake) -> Self {
         Self {
             party_id: value.party_id,
@@ -24,7 +24,7 @@ impl From<SignerWithStake> for Party {
     }
 }
 
-impl Party {
+impl StakeDistributionParty {
     /// As a sub structure of certificate, Party must be hashable.
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
@@ -32,6 +32,11 @@ impl Party {
         hasher.update(self.stake.to_be_bytes());
 
         hex::encode(hasher.finalize())
+    }
+
+    /// Transform a list of signers into a list of `StakeDistributionParty``
+    pub fn from_signers(signers: Vec<SignerWithStake>) -> Vec<Self> {
+        signers.into_iter().map(|s| s.into()).collect()
     }
 }
 
@@ -59,7 +64,7 @@ pub struct CertificateMetadata {
 
     /// The list of the active signers with their stakes and verification keys
     /// part of METADATA(p,n)
-    pub signers: Vec<Party>,
+    pub signers: Vec<StakeDistributionParty>,
 }
 
 impl CertificateMetadata {
@@ -69,7 +74,7 @@ impl CertificateMetadata {
         protocol_parameters: ProtocolParameters,
         initiated_at: DateTime<Utc>,
         sealed_at: DateTime<Utc>,
-        signers: Vec<Party>,
+        signers: Vec<StakeDistributionParty>,
     ) -> CertificateMetadata {
         CertificateMetadata {
             protocol_version,
@@ -120,13 +125,13 @@ mod tests {
     use super::*;
     use chrono::{Duration, TimeZone, Timelike};
 
-    fn get_parties() -> Vec<Party> {
+    fn get_parties() -> Vec<StakeDistributionParty> {
         vec![
-            Party {
+            StakeDistributionParty {
                 party_id: "1".to_string(),
                 stake: 10,
             },
-            Party {
+            StakeDistributionParty {
                 party_id: "2".to_string(),
                 stake: 20,
             },

@@ -107,7 +107,7 @@ impl Debug for CertificateMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entities::{Party, ProtocolParameters};
+    use crate::entities::{ProtocolParameters, StakeDistributionParty};
     use chrono::{DateTime, Utc};
 
     fn golden_message() -> CertificateMessage {
@@ -134,11 +134,11 @@ mod tests {
                     .unwrap()
                     .with_timezone(&Utc),
                 signers: vec![
-                    Party {
+                    StakeDistributionParty {
                         party_id: "1".to_string(),
                         stake: 10,
                     },
-                    Party {
+                    StakeDistributionParty {
                         party_id: "2".to_string(),
                         stake: 20,
                     },

@@ -1,5 +1,6 @@
 use mithril_common::entities::{
-    Beacon, HexEncodedAgregateVerificationKey, PartyId, SignedEntityType, SignerWithStake, Stake,
+    Beacon, HexEncodedAgregateVerificationKey, PartyId, SignedEntityType, Stake,
+    StakeDistributionParty,
 };
 use std::collections::BTreeMap;
 
@@ -16,7 +17,7 @@ pub struct ExpectedCertificate {
 impl ExpectedCertificate {
     pub fn new(
         beacon: Beacon,
-        signers: &[SignerWithStake],
+        signers: &[StakeDistributionParty],
         avk: HexEncodedAgregateVerificationKey,
         signed_type: SignedEntityType,
         previous_identifier: String,

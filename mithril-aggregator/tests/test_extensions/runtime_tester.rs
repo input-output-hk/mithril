@@ -420,7 +420,7 @@ impl RuntimeTester {
 
                 ExpectedCertificate::new(
                     certificate.beacon,
-                    &certificate.metadata.signers,
+                    certificate.metadata.signers.as_slice(),
                     certificate.aggregate_verification_key.try_into().unwrap(),
                     record.signed_entity_type,
                     previous_cert_identifier,

@@ -171,18 +171,21 @@ impl Debug for Certificate {
 mod tests {
     use super::*;
     use crate::{
-        entities::{certificate_metadata::Party, ProtocolMessagePartKey, ProtocolParameters},
+        entities::{
+            certificate_metadata::StakeDistributionParty, ProtocolMessagePartKey,
+            ProtocolParameters,
+        },
         test_utils::fake_keys,
     };
     use chrono::{DateTime, Duration, Utc};
 
-    fn get_parties() -> Vec<Party> {
+    fn get_parties() -> Vec<StakeDistributionParty> {
         vec![
-            Party {
+            StakeDistributionParty {
                 party_id: "1".to_string(),
                 stake: 10,
             },
-            Party {
+            StakeDistributionParty {
                 party_id: "2".to_string(),
                 stake: 20,
             },

@@ -4,6 +4,7 @@ use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
         Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+        StakeDistributionParty,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -72,7 +73,7 @@ async fn create_certificate() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 1, 2),
-            &fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
@@ -103,7 +104,7 @@ async fn create_certificate() {
             Beacon::new("devnet".to_string(), 1, 3),
             &signers_for_immutables
                 .iter()
-                .map(|s| s.into())
+                .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 3)),
