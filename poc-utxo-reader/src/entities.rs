@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub type Era = String;
 pub type SlotNumber = u64;
 pub type BlockNumber = u64;
+pub type ImmutableFileNumber = usize;
 pub type Address = String;
 pub type Lovelace = i128;
 pub type TransactionHash = String;
@@ -28,9 +29,10 @@ impl From<TransactionOutputRef> for TransactionInput {
 
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct TransactionOutput {
+    pub output_ref: TransactionOutputRef,
     pub address: Address,
     pub quantity: Lovelace,
-    pub data_hash: TransactionDataHash,
+    pub data_hash: Option<TransactionDataHash>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
@@ -39,20 +41,21 @@ pub struct TransactionOutputRef {
     pub index: TransactionIndex,
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
-pub struct UnspentTransactionOutput {
-    pub address: Address,
-    pub tx_hash: TransactionHash,
-    pub tx_index: TransactionIndex,
-    pub quantity: Lovelace,
-    pub data_hash: TransactionDataHash,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Transaction {
+    pub block_number: BlockNumber,
     pub hash: TransactionHash,
     pub inputs: Vec<TransactionInput>,
-    pub outputs: Vec<(TransactionIndex, TransactionOutput)>,
+    pub outputs: Vec<TransactionOutput>,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+pub struct UTxO {
+    pub address: Address,
+    pub hash: TransactionHash,
+    pub index: TransactionIndex,
+    pub quantity: Lovelace,
+    pub data_hash: Option<TransactionDataHash>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,13 +63,15 @@ pub struct Block {
     pub era: Era,
     pub number: BlockNumber,
     pub slot_number: SlotNumber,
+    pub immutable_file_number: ImmutableFileNumber,
     pub transactions: Vec<Transaction>,
 }
 
-impl TryFrom<MultiEraBlock<'_>> for Block {
-    type Error = StdError;
-
-    fn try_from(multi_era_block: MultiEraBlock) -> Result<Self, Self::Error> {
+impl Block {
+    pub fn try_convert(
+        multi_era_block: MultiEraBlock,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<Self> {
         let mut transactions = Vec::new();
         for tx in &multi_era_block.txs() {
             let tx_hash = tx.hash();
@@ -81,31 +86,28 @@ impl TryFrom<MultiEraBlock<'_>> for Block {
             }
             let mut transactions_outputs = Vec::new();
             for (tx_index, tx_output) in tx.produces() {
-                // TODO: Maybe use a different address format when error (Byron)
+                // TODO: Maybe use a different address format when error (Byron) / Base58
                 let address = match tx_output.address().unwrap().to_bech32() {
                     Ok(address) => address,
                     Err(_) => tx_output.address().unwrap().to_hex(),
                 };
-                transactions_outputs.push((
-                    tx_index as u64,
-                    TransactionOutput {
-                        address,
-                        quantity: tx_output.lovelace_amount() as Lovelace,
-                        data_hash: tx_output
-                            .datum()
-                            .map(|datum| match datum {
-                                PseudoDatumOption::Hash(hash) => {
-                                    hash.as_slice().encode_hex::<String>()
-                                }
-                                PseudoDatumOption::Data(cbor_wrap) => {
-                                    cbor_wrap.compute_hash().as_slice().encode_hex::<String>()
-                                }
-                            })
-                            .unwrap_or_default(),
+                transactions_outputs.push(TransactionOutput {
+                    output_ref: TransactionOutputRef {
+                        hash: tx_hash.to_string(),
+                        index: tx_index as u64,
                     },
-                ));
+                    address,
+                    quantity: tx_output.lovelace_amount() as Lovelace,
+                    data_hash: tx_output.datum().map(|datum| match datum {
+                        PseudoDatumOption::Hash(hash) => hash.as_slice().encode_hex::<String>(),
+                        PseudoDatumOption::Data(cbor_wrap) => {
+                            cbor_wrap.compute_hash().as_slice().encode_hex::<String>()
+                        }
+                    }),
+                });
             }
             let transaction = Transaction {
+                block_number: multi_era_block.number(),
                 hash: tx_hash.to_string(),
                 inputs: transactions_inputs,
                 outputs: transactions_outputs,
@@ -116,6 +118,7 @@ impl TryFrom<MultiEraBlock<'_>> for Block {
             era: multi_era_block.era().to_string(),
             number: multi_era_block.number(),
             slot_number: multi_era_block.slot(),
+            immutable_file_number,
             transactions,
         };
 

@@ -1,6 +1,8 @@
 use anyhow::anyhow;
 use clap::Parser;
-use poc_utxo_reader::{errors::*, immutable_parser::*, ledger::Ledger};
+use poc_utxo_reader::{
+    entities::ImmutableFileNumber, errors::*, immutable_parser::*, ledger::Ledger,
+};
 use rayon::prelude::*;
 use sqlite::Connection;
 use std::{
@@ -10,6 +12,10 @@ use std::{
 
 /// Configuration parameters
 #[derive(Parser, Debug, PartialEq, Clone)]
+#[clap(
+    about = "This program imports transactions from immutable files and queries the associated UTxOs.",
+    long_about = None
+)]
 pub struct Config {
     /// Command to run
     #[clap(long)]
@@ -23,13 +29,13 @@ pub struct Config {
     #[clap(long, default_value = ":memory:")]
     db_path: String,
 
-    /// Min immutable files scanned
+    /// Min immutable file number imported
     #[clap(long)]
-    min_immutable_files: Option<usize>,
+    min_immutable_file_number_import: Option<ImmutableFileNumber>,
 
-    /// Max immutable files scanned
+    /// Max immutable file number imported
     #[clap(long)]
-    max_immutable_files: Option<usize>,
+    max_immutable_file_number_import: Option<ImmutableFileNumber>,
 
     /// With parallelization
     #[clap(long, default_value = "false")]
@@ -39,9 +45,9 @@ pub struct Config {
     #[clap(long)]
     address: Option<String>,
 
-    /// Block number
+    /// Immutable file number queried
     #[clap(long)]
-    block_number: Option<u64>,
+    immutable_file_number_query: Option<ImmutableFileNumber>,
 }
 
 fn main() -> StdResult<()> {
@@ -60,6 +66,7 @@ fn main() -> StdResult<()> {
 fn run_import_command(config: &Config) -> StdResult<()> {
     let db_path = config.db_path.to_owned();
     let connection = Connection::open_with_full_mutex(db_path)?;
+    //connection.execute("pragma foreign_keys=false")?;
     let ledger = Ledger::new(connection)?;
 
     let immutable_directory_path = config
@@ -68,13 +75,15 @@ fn run_import_command(config: &Config) -> StdResult<()> {
         .ok_or_else(|| anyhow!("Missing 'data_directory' configuration parameter"))?;
     eprintln!(">> Scanning {immutable_directory_path:?} immutable files...");
 
-    let min_immutable_files = config.min_immutable_files.unwrap_or(0);
-    let max_immutable_files = config.max_immutable_files.unwrap_or(usize::MAX);
+    let min_immutable_file_number_import = config.min_immutable_file_number_import.unwrap_or(0);
+    let max_immutable_file_number_import = config
+        .max_immutable_file_number_import
+        .unwrap_or(usize::MAX);
     let immutable_chunk_file_paths: Vec<_> =
         list_immutable_files(Path::new(&immutable_directory_path))?
             .into_iter()
-            .skip(min_immutable_files)
-            .take(max_immutable_files)
+            .skip(min_immutable_file_number_import)
+            .take(max_immutable_file_number_import)
             .collect();
 
     if config.with_parallelization {
@@ -92,16 +101,23 @@ fn run_query_command(config: &Config) -> StdResult<()> {
     let connection = Connection::open_with_full_mutex(db_path)?;
     let ledger = Ledger::new(connection)?;
 
-    let block_number = config.block_number.unwrap_or(u64::MAX);
+    let max_immutable_file_number_query = (u32::MAX - 1) as usize;
+    let immutable_file_number_query = config
+        .immutable_file_number_query
+        .unwrap_or(max_immutable_file_number_query);
     if let Some(address) = config.address.to_owned() {
         println!(
             "{}",
-            serde_json::to_string(&ledger.get_utxos_for_address(&address, &block_number)?)?
+            serde_json::to_string(
+                &ledger.get_utxos_for_address(&address, &immutable_file_number_query)?
+            )?
         );
     } else {
         println!(
             "{}",
-            serde_json::to_string(&ledger.get_utxos_for_all_addresses(&block_number)?)?
+            serde_json::to_string(
+                &ledger.get_utxos_for_all_addresses(&immutable_file_number_query)?
+            )?
         );
     }
 

@@ -32,7 +32,16 @@ pub fn read_blocks_from_immutable_file(file_path: &Path) -> StdResult<Vec<Block>
         if let Ok(multi_era_block) =
             MultiEraBlock::decode(&cbor[last_start_byte_index..maybe_end_byte_index])
         {
-            blocks.push(multi_era_block.try_into()?);
+            let filestem = file_path
+                .file_stem()
+                .ok_or(anyhow!("Can not stem immutable file path: {file_path:?}"))?
+                .to_str()
+                .ok_or(anyhow!(
+                    "Can not convert immutable file name: {file_path:?}"
+                ))?;
+            let immutable_file_number = filestem.parse::<ImmutableFileNumber>()?;
+            let block = Block::try_convert(multi_era_block, immutable_file_number)?;
+            blocks.push(block);
             last_start_byte_index = block_start_index;
         }
     }
