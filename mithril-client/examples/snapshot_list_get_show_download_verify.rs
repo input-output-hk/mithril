@@ -1,6 +1,6 @@
-//! This example shows how to implement a Mithril Client and use its features.
+//! This example shows how to implement a Mithril client and use its features.
 //!
-//! In this example, the client interacts with a real aggregator (testing-preview) to get the data.
+//! In this example, the client interacts with a real aggregator (`testing-preview`) to get the data.
 //!
 //! A [FeedbackReceiver] using [indicatif] is used to nicely report the progress to the console.
 
@@ -40,7 +40,7 @@ async fn main() -> MithrilResult<()> {
         .snapshot()
         .get(last_digest)
         .await?
-        .ok_or(anyhow!("A Snapshot should exist for hash '{last_digest}'"))?;
+        .ok_or(anyhow!("A snapshot should exist for hash '{last_digest}'"))?;
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
@@ -121,7 +121,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
             MithrilEvent::SnapshotDownloadComplete { download_id: _ } => {
                 let mut download_pb = self.download_pb.write().await;
                 if let Some(progress_bar) = download_pb.as_ref() {
-                    progress_bar.finish_with_message("Snapshot download complete");
+                    progress_bar.finish_with_message("Snapshot download completed");
                 }
                 *download_pb = None;
             }

@@ -1,6 +1,6 @@
 //! # Long task feedbacks
 //!
-//! Even with a fast computer and network, some tasks can take more than a few
+//! Even with fast computer and network, some tasks can take more than a few
 //! seconds to run (or even more than an hour for a snapshot download).
 //!
 //! Those tasks are:
@@ -148,7 +148,7 @@ impl FeedbackSender {
         }
     }
 
-    /// Send the given event to the known receiver.
+    /// Send the given event to the known receivers.
     pub async fn send_event(&self, event: MithrilEvent) {
         for receiver in &self.receivers {
             receiver.handle_event(event.clone()).await;
@@ -159,11 +159,11 @@ impl FeedbackSender {
 /// A receiver of [MithrilEvent].
 #[async_trait]
 pub trait FeedbackReceiver: Sync + Send {
-    /// Callback called by a [FeedbackSender] when it need to send an [event][MithrilEvent].
+    /// Callback called by a [FeedbackSender] when it needs to send an [event][MithrilEvent].
     async fn handle_event(&self, event: MithrilEvent);
 }
 
-/// A [FeedbackReceiver] that write the event it receives in a [slog logger][Logger].
+/// A [FeedbackReceiver] that writes the event it receives in a [slog logger][Logger].
 pub struct SlogFeedbackReceiver {
     logger: Logger,
 }
@@ -241,7 +241,7 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
     }
 }
 
-/// A [FeedbackReceiver] that stack the events that it receives in a vec.
+/// A [FeedbackReceiver] that stacks the events that it receives in a vec.
 ///
 /// Use it only for tests purpose.
 pub struct StackFeedbackReceiver {

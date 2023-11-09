@@ -13,7 +13,7 @@ use reqwest::Url;
 use slog::{o, Logger};
 use std::sync::Arc;
 
-/// Structure that aggregate the available clients for each of the mithril types.
+/// Structure that aggregates the available clients for each of the Mithril types of certified data.
 ///
 /// Use the [ClientBuilder] to instantiate it easily.
 pub struct Client {
@@ -23,17 +23,17 @@ pub struct Client {
 }
 
 impl Client {
-    /// Get the client that fetch and verify mithril certificates.
+    /// Get the client that fetches and verifies Mithril certificates.
     pub fn certificate(&self) -> Arc<CertificateClient> {
         self.certificate_client.clone()
     }
 
-    /// Get the client that fetch mithril stake distributions.
+    /// Get the client that fetches Mithril stake distributions.
     pub fn mithril_stake_distribution(&self) -> Arc<MithrilStakeDistributionClient> {
         self.mithril_stake_distribution_client.clone()
     }
 
-    /// Get the client that fetch and download mithril snapshots.
+    /// Get the client that fetches and downloads Mithril snapshots.
     pub fn snapshot(&self) -> Arc<SnapshotClient> {
         self.snapshot_client.clone()
     }
@@ -51,7 +51,7 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Constructs a new `ClientBuilder` that fetch data from the aggregator at the given url
+    /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given url
     /// and with the given genesis verification key.
     pub fn aggregator(url: &str, genesis_verification_key: &str) -> ClientBuilder {
         Self {
@@ -65,7 +65,7 @@ impl ClientBuilder {
         }
     }
 
-    /// Constructs a new `ClientBuilder` without any dependencies set.
+    /// Constructs a new `ClientBuilder` without any dependency set.
     ///
     /// Use [ClientBuilder::aggregator] if you don't need to set a custom [AggregatorClient]
     /// to request data from the aggregator.
@@ -83,7 +83,7 @@ impl ClientBuilder {
 
     /// Returns a `Client` that uses the dependencies provided to this `ClientBuilder`.
     ///
-    /// For missing dependencies the builder will try to create them using default implementations
+    /// The builder will try to create the missing dependencies using default implementations
     /// if possible.
     pub fn build(self) -> MithrilResult<Client> {
         let logger = match self.logger {

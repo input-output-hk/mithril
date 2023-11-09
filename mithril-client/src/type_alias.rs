@@ -26,13 +26,13 @@ pub use mithril_common::messages::CertificateMessage as MithrilCertificate;
 
 pub use mithril_common::messages::CertificateMetadataMessagePart as MithrilCertificateMetadata;
 
-/// List item of certificates
+/// List item of Mithril certificates
 ///
 pub use mithril_common::messages::CertificateListItemMessage as MithrilCertificateListItem;
 
 pub use mithril_common::messages::CertificateListItemMessageMetadata as MithrilCertificateListItemMetadata;
 
-/// A individual signer of a [mithril certificate][MithrilCertificate]
+/// An individual signer of a [Mithril certificate][MithrilCertificate]
 ///
 pub use mithril_common::messages::SignerWithStakeMessagePart as MithrilSigner;
 

@@ -1,9 +1,9 @@
 #![warn(missing_docs)]
 
-//! Define everything necessary to manipulate mithril types from a
+//! Define all the tooling necessary to manipulate Mithril certified types from a
 //! [Mithril Aggregator](https://mithril.network/rust-doc/mithril_aggregator/index.html).
 //!
-//! It handles the different types that can be queried to a mithril aggregator:
+//! It handles the different types that can be queried to a MITHRIL AGGREGATOR:
 //!
 //! - [Snapshot][snapshot_client] list, get and download tarball.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
@@ -17,7 +17,7 @@
 //!
 //! # Example
 //!
-//! Below is a example describing the use of the most of library's functions together:
+//! Below is an example describing the usage of most of the library's functions together:
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
@@ -36,7 +36,7 @@
 //!     .verify_chain(&snapshot.certificate_hash)
 //!     .await?;
 //!
-//! // note: the directory must already exists
+//! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
 //!     .snapshot()

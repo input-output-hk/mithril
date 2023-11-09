@@ -1,6 +1,6 @@
 //! Snapshot tarball download and unpack mechanism.
 //!
-//! The [SnapshotDownloader] trait abstract how the download and unpack snapshots
+//! The [SnapshotDownloader] trait abstracts how to download and unpack snapshots
 //! tarballs.
 //!
 //! Snapshots locations can be of various kinds, right now we only support HTTP
@@ -28,7 +28,7 @@ pub trait SnapshotDownloader: Sync + Send {
     /// Download and unpack a snapshot archive on the disk.
     ///
     /// The `download_id` is a unique identifier that allow
-    /// [feedback receivers][crate::feedback::FeedbackReceiver] to track concurrent download.
+    /// [feedback receivers][crate::feedback::FeedbackReceiver] to track concurrent downloads.
     ///
     /// Warning: this can be a quite long operation depending on the snapshot size.
     async fn download_unpack(

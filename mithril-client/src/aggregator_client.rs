@@ -1,6 +1,6 @@
-//! Data exchange mechanisms with an Aggregator.
+//! Mechanisms to exchange data with an Aggregator.
 //!
-//! The [AggregatorClient] trait abstract how the communication with an Aggregator
+//! The [AggregatorClient] trait abstracts how the communication with an Aggregator
 //! is done.
 //! The clients that need to communicate only need to define their request using the
 //! [AggregatorRequest] enum.
@@ -54,12 +54,12 @@ pub enum AggregatorRequest {
     },
     /// Lists the aggregator [certificates][crate::MithrilCertificate]
     ListCertificates,
-    /// Get a specific [mithril stake distribution][crate::MithrilStakeDistribution] from the aggregator
+    /// Get a specific [Mithril stake distribution][crate::MithrilStakeDistribution] from the aggregator
     GetMithrilStakeDistribution {
-        /// Hash of the mithril stake distribution to retrieve
+        /// Hash of the Mithril stake distribution to retrieve
         hash: String,
     },
-    /// Lists the aggregator [mithril stake distribution][crate::MithrilStakeDistribution]
+    /// Lists the aggregator [Mithril stake distribution][crate::MithrilStakeDistribution]
     ListMithrilStakeDistributions,
     /// Get a specific [snapshot][crate::Snapshot] from the aggregator
     GetSnapshot {

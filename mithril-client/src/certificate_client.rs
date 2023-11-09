@@ -1,6 +1,6 @@
-//! A client to retrieve and validate certificates from an Aggregator.
+//! A client which retrieves and validates certificates from an Aggregator.
 //!
-//! To do so it defines a [CertificateClient] exposes the following features:
+//! In order to do so it defines a [CertificateClient] exposes the following features:
 //!  - [get][CertificateClient::get]: get a certificate data from its hash
 //!  - [list][CertificateClient::list]: get the list of available certificates
 //!  - [verify_chain][CertificateClient::verify_chain]: verify a certificate chain
@@ -112,7 +112,7 @@ impl CertificateClient {
         }
     }
 
-    /// Fetch a list of signed certificates
+    /// Fetch a list of certificates
     pub async fn list(&self) -> MithrilResult<Vec<MithrilCertificateListItem>> {
         let response = self
             .aggregator_client
@@ -131,9 +131,9 @@ impl CertificateClient {
     }
 
     /// Validate the chain starting with the certificate with given `certificate_hash`, return the certificate if
-    /// chain valid.
+    /// the chain is valid.
     ///
-    /// This method will fails if no certicate exists with the given `certificate_hash`.
+    /// This method will fail if no certificate exists for the given `certificate_hash`.
     pub async fn verify_chain(&self, certificate_hash: &str) -> MithrilResult<MithrilCertificate> {
         let certificate = self.retriever.get(certificate_hash).await?.ok_or(anyhow!(
             "No certificate exist for hash '{certificate_hash}'"

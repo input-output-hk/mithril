@@ -1,12 +1,12 @@
-//! A client to retrieve mithril stake distributions data from an Aggregator.
+//! A client to retrieve Mithril stake distributions data from an Aggregator.
 //!
-//! To do so it defines a [MithrilStakeDistributionClient] exposes the following features:
-//!  - [get][MithrilStakeDistributionClient::get]: get a mithril stake distribution data from its hash
-//!  - [list][MithrilStakeDistributionClient::list]: get the list of available mithril stake distribution
+//! In order to do so it defines a [MithrilStakeDistributionClient] which exposes the following features:
+//!  - [get][MithrilStakeDistributionClient::get]: get a Mithril stake distribution data from its hash
+//!  - [list][MithrilStakeDistributionClient::list]: get the list of available Mithril stake distribution
 //!
-//! # Get a mithril stake distribution
+//! # Get a Mithril stake distribution
 //!
-//! To get a mithril stake distribution using the [ClientBuilder][crate::client::ClientBuilder].
+//! To get a Mithril stake distribution using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
@@ -20,9 +20,9 @@
 //! # }
 //! ```
 //!
-//! # List available mithril stake distributions
+//! # List available Mithril stake distributions
 //!
-//! To list available mithril stake distributions using the [ClientBuilder][crate::client::ClientBuilder].
+//! To list available Mithril stake distributions using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {

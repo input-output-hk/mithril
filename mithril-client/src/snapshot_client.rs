@@ -1,6 +1,6 @@
 //! A client to retrieve snapshots data from an Aggregator.
 //!
-//! To do so it defines a [SnapshotClient] exposes the following features:
+//! In order to do so it defines a [SnapshotClient] which exposes the following features:
 //!  - [get][SnapshotClient::get]: get a single snapshot data from its digest
 //!  - [list][SnapshotClient::list]: get the list of available snapshots
 //!  - [download_unpack][SnapshotClient::download_unpack]: download and unpack the tarball of a snapshot to a directory
@@ -51,7 +51,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
-//! // note: the directory must already exists
+//! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
 //!    .snapshot()
@@ -144,7 +144,9 @@ impl SnapshotClient {
     }
 
     /// Download and unpack the given snapshot to the given directory
-    /// (the directory should already exist)
+    ///
+    /// **NOTE**: The directory should already exist, and the user running the binary
+    /// must have read/write access to it.
     pub async fn download_unpack(
         &self,
         snapshot: &Snapshot,

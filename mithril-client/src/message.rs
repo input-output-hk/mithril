@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use crate::{MithrilCertificate, MithrilResult, MithrilStakeDistribution};
 
-/// A [MessageBuilder] can be used to compute the message of mithril artifacts.
+/// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
     immutable_digester: Option<Arc<dyn ImmutableDigester>>,
     logger: Logger,
@@ -49,7 +49,7 @@ impl MessageBuilder {
         }
     }
 
-    /// Compute message for a snapshot (based on its unpacked directory).
+    /// Compute message for a snapshot (based on the directory where it was unpacked).
     ///
     /// Warning: this operation can be quite long depending on the snapshot size.
     pub async fn compute_snapshot_message(
@@ -75,7 +75,7 @@ impl MessageBuilder {
         Ok(message)
     }
 
-    /// Compute message for a mithril stake distribution.
+    /// Compute message for a Mithril stake distribution.
     pub fn compute_mithril_stake_distribution_message(
         &self,
         mithril_stake_distribution: &MithrilStakeDistribution,
