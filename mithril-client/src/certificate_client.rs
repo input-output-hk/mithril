@@ -151,7 +151,7 @@ impl CertificateClient {
 }
 
 /// Internal type to implement the [InternalCertificateRetriever] trait and avoid a circular
-/// dependency between the [CertificateClient] and the [MithrilCertificateVerifier] that need
+/// dependency between the [CertificateClient] and the [CommonMithrilCertificateVerifier] that need
 /// a [CertificateRetriever] as a dependency.
 struct InternalCertificateRetriever {
     aggregator_client: Arc<dyn AggregatorClient>,

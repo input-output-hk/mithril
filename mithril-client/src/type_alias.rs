@@ -16,7 +16,7 @@ pub use mithril_common::messages::SnapshotListItemMessage as SnapshotListItem;
 ///
 pub use mithril_common::messages::MithrilStakeDistributionMessage as MithrilStakeDistribution;
 
-/// List item of Mithril stake distribution.
+/// List item of Mithril stake distributions.
 ///
 pub use mithril_common::messages::MithrilStakeDistributionListItemMessage as MithrilStakeDistributionListItem;
 

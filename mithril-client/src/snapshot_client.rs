@@ -51,7 +51,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
-//! // note: the directoy must already exists
+//! // note: the directory must already exists
 //! let target_directory = Path::new("/home/user/download/");
 //! client
 //!    .snapshot()

@@ -103,7 +103,7 @@ mod tests {
 
     use super::*;
 
-    fn golden_message() -> Vec<MithrilStakeDistributionListItem> {
+    fn fake_messages() -> Vec<MithrilStakeDistributionListItem> {
         vec![
             MithrilStakeDistributionListItem {
                 epoch: Epoch(1),
@@ -126,7 +126,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_mithril_stake_distribution_list() {
-        let message = golden_message();
+        let message = fake_messages();
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
             .expect_get_content()

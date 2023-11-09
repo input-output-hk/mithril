@@ -46,17 +46,17 @@ async fn snapshot_list_get_show_download_verify() {
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
 
-    client
-        .snapshot()
-        .download_unpack(&snapshot, &unpacked_dir)
-        .await
-        .expect("download/unpack snapshot should not fail");
-
     let certificate = client
         .certificate()
         .verify_chain(&snapshot.certificate_hash)
         .await
         .expect("Validating the chain should not fail");
+
+    client
+        .snapshot()
+        .download_unpack(&snapshot, &unpacked_dir)
+        .await
+        .expect("download/unpack snapshot should not fail");
 
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, &unpacked_dir)

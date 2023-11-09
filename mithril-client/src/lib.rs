@@ -31,16 +31,16 @@
 //! let last_digest = snapshots.first().unwrap().digest.as_ref();
 //! let snapshot = client.snapshot().get(last_digest).await?.unwrap();
 //!
-//! // note: the directoy must already exists
+//! let certificate = client
+//!     .certificate()
+//!     .verify_chain(&snapshot.certificate_hash)
+//!     .await?;
+//!
+//! // note: the directory must already exists
 //! let target_directory = Path::new("/home/user/download/");
 //! client
 //!     .snapshot()
 //!     .download_unpack(&snapshot, &target_directory)
-//!     .await?;
-//!
-//! let certificate = client
-//!     .certificate()
-//!     .verify_chain(&snapshot.certificate_hash)
 //!     .await?;
 //!
 //! let message = MessageBuilder::new()

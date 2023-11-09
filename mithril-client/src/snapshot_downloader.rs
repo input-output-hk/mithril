@@ -25,7 +25,7 @@ use crate::MithrilResult;
 /// API that defines a snapshot downloader
 #[async_trait]
 pub trait SnapshotDownloader: Sync + Send {
-    /// Download and unpack a snapshot archives on the disk.
+    /// Download and unpack a snapshot archive on the disk.
     ///
     /// The `download_id` is a unique identifier that allow
     /// [feedback receivers][crate::feedback::FeedbackReceiver] to track concurrent download.
@@ -40,11 +40,11 @@ pub trait SnapshotDownloader: Sync + Send {
         snapshot_size: u64,
     ) -> MithrilResult<()>;
 
-    /// Test if the given snapshot location exist.
+    /// Test if the given snapshot location exists.
     async fn probe(&self, location: &str) -> MithrilResult<()>;
 }
 
-/// A snapshot downloader that only handle download through HTTP.
+/// A snapshot downloader that only handles download through HTTP.
 pub struct HttpSnapshotDownloader {
     http_client: reqwest::Client,
     feedback_sender: FeedbackSender,

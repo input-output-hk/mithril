@@ -45,14 +45,14 @@ async fn main() -> MithrilResult<()> {
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
 
-    client
-        .snapshot()
-        .download_unpack(&snapshot, &unpacked_dir)
-        .await?;
-
     let certificate = client
         .certificate()
         .verify_chain(&snapshot.certificate_hash)
+        .await?;
+
+    client
+        .snapshot()
+        .download_unpack(&snapshot, &unpacked_dir)
         .await?;
 
     println!("Computing snapshot '{}' message ...", snapshot.digest);
