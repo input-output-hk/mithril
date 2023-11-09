@@ -56,7 +56,7 @@ pub struct CertificateRecord {
     /// Structured message that is used to create the signed message
     pub protocol_message: ProtocolMessage,
 
-    /// The list of the active signers with their stakes and verification keys
+    /// The list of the active signers with their stakes
     pub signers: Vec<StakeDistributionParty>,
 
     /// Date and time when the certificate was initiated

@@ -246,7 +246,7 @@ pub fn setup_certificate_chain(
                     .unwrap()
                 }
                 _ => {
-                    fake_certificate.metadata.signers = fixture.stake_ditribution_parties();
+                    fake_certificate.metadata.signers = fixture.stake_distribution_parties();
                     let single_signatures = fixture
                         .signers_fixture()
                         .iter()

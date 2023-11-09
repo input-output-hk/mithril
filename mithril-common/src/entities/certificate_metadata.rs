@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 
 use super::{PartyId, Stake};
 
-/// This represents a stake owner.
+/// This represents a stake holder.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StakeDistributionParty {
     /// Party identifier as in the stake distribution

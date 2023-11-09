@@ -111,7 +111,7 @@ mod tests {
             ]
         }"#;
         let message: CertificateMetadataMessagePart = serde_json::from_str(json).expect(
-            "This JSON is expected to be successfully parsed into a CertificateMetadataMessage instance.",
+            "This JSON is expected to be successfully parsed into a CertificateMetadataMessagePart instance.",
         );
 
         assert_eq!(golden_message(), message);
@@ -141,7 +141,7 @@ mod tests {
             ]
         }"#;
         let message: CertificateMetadataMessagePart = serde_json::from_str(json).expect(
-            "This JSON is expected to be successfully parsed into a CertificateMetadataMessage instance.",
+            "This JSON is expected to be successfully parsed into a CertificateMetadataMessagePart instance.",
         );
 
         assert_eq!(golden_message(), message);

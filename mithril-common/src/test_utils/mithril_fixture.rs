@@ -118,7 +118,7 @@ impl MithrilFixture {
     }
 
     /// Get certificate metadata signers
-    pub fn stake_ditribution_parties(&self) -> Vec<StakeDistributionParty> {
+    pub fn stake_distribution_parties(&self) -> Vec<StakeDistributionParty> {
         self.signers
             .iter()
             .map(|s| StakeDistributionParty {
