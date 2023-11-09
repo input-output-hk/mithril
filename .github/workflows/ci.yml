@@ -145,7 +145,10 @@ jobs:
 
       - name: Run doc tests
         run: cargo test --doc ${{ matrix.test-args }}
-          
+
+      - name: Ensure examples build
+        run: cargo build --examples ${{ matrix.test-args }}
+
       - name: Rename junit file to include runner info
         shell: bash
         if: success() || failure()
