@@ -4,7 +4,7 @@ use crate::{
     certificate_chain::CertificateGenesisProducer,
     entities::{
         Certificate, CertificateSignature, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        SignerWithStake, Stake, StakeDistributionParty,
+        SignerWithStake, Stake,
     },
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
@@ -246,12 +246,7 @@ pub fn setup_certificate_chain(
                     .unwrap()
                 }
                 _ => {
-                    fake_certificate.metadata.signers = fixture
-                        .signers_with_stake()
-                        .into_iter()
-                        .map(|s| -> StakeDistributionParty { s.into() })
-                        .collect();
-
+                    fake_certificate.metadata.signers = fixture.stake_ditribution_parties();
                     let single_signatures = fixture
                         .signers_fixture()
                         .iter()
