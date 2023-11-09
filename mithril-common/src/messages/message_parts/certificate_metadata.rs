@@ -116,4 +116,34 @@ mod tests {
 
         assert_eq!(golden_message(), message);
     }
+
+    // Test the backward compatibility with possible future upgrades.
+    #[test]
+    fn test_v2() {
+        let json = r#"{
+            "version": "0.1.0",
+            "parameters": {
+                "k": 1000,
+                "m": 100,
+                "phi_f": 0.123
+            },
+            "initiated_at": "2024-02-12T13:11:47Z",
+            "sealed_at": "2024-02-12T13:12:57Z",
+            "signers": [
+                {
+                    "party_id": "1",
+                    "stake": 10
+                },
+                {
+                    "party_id": "2",
+                    "stake": 20
+                }
+            ]
+        }"#;
+        let message: CertificateMetadataMessagePart = serde_json::from_str(json).expect(
+            "This JSON is expected to be successfully parsed into a CertificateMetadataMessage instance.",
+        );
+
+        assert_eq!(golden_message(), message);
+    }
 }
