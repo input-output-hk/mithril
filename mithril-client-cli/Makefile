@@ -11,7 +11,7 @@ all: test build
 
 build:
 	# We use 'portable' feature to avoid SIGILL crashes
-	${CARGO} build --release --features portable,build-binary,bundle_openssl
+	${CARGO} build --release --features portable,bundle_openssl
 	cp ../target/release/mithril-client .
 
 run: build

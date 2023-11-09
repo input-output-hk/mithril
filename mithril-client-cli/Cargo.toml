@@ -12,12 +12,10 @@ repository = { workspace = true }
 [[bin]]
 name = "mithril-client"
 path = "src/main.rs"
-required-features = ["build-binary"]
 
 [package.metadata.deb]
 depends = "$auto"
 section = "utility"
-features = ["build-binary"]
 extended-description = """Shows, downloads and verifies certified blockchain artifacts.
 
 Run `mithril-client --help` to display the available options."""
@@ -28,9 +26,9 @@ anyhow = "1.0.75"
 async-recursion = "1.0.5"
 async-trait = "0.1.73"
 chrono = { version = "0.4.31", features = ["serde"] }
-clap = { version = "4.4.6", features = ["derive", "env"], optional = true }
-cli-table = { version = "0.4.7", optional = true }
-config = { version = "0.13.3", optional = true }
+clap = { version = "4.4.6", features = ["derive", "env"] }
+cli-table = "0.4.7"
+config = "0.13.3"
 directories = "5.0.1"
 flate2 = "1.0.27"
 flume = "0.11.0"
@@ -67,4 +65,3 @@ warp = "0.3"
 [features]
 portable = ["mithril-common/portable"]
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
-build-binary = ["clap", "config", "cli-table"]

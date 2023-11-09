@@ -45,7 +45,7 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --features build-binary,bundle_openssl
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --features bundle_openssl
           libraries-build-args: --package mithril-stm --package mithril-client
 
       - name: Build Debian packages
@@ -85,12 +85,12 @@ jobs:
         include:
         # Only build client on windows & mac
         - os: macos-12
-          binaries-build-args: --bin mithril-client --features build-binary,bundle_openssl
+          binaries-build-args: --bin mithril-client --features bundle_openssl
           libraries-build-args: --package mithril-stm --package mithril-client
         - os: windows-latest
           # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
           # hack in mithril common cargo.toml doesn't apply (we have no idea why).
-          binaries-build-args: --bins --package mithril-client-cli --features build-binary,bundle_openssl
+          binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
           libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend
     runs-on: ${{ matrix.os }}
     
