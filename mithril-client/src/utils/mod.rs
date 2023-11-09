@@ -1,5 +1,5 @@
 //! Utilities module
-//! This module contains tools needed mostly in services layers.
+//! This module contains tools needed mostly for the snapshot download and unpack.
 
 mod stream_reader;
 mod unpacker;

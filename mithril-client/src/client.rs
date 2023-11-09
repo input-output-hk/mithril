@@ -41,7 +41,7 @@ impl Client {
 
 /// Builder than can be used to create a [Client] easily or with custom dependencies.
 pub struct ClientBuilder {
-    aggregator_url: Option<String>,
+    aggregator_endpoint: Option<String>,
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
@@ -51,11 +51,11 @@ pub struct ClientBuilder {
 }
 
 impl ClientBuilder {
-    /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given url
-    /// and with the given genesis verification key.
-    pub fn aggregator(url: &str, genesis_verification_key: &str) -> ClientBuilder {
+    /// Constructs a new `ClientBuilder` that fetches data from the aggregator at the given
+    /// endpoint and with the given genesis verification key.
+    pub fn aggregator(endpoint: &str, genesis_verification_key: &str) -> ClientBuilder {
         Self {
-            aggregator_url: Some(url.to_string()),
+            aggregator_endpoint: Some(endpoint.to_string()),
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
@@ -71,7 +71,7 @@ impl ClientBuilder {
     /// to request data from the aggregator.
     pub fn new(genesis_verification_key: &str) -> ClientBuilder {
         Self {
-            aggregator_url: None,
+            aggregator_endpoint: None,
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
@@ -95,16 +95,16 @@ impl ClientBuilder {
 
         let aggregator_client = match self.aggregator_client {
             None => {
-                let url = self
-                    .aggregator_url
-                    .ok_or(anyhow!("No aggregator url found: \
-                    You must either provide an aggregator url or your own AggregatorClient implementation"))?;
-                let url =
-                    Url::parse(&url).with_context(|| format!("Invalid aggregator URL: '{url}'"))?;
+                let endpoint = self
+                    .aggregator_endpoint
+                    .ok_or(anyhow!("No aggregator endpoint set: \
+                    You must either provide an aggregator endpoint or your own AggregatorClient implementation"))?;
+                let endpoint_url = Url::parse(&endpoint)
+                    .with_context(|| format!("Invalid aggregator endpoint, it must be a correctly formed url: '{endpoint}'"))?;
 
                 Arc::new(
                     AggregatorHTTPClient::new(
-                        url,
+                        endpoint_url,
                         APIVersionProvider::compute_all_versions_sorted()
                             .with_context(|| "Could not compute aggregator api versions")?,
                         logger.clone(),

@@ -226,6 +226,9 @@ impl MithrilCertificateVerifier {
 #[async_trait]
 impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()> {
+        // Todo: move most of this code in the `mithril_common` verifier by defining
+        // a new `verify_chain` method that take a callback called when a certificate is
+        // validated.
         let certificate_chain_validation_id = MithrilEvent::new_certificate_chain_validation_id();
         self.feedback_sender
             .send_event(MithrilEvent::CertificateChainValidationStarted {

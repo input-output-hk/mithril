@@ -78,7 +78,7 @@ pub enum MithrilEvent {
         size: u64,
     },
     /// A snapshot download has completed
-    SnapshotDownloadComplete {
+    SnapshotDownloadCompleted {
         /// Unique identifier used to track this specific snapshot download
         download_id: String,
     },
@@ -117,7 +117,7 @@ impl MithrilEvent {
         match self {
             MithrilEvent::SnapshotDownloadStarted { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadProgress { download_id, .. } => download_id,
-            MithrilEvent::SnapshotDownloadComplete { download_id } => download_id,
+            MithrilEvent::SnapshotDownloadCompleted { download_id } => download_id,
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id,
             } => certificate_chain_validation_id,
@@ -205,7 +205,7 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                     "download_id" => download_id,
                 );
             }
-            MithrilEvent::SnapshotDownloadComplete { download_id } => {
+            MithrilEvent::SnapshotDownloadCompleted { download_id } => {
                 info!(self.logger, "Snapshot download completed"; "download_id" => download_id);
             }
             MithrilEvent::CertificateChainValidationStarted {
@@ -282,7 +282,7 @@ impl FeedbackReceiver for StackFeedbackReceiver {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::feedback::MithrilEvent::{SnapshotDownloadComplete, SnapshotDownloadStarted};
+    use crate::feedback::MithrilEvent::{SnapshotDownloadCompleted, SnapshotDownloadStarted};
     use std::time::Duration;
     use tokio::task::JoinSet;
 
@@ -299,7 +299,7 @@ mod tests {
             })
             .await;
         sender
-            .send_event(SnapshotDownloadComplete {
+            .send_event(SnapshotDownloadCompleted {
                 download_id: "download_id".to_string(),
             })
             .await;
@@ -312,7 +312,7 @@ mod tests {
                     download_id: "download_id".to_string(),
                     size: 10
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download_id".to_string()
                 }
             ]
@@ -341,7 +341,7 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(2)).await;
             // Step 3:
             sender
-                .send_event(SnapshotDownloadComplete {
+                .send_event(SnapshotDownloadCompleted {
                     download_id: "download3".to_string(),
                 })
                 .await;
@@ -357,7 +357,7 @@ mod tests {
         join_set.spawn(async move {
             // Step 2:
             sender2
-                .send_event(SnapshotDownloadComplete {
+                .send_event(SnapshotDownloadCompleted {
                     download_id: "download1".to_string(),
                 })
                 .await;
@@ -371,7 +371,7 @@ mod tests {
             tokio::time::sleep(Duration::from_millis(5)).await;
             // Step 4:
             sender2
-                .send_event(SnapshotDownloadComplete {
+                .send_event(SnapshotDownloadCompleted {
                     download_id: "download2".to_string(),
                 })
                 .await;
@@ -389,7 +389,7 @@ mod tests {
                     download_id: "download1".to_string(),
                     size: 1
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download1".to_string()
                 },
                 SnapshotDownloadStarted {
@@ -397,7 +397,7 @@ mod tests {
                     download_id: "download3".to_string(),
                     size: 3
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download3".to_string()
                 },
                 SnapshotDownloadStarted {
@@ -405,7 +405,7 @@ mod tests {
                     download_id: "download2".to_string(),
                     size: 2
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download2".to_string()
                 },
             ]
@@ -432,7 +432,7 @@ mod tests {
 
             // Step 2:
             sender
-                .send_event(SnapshotDownloadComplete {
+                .send_event(SnapshotDownloadCompleted {
                     download_id: "download1".to_string(),
                 })
                 .await;
@@ -447,7 +447,7 @@ mod tests {
 
             // Step 3:
             sender
-                .send_event(SnapshotDownloadComplete {
+                .send_event(SnapshotDownloadCompleted {
                     download_id: "download2".to_string(),
                 })
                 .await;
@@ -462,7 +462,7 @@ mod tests {
 
             // Final step:
             sender
-                .send_event(SnapshotDownloadComplete {
+                .send_event(SnapshotDownloadCompleted {
                     download_id: "download3".to_string(),
                 })
                 .await;
@@ -490,7 +490,7 @@ mod tests {
                         download_id: "download1".to_string(),
                         size: 1
                     },
-                    SnapshotDownloadComplete {
+                    SnapshotDownloadCompleted {
                         download_id: "download1".to_string()
                     },
                     SnapshotDownloadStarted {
@@ -511,7 +511,7 @@ mod tests {
                         download_id: "download1".to_string(),
                         size: 1
                     },
-                    SnapshotDownloadComplete {
+                    SnapshotDownloadCompleted {
                         download_id: "download1".to_string()
                     },
                     SnapshotDownloadStarted {
@@ -519,7 +519,7 @@ mod tests {
                         download_id: "download2".to_string(),
                         size: 2
                     },
-                    SnapshotDownloadComplete {
+                    SnapshotDownloadCompleted {
                         download_id: "download2".to_string()
                     },
                     SnapshotDownloadStarted {
@@ -543,7 +543,7 @@ mod tests {
                     download_id: "download1".to_string(),
                     size: 1
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download1".to_string()
                 },
                 SnapshotDownloadStarted {
@@ -551,7 +551,7 @@ mod tests {
                     download_id: "download2".to_string(),
                     size: 2
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download2".to_string()
                 },
                 SnapshotDownloadStarted {
@@ -559,7 +559,7 @@ mod tests {
                     download_id: "download3".to_string(),
                     size: 3
                 },
-                SnapshotDownloadComplete {
+                SnapshotDownloadCompleted {
                     download_id: "download3".to_string()
                 },
             ]

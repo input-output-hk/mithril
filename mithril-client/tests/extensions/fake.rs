@@ -83,8 +83,10 @@ impl FakeAggregator {
             ..fake_data::beacon()
         };
 
-        // ugly horror needed to update the snapshot location after the server is started, server
-        // which need said snapshot to start.
+        // Ugly horror needed to update the snapshot location after the server is started, server
+        // which need said snapshot to start and run in another thread.
+        // The RwLock is needed to mutate the value across threads and the Arc to transfer it
+        // to the server thread while keeping an access on the main thread.
         let snapshot = Arc::new(RwLock::new(Snapshot {
             digest: snapshot_digest.to_string(),
             certificate_hash: certificate_hash.to_string(),

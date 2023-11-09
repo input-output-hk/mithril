@@ -177,7 +177,7 @@ impl SnapshotClient {
                         // todo: add snapshot statistics to cli (it was previously done here)
                         // note: the snapshot download does not fail if the statistic call fails.
                         self.feedback_sender
-                            .send_event(MithrilEvent::SnapshotDownloadComplete { download_id })
+                            .send_event(MithrilEvent::SnapshotDownloadCompleted { download_id })
                             .await;
                         Ok(())
                     }
@@ -240,7 +240,7 @@ mod tests {
                 download_id: id.to_string(),
                 size: snapshot.size,
             },
-            MithrilEvent::SnapshotDownloadComplete {
+            MithrilEvent::SnapshotDownloadCompleted {
                 download_id: id.to_string(),
             },
         ];

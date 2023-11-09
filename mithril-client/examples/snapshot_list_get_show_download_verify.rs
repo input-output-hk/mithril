@@ -118,7 +118,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.set_position(downloaded_bytes);
                 }
             }
-            MithrilEvent::SnapshotDownloadComplete { download_id: _ } => {
+            MithrilEvent::SnapshotDownloadCompleted { download_id: _ } => {
                 let mut download_pb = self.download_pb.write().await;
                 if let Some(progress_bar) = download_pb.as_ref() {
                     progress_bar.finish_with_message("Snapshot download completed");

@@ -71,7 +71,7 @@ pub enum AggregatorRequest {
 }
 
 impl AggregatorRequest {
-    /// Get the request route relative to the aggregator root url.
+    /// Get the request route relative to the aggregator root endpoint.
     pub fn route(&self) -> String {
         match self {
             AggregatorRequest::GetCertificate { hash } => {
@@ -105,7 +105,7 @@ pub trait AggregatorClient: Sync + Send {
 /// Responsible of HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
     http_client: reqwest::Client,
-    aggregator_url: Url,
+    aggregator_endpoint: Url,
     api_versions: Arc<RwLock<Vec<Version>>>,
     logger: Logger,
 }
@@ -124,7 +124,7 @@ impl AggregatorHTTPClient {
         // Trailing slash is significant because url::join
         // (https://docs.rs/url/latest/url/struct.Url.html#method.join) will remove
         // the 'path' part of the url if it doesn't end with a trailing slash.
-        let aggregator_url = if aggregator_endpoint.as_str().ends_with('/') {
+        let aggregator_endpoint = if aggregator_endpoint.as_str().ends_with('/') {
             aggregator_endpoint
         } else {
             let mut url = aggregator_endpoint.clone();
@@ -134,7 +134,7 @@ impl AggregatorHTTPClient {
 
         Ok(Self {
             http_client,
-            aggregator_url,
+            aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
             logger,
         })
@@ -223,12 +223,12 @@ impl AggregatorHTTPClient {
     }
 
     fn get_url_for_route(&self, endpoint: &str) -> Result<Url, AggregatorClientError> {
-        self.aggregator_url
+        self.aggregator_endpoint
             .join(endpoint)
             .with_context(|| {
                 format!(
                     "Invalid url when joining given endpoint, '{endpoint}', to aggregator url '{}'",
-                    self.aggregator_url
+                    self.aggregator_endpoint
                 )
             })
             .map_err(AggregatorClientError::SubsystemError)
@@ -275,7 +275,7 @@ mod tests {
             let client = AggregatorHTTPClient::new(url, vec![], crate::test_utils::test_logger())
                 .expect("building aggregator http client should not fail");
 
-            assert_eq!(expected, client.aggregator_url.as_str());
+            assert_eq!(expected, client.aggregator_endpoint.as_str());
         }
     }
 }
