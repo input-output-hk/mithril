@@ -1,17 +1,17 @@
-use std::sync::Arc;
-
+use anyhow::anyhow;
 use clap::{Parser, ValueEnum};
 use libp2p::Multiaddr;
-use mithril_common::{StdResult, MITHRIL_API_VERSION_HEADER};
+use mithril_common::StdResult;
 use mithril_relay::{client::P2PClient, relay::SignerRelay};
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
+use std::sync::Arc;
 
 #[derive(Parser, Debug, PartialEq, Clone)]
 pub struct Config {
     /// Node type (relay or client)
-    #[clap(long)]
+    #[clap(long, env = "NODE_TYPE")]
     #[arg(value_enum)]
     node_type: NodeType,
 
@@ -19,13 +19,21 @@ pub struct Config {
     #[clap(long, default_value = "mithril/signatures")]
     topic_name: String,
 
-    /// Peer listen port
-    #[clap(long)]
+    /// HTTP Server listening port
+    #[clap(long, env = "SERVER_PORT", default_value_t = 3132)]
+    server_port: u16,
+
+    /// Peer listening port
+    #[clap(long, env = "LISTEN_PORT")]
     listen_port: Option<u16>,
 
     /// Dial to peer multi-address
-    #[clap(long)]
+    #[clap(long, env = "DIAL_TO")]
     dial_to: Option<Multiaddr>,
+
+    /// Aggregator endpoint URL.
+    #[clap(long, env = "AGGREGATOR_ENDPOINT")]
+    aggregator_endpoint: Option<String>,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -44,13 +52,18 @@ async fn main() -> StdResult<()> {
 
     let topic_name = config.topic_name;
     let node_type = config.node_type;
+    let server_port = config.server_port;
     let dial_to = config.dial_to;
     let addr: Multiaddr =
         format!("/ip4/0.0.0.0/tcp/{}", config.listen_port.unwrap_or(0)).parse()?;
+    let aggregator_endpoint = config.aggregator_endpoint;
 
     match node_type {
         NodeType::Signer => {
-            let mut relay = SignerRelay::start(&topic_name, &addr).await?;
+            let aggregator_endpoint =
+                aggregator_endpoint.ok_or(anyhow!("an aggregator endpoint must be specified"))?;
+            let mut relay =
+                SignerRelay::start(&topic_name, &addr, &server_port, &aggregator_endpoint).await?;
             if let Some(dial_to_address) = dial_to {
                 relay.peer.dial(dial_to_address.clone())?;
             }
@@ -79,7 +92,7 @@ async fn main() -> StdResult<()> {
                             let response = reqwest::Client::new()
                                 .post("http://localhost:8080/aggregator/register-signatures")
                                 .json(&signature_message_received)
-                                .header(MITHRIL_API_VERSION_HEADER, "0.1.13") // TODO: retrieve current version
+                                //.header(MITHRIL_API_VERSION_HEADER, "0.1.13") // TODO: retrieve current version
                                 .send()
                                 .await;
                             match response {

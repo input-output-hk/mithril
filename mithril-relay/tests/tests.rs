@@ -33,11 +33,14 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let total_peers = 1 + total_p2p_client;
     let topic_name = "mithril/signatures";
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
-    let mut relay = SignerRelay::start(topic_name, &addr)
-        .await
-        .expect("Relay start failed");
-    let relay_address = relay.address();
-    let relay_peer_address = relay.peer_address().unwrap();
+    let server_port = 0;
+    let aggregator_endpoint = "http://0.0.0.0:1234".to_string(); // TODO: to implement with test http server
+    let mut signer_relay =
+        SignerRelay::start(topic_name, &addr, &server_port, &aggregator_endpoint)
+            .await
+            .expect("Relay start failed");
+    let relay_address = signer_relay.address();
+    let relay_peer_address = signer_relay.peer_address().unwrap();
     info!("Test: relay_address is '{relay_address:?}'");
 
     let mut p2p_client1 = P2PClient::new(topic_name, &addr)
@@ -63,7 +66,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     loop {
         info!("Test: subscribed peers: {total_peers_connected}/{total_peers}");
         tokio::select! {
-            event =  relay.tick() => {
+            event =  signer_relay.tick() => {
                 if let Ok(Some(PeerEvent::Behaviour {
                     event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Subscribed { .. }),
                 })) = event
@@ -119,7 +122,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let mut total_peers_has_received_message = 0;
     loop {
         tokio::select! {
-            _event =  relay.tick() => {
+            _event =  signer_relay.tick() => {
 
             },
             event =  p2p_client1.tick() => {
@@ -139,7 +142,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
                 }
             }
         }
-        let _ = relay.tick().await.unwrap();
+        let _ = signer_relay.tick().await.unwrap();
         if total_peers_has_received_message == total_p2p_client {
             info!("Test: All P2P clients have consumed the signature");
             break;

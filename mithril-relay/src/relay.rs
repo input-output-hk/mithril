@@ -1,5 +1,4 @@
-use std::net::SocketAddr;
-
+use crate::peer::{Peer, PeerEvent};
 use libp2p::Multiaddr;
 use mithril_common::{
     messages::RegisterSignatureMessage,
@@ -7,10 +6,9 @@ use mithril_common::{
     StdResult,
 };
 use slog_scope::{debug, info};
+use std::net::SocketAddr;
 use tokio::sync::mpsc::{self, unbounded_channel};
 use warp::Filter;
-
-use crate::peer::{Peer, PeerEvent};
 
 pub fn aggregator_endpoint() -> String {
     "https://aggregator.testing-preview.api.mithril.network/aggregator".to_string()
@@ -23,13 +21,15 @@ pub struct SignerRelay {
 }
 
 impl SignerRelay {
-    pub async fn start(topic_name: &str, address: &Multiaddr) -> StdResult<Self> {
+    pub async fn start(
+        topic_name: &str,
+        address: &Multiaddr,
+        server_port: &u16,
+        aggregator_endpoint: &str,
+    ) -> StdResult<Self> {
         debug!("SignerRelay: starting...");
         let (tx, rx) = unbounded_channel::<RegisterSignatureMessage>();
         let peer = Peer::new(topic_name, address).start().await?;
-        let port = 3132;
-        let aggregator_endpoint =
-            "https://aggregator.testing-preview.api.mithril.network/aggregator".to_string();
         let server = test_http_server_with_port(
             warp::path("register-signatures")
                 .and(warp::post())
@@ -40,22 +40,22 @@ impl SignerRelay {
                     .and(warp::post())
                     .and(warp::body::json())
                     .and(middlewares::with_aggregator_endpoint(
-                        aggregator_endpoint.clone(),
+                        aggregator_endpoint.to_string(),
                     ))
                     .and_then(handlers::register_signer_handler))
                 .or(warp::path("epoch-settings")
                     .and(warp::get())
                     .and(middlewares::with_aggregator_endpoint(
-                        aggregator_endpoint.clone(),
+                        aggregator_endpoint.to_string(),
                     ))
                     .and_then(handlers::epoch_settings_handler))
                 .or(warp::path("certificate-pending")
                     .and(warp::get())
                     .and(middlewares::with_aggregator_endpoint(
-                        aggregator_endpoint.clone(),
+                        aggregator_endpoint.to_string(),
                     ))
                     .and_then(handlers::certificate_pending_handler)),
-            port,
+            *server_port,
         );
         info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
 
