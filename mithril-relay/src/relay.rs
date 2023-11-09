@@ -20,10 +20,10 @@ pub struct Relay {
 }
 
 impl Relay {
-    pub async fn start(topic_name: &str) -> StdResult<Self> {
+    pub async fn start(topic_name: &str, address: &Multiaddr) -> StdResult<Self> {
         debug!("Relay: starting...");
         let (tx, rx) = mpsc::unbounded_channel::<RegisterSignatureMessage>();
-        let peer = Peer::new(topic_name).start().await?;
+        let peer = Peer::new(topic_name, address).start().await?;
         let server = test_http_server(
             warp::path("register-signatures")
                 .and(warp::post())
@@ -47,7 +47,7 @@ impl Relay {
     }
 
     pub fn peer_address(&self) -> Option<Multiaddr> {
-        self.peer.addr.to_owned()
+        self.peer.addr_peer.to_owned()
     }
 
     pub async fn tick(&mut self) -> StdResult<Option<PeerEvent>> {

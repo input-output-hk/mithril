@@ -8,9 +8,9 @@ pub struct P2PClient {
 }
 
 impl P2PClient {
-    pub fn new(topic_name: &str) -> Self {
+    pub fn new(topic_name: &str, addr: &Multiaddr) -> Self {
         Self {
-            peer: Peer::new(topic_name),
+            peer: Peer::new(topic_name, addr),
         }
     }
 
@@ -38,6 +38,6 @@ impl P2PClient {
     }
 
     pub fn address(&self) -> Option<Multiaddr> {
-        self.peer.addr.to_owned()
+        self.peer.addr_peer.to_owned()
     }
 }

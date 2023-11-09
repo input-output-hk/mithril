@@ -37,15 +37,17 @@ pub enum PeerEvent {
 pub struct Peer {
     pub topic: gossipsub::IdentTopic,
     pub swarm: Option<Swarm<PeerBehaviour>>,
-    pub addr: Option<Multiaddr>,
+    pub addr: Multiaddr,
+    pub addr_peer: Option<Multiaddr>,
 }
 
 impl Peer {
-    pub fn new(topic_name: &str) -> Self {
+    pub fn new(topic_name: &str, addr: &Multiaddr) -> Self {
         Self {
             topic: gossipsub::IdentTopic::new(topic_name),
             swarm: None,
-            addr: None,
+            addr: addr.to_owned(),
+            addr_peer: None,
         }
     }
 
@@ -133,14 +135,13 @@ impl Peer {
             .subscribe(&self.topic)
             .unwrap();
 
-        let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse()?;
-        let _listener_id = swarm.listen_on(addr.clone()).unwrap();
+        let _listener_id = swarm.listen_on(self.addr.clone()).unwrap();
         self.swarm = Some(swarm);
 
         loop {
             if let Some(PeerEvent::ListeningOnAddr { address }) = self.tick_swarm().await? {
                 info!("Peer: listening on"; "address" => format!("{address:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-                self.addr = Some(address);
+                self.addr_peer = Some(address);
                 break;
             }
         }

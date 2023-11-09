@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use libp2p::gossipsub;
+use libp2p::{gossipsub, Multiaddr};
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_relay::{
     client::P2PClient,
@@ -32,12 +32,15 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let total_p2p_client = 2;
     let total_peers = 1 + total_p2p_client;
     let topic_name = "mithril/signatures";
-    let mut relay = Relay::start(topic_name).await.expect("Relay start failed");
+    let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
+    let mut relay = Relay::start(topic_name, &addr)
+        .await
+        .expect("Relay start failed");
     let relay_address = relay.address();
     let relay_peer_address = relay.peer_address().unwrap();
     info!("Test: relay_address is '{relay_address:?}'");
 
-    let mut p2p_client1 = P2PClient::new(topic_name)
+    let mut p2p_client1 = P2PClient::new(topic_name, &addr)
         .start()
         .await
         .expect("P2P client start failed");
@@ -46,7 +49,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
         .dial(relay_peer_address.clone())
         .expect("P2P client dial to the relay should not fail");
 
-    let mut p2p_client2 = P2PClient::new(topic_name)
+    let mut p2p_client2 = P2PClient::new(topic_name, &addr)
         .start()
         .await
         .expect("P2P client start failed");

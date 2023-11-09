@@ -19,7 +19,11 @@ pub struct Config {
     #[clap(long, default_value = "mithril/signatures")]
     topic_name: String,
 
-    /// Quorum parameter
+    /// Peer listen port
+    #[clap(long)]
+    listen_port: Option<u16>,
+
+    /// Dial to peer multi-address
     #[clap(long)]
     dial_to: Option<Multiaddr>,
 }
@@ -41,10 +45,12 @@ async fn main() -> StdResult<()> {
     let topic_name = config.topic_name;
     let node_type = config.node_type;
     let dial_to = config.dial_to;
+    let addr: Multiaddr =
+        format!("/ip4/0.0.0.0/tcp/{}", config.listen_port.unwrap_or(0)).parse()?;
 
     match node_type {
         NodeType::Signer => {
-            let mut relay = Relay::start(&topic_name).await?;
+            let mut relay = Relay::start(&topic_name, &addr).await?;
             if let Some(dial_to_address) = dial_to {
                 relay.peer.dial(dial_to_address.clone())?;
             }
@@ -55,7 +61,7 @@ async fn main() -> StdResult<()> {
             }
         }
         NodeType::Aggregator => {
-            let mut p2p_client = P2PClient::new(&topic_name)
+            let mut p2p_client = P2PClient::new(&topic_name, &addr)
                 .start()
                 .await
                 .expect("relay aggregator start failed");
@@ -99,7 +105,7 @@ async fn main() -> StdResult<()> {
             }
         }
         NodeType::Peer => {
-            let mut p2p_client = P2PClient::new(&topic_name)
+            let mut p2p_client = P2PClient::new(&topic_name, &addr)
                 .start()
                 .await
                 .expect("relay peer start failed");
