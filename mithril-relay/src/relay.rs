@@ -16,15 +16,15 @@ pub fn aggregator_endpoint() -> String {
     "https://aggregator.testing-preview.api.mithril.network/aggregator".to_string()
 }
 
-pub struct Relay {
+pub struct SignerRelay {
     server: TestHttpServer,
     pub peer: Peer,
     pub message_rx: mpsc::UnboundedReceiver<RegisterSignatureMessage>,
 }
 
-impl Relay {
+impl SignerRelay {
     pub async fn start(topic_name: &str, address: &Multiaddr) -> StdResult<Self> {
-        debug!("Relay: starting...");
+        debug!("SignerRelay: starting...");
         let (tx, rx) = unbounded_channel::<RegisterSignatureMessage>();
         let peer = Peer::new(topic_name, address).start().await?;
         let port = 3132;
@@ -57,7 +57,7 @@ impl Relay {
                     .and_then(handlers::certificate_pending_handler)),
             port,
         );
-        info!("Relay: listening on"; "address" => format!("{:?}", server.address()));
+        info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
 
         Ok(Self {
             server,
@@ -79,12 +79,12 @@ impl Relay {
             message = self.message_rx.recv()  => {
                 match message {
                     Some(signature_message) => {
-                        info!("Relay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
+                        info!("SignerRelay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
                         self.peer.publish(&signature_message)?;
                         Ok(None)
                     }
                     None => {
-                        debug!("Relay: no message available");
+                        debug!("SignerRelay: no message available");
                         Ok(None)
                     }
                 }
@@ -123,7 +123,7 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("Relay: serve HTTP route /register-signer"; "register_signer_message" => format!("{register_signer_message:#?}"));
+        debug!("SignerRelay: serve HTTP route /register-signer"; "register_signer_message" => format!("{register_signer_message:#?}"));
         let response = reqwest::Client::new()
             .post(format!("{aggregator_endpoint}/register-signer"))
             .json(&register_signer_message)
@@ -136,7 +136,7 @@ mod handlers {
         register_signature_message: RegisterSignatureMessage,
         tx: UnboundedSender<RegisterSignatureMessage>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("Relay: serve HTTP route /register-signatures"; "register_signature_message" => format!("{register_signature_message:#?}"));
+        debug!("SignerRelay: serve HTTP route /register-signatures"; "register_signature_message" => format!("{register_signature_message:#?}"));
         match tx.send(register_signature_message) {
             Ok(_) => Ok(Box::new(warp::reply::with_status(
                 "".to_string(),
@@ -152,7 +152,7 @@ mod handlers {
     pub async fn epoch_settings_handler(
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("Relay: serve HTTP route /epoch-settings");
+        debug!("SignerRelay: serve HTTP route /epoch-settings");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/epoch-settings"))
             .send()
@@ -163,7 +163,7 @@ mod handlers {
     pub async fn certificate_pending_handler(
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("Relay: serve HTTP route /certificate-pending");
+        debug!("SignerRelay: serve HTTP route /certificate-pending");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/certificate-pending"))
             .send()

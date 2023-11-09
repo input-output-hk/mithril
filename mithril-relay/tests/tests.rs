@@ -5,7 +5,7 @@ use mithril_common::messages::RegisterSignatureMessage;
 use mithril_relay::{
     client::P2PClient,
     peer::{PeerBehaviourEvent, PeerEvent},
-    relay::Relay,
+    relay::SignerRelay,
 };
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
@@ -33,7 +33,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let total_peers = 1 + total_p2p_client;
     let topic_name = "mithril/signatures";
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
-    let mut relay = Relay::start(topic_name, &addr)
+    let mut relay = SignerRelay::start(topic_name, &addr)
         .await
         .expect("Relay start failed");
     let relay_address = relay.address();

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use clap::{Parser, ValueEnum};
 use libp2p::Multiaddr;
 use mithril_common::{StdResult, MITHRIL_API_VERSION_HEADER};
-use mithril_relay::{client::P2PClient, relay::Relay};
+use mithril_relay::{client::P2PClient, relay::SignerRelay};
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
@@ -50,7 +50,7 @@ async fn main() -> StdResult<()> {
 
     match node_type {
         NodeType::Signer => {
-            let mut relay = Relay::start(&topic_name, &addr).await?;
+            let mut relay = SignerRelay::start(&topic_name, &addr).await?;
             if let Some(dial_to_address) = dial_to {
                 relay.peer.dial(dial_to_address.clone())?;
             }
