@@ -34,7 +34,39 @@ make build
 ./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release
 ```
 
+To run `mithril-end-to-end` command, you must first compile the Mithril nodes:
+
+```bash
+cargo build --release
+```
+
 ### Note for MacOS users
+
+#### `sed` compatibility
+
+Mithril end to end test uses `sed` command which is not compatible with MacOS.
+
+To deal easily with this issue, you can install `gnu-sed` and use it as `sed`.
+
+Here is an example of the installation of `gnu-sed` with Homebrew:
+
+```bash
+brew install gnu-sed
+```
+
+The shell output should display the instruction below, that you must follow:
+
+```bash
+GNU "sed" has been installed as "gsed".
+If you need to use it as "sed", you can add a "gnubin" directory
+to your PATH from your bashrc like:
+
+     PATH="$HOMEBREW_PREFIX/opt/gnu-sed/libexec/gnubin:$PATH"
+```
+
+Once saved, you need to reload your shell profile. Execute source $HOME/.bashrc or source $HOME/.zshrc (depending on the shell application you use).
+
+#### Use your own cardano binaries
 
 The cardano binaries downloaded to run the test suite are only built for Linux.
 
