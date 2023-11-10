@@ -67,7 +67,7 @@ impl CertificateRetriever for CertificateClient {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::CertificateSignature;
-    use mithril_common::messages::{CertificateMetadataMessagePart, SignerWithStakeMessagePart};
+    use mithril_common::messages::CertificateMetadataMessagePart;
     use mithril_common::test_utils::fake_data;
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
@@ -102,9 +102,7 @@ mod tests {
                         protocol_parameters: certificate.metadata.protocol_parameters.clone(),
                         initiated_at: certificate.metadata.initiated_at,
                         sealed_at: certificate.metadata.sealed_at,
-                        signers: SignerWithStakeMessagePart::from_signers(
-                            certificate.metadata.signers.clone(),
-                        ),
+                        signers: certificate.metadata.signers.clone(),
                     },
                     protocol_message: certificate.protocol_message.clone(),
                     signed_message: certificate.signed_message.clone(),

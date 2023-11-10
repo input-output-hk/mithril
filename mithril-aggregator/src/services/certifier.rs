@@ -13,7 +13,7 @@ use mithril_common::{
     crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION},
     entities::{
         Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
-        SignedEntityType, SingleSignatures,
+        SignedEntityType, SingleSignatures, StakeDistributionParty,
     },
     StdResult,
 };
@@ -358,7 +358,7 @@ impl CertifierService for MithrilCertifierService {
             epoch_service.current_protocol_parameters()?.clone(),
             initiated_at,
             sealed_at,
-            signers,
+            StakeDistributionParty::from_signers(signers),
         );
         let parent_certificate_hash = self
             .certificate_repository

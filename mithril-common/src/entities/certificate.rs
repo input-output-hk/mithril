@@ -171,29 +171,24 @@ impl Debug for Certificate {
 mod tests {
     use super::*;
     use crate::{
-        entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake},
+        entities::{
+            certificate_metadata::StakeDistributionParty, ProtocolMessagePartKey,
+            ProtocolParameters,
+        },
         test_utils::fake_keys,
     };
     use chrono::{DateTime, Duration, Utc};
 
-    fn get_signers_with_stake() -> Vec<SignerWithStake> {
+    fn get_parties() -> Vec<StakeDistributionParty> {
         vec![
-            SignerWithStake::new(
-                "1".to_string(),
-                fake_keys::signer_verification_key()[1].try_into().unwrap(),
-                None,
-                None,
-                None,
-                10,
-            ),
-            SignerWithStake::new(
-                "2".to_string(),
-                fake_keys::signer_verification_key()[2].try_into().unwrap(),
-                None,
-                None,
-                None,
-                20,
-            ),
+            StakeDistributionParty {
+                party_id: "1".to_string(),
+                stake: 10,
+            },
+            StakeDistributionParty {
+                party_id: "2".to_string(),
+                stake: 20,
+            },
         ]
     }
 
@@ -214,7 +209,7 @@ mod tests {
     #[test]
     fn test_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "af0965134ef5b2c2a33005cf401c58ca882dead8efda358540dac0575098b54e";
+            "5a2604a4feed7d304d1dd86858b8adbf450d8167f25d43c0858a9d93c5ca73f0";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
@@ -229,7 +224,7 @@ mod tests {
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,
                 sealed_at,
-                get_signers_with_stake(),
+                get_parties(),
             ),
             get_protocol_message(),
             fake_keys::aggregate_verification_key()[0]
@@ -317,7 +312,7 @@ mod tests {
     #[test]
     fn test_genesis_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "e8cc8885ef7a76f35216a6ef603ab0387dcacb892e0a33df9de9f5bf98cf203b";
+            "fd3efd4bf091db9115b11552067deb2a2798160f22726db805bef70b9e7a547b";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
@@ -332,7 +327,7 @@ mod tests {
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,
                 sealed_at,
-                get_signers_with_stake(),
+                get_parties(),
             ),
             get_protocol_message(),
             fake_keys::aggregate_verification_key()[1]

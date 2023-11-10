@@ -16,6 +16,7 @@ use crate::{
     entities::{
         Beacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
         ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
+        StakeDistributionParty,
     },
     protocol::SignerBuilder,
 };
@@ -113,6 +114,17 @@ impl MithrilFixture {
             .iter()
             .map(|s| &s.signer_with_stake)
             .cloned()
+            .collect()
+    }
+
+    /// Get certificate metadata signers
+    pub fn stake_distribution_parties(&self) -> Vec<StakeDistributionParty> {
+        self.signers
+            .iter()
+            .map(|s| StakeDistributionParty {
+                party_id: s.signer_with_stake.party_id.clone(),
+                stake: s.signer_with_stake.stake,
+            })
             .collect()
     }
 

@@ -4,7 +4,7 @@ use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
         Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
-        StakeDistribution,
+        StakeDistribution, StakeDistributionParty,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -74,7 +74,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 1, 2),
-            &initial_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
             ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
@@ -97,7 +97,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 1, 3),
-            &initial_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 3)),
             ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
@@ -122,7 +122,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 1, 4),
-            &initial_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 4)),
             ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
@@ -186,7 +186,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 2, 4),
-            &initial_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
@@ -217,7 +217,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 3, 5),
-            &initial_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(3)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
@@ -248,7 +248,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 4, 6),
-            &next_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(4)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
@@ -279,7 +279,7 @@ async fn certificate_chain() {
         tester,
         ExpectedCertificate::new(
             Beacon::new("devnet".to_string(), 4, 7),
-            &next_fixture.signers_with_stake(),
+            StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_avk(),
             SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 4, 7)),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),

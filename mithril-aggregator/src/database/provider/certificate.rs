@@ -9,7 +9,7 @@ use mithril_common::{
     entities::{
         Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
         HexEncodedAgregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
-        ProtocolVersion, SignerWithStake,
+        ProtocolVersion, StakeDistributionParty,
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -56,8 +56,8 @@ pub struct CertificateRecord {
     /// Structured message that is used to create the signed message
     pub protocol_message: ProtocolMessage,
 
-    /// The list of the active signers with their stakes and verification keys
-    pub signers: Vec<SignerWithStake>,
+    /// The list of the active signers with their stakes
+    pub signers: Vec<StakeDistributionParty>,
 
     /// Date and time when the certificate was initiated
     pub initiated_at: DateTime<Utc>,
@@ -214,7 +214,7 @@ impl SqLiteEntity for CertificateRecord {
             signers: serde_json::from_str(signers_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
-                        "Could not turn string '{signers_string}' to Vec<SignerWithStake>. Error: {e}"
+                        "Could not turn string '{signers_string}' to Vec<StakeDistributionParty>. Error: {e}"
                     ))
                 },
             )?,
