@@ -109,13 +109,19 @@ impl CertificatesHashMigrator {
         }
 
         // 2 - Certificates migrated, we can insert them in the db
+        // (we do this by chunks in order to avoid reaching the limit of 32766 variables in a single query)
         debug!("🔧 Certificate Hash Migrator: inserting migrated certificates in the database");
-        self.certificate_repository
-            .create_many_certificates(migrated_certificates)
+        let migrated_certificates_chunk_size = 250;
+        for migrated_certificates_chunk in
+            migrated_certificates.chunks(migrated_certificates_chunk_size)
+        {
+            self.certificate_repository
+            .create_many_certificates(migrated_certificates_chunk.to_owned())
             .await
             .with_context(|| {
                 "Certificates Hash Migrator can not insert migrated certificates in the database"
             })?;
+        }
 
         Ok((old_certificates, old_and_new_hashes))
     }
