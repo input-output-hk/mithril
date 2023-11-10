@@ -4,8 +4,10 @@ use crate::{
     StdError,
 };
 use async_trait::async_trait;
-use mockall::automock;
 use thiserror::Error;
+
+#[cfg(test)]
+use mockall::automock;
 
 use super::{ChainAddress, TxDatum};
 
@@ -22,10 +24,10 @@ pub enum ChainObserverError {
 }
 
 /// Retrieve data from the cardano network
-#[automock]
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait ChainObserver: Sync + Send {
-    /// Retrieve the datums associated to and address
+    /// Retrieve the datums associated to an address
     async fn get_current_datums(
         &self,
         address: &ChainAddress,
