@@ -27,7 +27,7 @@ export CARDANO_NETWORK=**CARDANO_NETWORK**
 
 And copy the SQLite database file `aggregator.sqlite3`:
 ```bash
-cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3 cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d)
+cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3 /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d)
 ```
 
 And connect to the aggregator container:
@@ -37,7 +37,7 @@ docker exec -it mithril-aggregator bash
 
 Once connected to the aggregator container, recompute the certificates hashes:
 ```bash
-/app/bin/mithril-aggregator -vvv tools recompute-certificates-hash
+/app/bin/mithril-aggregator -vvvv tools recompute-certificates-hash
 ```
 
 Then disconnect from the aggregator container:
@@ -73,7 +73,7 @@ docker stop mithril-aggregator
 
 Then, restore the backed up database:
 ```bash
-cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.sqlite3.bak.$(date +%Y-%m-%d) cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator
+cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d) /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator/aggregator.sqlite3
 ```
 
 Then, start the aggregator:
