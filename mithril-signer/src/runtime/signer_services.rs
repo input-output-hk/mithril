@@ -130,6 +130,7 @@ impl<'a> ProductionServiceBuilder<'a> {
             &format!("immutables_digests_{}.json", self.config.network),
         )
         .should_reset_digests_cache(self.config.reset_digests_cache)
+        .with_logger(slog_scope::logger())
         .build()
         .await?;
 

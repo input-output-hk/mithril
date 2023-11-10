@@ -3,7 +3,7 @@ use crate::{
     StdResult,
 };
 use anyhow::Context;
-use slog_scope::info;
+use slog::{info, Logger};
 use std::path::Path;
 use tokio::fs;
 
@@ -13,6 +13,7 @@ pub struct JsonImmutableFileDigestCacheProviderBuilder<'a> {
     filename: &'a str,
     ensure_dir_exist: bool,
     reset_digests_cache: bool,
+    logger: Logger,
 }
 
 impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
@@ -23,6 +24,7 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
             filename,
             ensure_dir_exist: false,
             reset_digests_cache: false,
+            logger: Logger::root(slog::Discard, slog::o!()),
         }
     }
 
@@ -35,6 +37,12 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
     /// Set if existing cached values in the provider must be reset.
     pub fn should_reset_digests_cache(&mut self, should_reset: bool) -> &mut Self {
         self.reset_digests_cache = should_reset;
+        self
+    }
+
+    /// Set the [Logger] to use.
+    pub fn with_logger(&mut self, logger: Logger) -> &mut Self {
+        self.logger = logger;
         self
     }
 
@@ -62,6 +70,7 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
         }
 
         info!(
+            self.logger,
             "Storing/Getting immutables digests cache from: {}",
             cache_file.display()
         );
