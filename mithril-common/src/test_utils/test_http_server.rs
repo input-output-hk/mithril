@@ -85,7 +85,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use http::StatusCode;
+    use reqwest::StatusCode;
     use serde::Deserialize;
 
     #[tokio::test]

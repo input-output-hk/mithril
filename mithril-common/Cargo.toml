@@ -24,10 +24,10 @@ chrono = { version = "0.4.31", features = ["serde"] }
 digest = "0.10.7"
 ed25519-dalek = { version = "2.0.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"
-glob = "0.3.1"
+glob = { version = "0.3.1", optional = true }
 hex = "0.4.3"
-http = "0.2.9"
-jsonschema = "0.17.1"
+http = { version = "0.2.9", optional = true }
+jsonschema = { version = "0.17.1", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
@@ -87,3 +87,5 @@ portable = [
     "mithril-stm/portable",
 ] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
 allow_skip_signer_certification = []
+# Enable tools to helps validate conformity to an OpenAPI specification
+apispec = ["glob", "http", "jsonschema"]
