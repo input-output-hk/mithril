@@ -25,6 +25,20 @@ impl MessageBuilder {
         }
     }
 
+    /// Set the [Logger] to use.
+    pub fn with_logger(mut self, logger: Logger) -> Self {
+        self.logger = logger;
+        self
+    }
+
+    cfg_fs! {
+    fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
+        match self.immutable_digester.as_ref() {
+            None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
+            Some(digester) => digester.clone(),
+        }
+    }
+
     /// Set the [ImmutableDigester] to be used for the message computation for snapshot.
     ///
     /// If not set a default implementation will be used.
@@ -34,19 +48,6 @@ impl MessageBuilder {
     ) -> Self {
         self.immutable_digester = Some(immutable_digester);
         self
-    }
-
-    /// Set the [Logger] to use.
-    pub fn with_logger(mut self, logger: Logger) -> Self {
-        self.logger = logger;
-        self
-    }
-
-    fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
-        match self.immutable_digester.as_ref() {
-            None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
-            Some(digester) => digester.clone(),
-        }
     }
 
     /// Compute message for a snapshot (based on the directory where it was unpacked).
@@ -73,6 +74,7 @@ impl MessageBuilder {
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         Ok(message)
+    }
     }
 
     /// Compute message for a Mithril stake distribution.

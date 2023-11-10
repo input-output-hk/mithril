@@ -40,6 +40,7 @@
 //! ```
 //!
 //! # Download a snapshot
+//! **Note:** _Available on crate feature_ **fs** _only._
 //!
 //! To download and simultaneously unpack the tarball of a snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
@@ -63,12 +64,13 @@
 //! ```
 
 use anyhow::Context;
-use slog::{warn, Logger};
-use std::{path::Path, sync::Arc};
+use slog::Logger;
+use std::sync::Arc;
 use thiserror::Error;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::feedback::{FeedbackSender, MithrilEvent};
+use crate::feedback::FeedbackSender;
+#[cfg(feature = "fs")]
 use crate::snapshot_downloader::SnapshotDownloader;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
@@ -89,6 +91,7 @@ pub enum SnapshotClientError {
 /// Aggregator client for the snapshot artifact
 pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
+    #[cfg(feature = "fs")]
     snapshot_downloader: Arc<dyn SnapshotDownloader>,
     feedback_sender: FeedbackSender,
     logger: Logger,
@@ -98,12 +101,13 @@ impl SnapshotClient {
     /// Constructs a new `SnapshotClient`.
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
-        snapshot_downloader: Arc<dyn SnapshotDownloader>,
+        #[cfg(feature = "fs")] snapshot_downloader: Arc<dyn SnapshotDownloader>,
         feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> Self {
         Self {
             aggregator_client,
+            #[cfg(feature = "fs")]
             snapshot_downloader,
             feedback_sender,
             logger,
@@ -143,6 +147,7 @@ impl SnapshotClient {
         }
     }
 
+    cfg_fs! {
     /// Download and unpack the given snapshot to the given directory
     ///
     /// **NOTE**: The directory should already exist, and the user running the binary
@@ -150,8 +155,10 @@ impl SnapshotClient {
     pub async fn download_unpack(
         &self,
         snapshot: &Snapshot,
-        target_dir: &Path,
+        target_dir: &std::path::Path,
     ) -> MithrilResult<()> {
+        use crate::feedback::MithrilEvent;
+
         for location in snapshot.locations.as_slice() {
             if self.snapshot_downloader.probe(location).await.is_ok() {
                 let download_id = MithrilEvent::new_snapshot_download_id();
@@ -182,7 +189,7 @@ impl SnapshotClient {
                         Ok(())
                     }
                     Err(e) => {
-                        warn!(
+                        slog::warn!(
                             self.logger,
                             "Failed downloading snapshot from '{location}' Error: {e}."
                         );
@@ -200,14 +207,18 @@ impl SnapshotClient {
         }
         .into())
     }
+    }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(all(test, feature = "fs"))]
+mod tests_download {
     use crate::{
-        aggregator_client::MockAggregatorHTTPClient, feedback::StackFeedbackReceiver,
-        snapshot_downloader::MockHttpSnapshotDownloader, test_utils,
+        aggregator_client::MockAggregatorHTTPClient,
+        feedback::{MithrilEvent, StackFeedbackReceiver},
+        snapshot_downloader::MockHttpSnapshotDownloader,
+        test_utils,
     };
+    use std::path::Path;
 
     use super::*;
 

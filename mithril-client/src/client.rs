@@ -5,6 +5,7 @@ use crate::certificate_client::{
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
+#[cfg(feature = "fs")]
 use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 use anyhow::{anyhow, Context};
@@ -45,6 +46,7 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    #[cfg(feature = "fs")]
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
@@ -59,6 +61,7 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "fs")]
             snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
@@ -75,6 +78,7 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "fs")]
             snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
@@ -115,6 +119,7 @@ impl ClientBuilder {
             Some(client) => client,
         };
 
+        #[cfg(feature = "fs")]
         let snapshot_downloader = match self.snapshot_downloader {
             None => Arc::new(
                 HttpSnapshotDownloader::new(feedback_sender.clone(), logger.clone())
@@ -146,6 +151,7 @@ impl ClientBuilder {
         ));
         let snapshot_client = Arc::new(SnapshotClient::new(
             aggregator_client,
+            #[cfg(feature = "fs")]
             snapshot_downloader,
             feedback_sender,
             logger,
@@ -176,6 +182,7 @@ impl ClientBuilder {
         self
     }
 
+    cfg_fs! {
     /// Set the [SnapshotDownloader] that will be used to download snapshots.
     pub fn with_snapshot_downloader(
         mut self,
@@ -183,6 +190,7 @@ impl ClientBuilder {
     ) -> ClientBuilder {
         self.snapshot_downloader = Some(snapshot_downloader);
         self
+    }
     }
 
     /// Set the [Logger] to use.
