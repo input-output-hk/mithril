@@ -3,7 +3,7 @@
 //! Define all the tooling necessary to manipulate Mithril certified types from a
 //! [Mithril Aggregator](https://mithril.network/rust-doc/mithril_aggregator/index.html).
 //!
-//! It handles the different types that can be queried to a MITHRIL AGGREGATOR:
+//! It handles the different types that can be queried to a Mithril aggregator:
 //!
 //! - [Snapshot][snapshot_client] list, get and download tarball.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.

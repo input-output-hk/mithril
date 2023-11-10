@@ -9,9 +9,9 @@ import CompiledBinaries from '../../../compiled-binaries.md'
 
 :::info
 
-Mithril Client Library can be used by Rust developers to use the Mithril Network in their applications.
+Mithril client library can be used by Rust developers to use the Mithril network in their applications.
 
-It handles the different types that can be queried to a mithril aggregator:
+It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
 - [**Snapshot**](../../../glossary.md#snapshot): list, get and download tarball.
 - [**Mithril stake distribution**](../../../glossary#stake-distribution): list and get.
 - [**Certificate**](../../../glossary#certificate): list, get, and chain validation.
@@ -50,23 +50,31 @@ It handles the different types that can be queried to a mithril aggregator:
 
 :::caution
 
-Mithril Client library has not yet been published on [crates.io](https://crates.io/), so you won't be able to follow the procedure below. The crate will be published soon.
+Mithril client library has not yet been published on [crates.io](https://crates.io/), so you won't be able to follow the procedure below. The crate will be published soon.
+
+For now, you can experiment it by adding the dependency manually in the Cargo.toml of your project:
+
+```toml title="/Cargo.toml"
+mithril-client = { git = "https://github.com/input-output-hk/mithril.git" }
+```
 
 :::
 
-In your project, use `cargo` to add [mithril_client](https://crates.io/crates/mithril_client) crate as a dependency:
+In your project, use `cargo` to add [mithril-client](https://crates.io/crates/mithril-client) crate as a dependency:
 
 ```bash
-cargo add mithril_client
+cargo add mithril-client
 ```
 
-It will add the latest version of the Mithril client library.
+:::info
 
 Mithril client is an asynchronous library, you will need a runtime to execute your futures. We recommend to use the crate [tokio](https://crates.io/crates/tokio), as the library has been tested with it.
 
-## Using Mithril Client Library
+:::
 
-Below is a basic example of how to use most of the functions exposed by the Mithril Client library:
+## Using Mithril client library
+
+Below is a basic example of how to use most of the functions exposed by the Mithril client library:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder};
@@ -104,13 +112,17 @@ async fn main() -> mithril_client::MithrilResult<()> {
 
 :::info
 
-Snapshot download and Certificate chain validation can take quite some time even with a fast computer and network. For those a feedback mechanism is available, more details on it in the [feedback submodule](https://mithril.network/rust-doc/mithril_client/feedback/index.html).
+Snapshot download and certificate chain validation can take quite some time even with a fast computer and network. We have implemented a feedback mechanism for them, more details on it are available in the [feedback sub-module](https://mithril.network/rust-doc/mithril_client/feedback/index.html).
 
-An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/mithril-client/examples/snapshot_list_get_show_download_verify.rs).
+An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/mithril-client/examples/snapshot_list_get_show_download_verify.rs). To run it, execute the following command:
+
+```bash
+cargo run --example snapshot_list_get_show_download_verify 
+```
 
 :::
 
-Here is an example of the code for the release-preprod network:
+Here is a working example of the code using the configuration parameters of the `release-preprod` network:
 
 ```rust title="/src/main.rs"
 use mithril_client::{ClientBuilder, MessageBuilder};
