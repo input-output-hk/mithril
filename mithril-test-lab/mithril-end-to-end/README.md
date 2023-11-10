@@ -34,6 +34,26 @@ make build
 ./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release
 ```
 
+### Note for MacOS users
+
+The cardano binaries downloaded to run the test suite are only built for Linux.
+
+To run the end to end test, you will need to build and use your own compiled cardano binaries:
+
+- Build the **cardano-node** and **cardano-cli** binaries following the documentation on the [Cardano Developer Portal](https://developers.cardano.org/docs/get-started/installing-cardano-node#macos).
+
+- From the root of the repository, copy the `cardano-node` and `cardano-cli` binaries in the `devnet` directory:
+```bash
+cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-node
+cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-cli
+```
+
+- Use the `--skip-cardano-bin-download` option to run the end to end test:
+
+```bash
+./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release --skip-cardano-bin-download
+```
+
 ## Build and run an aggregator stress test
 
 ```bash

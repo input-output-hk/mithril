@@ -1,7 +1,6 @@
 use mithril_common::entities::{Certificate, CertificateSignature};
 use mithril_common::messages::{
-    CertificateMessage, CertificateMetadataMessagePart, SignerWithStakeMessagePart,
-    ToMessageAdapter,
+    CertificateMessage, CertificateMetadataMessagePart, ToMessageAdapter,
 };
 
 /// Adapter to convert [Certificate] to [CertificateMessage] instances
@@ -15,7 +14,7 @@ impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageA
             protocol_parameters: certificate.metadata.protocol_parameters,
             initiated_at: certificate.metadata.initiated_at,
             sealed_at: certificate.metadata.sealed_at,
-            signers: SignerWithStakeMessagePart::from_signers(certificate.metadata.signers),
+            signers: certificate.metadata.signers,
         };
 
         let (multi_signature, genesis_signature) = match certificate.signature {

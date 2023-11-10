@@ -8,6 +8,7 @@ use crate::{
     entities::{
         self, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch, LotteryIndex,
         ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
+        StakeDistributionParty,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -105,7 +106,10 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     let protocol_parameters = protocol_parameters();
 
     // Signers with stakes
-    let signers = signers_with_stakes(5);
+    let signers: Vec<StakeDistributionParty> = signers_with_stakes(5)
+        .into_iter()
+        .map(|s| s.into())
+        .collect();
 
     // Certificate metadata
     let protocol_version = crypto_helper::PROTOCOL_VERSION.to_string();

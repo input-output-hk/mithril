@@ -534,7 +534,7 @@ components:
           "entity_type": { "MithrilStakeDistribution": 246 },
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
           "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
-          "signers": 
+          "signers":
             [
               {
                 "party_id": "1234567890",
@@ -652,7 +652,26 @@ components:
           "kes_period": 123,
           "stake": 1234
         }
-      
+
+    StakeDistributionParty:
+      description: |
+        Signer registered to a signature round.
+      type: object
+      additionalProperties: true
+      properties:
+        party_id:
+          description: The unique identifier of the signer
+          type: string
+        stake:
+          description: Stake share as computed in the 'stake distribution' by the Cardano Node, multiplied by a billion (1.0e9)
+          type: integer
+          format: int64
+      example:
+        {
+          "party_id": "1234567890",
+          "stake": 1234
+        }
+
     SignerRegistrationsMessage:
       description: |
         This message holds the registered signers at a given epoch.
@@ -985,10 +1004,10 @@ components:
           type: string
           format: date-time
         signers:
-          description: The list of the signers with their stakes and verification keys
+          description: The list of the signers identifiers with their stakes and verification keys
           type: array
           items:
-            $ref: "#/components/schemas/SignerWithStake"
+            $ref: "#/components/schemas/StakeDistributionParty"
       example:
         {
           "version": "0.1.0",
@@ -999,18 +1018,10 @@ components:
             [
               {
                 "party_id": "1234567890",
-                "verification_key": "7b12766b223a5c342b39302c32392c39392c39382c3131313138342c32252c32352c31353",
-                "verification_key_signature": "7b5473693727369676d61223a7b227369676d6d61223a7b261223a9b227369676d61213a",
-                "operational_certificate": "5b73136372c38302c37342c3136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537",
-                "kes_period": 123,
                 "stake": 1234
               },
               {
                 "party_id": "2345678900",
-                "verification_key": "7b392c39392c13131312766b223a5c39382c313342b39302c252c32352c31353328342c32",
-                "verification_key_signature": "2c33302c3133312c3138322c34362c3133352c372c3139302c3235322c35352c32322c39",
-                "operational_certificate": "3231342c3137372c37312c3232352c3233332c3135335d2c322c3139322c5b3133352c34312c3230332c3131332c3c33352c3234302c3230392c312c32392c3233332c33342c3138382c3134312c3130342c3234382c3231392c3",
-                "kes_period": 456,
                 "stake": 2345
               }
             ]

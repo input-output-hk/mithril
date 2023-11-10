@@ -1,8 +1,6 @@
 use anyhow::Context;
 use mithril_common::entities::{Certificate, CertificateMetadata, CertificateSignature};
-use mithril_common::messages::{
-    CertificateMessage, SignerWithStakeMessagePart, TryFromMessageAdapter,
-};
+use mithril_common::messages::{CertificateMessage, TryFromMessageAdapter};
 use mithril_common::StdResult;
 
 /// Adapter to convert [CertificateMessage] to [Certificate] instances
@@ -16,12 +14,7 @@ impl TryFromMessageAdapter<CertificateMessage, Certificate> for FromCertificateM
             protocol_parameters: certificate_message.metadata.protocol_parameters,
             initiated_at: certificate_message.metadata.initiated_at,
             sealed_at: certificate_message.metadata.sealed_at,
-            signers: SignerWithStakeMessagePart::try_into_signers(
-                certificate_message.metadata.signers,
-            )
-            .with_context(|| {
-                "'FromCertificateMessageAdapter' can not convert the list of signers"
-            })?,
+            signers: certificate_message.metadata.signers,
         };
 
         let certificate = Certificate {

@@ -11,6 +11,10 @@ jobs:
       fail-fast: false
       matrix:
         project: [ mithril-aggregator, mithril-client-cli, mithril-signer ]
+
+        include:
+          - project: mithril-client-cli
+            package: mithril-client
     
     permissions:
       contents: read
@@ -18,7 +22,7 @@ jobs:
 
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
+      PACKAGE: ${{ github.repository_owner }}/${{ matrix.package != '' && matrix.package || matrix.project }}
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
@@ -38,7 +42,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
           tags: |
             latest
             type=raw,value=${{ github.ref_name }}-{{sha}}
