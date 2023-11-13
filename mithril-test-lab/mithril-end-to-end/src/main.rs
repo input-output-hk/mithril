@@ -19,6 +19,8 @@ pub struct Args {
     /// will be located.
     ///
     /// Optional: if not set it will default to `{system_temp_folder}/mithril-end-to-end`
+    /// Exception for MacOS: default is `./mithril-end-to-end` as the length of the temporary directory's path
+    /// is too long. It causes the maximum path size of the node.sock file to be exceeded.
     #[clap(long)]
     work_directory: Option<PathBuf>,
 
@@ -74,6 +76,9 @@ async fn main() -> StdResult<()> {
             path.canonicalize().unwrap()
         }
         None => {
+            #[cfg(target_os = "macos")]
+            let work_dir = PathBuf::from("./mithril_end_to_end");
+            #[cfg(not(target_os = "macos"))]
             let work_dir = std::env::temp_dir().join("mithril_end_to_end");
             create_workdir_if_not_exist_clean_otherwise(&work_dir);
             work_dir.canonicalize().unwrap()
