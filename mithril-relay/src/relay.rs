@@ -10,10 +10,6 @@ use std::net::SocketAddr;
 use tokio::sync::mpsc::{self, unbounded_channel};
 use warp::Filter;
 
-pub fn aggregator_endpoint() -> String {
-    "https://aggregator.testing-preview.api.mithril.network/aggregator".to_string()
-}
-
 pub struct SignerRelay {
     server: TestHttpServer,
     pub peer: Peer,
@@ -178,12 +174,19 @@ mod handlers {
             Ok(response) => {
                 let status = response.status().to_owned();
                 let content = response.text().await.as_ref().unwrap().to_owned();
+                debug!(
+                    "SignerRelay: received response with status '{status}' and content {content:?}"
+                );
+
                 Ok(Box::new(warp::reply::with_status(content, status)))
             }
-            Err(err) => Ok(Box::new(warp::reply::with_status(
-                format!("{err:?}"),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ))),
+            Err(err) => {
+                debug!("SignerRelay: received error '{err:?}'");
+                Ok(Box::new(warp::reply::with_status(
+                    format!("{err:?}"),
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                )))
+            }
         }
     }
 }
