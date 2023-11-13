@@ -7,7 +7,9 @@ mod model;
 
 pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner};
 pub use fake_observer::FakeObserver;
-pub use interface::{ChainObserver, ChainObserverError, MockChainObserver};
+#[cfg(test)]
+pub use interface::MockChainObserver;
+pub use interface::{ChainObserver, ChainObserverError};
 pub use model::{
     ChainAddress, TxDatum, TxDatumBuilder, TxDatumError, TxDatumFieldTypeName, TxDatumFieldValue,
 };

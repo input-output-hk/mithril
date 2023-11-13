@@ -91,7 +91,8 @@ impl TickerService for MithrilTickerService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{chain_observer::MockChainObserver, digesters::DumbImmutableFileObserver};
+    use crate::tools::mocks::MockChainObserver;
+    use mithril_common::digesters::DumbImmutableFileObserver;
 
     use super::*;
 
