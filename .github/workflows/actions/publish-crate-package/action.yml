@@ -11,6 +11,9 @@ inputs:
   api_token: 
     description: crates.io API token.
     required: false
+  publish_args:
+    description: Additional arguments that will be passed to 'cargo publish'
+    required: false
 
 runs:
   using: "composite"
@@ -36,18 +39,18 @@ runs:
   - name: Cargo publish dry run
     shell: bash
     run: |
-      echo "Cargo publish '${{ inputs.package}}' package (dry run)"
-      cargo publish -p ${{ inputs.package}} --dry-run --no-verify
+      echo "Cargo publish '${{ inputs.package }}' package (dry run)"
+      cargo publish -p ${{ inputs.package }} --dry-run --no-verify ${{ inputs.publish_args }} 
 
   - name: Cargo package list
     shell: bash
     run: |
-      echo "Cargo package list '${{ inputs.package}}' package"
-      cargo package -p ${{ inputs.package}} --list
+      echo "Cargo package list '${{ inputs.package }}' package"
+      cargo package -p ${{ inputs.package }} --list
 
   - name: Cargo publish
     if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
     shell: bash
     run: |
-      echo "Cargo publish '${{ inputs.package}}' package"
-      cargo publish -p ${{ inputs.package}} --token ${{ inputs.api_token }} --no-verify
+      echo "Cargo publish '${{ inputs.package }}' package"
+      cargo publish -p ${{ inputs.package }} --token ${{ inputs.api_token }} --no-verify ${{ inputs.publish_args }}
