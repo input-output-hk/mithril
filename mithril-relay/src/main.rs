@@ -34,6 +34,30 @@ pub struct Config {
     /// Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
     aggregator_endpoint: Option<String>,
+
+    /// Verbosity level (-v=warning, -vv=info, -vvv=debug).
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
+}
+
+impl Config {
+    fn log_level(&self) -> Level {
+        match self.verbose {
+            0 => Level::Warning,
+            1 => Level::Info,
+            2 => Level::Debug,
+            _ => Level::Trace,
+        }
+    }
+
+    fn build_logger(&self) -> Logger {
+        let decorator = slog_term::TermDecorator::new().build();
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+
+        Logger::root(Arc::new(drain), slog::o!())
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -47,8 +71,7 @@ enum NodeType {
 async fn main() -> StdResult<()> {
     let config = Config::parse();
 
-    let log_level = Level::Debug;
-    let _guard = slog_scope::set_global_logger(build_logger(log_level));
+    let _guard = slog_scope::set_global_logger(config.build_logger());
 
     let topic_name = config.topic_name;
     let node_type = config.node_type;
@@ -135,13 +158,4 @@ async fn main() -> StdResult<()> {
             }
         }
     }
-}
-
-fn build_logger(log_level: Level) -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let drain = slog::LevelFilter::new(drain, log_level).fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-
-    Logger::root(Arc::new(drain), slog::o!())
 }
