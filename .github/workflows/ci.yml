@@ -45,7 +45,7 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --features bundle_openssl
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_openssl
           libraries-build-args: --package mithril-stm --package mithril-client
 
       - name: Build Debian packages
@@ -54,6 +54,7 @@ jobs:
           cargo deb --no-build --package mithril-aggregator
           cargo deb --no-build --package mithril-signer
           cargo deb --no-build --package mithril-client-cli
+          cargo deb --no-build --package mithril-relay
       
       - name: Publish Debian packages
         uses: actions/upload-artifact@v3
@@ -218,7 +219,7 @@ jobs:
       fail-fast: false
       matrix:
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        run_id: [1,2,3]
+        run_id: [1,2,3,4,5,6,7,8,9,10]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -239,11 +240,12 @@ jobs:
           chmod +x ./bin/mithril-aggregator
           chmod +x ./bin/mithril-client
           chmod +x ./bin/mithril-signer
+          chmod +x ./bin/mithril-relay
           chmod +x ./mithril-end-to-end
           mkdir artifacts
 
       - name: Test
-        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }}
+        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} --use-p2p-network
 
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}

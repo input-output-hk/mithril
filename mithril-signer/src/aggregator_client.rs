@@ -265,7 +265,6 @@ impl AggregatorClient for AggregatorHTTPClient {
     ) -> Result<(), AggregatorClientError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
-        let url = "http://127.0.0.1:42679/register-signatures";
         let register_single_signature_message = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.to_owned(),
             signatures.to_owned(),

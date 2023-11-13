@@ -60,6 +60,10 @@ pub struct Args {
     #[clap(long)]
     run_only: bool,
 
+    /// Enable P2P network mode
+    #[clap(long)]
+    use_p2p_network: bool,
+
     /// Skip cardano binaries download
     #[clap(long)]
     skip_cardano_bin_download: bool,
@@ -85,6 +89,7 @@ async fn main() -> StdResult<()> {
         }
     };
     let run_only_mode = args.run_only;
+    let use_p2p_network_mode = args.use_p2p_network;
 
     let devnet = Devnet::bootstrap(
         args.devnet_scripts_directory,
@@ -104,6 +109,7 @@ async fn main() -> StdResult<()> {
         &args.bin_directory,
         &args.mithril_era,
         run_only_mode,
+        use_p2p_network_mode,
     )
     .await?;
 

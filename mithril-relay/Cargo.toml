@@ -27,7 +27,7 @@ libp2p = { version = "0.53", features = [
     "websocket",
     "yamux",
 ] }
-mithril-common = { path = "../mithril-common" }
+mithril-common = { path = "../mithril-common", features = ["test_http_server"] }
 reqwest = { version = "0.11.22", features = ["json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"

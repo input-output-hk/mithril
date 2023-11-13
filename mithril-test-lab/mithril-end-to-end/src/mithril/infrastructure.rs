@@ -1,4 +1,4 @@
-use crate::{Aggregator, Client, Devnet, Signer, DEVNET_MAGIC_ID};
+use crate::{Aggregator, Client, Devnet, RelayAggregator, RelaySigner, Signer, DEVNET_MAGIC_ID};
 use anyhow::anyhow;
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::entities::ProtocolParameters;
@@ -13,6 +13,8 @@ pub struct MithrilInfrastructure {
     devnet: Devnet,
     aggregator: Aggregator,
     signers: Vec<Signer>,
+    relay_aggregators: Vec<RelayAggregator>,
+    relay_signers: Vec<RelaySigner>,
     cardano_chain_observer: Arc<CardanoCliChainObserver>,
     run_only_mode: bool,
 }
@@ -25,6 +27,7 @@ impl MithrilInfrastructure {
         bin_dir: &Path,
         mithril_era: &str,
         run_only_mode: bool,
+        use_p2p_network_mode: bool,
     ) -> StdResult<Self> {
         devnet.run().await?;
         let devnet_topology = devnet.topology();
@@ -48,6 +51,30 @@ impl MithrilInfrastructure {
         });
         aggregator.serve()?;
 
+        let mut relay_aggregators: Vec<RelayAggregator> = vec![];
+        let mut relay_signers: Vec<RelaySigner> = vec![];
+        if use_p2p_network_mode {
+            let mut relay_aggregator =
+                RelayAggregator::new(server_port + 100, aggregator.endpoint(), work_dir, bin_dir)?;
+            relay_aggregator.start()?;
+
+            for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
+                let mut relay_signer = RelaySigner::new(
+                    server_port + index as u64 + 200,
+                    relay_aggregator.peer_addr().to_owned(),
+                    aggregator.endpoint(),
+                    pool_node,
+                    work_dir,
+                    bin_dir,
+                )?;
+                relay_signer.start()?;
+
+                relay_signers.push(relay_signer);
+            }
+
+            relay_aggregators.push(relay_aggregator);
+        }
+
         let mut signers: Vec<Signer> = vec![];
         for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
             // 50% of signers with key certification if allow unverified signer registration
@@ -55,8 +82,13 @@ impl MithrilInfrastructure {
             // TODO: Should be removed once the signer certification is fully deployed
             let enable_certification =
                 index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
+            let aggregator_endpoint = if use_p2p_network_mode {
+                relay_signers[index].endpoint()
+            } else {
+                aggregator.endpoint()
+            };
             let mut signer = Signer::new(
-                aggregator.endpoint(),
+                aggregator_endpoint,
                 pool_node,
                 &devnet.cardano_cli_path(),
                 work_dir,
@@ -83,6 +115,8 @@ impl MithrilInfrastructure {
             devnet,
             aggregator,
             signers,
+            relay_aggregators,
+            relay_signers,
             cardano_chain_observer,
             run_only_mode,
         })
@@ -108,6 +142,14 @@ impl MithrilInfrastructure {
         self.signers.as_mut_slice()
     }
 
+    pub fn relay_aggregators(&self) -> &[RelayAggregator] {
+        &self.relay_aggregators
+    }
+
+    pub fn relay_signers(&self) -> &[RelaySigner] {
+        &self.relay_signers
+    }
+
     pub fn chain_observer(&self) -> Arc<CardanoCliChainObserver> {
         self.cardano_chain_observer.clone()
     }
@@ -124,6 +166,12 @@ impl MithrilInfrastructure {
         self.aggregator().tail_logs(number_of_line).await?;
         for signer in self.signers() {
             signer.tail_logs(number_of_line).await?;
+        }
+        for relay_aggregator in self.relay_aggregators() {
+            relay_aggregator.tail_logs(number_of_line).await?;
+        }
+        for relay_signer in self.relay_signers() {
+            relay_signer.tail_logs(number_of_line).await?;
         }
 
         Ok(())
