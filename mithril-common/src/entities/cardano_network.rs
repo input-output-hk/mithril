@@ -62,6 +62,14 @@ impl CardanoNetwork {
             ))),
         }
     }
+
+    pub fn as_u64(&self) -> u64 {
+        match *self {
+            CardanoNetwork::MainNet => 1,
+            CardanoNetwork::DevNet(magic_id) => magic_id,
+            CardanoNetwork::TestNet(magic_id) => magic_id,
+        }
+    }
 }
 
 impl Display for CardanoNetwork {

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use pallas::network::facades::NodeClient;
-use pallas::network::miniprotocols::localstate::queries::{BlockQuery, QueryV10, Request};
+use pallas_network::facades::NodeClient;
+use pallas_network::miniprotocols::localstate::{queries_v16, Client};
 use std::path::{Path, PathBuf};
 
 use crate::chain_observer::interface::*;
@@ -34,23 +34,25 @@ impl PallasObserver {
 #[async_trait]
 impl ChainObserver for PallasObserver {
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
-        let client = self
+        let mut client = self
             .new_client()
             .await
             .map_err(ChainObserverError::General)?;
 
-        let response = client
-            .statequery()
-            .query(Request::BlockQuery(BlockQuery::GetEpochNo))
+        let statequery = client.statequery();
+
+        // TODO: maybe implicitely get the current era as default
+        let era = queries_v16::get_current_era(statequery)
             .await
             .map_err(|err| ChainObserverError::General(err.into()))?;
 
-        client.chainsync().send_done().await;
-        client.abort();
+        let epoch = queries_v16::get_block_epoch_number(statequery, era)
+            .await
+            .map_err(|err| ChainObserverError::General(err.into()))?;
 
-        // finish: https://github.com/txpipe/pallas/issues/315
-        // TODO: map query response to Mithril model
-        unimplemented!()
+        client.chainsync().send_done().await.unwrap();
+        client.abort();
+        Ok(Some(Epoch(epoch as u64)))
     }
 
     async fn get_current_datums(
@@ -70,22 +72,27 @@ impl ChainObserver for PallasObserver {
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-        let client = self
+        let mut client = self
             .new_client()
             .await
             .map_err(ChainObserverError::General)?;
 
-        let response = client
-            .statequery()
-            .query(Request::BlockQuery(BlockQuery::GetStakeDistribution))
+        let statequery = client.statequery();
+
+        // TODO: maybe implicitely get the current era as default
+        let era = queries_v16::get_current_era(statequery)
             .await
             .map_err(|err| ChainObserverError::General(err.into()))?;
 
-        client.chainsync().send_done().await;
-        client.abort();
+        // let epoch = queries_v16::get_stake_distribution(statequery, era)
+        //     .await
+        //     .map_err(|err| ChainObserverError::General(err.into()))?;
+        //
+        // client.chainsync().send_done().await;
+        // client.abort();
 
-        // finish: https://github.com/txpipe/pallas/issues/316
-        // TODO: map query response to Mithril model
+        // finish https://github.com/txpipe/pallas/issues/316
+        // TODO: execute query and map results
         unimplemented!()
     }
 

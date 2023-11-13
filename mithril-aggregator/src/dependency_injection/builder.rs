@@ -4,7 +4,10 @@ use anyhow::Context;
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
-    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
+    chain_observer::{
+        adapters::ChainObserverAdapterBuilder, CardanoCliChainObserver, CardanoCliRunner,
+        ChainObserver, FakeObserver,
+    },
     crypto_helper::{
         ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
     },
@@ -464,6 +467,30 @@ impl DependenciesBuilder {
         Ok(self.chain_observer.as_ref().cloned().unwrap())
     }
 
+    /// build chain observer adapter to choose about cardano cli runner or pallas observer
+    /// rename to build_chain_observer() afterwards
+    pub async fn build_chain_observer_adapter(&mut self) -> Result<Arc<dyn ChainObserver>> {
+        let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
+            ExecutionEnvironment::Production => ChainObserverAdapterBuilder::new(
+                &self.configuration.chain_observer_type,
+                &self.configuration.cardano_cli_path.clone(),
+                &self.configuration.cardano_node_socket_path.clone(),
+                &self.configuration.get_network().with_context(|| {
+                    "Dependencies Builder can not get Cardano network while building chain observer"
+                })?,
+            )
+            .build()
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "Cannot create ChainObserver.".to_string(),
+                error: Some(e.into()),
+            })?,
+            _ => Arc::new(FakeObserver::default()),
+        };
+
+        Ok(chain_observer)
+    }
+
+    // TODO: this can be removed
     async fn build_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
         let cli_runner = CardanoCliRunner::new(
             self.configuration.cardano_cli_path.clone(),
@@ -478,6 +505,7 @@ impl DependenciesBuilder {
 
     /// Return a [CardanoCliRunner]
     pub async fn get_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
+        // TODO: maybe pass as an adapter parameter to avoid duplication
         if self.cardano_cli_runner.is_none() {
             self.cardano_cli_runner = Some(self.build_cardano_cli_runner().await?);
         }

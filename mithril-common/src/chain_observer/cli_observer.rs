@@ -10,7 +10,7 @@ use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
-use crate::chain_observer::interface::*;
+use crate::chain_observer::interface::{ChainObserver, ChainObserverError};
 use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 use crate::entities::{Epoch, StakeDistribution};
@@ -249,6 +249,10 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 }
+
+//////////////////////////////////////////////////////////////////////////////////////
+//  create an adapter to use both CardanoCliChainObserver and PallasChainObserver   //
+//////////////////////////////////////////////////////////////////////////////////////
 
 /// A [ChainObserver] pulling it's data using a [CardanoCliRunner].
 pub struct CardanoCliChainObserver {
