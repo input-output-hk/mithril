@@ -17,14 +17,14 @@ RUN mv /app/mithril-client-cli /app/mithril-client-cli.1 && mkdir -p /app/mithri
 COPY mithril-client-cli/Cargo.toml /app/mithril-client-cli/
 RUN echo "fn  main () {}" > /app/mithril-client-cli/src/main.rs
 RUN touch /app/mithril-client-cli/src/lib.rs
-RUN cargo build --release --bin mithril-client --manifest-path /app/mithril-client-cli/Cargo.toml -F build-binary
+RUN cargo build --release --bin mithril-client --manifest-path /app/mithril-client-cli/Cargo.toml
 
 # Rollback the rest of the files into the container
 RUN rm -rf /app/mithril-client-cli && mv /app/mithril-client-cli.1 /app/mithril-client-cli
 COPY ./mithril-client-cli/src/main.rs /app/mithril-client-cli/src/
 
 # Build the binary
-RUN cargo build --release --bin mithril-client -F build-binary
+RUN cargo build --release --bin mithril-client
 RUN /app/target/release/mithril-client --version
 
 ###############################

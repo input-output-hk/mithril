@@ -5,9 +5,9 @@
 //!
 //! ```no_run
 //! use std::sync::Arc;
-//! use mithril_client::common::StdResult;
-//! use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
-//! use mithril_client::services::MithrilStakeDistributionService;
+//! use mithril_client_cli::common::StdResult;
+//! use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
+//! use mithril_client_cli::services::MithrilStakeDistributionService;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {

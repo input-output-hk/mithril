@@ -9,7 +9,7 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
 
-use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
+use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.

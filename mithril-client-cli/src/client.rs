@@ -3,8 +3,8 @@
 //! The client wraps the initialization of the Mithril Client services and provides a simple API for the library
 //!
 //! ```no_run
-//! use mithril_client::client::Client;
-//! use mithril_client::common::*;
+//! use mithril_client_cli::client::Client;
+//! use mithril_client_cli::common::*;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {

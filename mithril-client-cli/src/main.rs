@@ -10,7 +10,7 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 
-use mithril_client::common::StdResult;
+use mithril_client_cli::common::StdResult;
 
 use commands::{
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
