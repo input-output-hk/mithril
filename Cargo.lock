@@ -2737,7 +2737,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "0.19.1"
-source = "git+https://github.com/txpipe/pallas.git#2b5f22def2a76341337417533b7116e13ac9880c"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#c772da69ec04d04df7d59da878f486c04ec16f11"
 dependencies = [
  "hex",
  "minicbor",
@@ -2748,7 +2748,7 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "0.19.1"
-source = "git+https://github.com/txpipe/pallas.git#2b5f22def2a76341337417533b7116e13ac9880c"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#c772da69ec04d04df7d59da878f486c04ec16f11"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -2761,7 +2761,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "0.19.1"
-source = "git+https://github.com/txpipe/pallas.git#2b5f22def2a76341337417533b7116e13ac9880c"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#c772da69ec04d04df7d59da878f486c04ec16f11"
 dependencies = [
  "byteorder",
  "hex",
