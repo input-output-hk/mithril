@@ -1,9 +1,6 @@
 use crate::{Aggregator, Client, Devnet, Signer, DEVNET_MAGIC_ID};
 use anyhow::anyhow;
-use mithril_common::chain_observer::adapters::{
-    ChainObserverAdapterBuilder, ChainObserverAdapterType,
-};
-use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver};
+use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::{CardanoNetwork, StdResult};
 use std::borrow::BorrowMut;
@@ -16,7 +13,6 @@ pub struct MithrilInfrastructure {
     devnet: Devnet,
     aggregator: Aggregator,
     signers: Vec<Signer>,
-    cardano_chain_observer_type: ChainObserverAdapterType,
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
 }
@@ -28,7 +24,6 @@ impl MithrilInfrastructure {
         work_dir: &Path,
         bin_dir: &Path,
         mithril_era: &str,
-        cardano_chain_observer_type: ChainObserverAdapterType,
         run_only_mode: bool,
     ) -> StdResult<Self> {
         devnet.run().await?;
@@ -74,13 +69,11 @@ impl MithrilInfrastructure {
             signers.push(signer);
         }
 
-        let cardano_chain_observer = Arc::new(ChainObserverAdapterBuilder::new(
-            &cardano_chain_observer_type,
+        let cardano_chain_observer = Arc::new(PallasChainObserver::new_with_fallback(
+            &bft_node.socket_path,
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
             &devnet.cardano_cli_path(),
-            &bft_node.socket_path.clone(),
-            &CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-        ))
-        .build()?;
+        ));
 
         Ok(Self {
             work_dir: work_dir.to_path_buf(),
@@ -88,7 +81,6 @@ impl MithrilInfrastructure {
             devnet,
             aggregator,
             signers,
-            cardano_chain_observer_type,
             cardano_chain_observer,
             run_only_mode,
         })
@@ -112,10 +104,6 @@ impl MithrilInfrastructure {
 
     pub fn signers_mut(&mut self) -> &mut [Signer] {
         self.signers.as_mut_slice()
-    }
-
-    pub fn chain_observer_type(&self) -> &ChainObserverAdapterType {
-        &self.cardano_chain_observer_type
     }
 
     pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {

@@ -1,6 +1,5 @@
 use anyhow::anyhow;
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_common::chain_observer::adapters::ChainObserverAdapterType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
@@ -128,9 +127,6 @@ pub struct Configuration {
 
     /// Time interval at which the signers in [Self::cexplorer_pools_url] will be imported (in minutes).
     pub signer_importer_run_interval: u64,
-
-    /// Type of Chain Observer Adapter.
-    pub chain_observer_type: ChainObserverAdapterType,
 }
 
 /// Uploader needed to copy the snapshot once computed.

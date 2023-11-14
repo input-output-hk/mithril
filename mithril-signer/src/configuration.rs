@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
 use mithril_common::{
-    chain_observer::{
-        adapters::{ChainObserverAdapterBuilder, ChainObserverAdapterType},
-        ChainObserver,
-    },
+    chain_observer::ChainObserver,
     entities::PartyId,
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
@@ -27,9 +24,6 @@ pub struct Configuration {
     /// Path of the socket used by the Cardano CLI tool
     /// to communicate with the Cardano node
     pub cardano_node_socket_path: PathBuf,
-
-    /// Type of Chain Observer Adapter.
-    pub chain_observer_type: ChainObserverAdapterType,
 
     /// Cardano Network Magic number
     /// useful for TestNet & DevNet
@@ -125,19 +119,6 @@ impl Configuration {
                 &self.era_reader_adapter_type
             )
         })
-    }
-
-    /// Create chain observer adapter from configuration settings.
-    pub fn build_chain_observer_adapter(&self) -> StdResult<Arc<dyn ChainObserver>> {
-        let chain_observer = ChainObserverAdapterBuilder::new(
-            &self.chain_observer_type,
-            &self.cardano_cli_path,
-            &self.cardano_node_socket_path,
-            &self.get_network().unwrap(),
-        )
-        .build()?;
-
-        Ok(chain_observer)
     }
 }
 

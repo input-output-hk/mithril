@@ -1,6 +1,5 @@
 //! Tools to request metadata, like the current epoch or the stake distribution, from the Cardano
 
-pub mod adapters;
 mod cli_observer;
 mod fake_observer;
 mod interface;
@@ -15,4 +14,4 @@ pub use interface::{ChainObserver, ChainObserverError};
 pub use model::{
     ChainAddress, TxDatum, TxDatumBuilder, TxDatumError, TxDatumFieldTypeName, TxDatumFieldValue,
 };
-pub use pallas_observer::PallasObserver;
+pub use pallas_observer::PallasChainObserver;

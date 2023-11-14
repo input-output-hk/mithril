@@ -1,38 +1,66 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use pallas_network::facades::NodeClient;
-use pallas_network::miniprotocols::localstate::{queries_v16, Client};
+use pallas_network::miniprotocols::localstate::queries_v16;
 use std::path::{Path, PathBuf};
 
 use crate::chain_observer::interface::*;
 use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{KESPeriod, OpCert};
 use crate::entities::StakeDistribution;
+use crate::CardanoNetwork;
 use crate::{entities::Epoch, StdResult};
 
+use super::CardanoCliChainObserver;
+
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
-pub struct PallasObserver {
+pub struct PallasChainObserver {
     socket: PathBuf,
-    magic: u64,
+    network: CardanoNetwork,
+    fallback: Option<super::cli_observer::CardanoCliChainObserver>,
 }
 
-impl PallasObserver {
-    /// Creates a new PallasObserver
-    pub fn new(socket: &Path, magic: u64) -> Self {
+impl PallasChainObserver {
+    /// Creates a new PallasObserver while accepting a fallback CliRunner
+    pub fn new_with_fallback(socket: &Path, network: CardanoNetwork, cli_path: &Path) -> Self {
+        let fallback = CardanoCliChainObserver::new(Box::new(super::CardanoCliRunner::new(
+            cli_path.to_owned(),
+            socket.to_owned(),
+            network.clone(),
+        )));
+
         Self {
             socket: socket.to_owned(),
-            magic,
+            network,
+            fallback: Some(fallback),
+        }
+    }
+
+    /// Creates a new PallasObserver
+    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
+        Self {
+            socket: socket.to_owned(),
+            network,
+            fallback: None,
         }
     }
 
     async fn new_client(&self) -> StdResult<NodeClient> {
-        let client = NodeClient::connect(&self.socket, self.magic).await?;
+        let magic = self.network.as_u64();
+        let client = NodeClient::connect(&self.socket, magic).await?;
 
         Ok(client)
+    }
+
+    fn get_fallback(&self) -> StdResult<&CardanoCliChainObserver> {
+        self.fallback.as_ref().ok_or(anyhow!(
+            "Unimplemented and no fallback configured for PallasObserver",
+        ))
     }
 }
 
 #[async_trait]
-impl ChainObserver for PallasObserver {
+impl ChainObserver for PallasChainObserver {
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         let mut client = self
             .new_client()
@@ -52,6 +80,7 @@ impl ChainObserver for PallasObserver {
 
         client.chainsync().send_done().await.unwrap();
         client.abort();
+
         Ok(Some(Epoch(epoch as u64)))
     }
 
@@ -59,48 +88,22 @@ impl ChainObserver for PallasObserver {
         &self,
         address: &ChainAddress,
     ) -> Result<Vec<TxDatum>, ChainObserverError> {
-        let client = self
-            .new_client()
-            .await
-            .map_err(ChainObserverError::General)?;
-
-        // finish https://github.com/txpipe/pallas/issues/317
-        // TODO: execute query and map results
-        unimplemented!()
+        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        fallback.get_current_datums(address).await
     }
 
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-        let mut client = self
-            .new_client()
-            .await
-            .map_err(ChainObserverError::General)?;
-
-        let statequery = client.statequery();
-
-        // TODO: maybe implicitely get the current era as default
-        let era = queries_v16::get_current_era(statequery)
-            .await
-            .map_err(|err| ChainObserverError::General(err.into()))?;
-
-        // let epoch = queries_v16::get_stake_distribution(statequery, era)
-        //     .await
-        //     .map_err(|err| ChainObserverError::General(err.into()))?;
-        //
-        // client.chainsync().send_done().await;
-        // client.abort();
-
-        // finish https://github.com/txpipe/pallas/issues/316
-        // TODO: execute query and map results
-        unimplemented!()
+        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        fallback.get_current_stake_distribution().await
     }
 
     async fn get_current_kes_period(
         &self,
         opcert: &OpCert,
     ) -> Result<Option<KESPeriod>, ChainObserverError> {
-        // TODO: find out how to access KES data
-        unimplemented!()
+        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        fallback.get_current_kes_period(opcert).await
     }
 }
