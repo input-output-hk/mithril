@@ -458,7 +458,7 @@ impl DependenciesBuilder {
     //     Ok(chain_observer)
     // }
 
-    pub async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
+    async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
             ExecutionEnvironment::Production => ChainObserverAdapterBuilder::new(
                 &self.configuration.chain_observer_type,

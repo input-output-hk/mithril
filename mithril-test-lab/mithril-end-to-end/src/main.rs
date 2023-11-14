@@ -1,5 +1,5 @@
 use clap::Parser;
-use mithril_common::StdResult;
+use mithril_common::{chain_observer::adapters::ChainObserverAdapterType, StdResult};
 use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
 use slog::{Drain, Logger};
 use slog_scope::{error, info};
@@ -52,6 +52,10 @@ pub struct Args {
     #[clap(long, default_value_t = 45.0)]
     cardano_epoch_length: f64,
 
+    /// Type of Chain Observer Adapter.
+    #[clap(long, default_value = "cardano-cli-chain-observer")]
+    cardano_chain_observer_type: ChainObserverAdapterType,
+
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
     mithril_era: String,
@@ -103,6 +107,7 @@ async fn main() -> StdResult<()> {
         &work_dir,
         &args.bin_directory,
         &args.mithril_era,
+        args.cardano_chain_observer_type,
         run_only_mode,
     )
     .await?;

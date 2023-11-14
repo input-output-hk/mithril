@@ -21,6 +21,21 @@ pub enum AdapterType {
     PallasObserver,
 }
 
+impl std::str::FromStr for AdapterType {
+    type Err = String; // you may want to define a custom error type instead
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "cardano-cli-chain-observer" => Ok(Self::CardanoCliChainObserver),
+            "pallas-observer" => Ok(Self::PallasObserver),
+            _ => Err(format!(
+                "'{}' is not valid value for ChainObserverAdapterType",
+                s
+            )),
+        }
+    }
+}
+
 impl Display for AdapterType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -5,7 +5,10 @@ use std::{fs, sync::Arc};
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
+    chain_observer::{
+        adapters::ChainObserverAdapterBuilder, CardanoCliChainObserver, CardanoCliRunner,
+        ChainObserver,
+    },
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
@@ -55,15 +58,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     /// Create a new production service builder.
     pub fn new(config: &'a Configuration) -> Self {
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
-            |config: &Configuration| {
-                Ok(Arc::new(CardanoCliChainObserver::new(Box::new(
-                    CardanoCliRunner::new(
-                        config.cardano_cli_path.clone(),
-                        config.cardano_node_socket_path.clone(),
-                        config.get_network()?,
-                    ),
-                ))))
-            };
+            |config: &Configuration| config.build_chain_observer_adapter();
         let immutable_file_observer_builder: fn(
             &Configuration,
         )

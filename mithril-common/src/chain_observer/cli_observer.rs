@@ -250,10 +250,6 @@ impl CliRunner for CardanoCliRunner {
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////
-//  create an adapter to use both CardanoCliChainObserver and PallasChainObserver   //
-//////////////////////////////////////////////////////////////////////////////////////
-
 /// A [ChainObserver] pulling it's data using a [CardanoCliRunner].
 pub struct CardanoCliChainObserver {
     cli_runner: Box<dyn CliRunner + Send + Sync>,
