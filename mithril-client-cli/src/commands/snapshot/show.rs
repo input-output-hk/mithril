@@ -6,7 +6,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::StdResult;
 
-use mithril_client::dependencies::{ConfigParameters, DependenciesBuilder};
+use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]

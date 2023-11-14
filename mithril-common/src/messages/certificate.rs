@@ -1,9 +1,14 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
-use crate::entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey};
+use crate::entities::{
+    Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
+    ProtocolMessagePartKey,
+};
 use crate::messages::CertificateMetadataMessagePart;
 use crate::test_utils::fake_keys;
+use crate::StdError;
 
 /// Message structure of a certificate
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
@@ -73,6 +78,11 @@ impl CertificateMessage {
             genesis_signature: String::new(),
         }
     }
+
+    /// Check that the certificate signed message match the given protocol message.
+    pub fn match_message(&self, message: &ProtocolMessage) -> bool {
+        message.compute_hash() == self.signed_message
+    }
 }
 
 impl Debug for CertificateMessage {
@@ -101,6 +111,101 @@ impl Debug for CertificateMessage {
                 .finish(),
             false => debug.finish_non_exhaustive(),
         }
+    }
+}
+
+impl TryFrom<CertificateMessage> for Certificate {
+    type Error = StdError;
+
+    fn try_from(certificate_message: CertificateMessage) -> Result<Self, Self::Error> {
+        let metadata = CertificateMetadata {
+            protocol_version: certificate_message.metadata.protocol_version,
+            protocol_parameters: certificate_message.metadata.protocol_parameters,
+            initiated_at: certificate_message.metadata.initiated_at,
+            sealed_at: certificate_message.metadata.sealed_at,
+            signers: certificate_message.metadata.signers,
+        };
+
+        let certificate = Certificate {
+            hash: certificate_message.hash,
+            previous_hash: certificate_message.previous_hash,
+            beacon: certificate_message.beacon,
+            metadata,
+            protocol_message: certificate_message.protocol_message,
+            signed_message: certificate_message.signed_message,
+            aggregate_verification_key: certificate_message
+                .aggregate_verification_key
+                .try_into()
+                .with_context(|| {
+                "Can not convert message to certificate: can not decode the aggregate verification key"
+            })?,
+            signature: if certificate_message.genesis_signature.is_empty() {
+                CertificateSignature::MultiSignature(
+                    certificate_message
+                        .multi_signature
+                        .try_into()
+                        .with_context(|| {
+                            "Can not convert message to certificate: can not decode the multi-signature"
+                        })?,
+                )
+            } else {
+                CertificateSignature::GenesisSignature(
+                    certificate_message
+                        .genesis_signature
+                        .try_into()
+                        .with_context(|| {
+                            "Can not convert message to certificate: can not decode the genesis signature"
+                        })?,
+                )
+            },
+        };
+
+        Ok(certificate)
+    }
+}
+
+impl TryFrom<Certificate> for CertificateMessage {
+    type Error = StdError;
+
+    fn try_from(certificate: Certificate) -> Result<Self, Self::Error> {
+        let metadata = CertificateMetadataMessagePart {
+            protocol_version: certificate.metadata.protocol_version,
+            protocol_parameters: certificate.metadata.protocol_parameters,
+            initiated_at: certificate.metadata.initiated_at,
+            sealed_at: certificate.metadata.sealed_at,
+            signers: certificate.metadata.signers,
+        };
+
+        let (multi_signature, genesis_signature) = match certificate.signature {
+            CertificateSignature::GenesisSignature(signature) => {
+                (String::new(), signature.to_bytes_hex())
+            }
+            CertificateSignature::MultiSignature(signature) => (
+                signature.to_json_hex().with_context(|| {
+                    "Can not convert certificate to message: can not encode the multi-signature"
+                })?,
+                String::new(),
+            ),
+        };
+
+        let message = CertificateMessage {
+            hash: certificate.hash,
+            previous_hash: certificate.previous_hash,
+            beacon: certificate.beacon,
+            metadata,
+            protocol_message: certificate.protocol_message,
+            signed_message: certificate.signed_message,
+            aggregate_verification_key: certificate
+                .aggregate_verification_key
+                .to_json_hex()
+                .with_context(|| {
+                    "Can not convert certificate to message: can not encode aggregate verification key"
+                })?,
+            multi_signature,
+            genesis_signature,
+        };
+
+        Ok(message)
     }
 }
 

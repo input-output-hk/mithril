@@ -228,7 +228,7 @@ impl StakeDistributionService for MithrilStakeDistributionService {
 #[cfg(test)]
 mod tests {
     use crate::dependency_injection::DependenciesBuilder;
-    use mithril_common::chain_observer::MockChainObserver;
+    use crate::tools::mocks::MockChainObserver;
 
     use super::*;
 

@@ -2,6 +2,8 @@ mod certificates_hash_migrator;
 mod digest_helpers;
 mod era;
 mod genesis;
+#[cfg(test)]
+pub mod mocks;
 mod remote_file_uploader;
 mod signer_importer;
 

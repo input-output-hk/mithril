@@ -2206,7 +2206,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.6"
+version = "0.4.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2245,8 +2245,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-client"
+version = "0.5.4"
+dependencies = [
+ "anyhow",
+ "async-recursion",
+ "async-trait",
+ "chrono",
+ "flate2",
+ "flume",
+ "futures",
+ "httpmock",
+ "indicatif",
+ "mithril-common",
+ "mockall",
+ "reqwest",
+ "semver",
+ "serde",
+ "serde_json",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-term",
+ "tar",
+ "thiserror",
+ "tokio",
+ "uuid",
+ "warp",
+ "zstd",
+]
+
+[[package]]
 name = "mithril-client-cli"
-version = "0.5.2"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -2285,7 +2316,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.131"
+version = "0.2.133"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2357,7 +2388,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.88"
+version = "0.2.89"
 dependencies = [
  "anyhow",
  "async-trait",

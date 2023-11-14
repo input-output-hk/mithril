@@ -33,7 +33,7 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 | Node | Source repository | Rust documentation | Docker packages |
 |:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/mithril-signer/doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer)
+**Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer)
 
 ## Pre-requisites
 

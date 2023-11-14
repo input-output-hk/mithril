@@ -9,7 +9,7 @@ use std::{
 
 use mithril_common::{messages::FromMessageAdapter, StdResult};
 
-use mithril_client::{
+use mithril_client_cli::{
     dependencies::{ConfigParameters, DependenciesBuilder},
     utils::ProgressOutputType,
     FromSnapshotMessageAdapter,

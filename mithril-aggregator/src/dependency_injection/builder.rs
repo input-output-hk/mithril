@@ -562,6 +562,7 @@ impl DependenciesBuilder {
             &self.configuration.data_stores_directory,
             &format!("immutables_digests_{}.json", self.configuration.network),
         )
+        .with_logger(self.get_logger().await?)
         .should_reset_digests_cache(self.configuration.reset_digests_cache)
         .build()
         .await?;

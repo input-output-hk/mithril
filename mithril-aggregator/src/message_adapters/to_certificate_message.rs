@@ -1,7 +1,5 @@
-use mithril_common::entities::{Certificate, CertificateSignature};
-use mithril_common::messages::{
-    CertificateMessage, CertificateMetadataMessagePart, ToMessageAdapter,
-};
+use mithril_common::entities::Certificate;
+use mithril_common::messages::{CertificateMessage, ToMessageAdapter};
 
 /// Adapter to convert [Certificate] to [CertificateMessage] instances
 pub struct ToCertificateMessageAdapter;
@@ -9,37 +7,7 @@ pub struct ToCertificateMessageAdapter;
 impl ToMessageAdapter<Certificate, CertificateMessage> for ToCertificateMessageAdapter {
     /// Method to trigger the conversion
     fn adapt(certificate: Certificate) -> CertificateMessage {
-        let metadata = CertificateMetadataMessagePart {
-            protocol_version: certificate.metadata.protocol_version,
-            protocol_parameters: certificate.metadata.protocol_parameters,
-            initiated_at: certificate.metadata.initiated_at,
-            sealed_at: certificate.metadata.sealed_at,
-            signers: certificate.metadata.signers,
-        };
-
-        let (multi_signature, genesis_signature) = match certificate.signature {
-            CertificateSignature::GenesisSignature(signature) => {
-                (String::new(), signature.to_bytes_hex())
-            }
-            CertificateSignature::MultiSignature(signature) => {
-                (signature.to_json_hex().unwrap(), String::new())
-            }
-        };
-
-        CertificateMessage {
-            hash: certificate.hash,
-            previous_hash: certificate.previous_hash,
-            beacon: certificate.beacon,
-            metadata,
-            protocol_message: certificate.protocol_message,
-            signed_message: certificate.signed_message,
-            aggregate_verification_key: certificate
-                .aggregate_verification_key
-                .to_json_hex()
-                .unwrap(),
-            multi_signature,
-            genesis_signature,
-        }
+        certificate.try_into().unwrap()
     }
 }
 

@@ -14,8 +14,8 @@
 //!
 //! - [client::Client::show_snapshot]
 //! ```no_run
-//! use mithril_client::client::Client;
-//! use mithril_client::common::StdResult;
+//! use mithril_client_cli::client::Client;
+//! use mithril_client_cli::common::StdResult;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
@@ -30,8 +30,8 @@
 //!
 //! - [client::Client::list_snapshots]
 //! ```no_run
-//! use mithril_client::client::Client;
-//! use mithril_client::common::StdResult;
+//! use mithril_client_cli::client::Client;
+//! use mithril_client_cli::common::StdResult;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {
@@ -48,8 +48,8 @@
 //!
 //! - [client::Client::list_mithril_stake_distributions]
 //! ```no_run
-//! use mithril_client::client::Client;
-//! use mithril_client::common::StdResult;
+//! use mithril_client_cli::client::Client;
+//! use mithril_client_cli::common::StdResult;
 //!
 //! #[tokio::main]
 //! async fn main() -> StdResult<()> {

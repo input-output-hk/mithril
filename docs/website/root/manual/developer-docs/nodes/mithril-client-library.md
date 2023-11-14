@@ -9,7 +9,12 @@ import CompiledBinaries from '../../../compiled-binaries.md'
 
 :::info
 
-Mithril Client Library can be used by Rust developers to use the Mithril Network in their applications.
+Mithril client library can be used by Rust developers to use the Mithril network in their applications.
+
+It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
+- [**Snapshot**](../../../glossary.md#snapshot): list, get and download tarball.
+- [**Mithril stake distribution**](../../../glossary#stake-distribution): list and get.
+- [**Certificate**](../../../glossary#certificate): list, get, and chain validation.
 
 :::
 
@@ -31,15 +36,9 @@ Mithril Client Library can be used by Rust developers to use the Mithril Network
 
 ## Resources
 
-| Node | Source repository | Rust documentation | Docker packages |
-|:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
-
-## Resources
-
-| Node | Source repository | Rust documentation | Docker packages |
-|:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
+| Node | Source repository | Rust documentation |
+|:-:|:-----------------:|:------------------:|
+**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) |
 
 ## Pre-requisites
 
@@ -49,56 +48,112 @@ Mithril Client Library can be used by Rust developers to use the Mithril Network
 
 ## Installation
 
-In your project crate, use `cargo` to add [mithril-client](https://crates.io/crates/mithril-client) as a dependency:
+:::caution
+
+Mithril client library has not yet been published on [crates.io](https://crates.io/), so you won't be able to follow the procedure below. The crate will be published soon.
+
+For now, you can experiment it by adding the dependency manually in the Cargo.toml of your project:
+
+```toml title="/Cargo.toml"
+mithril-client = { git = "https://github.com/input-output-hk/mithril.git" }
+```
+
+:::
+
+In your project, use `cargo` to add [mithril-client](https://crates.io/crates/mithril-client) crate as a dependency:
 
 ```bash
 cargo add mithril-client
 ```
 
-It will add the latest version of the Mithril client library.
+:::info
 
-Mithril client is an asynchronous library. It has been tested with the crate [tokio](https://crates.io/crates/tokio), In the Cargo.toml of your project, add the following dependency:
+Mithril client is an asynchronous library, you will need a runtime to execute your futures. We recommend to use the crate [tokio](https://crates.io/crates/tokio), as the library has been tested with it.
 
-```toml
-tokio = { version = "1.32.0", features = ["full"] }
-``````
+:::
 
-## Using Mithril Client Library
+## Using Mithril client library
 
-If the goal is just to use the existing certificates, it is easier to use the `Client` structure:
+Below is a basic example of how to use most of the functions exposed by the Mithril client library:
 
-```rust
-use mithril_client::client::Client;
-use mithril_client::common::*;
+```rust title="/src/main.rs"
+use mithril_client::{ClientBuilder, MessageBuilder};
+use std::path::Path;
 
 #[tokio::main]
-async fn main() -> StdResult<()> {
-    let client = Client::new("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").await?;
-    let response = client.list_mithril_stake_distributions().await?;
-
-    for mithril_stake_distribution in response {
-        println!("Stake distribution hash = '{}'.", mithril_stake_distribution.hash);
-    }
-
+async fn main() -> mithril_client::MithrilResult<()> {
+    let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+    
+    let snapshots = client.snapshot().list().await?;
+    
+    let last_digest = snapshots.first().unwrap().digest.as_ref();
+    let snapshot = client.snapshot().get(last_digest).await?.unwrap();
+    
+    let certificate = client
+        .certificate()
+        .verify_chain(&snapshot.certificate_hash)
+        .await?;
+    
+    // Note: the directory must already exist, and the user running this code must have read/write access to it.
+    let target_directory = Path::new("YOUR_TARGET_DIRECTORY");
+    client
+        .snapshot()
+        .download_unpack(&snapshot, target_directory)
+        .await?;
+    
+    let message = MessageBuilder::new()
+        .compute_snapshot_message(&certificate, target_directory)
+        .await?;
+    assert!(certificate.match_message(&message));
+    
     Ok(())
 }
 ```
 
-Here is an example of the code for the release-preprod network:
+:::info
 
-```rust
-use mithril_client::client::Client;
-use mithril_client::common::*;
+Snapshot download and certificate chain validation can take quite some time even with a fast computer and network. We have implemented a feedback mechanism for them, more details on it are available in the [feedback sub-module](https://mithril.network/rust-doc/mithril_client/feedback/index.html).
+
+An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/mithril-client/examples/snapshot_list_get_show_download_verify.rs). To run it, execute the following command:
+
+```bash
+cargo run --example snapshot_list_get_show_download_verify 
+```
+
+:::
+
+Here is a working example of the code using the configuration parameters of the `release-preprod` network:
+
+```rust title="/src/main.rs"
+use mithril_client::{ClientBuilder, MessageBuilder};
+use std::path::Path;
 
 #[tokio::main]
-async fn main() -> StdResult<()> {
-    let client = Client::new("https://aggregator.release-mainnet.api.mithril.network/aggregator", "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d").await?;
-    let response = client.list_mithril_stake_distributions().await?;
-
-    for mithril_stake_distribution in response {
-        println!("Stake distribution hash = '{}'.", mithril_stake_distribution.hash);
-    }
-
+async fn main() -> mithril_client::MithrilResult<()> {
+    let client = ClientBuilder::aggregator("https://aggregator.release-preprod.api.mithril.network/aggregator", "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d").build()?;
+    
+    let snapshots = client.snapshot().list().await?;
+    
+    let last_digest = snapshots.first().unwrap().digest.as_ref();
+    let snapshot = client.snapshot().get(last_digest).await?.unwrap();
+    
+    let certificate = client
+        .certificate()
+        .verify_chain(&snapshot.certificate_hash)
+        .await?;
+    
+    // Note: the directory must already exist, and the user running this code must have read/write access to it.
+    let target_directory = Path::new(".");
+    client
+        .snapshot()
+        .download_unpack(&snapshot, target_directory)
+        .await?;
+    
+    let message = MessageBuilder::new()
+        .compute_snapshot_message(&certificate, target_directory)
+        .await?;
+    assert!(certificate.match_message(&message));
+    
     Ok(())
 }
 ```

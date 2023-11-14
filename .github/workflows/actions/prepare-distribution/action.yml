@@ -85,6 +85,18 @@ runs:
         Compatible systems include, but are not limited to, \`Ubuntu 20.04+\` or \`Debian 11+\` (Bullseye)).
         EOF
 
+    - name: Fetch the latest version of the unstable tag
+      if: contains(inputs.version-name, 'unstable')
+      shell: bash
+      run: |
+        cat >> ./release-notes-addon.txt << EOF
+        
+        ## Fetch the latest version of the \`unstable\` tag
+        The \`unstable\` tag is updated with a new commit id when a new \`unstable\` release is published.
+        To fetch the latest version of the unstable tag, execute the command:
+        \`git tag -d unstable && git fetch origin tag unstable\`
+        EOF
+
     - name: Create and sign sha256 checksum
       shell: bash
       env:
