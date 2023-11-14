@@ -168,7 +168,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [ mithril-stm ]
+        package: [ mithril-stm, mithril-common, mithril-client ]
         include:
         - package: mithril-stm
           api_token_secret_name: CRATES_IO_API_TOKEN
