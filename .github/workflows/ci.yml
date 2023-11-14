@@ -353,6 +353,7 @@ jobs:
   publish-crate-test:
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         package: [ mithril-stm, mithril-common, mithril-client ]
           
