@@ -228,7 +228,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package: [ mithril-stm ]
+        package: [ mithril-stm, mithril-common, mithril-client ]
           
     runs-on: ubuntu-22.04
     steps:
