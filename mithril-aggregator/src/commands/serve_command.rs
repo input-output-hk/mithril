@@ -164,7 +164,7 @@ impl ServeCommand {
         }
 
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
-        dependencies_builder.vanish();
+        dependencies_builder.vanish().await;
 
         if let Err(e) = join_set.join_next().await.unwrap()? {
             crit!("A critical error occurred: {e}");
