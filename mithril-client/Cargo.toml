@@ -4,7 +4,6 @@ version = "0.5.4"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
-documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
@@ -22,7 +21,7 @@ chrono = { version = "0.4.31", features = ["serde"] }
 flate2 = "1.0.27"
 flume = "0.11.0"
 futures = "0.3.28"
-mithril-common = { path = "../mithril-common" }
+mithril-common = { path = "../mithril-common", version = "0.2.133" }
 reqwest = { version = "0.11.22", features = ["json", "stream"] }
 semver = "1.0.19"
 serde = { version = "1.0.188", features = ["derive"] }
@@ -37,7 +36,9 @@ zstd = "0.13.0"
 [dev-dependencies]
 httpmock = "0.6.8"
 indicatif = { version = "0.17.7", features = ["tokio"] }
-mithril-common = { path = "../mithril-common", features = ["test_http_server"] }
+mithril-common = { path = "../mithril-common", version = "0.2.133", features = [
+    "test_http_server",
+] }
 mockall = "0.11.4"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
