@@ -55,8 +55,8 @@ impl<'a> Spec<'a> {
         .await?;
         assertions::update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
 
-        // Wait 5 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
-        target_epoch += 5;
+        // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
+        target_epoch += 6;
         assertions::wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -72,7 +72,7 @@ impl<'a> Spec<'a> {
             let certificate_hash = assertions::assert_signer_is_signing_mithril_stake_distribution(
                 &aggregator_endpoint,
                 &hash,
-                target_epoch - 2,
+                target_epoch - 3,
             )
             .await?;
             assertions::assert_is_creating_certificate_with_enough_signers(
@@ -92,7 +92,7 @@ impl<'a> Spec<'a> {
             let certificate_hash = assertions::assert_signer_is_signing_snapshot(
                 &aggregator_endpoint,
                 &digest,
-                target_epoch - 2,
+                target_epoch - 3,
             )
             .await?;
 
