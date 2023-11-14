@@ -447,17 +447,6 @@ impl DependenciesBuilder {
         Ok(self.protocol_parameters_store.as_ref().cloned().unwrap())
     }
 
-    // async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-    //     let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
-    //         ExecutionEnvironment::Production => Arc::new(CardanoCliChainObserver::new(
-    //             self.get_cardano_cli_runner().await?,
-    //         )),
-    //         _ => Arc::new(FakeObserver::default()),
-    //     };
-    //
-    //     Ok(chain_observer)
-    // }
-
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
             ExecutionEnvironment::Production => ChainObserverAdapterBuilder::new(

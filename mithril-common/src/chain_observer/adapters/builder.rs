@@ -22,7 +22,7 @@ pub enum AdapterType {
 }
 
 impl std::str::FromStr for AdapterType {
-    type Err = String; // you may want to define a custom error type instead
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
