@@ -124,7 +124,8 @@ impl Devnet {
     }
 
     pub fn cardano_cli_path(&self) -> PathBuf {
-        self.artifacts_dir.join("cardano-cli")
+        self.artifacts_dir
+            .join("/Users/falcucci/Downloads/cardano-node-8.1.2-macos/cardano-cli")
     }
 
     pub fn topology(&self) -> DevnetTopology {

@@ -447,29 +447,18 @@ impl DependenciesBuilder {
         Ok(self.protocol_parameters_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-        let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
-            ExecutionEnvironment::Production => Arc::new(CardanoCliChainObserver::new(
-                self.get_cardano_cli_runner().await?,
-            )),
-            _ => Arc::new(FakeObserver::default()),
-        };
+    // async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
+    //     let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
+    //         ExecutionEnvironment::Production => Arc::new(CardanoCliChainObserver::new(
+    //             self.get_cardano_cli_runner().await?,
+    //         )),
+    //         _ => Arc::new(FakeObserver::default()),
+    //     };
+    //
+    //     Ok(chain_observer)
+    // }
 
-        Ok(chain_observer)
-    }
-
-    /// Return a [ChainObserver]
-    pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-        if self.chain_observer.is_none() {
-            self.chain_observer = Some(self.build_chain_observer().await?);
-        }
-
-        Ok(self.chain_observer.as_ref().cloned().unwrap())
-    }
-
-    /// build chain observer adapter to choose about cardano cli runner or pallas observer
-    /// rename to build_chain_observer() afterwards
-    pub async fn build_chain_observer_adapter(&mut self) -> Result<Arc<dyn ChainObserver>> {
+    pub async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
             ExecutionEnvironment::Production => ChainObserverAdapterBuilder::new(
                 &self.configuration.chain_observer_type,
@@ -488,6 +477,15 @@ impl DependenciesBuilder {
         };
 
         Ok(chain_observer)
+    }
+
+    /// Return a [ChainObserver]
+    pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
+        if self.chain_observer.is_none() {
+            self.chain_observer = Some(self.build_chain_observer().await?);
+        }
+
+        Ok(self.chain_observer.as_ref().cloned().unwrap())
     }
 
     // TODO: this can be removed
@@ -939,7 +937,13 @@ impl DependenciesBuilder {
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
-            .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version), error: Some(e.into()) })?;
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: format!(
+            "Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.",
+            self.configuration.cardano_node_version
+          ),
+                error: Some(e.into()),
+            })?;
         let cardano_immutable_files_full_artifact_builder =
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 &cardano_node_version,
