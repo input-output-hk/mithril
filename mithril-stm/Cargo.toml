@@ -3,7 +3,6 @@ name = "mithril-stm"
 version = "0.3.8"
 edition = { workspace = true }
 authors = { workspace = true }
-documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
