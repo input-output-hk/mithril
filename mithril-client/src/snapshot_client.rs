@@ -64,11 +64,13 @@
 //! ```
 
 use anyhow::Context;
+#[cfg(feature = "fs")]
 use slog::Logger;
 use std::sync::Arc;
 use thiserror::Error;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
+#[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
 use crate::snapshot_downloader::SnapshotDownloader;
@@ -93,7 +95,9 @@ pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     #[cfg(feature = "fs")]
     snapshot_downloader: Arc<dyn SnapshotDownloader>,
+    #[cfg(feature = "fs")]
     feedback_sender: FeedbackSender,
+    #[cfg(feature = "fs")]
     logger: Logger,
 }
 
@@ -102,14 +106,16 @@ impl SnapshotClient {
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         #[cfg(feature = "fs")] snapshot_downloader: Arc<dyn SnapshotDownloader>,
-        feedback_sender: FeedbackSender,
-        logger: Logger,
+        #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
+        #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
         Self {
             aggregator_client,
             #[cfg(feature = "fs")]
             snapshot_downloader,
+            #[cfg(feature = "fs")]
             feedback_sender,
+            #[cfg(feature = "fs")]
             logger,
         }
     }

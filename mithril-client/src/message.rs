@@ -1,16 +1,22 @@
 use anyhow::Context;
+#[cfg(feature = "fs")]
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
 use mithril_common::messages::SignerWithStakeMessagePart;
 use mithril_common::protocol::SignerBuilder;
 use slog::{o, Logger};
+#[cfg(feature = "fs")]
 use std::path::Path;
+#[cfg(feature = "fs")]
 use std::sync::Arc;
 
-use crate::{MithrilCertificate, MithrilResult, MithrilStakeDistribution};
+#[cfg(feature = "fs")]
+use crate::MithrilCertificate;
+use crate::{MithrilResult, MithrilStakeDistribution};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
+    #[cfg(feature = "fs")]
     immutable_digester: Option<Arc<dyn ImmutableDigester>>,
     logger: Logger,
 }
@@ -20,6 +26,7 @@ impl MessageBuilder {
     pub fn new() -> MessageBuilder {
         let logger = Logger::root(slog::Discard, o!());
         Self {
+            #[cfg(feature = "fs")]
             immutable_digester: None,
             logger,
         }

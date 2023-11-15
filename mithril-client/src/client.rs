@@ -153,7 +153,9 @@ impl ClientBuilder {
             aggregator_client,
             #[cfg(feature = "fs")]
             snapshot_downloader,
+            #[cfg(feature = "fs")]
             feedback_sender,
+            #[cfg(feature = "fs")]
             logger,
         ));
 
