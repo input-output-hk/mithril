@@ -166,9 +166,10 @@ jobs:
 
   publish-crate:
     strategy:
-      fail-fast: false
+      fail-fast: true
+      max-parallel: 1
       matrix:
-        package: [ mithril-stm ]
+        package: [ mithril-stm, mithril-common, mithril-client ]
         include:
         - package: mithril-stm
           api_token_secret_name: CRATES_IO_API_TOKEN

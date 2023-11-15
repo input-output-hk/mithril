@@ -353,8 +353,9 @@ jobs:
   publish-crate-test:
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
-        package: [ mithril-stm ]
+        package: [ mithril-stm, mithril-common, mithril-client ]
           
     runs-on: ubuntu-22.04
     needs:

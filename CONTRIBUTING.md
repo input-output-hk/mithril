@@ -3,7 +3,7 @@
 Thanks for considering contributing and help us on creating the Mithril protocol!
 
 The best way to contribute right now is to try things out and provide feedback,
-but we also accept contributions to the documentation and the obviously to the
+but we also accept contributions to the documentation and obviously to the
 code itself.
 
 This document contains guidelines to help you get started and how to make sure

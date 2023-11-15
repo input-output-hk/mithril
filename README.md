@@ -56,7 +56,9 @@ This repository consists of the following parts:
 
 * [**Mithril aggregator**](./mithril-aggregator): the node of the **Mithril network** responsible for collecting individual signatures from the **Mithril signers** and aggregating them into a multi-signature. The **Mithril aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
 
-* [**Mithril client**](./mithril-client): the node of the **Mithril network** responsible for retrieving the certified artifacts produced by the **Mithril network**, eg the **Cardano** chain certified snapshots used to securely restore a **Cardano node**.
+* [**Mithril client**](./mithril-client): this is the **client** library that can be used by developers to interact with Mithril certified data in their applications.
+
+* [**Mithril client CLI**](./mithril-client-cli): the CLI used for retrieving the certified artifacts produced by the **Mithril network**, eg the **Cardano** chain certified snapshots used to securely restore a **Cardano node**.
 
 * [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
 
