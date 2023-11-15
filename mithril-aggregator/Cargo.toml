@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.4.8"
+version = "0.4.10"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -48,7 +48,7 @@ zstd = { version = "0.13.0", features = ["zstdmt"] }
 httpmock = "0.6.8"
 mithril-common = { path = "../mithril-common", features = [
     "allow_skip_signer_certification",
-    "test_tools"
+    "test_tools",
 ] }
 mockall = "0.11.4"
 slog-term = "2.9.0"

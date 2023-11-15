@@ -20,6 +20,6 @@ Currently, the following [Mithril networks](https://mithril.network/doc/manual/d
 
 A user with administrator rights can simply remove the lock file:
 - In GCP [**Cloud Storage**](https://console.cloud.google.com/storage/browser)
-- In the terraform administration bucket that you have identified earlier, the file that needs to be removed is at path `**TERRAFORM_BACKEND_BUCKET**/terraform/mithril-**MITHRIL_NETWORK_IDENTIFIER**/.terraform.lock.hcl` (e.g. `mithril-terraform-prod/terraform/mithril-release-mainnet/terraform.lock.hcl`) 
+- In the terraform administration bucket that you have identified earlier, the file that needs to be removed is at path `**TERRAFORM_BACKEND_BUCKET**/terraform/mithril-**MITHRIL_NETWORK_IDENTIFIER**/default.tflock` (e.g. `mithril-terraform-prod/terraform/mithril-release-mainnet/terraform.lock.hcl`) 
 
 :warning: never delete/modify the `**TERRAFORM_BACKEND_BUCKET**/terraform/mithril-**MITHRIL_NETWORK_IDENTIFIER**/default.tfstate` file.

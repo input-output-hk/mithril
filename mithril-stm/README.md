@@ -1,7 +1,7 @@
-# Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
+# Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
 
 
-**This is a work in progress** :hammer_and_wrench:s
+**This is a work in progress** 🛠
 
 * `mithril-stm` is a Rust implementation of the scheme described in the paper [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf) by Pyrros Chaidos and Aggelos Kiayias.
 * The BLS12-381 signature library [blst](https://github.com/supranational/blst) is used as the backend for the implementation of STM.

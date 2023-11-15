@@ -48,6 +48,7 @@ impl CertificatesHashMigrator {
             // arbitrary high value to get all existing certificates
             .get_latest_certificates(usize::MAX)
             .await?;
+        let mut certificates_to_remove = vec![];
 
         let mut migrated_certificates = vec![];
         let mut old_and_new_hashes: HashMap<String, String> = HashMap::new();
@@ -57,7 +58,7 @@ impl CertificatesHashMigrator {
         // in order to have a strong guarantee that when inserting a certificate in the db its
         // previous_hash exist we have to work in the reverse order.
         debug!("🔧 Certificate Hash Migrator: computing new hash for all certificates");
-        for mut certificate in old_certificates.clone().into_iter().rev() {
+        for mut certificate in old_certificates.into_iter().rev() {
             let old_previous_hash = if certificate.is_genesis() {
                 certificate.previous_hash.clone()
             } else {
@@ -72,40 +73,37 @@ impl CertificatesHashMigrator {
                 old_previous_hash
             };
 
-            let new_hash = {
+            if let Some(new_hash) = {
                 let computed_hash = certificate.compute_hash();
-                // return none if the hash did not change to trigger an error
+                // return none if the hash did not change
                 (computed_hash != certificate.hash).then_some(computed_hash)
-            }
-            .ok_or(anyhow!(
-                "Hash did not change for certificate {:?}, hash: {}",
-                certificate.beacon,
-                certificate.hash
-            ))?
-            .to_owned();
+            } {
+                old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
 
-            old_and_new_hashes.insert(certificate.hash.clone(), new_hash.clone());
+                if certificate.is_genesis() {
+                    trace!(
+                        "🔧 Certificate Hash Migrator: new hash computed for genesis certificate {:?}",
+                        certificate.beacon;
+                        "old_hash" => &certificate.hash,
+                        "new_hash" => &new_hash,
+                    );
+                } else {
+                    trace!(
+                        "🔧 Certificate Hash Migrator: new hash computed for certificate {:?}",
+                        certificate.beacon;
+                        "old_hash" => &certificate.hash,
+                        "new_hash" => &new_hash,
+                        "old_previous_hash" => &old_previous_hash,
+                        "new_previous_hash" => &certificate.previous_hash
+                    );
+                }
 
-            if certificate.is_genesis() {
-                trace!(
-                    "🔧 Certificate Hash Migrator: new hash computed for genesis certificate {:?}",
-                    certificate.beacon;
-                    "old_hash" => &certificate.hash,
-                    "new_hash" => &new_hash,
-                );
+                certificates_to_remove.push(certificate.clone());
+                certificate.hash = new_hash;
+                migrated_certificates.push(certificate);
             } else {
-                trace!(
-                    "🔧 Certificate Hash Migrator: new hash computed for certificate {:?}",
-                    certificate.beacon;
-                    "old_hash" => &certificate.hash,
-                    "new_hash" => &new_hash,
-                    "old_previous_hash" => &old_previous_hash,
-                    "new_previous_hash" => &certificate.previous_hash
-                );
+                old_and_new_hashes.insert(certificate.hash.clone(), certificate.hash);
             }
-
-            certificate.hash = new_hash;
-            migrated_certificates.push(certificate);
         }
 
         // 2 - Certificates migrated, we can insert them in the db
@@ -123,7 +121,7 @@ impl CertificatesHashMigrator {
             })?;
         }
 
-        Ok((old_certificates, old_and_new_hashes))
+        Ok((certificates_to_remove, old_and_new_hashes))
     }
 
     async fn update_signed_entities_certificate_hash(
@@ -590,7 +588,7 @@ mod test {
     }
 
     #[tokio::test]
-    async fn should_fail_if_any_hash_doesnt_change() {
+    async fn should_not_fail_if_some_hash_dont_change() {
         let connection = Arc::new(connection_without_foreign_key_support());
         let certificate = {
             let mut cert = dummy_genesis("whatever", 1, 2);
@@ -608,6 +606,6 @@ mod test {
         migrator
             .migrate()
             .await
-            .expect_err("Migration should fail if an hash doesnt change");
+            .expect("Migration should not fail if a hash doesn't change");
     }
 }

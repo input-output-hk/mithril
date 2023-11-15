@@ -259,6 +259,13 @@ impl DependenciesBuilder {
 
         // configure session
         connection
+            .execute("pragma journal_mode = wal; pragma synchronous = normal;")
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "SQLite initialization: could not enable WAL.".to_string(),
+                error: Some(e.into()),
+            })?;
+
+        connection
             .execute("pragma foreign_keys=true")
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "SQLite initialization: could not enable FOREIGN KEY support.".to_string(),
@@ -271,6 +278,12 @@ impl DependenciesBuilder {
             .with_context(|| "Database migration error")?;
 
         Ok(connection)
+    }
+
+    async fn drop_sqlite_connection(&self) {
+        if let Some(connection) = &self.sqlite_connection {
+            let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
+        }
     }
 
     /// Get SQLite connection
@@ -1204,5 +1217,7 @@ impl DependenciesBuilder {
     }
 
     /// Remove the dependencies builder from memory to release Arc.
-    pub fn vanish(self) {}
+    pub async fn vanish(self) {
+        self.drop_sqlite_connection().await;
+    }
 }

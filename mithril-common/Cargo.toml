@@ -1,12 +1,13 @@
 [package]
 name = "mithril-common"
-version = "0.2.133"
+version = "0.2.134"
+description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
-documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
@@ -49,18 +50,24 @@ slog = "2.7.0"
 sqlite = { version = "0.31.1", features = ["bundled"] }
 strum = { version = "0.25.0", features = ["derive"] }
 thiserror = "1.0.49"
-tokio = { version = "1.32.0", features = ["fs", "io-util", "process", "rt", "sync"] }
+tokio = { version = "1.32.0", features = [
+    "fs",
+    "io-util",
+    "process",
+    "rt",
+    "sync",
+] }
 typetag = "0.2.13"
 walkdir = "2.4.0"
 warp = { version = "0.3.6", optional = true }
 
 [target.'cfg(not(windows))'.dependencies]
 # non-windows: use default rug backend
-mithril-stm = { path = "../mithril-stm" }
+mithril-stm = { path = "../mithril-stm", version = "0.3.8" }
 
 [target.'cfg(windows)'.dependencies]
 # Windows doesn't support rug backend, fallback to num-integer
-mithril-stm = { path = "../mithril-stm", default-features = false, features = [
+mithril-stm = { path = "../mithril-stm", version = "0.3.8", default-features = false, features = [
     "num-integer-backend",
 ] }
 
@@ -84,9 +91,7 @@ default = []
 
 allow_skip_signer_certification = []
 # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
-portable = [
-    "mithril-stm/portable",
-]
+portable = ["mithril-stm/portable"]
 
 # Enable all tests tools
 test_tools = ["apispec", "test_http_server"]
