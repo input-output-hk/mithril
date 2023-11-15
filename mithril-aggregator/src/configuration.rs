@@ -273,9 +273,6 @@ pub struct DefaultConfiguration {
 
     /// Signer importer run interval default setting
     pub signer_importer_run_interval: u64,
-
-    /// Type of Chain Observer Adapter.
-    pub chain_observer_type: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -289,7 +286,6 @@ impl Default for DefaultConfiguration {
             snapshot_store_type: "local".to_string(),
             snapshot_uploader_type: "gcp".to_string(),
             era_reader_adapter_type: "bootstrap".to_string(),
-            chain_observer_type: "cardano-cli-chain-observer".to_string(),
             reset_digests_cache: "false".to_string(),
             disable_digests_cache: "false".to_string(),
             snapshot_compression_algorithm: "zstandard".to_string(),
