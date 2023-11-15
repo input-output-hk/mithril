@@ -26,7 +26,7 @@ impl PallasChainObserver {
         let fallback = CardanoCliChainObserver::new(Box::new(super::CardanoCliRunner::new(
             cli_path.to_owned(),
             socket.to_owned(),
-            network.clone(),
+            network,
         )));
 
         Self {
