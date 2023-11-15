@@ -492,7 +492,6 @@ impl DependenciesBuilder {
 
     /// Return a [CardanoCliRunner]
     pub async fn get_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
-        // TODO: maybe pass as an adapter parameter to avoid duplication
         if self.cardano_cli_runner.is_none() {
             self.cardano_cli_runner = Some(self.build_cardano_cli_runner().await?);
         }
