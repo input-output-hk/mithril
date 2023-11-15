@@ -69,6 +69,8 @@ impl ChainObserver for PallasChainObserver {
 
         let statequery = client.statequery();
 
+        statequery.acquire(None).await.unwrap();
+
         // TODO: maybe implicitely get the current era as default
         let era = queries_v16::get_current_era(statequery)
             .await
@@ -77,6 +79,9 @@ impl ChainObserver for PallasChainObserver {
         let epoch = queries_v16::get_block_epoch_number(statequery, era)
             .await
             .map_err(|err| ChainObserverError::General(err.into()))?;
+
+        statequery.send_release().await.unwrap();
+        statequery.send_done().await.unwrap();
 
         client.chainsync().send_done().await.unwrap();
         client.abort();
