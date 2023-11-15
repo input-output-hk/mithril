@@ -5,7 +5,7 @@ use mithril_common::messages::RegisterSignatureMessage;
 use mithril_relay::{
     client::P2PClient,
     peer::{PeerBehaviourEvent, PeerEvent},
-    relay::SignerRelay,
+    relay_signer::SignerRelay,
 };
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
@@ -66,7 +66,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     loop {
         info!("Test: subscribed peers: {total_peers_connected}/{total_peers}");
         tokio::select! {
-            event =  signer_relay.tick() => {
+            event =  signer_relay.tick_peer() => {
                 if let Ok(Some(PeerEvent::Behaviour {
                     event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Subscribed { .. }),
                 })) = event
@@ -75,7 +75,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
                     total_peers_connected += 1;
                 }
             },
-            event =  p2p_client1.tick() => {
+            event =  p2p_client1.tick_peer() => {
                 if let Ok(Some(PeerEvent::Behaviour {
                     event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Subscribed { .. }),
                 })) = event
@@ -84,7 +84,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
                     total_peers_connected += 1;
                 }
             }
-            event =  p2p_client2.tick() => {
+            event =  p2p_client2.tick_peer() => {
                 if let Ok(Some(PeerEvent::Behaviour {
                     event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Subscribed { .. }),
                 })) = event
@@ -125,7 +125,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
             _event =  signer_relay.tick() => {
 
             },
-            event =  p2p_client1.tick() => {
+            event =  p2p_client1.tick_peer() => {
                 if let Ok(Some(signature_message_received)) = p2p_client1.convert_event(event.unwrap().unwrap())
                 {
                     info!("Test: client1 consumed signature: {signature_message_received:#?}");
@@ -133,7 +133,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
                     total_peers_has_received_message += 1
                 }
             }
-            event =  p2p_client2.tick() => {
+            event =  p2p_client2.tick_peer() => {
                 if let Ok(Some(signature_message_received)) = p2p_client2.convert_event(event.unwrap().unwrap())
                 {
                     info!("Test: client2 consumed signature: {signature_message_received:#?}");
@@ -142,7 +142,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
                 }
             }
         }
-        let _ = signer_relay.tick().await.unwrap();
+        let _ = signer_relay.tick_peer().await.unwrap();
         if total_peers_has_received_message == total_p2p_client {
             info!("Test: All P2P clients have consumed the signature");
             break;

@@ -2,10 +2,11 @@ use anyhow::anyhow;
 use clap::{Parser, ValueEnum};
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
-use mithril_relay::{client::P2PClient, relay::SignerRelay};
-use reqwest::StatusCode;
+use mithril_relay::{
+    client::P2PClient, relay_aggregator::AggregatorRelay, relay_signer::SignerRelay,
+};
 use slog::{Drain, Level, Logger};
-use slog_scope::{error, info};
+use slog_scope::error;
 use std::sync::Arc;
 
 #[derive(Parser, Debug, PartialEq, Clone)]
@@ -64,7 +65,7 @@ impl Config {
 enum NodeType {
     Signer,
     Aggregator,
-    Peer,
+    Passive,
 }
 
 #[tokio::main]
@@ -88,72 +89,36 @@ async fn main() -> StdResult<()> {
             let mut relay =
                 SignerRelay::start(&topic_name, &addr, &server_port, &aggregator_endpoint).await?;
             if let Some(dial_to_address) = dial_to {
-                relay.peer.dial(dial_to_address.clone())?;
+                relay.dial_peer(dial_to_address.clone())?;
             }
             loop {
                 if let Err(err) = relay.tick().await {
-                    error!("Relay signer: tick error"; "error" => format!("{err:#?}"));
+                    error!("RelaySigner: tick error"; "error" => format!("{err:#?}"));
                 }
             }
         }
         NodeType::Aggregator => {
-            let mut p2p_client = P2PClient::new(&topic_name, &addr)
-                .start()
-                .await
-                .expect("relay aggregator start failed");
+            let aggregator_endpoint =
+                aggregator_endpoint.ok_or(anyhow!("an aggregator endpoint must be specified"))?;
+            let mut relay =
+                AggregatorRelay::start(&topic_name, &addr, &aggregator_endpoint).await?;
             if let Some(dial_to_address) = dial_to {
-                p2p_client.peer.dial(dial_to_address.clone())?;
+                relay.dial_peer(dial_to_address.clone())?;
             }
             loop {
-                match p2p_client.tick().await {
-                    Ok(Some(p2p_client_event)) => {
-                        if let Ok(Some(signature_message_received)) =
-                            p2p_client.convert_event(p2p_client_event)
-                        {
-                            info!("Relay aggregator: received signature from p2p network"; "message" => format!("{signature_message_received:#?}"));
-
-                            let response = reqwest::Client::new()
-                                .post("http://localhost:8080/aggregator/register-signatures")
-                                .json(&signature_message_received)
-                                //.header(MITHRIL_API_VERSION_HEADER, "0.1.13") // TODO: retrieve current version
-                                .send()
-                                .await;
-                            match response {
-                                Ok(response) => match response.status() {
-                                    StatusCode::CREATED => {
-                                        info!("Relay aggregator: sent successfully signature message to aggregator");
-                                    }
-                                    status => {
-                                        error!("Relay aggregator: Post `/register-signatures` should have returned a 201 status code, got: {status}")
-                                    }
-                                },
-                                Err(err) => error!(
-                                    "Relay aggregator: Post `/register-signatures` failed: {err:?}"
-                                ),
-                            }
-                        }
-                    }
-                    Ok(None) => {}
-                    Err(err) => {
-                        error!("Relay aggregator: tick error"; "error" => format!("{err:#?}"));
-                    }
+                if let Err(err) = relay.tick().await {
+                    error!("RelayAggregator: tick error"; "error" => format!("{err:#?}"));
                 }
             }
         }
-        NodeType::Peer => {
-            let mut p2p_client = P2PClient::new(&topic_name, &addr)
-                .start()
-                .await
-                .expect("relay peer start failed");
+        NodeType::Passive => {
+            let mut p2p_client = P2PClient::new(&topic_name, &addr).start().await?;
             if let Some(dial_to_address) = dial_to {
-                p2p_client.peer.dial(dial_to_address.clone())?;
+                p2p_client.dial_peer(dial_to_address.clone())?;
             }
             loop {
-                match p2p_client.tick().await {
-                    Ok(_) => {}
-                    Err(err) => {
-                        error!("P2P Client: tick error"; "error" => format!("{err:#?}"));
-                    }
+                if let Err(err) = p2p_client.tick().await {
+                    error!("P2PClient: tick error"; "error" => format!("{err:#?}"));
                 }
             }
         }

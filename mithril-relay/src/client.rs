@@ -26,8 +26,18 @@ impl P2PClient {
         }
     }
 
-    pub async fn tick(&mut self) -> StdResult<Option<PeerEvent>> {
+    pub async fn tick(&mut self) -> StdResult<()> {
+        self.tick_peer().await?;
+
+        Ok(())
+    }
+
+    pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
         self.peer.tick_swarm().await
+    }
+
+    pub fn dial_peer(&mut self, addr: Multiaddr) -> StdResult<()> {
+        self.peer.dial(addr)
     }
 
     pub async fn start(self) -> StdResult<Self> {

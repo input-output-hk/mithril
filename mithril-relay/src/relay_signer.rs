@@ -7,13 +7,13 @@ use mithril_common::{
 };
 use slog_scope::{debug, info};
 use std::net::SocketAddr;
-use tokio::sync::mpsc::{self, unbounded_channel};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use warp::Filter;
 
 pub struct SignerRelay {
     server: TestHttpServer,
     pub peer: Peer,
-    pub message_rx: mpsc::UnboundedReceiver<RegisterSignatureMessage>,
+    pub signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
 }
 
 impl SignerRelay {
@@ -24,13 +24,28 @@ impl SignerRelay {
         aggregator_endpoint: &str,
     ) -> StdResult<Self> {
         debug!("SignerRelay: starting...");
-        let (tx, rx) = unbounded_channel::<RegisterSignatureMessage>();
+        let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
         let peer = Peer::new(topic_name, address).start().await?;
-        let server = test_http_server_with_port(
+        let server = Self::start_http_server(server_port, aggregator_endpoint, signature_tx).await;
+        info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
+
+        Ok(Self {
+            server,
+            peer,
+            signature_rx,
+        })
+    }
+
+    async fn start_http_server(
+        server_port: &u16,
+        aggregator_endpoint: &str,
+        signature_tx: UnboundedSender<RegisterSignatureMessage>,
+    ) -> TestHttpServer {
+        test_http_server_with_port(
             warp::path("register-signatures")
                 .and(warp::post())
                 .and(warp::body::json())
-                .and(middlewares::with_transmitter(tx))
+                .and(middlewares::with_transmitter(signature_tx))
                 .and_then(handlers::register_signatures_handler)
                 .or(warp::path("register-signer")
                     .and(warp::post())
@@ -52,14 +67,38 @@ impl SignerRelay {
                     ))
                     .and_then(handlers::certificate_pending_handler)),
             *server_port,
-        );
-        info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
+        )
+    }
 
-        Ok(Self {
-            server,
-            peer,
-            message_rx: rx,
-        })
+    pub async fn tick(&mut self) -> StdResult<()> {
+        tokio::select! {
+            message = self.signature_rx.recv()  => {
+                match message {
+                    Some(signature_message) => {
+                        info!("SignerRelay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
+                        self.peer.publish(&signature_message)?;
+                        Ok(())
+                    }
+                    None => {
+                        debug!("SignerRelay: no message available");
+                        Ok(())
+                    }
+                }
+            },
+            _event =  self.peer.tick_swarm() => {Ok(())}
+        }
+    }
+
+    pub async fn receive_signature(&mut self) -> Option<RegisterSignatureMessage> {
+        self.signature_rx.recv().await
+    }
+
+    pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
+        self.peer.tick_swarm().await
+    }
+
+    pub fn dial_peer(&mut self, addr: Multiaddr) -> StdResult<()> {
+        self.peer.dial(addr)
     }
 
     pub fn address(&self) -> SocketAddr {
@@ -68,25 +107,6 @@ impl SignerRelay {
 
     pub fn peer_address(&self) -> Option<Multiaddr> {
         self.peer.addr_peer.to_owned()
-    }
-
-    pub async fn tick(&mut self) -> StdResult<Option<PeerEvent>> {
-        tokio::select! {
-            message = self.message_rx.recv()  => {
-                match message {
-                    Some(signature_message) => {
-                        info!("SignerRelay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
-                        self.peer.publish(&signature_message)?;
-                        Ok(None)
-                    }
-                    None => {
-                        debug!("SignerRelay: no message available");
-                        Ok(None)
-                    }
-                }
-            },
-            event =  self.peer.tick_swarm() => {event}
-        }
     }
 }
 
