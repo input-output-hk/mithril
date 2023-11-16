@@ -1,0 +1,98 @@
+version: "3.9"
+
+services:
+  cardano-node-aggregator:
+    image: cardano-node/${CARDANO_IMAGE_ID}-modified
+    container_name: cardano-node-aggregator
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+      args:
+        CARDANO_IMAGE_ID: ${CARDANO_IMAGE_ID}
+    user: ${CURRENT_UID}
+    profiles:
+      - cardano
+      - all
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/cardano/config/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
+      - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
+    environment:
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [
+        "run",
+        "--config",
+        "/config/cardano-node/config.json",
+        "--topology",
+        "/config/cardano-node/topology.json",
+        "--database-path",
+        "/db"
+      ]
+
+  mithril-aggregator:
+    image: ghcr.io/input-output-hk/mithril-aggregator:${MITHRIL_IMAGE_ID}
+    container_name: mithril-aggregator
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
+      - all
+    environment:
+      - RUST_BACKTRACE=1
+      - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
+      - NETWORK=${NETWORK}
+      - PROTOCOL_PARAMETERS__K=${PROTOCOL_PARAMETERS__K}
+      - PROTOCOL_PARAMETERS__M=${PROTOCOL_PARAMETERS__M}
+      - PROTOCOL_PARAMETERS__PHI_F=${PROTOCOL_PARAMETERS__PHI_F}
+      - RUN_INTERVAL=60000
+      - SNAPSHOT_STORE_TYPE=local
+      - SNAPSHOT_UPLOADER_TYPE=gcp
+      - SNAPSHOT_BUCKET_NAME=${SNAPSHOT_BUCKET_NAME}
+      - SNAPSHOT_USE_CDN_DOMAIN=${SNAPSHOT_USE_CDN_DOMAIN}
+      - SNAPSHOT_COMPRESSION_ALGORITHM=${SNAPSHOT_COMPRESSION_ALGORITHM}
+      - ZSTANDARD_PARAMETERS__LEVEL=${ZSTANDARD_PARAMETERS__LEVEL}
+      - ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS=${ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS}
+      - DATA_STORES_DIRECTORY=/mithril-aggregator/mithril/stores
+      - STORE_RETENTION_LIMIT=5
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_VERSION=${CARDANO_IMAGE_ID}
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
+      - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
+      - DB_DIRECTORY=/db
+      - SNAPSHOT_DIRECTORY=/mithril-aggregator/mithril/snapshots
+      - SERVER_PORT=8080
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
+      - CEXPLORER_POOLS_URL=${CEXPLORER_POOLS_URL}
+    volumes:
+      - ../data/${NETWORK}/mithril-aggregator/mithril:/mithril-aggregator/mithril
+      - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
+      - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
+    ports:
+      - "8080:8080"
+    command: [ "-vvv", "serve" ]
+    depends_on:
+      cardano-node-aggregator:
+        condition: service_started
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)'
+      - 'traefik.http.routers.mithril-aggregator.tls=true'
+      - 'traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt'
+
+networks:
+  default:
+    name: mithril_network
+    external: true

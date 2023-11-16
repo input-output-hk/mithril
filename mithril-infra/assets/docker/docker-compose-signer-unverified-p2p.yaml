@@ -1,0 +1,87 @@
+# Unverified Mithril Signer node running on top of its own Cardano node
+
+version: "3.9"
+
+services:
+  cardano-node-signer:
+    image: cardano-node/${CARDANO_IMAGE_ID}-modified
+    container_name: cardano-node-full-signer-${SIGNER_ID}
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+      args:
+        CARDANO_IMAGE_ID: ${CARDANO_IMAGE_ID}
+    user: ${CURRENT_UID}
+    profiles:
+      - cardano
+      - all
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/full/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+    environment:
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [
+        "run",
+        "--config",
+        "/config/cardano-node/config.json",
+        "--topology",
+        "/config/cardano-node/topology.json",
+        "--database-path",
+        "/db"
+      ]
+
+  mithril-relay:
+    image: ubuntu/squid:latest
+    container_name: mithril-relay-${SIGNER_ID}
+    profiles:
+      - mithril
+      - all
+    volumes:
+      - ./squid/squid.conf:/etc/squid/squid.conf:ro
+
+  mithril-signer:
+    image: ghcr.io/input-output-hk/mithril-signer:${MITHRIL_IMAGE_ID}
+    container_name: mithril-signer-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
+      - all
+    environment:
+      - RUST_BACKTRACE=1
+      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
+      - NETWORK=${NETWORK}
+      - PARTY_ID=${PARTY_ID}
+      - RUN_INTERVAL=120000
+      - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
+      - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
+      - STORE_RETENTION_LIMIT=5
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
+      - RELAY_ENDPOINT=http://mithril-relay-${SIGNER_ID}:3128
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+    depends_on:
+      cardano-node-signer:
+        condition: service_started
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+networks:
+  default:
+    name: mithril_network
+    external: true

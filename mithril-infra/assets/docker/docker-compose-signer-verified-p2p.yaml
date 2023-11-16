@@ -1,0 +1,166 @@
+# Verified Mithril Signer node running on top of its own Cardano node
+
+version: "3.9"
+
+services:
+  cardano-node-signer-relay:
+    image: cardano-node/${CARDANO_IMAGE_ID}-modified
+    container_name: cardano-node-relay-signer-${SIGNER_ID}
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+      args:
+        CARDANO_IMAGE_ID: ${CARDANO_IMAGE_ID}
+    user: ${CURRENT_UID}
+    profiles:
+      - cardano
+      - all
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/relay/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/relay:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/www
+    ports:
+      - "${SIGNER_CARDANO_RELAY_PORT}:${SIGNER_CARDANO_RELAY_PORT}"
+    environment:
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [
+        "run",
+        "--config",
+        "/config/cardano-node/config.json",
+        "--topology",
+        "/pool/topology-relay.json",
+        "--database-path",
+        "/db",
+        "--port",
+        "${SIGNER_CARDANO_RELAY_PORT}"
+      ]
+
+  cardano-node-signer-block-producer:
+    image: cardano-node/${CARDANO_IMAGE_ID}-modified
+    container_name: cardano-node-block-producer-signer-${SIGNER_ID}
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+      args:
+        CARDANO_IMAGE_ID: ${CARDANO_IMAGE_ID}
+    user: ${CURRENT_UID}
+    profiles:
+      - cardano
+      - all
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/config/block-producer/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/www
+    ports:
+      - "${SIGNER_CARDANO_BLOCK_PRODUCER_PORT}:${SIGNER_CARDANO_BLOCK_PRODUCER_PORT}"
+    environment:
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [
+        "run",
+        "--config",
+        "/config/cardano-node/config.json",
+        "--topology",
+        "/pool/topology-block-producer.json",
+        "--database-path",
+        "/db",
+        "--port",
+        "${SIGNER_CARDANO_BLOCK_PRODUCER_PORT}",
+        "--shelley-kes-key",
+        "/pool/kes.skey",
+        "--shelley-vrf-key",
+        "/pool/vrf.skey",
+        "--shelley-operational-certificate",
+        "/pool/opcert.cert"
+      ]
+
+  mithril-relay:
+    image: ubuntu/squid:latest
+    container_name: mithril-relay-${SIGNER_ID}
+    profiles:
+      - mithril
+      - all
+    volumes:
+      - ./squid/squid.conf:/etc/squid/squid.conf:ro
+
+  mithril-signer:
+    image: ghcr.io/input-output-hk/mithril-signer:${MITHRIL_IMAGE_ID}
+    container_name: mithril-signer-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
+      - all
+    environment:
+      - RUST_BACKTRACE=1
+      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
+      - NETWORK=${NETWORK}
+      - KES_SECRET_KEY_PATH=/mithril-signer-${SIGNER_ID}/cardano/pool/kes.skey
+      - OPERATIONAL_CERTIFICATE_PATH=/mithril-signer-${SIGNER_ID}/cardano/pool/opcert.cert
+      - RUN_INTERVAL=120000
+      - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
+      - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
+      - STORE_RETENTION_LIMIT=5
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
+      - RELAY_ENDPOINT=http://mithril-relay-${SIGNER_ID}:3128
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/mithril-signer-${SIGNER_ID}/cardano/pool
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+      - ./cardano-configurations/network/${NETWORK}:/config
+    depends_on:
+      cardano-node-signer-block-producer:
+        condition: service_started
+      cardano-node-signer-relay:
+        condition: service_started
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
+  mithril-signer-www:
+    image: nginx:latest
+    container_name: mithril-signer-www-${SIGNER_ID}
+    restart: always
+    profiles:
+      - mithril
+      - all
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/usr/share/nginx/html
+    ports:
+      - "${SIGNER_WWW_PORT}:8080"
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)'
+      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.tls=true'
+      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.tls.certresolver=lets-encrypt'
+
+networks:
+  default:
+    name: mithril_network
+    external: true
