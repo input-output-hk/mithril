@@ -219,7 +219,8 @@ jobs:
       fail-fast: false
       matrix:
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        run_id: [1,2,3,4,5,6,7,8,9,10]
+        extra_args: ["","--use-p2p-network"]
+        run_id: [1,2,3]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -245,7 +246,7 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} --use-p2p-network
+        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} ${{ matrix.extra_args }}
 
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}
