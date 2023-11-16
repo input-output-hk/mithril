@@ -166,6 +166,17 @@ variable "mithril_container_logging_driver" {
   default     = "json-file"
 }
 
+variable "mithril_use_p2p_network" {
+  type        = bool
+  description = "Use the P2P network layer (experimental, for test only)"
+  default     = false
+}
+
+locals {
+  mithril_network_type_suffix = var.mithril_use_p2p_network ? "-p2p" : ""
+}
+
+
 variable "mithril_aggregator_snapshot_compression_algorithm" {
   type        = string
   description = "The compression algorithm of the snapshot archive"
@@ -339,3 +350,4 @@ variable "mithril_signers" {
     }
   }
 }
+

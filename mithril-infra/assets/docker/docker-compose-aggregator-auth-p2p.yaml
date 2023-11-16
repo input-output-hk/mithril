@@ -94,6 +94,29 @@ services:
       - "traefik.http.routers.mithril-aggregator.middlewares=test-auth"
       - "traefik.http.middlewares.test-auth.basicauth.users=${AUTH_USER_PASSWORD}"
 
+  mithril-aggregator-relay:
+    image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
+    container_name: mithril-aggregator-relay
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
+      - all
+    environment:
+      - RUST_BACKTRACE=1
+      - LISTEN_PORT=${AGGREGATOR_RELAY_LISTEN_PORT}
+      - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
+    ports:
+      - "${AGGREGATOR_RELAY_LISTEN_PORT}:${AGGREGATOR_RELAY_LISTEN_PORT}"
+    command: [ "-vvv", "aggregator" ]
+    depends_on:
+      mithril-aggregator:
+        condition: service_started
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
 networks:
   default:
     name: mithril_network
