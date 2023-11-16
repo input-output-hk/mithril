@@ -62,11 +62,11 @@ warp = { version = "0.3.6", optional = true }
 
 [target.'cfg(not(windows))'.dependencies]
 # non-windows: use default rug backend
-mithril-stm = { path = "../mithril-stm", version = "0.3.8" }
+mithril-stm = { path = "../mithril-stm", version = "0.3" }
 
 [target.'cfg(windows)'.dependencies]
 # Windows doesn't support rug backend, fallback to num-integer
-mithril-stm = { path = "../mithril-stm", version = "0.3.8", default-features = false, features = [
+mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = false, features = [
     "num-integer-backend",
 ] }
 

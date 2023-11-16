@@ -21,7 +21,7 @@ chrono = { version = "0.4.31", features = ["serde"] }
 flate2 = "1.0.27"
 flume = "0.11.0"
 futures = "0.3.28"
-mithril-common = { path = "../mithril-common", version = "0.2.133" }
+mithril-common = { path = "../mithril-common", version = "0.2" }
 reqwest = { version = "0.11.22", features = ["json", "stream"] }
 semver = "1.0.19"
 serde = { version = "1.0.188", features = ["derive"] }
