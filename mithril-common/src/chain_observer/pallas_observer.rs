@@ -119,7 +119,7 @@ mod tests {
     use pallas_codec::utils::AnyCbor;
     use pallas_network::miniprotocols::{
         chainsync::{self},
-        localstate::{self, queries_v16::EpochNo, ClientQueryRequest},
+        localstate::{self, ClientQueryRequest},
     };
     use tokio::net::UnixListener;
 
@@ -127,7 +127,6 @@ mod tests {
     use crate::CardanoNetwork;
 
     #[tokio::test]
-    #[ignore]
     async fn get_current_epoch_with_fallback() {
         let server = tokio::spawn({
             async move {
@@ -147,10 +146,6 @@ mod tests {
 
                 server.statequery().send_acquired().await.unwrap();
                 assert_eq!(*server.statequery().state(), localstate::State::Acquired);
-
-                //////////////////////////////////////////////////////////////
-                //                        Get Current Era                   //
-                //////////////////////////////////////////////////////////////
 
                 // server receives query from client
                 let query: localstate::queries_v16::Request =
@@ -175,10 +170,6 @@ mod tests {
 
                 assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
-                ///////////////////////////////////////////////////////////////
-                //                        Get Epoch                          //
-                ///////////////////////////////////////////////////////////////
-
                 let query: localstate::queries_v16::Request =
                     match server.statequery().recv_while_acquired().await.unwrap() {
                         ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
@@ -196,7 +187,7 @@ mod tests {
                 );
                 assert_eq!(*server.statequery().state(), localstate::State::Querying);
 
-                let result = AnyCbor::from_encode(EpochNo(8));
+                let result = AnyCbor::from_encode([8]);
 
                 server.statequery().send_result(result).await.unwrap();
 
@@ -230,7 +221,7 @@ mod tests {
                 &std::path::PathBuf::from("/tmp/cardano-cli"),
             );
             let epoch = observer.get_current_epoch().await.unwrap().unwrap();
-            assert_eq!(epoch, Epoch(8));
+            assert_eq!(epoch, 8);
         });
 
         _ = tokio::join!(client, server);
