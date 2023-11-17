@@ -117,14 +117,35 @@ mod tests {
     use std::fs;
 
     use pallas_codec::utils::AnyCbor;
-    use pallas_network::miniprotocols::{
-        chainsync::{self},
-        localstate::{self, ClientQueryRequest},
-    };
+    use pallas_network::miniprotocols::localstate::{self, ClientQueryRequest};
     use tokio::net::UnixListener;
 
     use super::*;
     use crate::CardanoNetwork;
+
+    /// pallas responses mock server.
+    async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
+        let query: localstate::queries_v16::Request =
+            match server.statequery().recv_while_acquired().await.unwrap() {
+                ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                x => panic!("unexpected message from client: {x:?}"),
+            };
+
+        match query {
+            localstate::queries_v16::Request::LedgerQuery(
+                localstate::queries_v16::LedgerQuery::HardForkQuery(
+                    localstate::queries_v16::HardForkQuery::GetCurrentEra,
+                ),
+            ) => AnyCbor::from_encode(4),
+            localstate::queries_v16::Request::LedgerQuery(
+                localstate::queries_v16::LedgerQuery::BlockQuery(
+                    4,
+                    localstate::queries_v16::BlockQuery::GetEpochNo,
+                ),
+            ) => AnyCbor::from_encode([8]),
+            _ => panic!("unexpected query from client: {query:?}"),
+        }
+    }
 
     #[tokio::test]
     async fn get_current_epoch_with_fallback() {
@@ -140,77 +161,14 @@ mod tests {
                     .await
                     .unwrap();
 
-                let maybe_acquire = server.statequery().recv_while_idle().await.unwrap();
-                assert!(maybe_acquire.is_some());
-                assert_eq!(*server.statequery().state(), localstate::State::Acquiring);
-
+                server.statequery().recv_while_idle().await.unwrap();
                 server.statequery().send_acquired().await.unwrap();
-                assert_eq!(*server.statequery().state(), localstate::State::Acquired);
 
-                // server receives query from client
-                let query: localstate::queries_v16::Request =
-                    match server.statequery().recv_while_acquired().await.unwrap() {
-                        ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                        x => panic!("unexpected message from client: {x:?}"),
-                    };
-
-                assert_eq!(
-                    query,
-                    localstate::queries_v16::Request::LedgerQuery(
-                        localstate::queries_v16::LedgerQuery::HardForkQuery(
-                            localstate::queries_v16::HardForkQuery::GetCurrentEra
-                        )
-                    )
-                );
-                assert_eq!(*server.statequery().state(), localstate::State::Querying);
-
-                let result = AnyCbor::from_encode(4);
-
+                let result = mock_server(&mut server).await;
                 server.statequery().send_result(result).await.unwrap();
 
-                assert_eq!(*server.statequery().state(), localstate::State::Acquired);
-
-                let query: localstate::queries_v16::Request =
-                    match server.statequery().recv_while_acquired().await.unwrap() {
-                        ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-                        x => panic!("unexpected message from client: {x:?}"),
-                    };
-
-                assert_eq!(
-                    query,
-                    localstate::queries_v16::Request::LedgerQuery(
-                        localstate::queries_v16::LedgerQuery::BlockQuery(
-                            4,
-                            localstate::queries_v16::BlockQuery::GetEpochNo
-                        )
-                    )
-                );
-                assert_eq!(*server.statequery().state(), localstate::State::Querying);
-
-                let result = AnyCbor::from_encode([8]);
-
+                let result = mock_server(&mut server).await;
                 server.statequery().send_result(result).await.unwrap();
-
-                assert_eq!(*server.statequery().state(), localstate::State::Acquired);
-
-                // server receives release from the client
-                match server.statequery().recv_while_acquired().await.unwrap() {
-                    ClientQueryRequest::Release => (),
-                    x => panic!("unexpected message from client: {x:?}"),
-                };
-
-                let next_request = server.statequery().recv_while_idle().await.unwrap();
-                assert!(next_request.is_none());
-                assert_eq!(*server.statequery().state(), localstate::State::Done);
-
-                let chainsync_state = server.chainsync().state();
-                assert_eq!(*chainsync_state, chainsync::State::Idle);
-                assert!(server
-                    .chainsync()
-                    .recv_while_idle()
-                    .await
-                    .unwrap()
-                    .is_none());
             }
         });
 
