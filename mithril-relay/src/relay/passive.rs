@@ -3,11 +3,11 @@ use libp2p::{gossipsub, Multiaddr};
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 use slog_scope::debug;
 
-pub struct P2PClient {
+pub struct PassiveRelay {
     pub peer: Peer,
 }
 
-impl P2PClient {
+impl PassiveRelay {
     pub fn new(addr: &Multiaddr) -> Self {
         Self {
             peer: Peer::new(addr),
@@ -41,7 +41,7 @@ impl P2PClient {
     }
 
     pub async fn start(self) -> StdResult<Self> {
-        debug!("P2P Client: starting...");
+        debug!("PassiveRelay: starting...");
         Ok(Self {
             peer: self.peer.start().await?,
         })

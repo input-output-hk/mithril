@@ -3,9 +3,8 @@ use std::sync::Arc;
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_relay::{
-    client::P2PClient,
     peer::{PeerBehaviourEvent, PeerEvent},
-    relay_signer::SignerRelay,
+    PassiveRelay, SignerRelay,
 };
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
@@ -41,7 +40,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
     let relay_peer_address = signer_relay.peer_address().unwrap();
     info!("Test: relay_address is '{relay_address:?}'");
 
-    let mut p2p_client1 = P2PClient::new(&addr)
+    let mut p2p_client1 = PassiveRelay::new(&addr)
         .start()
         .await
         .expect("P2P client start failed");
@@ -50,7 +49,7 @@ async fn should_receive_signatures_from_signers_when_subscribed_to_pubsub() {
         .dial(relay_peer_address.clone())
         .expect("P2P client dial to the relay should not fail");
 
-    let mut p2p_client2 = P2PClient::new(&addr)
+    let mut p2p_client2 = PassiveRelay::new(&addr)
         .start()
         .await
         .expect("P2P client start failed");

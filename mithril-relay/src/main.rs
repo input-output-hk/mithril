@@ -2,15 +2,17 @@ use anyhow::anyhow;
 use clap::{Parser, ValueEnum};
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
-use mithril_relay::{
-    client::P2PClient, relay_aggregator::AggregatorRelay, relay_signer::SignerRelay,
-};
+use mithril_relay::{AggregatorRelay, PassiveRelay, SignerRelay};
 use slog::{Drain, Level, Logger};
 use slog_scope::error;
 use std::sync::Arc;
 
 #[derive(Parser, Debug, PartialEq, Clone)]
 pub struct Config {
+    /// Run Mode.
+    #[clap(long, env = "RUN_MODE", default_value = "dev")]
+    run_mode: String,
+
     /// Node type (relay or client)
     #[clap(long, env = "NODE_TYPE")]
     #[arg(value_enum)]
@@ -105,12 +107,12 @@ async fn main() -> StdResult<()> {
             }
         }
         NodeType::Passive => {
-            let mut p2p_client = P2PClient::new(&addr).start().await?;
+            let mut relay = PassiveRelay::new(&addr).start().await?;
             if let Some(dial_to_address) = dial_to {
-                p2p_client.dial_peer(dial_to_address.clone())?;
+                relay.dial_peer(dial_to_address.clone())?;
             }
             loop {
-                if let Err(err) = p2p_client.tick().await {
+                if let Err(err) = relay.tick().await {
                     error!("P2PClient: tick error"; "error" => format!("{err:#?}"));
                 }
             }
