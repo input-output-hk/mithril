@@ -18,14 +18,13 @@ pub struct SignerRelay {
 
 impl SignerRelay {
     pub async fn start(
-        topic_name: &str,
         address: &Multiaddr,
         server_port: &u16,
         aggregator_endpoint: &str,
     ) -> StdResult<Self> {
         debug!("SignerRelay: starting...");
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
-        let peer = Peer::new(topic_name, address).start().await?;
+        let peer = Peer::new(address).start().await?;
         let server = Self::start_http_server(server_port, aggregator_endpoint, signature_tx).await;
         info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
 
@@ -76,7 +75,7 @@ impl SignerRelay {
                 match message {
                     Some(signature_message) => {
                         info!("SignerRelay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
-                        self.peer.publish(&signature_message)?;
+                        self.peer.publish_signature(&signature_message)?;
                         Ok(())
                     }
                     None => {

@@ -16,10 +16,6 @@ pub struct Config {
     #[arg(value_enum)]
     node_type: NodeType,
 
-    /// Pubsub topic name
-    #[clap(long, default_value = "mithril/signatures")]
-    topic_name: String,
-
     /// HTTP Server listening port
     #[clap(long, env = "SERVER_PORT", default_value_t = 3132)]
     server_port: u16,
@@ -74,7 +70,6 @@ async fn main() -> StdResult<()> {
 
     let _guard = slog_scope::set_global_logger(config.build_logger());
 
-    let topic_name = config.topic_name;
     let node_type = config.node_type;
     let server_port = config.server_port;
     let dial_to = config.dial_to;
@@ -86,8 +81,7 @@ async fn main() -> StdResult<()> {
         NodeType::Signer => {
             let aggregator_endpoint =
                 aggregator_endpoint.ok_or(anyhow!("an aggregator endpoint must be specified"))?;
-            let mut relay =
-                SignerRelay::start(&topic_name, &addr, &server_port, &aggregator_endpoint).await?;
+            let mut relay = SignerRelay::start(&addr, &server_port, &aggregator_endpoint).await?;
             if let Some(dial_to_address) = dial_to {
                 relay.dial_peer(dial_to_address.clone())?;
             }
@@ -100,8 +94,7 @@ async fn main() -> StdResult<()> {
         NodeType::Aggregator => {
             let aggregator_endpoint =
                 aggregator_endpoint.ok_or(anyhow!("an aggregator endpoint must be specified"))?;
-            let mut relay =
-                AggregatorRelay::start(&topic_name, &addr, &aggregator_endpoint).await?;
+            let mut relay = AggregatorRelay::start(&addr, &aggregator_endpoint).await?;
             if let Some(dial_to_address) = dial_to {
                 relay.dial_peer(dial_to_address.clone())?;
             }
@@ -112,7 +105,7 @@ async fn main() -> StdResult<()> {
             }
         }
         NodeType::Passive => {
-            let mut p2p_client = P2PClient::new(&topic_name, &addr).start().await?;
+            let mut p2p_client = P2PClient::new(&addr).start().await?;
             if let Some(dial_to_address) = dial_to {
                 p2p_client.dial_peer(dial_to_address.clone())?;
             }

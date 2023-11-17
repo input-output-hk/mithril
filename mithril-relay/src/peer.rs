@@ -8,7 +8,9 @@ use libp2p::{
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 use slog_scope::{debug, info};
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
+
+use crate::MITHRIL_SIGNATURES_TOPIC_NAME;
 
 // We create a custom network behaviour that combines gossipsub and ping.
 #[derive(swarm::NetworkBehaviour)]
@@ -34,28 +36,41 @@ pub enum PeerEvent {
     },
 }
 
+pub type TopicName = String;
+
 pub struct Peer {
-    pub topic: gossipsub::IdentTopic,
+    pub topics: HashMap<TopicName, gossipsub::IdentTopic>,
     pub swarm: Option<Swarm<PeerBehaviour>>,
     pub addr: Multiaddr,
     pub addr_peer: Option<Multiaddr>,
 }
 
 impl Peer {
-    pub fn new(topic_name: &str, addr: &Multiaddr) -> Self {
+    pub fn new(addr: &Multiaddr) -> Self {
         Self {
-            topic: gossipsub::IdentTopic::new(topic_name),
+            topics: Self::build_topics(),
             swarm: None,
             addr: addr.to_owned(),
             addr_peer: None,
         }
     }
 
-    pub fn publish(
+    fn build_topics() -> HashMap<TopicName, gossipsub::IdentTopic> {
+        HashMap::from([(
+            MITHRIL_SIGNATURES_TOPIC_NAME.into(),
+            gossipsub::IdentTopic::new(MITHRIL_SIGNATURES_TOPIC_NAME),
+        )])
+    }
+
+    pub fn publish_signature(
         &mut self,
         message: &RegisterSignatureMessage,
     ) -> StdResult<gossipsub::MessageId> {
-        let topic = self.topic.clone();
+        let topic = self
+            .topics
+            .get(MITHRIL_SIGNATURES_TOPIC_NAME)
+            .unwrap()
+            .to_owned();
         let data = serde_json::to_vec(message).unwrap();
 
         let message_id = self
@@ -101,7 +116,6 @@ impl Peer {
             .with_other_transport(|key| {
                 let noise_config = noise::Config::new(key).unwrap();
                 let yamux_config = yamux::Config::default();
-
                 let base_transport =
                     tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
                 base_transport
@@ -129,13 +143,13 @@ impl Peer {
                 })
             })?
             .build();
-        swarm
-            .behaviour_mut()
-            .gossipsub
-            .subscribe(&self.topic)
-            .unwrap();
 
-        let _listener_id = swarm.listen_on(self.addr.clone()).unwrap();
+        for topic in self.topics.values() {
+            debug!("Peer: subscribing to"; "topic" => format!("{topic:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+            swarm.behaviour_mut().gossipsub.subscribe(topic)?;
+        }
+
+        let _listener_id = swarm.listen_on(self.addr.clone())?;
         self.swarm = Some(swarm);
 
         loop {

@@ -8,9 +8,9 @@ pub struct P2PClient {
 }
 
 impl P2PClient {
-    pub fn new(topic_name: &str, addr: &Multiaddr) -> Self {
+    pub fn new(addr: &Multiaddr) -> Self {
         Self {
-            peer: Peer::new(topic_name, addr),
+            peer: Peer::new(addr),
         }
     }
 

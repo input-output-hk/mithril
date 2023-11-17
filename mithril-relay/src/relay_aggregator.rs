@@ -11,14 +11,10 @@ pub struct AggregatorRelay {
 }
 
 impl AggregatorRelay {
-    pub async fn start(
-        topic_name: &str,
-        addr: &Multiaddr,
-        aggregator_endpoint: &str,
-    ) -> StdResult<Self> {
+    pub async fn start(addr: &Multiaddr, aggregator_endpoint: &str) -> StdResult<Self> {
         Ok(Self {
             aggregator_endpoint: aggregator_endpoint.to_owned(),
-            peer: Peer::new(topic_name, addr).start().await?,
+            peer: Peer::new(addr).start().await?,
         })
     }
 
