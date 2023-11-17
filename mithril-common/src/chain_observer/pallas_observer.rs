@@ -139,7 +139,7 @@ mod tests {
             ) => AnyCbor::from_encode(4),
             localstate::queries_v16::Request::LedgerQuery(
                 localstate::queries_v16::LedgerQuery::BlockQuery(
-                    4,
+                    _,
                     localstate::queries_v16::BlockQuery::GetEpochNo,
                 ),
             ) => AnyCbor::from_encode([8]),
