@@ -26,12 +26,11 @@ impl RelaySigner {
         let server_port_str = format!("{server_port}");
         let party_id = pool_node.party_id()?;
         let env = HashMap::from([
-            ("NODE_TYPE", "signer"),
-            ("SERVER_PORT", &server_port_str),
-            ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
+            ("SERVER_PORT", server_port_str.as_str()),
+            ("AGGREGATOR_ENDPOINT", aggregator_endpoint.as_str()),
             ("DIAL_TO", &dial_to),
         ]);
-        let args = vec!["-vvv"];
+        let args = vec!["-vvv", "signer"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
         command.set_log_name(format!("mithril-relay-signer-{party_id}").as_str());

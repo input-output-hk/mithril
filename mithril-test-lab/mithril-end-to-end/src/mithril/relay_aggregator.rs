@@ -20,11 +20,10 @@ impl RelayAggregator {
     ) -> StdResult<Self> {
         let listen_port_str = format!("{listen_port}");
         let env = HashMap::from([
-            ("NODE_TYPE", "aggregator"),
-            ("LISTEN_PORT", &listen_port_str),
-            ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
+            ("LISTEN_PORT", listen_port_str.as_str()),
+            ("AGGREGATOR_ENDPOINT", aggregator_endpoint.as_str()),
         ]);
-        let args = vec!["-vvv"];
+        let args = vec!["-vvv", "aggregator"];
 
         let mut command = MithrilCommand::new("mithril-relay", work_dir, bin_dir, env, &args)?;
         command.set_log_name("mithril-relay-aggregator");

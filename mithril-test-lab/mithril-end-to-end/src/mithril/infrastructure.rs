@@ -3,6 +3,7 @@ use anyhow::anyhow;
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::{CardanoNetwork, StdResult};
+use slog_scope::info;
 use std::borrow::BorrowMut;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -54,6 +55,8 @@ impl MithrilInfrastructure {
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
         if use_p2p_network_mode {
+            info!("Starting the Mithirl infrastructure in P2P mode (experimental)");
+
             let mut relay_aggregator =
                 RelayAggregator::new(server_port + 100, aggregator.endpoint(), work_dir, bin_dir)?;
             relay_aggregator.start()?;
