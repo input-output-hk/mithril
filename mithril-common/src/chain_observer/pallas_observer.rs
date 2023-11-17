@@ -71,7 +71,6 @@ impl ChainObserver for PallasChainObserver {
 
         statequery.acquire(None).await.unwrap();
 
-        // TODO: maybe implicitely get the current era as default
         let era = queries_v16::get_current_era(statequery)
             .await
             .map_err(|err| ChainObserverError::General(err.into()))?;
@@ -84,7 +83,7 @@ impl ChainObserver for PallasChainObserver {
         statequery.send_done().await.unwrap();
 
         client.chainsync().send_done().await.unwrap();
-        client.abort();
+        drop(client.plexer_handle);
 
         Ok(Some(Epoch(epoch as u64)))
     }
@@ -110,5 +109,130 @@ impl ChainObserver for PallasChainObserver {
     ) -> Result<Option<KESPeriod>, ChainObserverError> {
         let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
         fallback.get_current_kes_period(opcert).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use pallas_codec::utils::AnyCbor;
+    use pallas_network::miniprotocols::{
+        chainsync::{self},
+        localstate::{self, queries_v16::EpochNo, ClientQueryRequest},
+    };
+    use tokio::net::UnixListener;
+
+    use super::*;
+    use crate::CardanoNetwork;
+
+    #[tokio::test]
+    #[ignore]
+    async fn get_current_epoch_with_fallback() {
+        let server = tokio::spawn({
+            async move {
+                let socket_path = Path::new("node.socket");
+                if socket_path.exists() {
+                    fs::remove_file(socket_path).unwrap();
+                }
+                let unix_listener = UnixListener::bind(socket_path).unwrap();
+
+                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
+                    .await
+                    .unwrap();
+
+                let maybe_acquire = server.statequery().recv_while_idle().await.unwrap();
+                assert!(maybe_acquire.is_some());
+                assert_eq!(*server.statequery().state(), localstate::State::Acquiring);
+
+                server.statequery().send_acquired().await.unwrap();
+                assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+                //////////////////////////////////////////////////////////////
+                //                        Get Current Era                   //
+                //////////////////////////////////////////////////////////////
+
+                // server receives query from client
+                let query: localstate::queries_v16::Request =
+                    match server.statequery().recv_while_acquired().await.unwrap() {
+                        ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                        x => panic!("unexpected message from client: {x:?}"),
+                    };
+
+                assert_eq!(
+                    query,
+                    localstate::queries_v16::Request::LedgerQuery(
+                        localstate::queries_v16::LedgerQuery::HardForkQuery(
+                            localstate::queries_v16::HardForkQuery::GetCurrentEra
+                        )
+                    )
+                );
+                assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+                let result = AnyCbor::from_encode(4);
+
+                server.statequery().send_result(result).await.unwrap();
+
+                assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+                ///////////////////////////////////////////////////////////////
+                //                        Get Epoch                          //
+                ///////////////////////////////////////////////////////////////
+
+                let query: localstate::queries_v16::Request =
+                    match server.statequery().recv_while_acquired().await.unwrap() {
+                        ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                        x => panic!("unexpected message from client: {x:?}"),
+                    };
+
+                assert_eq!(
+                    query,
+                    localstate::queries_v16::Request::LedgerQuery(
+                        localstate::queries_v16::LedgerQuery::BlockQuery(
+                            4,
+                            localstate::queries_v16::BlockQuery::GetEpochNo
+                        )
+                    )
+                );
+                assert_eq!(*server.statequery().state(), localstate::State::Querying);
+
+                let result = AnyCbor::from_encode(EpochNo(8));
+
+                server.statequery().send_result(result).await.unwrap();
+
+                assert_eq!(*server.statequery().state(), localstate::State::Acquired);
+
+                // server receives release from the client
+                match server.statequery().recv_while_acquired().await.unwrap() {
+                    ClientQueryRequest::Release => (),
+                    x => panic!("unexpected message from client: {x:?}"),
+                };
+
+                let next_request = server.statequery().recv_while_idle().await.unwrap();
+                assert!(next_request.is_none());
+                assert_eq!(*server.statequery().state(), localstate::State::Done);
+
+                let chainsync_state = server.chainsync().state();
+                assert_eq!(*chainsync_state, chainsync::State::Idle);
+                assert!(server
+                    .chainsync()
+                    .recv_while_idle()
+                    .await
+                    .unwrap()
+                    .is_none());
+            }
+        });
+
+        let client = tokio::spawn(async move {
+            let observer = super::PallasChainObserver::new_with_fallback(
+                &std::path::PathBuf::from("node.socket"),
+                CardanoNetwork::TestNet(10),
+                &std::path::PathBuf::from("/tmp/cardano-cli"),
+            );
+            let epoch = observer.get_current_epoch().await.unwrap().unwrap();
+            assert_eq!(epoch, Epoch(8));
+        });
+
+        _ = tokio::join!(client, server);
     }
 }

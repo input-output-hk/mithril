@@ -34,7 +34,8 @@ kes-summed-ed25519 = { version = "0.2.1", features = [
     "sk_clone_enabled",
 ] }
 nom = "7.1.3"
-pallas-network = { git = "https://github.com/falcucci/pallas.git", branch = "fix/build-errors" }
+pallas-network = { git = "https://github.com/falcucci/pallas.git", branch = "test/add-epoch-no" }
+pallas-codec = { git = "https://github.com/falcucci/pallas.git", branch = "test/add-epoch-no" }
 rand_chacha = "0.3.1"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 rayon = "1.8.0"
