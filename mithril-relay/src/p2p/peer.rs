@@ -1,10 +1,11 @@
+#![allow(missing_docs)]
 use anyhow::Context;
 use libp2p::{
     core::upgrade::Version,
     futures::StreamExt,
     gossipsub::{self, ValidationMode},
     noise, ping,
-    swarm::{self, DialError},
+    swarm::{self, DialError, NetworkBehaviour},
     tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
 };
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
@@ -13,40 +14,54 @@ use std::{collections::HashMap, time::Duration};
 
 use crate::{PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
 
-// We create a custom network behaviour that combines gossipsub and ping.
-#[derive(swarm::NetworkBehaviour)]
+/// Custom network behaviour
+#[derive(NetworkBehaviour)]
 pub struct PeerBehaviour {
     gossipsub: gossipsub::Behaviour,
     ping: ping::Behaviour,
 }
 
+/// Peer event that is polled from the swarm
 #[derive(Debug)]
 pub enum PeerEvent {
+    /// The peer is listening on an address
     ListeningOnAddr {
+        /// Listening multi address
         address: Multiaddr,
     },
+    /// The peer established a connection with another peer
     ConnectionEstablished {
+        /// Remote peer id
         peer_id: PeerId,
     },
+    /// The peer can not connect to another peer
     OutgoingConnectionError {
+        /// Remote peer id
         peer_id: Option<PeerId>,
+        /// Error that occurred when dialing the remote peer
         error: DialError,
     },
+    /// The peer received a behaviour related event
     Behaviour {
+        /// The behaviour event the peer received
         event: PeerBehaviourEvent,
     },
 }
 
+/// The topic name of a P2P pubsub
 pub type TopicName = String;
 
+/// A peer in the P2P network
 pub struct Peer {
-    pub topics: HashMap<TopicName, gossipsub::IdentTopic>,
-    pub swarm: Option<Swarm<PeerBehaviour>>,
-    pub addr: Multiaddr,
+    topics: HashMap<TopicName, gossipsub::IdentTopic>,
+    swarm: Option<Swarm<PeerBehaviour>>,
+    addr: Multiaddr,
+    /// Multi address on which the peer is listening
     pub addr_peer: Option<Multiaddr>,
 }
 
 impl Peer {
+    /// Peer factory
     pub fn new(addr: &Multiaddr) -> Self {
         Self {
             topics: Self::build_topics(),
@@ -63,64 +78,7 @@ impl Peer {
         )])
     }
 
-    pub fn publish_signature(
-        &mut self,
-        message: &RegisterSignatureMessage,
-    ) -> StdResult<gossipsub::MessageId> {
-        let topic = self
-            .topics
-            .get(MITHRIL_SIGNATURES_TOPIC_NAME)
-            .ok_or(PeerError::MissingTopic())
-            .with_context(|| "Can not publish signature on invalid topic")?
-            .to_owned();
-        let data = serde_json::to_vec(message)
-            .with_context(|| "Can not publish signature with invalid format")?;
-
-        let message_id = self
-            .swarm
-            .as_mut()
-            .map(|swarm| swarm.behaviour_mut().gossipsub.publish(topic, data))
-            .transpose()
-            .with_context(|| "Can not publish signature on P2P pubsub")?
-            .ok_or(PeerError::UnavailableSwarm())
-            .with_context(|| "Can not publish signature without swarm")?;
-        Ok(message_id.to_owned())
-    }
-
-    pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
-        debug!("Peer: reading next event"; "local_peer_id" => format!("{:?}", self.local_peer_id()));
-        match self
-            .swarm
-            .as_mut()
-            .ok_or(PeerError::UnavailableSwarm())
-            .with_context(|| "Can not publish signature without swarm")?
-            .next()
-            .await
-        {
-            Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
-                debug!("Peer: received listening address event"; "address" => format!("{address:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-                Ok(Some(PeerEvent::ListeningOnAddr { address }))
-            }
-            Some(swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. }) => {
-                debug!("Peer: received outgoing connection error event"; "error" => format!("{error:#?}"), "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-                Ok(Some(PeerEvent::OutgoingConnectionError { peer_id, error }))
-            }
-            Some(swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
-                debug!("Peer: received connection established event"; "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-                Ok(Some(PeerEvent::ConnectionEstablished { peer_id }))
-            }
-            Some(swarm::SwarmEvent::Behaviour(event)) => {
-                debug!("Peer: received behaviour event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-                Ok(Some(PeerEvent::Behaviour { event }))
-            }
-            Some(event) => {
-                debug!("Peer: received other event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-                Ok(None)
-            }
-            _ => Ok(None),
-        }
-    }
-
+    /// Start the peer
     pub async fn start(mut self) -> StdResult<Self> {
         debug!("Peer: starting...");
         let mut swarm = libp2p::SwarmBuilder::with_new_identity()
@@ -175,6 +133,67 @@ impl Peer {
         Ok(self)
     }
 
+    /// Tick the peer swarm to receive the next event
+    pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
+        debug!("Peer: reading next event"; "local_peer_id" => format!("{:?}", self.local_peer_id()));
+        match self
+            .swarm
+            .as_mut()
+            .ok_or(PeerError::UnavailableSwarm())
+            .with_context(|| "Can not publish signature without swarm")?
+            .next()
+            .await
+        {
+            Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
+                debug!("Peer: received listening address event"; "address" => format!("{address:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                Ok(Some(PeerEvent::ListeningOnAddr { address }))
+            }
+            Some(swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. }) => {
+                debug!("Peer: received outgoing connection error event"; "error" => format!("{error:#?}"), "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                Ok(Some(PeerEvent::OutgoingConnectionError { peer_id, error }))
+            }
+            Some(swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
+                debug!("Peer: received connection established event"; "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                Ok(Some(PeerEvent::ConnectionEstablished { peer_id }))
+            }
+            Some(swarm::SwarmEvent::Behaviour(event)) => {
+                debug!("Peer: received behaviour event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                Ok(Some(PeerEvent::Behaviour { event }))
+            }
+            Some(event) => {
+                debug!("Peer: received other event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                Ok(None)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// Publish a signature on the P2P pubsub
+    pub fn publish_signature(
+        &mut self,
+        message: &RegisterSignatureMessage,
+    ) -> StdResult<gossipsub::MessageId> {
+        let topic = self
+            .topics
+            .get(MITHRIL_SIGNATURES_TOPIC_NAME)
+            .ok_or(PeerError::MissingTopic())
+            .with_context(|| "Can not publish signature on invalid topic")?
+            .to_owned();
+        let data = serde_json::to_vec(message)
+            .with_context(|| "Can not publish signature with invalid format")?;
+
+        let message_id = self
+            .swarm
+            .as_mut()
+            .map(|swarm| swarm.behaviour_mut().gossipsub.publish(topic, data))
+            .transpose()
+            .with_context(|| "Can not publish signature on P2P pubsub")?
+            .ok_or(PeerError::UnavailableSwarm())
+            .with_context(|| "Can not publish signature without swarm")?;
+        Ok(message_id.to_owned())
+    }
+
+    /// Connect to a remote peer
     pub fn dial(&mut self, addr: Multiaddr) -> StdResult<()> {
         debug!("Peer: dialing to"; "address" => format!("{addr:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
         self.swarm.as_mut().unwrap().dial(addr)?;
@@ -182,6 +201,7 @@ impl Peer {
         Ok(())
     }
 
+    /// Get the local peer id (if any)
     pub fn local_peer_id(&self) -> Option<PeerId> {
         self.swarm.as_ref().map(|s| s.local_peer_id().to_owned())
     }

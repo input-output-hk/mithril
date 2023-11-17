@@ -5,12 +5,14 @@ use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 use reqwest::StatusCode;
 use slog_scope::{error, info};
 
+/// A relay for a Mithril aggregator
 pub struct AggregatorRelay {
     aggregator_endpoint: String,
-    pub peer: Peer,
+    peer: Peer,
 }
 
 impl AggregatorRelay {
+    /// Start a relay for a Mithril aggregator
     pub async fn start(addr: &Multiaddr, aggregator_endpoint: &str) -> StdResult<Self> {
         Ok(Self {
             aggregator_endpoint: aggregator_endpoint.to_owned(),
@@ -18,7 +20,7 @@ impl AggregatorRelay {
         })
     }
 
-    pub fn convert_peer_event_to_signature_message(
+    fn convert_peer_event_to_signature_message(
         &mut self,
         event: PeerEvent,
     ) -> StdResult<Option<RegisterSignatureMessage>> {
@@ -30,7 +32,7 @@ impl AggregatorRelay {
         }
     }
 
-    pub async fn notify_signature_to_aggregator(
+    async fn notify_signature_to_aggregator(
         &self,
         signature_message: &RegisterSignatureMessage,
     ) -> StdResult<()> {
@@ -58,6 +60,7 @@ impl AggregatorRelay {
         }
     }
 
+    /// Tick the aggregator relay
     pub async fn tick(&mut self) -> StdResult<()> {
         if let Some(peer_event) = self.peer.tick_swarm().await? {
             if let Ok(Some(signature_message_received)) =
@@ -71,14 +74,18 @@ impl AggregatorRelay {
         Ok(())
     }
 
-    pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
+    /// Tick the peer of the aggregator relay
+    #[allow(dead_code)]
+    pub(crate) async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
         self.peer.tick_swarm().await
     }
 
+    /// Connect to a remote peer
     pub fn dial_peer(&mut self, addr: Multiaddr) -> StdResult<()> {
         self.peer.dial(addr)
     }
 
+    /// Retrieve address on which the peer is listening
     pub fn peer_address(&self) -> Option<Multiaddr> {
         self.peer.addr_peer.to_owned()
     }

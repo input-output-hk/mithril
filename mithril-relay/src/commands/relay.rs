@@ -4,6 +4,7 @@ use mithril_common::StdResult;
 
 use super::{AggregatorCommand, PassiveCommand, SignerCommand};
 
+/// The available sub-commands of the relay
 #[derive(Subcommand, Debug, Clone)]
 pub enum RelayCommands {
     /// Run a relay for a Mithril aggregator
@@ -20,6 +21,7 @@ pub enum RelayCommands {
 }
 
 impl RelayCommands {
+    /// Execute the command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::Aggregator(cmd) => cmd.execute(config_builder).await,

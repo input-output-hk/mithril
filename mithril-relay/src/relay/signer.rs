@@ -10,13 +10,15 @@ use std::net::SocketAddr;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use warp::Filter;
 
+/// A relay for a Mithril signer
 pub struct SignerRelay {
     server: TestHttpServer,
-    pub peer: Peer,
-    pub signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
+    peer: Peer,
+    signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
 }
 
 impl SignerRelay {
+    /// Start a relay for a Mithril signer
     pub async fn start(
         address: &Multiaddr,
         server_port: &u16,
@@ -69,6 +71,7 @@ impl SignerRelay {
         )
     }
 
+    /// Tick the signer relay
     pub async fn tick(&mut self) -> StdResult<()> {
         tokio::select! {
             message = self.signature_rx.recv()  => {
@@ -88,22 +91,29 @@ impl SignerRelay {
         }
     }
 
+    /// Receive signature from the underlying channel
+    #[allow(dead_code)]
     pub async fn receive_signature(&mut self) -> Option<RegisterSignatureMessage> {
         self.signature_rx.recv().await
     }
 
+    /// Tick the peer of the signer relay
+    /// #[allow(dead_code)]
     pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
         self.peer.tick_swarm().await
     }
 
+    /// Connect to a remote peer
     pub fn dial_peer(&mut self, addr: Multiaddr) -> StdResult<()> {
         self.peer.dial(addr)
     }
 
+    /// Retrieve address on which the HTTP Server is listening
     pub fn address(&self) -> SocketAddr {
         self.server.address()
     }
 
+    /// Retrieve address on which the peer is listening
     pub fn peer_address(&self) -> Option<Multiaddr> {
         self.peer.addr_peer.to_owned()
     }

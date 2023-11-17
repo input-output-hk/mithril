@@ -1,6 +1,6 @@
-pub mod aggregator;
-pub mod passive;
-pub mod signer;
+mod aggregator;
+mod passive;
+mod signer;
 
 pub use aggregator::AggregatorRelay;
 pub use passive::PassiveRelay;
