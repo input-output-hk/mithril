@@ -11,12 +11,14 @@
 
 mod certifier;
 mod epoch_service;
+mod http_message;
 mod signed_entity;
 mod stake_distribution;
 mod ticker;
 
 pub use certifier::*;
 pub use epoch_service::*;
+pub use http_message::*;
 pub use signed_entity::*;
 pub use stake_distribution::*;
 pub use ticker::*;
