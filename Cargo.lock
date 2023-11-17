@@ -3384,6 +3384,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "config",
  "libp2p",
  "mithril-common",
  "reqwest",

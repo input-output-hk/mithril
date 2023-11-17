@@ -1,45 +1,50 @@
-use anyhow::anyhow;
-use clap::{Parser, ValueEnum};
-use libp2p::Multiaddr;
-use mithril_common::StdResult;
-use mithril_relay::{AggregatorRelay, PassiveRelay, SignerRelay};
-use slog::{Drain, Level, Logger};
-use slog_scope::error;
-use std::sync::Arc;
+#![doc = include_str!("../README.md")]
 
-#[derive(Parser, Debug, PartialEq, Clone)]
-pub struct Config {
+use clap::Parser;
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use mithril_common::StdResult;
+use mithril_relay::RelayCommands;
+use slog::{Drain, Level, Logger};
+use slog_scope::debug;
+use std::{path::PathBuf, sync::Arc};
+
+#[derive(Parser, Debug, Clone)]
+#[clap(name = "mithril-relay")]
+#[clap(
+    about = "This program is a relay for Mithril nodes.",
+    long_about = None
+)]
+#[command(version)]
+pub struct Args {
+    /// Available commands
+    #[clap(subcommand)]
+    command: RelayCommands,
+
     /// Run Mode.
     #[clap(long, env = "RUN_MODE", default_value = "dev")]
     run_mode: String,
 
-    /// Node type (relay or client)
-    #[clap(long, env = "NODE_TYPE")]
-    #[arg(value_enum)]
-    node_type: NodeType,
-
-    /// HTTP Server listening port
-    #[clap(long, env = "SERVER_PORT", default_value_t = 3132)]
-    server_port: u16,
-
-    /// Peer listening port
-    #[clap(long, env = "LISTEN_PORT")]
-    listen_port: Option<u16>,
-
-    /// Dial to peer multi-address
-    #[clap(long, env = "DIAL_TO")]
-    dial_to: Option<Multiaddr>,
-
-    /// Aggregator endpoint URL.
-    #[clap(long, env = "AGGREGATOR_ENDPOINT")]
-    aggregator_endpoint: Option<String>,
-
     /// Verbosity level (-v=warning, -vv=info, -vvv=debug).
     #[clap(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
+
+    /// Directory where configuration file is located.
+    #[clap(long, default_value = "./config")]
+    pub config_directory: PathBuf,
 }
 
-impl Config {
+impl Args {
+    pub async fn execute(&self) -> StdResult<()> {
+        debug!("Run Mode: {}", self.run_mode);
+        let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
+        debug!("Reading configuration file '{}'.", filename);
+        let config: ConfigBuilder<DefaultState> = config::Config::builder()
+            .add_source(config::File::with_name(&filename).required(false))
+            .add_source(self.clone());
+
+        self.command.execute(config).await
+    }
+
     fn log_level(&self) -> Level {
         match self.verbose {
             0 => Level::Warning,
@@ -59,63 +64,20 @@ impl Config {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-enum NodeType {
-    Signer,
-    Aggregator,
-    Passive,
+impl Source for Args {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        Ok(Map::new())
+    }
 }
 
 #[tokio::main]
 async fn main() -> StdResult<()> {
-    let config = Config::parse();
+    let args = Args::parse();
+    let _guard = slog_scope::set_global_logger(args.build_logger());
 
-    let _guard = slog_scope::set_global_logger(config.build_logger());
-
-    let node_type = config.node_type;
-    let server_port = config.server_port;
-    let dial_to = config.dial_to;
-    let addr: Multiaddr =
-        format!("/ip4/0.0.0.0/tcp/{}", config.listen_port.unwrap_or(0)).parse()?;
-    let aggregator_endpoint = config.aggregator_endpoint;
-
-    match node_type {
-        NodeType::Signer => {
-            let aggregator_endpoint =
-                aggregator_endpoint.ok_or(anyhow!("an aggregator endpoint must be specified"))?;
-            let mut relay = SignerRelay::start(&addr, &server_port, &aggregator_endpoint).await?;
-            if let Some(dial_to_address) = dial_to {
-                relay.dial_peer(dial_to_address.clone())?;
-            }
-            loop {
-                if let Err(err) = relay.tick().await {
-                    error!("RelaySigner: tick error"; "error" => format!("{err:#?}"));
-                }
-            }
-        }
-        NodeType::Aggregator => {
-            let aggregator_endpoint =
-                aggregator_endpoint.ok_or(anyhow!("an aggregator endpoint must be specified"))?;
-            let mut relay = AggregatorRelay::start(&addr, &aggregator_endpoint).await?;
-            if let Some(dial_to_address) = dial_to {
-                relay.dial_peer(dial_to_address.clone())?;
-            }
-            loop {
-                if let Err(err) = relay.tick().await {
-                    error!("RelayAggregator: tick error"; "error" => format!("{err:#?}"));
-                }
-            }
-        }
-        NodeType::Passive => {
-            let mut relay = PassiveRelay::new(&addr).start().await?;
-            if let Some(dial_to_address) = dial_to {
-                relay.dial_peer(dial_to_address.clone())?;
-            }
-            loop {
-                if let Err(err) = relay.tick().await {
-                    error!("P2PClient: tick error"; "error" => format!("{err:#?}"));
-                }
-            }
-        }
-    }
+    args.execute().await
 }
