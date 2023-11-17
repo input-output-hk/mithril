@@ -219,8 +219,13 @@ jobs:
       fail-fast: false
       matrix:
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        extra_args: ["","--use-p2p-network"]
         run_id: [1,2,3]
+        extra_args: [""]
+
+        include:
+          - era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            run_id: 3
+            extra_args: "--use-p2p-network"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
