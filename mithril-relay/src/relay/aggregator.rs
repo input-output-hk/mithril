@@ -1,4 +1,4 @@
-use crate::peer::{Peer, PeerBehaviourEvent, PeerEvent};
+use crate::p2p::{Peer, PeerBehaviourEvent, PeerEvent};
 use anyhow::anyhow;
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};

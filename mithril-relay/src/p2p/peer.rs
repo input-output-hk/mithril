@@ -1,3 +1,4 @@
+use anyhow::Context;
 use libp2p::{
     core::upgrade::Version,
     futures::StreamExt,
@@ -10,7 +11,7 @@ use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 use slog_scope::{debug, info};
 use std::{collections::HashMap, time::Duration};
 
-use crate::MITHRIL_SIGNATURES_TOPIC_NAME;
+use crate::{PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
 
 // We create a custom network behaviour that combines gossipsub and ping.
 #[derive(swarm::NetworkBehaviour)]
@@ -69,22 +70,33 @@ impl Peer {
         let topic = self
             .topics
             .get(MITHRIL_SIGNATURES_TOPIC_NAME)
-            .unwrap()
+            .ok_or(PeerError::MissingTopic())
+            .with_context(|| "Can not publish signature on invalid topic")?
             .to_owned();
-        let data = serde_json::to_vec(message).unwrap();
+        let data = serde_json::to_vec(message)
+            .with_context(|| "Can not publish signature with invalid format")?;
 
         let message_id = self
             .swarm
             .as_mut()
             .map(|swarm| swarm.behaviour_mut().gossipsub.publish(topic, data))
-            .transpose()?
-            .unwrap();
+            .transpose()
+            .with_context(|| "Can not publish signature on P2P pubsub")?
+            .ok_or(PeerError::UnavailableSwarm())
+            .with_context(|| "Can not publish signature without swarm")?;
         Ok(message_id.to_owned())
     }
 
     pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
         debug!("Peer: reading next event"; "local_peer_id" => format!("{:?}", self.local_peer_id()));
-        match self.swarm.as_mut().unwrap().next().await {
+        match self
+            .swarm
+            .as_mut()
+            .ok_or(PeerError::UnavailableSwarm())
+            .with_context(|| "Can not publish signature without swarm")?
+            .next()
+            .await
+        {
             Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
                 debug!("Peer: received listening address event"; "address" => format!("{address:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
                 Ok(Some(PeerEvent::ListeningOnAddr { address }))

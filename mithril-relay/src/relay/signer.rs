@@ -1,4 +1,4 @@
-use crate::peer::{Peer, PeerEvent};
+use crate::p2p::{Peer, PeerEvent};
 use libp2p::Multiaddr;
 use mithril_common::{
     messages::RegisterSignatureMessage,
@@ -192,12 +192,22 @@ mod handlers {
         match response {
             Ok(response) => {
                 let status = response.status().to_owned();
-                let content = response.text().await.as_ref().unwrap().to_owned();
-                debug!(
-                    "SignerRelay: received response with status '{status}' and content {content:?}"
-                );
+                match response.text().await {
+                    Ok(content) => {
+                        debug!(
+                            "SignerRelay: received response with status '{status}' and content {content:?}"
+                        );
 
-                Ok(Box::new(warp::reply::with_status(content, status)))
+                        Ok(Box::new(warp::reply::with_status(content, status)))
+                    }
+                    Err(err) => {
+                        debug!("SignerRelay: received error '{err:?}'");
+                        Ok(Box::new(warp::reply::with_status(
+                            format!("{err:?}"),
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                        )))
+                    }
+                }
             }
             Err(err) => {
                 debug!("SignerRelay: received error '{err:?}'");

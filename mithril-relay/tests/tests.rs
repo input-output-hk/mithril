@@ -3,7 +3,7 @@ use std::sync::Arc;
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_relay::{
-    peer::{PeerBehaviourEvent, PeerEvent},
+    p2p::{PeerBehaviourEvent, PeerEvent},
     PassiveRelay, SignerRelay,
 };
 use reqwest::StatusCode;

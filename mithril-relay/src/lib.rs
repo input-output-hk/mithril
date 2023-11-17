@@ -3,7 +3,7 @@ pub mod p2p;
 pub mod relay;
 
 pub use commands::RelayCommands;
-pub use p2p::peer;
+pub use p2p::*;
 pub use relay::passive;
 pub use relay::AggregatorRelay;
 pub use relay::PassiveRelay;
