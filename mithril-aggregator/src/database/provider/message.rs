@@ -11,11 +11,13 @@ use sqlite::ConnectionWithFullMutex;
 
 use super::{CertificateRecord, CertificateRecordProvider};
 
+/// Repository that turn inner Record entities into Message entities.
 pub struct CertificateMessageRepository {
     connection: Arc<ConnectionWithFullMutex>,
 }
 
 impl CertificateMessageRepository {
+    /// Constructor
     pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
         Self { connection }
     }
@@ -38,7 +40,7 @@ impl From<CertificateRecord> for CertificateMessage {
 
         CertificateMessage {
             hash: value.certificate_id,
-            previous_hash: value.parent_certificate_id.unwrap_or_else(|| String::new()),
+            previous_hash: value.parent_certificate_id.unwrap_or_default(),
             beacon: value.beacon,
             metadata,
             protocol_message: value.protocol_message,
@@ -59,15 +61,10 @@ impl From<CertificateRecord> for CertificateListItemMessage {
             sealed_at: value.sealed_at,
             total_signers: value.signers.len(),
         };
-        let (multi_signature, genesis_signature) = if value.parent_certificate_id.is_none() {
-            (String::new(), value.signature)
-        } else {
-            (value.signature, String::new())
-        };
 
         CertificateListItemMessage {
             hash: value.certificate_id,
-            previous_hash: value.parent_certificate_id.unwrap_or_else(|| String::new()),
+            previous_hash: value.parent_certificate_id.unwrap_or_default(),
             beacon: value.beacon,
             metadata,
             protocol_message: value.protocol_message,
@@ -78,6 +75,7 @@ impl From<CertificateRecord> for CertificateListItemMessage {
 }
 
 impl CertificateMessageRepository {
+    /// Return the certificate matching the given hash.
     pub async fn get_certificate(&self, hash: &str) -> StdResult<Option<CertificateMessage>> {
         let provider = CertificateRecordProvider::new(&self.connection);
         let mut cursor = provider.get_by_certificate_id(hash)?;
@@ -85,6 +83,7 @@ impl CertificateMessageRepository {
         Ok(cursor.next().map(|v| v.into()))
     }
 
+    /// Return the last N certificates
     pub async fn get_last(&self, limit: usize) -> StdResult<Vec<CertificateListItemMessage>> {
         let provider = CertificateRecordProvider::new(&self.connection);
         let cursor = provider.get_all()?;

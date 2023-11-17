@@ -1027,6 +1027,7 @@ impl DependenciesBuilder {
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
+            http_message_service: self.get_http_message_service().await?,
         };
 
         Ok(dependency_manager)

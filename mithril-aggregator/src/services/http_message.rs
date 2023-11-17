@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::{
-    messages::{CertificateListMessage, CertificateMessage, CertificatePendingMessage},
+    messages::{CertificateListMessage, CertificateMessage},
     StdResult,
 };
 
@@ -21,7 +21,7 @@ pub enum HttpMessageServiceError {
 }
 /// HTTP Message service trait.
 #[async_trait]
-pub trait HttpMessageService {
+pub trait HttpMessageService: Sync + Send {
     /// Return the message representation of a certificate if it exists.
     async fn get_certificate(
         &self,
@@ -30,16 +30,15 @@ pub trait HttpMessageService {
 
     /// Return the message representation of the last N certificates
     async fn get_last_certificates(&self, limit: usize) -> StdResult<CertificateListMessage>;
-
-    /// Return the message representation of the current pending certificate
-    async fn get_pending_certificate(&self) -> StdResult<CertificatePendingMessage>;
 }
 
+/// Implementation of the [HttpMessageService]
 pub struct MithrilHttpMessageService {
     certificate_message_repository: Arc<CertificateMessageRepository>,
 }
 
 impl MithrilHttpMessageService {
+    /// Constructor
     pub fn new(certificate_message_repository: Arc<CertificateMessageRepository>) -> Self {
         Self {
             certificate_message_repository,
@@ -61,10 +60,6 @@ impl HttpMessageService for MithrilHttpMessageService {
     async fn get_last_certificates(&self, limit: usize) -> StdResult<CertificateListMessage> {
         self.certificate_message_repository.get_last(limit).await
     }
-
-    async fn get_pending_certificate(&self) -> StdResult<CertificatePendingMessage> {
-        todo!()
-    }
 }
 
 #[cfg(test)]
@@ -72,8 +67,6 @@ mod tests {
     use mithril_common::{entities::Beacon, test_utils::MithrilFixtureBuilder};
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
-
-    use super::*;
 
     #[tokio::test]
     async fn get_no_certificate() {
@@ -137,9 +130,19 @@ mod tests {
             .create_certificate(genesis_certificate.clone())
             .await
             .unwrap();
+        let genesis_certificate = fixture.create_genesis_certificate(&beacon);
+        dep_builder
+            .get_certificate_repository()
+            .await
+            .unwrap()
+            .create_certificate(genesis_certificate.clone())
+            .await
+            .unwrap();
 
         // test
         let certficate_messages = service.get_last_certificates(5).await.unwrap();
+
+        assert_eq!(2, certficate_messages.len());
         assert_eq!(genesis_certificate.hash, certficate_messages[0].hash);
     }
 }
