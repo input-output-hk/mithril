@@ -98,7 +98,6 @@ impl SignerRelay {
     }
 
     /// Tick the peer of the signer relay
-    /// #[allow(dead_code)]
     pub async fn tick_peer(&mut self) -> StdResult<Option<PeerEvent>> {
         self.peer.tick_swarm().await
     }

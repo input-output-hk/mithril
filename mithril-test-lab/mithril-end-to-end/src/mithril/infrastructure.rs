@@ -55,7 +55,7 @@ impl MithrilInfrastructure {
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
         if use_p2p_network_mode {
-            info!("Starting the Mithirl infrastructure in P2P mode (experimental)");
+            info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
             let mut relay_aggregator =
                 RelayAggregator::new(server_port + 100, aggregator.endpoint(), work_dir, bin_dir)?;
