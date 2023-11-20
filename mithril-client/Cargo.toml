@@ -58,7 +58,8 @@ warp = "0.3"
 
 [features]
 # Include nothing by default
-default = []
+# TODO: rollback to default = []
+default = ["full"]
 full = ["fs"]
 # Enable file system releated functionnality, right now that mean ony snapshot download
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
