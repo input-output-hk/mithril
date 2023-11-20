@@ -25,7 +25,6 @@ libp2p = { version = "0.53", features = [
     "ping",
     "pnet",
     "tcp",
-    "websocket",
     "yamux",
 ] }
 mithril-common = { path = "../mithril-common", features = ["test_http_server"] }
