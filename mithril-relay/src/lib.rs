@@ -3,11 +3,11 @@
 //! Mithril relay modules
 
 mod commands;
-mod p2p;
+/// Peer to peer module
+pub mod p2p;
 mod relay;
 
 pub use commands::RelayCommands;
-pub use p2p::*;
 pub use relay::AggregatorRelay;
 pub use relay::PassiveRelay;
 pub use relay::SignerRelay;

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::messages::RegisterSignatureMessage;
-use mithril_relay::{PassiveRelay, PeerBehaviourEvent, PeerEvent, SignerRelay};
+use mithril_relay::{p2p::PeerBehaviourEvent, p2p::PeerEvent, PassiveRelay, SignerRelay};
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
 use slog_scope::info;

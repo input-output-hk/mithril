@@ -1,5 +1,5 @@
 #![allow(missing_docs)]
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use libp2p::{
     core::upgrade::Version,
     futures::StreamExt,
@@ -12,7 +12,7 @@ use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 use slog_scope::{debug, info};
 use std::{collections::HashMap, time::Duration};
 
-use crate::{PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
+use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
 
 /// Custom network behaviour
 #[derive(NetworkBehaviour)]
@@ -177,7 +177,11 @@ impl Peer {
             .topics
             .get(MITHRIL_SIGNATURES_TOPIC_NAME)
             .ok_or(PeerError::MissingTopic())
-            .with_context(|| "Can not publish signature on invalid topic")?
+            .with_context(|| {
+                format!(
+                    "Can not publish signature on invalid topic: {MITHRIL_SIGNATURES_TOPIC_NAME}"
+                )
+            })?
             .to_owned();
         let data = serde_json::to_vec(message)
             .with_context(|| "Can not publish signature with invalid format")?;
@@ -196,9 +200,12 @@ impl Peer {
     /// Connect to a remote peer
     pub fn dial(&mut self, addr: Multiaddr) -> StdResult<()> {
         debug!("Peer: dialing to"; "address" => format!("{addr:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
-        self.swarm.as_mut().unwrap().dial(addr)?;
-
-        Ok(())
+        self.swarm
+            .as_mut()
+            .ok_or(PeerError::UnavailableSwarm())
+            .with_context(|| "Can not dial without swarm")?
+            .dial(addr)
+            .map_err(|e| anyhow!(e))
     }
 
     /// Get the local peer id (if any)
