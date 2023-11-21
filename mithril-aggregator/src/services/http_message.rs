@@ -1,4 +1,4 @@
-//! This service is responsible of provinding HTTP server with messages as fast as possible.
+//! This service is responsible of providing HTTP server with messages as fast as possible.
 
 use std::sync::Arc;
 
