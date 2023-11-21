@@ -65,7 +65,7 @@ impl CardanoNetwork {
     }
 
     /// Returns the code (magic) of the network
-    pub fn code(&self) -> u64 {
+    pub fn code(&self) -> MagicId {
         match *self {
             CardanoNetwork::MainNet => MAINNET_MAGIC_ID,
             CardanoNetwork::DevNet(magic_id) => magic_id,

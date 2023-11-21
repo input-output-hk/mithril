@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use crate::{chain_observer::CliRunner, StdResult};
 
-/// `TestCliRunner` is a struct to run CLI tests
+/// `TestCliRunner` is a struct to run Cardano CLI tests
 pub struct TestCliRunner {
     is_legacy: bool,
 }
@@ -13,6 +13,11 @@ pub struct TestCliRunner {
 impl TestCliRunner {
     fn new(is_legacy: bool) -> Self {
         Self { is_legacy }
+    }
+
+    /// Creates a new `TestCliRunner` instance in legacy mode.
+    pub fn legacy() -> Self {
+        Self::new(true)
     }
 }
 
