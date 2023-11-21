@@ -167,7 +167,6 @@ mod tests {
                 }
 
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
-
                 let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
                     .await
                     .unwrap();
