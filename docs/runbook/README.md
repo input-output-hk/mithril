@@ -17,3 +17,5 @@ This page gathers the available guides to operate a Mithril network.
 | **Fix terraform lock**                  | [terraform-lock](./terraform-lock/README.md)                           | Fix a terraform lock in CD workflows.                                     |
 | **Manage SSH access to infrastructure** | [ssh-access](./ssh-access/README.md)                                   | Manage SSH access on the VM of the infrastructure for a user.             |
 | **Upgrade VM of infrastructure**        | [upgrade-vm](./upgrade-vm/README.md)                                   | Upgrade the VM of the infrastructure of a Mithril network.                |
+| **Create test Docker distribution**     | [test-docker-distribution](./test-docker-distribution/README.md)       | Create a custom test Docker distribution.                                 |
+| **Deploy a test network**               | [test-docker-distribution](./test-deploy-network/README.md)       | Manually deploy a test distribution to a test Mithril network.            |
