@@ -362,7 +362,7 @@ impl CertifierService for MithrilCertifierService {
         );
         let parent_certificate_hash = self
             .certificate_repository
-            .get_master_certificate_for_epoch(open_message.epoch)
+            .get_master_certificate_for_epoch::<Certificate>(open_message.epoch)
             .await
             .with_context(|| {
                 format!(
@@ -425,7 +425,7 @@ impl CertifierService for MithrilCertifierService {
     async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()> {
         if let Some(certificate) = self
             .certificate_repository
-            .get_latest_certificates(1)
+            .get_latest_certificates::<Certificate>(1)
             .await?
             .first()
         {

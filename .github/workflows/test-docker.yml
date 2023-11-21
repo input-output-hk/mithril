@@ -3,6 +3,11 @@ name: Docker images test
 on:
   workflow_dispatch:
     inputs:
+      distribution_code:
+        description: |
+          Specific code to identify the new distribution. The distribution package will be named with the following nomenclature: `test-{{distribution_code}}-{{sha}}`
+        required: true
+        type: string
       commit_sha:
         description: |
           SHA of the commit on which the mithril binaries should be obtained, a "ci.yml" workflow must have run
@@ -26,7 +31,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer ]
+        project: [ mithril-aggregator, mithril-client-cli, mithril-signer, mithril-relay ]
+
+        include:
+          - project: mithril-client-cli
+            package: mithril-client
     
     permissions:
       contents: read
@@ -34,7 +43,7 @@ jobs:
 
     env:
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
+      PACKAGE: ${{ github.repository_owner }}/${{ matrix.package != '' && matrix.package || matrix.project }}
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
@@ -42,6 +51,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+
+      - name: Get short SHA
+        id: slug
+        run: echo "sha8=$(echo ${{ inputs.commit_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Checkout commit
         run: |
@@ -67,10 +80,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
           tags: |
             test
-            type=raw,value=test-${{ inputs.commit_sha }}
+            type=raw,value=test-${{ inputs.distribution_code }}-${{ steps.slug.outputs.sha8 }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v3
