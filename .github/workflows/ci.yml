@@ -518,6 +518,7 @@ jobs:
           environment_prefix: ${{ matrix.environment_prefix }}
           environment: ${{ matrix.environment }}
           cardano_network: ${{ matrix.cardano_network }}
+          cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
           google_region: ${{ matrix.google_region }}
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
