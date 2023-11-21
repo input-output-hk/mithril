@@ -428,8 +428,8 @@ impl StateMachine {
     }
 }
 
-/*#[cfg(test)]
- mod tests {
+#[cfg(test)]
+mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::{entities::ProtocolMessage, test_utils::fake_data};
 
@@ -438,7 +438,7 @@ impl StateMachine {
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
         StateMachine {
-            state: init_state,
+            state: init_state.into(),
             runner: Box::new(runner),
             state_sleep: Duration::from_millis(100),
         }
@@ -455,7 +455,7 @@ impl StateMachine {
             .expect_get_current_beacon()
             .once()
             .returning(|| Ok(fake_data::beacon()));
-        let mut state_machine = init_state_machine(
+        let state_machine = init_state_machine(
             SignerState::Unregistered {
                 epoch: fake_data::beacon().epoch,
             },
@@ -467,10 +467,10 @@ impl StateMachine {
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            &SignerState::Unregistered {
+            SignerState::Unregistered {
                 epoch: fake_data::beacon().epoch
             },
-            state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -492,7 +492,7 @@ impl StateMachine {
             beacon.epoch = Epoch(4);
             Ok(beacon)
         });
-        let mut state_machine =
+        let state_machine =
             init_state_machine(SignerState::Unregistered { epoch: known_epoch }, runner);
         state_machine
             .cycle()
@@ -500,8 +500,8 @@ impl StateMachine {
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            &SignerState::Unregistered { epoch: known_epoch },
-            state_machine.get_state()
+            SignerState::Unregistered { epoch: known_epoch },
+            state_machine.get_state().await
         );
     }
 
@@ -525,7 +525,7 @@ impl StateMachine {
             .once()
             .returning(|_, _| Ok(()));
 
-        let mut state_machine = init_state_machine(
+        let state_machine = init_state_machine(
             SignerState::Unregistered {
                 epoch: fake_data::beacon().epoch,
             },
@@ -537,11 +537,11 @@ impl StateMachine {
             .await
             .expect("Cycling the state machine should not fail");
 
-        if let SignerState::Registered { epoch: _ } = state_machine.get_state() {
+        if let SignerState::Registered { epoch: _ } = state_machine.get_state().await {
         } else {
             panic!(
                 "state machine did not return a RegisteredState but {:?}",
-                state_machine.get_state()
+                state_machine.get_state().await
             );
         }
     }
@@ -558,18 +558,17 @@ impl StateMachine {
             .once()
             .returning(|_e: Epoch| Ok(()));
 
-        let mut state_machine =
-            init_state_machine(SignerState::Registered { epoch: Epoch(0) }, runner);
+        let state_machine = init_state_machine(SignerState::Registered { epoch: Epoch(0) }, runner);
 
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
         assert_eq!(
-            &SignerState::Unregistered {
+            SignerState::Unregistered {
                 epoch: fake_data::beacon().epoch
             },
-            state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -597,7 +596,7 @@ impl StateMachine {
             .returning(move || Ok(Some(certificate_pending.to_owned())));
         runner.expect_can_i_sign().once().returning(|_| Ok(false));
 
-        let mut state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
@@ -605,9 +604,9 @@ impl StateMachine {
 
         assert_eq!(
             SignerState::Registered { epoch: Epoch(9) },
-            *state_machine.get_state(),
+            state_machine.get_state().await,
             "state machine did not return a RegisteredState but {:?}",
-            state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -652,7 +651,7 @@ impl StateMachine {
             .once()
             .returning(|_, _| Ok(()));
 
-        let mut state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
@@ -663,9 +662,9 @@ impl StateMachine {
                 epoch: Epoch(9),
                 signed_entity_type
             },
-            *state_machine.get_state(),
+            state_machine.get_state().await,
             "state machine did not return a RegisteredState but {:?}",
-            state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -697,7 +696,7 @@ impl StateMachine {
             .once()
             .returning(move || Ok(Some(certificate_pending.clone())));
 
-        let mut state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
@@ -707,7 +706,7 @@ impl StateMachine {
             SignerState::Registered {
                 epoch: beacon.epoch
             },
-            *state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -737,7 +736,7 @@ impl StateMachine {
             .once()
             .returning(|_e: Epoch| Ok(()));
 
-        let mut state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
@@ -745,7 +744,7 @@ impl StateMachine {
 
         assert_eq!(
             SignerState::Unregistered { epoch: Epoch(10) },
-            *state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -775,7 +774,7 @@ impl StateMachine {
             .once()
             .returning(move || Ok(None));
 
-        let mut state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
@@ -786,7 +785,7 @@ impl StateMachine {
                 epoch: beacon.epoch,
                 signed_entity_type: SignedEntityType::dummy(),
             },
-            *state_machine.get_state()
+            state_machine.get_state().await
         );
     }
 
@@ -816,7 +815,7 @@ impl StateMachine {
             .once()
             .returning(move || Ok(Some(certificate_pending.clone())));
 
-        let mut state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
@@ -827,7 +826,7 @@ impl StateMachine {
                 epoch: beacon.epoch,
                 signed_entity_type: SignedEntityType::dummy(),
             },
-            *state_machine.get_state()
+            state_machine.get_state().await
         );
     }
-} */
+}
