@@ -11,6 +11,10 @@ use mithril_common::{
         HexEncodedAgregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
         ProtocolVersion, StakeDistributionParty,
     },
+    messages::{
+        CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateMessage,
+        CertificateMetadataMessagePart,
+    },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
@@ -155,6 +159,57 @@ impl From<CertificateRecord> for Certificate {
             protocol_message: other.protocol_message,
             aggregate_verification_key: other.aggregate_verification_key.try_into().unwrap(),
             signature,
+        }
+    }
+}
+
+impl From<CertificateRecord> for CertificateMessage {
+    fn from(value: CertificateRecord) -> Self {
+        let metadata = CertificateMetadataMessagePart {
+            protocol_version: value.protocol_version,
+            protocol_parameters: value.protocol_parameters,
+            initiated_at: value.initiated_at,
+            sealed_at: value.sealed_at,
+            signers: value.signers,
+        };
+        let (multi_signature, genesis_signature) = if value.parent_certificate_id.is_none() {
+            (String::new(), value.signature)
+        } else {
+            (value.signature, String::new())
+        };
+
+        CertificateMessage {
+            hash: value.certificate_id,
+            previous_hash: value.parent_certificate_id.unwrap_or_default(),
+            beacon: value.beacon,
+            metadata,
+            protocol_message: value.protocol_message,
+            signed_message: value.message,
+            aggregate_verification_key: value.aggregate_verification_key,
+            multi_signature,
+            genesis_signature,
+        }
+    }
+}
+
+impl From<CertificateRecord> for CertificateListItemMessage {
+    fn from(value: CertificateRecord) -> Self {
+        let metadata = CertificateListItemMessageMetadata {
+            protocol_version: value.protocol_version,
+            protocol_parameters: value.protocol_parameters,
+            initiated_at: value.initiated_at,
+            sealed_at: value.sealed_at,
+            total_signers: value.signers.len(),
+        };
+
+        CertificateListItemMessage {
+            hash: value.certificate_id,
+            previous_hash: value.parent_certificate_id.unwrap_or_default(),
+            beacon: value.beacon,
+            metadata,
+            protocol_message: value.protocol_message,
+            signed_message: value.message,
+            aggregate_verification_key: value.aggregate_verification_key,
         }
     }
 }
@@ -549,7 +604,10 @@ impl CertificateRepository {
     }
 
     /// Return the certificate corresponding to the given hash if any.
-    pub async fn get_certificate(&self, hash: &str) -> StdResult<Option<Certificate>> {
+    pub async fn get_certificate<T>(&self, hash: &str) -> StdResult<Option<T>>
+    where
+        T: From<CertificateRecord>,
+    {
         let provider = CertificateRecordProvider::new(&self.connection);
         let mut cursor = provider.get_by_certificate_id(hash)?;
 
@@ -557,7 +615,10 @@ impl CertificateRepository {
     }
 
     /// Return the latest certificates.
-    pub async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>> {
+    pub async fn get_latest_certificates<T>(&self, last_n: usize) -> StdResult<Vec<T>>
+    where
+        T: From<CertificateRecord>,
+    {
         let provider = CertificateRecordProvider::new(&self.connection);
         let cursor = provider.get_all()?;
 
@@ -567,10 +628,10 @@ impl CertificateRepository {
     /// Return the first certificate signed per epoch as the reference
     /// certificate for this Epoch. This will be the parent certificate for all
     /// other certificates issued within this Epoch.
-    pub async fn get_master_certificate_for_epoch(
-        &self,
-        epoch: Epoch,
-    ) -> StdResult<Option<Certificate>> {
+    pub async fn get_master_certificate_for_epoch<T>(&self, epoch: Epoch) -> StdResult<Option<T>>
+    where
+        T: From<CertificateRecord>,
+    {
         let provider = MasterCertificateProvider::new(&self.connection);
         let mut cursor = provider.find(provider.get_master_certificate_condition(epoch))?;
 
@@ -1037,12 +1098,15 @@ protocol_message, signers, initiated_at, sealed_at) values \
             }
         }
 
-        let repository = CertificateRepository::new(connection);
-        let certificate = repository.get_certificate("whatever").await.unwrap();
+        let repository: CertificateRepository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_certificate::<Certificate>("whatever")
+            .await
+            .unwrap();
         assert!(certificate.is_none());
 
         let certificate = repository
-            .get_certificate(&expected_hash)
+            .get_certificate::<Certificate>(&expected_hash)
             .await
             .unwrap()
             .expect("The certificate exist and should be returned.");
@@ -1090,9 +1154,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let certificates = vec![];
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(Epoch(1))
+            .get_master_certificate_for_epoch::<Certificate>(Epoch(1))
             .await
             .unwrap();
 
@@ -1107,9 +1171,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificate.clone().into();
         insert_certificate_records(connection.clone(), vec![certificate]).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(Epoch(1))
+            .get_master_certificate_for_epoch::<Certificate>(Epoch(1))
             .await
             .unwrap()
             .expect("This should return a certificate.");
@@ -1130,9 +1194,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(Epoch(1))
+            .get_master_certificate_for_epoch::<Certificate>(Epoch(1))
             .await
             .unwrap()
             .expect("This should return a certificate.");
@@ -1153,9 +1217,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(Epoch(2))
+            .get_master_certificate_for_epoch::<Certificate>(Epoch(2))
             .await
             .unwrap()
             .expect("This should return a certificate.");
@@ -1177,9 +1241,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(Epoch(2))
+            .get_master_certificate_for_epoch::<Certificate>(Epoch(2))
             .await
             .unwrap()
             .expect("This should return a certificate.");
@@ -1203,7 +1267,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.get(3).unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
             .get_master_certificate_for_epoch(Epoch(2))
             .await
@@ -1224,9 +1288,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         ];
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(Epoch(3))
+            .get_master_certificate_for_epoch::<Certificate>(Epoch(3))
             .await
             .unwrap();
 
@@ -1247,7 +1311,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
             .get_master_certificate_for_epoch(Epoch(2))
             .await
@@ -1273,7 +1337,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
             .get_master_certificate_for_epoch(Epoch(2))
             .await
@@ -1297,7 +1361,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(connection.clone(), certificates).await;
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
             .get_master_certificate_for_epoch(Epoch(2))
             .await
@@ -1322,9 +1386,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
             }
         }
 
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
-            .get_master_certificate_for_epoch(*epoch)
+            .get_master_certificate_for_epoch::<Certificate>(*epoch)
             .await
             .unwrap()
             .expect("This should return a certificate.");
@@ -1337,7 +1401,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let (certificates, _) = setup_certificate_chain(5, 3);
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
-        let repository = CertificateRepository::new(connection);
+        let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
             .create_certificate(certificates[4].clone())
             .await
