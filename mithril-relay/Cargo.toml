@@ -1,28 +1,33 @@
 [package]
-name = "mithril-end-to-end"
-version = "0.2.23"
+name = "mithril-relay"
+version = "0.1.0"
+description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-default-run = "mithril-end-to-end"
-
-[[bin]]
-name = "load-aggregator"
-test = false
-bench = false
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow = "1.0.75"
-async-recursion = "1.0.5"
-async-trait = "0.1.73"
-clap = { version = "4.4.6", features = ["derive"] }
-glob = "0.3.1"
-hex = "0.4.3"
-indicatif = { version = "0.17.7", features = ["tokio"] }
-mithril-common = { path = "../../mithril-common" }
+clap = { version = "4.4.6", features = ["derive", "env"] }
+config = "0.13.3"
+libp2p = { version = "0.53", features = [
+    "tokio",
+    "gossipsub",
+    "dns",
+    "identify",
+    "kad",
+    "macros",
+    "noise",
+    "ping",
+    "pnet",
+    "tcp",
+    "yamux",
+] }
+mithril-common = { path = "../mithril-common", features = ["test_http_server"] }
 reqwest = { version = "0.11.22", features = ["json"] }
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
@@ -32,13 +37,9 @@ slog = { version = "2.7.0", features = [
     "release_max_level_trace",
 ] }
 slog-async = "2.8.0"
+slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
 thiserror = "1.0.49"
 tokio = { version = "1.32.0", features = ["full"] }
-tokio-util = { version = "0.7.9", features = ["codec"] }
-
-[features]
-default = []
-portable = ["mithril-common/portable"]
-allow_skip_signer_certification = []
+warp = "0.3.6"

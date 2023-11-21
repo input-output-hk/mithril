@@ -1,0 +1,30 @@
+# Creates a docker image to run an executable built outside of the image
+# This relies on the fact the mithril-relay executable has been built
+# on a debian-compatible x86-64 environment
+ARG DOCKER_IMAGE_FROM=debian:11-slim
+FROM $DOCKER_IMAGE_FROM
+
+# Create appuser
+RUN adduser --no-create-home --disabled-password appuser
+
+# Precreate workdir
+RUN mkdir -p /app/bin
+
+# Upgrade
+RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Copy the executable
+COPY mithril-relay/mithril-relay /app/bin/mithril-relay
+
+# Copy the config files
+COPY mithril-relay/config /app/config
+
+# Workdir
+WORKDIR /app/
+RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-relay
+
+# Use an unprivileged user
+USER appuser
+
+# Run the executable
+ENTRYPOINT ["/app/bin/mithril-relay","-vv"]
