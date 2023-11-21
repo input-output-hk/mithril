@@ -45,9 +45,9 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::provider::{
-        CertificateMessageRepository, CertificateRepository, EpochSettingStore,
-        OpenMessageRepository, SignedEntityStoreAdapter, SignedEntityStorer,
-        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
+        CertificateRepository, EpochSettingStore, OpenMessageRepository, SignedEntityStoreAdapter,
+        SignedEntityStorer, SignerRegistrationStore, SignerStore, SingleSignatureRepository,
+        StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -1215,10 +1215,10 @@ impl DependenciesBuilder {
 
     /// build HTTP message service
     pub async fn build_http_message_service(&mut self) -> Result<Arc<dyn HttpMessageService>> {
-        let certificate_message_repository = Arc::new(CertificateMessageRepository::new(
+        let certificate_repository = Arc::new(CertificateRepository::new(
             self.get_sqlite_connection().await?,
         ));
-        let service = MithrilHttpMessageService::new(certificate_message_repository);
+        let service = MithrilHttpMessageService::new(certificate_repository);
 
         Ok(Arc::new(service))
     }

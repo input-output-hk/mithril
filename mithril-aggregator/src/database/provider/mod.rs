@@ -1,7 +1,6 @@
 //! Aggregator related database providers
 mod certificate;
 mod epoch_setting;
-mod message;
 mod open_message;
 mod signed_entity;
 mod signer;
@@ -13,7 +12,6 @@ mod test_helper;
 
 pub use certificate::*;
 pub use epoch_setting::*;
-pub use message::*;
 pub use open_message::*;
 pub use signed_entity::*;
 pub use signer::*;

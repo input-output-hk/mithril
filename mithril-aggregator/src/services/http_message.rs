@@ -10,7 +10,7 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::database::provider::CertificateMessageRepository;
+use crate::database::provider::CertificateRepository;
 
 /// Error related to the [HttpMessageService]
 #[derive(Debug, Error)]
@@ -34,14 +34,14 @@ pub trait HttpMessageService: Sync + Send {
 
 /// Implementation of the [HttpMessageService]
 pub struct MithrilHttpMessageService {
-    certificate_message_repository: Arc<CertificateMessageRepository>,
+    certificate_repository: Arc<CertificateRepository>,
 }
 
 impl MithrilHttpMessageService {
     /// Constructor
-    pub fn new(certificate_message_repository: Arc<CertificateMessageRepository>) -> Self {
+    pub fn new(certificate_repository: Arc<CertificateRepository>) -> Self {
         Self {
-            certificate_message_repository,
+            certificate_repository,
         }
     }
 }
@@ -52,13 +52,15 @@ impl HttpMessageService for MithrilHttpMessageService {
         &self,
         certificate_hash: &str,
     ) -> StdResult<Option<CertificateMessage>> {
-        self.certificate_message_repository
+        self.certificate_repository
             .get_certificate(certificate_hash)
             .await
     }
 
     async fn get_last_certificates(&self, limit: usize) -> StdResult<CertificateListMessage> {
-        self.certificate_message_repository.get_last(limit).await
+        self.certificate_repository
+            .get_latest_certificates(limit)
+            .await
     }
 }
 

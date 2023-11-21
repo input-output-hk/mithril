@@ -46,7 +46,7 @@ impl CertificatesHashMigrator {
         let old_certificates = self
             .certificate_repository
             // arbitrary high value to get all existing certificates
-            .get_latest_certificates(usize::MAX)
+            .get_latest_certificates::<Certificate>(usize::MAX)
             .await?;
         let mut certificates_to_remove = vec![];
 
@@ -253,7 +253,8 @@ mod test {
         connection: Arc<ConnectionWithFullMutex>,
         certificates_and_signed_entity: &[(Certificate, Option<SignedEntityTypeDiscriminants>)],
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
-        let certificate_repository = CertificateRepository::new(connection.clone());
+        let certificate_repository: CertificateRepository =
+            CertificateRepository::new(connection.clone());
         let signed_entity_store = SignedEntityStoreAdapter::new(connection.clone());
         let mut result = vec![];
 
@@ -416,11 +417,12 @@ mod test {
         connection: Arc<ConnectionWithFullMutex>,
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let mut result = vec![];
-        let certificate_repository = CertificateRepository::new(connection.clone());
+        let certificate_repository: CertificateRepository =
+            CertificateRepository::new(connection.clone());
         let signed_entity_store = SignedEntityStoreAdapter::new(connection.clone());
 
         let certificates = certificate_repository
-            .get_latest_certificates(usize::MAX)
+            .get_latest_certificates::<Certificate>(usize::MAX)
             .await?;
 
         for certificate in certificates {
