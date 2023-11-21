@@ -24,6 +24,7 @@ impl Default for TestCliRunner {
 
 #[async_trait]
 impl CliRunner for TestCliRunner {
+    /// launches a UTxO.
     async fn launch_utxo(&self, _address: &str) -> StdResult<String> {
         let output = r#"
 {
@@ -60,6 +61,7 @@ impl CliRunner for TestCliRunner {
         Ok(output.to_string())
     }
 
+    /// launches the stake distribution.
     async fn launch_stake_distribution(&self) -> StdResult<String> {
         let output = r#"
                            PoolId                                 Stake frac
@@ -77,6 +79,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         Ok(output.to_string())
     }
 
+    /// launches the stake snapshot.
     async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String> {
         let mut output = r#"
 {
@@ -104,6 +107,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         Ok(output.to_string())
     }
 
+    /// launches the stake snapshot for all pools.
     async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String> {
         let output = r#"
 {
@@ -145,6 +149,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         }
     }
 
+    /// launches the epoch info.
     async fn launch_epoch(&self) -> StdResult<String> {
         let output = r#"
 {
@@ -159,6 +164,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         Ok(output.to_string())
     }
 
+    /// launches the kes period.
     async fn launch_kes_period(&self, _opcert_file: &str) -> StdResult<String> {
         let output = r#"
 ✓ The operational certificate counter agrees with the node protocol state counter
