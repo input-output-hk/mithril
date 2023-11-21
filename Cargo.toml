@@ -8,6 +8,7 @@ members = [
   "mithril-client",
   "mithril-client-cli",
   "mithril-common",
+  "mithril-relay",
   "mithril-signer",
   "mithril-stm",
   "mithril-test-lab/mithril-end-to-end",

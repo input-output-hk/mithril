@@ -46,6 +46,16 @@ where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
 {
+    let port = 0_u16;
+    test_http_server_with_port(filters, port)
+}
+
+/// Spawn a [TestHttpServer] using the given warp filters
+pub fn test_http_server_with_port<F>(filters: F, port: u16) -> TestHttpServer
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
     //Spawn new runtime in thread to prevent reactor execution context conflict
     thread::spawn(move || {
         let rt = runtime::Builder::new_current_thread()
@@ -54,7 +64,7 @@ where
             .expect("new rt");
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let (address, server) = rt.block_on(async move {
-            warp::serve(filters).bind_with_graceful_shutdown(([127, 0, 0, 1], 0), async {
+            warp::serve(filters).bind_with_graceful_shutdown(([127, 0, 0, 1], port), async {
                 shutdown_rx.await.ok();
             })
         });
