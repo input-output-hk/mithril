@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::MagicId;
 
+const MAINNET_MAGIC_ID: MagicId = 764824073;
 const TESTNET_MAGIC_ID: MagicId = 1097911063;
 const PREPROD_MAGIC_ID: MagicId = 1;
 const PREVIEW_MAGIC_ID: MagicId = 2;
@@ -66,7 +67,7 @@ impl CardanoNetwork {
     /// Returns the code (magic) of the network
     pub fn code(&self) -> u64 {
         match *self {
-            CardanoNetwork::MainNet => 1,
+            CardanoNetwork::MainNet => MAINNET_MAGIC_ID,
             CardanoNetwork::DevNet(magic_id) => magic_id,
             CardanoNetwork::TestNet(magic_id) => magic_id,
         }
