@@ -15,186 +15,186 @@ use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
 pub struct PallasChainObserver {
-  socket: PathBuf,
-  network: CardanoNetwork,
-  fallback: Option<super::cli_observer::CardanoCliChainObserver>,
+    socket: PathBuf,
+    network: CardanoNetwork,
+    fallback: Option<super::cli_observer::CardanoCliChainObserver>,
 }
 
 impl PallasChainObserver {
-  /// Creates a new PallasObserver while accepting a fallback CliRunner
-  pub fn new_with_fallback(
-    socket: &Path,
-    network: CardanoNetwork,
-    fallback: CardanoCliChainObserver,
-  ) -> Self {
-    Self {
-      socket: socket.to_owned(),
-      network,
-      fallback: Some(fallback),
+    /// Creates a new PallasObserver while accepting a fallback CliRunner
+    pub fn new_with_fallback(
+        socket: &Path,
+        network: CardanoNetwork,
+        fallback: CardanoCliChainObserver,
+    ) -> Self {
+        Self {
+            socket: socket.to_owned(),
+            network,
+            fallback: Some(fallback),
+        }
     }
-  }
 
-  /// Creates a new PallasObserver
-  pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
-    Self {
-      socket: socket.to_owned(),
-      network,
-      fallback: None,
+    /// Creates a new PallasObserver
+    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
+        Self {
+            socket: socket.to_owned(),
+            network,
+            fallback: None,
+        }
     }
-  }
 
-  async fn new_client(&self) -> StdResult<NodeClient> {
-    let magic = self.network.code();
-    let client = NodeClient::connect(&self.socket, magic).await?;
+    async fn new_client(&self) -> StdResult<NodeClient> {
+        let magic = self.network.code();
+        let client = NodeClient::connect(&self.socket, magic).await?;
 
-    Ok(client)
-  }
+        Ok(client)
+    }
 
-  fn get_fallback(&self) -> StdResult<&CardanoCliChainObserver> {
-    self.fallback.as_ref().ok_or(anyhow!(
-      "Unimplemented and no fallback configured for PallasObserver",
-    ))
-  }
+    fn get_fallback(&self) -> StdResult<&CardanoCliChainObserver> {
+        self.fallback.as_ref().ok_or(anyhow!(
+            "Unimplemented and no fallback configured for PallasObserver",
+        ))
+    }
 }
 
 #[async_trait]
 impl ChainObserver for PallasChainObserver {
-  async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
-    let mut client = self
-      .new_client()
-      .await
-      .map_err(ChainObserverError::General)?;
+    async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
+        let mut client = self
+            .new_client()
+            .await
+            .map_err(ChainObserverError::General)?;
 
-    let statequery = client.statequery();
+        let statequery = client.statequery();
 
-    statequery.acquire(None).await.unwrap();
+        statequery.acquire(None).await.unwrap();
 
-    let era = queries_v16::get_current_era(statequery)
-      .await
-      .map_err(|err| ChainObserverError::General(err.into()))?;
+        let era = queries_v16::get_current_era(statequery)
+            .await
+            .map_err(|err| ChainObserverError::General(err.into()))?;
 
-    let epoch = queries_v16::get_block_epoch_number(statequery, era)
-      .await
-      .map_err(|err| ChainObserverError::General(err.into()))?;
+        let epoch = queries_v16::get_block_epoch_number(statequery, era)
+            .await
+            .map_err(|err| ChainObserverError::General(err.into()))?;
 
-    statequery.send_release().await.unwrap();
-    statequery.send_done().await.unwrap();
+        statequery.send_release().await.unwrap();
+        statequery.send_done().await.unwrap();
 
-    client.chainsync().send_done().await.unwrap();
-    drop(client.plexer_handle);
+        client.chainsync().send_done().await.unwrap();
+        drop(client.plexer_handle);
 
-    Ok(Some(Epoch(epoch as u64)))
-  }
+        Ok(Some(Epoch(epoch as u64)))
+    }
 
-  async fn get_current_datums(
-    &self,
-    address: &ChainAddress,
-  ) -> Result<Vec<TxDatum>, ChainObserverError> {
-    let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
-    fallback.get_current_datums(address).await
-  }
+    async fn get_current_datums(
+        &self,
+        address: &ChainAddress,
+    ) -> Result<Vec<TxDatum>, ChainObserverError> {
+        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        fallback.get_current_datums(address).await
+    }
 
-  async fn get_current_stake_distribution(
-    &self,
-  ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-    let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
-    fallback.get_current_stake_distribution().await
-  }
+    async fn get_current_stake_distribution(
+        &self,
+    ) -> Result<Option<StakeDistribution>, ChainObserverError> {
+        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        fallback.get_current_stake_distribution().await
+    }
 
-  async fn get_current_kes_period(
-    &self,
-    opcert: &OpCert,
-  ) -> Result<Option<KESPeriod>, ChainObserverError> {
-    let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
-    fallback.get_current_kes_period(opcert).await
-  }
+    async fn get_current_kes_period(
+        &self,
+        opcert: &OpCert,
+    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        fallback.get_current_kes_period(opcert).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
-  use std::fs;
+    use std::fs;
 
-  use pallas_codec::utils::AnyCbor;
-  use pallas_network::miniprotocols::localstate::{self, ClientQueryRequest};
-  use tokio::net::UnixListener;
+    use pallas_codec::utils::AnyCbor;
+    use pallas_network::miniprotocols::localstate::{self, ClientQueryRequest};
+    use tokio::net::UnixListener;
 
-  use super::*;
-  use crate::{test_utils::TestCliRunner, CardanoNetwork};
+    use super::*;
+    use crate::{test_utils::TestCliRunner, CardanoNetwork};
 
-  /// pallas responses mock server.
-  async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
-    let query: localstate::queries_v16::Request =
-      match server.statequery().recv_while_acquired().await.unwrap() {
-        ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
-        x => panic!("unexpected message from client: {x:?}"),
-      };
+    /// pallas responses mock server.
+    async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
+        let query: localstate::queries_v16::Request =
+            match server.statequery().recv_while_acquired().await.unwrap() {
+                ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
+                x => panic!("unexpected message from client: {x:?}"),
+            };
 
-    match query {
-      localstate::queries_v16::Request::LedgerQuery(
-        localstate::queries_v16::LedgerQuery::HardForkQuery(
-          localstate::queries_v16::HardForkQuery::GetCurrentEra,
-        ),
-      ) => AnyCbor::from_encode(4),
-      localstate::queries_v16::Request::LedgerQuery(
-        localstate::queries_v16::LedgerQuery::BlockQuery(
-          _,
-          localstate::queries_v16::BlockQuery::GetEpochNo,
-        ),
-      ) => AnyCbor::from_encode([8]),
-      _ => panic!("unexpected query from client: {query:?}"),
-    }
-  }
-
-  /// Creates a new work directory in the system's temporary folder.
-  fn create_temp_dir(folder_name: &str) -> PathBuf {
-    let temp_dir = std::env::temp_dir().join(folder_name);
-    if temp_dir.exists() {
-      fs::remove_dir_all(&temp_dir).expect("Previous work dir removal failed");
-    }
-    fs::create_dir_all(&temp_dir).expect("Work dir creation failed");
-    temp_dir
-  }
-
-  #[tokio::test]
-  async fn get_current_epoch_with_fallback() {
-    let server = tokio::spawn({
-      async move {
-        let temp_dir = create_temp_dir("pallas_chain_observer_test");
-        let socket_path = temp_dir.join("node.socket").as_path().to_owned();
-        if socket_path.exists() {
-          println!("Removing previous socket");
-          fs::remove_file(&socket_path).expect("Previous socket removal failed");
+        match query {
+            localstate::queries_v16::Request::LedgerQuery(
+                localstate::queries_v16::LedgerQuery::HardForkQuery(
+                    localstate::queries_v16::HardForkQuery::GetCurrentEra,
+                ),
+            ) => AnyCbor::from_encode(4),
+            localstate::queries_v16::Request::LedgerQuery(
+                localstate::queries_v16::LedgerQuery::BlockQuery(
+                    _,
+                    localstate::queries_v16::BlockQuery::GetEpochNo,
+                ),
+            ) => AnyCbor::from_encode([8]),
+            _ => panic!("unexpected query from client: {query:?}"),
         }
+    }
 
-        let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
+    /// Creates a new work directory in the system's temporary folder.
+    fn create_temp_dir(folder_name: &str) -> PathBuf {
+        let temp_dir = std::env::temp_dir().join(folder_name);
+        if temp_dir.exists() {
+            fs::remove_dir_all(&temp_dir).expect("Previous work dir removal failed");
+        }
+        fs::create_dir_all(&temp_dir).expect("Work dir creation failed");
+        temp_dir
+    }
 
-        let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
-          .await
-          .unwrap();
+    #[tokio::test]
+    async fn get_current_epoch_with_fallback() {
+        let server = tokio::spawn({
+            async move {
+                let temp_dir = create_temp_dir("pallas_chain_observer_test");
+                let socket_path = temp_dir.join("node.socket").as_path().to_owned();
+                if socket_path.exists() {
+                    println!("Removing previous socket");
+                    fs::remove_file(&socket_path).expect("Previous socket removal failed");
+                }
 
-        server.statequery().recv_while_idle().await.unwrap();
-        server.statequery().send_acquired().await.unwrap();
+                let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
 
-        let result = mock_server(&mut server).await;
-        server.statequery().send_result(result).await.unwrap();
+                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
+                    .await
+                    .unwrap();
 
-        let result = mock_server(&mut server).await;
-        server.statequery().send_result(result).await.unwrap();
-      }
-    });
+                server.statequery().recv_while_idle().await.unwrap();
+                server.statequery().send_acquired().await.unwrap();
 
-    let client = tokio::spawn(async move {
-      let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
-      let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-      let observer = super::PallasChainObserver::new_with_fallback(
-        socket_path.as_path(),
-        CardanoNetwork::TestNet(10),
-        fallback,
-      );
-      let epoch = observer.get_current_epoch().await.unwrap().unwrap();
-      assert_eq!(epoch, 8);
-    });
+                let result = mock_server(&mut server).await;
+                server.statequery().send_result(result).await.unwrap();
 
-    _ = tokio::join!(client, server);
-  }
+                let result = mock_server(&mut server).await;
+                server.statequery().send_result(result).await.unwrap();
+            }
+        });
+
+        let client = tokio::spawn(async move {
+            let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
+            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
+            let observer = super::PallasChainObserver::new_with_fallback(
+                socket_path.as_path(),
+                CardanoNetwork::TestNet(10),
+                fallback,
+            );
+            let epoch = observer.get_current_epoch().await.unwrap().unwrap();
+            assert_eq!(epoch, 8);
+        });
+
+        _ = tokio::join!(client, server);
+    }
 }
