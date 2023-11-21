@@ -1,0 +1,104 @@
+name: Test network deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      mithril_image_id:
+        description: |
+          Mithril Docker image id of a distribution to deploy. (Must exist in the Docker images registry)
+        required: true
+        type: string
+      environment:
+        description: |
+          Mithril network name to deploy the distribution to.
+        required: true
+        type: choice
+        options:
+        - dev-preview
+      dry_run:
+        description: Dry run will not deploy the distribution to the Mithril network
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  deploy-testing:
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [ dev-preview ]
+        include:
+        - environment: dev-preview
+          environment_prefix: dev
+          cardano_network: preview
+          mithril_api_domain: api.mithril.network
+          mithril_protocol_parameters: |
+            {
+              k     = 100
+              m     = 60
+              phi_f = 0.95
+            }
+          mithril_signers: |
+            {
+              "1" = {
+                type    = "unverified",
+                pool_id = "pool1vapqexnsx6hvc588yyysxpjecf3k43hcr5mvhmstutuvy085xpa",
+              },
+            }
+          terraform_backend_bucket: hydra-terraform-admin
+          google_region: europe-west1
+          google_zone: europe-west1-b
+          google_machine_type: e2-highmem-2
+          google_compute_instance_boot_disk_size: 200
+          google_compute_instance_data_disk_size: 250
+  
+    environment: ${{ matrix.environment }}
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: mithril-infra
+    steps:
+      - name: Checkout sources
+        if: inputs.environment == matrix.environment
+        uses: actions/checkout@v3
+
+      - name: ${{ inputs.dry_run == 'true' && 'Plan' || 'Apply' }} terraform infrastructure
+        if: inputs.environment == matrix.environment
+        uses: ./.github/workflows/actions/deploy-terraform-infrastructure
+        with:
+          dry_run: ${{ inputs.dry_run }}
+          terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
+          environment_prefix: ${{ matrix.environment_prefix }}
+          environment: ${{ matrix.environment }}
+          cardano_network: ${{ matrix.cardano_network }}
+          google_region: ${{ matrix.google_region }}
+          google_zone: ${{ matrix.google_zone }}
+          google_machine_type: ${{ matrix.google_machine_type }}
+          google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
+          google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+          google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          mithril_api_domain: ${{ matrix.mithril_api_domain }}
+          mithril_image_id: ${{ inputs.mithril_image_id }}
+          mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
+          mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
+          mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
+          mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
+          mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
+          mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
+          mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
+          mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
+          mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
+          mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
+          mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
+          mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
+          mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
+          prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
+          prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
+          prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
+          prometheus_ingest_username: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
+          prometheus_ingest_password: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
+          loki_auth_username: ${{ secrets.LOKI_AUTH_USERNAME }}
+          loki_auth_password: ${{ secrets.LOKI_AUTH_PASSWORD }}
+          loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
+          loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
+          loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
