@@ -21,7 +21,7 @@ async fn era_fail_at_startup() {
 
     tester
         .comment("TEST: state machine fails starting when current Era is not supported.")
-        .is_init().unwrap()
+        .is_init().await.unwrap()
         .cycle_unregistered().await
         .expect_err("The state machine must fail at startup.");
 
@@ -31,7 +31,7 @@ async fn era_fail_at_startup() {
             EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0))),
             EraMarker::new("unsupported", Some(Epoch(4))),
             ])
-        .is_init().unwrap()
+        .is_init().await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(1)).await.unwrap()
         .comment("Init Era checking went well, now let's go to usual business…")
