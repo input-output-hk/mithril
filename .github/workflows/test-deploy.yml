@@ -62,7 +62,7 @@ jobs:
         if: inputs.environment == matrix.environment
         uses: actions/checkout@v3
 
-      - name: ${{ inputs.dry_run == 'true' && 'Plan' || 'Apply' }} terraform infrastructure
+      - name: ${{ inputs.dry_run == true && 'Plan' || 'Apply' }} terraform infrastructure
         if: inputs.environment == matrix.environment
         uses: ./.github/workflows/actions/deploy-terraform-infrastructure
         with:
