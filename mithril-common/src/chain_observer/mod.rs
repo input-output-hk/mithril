@@ -6,7 +6,7 @@ mod interface;
 mod model;
 mod pallas_observer;
 
-pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner};
+pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner, CliRunner};
 pub use fake_observer::FakeObserver;
 #[cfg(test)]
 pub use interface::MockChainObserver;

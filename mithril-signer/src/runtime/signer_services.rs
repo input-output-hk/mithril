@@ -59,8 +59,8 @@ impl<'a> ProductionServiceBuilder<'a> {
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |config: &Configuration| {
                 let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
-                    &config.cli_path,
-                    &config.cardano_node_socket_path,
+                    config.cardano_cli_path.clone(),
+                    config.cardano_node_socket_path.clone(),
                     config.get_network()?,
                 )));
 

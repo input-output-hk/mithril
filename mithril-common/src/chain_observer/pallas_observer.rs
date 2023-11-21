@@ -119,7 +119,7 @@ mod tests {
     use tokio::net::UnixListener;
 
     use super::*;
-    use crate::CardanoNetwork;
+    use crate::{test_utils::TestCliRunner, CardanoNetwork};
 
     /// pallas responses mock server.
     async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
@@ -171,10 +171,11 @@ mod tests {
         });
 
         let client = tokio::spawn(async move {
+            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
             let observer = super::PallasChainObserver::new_with_fallback(
                 &std::path::PathBuf::from("node.socket"),
                 CardanoNetwork::TestNet(10),
-                &std::path::PathBuf::from("/tmp/cardano-cli"),
+                fallback,
             );
             let epoch = observer.get_current_epoch().await.unwrap().unwrap();
             assert_eq!(epoch, 8);
