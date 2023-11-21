@@ -22,13 +22,11 @@ pub struct PallasChainObserver {
 
 impl PallasChainObserver {
     /// Creates a new PallasObserver while accepting a fallback CliRunner
-    pub fn new_with_fallback(socket: &Path, network: CardanoNetwork, cli_path: &Path) -> Self {
-        let fallback = CardanoCliChainObserver::new(Box::new(super::CardanoCliRunner::new(
-            cli_path.to_owned(),
-            socket.to_owned(),
-            network,
-        )));
-
+    pub fn new_with_fallback(
+        socket: &Path,
+        network: CardanoNetwork,
+        fallback: CardanoCliChainObserver,
+    ) -> Self {
         Self {
             socket: socket.to_owned(),
             network,

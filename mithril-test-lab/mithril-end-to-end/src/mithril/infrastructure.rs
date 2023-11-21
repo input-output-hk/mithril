@@ -1,6 +1,8 @@
 use crate::{Aggregator, Client, Devnet, RelayAggregator, RelaySigner, Signer, DEVNET_MAGIC_ID};
 use anyhow::anyhow;
-use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
+use mithril_common::chain_observer::{
+    CardanoCliChainObserver, CardanoCliRunner, ChainObserver, PallasChainObserver,
+};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
@@ -104,10 +106,16 @@ impl MithrilInfrastructure {
             signers.push(signer);
         }
 
+        let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
+            devnet.cardano_cli_path(),
+            bft_node.socket_path.clone(),
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+        )));
+
         let cardano_chain_observer = Arc::new(PallasChainObserver::new_with_fallback(
             &bft_node.socket_path,
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-            &devnet.cardano_cli_path(),
+            fallback,
         ));
 
         Ok(Self {
