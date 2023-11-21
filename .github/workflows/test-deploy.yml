@@ -45,11 +45,19 @@ jobs:
                 type    = "unverified",
                 pool_id = "pool1vapqexnsx6hvc588yyysxpjecf3k43hcr5mvhmstutuvy085xpa",
               },
+              "2" = {
+                type    = "unverified",
+                pool_id = "pool1t9uuagsat8hlr0n0ga4wzge0jxlyjuhl6mugrm8atc285vzkf2e",
+              },
+              "3" = {
+                type    = "unverified",
+                pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
+              },
             }
           terraform_backend_bucket: hydra-terraform-admin
           google_region: europe-west1
           google_zone: europe-west1-b
-          google_machine_type: e2-highmem-2
+          google_machine_type: e2-highmem-4
           google_compute_instance_boot_disk_size: 200
           google_compute_instance_data_disk_size: 250
   
