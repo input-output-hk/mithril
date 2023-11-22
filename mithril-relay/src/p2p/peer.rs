@@ -14,14 +14,14 @@ use std::{collections::HashMap, time::Duration};
 
 use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
 
-/// Custom network behaviour
+/// [Peer] custom network behaviour
 #[derive(NetworkBehaviour)]
 pub struct PeerBehaviour {
     gossipsub: gossipsub::Behaviour,
     ping: ping::Behaviour,
 }
 
-/// Peer event that is polled from the swarm
+/// [Peer] event that is polled from the swarm
 #[derive(Debug)]
 pub enum PeerEvent {
     /// The peer is listening on an address
