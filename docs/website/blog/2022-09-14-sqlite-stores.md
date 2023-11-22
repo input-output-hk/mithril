@@ -46,7 +46,7 @@ $> ls -1F ../target/release/mithril-signer*
 
 ### Running the migration
 
-The first step is to stop the running Mithril node if any. The `mithril-signer-migrate` executable can perform the migration automatically once you know where your actual JSON files are located. Have a look in your configuration file (default `/opt/mithril/mithril-signer/service.env`), check the value associated with the `DATA_STORES_DIRECTORY` key (default to `/opt/mithril/mithril-signer/stores`) and copy the path indicated here. Copy this path after the `--db-dir` option on the following command line:
+The first step is to stop the running Mithril node if any. The `mithril-signer-migrate` executable can perform the migration automatically once you know where your actual JSON files are located. Have a look in your configuration file (default `/opt/mithril/mithril-signer.env`), check the value associated with the `DATA_STORES_DIRECTORY` key (default to `/opt/mithril/stores`) and copy the path indicated here. Copy this path after the `--db-dir` option on the following command line:
 
 ```
 $> ./mithril-signer-migrate automatic --db-dir /paste/the/data/stores/directory/here
