@@ -117,7 +117,7 @@ Snapshot download and certificate chain validation can take quite some time even
 An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/mithril-client/examples/snapshot_list_get_show_download_verify.rs). To run it, execute the following command:
 
 ```bash
-cargo run --example snapshot_list_get_show_download_verify 
+cargo run --example snapshot_list_get_show_download_verify --features fs
 ```
 
 :::

@@ -1,16 +1,22 @@
 use anyhow::Context;
+#[cfg(feature = "fs")]
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
 use mithril_common::messages::SignerWithStakeMessagePart;
 use mithril_common::protocol::SignerBuilder;
 use slog::{o, Logger};
+#[cfg(feature = "fs")]
 use std::path::Path;
+#[cfg(feature = "fs")]
 use std::sync::Arc;
 
-use crate::{MithrilCertificate, MithrilResult, MithrilStakeDistribution};
+#[cfg(feature = "fs")]
+use crate::MithrilCertificate;
+use crate::{MithrilResult, MithrilStakeDistribution};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
+    #[cfg(feature = "fs")]
     immutable_digester: Option<Arc<dyn ImmutableDigester>>,
     logger: Logger,
 }
@@ -20,8 +26,23 @@ impl MessageBuilder {
     pub fn new() -> MessageBuilder {
         let logger = Logger::root(slog::Discard, o!());
         Self {
+            #[cfg(feature = "fs")]
             immutable_digester: None,
             logger,
+        }
+    }
+
+    /// Set the [Logger] to use.
+    pub fn with_logger(mut self, logger: Logger) -> Self {
+        self.logger = logger;
+        self
+    }
+
+    cfg_fs! {
+    fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
+        match self.immutable_digester.as_ref() {
+            None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
+            Some(digester) => digester.clone(),
         }
     }
 
@@ -34,19 +55,6 @@ impl MessageBuilder {
     ) -> Self {
         self.immutable_digester = Some(immutable_digester);
         self
-    }
-
-    /// Set the [Logger] to use.
-    pub fn with_logger(mut self, logger: Logger) -> Self {
-        self.logger = logger;
-        self
-    }
-
-    fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
-        match self.immutable_digester.as_ref() {
-            None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
-            Some(digester) => digester.clone(),
-        }
     }
 
     /// Compute message for a snapshot (based on the directory where it was unpacked).
@@ -73,6 +81,7 @@ impl MessageBuilder {
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         Ok(message)
+    }
     }
 
     /// Compute message for a Mithril stake distribution.

@@ -3209,7 +3209,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.5.6"
+version = "0.5.7"
 dependencies = [
  "anyhow",
  "async-recursion",
