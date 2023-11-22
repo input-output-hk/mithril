@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
 
 use crate::chain_observer::interface::*;
 use crate::chain_observer::{ChainAddress, TxDatum};
@@ -18,6 +19,36 @@ pub struct PallasChainObserver {
     socket: PathBuf,
     network: CardanoNetwork,
     fallback: Option<super::cli_observer::CardanoCliChainObserver>,
+}
+
+#[derive(Error, Debug)]
+pub enum PallasChainObserverError {
+    #[error("Failed to create new client: {0}")]
+    UnableToCreateClient(anyhow::Error),
+
+    #[error("Acquire failed: {0}")]
+    AcquireFailed(anyhow::Error),
+
+    #[error("Failed to get current era: {0}")]
+    GetCurrentEraFailed(anyhow::Error),
+
+    #[error("Failed to get block epoch number: {0}")]
+    GetBlockEpochNumberFailed(anyhow::Error),
+
+    #[error("Send release failed: {0}")]
+    SendReleaseFailed(anyhow::Error),
+
+    #[error("Send done failed: {0}")]
+    SendDoneFailed(anyhow::Error),
+
+    #[error("Chainsync send done failed: {0}")]
+    ChainSyncSendDoneFailed(anyhow::Error),
+}
+
+impl From<PallasChainObserverError> for ChainObserverError {
+    fn from(err: PallasChainObserverError) -> ChainObserverError {
+        ChainObserverError::PallasObserverError(err)
+    }
 }
 
 impl PallasChainObserver {
@@ -63,24 +94,39 @@ impl ChainObserver for PallasChainObserver {
         let mut client = self
             .new_client()
             .await
-            .map_err(ChainObserverError::General)?;
+            .map_err(PallasChainObserverError::UnableToCreateClient)?;
 
         let statequery = client.statequery();
 
-        statequery.acquire(None).await.unwrap();
+        statequery
+            .acquire(None)
+            .await
+            .map_err(|err| PallasChainObserverError::AcquireFailed(anyhow!("{:?}", err)))?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| ChainObserverError::General(err.into()))?;
+            .map_err(|err| PallasChainObserverError::GetCurrentEraFailed(anyhow!("{:?}", err)))?;
 
         let epoch = queries_v16::get_block_epoch_number(statequery, era)
             .await
-            .map_err(|err| ChainObserverError::General(err.into()))?;
+            .map_err(|err| {
+                PallasChainObserverError::GetBlockEpochNumberFailed(anyhow!("{:?}", err))
+            })?;
 
-        statequery.send_release().await.unwrap();
-        statequery.send_done().await.unwrap();
+        statequery
+            .send_release()
+            .await
+            .map_err(|err| PallasChainObserverError::SendReleaseFailed(anyhow!("{:?}", err)))?;
 
-        client.chainsync().send_done().await.unwrap();
+        statequery
+            .send_done()
+            .await
+            .map_err(|err| PallasChainObserverError::SendDoneFailed(anyhow!("{:?}", err)))?;
+
+        client.chainsync().send_done().await.map_err(|err| {
+            PallasChainObserverError::ChainSyncSendDoneFailed(anyhow!("{:?}", err))
+        })?;
+
         drop(client.plexer_handle);
 
         Ok(Some(Epoch(epoch as u64)))
