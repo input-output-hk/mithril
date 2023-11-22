@@ -46,12 +46,14 @@ where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
 {
-    let port = 0_u16;
-    test_http_server_with_port(filters, port)
+    test_http_server_with_socket_address(filters, ([127, 0, 0, 1], 0).into())
 }
 
 /// Spawn a [TestHttpServer] using the given warp filters
-pub fn test_http_server_with_port<F>(filters: F, port: u16) -> TestHttpServer
+pub fn test_http_server_with_socket_address<F>(
+    filters: F,
+    socket_addr: SocketAddr,
+) -> TestHttpServer
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
@@ -64,7 +66,7 @@ where
             .expect("new rt");
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let (address, server) = rt.block_on(async move {
-            warp::serve(filters).bind_with_graceful_shutdown(([127, 0, 0, 1], port), async {
+            warp::serve(filters).bind_with_graceful_shutdown(socket_addr, async {
                 shutdown_rx.await.ok();
             })
         });
