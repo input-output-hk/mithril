@@ -13,8 +13,8 @@ repository = { workspace = true }
 anyhow = "1.0.75"
 clap = { version = "4.4.6", features = ["derive"] }
 hex = "0.4.3"
-pallas = "0.19.1"
+pallas = "0.20.0"
 rayon = "1.8.0"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-sqlite = { version = "0.31.1", features = ["bundled"] }
+sqlite = { version = "0.32.0", features = ["bundled"] }

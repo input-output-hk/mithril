@@ -65,7 +65,7 @@ fn main() -> StdResult<()> {
 /// Run import command
 fn run_import_command(config: &Config) -> StdResult<()> {
     let db_path = config.db_path.to_owned();
-    let connection = Connection::open_with_full_mutex(db_path)?;
+    let connection = Connection::open(db_path)?;
     //connection.execute("pragma foreign_keys=false")?;
     let ledger = Ledger::new(connection)?;
 
@@ -98,7 +98,7 @@ fn run_import_command(config: &Config) -> StdResult<()> {
 /// Run query command
 fn run_query_command(config: &Config) -> StdResult<()> {
     let db_path = config.db_path.to_owned();
-    let connection = Connection::open_with_full_mutex(db_path)?;
+    let connection = Connection::open(db_path)?;
     let ledger = Ledger::new(connection)?;
 
     let max_immutable_file_number_query = (u32::MAX - 1) as usize;

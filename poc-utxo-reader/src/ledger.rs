@@ -1,20 +1,20 @@
 use crate::{entities::*, errors::*};
-use sqlite::{ConnectionWithFullMutex, Value};
+use sqlite::{Connection, Value};
 use std::collections::BTreeMap;
 use std::iter::repeat;
 
 pub struct Ledger {
-    connection: ConnectionWithFullMutex,
+    connection: Connection,
 }
 
 impl Ledger {
     /// Ledger factory
-    pub fn new(connection: ConnectionWithFullMutex) -> StdResult<Self> {
+    pub fn new(connection: Connection) -> StdResult<Self> {
         Self::setup_db(&connection)?;
         Ok(Self { connection })
     }
 
-    pub fn setup_db(connection: &ConnectionWithFullMutex) -> StdResult<()> {
+    pub fn setup_db(connection: &Connection) -> StdResult<()> {
         let query = r#"
 /* Create 'block' table */        
 CREATE TABLE IF NOT EXISTS block (
@@ -367,7 +367,7 @@ mod tests {
 
     #[test]
     fn ledger_should_return_correct_balance() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open(":memory:").unwrap();
         let ledger = Ledger::new(connection).unwrap();
         let max_immutable_file_number_query = (u32::MAX - 1) as usize;
 
