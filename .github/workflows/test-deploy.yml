@@ -31,7 +31,7 @@ jobs:
         - environment: dev-preview
           environment_prefix: dev
           cardano_network: preview
-          mithril_use_p2p_network: false
+          mithril_use_p2p_network: true
           mithril_api_domain: api.mithril.network
           mithril_protocol_parameters: |
             {
