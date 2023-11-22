@@ -1228,7 +1228,8 @@ impl DependenciesBuilder {
         let certificate_repository = Arc::new(CertificateRepository::new(
             self.get_sqlite_connection().await?,
         ));
-        let service = MithrilHttpMessageService::new(certificate_repository);
+        let signed_entity_storer = self.get_signed_entity_storer().await?;
+        let service = MithrilHttpMessageService::new(certificate_repository, signed_entity_storer);
 
         Ok(Arc::new(service))
     }

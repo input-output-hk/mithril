@@ -6,11 +6,15 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::{
-    messages::{CertificateListMessage, CertificateMessage},
+    entities::Snapshot,
+    messages::{CertificateListMessage, CertificateMessage, SnapshotMessage},
     StdResult,
 };
 
-use crate::database::provider::CertificateRepository;
+use crate::database::provider::{CertificateRepository, SignedEntityStorer};
+
+#[cfg(test)]
+use mockall::automock;
 
 /// Error related to the [HttpMessageService]
 #[derive(Debug, Error)]
@@ -20,6 +24,7 @@ pub enum HttpMessageServiceError {
     PendingCertificateDoesNotExist,
 }
 /// HTTP Message service trait.
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait HttpMessageService: Sync + Send {
     /// Return the message representation of a certificate if it exists.
@@ -30,18 +35,29 @@ pub trait HttpMessageService: Sync + Send {
 
     /// Return the message representation of the last N certificates
     async fn get_last_certificates(&self, limit: usize) -> StdResult<CertificateListMessage>;
+
+    /// Return the information regarding the given snapshot
+    async fn get_snapshot_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SnapshotMessage>>;
 }
 
 /// Implementation of the [HttpMessageService]
 pub struct MithrilHttpMessageService {
     certificate_repository: Arc<CertificateRepository>,
+    signed_entity_storer: Arc<dyn SignedEntityStorer>,
 }
 
 impl MithrilHttpMessageService {
     /// Constructor
-    pub fn new(certificate_repository: Arc<CertificateRepository>) -> Self {
+    pub fn new(
+        certificate_repository: Arc<CertificateRepository>,
+        signed_entity_storer: Arc<dyn SignedEntityStorer>,
+    ) -> Self {
         Self {
             certificate_repository,
+            signed_entity_storer,
         }
     }
 }
@@ -61,6 +77,34 @@ impl HttpMessageService for MithrilHttpMessageService {
         self.certificate_repository
             .get_latest_certificates(limit)
             .await
+    }
+
+    async fn get_snapshot_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SnapshotMessage>> {
+        let signed_entity = match self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await?
+        {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        let artifact = serde_json::from_str::<Snapshot>(&signed_entity.artifact)?;
+        let snapshot_message = SnapshotMessage {
+            digest: artifact.digest,
+            beacon: artifact.beacon,
+            certificate_hash: signed_entity.certificate_id,
+            size: artifact.size,
+            created_at: signed_entity.created_at,
+            locations: artifact.locations,
+            compression_algorithm: Some(artifact.compression_algorithm),
+            cardano_node_version: Some(artifact.cardano_node_version),
+        };
+
+        Ok(Some(snapshot_message))
     }
 }
 
@@ -146,5 +190,15 @@ mod tests {
 
         assert_eq!(2, certficate_messages.len());
         assert_eq!(genesis_certificate.hash, certficate_messages[0].hash);
+    }
+
+    #[tokio::test]
+    async fn get_no_snapshot() {
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let service = dep_builder.get_http_message_service().await.unwrap();
+        let snapshot = service.get_snapshot_message("whatever").await.unwrap();
+
+        assert!(snapshot.is_none());
     }
 }

@@ -34,7 +34,7 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
@@ -92,7 +92,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
     use crate::message_adapters::ToSnapshotListMessageAdapter;
-    use crate::message_adapters::ToSnapshotMessageAdapter;
+    use crate::services::HttpMessageService;
     use crate::{services::SignedEntityService, Configuration};
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
@@ -127,17 +127,14 @@ mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
-        signed_entity_service: Arc<dyn SignedEntityService>,
+        http_message_service: Arc<dyn HttpMessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
-        match signed_entity_service
-            .get_signed_snapshot_by_id(&signed_entity_id)
+        match http_message_service
+            .get_snapshot_message(&signed_entity_id)
             .await
         {
-            Ok(Some(signed_entity)) => {
-                let message = ToSnapshotMessageAdapter::adapt(signed_entity);
-                Ok(reply::json(&message, StatusCode::OK))
-            }
+            Ok(Some(signed_entity)) => Ok(reply::json(&signed_entity, StatusCode::OK)),
             Ok(None) => {
                 warn!("snapshot_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
@@ -229,11 +226,15 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockSignedEntityService,
+        http_server::SERVER_BASE_PATH,
+        initialize_dependencies,
+        message_adapters::ToSnapshotMessageAdapter,
+        services::{MockHttpMessageService, MockSignedEntityService},
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{
         entities::{Beacon, SignedEntity, SignedEntityType},
+        messages::ToMessageAdapter,
         signable_builder::Artifact,
         sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
@@ -349,13 +350,14 @@ mod tests {
         .first()
         .unwrap()
         .to_owned();
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_snapshot_by_id()
-            .return_once(|_| Ok(Some(signed_entity)))
+        let message = ToSnapshotMessageAdapter::adapt(signed_entity);
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
+            .expect_get_snapshot_message()
+            .return_once(|_| Ok(Some(message)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshot/{digest}";
@@ -378,13 +380,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok_nosnapshot() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_snapshot_by_id()
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
+            .expect_get_snapshot_message()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshot/{digest}";
@@ -407,13 +409,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ko() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_snapshot_by_id()
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
+            .expect_get_snapshot_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshot/{digest}";
