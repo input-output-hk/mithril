@@ -72,9 +72,9 @@ pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
-cfg_fs! {
-    pub mod snapshot_downloader;
-}
+#[cfg(feature = "fs")]
+pub mod snapshot_downloader;
+
 mod type_alias;
 mod utils;
 

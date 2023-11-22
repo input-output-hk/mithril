@@ -26,3 +26,6 @@ clean:
 
 doc:
 	${CARGO} doc --no-deps --open --features full
+
+build-wasm:
+	wasm-pack build --release

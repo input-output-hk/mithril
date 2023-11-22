@@ -1,7 +1,10 @@
+use crate::StdResult;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
-use crate::{sqlite::HydrationError, StdResult};
+cfg_database! {
+    use crate::{sqlite::HydrationError};
+}
 
 use super::{Beacon, Epoch};
 
@@ -46,37 +49,40 @@ impl SignedEntityType {
             Self::CardanoStakeDistribution(e) | Self::MithrilStakeDistribution(e) => *e,
         }
     }
-    /// Create an instance from data coming from the database
-    pub fn hydrate(signed_entity_type_id: usize, beacon_str: &str) -> Result<Self, HydrationError> {
-        let myself = match signed_entity_type_id {
-            ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => {
-                let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
-                    HydrationError::InvalidData(format!(
-                        "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
-                    ))
-                })?;
-                Self::MithrilStakeDistribution(epoch)
-            }
-            ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => {
-                let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
-                    HydrationError::InvalidData(format!(
-                        "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
-                    ))
-                })?;
-                Self::CardanoStakeDistribution(epoch)
-            }
-            ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL => {
-                let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
-                    HydrationError::InvalidData(format!(
-                        "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
-                    ))
-                })?;
-                Self::CardanoImmutableFilesFull(beacon)
-            }
-            index => panic!("Invalid entity_type_id {index}."),
-        };
 
-        Ok(myself)
+    cfg_database! {
+        /// Create an instance from data coming from the database
+        pub fn hydrate(signed_entity_type_id: usize, beacon_str: &str) -> Result<Self, HydrationError> {
+            let myself = match signed_entity_type_id {
+                ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => {
+                    let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
+                        HydrationError::InvalidData(format!(
+                            "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
+                        ))
+                    })?;
+                    Self::MithrilStakeDistribution(epoch)
+                }
+                ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => {
+                    let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
+                        HydrationError::InvalidData(format!(
+                            "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
+                        ))
+                    })?;
+                    Self::CardanoStakeDistribution(epoch)
+                }
+                ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL => {
+                    let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
+                        HydrationError::InvalidData(format!(
+                            "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
+                        ))
+                    })?;
+                    Self::CardanoImmutableFilesFull(beacon)
+                }
+                index => panic!("Invalid entity_type_id {index}."),
+            };
+
+            Ok(myself)
+        }
     }
 
     /// Get the database value from enum's instance
