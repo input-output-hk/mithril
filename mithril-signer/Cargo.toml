@@ -15,7 +15,7 @@ async-trait = "0.1.73"
 clap = { version = "4.4.6", features = ["derive", "env"] }
 config = "0.13.3"
 hex = "0.4.3"
-mithril-common = { path = "../mithril-common" }
+mithril-common = { path = "../mithril-common", features = ["full"] }
 openssl = { version = "0.10.57", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 rand_chacha = "0.3.1"

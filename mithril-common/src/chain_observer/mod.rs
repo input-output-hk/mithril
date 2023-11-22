@@ -1,5 +1,6 @@
 //! Tools to request metadata, like the current epoch or the stake distribution, from the Cardano
 
+#[cfg(feature = "process")]
 mod cli_observer;
 mod fake_observer;
 mod interface;
@@ -12,6 +13,7 @@ mod test_cli_runner;
 #[cfg(test)]
 pub use cli_observer::CliRunner;
 
+#[cfg(feature = "process")]
 pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner};
 pub use fake_observer::FakeObserver;
 #[cfg(test)]
