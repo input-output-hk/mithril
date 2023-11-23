@@ -31,6 +31,7 @@ jobs:
         - environment: dev-preview
           environment_prefix: dev
           cardano_network: preview
+          mithril_use_p2p_network: true
           mithril_api_domain: api.mithril.network
           mithril_protocol_parameters: |
             {
@@ -44,11 +45,19 @@ jobs:
                 type    = "unverified",
                 pool_id = "pool1vapqexnsx6hvc588yyysxpjecf3k43hcr5mvhmstutuvy085xpa",
               },
+              "2" = {
+                type    = "unverified",
+                pool_id = "pool1t9uuagsat8hlr0n0ga4wzge0jxlyjuhl6mugrm8atc285vzkf2e",
+              },
+              "3" = {
+                type    = "unverified",
+                pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
+              },
             }
           terraform_backend_bucket: hydra-terraform-admin
           google_region: europe-west1
           google_zone: europe-west1-b
-          google_machine_type: e2-highmem-2
+          google_machine_type: e2-highmem-4
           google_compute_instance_boot_disk_size: 200
           google_compute_instance_data_disk_size: 250
   
@@ -71,12 +80,14 @@ jobs:
           environment_prefix: ${{ matrix.environment_prefix }}
           environment: ${{ matrix.environment }}
           cardano_network: ${{ matrix.cardano_network }}
+          cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
           google_region: ${{ matrix.google_region }}
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
           google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
           google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+          mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ inputs.mithril_image_id }}
           mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}

@@ -33,3 +33,11 @@ output "api_subdomain" {
 output "name_servers" {
   value = google_dns_managed_zone.mithril-api-zone.name_servers
 }
+
+output "mithril_aggregator_relay_p2p_dial_to" {
+  value = local.mithril_aggregator_relay_p2p_dial_to
+}
+
+output "mithril_signers_relay_p2p_dial_to" {
+  value = local.mithril_signers_relay_p2p_dial_to
+}

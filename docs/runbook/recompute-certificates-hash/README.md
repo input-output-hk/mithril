@@ -117,7 +117,7 @@ docker stop mithril-aggregator
 
 Then, restore the backed up database:
 ```bash
-cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d) /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator/aggregator.sqlite3
+cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d) /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3
 ```
 
 Then, start the aggregator:
