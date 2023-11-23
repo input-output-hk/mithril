@@ -71,7 +71,7 @@ git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 Change the directory:
 
 ```bash
-cd mithril/mithril-client
+cd mithril/mithril-client-cli
 ```
 
 Run tests (optional):
