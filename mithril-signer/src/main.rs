@@ -146,6 +146,15 @@ async fn main() -> StdResult<()> {
             .map(|_| Some("Received SIGTERM".to_string()))
     });
 
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::quit()).expect("Failed to create SIGQUIT signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGQUIT"))
+            .map(|_| Some("Received SIGQUIT".to_string()))
+    });
+
     let shutdown_reason = match join_set.join_next().await {
         Some(Err(e)) => {
             crit!("A critical error occurred: {e:?}");
