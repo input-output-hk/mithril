@@ -29,7 +29,7 @@ The data stores of the node need to be updated by running the following command:
 
 ```bash
 # The path to your data stores directory, which defaults to:
-DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores
+DATA_STORES_DIRECTORY=/opt/mithril/stores
 
 # Run this command to upgrade your stores:
 sqlite3 ${DATA_STORES_DIRECTORY}/signer.sqlite3 "UPDATE protocol_initializer SET value = json_object('stm_initializer', json(value), 'kes_signature', null) WHERE json_extract(value, '$.stm_initializer') IS NULL;"
