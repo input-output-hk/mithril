@@ -2,11 +2,13 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
+#[cfg(feature = "test_tools")]
+use crate::entities::ProtocolMessagePartKey;
 use crate::entities::{
     Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
-    ProtocolMessagePartKey,
 };
 use crate::messages::CertificateMetadataMessagePart;
+#[cfg(feature = "test_tools")]
 use crate::test_utils::fake_keys;
 use crate::StdError;
 
@@ -55,27 +57,29 @@ pub struct CertificateMessage {
 }
 
 impl CertificateMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "snapshot-digest-123".to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            fake_keys::aggregate_verification_key()[1].to_owned(),
-        );
-        Self {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            beacon: Beacon::new("testnet".to_string(), 10, 100),
-            metadata: CertificateMetadataMessagePart::dummy(),
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
-            multi_signature: fake_keys::multi_signature()[0].to_owned(),
-            genesis_signature: String::new(),
+    cfg_test_tools! {
+        /// Return a dummy test entity (test-only).
+        pub fn dummy() -> Self {
+            let mut protocol_message = ProtocolMessage::new();
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::SnapshotDigest,
+                "snapshot-digest-123".to_string(),
+            );
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextAggregateVerificationKey,
+                fake_keys::aggregate_verification_key()[1].to_owned(),
+            );
+            Self {
+                hash: "hash".to_string(),
+                previous_hash: "previous_hash".to_string(),
+                beacon: Beacon::new("testnet".to_string(), 10, 100),
+                metadata: CertificateMetadataMessagePart::dummy(),
+                protocol_message: protocol_message.clone(),
+                signed_message: "signed_message".to_string(),
+                aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
+                multi_signature: fake_keys::multi_signature()[0].to_owned(),
+                genesis_signature: String::new(),
+            }
         }
     }
 

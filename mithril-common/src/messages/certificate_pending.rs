@@ -29,23 +29,25 @@ pub struct CertificatePendingMessage {
 }
 
 impl CertificatePendingMessage {
-    /// Provide a dummy instance for test.
-    pub fn dummy() -> Self {
-        Self {
-            beacon: Beacon::default(),
-            signed_entity_type: SignedEntityType::dummy(),
-            protocol_parameters: ProtocolParameters {
-                k: 5,
-                m: 100,
-                phi_f: 0.65,
-            },
-            next_protocol_parameters: ProtocolParameters {
-                k: 50,
-                m: 1000,
-                phi_f: 0.65,
-            },
-            signers: [SignerMessagePart::dummy()].to_vec(),
-            next_signers: [SignerMessagePart::dummy()].to_vec(),
+    cfg_test_tools! {
+        /// Provide a dummy instance for test.
+        pub fn dummy() -> Self {
+            Self {
+                beacon: Beacon::default(),
+                signed_entity_type: SignedEntityType::dummy(),
+                protocol_parameters: ProtocolParameters {
+                    k: 5,
+                    m: 100,
+                    phi_f: 0.65,
+                },
+                next_protocol_parameters: ProtocolParameters {
+                    k: 50,
+                    m: 1000,
+                    phi_f: 0.65,
+                },
+                signers: [SignerMessagePart::dummy()].to_vec(),
+                next_signers: [SignerMessagePart::dummy()].to_vec(),
+            }
         }
     }
 }

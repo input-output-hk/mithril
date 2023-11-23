@@ -3263,6 +3263,7 @@ dependencies = [
  "flate2",
  "flume",
  "futures",
+ "getrandom",
  "httpmock",
  "indicatif",
  "mithril-common",

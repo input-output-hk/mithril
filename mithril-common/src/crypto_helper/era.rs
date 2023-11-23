@@ -1,5 +1,7 @@
 use ed25519_dalek::{Signer, SigningKey};
-use rand_chacha::rand_core::{self, CryptoRng, RngCore, SeedableRng};
+#[cfg(feature = "random")]
+use rand_chacha::rand_core;
+use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -47,10 +49,12 @@ impl EraMarkersSigner {
         Self::create_test_signer(rng)
     }
 
-    /// [EraMarkersSigner] non deterministic
-    pub fn create_non_deterministic_signer() -> Self {
-        let rng = rand_core::OsRng;
-        Self::create_test_signer(rng)
+    cfg_random! {
+        /// [EraMarkersSigner] non deterministic
+        pub fn create_non_deterministic_signer() -> Self {
+            let rng = rand_core::OsRng;
+            Self::create_test_signer(rng)
+        }
     }
 
     /// [EraMarkersSigner] from [EraMarkersVerifierSecretKey]
@@ -114,28 +118,29 @@ mod tests {
             .expect("Decoding golden secret key should not fail");
     }
 
-    #[test]
-    fn test_generate_test_deterministic_keypair() {
-        let signer = EraMarkersSigner::create_deterministic_signer();
-        let verifier = signer.create_verifier();
-        let signer_2 = EraMarkersSigner::create_deterministic_signer();
-        let verifier_2 = signer.create_verifier();
-        assert_eq!(signer.secret_key.to_bytes(), signer_2.secret_key.to_bytes());
-        assert_eq!(
-            verifier.verification_key.as_bytes(),
-            verifier_2.verification_key.as_bytes()
-        );
+    cfg_random! {
+        #[test]
+        fn test_generate_test_deterministic_keypair() {
+            let signer = EraMarkersSigner::create_deterministic_signer();
+            let verifier = signer.create_verifier();
+            let signer_2 = EraMarkersSigner::create_deterministic_signer();
+            let verifier_2 = signer.create_verifier();
+            assert_eq!(signer.secret_key.to_bytes(), signer_2.secret_key.to_bytes());
+            assert_eq!(
+                verifier.verification_key.as_bytes(),
+                verifier_2.verification_key.as_bytes()
+            );
 
-        println!(
-            "Deterministic Verification Key={}",
-            verifier.verification_key.to_json_hex().unwrap()
-        );
-        println!(
-            "Deterministic Secret Key=={}",
-            signer.secret_key.to_json_hex().unwrap()
-        );
+            println!(
+                "Deterministic Verification Key={}",
+                verifier.verification_key.to_json_hex().unwrap()
+            );
+            println!(
+                "Deterministic Secret Key=={}",
+                signer.secret_key.to_json_hex().unwrap()
+            );
+        }
     }
-
     #[test]
     fn test_generate_test_non_deterministic_keypair() {
         let signer = EraMarkersSigner::create_non_deterministic_signer();

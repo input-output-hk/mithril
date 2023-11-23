@@ -1,7 +1,9 @@
 use crate::{StdError, StdResult};
 use anyhow::anyhow;
 use ed25519_dalek::{Signer, SigningKey};
-use rand_chacha::rand_core::{self, CryptoRng, RngCore, SeedableRng};
+#[cfg(feature = "random")]
+use rand_chacha::rand_core;
+use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Write, path::Path};
@@ -38,10 +40,12 @@ impl ProtocolGenesisSigner {
         Self::create_test_genesis_signer(rng)
     }
 
-    /// [ProtocolGenesisSigner] non deterministic
-    pub fn create_non_deterministic_genesis_signer() -> Self {
-        let rng = rand_core::OsRng;
-        Self::create_test_genesis_signer(rng)
+    cfg_random! {
+        /// [ProtocolGenesisSigner] non deterministic
+        pub fn create_non_deterministic_genesis_signer() -> Self {
+            let rng = rand_core::OsRng;
+            Self::create_test_genesis_signer(rng)
+        }
     }
 
     /// [ProtocolGenesisSigner] from [ProtocolGenesisSecretKey]
@@ -131,19 +135,21 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_generate_test_non_deterministic_genesis_keypair() {
-        let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
-        let genesis_verifier = genesis_signer.create_genesis_verifier();
+    cfg_random! {
+        #[test]
+        fn test_generate_test_non_deterministic_genesis_keypair() {
+            let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
+            let genesis_verifier = genesis_signer.create_genesis_verifier();
 
-        println!(
-            "Non Deterministic Genesis Verification Key={}",
-            genesis_verifier.verification_key.to_json_hex().unwrap()
-        );
-        println!(
-            "Non Deterministic Genesis Secret Key=={}",
-            genesis_signer.secret_key.to_json_hex().unwrap()
-        );
+            println!(
+                "Non Deterministic Genesis Verification Key={}",
+                genesis_verifier.verification_key.to_json_hex().unwrap()
+            );
+            println!(
+                "Non Deterministic Genesis Secret Key=={}",
+                genesis_signer.secret_key.to_json_hex().unwrap()
+            );
+        }
     }
 
     #[test]

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::Epoch;
 use crate::entities::ProtocolParameters;
+#[cfg(feature = "test_tools")]
 use crate::test_utils::fake_data;
 
 use super::SignerWithStakeMessagePart;
@@ -31,17 +32,19 @@ pub struct MithrilStakeDistributionMessage {
 }
 
 impl MithrilStakeDistributionMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            epoch: Epoch(1),
-            signers_with_stake: vec![SignerWithStakeMessagePart::dummy()],
-            hash: "hash-123".to_string(),
-            certificate_hash: "cert-hash-123".to_string(),
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-            protocol_parameters: fake_data::protocol_parameters(),
+    cfg_test_tools! {
+        /// Return a dummy test entity (test-only).
+        pub fn dummy() -> Self {
+            Self {
+                epoch: Epoch(1),
+                signers_with_stake: vec![SignerWithStakeMessagePart::dummy()],
+                hash: "hash-123".to_string(),
+                certificate_hash: "cert-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                protocol_parameters: fake_data::protocol_parameters(),
+            }
         }
     }
 }

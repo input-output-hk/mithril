@@ -20,11 +20,21 @@ macro_rules! cfg_database {
     }
 }
 
-macro_rules! cfg_fs {
+macro_rules! cfg_random {
     ($($item:item)*) => {
         $(
-            #[cfg(feature = "fs")]
-            #[cfg_attr(docsrs, doc(cfg(feature = "fs")))]
+            #[cfg(feature = "random")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "random")))]
+            $item
+        )*
+    }
+}
+
+macro_rules! cfg_test_tools {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "test_tools")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "test_tools")))]
             $item
         )*
     }
@@ -53,6 +63,7 @@ pub mod sqlite;
 #[cfg(feature = "database")]
 pub mod store;
 
+#[cfg(feature = "test_tools")]
 pub mod test_utils;
 
 #[cfg(feature = "fs")]
