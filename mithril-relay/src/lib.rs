@@ -1,6 +1,5 @@
 #![warn(missing_docs)]
-
-//! Mithril relay modules
+#![doc = include_str!("../README.md")]
 
 mod commands;
 /// Peer to peer module
