@@ -95,7 +95,7 @@
             // args);
 
         mithril-stm = buildPackage ./mithril-stm/Cargo.toml null {};
-        mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-stm.cargoArtifacts {};
+        mithril-common = buildPackage ./mithril-common/Cargo.toml mithril-stm.cargoArtifacts { cargoExtraArgs = "-p mithril-common --features full"; };
         mithril = buildPackage null mithril-common.cargoArtifacts {
           doCheck = false;
         };
@@ -103,7 +103,7 @@
         packages = {
           default = mithril;
           inherit mithril mithril-stm mithril-common;
-          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts {};
+          mithril-client = buildPackage ./mithril-client/Cargo.toml mithril.cargoArtifacts { cargoExtraArgs = "-p mithril-client --features full"; };
           mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {};
           mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {};
           mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {};
