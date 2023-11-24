@@ -94,11 +94,15 @@ pub mod handlers {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockSignedEntityService,
+        http_server::SERVER_BASE_PATH,
+        initialize_dependencies,
+        message_adapters::ToMithrilStakeDistributionMessageAdapter,
+        services::{MockHttpMessageService, MockSignedEntityService},
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{
         entities::{Epoch, SignedEntity, SignedEntityType},
+        messages::ToMessageAdapter,
         signable_builder::Artifact,
         sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
@@ -214,13 +218,14 @@ pub mod tests {
         .first()
         .unwrap()
         .to_owned();
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_mithril_stake_distribution_by_id()
-            .return_once(|_| Ok(Some(signed_entity)))
+        let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_message()
+            .return_once(|_| Ok(Some(message)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
