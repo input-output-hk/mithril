@@ -6,7 +6,10 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::{
-    messages::{CertificateListMessage, CertificateMessage, SnapshotMessage},
+    messages::{
+        CertificateListMessage, CertificateMessage, MithrilStakeDistributionMessage,
+        SnapshotMessage,
+    },
     StdResult,
 };
 
@@ -40,6 +43,12 @@ pub trait HttpMessageService: Sync + Send {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SnapshotMessage>>;
+
+    /// Return the information regarding the given snapshot
+    async fn get_mithril_stake_distribution_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<MithrilStakeDistributionMessage>>;
 }
 
 /// Implementation of the [HttpMessageService]
@@ -82,6 +91,22 @@ impl HttpMessageService for MithrilHttpMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SnapshotMessage>> {
+        let signed_entity = match self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await?
+        {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+
+        Ok(Some(signed_entity.try_into()?))
+    }
+
+    async fn get_mithril_stake_distribution_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
         let signed_entity = match self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)

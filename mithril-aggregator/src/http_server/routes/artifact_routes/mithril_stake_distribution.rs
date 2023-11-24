@@ -27,16 +27,14 @@ fn artifact_mithril_stake_distribution_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::get())
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
 pub mod handlers {
     use crate::http_server::routes::reply;
-    use crate::message_adapters::{
-        ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
-    };
-    use crate::services::SignedEntityService;
+    use crate::message_adapters::ToMithrilStakeDistributionListMessageAdapter;
+    use crate::services::{HttpMessageService, SignedEntityService};
 
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
@@ -72,18 +70,15 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
-        signed_entity_service: Arc<dyn SignedEntityService>,
+        http_message_service: Arc<dyn HttpMessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
 
-        match signed_entity_service
-            .get_signed_mithril_stake_distribution_by_id(&signed_entity_id)
+        match http_message_service
+            .get_mithril_stake_distribution_message(&signed_entity_id)
             .await
         {
-            Ok(Some(signed_entity)) => {
-                let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
-                Ok(reply::json(&message, StatusCode::OK))
-            }
+            Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
                 warn!("get_mithril_stake_distribution_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))

@@ -6,11 +6,12 @@ use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::sync::Arc;
 
 use mithril_common::{
+    crypto_helper::ProtocolParameters,
     entities::{
-        Beacon, CompressionAlgorithm, SignedEntity, SignedEntityType,
+        Beacon, CompressionAlgorithm, Epoch, SignedEntity, SignedEntityType,
         SignedEntityTypeDiscriminants, Snapshot,
     },
-    messages::SnapshotMessage,
+    messages::{MithrilStakeDistributionMessage, SignerWithStakeMessagePart, SnapshotMessage},
     signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -94,6 +95,33 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
         };
 
         Ok(snapshot_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpMithrilStakeDistribution {
+            epoch: Epoch,
+            signers_with_stake: Vec<SignerWithStakeMessagePart>,
+            hash: String,
+            certificate_hash: String,
+            created_at: DateTime<Utc>,
+            protocol_parameters: ProtocolParameters,
+        }
+        let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
+        let mithtril_stake_distribution_message = MithrilStakeDistributionMessage {
+            epoch: artifact.epoch,
+            signers_with_stake: artifact.signers_with_stake,
+            hash: artifact.hash,
+            certificate_hash: artifact.certificate_hash,
+            created_at: artifact.created_at,
+            protocol_parameters: artifact.protocol_parameters.into(),
+        };
+
+        Ok(mithtril_stake_distribution_message)
     }
 }
 
