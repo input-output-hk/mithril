@@ -58,10 +58,12 @@ pub mod handlers {
         {
             Ok(signed_entities) => {
                 let messages = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entities);
+
                 Ok(reply::json(&messages, StatusCode::OK))
             }
             Err(err) => {
                 warn!("list_artifacts_mithril_stake_distribution"; "error" => ?err);
+
                 Ok(reply::internal_server_error(err))
             }
         }

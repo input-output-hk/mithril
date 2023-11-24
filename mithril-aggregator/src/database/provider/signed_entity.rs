@@ -6,14 +6,18 @@ use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::{SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
+    entities::{
+        Beacon, CompressionAlgorithm, SignedEntity, SignedEntityType,
+        SignedEntityTypeDiscriminants, Snapshot,
+    },
+    messages::SnapshotMessage,
     signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
     store::adapter::AdapterError,
-    StdResult,
+    StdError, StdResult,
 };
 
 #[cfg(test)]
@@ -60,6 +64,36 @@ where
         };
 
         Ok(signed_entity)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for SnapshotMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpSnapshot {
+            digest: String,
+            beacon: Beacon,
+            size: u64,
+            locations: Vec<String>,
+            compression_algorithm: Option<CompressionAlgorithm>,
+            cardano_node_version: Option<String>,
+        }
+
+        let artifact = serde_json::from_str::<TmpSnapshot>(&value.artifact)?;
+        let snapshot_message = SnapshotMessage {
+            digest: artifact.digest,
+            beacon: artifact.beacon,
+            certificate_hash: value.certificate_id,
+            size: artifact.size,
+            created_at: value.created_at,
+            locations: artifact.locations,
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
+        };
+
+        Ok(snapshot_message)
     }
 }
 

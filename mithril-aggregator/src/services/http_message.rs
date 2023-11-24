@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::{
-    entities::Snapshot,
     messages::{CertificateListMessage, CertificateMessage, SnapshotMessage},
     StdResult,
 };
@@ -92,19 +91,7 @@ impl HttpMessageService for MithrilHttpMessageService {
             None => return Ok(None),
         };
 
-        let artifact = serde_json::from_str::<Snapshot>(&signed_entity.artifact)?;
-        let snapshot_message = SnapshotMessage {
-            digest: artifact.digest,
-            beacon: artifact.beacon,
-            certificate_hash: signed_entity.certificate_id,
-            size: artifact.size,
-            created_at: signed_entity.created_at,
-            locations: artifact.locations,
-            compression_algorithm: Some(artifact.compression_algorithm),
-            cardano_node_version: Some(artifact.cardano_node_version),
-        };
-
-        Ok(Some(snapshot_message))
+        Ok(Some(signed_entity.try_into()?))
     }
 }
 
