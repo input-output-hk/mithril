@@ -17,7 +17,7 @@ async fn test_create_single_signature() {
 
     tester
         .comment("state machine starts in Init and transit to Unregistered state.")
-        .is_init().unwrap()
+        .is_init().await.unwrap()
         .cycle_unregistered().await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(1)).await.unwrap()

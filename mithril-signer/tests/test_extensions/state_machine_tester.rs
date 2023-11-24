@@ -213,9 +213,9 @@ impl StateMachineTester {
     }
 
     /// Is the state machine in `Init` state?
-    pub fn is_init(&mut self) -> Result<&mut Self> {
+    pub async fn is_init(&mut self) -> Result<&mut Self> {
         self.assert(
-            self.state_machine.get_state().is_init(),
+            self.state_machine.get_state().await.is_init(),
             "state machine shall be in Init state".to_string(),
         )
     }
@@ -224,10 +224,10 @@ impl StateMachineTester {
     pub async fn cycle_registered(&mut self) -> Result<&mut Self> {
         self.cycle().await?;
         self.assert(
-            self.state_machine.get_state().is_registered(),
+            self.state_machine.get_state().await.is_registered(),
             format!(
                 "state machine is in {} state (Registered was expected)",
-                self.state_machine.get_state()
+                self.state_machine.get_state().await
             ),
         )
     }
@@ -237,10 +237,10 @@ impl StateMachineTester {
         self.cycle().await?;
 
         self.assert(
-            self.state_machine.get_state().is_signed(),
+            self.state_machine.get_state().await.is_signed(),
             format!(
                 "state machine is in {} state (Signed was expected)",
-                self.state_machine.get_state()
+                self.state_machine.get_state().await
             ),
         )
     }
@@ -250,10 +250,10 @@ impl StateMachineTester {
         self.cycle().await?;
 
         self.assert(
-            self.state_machine.get_state().is_unregistered(),
+            self.state_machine.get_state().await.is_unregistered(),
             format!(
                 "state machine is in {} state (Unregistered was expected)",
-                self.state_machine.get_state()
+                self.state_machine.get_state().await
             ),
         )
     }

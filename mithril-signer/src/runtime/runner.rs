@@ -23,7 +23,7 @@ use super::signer_services::SignerServices;
 
 /// This trait is mainly intended for mocking.
 #[async_trait]
-pub trait Runner {
+pub trait Runner: Send + Sync {
     /// Fetch the current epoch settings if any.
     async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>>;
 
