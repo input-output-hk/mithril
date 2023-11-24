@@ -35,9 +35,9 @@ jobs:
           mithril_api_domain: api.mithril.network
           mithril_protocol_parameters: |
             {
-              k     = 100
-              m     = 60
-              phi_f = 0.95
+              k     = 5
+              m     = 100
+              phi_f = 0.65
             }
           mithril_signers: |
             {
