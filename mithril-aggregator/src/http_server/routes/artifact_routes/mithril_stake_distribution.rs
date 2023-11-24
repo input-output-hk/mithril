@@ -277,13 +277,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_get_ko() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_mithril_stake_distribution_by_id()
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
