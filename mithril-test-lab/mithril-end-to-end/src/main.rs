@@ -1,7 +1,7 @@
 use clap::Parser;
 use mithril_common::StdResult;
 use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
-use slog::{Drain, Logger};
+use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
     fs,
@@ -67,12 +67,33 @@ pub struct Args {
     /// Skip cardano binaries download
     #[clap(long)]
     skip_cardano_bin_download: bool,
+
+    /// Verbosity level
+    #[clap(
+        short,
+        long,
+        action = clap::ArgAction::Count,
+        help = "Verbosity level, add more v to increase"
+    )]
+    verbose: u8,
+}
+
+impl Args {
+    fn log_level(&self) -> Level {
+        match self.verbose {
+            0 => Level::Error,
+            1 => Level::Warning,
+            2 => Level::Info,
+            3 => Level::Debug,
+            _ => Level::Trace,
+        }
+    }
 }
 
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let args = Args::parse();
-    let _guard = slog_scope::set_global_logger(build_logger());
+    let _guard = slog_scope::set_global_logger(build_logger(&args));
     let server_port = 8080;
     let work_dir = match args.work_directory {
         Some(path) => {
@@ -160,9 +181,10 @@ async fn run_until_cancelled(devnet: Devnet) -> StdResult<()> {
     Ok(())
 }
 
-fn build_logger() -> Logger {
+fn build_logger(args: &Args) -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog::LevelFilter::new(drain, args.log_level()).fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
 
     Logger::root(Arc::new(drain), slog::o!())

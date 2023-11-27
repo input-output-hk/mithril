@@ -31,7 +31,7 @@ make build
 ./mithril-end-to-end --help
 
 # Run
-./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release
+./mithril-end-to-end -vvv --db-directory db/ --bin-directory ../../target/release
 ```
 
 To run `mithril-end-to-end` command, you must first compile the Mithril nodes:
@@ -83,7 +83,7 @@ cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-cli
 - Use the `--skip-cardano-bin-download` option to run the end to end test:
 
 ```bash
-./mithril-end-to-end --db-directory db/ --bin-directory ../../target/release --skip-cardano-bin-download
+./mithril-end-to-end -vvv --db-directory db/ --bin-directory ../../target/release --skip-cardano-bin-download
 ```
 
 ## Build and run an aggregator stress test
