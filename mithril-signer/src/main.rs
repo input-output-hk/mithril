@@ -58,9 +58,10 @@ pub struct Args {
 impl Args {
     fn log_level(&self) -> Level {
         match self.verbose {
-            0 => Level::Warning,
-            1 => Level::Info,
-            2 => Level::Debug,
+            0 => Level::Error,
+            1 => Level::Warning,
+            2 => Level::Info,
+            3 => Level::Debug,
             _ => Level::Trace,
         }
     }
