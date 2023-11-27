@@ -1,10 +1,14 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
-use slog_scope::debug;
+use slog_scope::{crit, debug};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    task::JoinSet,
+};
 
 use mithril_common::StdResult;
 use mithril_signer::{
@@ -111,11 +115,58 @@ async fn main() -> StdResult<()> {
         .with_context(|| "services initialization error")?;
 
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
-    let mut state_machine = StateMachine::new(
+    let state_machine = StateMachine::new(
         SignerState::Init,
         Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
     );
 
-    state_machine.run().await.map_err(|e| e.into())
+    let mut join_set = JoinSet::new();
+    join_set.spawn(async move {
+        state_machine
+            .run()
+            .await
+            .map_err(|e| anyhow!(e))
+            .map(|_| None)
+    });
+
+    join_set.spawn(async {
+        tokio::signal::ctrl_c()
+            .await
+            .map_err(|e| anyhow!(e))
+            .map(|_| Some("Received Ctrl+C".to_string()))
+    });
+
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGTERM"))
+            .map(|_| Some("Received SIGTERM".to_string()))
+    });
+
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::quit()).expect("Failed to create SIGQUIT signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGQUIT"))
+            .map(|_| Some("Received SIGQUIT".to_string()))
+    });
+
+    let shutdown_reason = match join_set.join_next().await {
+        Some(Err(e)) => {
+            crit!("A critical error occurred: {e:?}");
+            None
+        }
+        Some(Ok(res)) => res?,
+        None => None,
+    };
+
+    join_set.shutdown().await;
+
+    debug!("Stopping"; "shutdown_reason" => shutdown_reason);
+
+    Ok(())
 }

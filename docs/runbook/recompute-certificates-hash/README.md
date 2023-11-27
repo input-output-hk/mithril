@@ -25,6 +25,7 @@ ssh curry@$MITHRIL_VM
 Once connected to the aggregator VM, export the environment variables:
 ```bash
 export CARDANO_NETWORK=**CARDANO_NETWORK**
+export MITHRIL_DISTRIBUTION_LINUX_PKG=**MITHRIL_DISTRIBUTION_LINUX_PKG**
 ```
 
 And copy the SQLite database file `aggregator.sqlite3`:
@@ -94,11 +95,6 @@ Make sure that the certificate chain is valid (wait for the state machine to go 
 docker logs -f --tail 1000 mithril-aggregator
 ```
 
-Then disconnect from the aggregator VM:
-```bash
-exit
-```
-
 ## Cleanup the temp directory
 
 Remove the temp directory:
@@ -106,9 +102,15 @@ Remove the temp directory:
 rm -rf /home/curry/temp
 ```
 
-## Rollback procedure
+## Exit from the VM
+Then disconnect from the aggregator VM:
+```bash
+exit
+```
 
-If the recomputation fails, you can rollback the database.
+## Databse rollback procedure
+
+If the recomputation fails, you can rollback the database,and try again the process.
 
 First, stop the aggregator:
 ```bash
@@ -117,17 +119,12 @@ docker stop mithril-aggregator
 
 Then, restore the backed up database:
 ```bash
-cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d) /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator/aggregator.sqlite3
+cp /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3.bak.$(date +%Y-%m-%d) /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3
 ```
 
 Then, start the aggregator:
 ```bash
 docker start mithril-aggregator
-```
-
-Make sure that the certificate chain is valid (wait for the state machiene to go into the state `READY`):
-```bash
-docker logs -f --tail 1000 mithril-aggregator
 ```
 
 Then disconnect from the aggregator VM:

@@ -38,6 +38,10 @@ inputs:
   google_application_credentials:
     description: Google Cloud application credentials (service account).
     required: true
+  mithril_use_p2p_network:
+    description: Mithril use P2P network (experimental, for test only).
+    required: false
+    default: "false"
   mithril_api_domain:
     description: Mithril network api domain root.
     required: true
@@ -143,6 +147,7 @@ runs:
         google_compute_instance_boot_disk_size            = "${{ inputs.google_compute_instance_boot_disk_size }}"
         google_compute_instance_data_disk_size            = "${{ inputs.google_compute_instance_data_disk_size }}"
         google_service_credentials_json_file              = "./google-application-credentials.json"
+        mithril_use_p2p_network                           = "${{ inputs.mithril_use_p2p_network }}"
         mithril_api_domain                                = "${{ inputs.mithril_api_domain }}"
         mithril_image_id                                  = "${{ inputs.mithril_image_id }}"
         mithril_genesis_verification_key_url              = "${{ inputs.mithril_genesis_verification_key_url }}"

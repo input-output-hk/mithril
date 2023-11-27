@@ -2,7 +2,7 @@ use crate::p2p::{Peer, PeerEvent};
 use libp2p::Multiaddr;
 use mithril_common::{
     messages::RegisterSignatureMessage,
-    test_utils::test_http_server::{test_http_server_with_port, TestHttpServer},
+    test_utils::test_http_server::{test_http_server_with_socket_address, TestHttpServer},
     StdResult,
 };
 use slog_scope::{debug, info};
@@ -42,7 +42,7 @@ impl SignerRelay {
         aggregator_endpoint: &str,
         signature_tx: UnboundedSender<RegisterSignatureMessage>,
     ) -> TestHttpServer {
-        test_http_server_with_port(
+        test_http_server_with_socket_address(
             warp::path("register-signatures")
                 .and(warp::post())
                 .and(warp::body::json())
@@ -67,7 +67,7 @@ impl SignerRelay {
                         aggregator_endpoint.to_string(),
                     ))
                     .and_then(handlers::certificate_pending_handler)),
-            *server_port,
+            ([0, 0, 0, 0], *server_port).into(),
         )
     }
 

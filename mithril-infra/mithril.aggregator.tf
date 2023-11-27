@@ -1,4 +1,8 @@
 
+locals {
+  mithril_aggregator_relay_mithril_listen_port = 6060
+}
+
 resource "null_resource" "mithril_aggregator" {
   depends_on = [
     null_resource.mithril_reverse_proxy
@@ -61,9 +65,10 @@ EOT
       "export CEXPLORER_POOLS_URL='${var.mithril_aggregator_cexplorer_pools_url}'",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
+      "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}.yaml --profile all up -d",
+      "docker compose -f /home/curry/docker/docker-compose-aggregator-${local.mithril_aggregator_type}${local.mithril_network_type_suffix}.yaml --profile all up -d",
     ]
   }
 }

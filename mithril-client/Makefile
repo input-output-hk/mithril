@@ -11,10 +11,10 @@ all: test build
 
 build:
 	# We use 'portable' feature to avoid SIGILL crashes
-	${CARGO} build --release --features portable
+	${CARGO} build --release --features portable,full
 
 test:
-	${CARGO} test
+	${CARGO} test --features full
 
 check:
 	${CARGO} check --release --all-features --all-targets
@@ -25,4 +25,4 @@ clean:
 	${CARGO} clean
 
 doc:
-	${CARGO} doc --no-deps --open
+	${CARGO} doc --no-deps --open --features full

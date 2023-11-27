@@ -224,7 +224,7 @@ sudo mv mithril-signer /opt/mithril
 * `User=cardano`:
 Replace this value with the correct user. We assume that the user used to run the **Cardano node** is `cardano`. The **Mithril signer** must imperatively run with the same user.
 
-* In the `/opt/mithril/mithril-signer/service.env` env file:
+* In the `/opt/mithril/mithril-signer.env` env file:
   * `KES_SECRET_KEY_PATH=/cardano/keys/kes.skey`: replace `/cardano/keys/kes.skey` with the path to your Cardano `KES secret key` file
   * `OPERATIONAL_CERTIFICATE_PATH=/cardano/cert/opcert.cert`: replace `/cardano/cert/opcert.cert` with the path to your Cardano `operational certificate` file
   * `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano node** (the one in `--database-path`)

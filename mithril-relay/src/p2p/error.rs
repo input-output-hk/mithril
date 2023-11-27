@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// [EraMarkersPayload] related errors.
+/// [Peer] related errors.
 #[derive(Debug, Error)]
 pub enum PeerError {
     /// Topic does not exist

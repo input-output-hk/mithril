@@ -1,9 +1,12 @@
 locals {
   mithril_signers_index                       = [for key, signer in var.mithril_signers : key]
   mithril_signers_www_port                    = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 8080 }
+  mithril_signers_relay_listen_port           = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 6060 }
+  mithril_signers_relay_server_port           = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 7070 }
   mithril_signers_relay_cardano_port          = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 9090 }
   mithril_signers_block_producer_cardano_port = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 10000 }
 }
+
 resource "null_resource" "mithril_signer" {
   for_each = var.mithril_signers
 
@@ -86,10 +89,13 @@ EOT
       "export SIGNER_CARDANO_BLOCK_PRODUCER_PORT=${local.mithril_signers_block_producer_cardano_port[each.key]}",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
+      "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",
+      "export SIGNER_RELAY_LISTEN_PORT='${local.mithril_signers_relay_listen_port[each.key]}'",
+      "export SIGNER_RELAY_SERVER_PORT='${local.mithril_signers_relay_server_port[each.key]}'",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
-      "docker compose -p $SIGNER_ID -f /home/curry/docker/docker-compose-signer-${each.value.type}.yaml --profile all up -d",
+      "docker compose -p $SIGNER_ID -f /home/curry/docker/docker-compose-signer-${each.value.type}${local.mithril_network_type_suffix}.yaml --profile all up -d",
     ]
   }
 }

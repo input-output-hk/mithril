@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Define all the tooling necessary to manipulate Mithril certified types from a
 //! [Mithril Aggregator](https://mithril.network/rust-doc/mithril_aggregator/index.html).
@@ -18,6 +19,8 @@
 //! # Example
 //!
 //! Below is an example describing the usage of most of the library's functions together:
+//!
+//! **Note:** _Snapshot download and the compute snapshot message functions are available using crate feature_ **fs**.
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
@@ -52,6 +55,16 @@
 //! # }
 //! ```
 
+macro_rules! cfg_fs {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "fs")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "fs")))]
+            $item
+        )*
+    }
+}
+
 pub mod aggregator_client;
 pub mod certificate_client;
 mod client;
@@ -59,7 +72,9 @@ pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
-pub mod snapshot_downloader;
+cfg_fs! {
+    pub mod snapshot_downloader;
+}
 mod type_alias;
 mod utils;
 
