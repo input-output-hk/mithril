@@ -34,7 +34,7 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 | Node | Source repository | Rust documentation | Docker packages |
 |:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
+**Mithril client CLI** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
 
 ## Pre-requisites
 
@@ -67,7 +67,7 @@ git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 Change the directory: 
 
 ```bash
-cd mithril/mithril-client
+cd mithril/mithril-client-cli
 ```
 
 ## Development testing and building
@@ -113,7 +113,7 @@ make build
 Display the help menu:
 
 ```bash
-./mithril-client --help
+./mithril-client-cli --help
 ```
 
 You should see:
@@ -121,7 +121,7 @@ You should see:
 ```bash
 This program shows, downloads, and verifies certified blockchain artifacts.
 
-Usage: mithril-client [OPTIONS] <COMMAND>
+Usage: mithril-client-cli [OPTIONS] <COMMAND>
 
 Commands:
   snapshot                    Snapshot commands
@@ -148,13 +148,13 @@ Options:
 Run in release mode with the default configuration:
 
 ```bash
-./mithril-client
+./mithril-client-cli
 ```
 
 Run in release mode with a specific mode:
 
 ```bash
-./mithril-client --run-mode preview
+./mithril-client-cli --run-mode preview
 ```
 
 Run in release mode with a custom configuration using environment variables:
@@ -168,7 +168,7 @@ GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) NETWO
 To display results in JSON format for the `list` and `show` commands, simply use the `--json` (or `-j`) option:
 
 ```bash
-./mithril-client snapshot list --json
+./mithril-client-cli snapshot list --json
 ```
 
 :::
