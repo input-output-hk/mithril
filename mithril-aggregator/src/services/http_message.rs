@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::{
+    entities::SignedEntityTypeDiscriminants,
     messages::{
         CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
         MithrilStakeDistributionMessage, SnapshotMessage,
@@ -125,7 +126,13 @@ impl HttpMessageService for MithrilHttpMessageService {
         &self,
         limit: usize,
     ) -> StdResult<MithrilStakeDistributionListMessage> {
-        todo!()
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::MithrilStakeDistribution;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
     }
 }
 
@@ -143,7 +150,9 @@ mod tests {
     use crate::{
         database::provider::{MockSignedEntityStorer, SignedEntityRecord},
         dependency_injection::DependenciesBuilder,
-        message_adapters::ToMithrilStakeDistributionMessageAdapter,
+        message_adapters::{
+            ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+        },
         Configuration,
     };
 
@@ -295,5 +304,47 @@ mod tests {
             .unwrap();
 
         assert!(response.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_mithril_stake_distribution_list_message() {
+        let entity = SignedEntity {
+            signed_entity_id: "msd1".to_string(),
+            signed_entity_type:
+                mithril_common::entities::SignedEntityType::MithrilStakeDistribution(Epoch(12)),
+            certificate_id: "certificate1".to_string(),
+            artifact: MithrilStakeDistribution {
+                epoch: Epoch(12),
+                signers_with_stake: fake_data::signers_with_stakes(3),
+                hash: "whatever".to_string(),
+                protocol_parameters: fake_data::protocol_parameters(),
+            },
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        };
+        let records = vec![SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(entity.artifact.epoch),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        }];
+        let message = ToMithrilStakeDistributionListMessageAdapter::adapt(vec![entity]);
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_last_signed_entities_by_type()
+            .return_once(|_, _| Ok(records))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_http_message_service().await.unwrap();
+        let response = service
+            .get_mithril_stake_distribution_list_message(10)
+            .await
+            .unwrap();
+
+        assert_eq!(message, response);
     }
 }

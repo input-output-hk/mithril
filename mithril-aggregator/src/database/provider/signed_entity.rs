@@ -11,7 +11,10 @@ use mithril_common::{
         Beacon, CompressionAlgorithm, Epoch, SignedEntity, SignedEntityType,
         SignedEntityTypeDiscriminants, Snapshot,
     },
-    messages::{MithrilStakeDistributionMessage, SignerWithStakeMessagePart, SnapshotMessage},
+    messages::{
+        MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
+        SignerWithStakeMessagePart, SnapshotMessage,
+    },
     signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -120,6 +123,28 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
         };
 
         Ok(mithtril_stake_distribution_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpMithrilStakeDistribution {
+            epoch: Epoch,
+            hash: String,
+        }
+        let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
+        let mithril_stake_distribution_list_item_message =
+            MithrilStakeDistributionListItemMessage {
+                epoch: artifact.epoch,
+                hash: artifact.hash,
+                certificate_hash: value.certificate_id,
+                created_at: value.created_at,
+            };
+
+        Ok(mithril_stake_distribution_list_item_message)
     }
 }
 
