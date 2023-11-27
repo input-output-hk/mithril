@@ -7,7 +7,7 @@ edition = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore", "openapi.yaml"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
