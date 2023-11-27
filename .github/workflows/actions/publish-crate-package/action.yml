@@ -36,21 +36,27 @@ runs:
         echo "should_deploy=false" >> $GITHUB_OUTPUT
       fi
 
+  - name: Copy OpenAPI specs files
+    shell: bash
+    run: |
+      echo "Copy OpenAPI specs files"
+      cp openapi*.yaml ./${{ inputs.package}}
+
   - name: Cargo publish dry run
     shell: bash
     run: |
       echo "Cargo publish '${{ inputs.package }}' package (dry run)"
-      cargo publish -p ${{ inputs.package }} --dry-run --no-verify ${{ inputs.publish_args }} 
+      cargo publish -p ${{ inputs.package }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }} 
 
   - name: Cargo package list
     shell: bash
     run: |
       echo "Cargo package list '${{ inputs.package }}' package"
-      cargo package -p ${{ inputs.package }} --list
+      cargo package -p ${{ inputs.package }} --list --allow-dirty
 
   - name: Cargo publish
     if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
     shell: bash
     run: |
       echo "Cargo publish '${{ inputs.package }}' package"
-      cargo publish -p ${{ inputs.package }} --token ${{ inputs.api_token }} --no-verify ${{ inputs.publish_args }}
+      cargo publish -p ${{ inputs.package }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}
