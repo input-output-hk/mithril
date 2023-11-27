@@ -7,8 +7,8 @@ use thiserror::Error;
 
 use mithril_common::{
     messages::{
-        CertificateListMessage, CertificateMessage, MithrilStakeDistributionMessage,
-        SnapshotMessage,
+        CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
+        MithrilStakeDistributionMessage, SnapshotMessage,
     },
     StdResult,
 };
@@ -49,6 +49,12 @@ pub trait HttpMessageService: Sync + Send {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>>;
+
+    /// Return the list of the last Mithril stake distributions message
+    async fn get_mithril_stake_distribution_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<MithrilStakeDistributionListMessage>;
 }
 
 /// Implementation of the [HttpMessageService]
@@ -107,24 +113,39 @@ impl HttpMessageService for MithrilHttpMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
-        let signed_entity = match self
+        let signed_entity = self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)
-            .await?
-        {
-            Some(v) => v,
-            None => return Ok(None),
-        };
+            .await?;
 
-        Ok(Some(signed_entity.try_into()?))
+        signed_entity.map(|v| v.try_into()).transpose()
+    }
+
+    async fn get_mithril_stake_distribution_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<MithrilStakeDistributionListMessage> {
+        todo!()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::Beacon, test_utils::MithrilFixtureBuilder};
+    use std::sync::Arc;
 
-    use crate::{dependency_injection::DependenciesBuilder, Configuration};
+    use chrono::{DateTime, Utc};
+    use mithril_common::{
+        entities::{Beacon, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType},
+        messages::ToMessageAdapter,
+        test_utils::{fake_data, MithrilFixtureBuilder},
+    };
+
+    use crate::{
+        database::provider::{MockSignedEntityStorer, SignedEntityRecord},
+        dependency_injection::DependenciesBuilder,
+        message_adapters::ToMithrilStakeDistributionMessageAdapter,
+        Configuration,
+    };
 
     #[tokio::test]
     async fn get_no_certificate() {
@@ -212,5 +233,67 @@ mod tests {
         let snapshot = service.get_snapshot_message("whatever").await.unwrap();
 
         assert!(snapshot.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_mithril_stake_distribution() {
+        let entity = SignedEntity {
+            signed_entity_id: "msd1".to_string(),
+            signed_entity_type:
+                mithril_common::entities::SignedEntityType::MithrilStakeDistribution(Epoch(12)),
+            certificate_id: "certificate1".to_string(),
+            artifact: MithrilStakeDistribution {
+                epoch: Epoch(12),
+                signers_with_stake: fake_data::signers_with_stakes(3),
+                hash: "whatever".to_string(),
+                protocol_parameters: fake_data::protocol_parameters(),
+            },
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        };
+        let record = SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(entity.artifact.epoch),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        };
+        let message = ToMithrilStakeDistributionMessageAdapter::adapt(entity);
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(Some(record)))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_http_message_service().await.unwrap();
+        let response = service
+            .get_mithril_stake_distribution_message("msd1")
+            .await
+            .unwrap()
+            .expect("A MithrilStakeDistributionMessage was expected.");
+
+        assert_eq!(message, response);
+    }
+
+    #[tokio::test]
+    async fn get_mithril_no_stake_distribution() {
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(None))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_http_message_service().await.unwrap();
+        let response = service
+            .get_mithril_stake_distribution_message("msd1")
+            .await
+            .unwrap();
+
+        assert!(response.is_none());
     }
 }

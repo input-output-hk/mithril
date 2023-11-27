@@ -107,8 +107,6 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
             epoch: Epoch,
             signers_with_stake: Vec<SignerWithStakeMessagePart>,
             hash: String,
-            certificate_hash: String,
-            created_at: DateTime<Utc>,
             protocol_parameters: ProtocolParameters,
         }
         let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
@@ -116,8 +114,8 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
             epoch: artifact.epoch,
             signers_with_stake: artifact.signers_with_stake,
             hash: artifact.hash,
-            certificate_hash: artifact.certificate_hash,
-            created_at: artifact.created_at,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
             protocol_parameters: artifact.protocol_parameters.into(),
         };
 
