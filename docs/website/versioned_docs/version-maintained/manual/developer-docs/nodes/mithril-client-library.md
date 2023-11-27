@@ -48,18 +48,6 @@ It is responsible for handling the different types of data certified by Mithril,
 
 ## Installation
 
-:::caution
-
-Mithril client library has not yet been published on [crates.io](https://crates.io/), so you won't be able to follow the procedure below. The crate will be published soon.
-
-For now, you can experiment it by adding the dependency manually in the Cargo.toml of your project:
-
-```toml title="/Cargo.toml"
-mithril-client = { git = "https://github.com/input-output-hk/mithril.git" }
-```
-
-:::
-
 In your project, use `cargo` to add [mithril-client](https://crates.io/crates/mithril-client) crate as a dependency:
 
 ```bash
