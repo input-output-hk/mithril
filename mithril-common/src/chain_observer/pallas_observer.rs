@@ -45,8 +45,8 @@ impl PallasChainObserver {
     }
 
     /// Returns a reference to the fallback `CardanoCliChainObserver` instance.
-    fn get_fallback(&self) -> StdResult<&CardanoCliChainObserver> {
-        Ok(&self.fallback)
+    fn get_fallback(&self) -> &CardanoCliChainObserver {
+        &self.fallback
     }
 
     /// Creates and returns a new `NodeClient`, handling any potential errors.
@@ -134,14 +134,14 @@ impl ChainObserver for PallasChainObserver {
         &self,
         address: &ChainAddress,
     ) -> Result<Vec<TxDatum>, ChainObserverError> {
-        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        let fallback = self.get_fallback();
         fallback.get_current_datums(address).await
     }
 
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        let fallback = self.get_fallback();
         fallback.get_current_stake_distribution().await
     }
 
@@ -149,7 +149,7 @@ impl ChainObserver for PallasChainObserver {
         &self,
         opcert: &OpCert,
     ) -> Result<Option<KESPeriod>, ChainObserverError> {
-        let fallback = self.get_fallback().map_err(ChainObserverError::General)?;
+        let fallback = self.get_fallback();
         fallback.get_current_kes_period(opcert).await
     }
 }
