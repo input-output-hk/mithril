@@ -477,7 +477,7 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::{crypto_helper::ColdKeyGenerator, test_utils::TestCliRunner};
+    use crate::{chain_observer::test_cli_runner::TestCliRunner, crypto_helper::ColdKeyGenerator};
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
 

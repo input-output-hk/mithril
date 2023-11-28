@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use crate::{chain_observer::CliRunner, StdResult};
 
 /// `TestCliRunner` is a struct to run Cardano CLI tests
-pub struct TestCliRunner {
+pub(crate) struct TestCliRunner {
     is_legacy: bool,
 }
 

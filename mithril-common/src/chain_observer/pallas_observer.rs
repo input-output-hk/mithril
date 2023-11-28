@@ -163,7 +163,7 @@ mod tests {
     use tokio::net::UnixListener;
 
     use super::*;
-    use crate::{test_utils::TestCliRunner, CardanoNetwork};
+    use crate::{chain_observer::test_cli_runner::TestCliRunner, CardanoNetwork};
 
     /// pallas responses mock server.
     async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {

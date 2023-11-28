@@ -14,11 +14,9 @@ pub mod fake_keys;
 
 mod fixture_builder;
 mod mithril_fixture;
-pub mod test_cli_runner;
 
 #[cfg(feature = "test_http_server")]
 pub mod test_http_server;
 
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
-pub use test_cli_runner::TestCliRunner;
