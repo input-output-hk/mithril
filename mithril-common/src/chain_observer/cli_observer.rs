@@ -20,17 +20,17 @@ use crate::{CardanoNetwork, StdResult};
 /// for interaction with the Cardano CLI.
 #[async_trait]
 pub trait CliRunner {
-    /// launches a UTxO.
+    /// Launches a UTxO.
     async fn launch_utxo(&self, address: &str) -> StdResult<String>;
-    /// launches the stake distribution.
+    /// Launches the stake distribution.
     async fn launch_stake_distribution(&self) -> StdResult<String>;
-    /// launches the stake snapshot.
+    /// Launches the stake snapshot.
     async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String>;
-    /// launches the stake snapshot for all pools.
+    /// Launches the stake snapshot for all pools.
     async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String>;
-    /// launches the epoch info.
+    /// Launches the epoch info.
     async fn launch_epoch(&self) -> StdResult<String>;
-    /// launches the kes period.
+    /// Launches the kes period.
     async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String>;
 }
 

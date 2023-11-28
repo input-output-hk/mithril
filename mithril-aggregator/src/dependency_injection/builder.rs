@@ -467,7 +467,7 @@ impl DependenciesBuilder {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
             ExecutionEnvironment::Production => {
                 let fallback = CardanoCliChainObserver::new(self.get_cardano_cli_runner().await?);
-                let observer = PallasChainObserver::new_with_fallback(
+                let observer = PallasChainObserver::new(
                     &self.configuration.cardano_node_socket_path,
                     self.configuration.get_network().with_context(|| {
                         "Dependencies Builder can not get Cardano network while building cardano cli runner"

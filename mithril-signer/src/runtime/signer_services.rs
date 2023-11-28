@@ -64,7 +64,7 @@ impl<'a> ProductionServiceBuilder<'a> {
                     config.get_network()?,
                 )));
 
-                let observer = PallasChainObserver::new_with_fallback(
+                let observer = PallasChainObserver::new(
                     &config.cardano_node_socket_path,
                     config.get_network()?,
                     fallback,

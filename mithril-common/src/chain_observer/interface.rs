@@ -9,7 +9,7 @@ use thiserror::Error;
 #[cfg(test)]
 use mockall::automock;
 
-use super::{pallas_observer::PallasChainObserverError, ChainAddress, TxDatum};
+use super::{ChainAddress, TxDatum};
 
 /// [ChainObserver] related errors.
 #[derive(Debug, Error)]
@@ -21,10 +21,6 @@ pub enum ChainObserverError {
     /// Error raised when the content could not be parsed.
     #[error("could not parse content")]
     InvalidContent(#[source] StdError),
-
-    /// Error type wrapping errors originating from Pallas related operations.
-    #[error("PallasChainObserverError: {0}")]
-    PallasObserverError(PallasChainObserverError),
 }
 
 /// Retrieve data from the cardano network

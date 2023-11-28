@@ -1,9 +1,8 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 use crate::chain_observer::interface::*;
 use crate::chain_observer::{ChainAddress, TxDatum};
@@ -18,59 +17,22 @@ use super::CardanoCliChainObserver;
 pub struct PallasChainObserver {
     socket: PathBuf,
     network: CardanoNetwork,
-    fallback: Option<super::cli_observer::CardanoCliChainObserver>,
+    fallback: super::cli_observer::CardanoCliChainObserver,
 }
 
-#[derive(Error, Debug)]
-pub enum PallasChainObserverError {
-    #[error("Failed to create new client: {0}")]
-    UnableToCreateClient(anyhow::Error),
-
-    #[error("Acquire failed: {0}")]
-    AcquireFailed(anyhow::Error),
-
-    #[error("Failed to get current era: {0}")]
-    GetCurrentEraFailed(anyhow::Error),
-
-    #[error("Failed to get block epoch number: {0}")]
-    GetBlockEpochNumberFailed(anyhow::Error),
-
-    #[error("Send release failed: {0}")]
-    SendReleaseFailed(anyhow::Error),
-
-    #[error("Send done failed: {0}")]
-    SendDoneFailed(anyhow::Error),
-
-    #[error("Chainsync send done failed: {0}")]
-    ChainSyncSendDoneFailed(anyhow::Error),
-}
-
-impl From<PallasChainObserverError> for ChainObserverError {
-    fn from(err: PallasChainObserverError) -> ChainObserverError {
-        ChainObserverError::PallasObserverError(err)
+impl From<anyhow::Error> for ChainObserverError {
+    fn from(err: anyhow::Error) -> Self {
+        ChainObserverError::General(err)
     }
 }
 
 impl PallasChainObserver {
     /// Creates a new PallasObserver while accepting a fallback CliRunner
-    pub fn new_with_fallback(
-        socket: &Path,
-        network: CardanoNetwork,
-        fallback: CardanoCliChainObserver,
-    ) -> Self {
+    pub fn new(socket: &Path, network: CardanoNetwork, fallback: CardanoCliChainObserver) -> Self {
         Self {
             socket: socket.to_owned(),
             network,
-            fallback: Some(fallback),
-        }
-    }
-
-    /// Creates a new PallasObserver
-    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
-        Self {
-            socket: socket.to_owned(),
-            network,
-            fallback: None,
+            fallback,
         }
     }
 
@@ -82,9 +44,7 @@ impl PallasChainObserver {
     }
 
     fn get_fallback(&self) -> StdResult<&CardanoCliChainObserver> {
-        self.fallback.as_ref().ok_or(anyhow!(
-            "Unimplemented and no fallback configured for PallasObserver",
-        ))
+        Ok(&self.fallback)
     }
 }
 
@@ -94,38 +54,45 @@ impl ChainObserver for PallasChainObserver {
         let mut client = self
             .new_client()
             .await
-            .map_err(PallasChainObserverError::UnableToCreateClient)?;
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Failed to create new client")?;
 
         let statequery = client.statequery();
 
         statequery
             .acquire(None)
             .await
-            .map_err(|err| PallasChainObserverError::AcquireFailed(anyhow!("{:?}", err)))?;
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
-            .map_err(|err| PallasChainObserverError::GetCurrentEraFailed(anyhow!("{:?}", err)))?;
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Failed to get current era")?;
 
         let epoch = queries_v16::get_block_epoch_number(statequery, era)
             .await
-            .map_err(|err| {
-                PallasChainObserverError::GetBlockEpochNumberFailed(anyhow!("{:?}", err))
-            })?;
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Failed to get block epoch number")?;
 
         statequery
             .send_release()
             .await
-            .map_err(|err| PallasChainObserverError::SendReleaseFailed(anyhow!("{:?}", err)))?;
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Send release failed")?;
 
         statequery
             .send_done()
             .await
-            .map_err(|err| PallasChainObserverError::SendDoneFailed(anyhow!("{:?}", err)))?;
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Send done failed")?;
 
-        client.chainsync().send_done().await.map_err(|err| {
-            PallasChainObserverError::ChainSyncSendDoneFailed(anyhow!("{:?}", err))
-        })?;
+        client
+            .chainsync()
+            .send_done()
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "Chainsync send done failed")?;
 
         drop(client.plexer_handle);
 
@@ -231,7 +198,7 @@ mod tests {
         let client = tokio::spawn(async move {
             let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
             let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = super::PallasChainObserver::new_with_fallback(
+            let observer = super::PallasChainObserver::new(
                 socket_path.as_path(),
                 CardanoNetwork::TestNet(10),
                 fallback,

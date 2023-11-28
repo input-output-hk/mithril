@@ -112,7 +112,7 @@ impl MithrilInfrastructure {
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
         )));
 
-        let cardano_chain_observer = Arc::new(PallasChainObserver::new_with_fallback(
+        let cardano_chain_observer = Arc::new(PallasChainObserver::new(
             &bft_node.socket_path,
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
             fallback,
