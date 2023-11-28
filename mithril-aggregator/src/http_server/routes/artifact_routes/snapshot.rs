@@ -24,7 +24,7 @@ fn artifact_cardano_full_immutable_snapshots(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::list_artifacts)
 }
 
@@ -91,10 +91,8 @@ fn artifact_cardano_full_immutable_snapshot_by_id_legacy(
 mod handlers {
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::message_adapters::ToSnapshotListMessageAdapter;
     use crate::services::HttpMessageService;
     use crate::{services::SignedEntityService, Configuration};
-    use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
@@ -105,18 +103,15 @@ mod handlers {
 
     /// List Snapshot artifacts
     pub async fn list_artifacts(
-        signed_entity_service: Arc<dyn SignedEntityService>,
+        http_message_service: Arc<dyn HttpMessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifacts");
 
-        match signed_entity_service
+        match http_message_service
             .get_last_signed_snapshots(LIST_MAX_ITEMS)
             .await
         {
-            Ok(signed_entities) => {
-                let messages = ToSnapshotListMessageAdapter::adapt(signed_entities);
-                Ok(reply::json(&messages, StatusCode::OK))
-            }
+            Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!("list_artifacts_snapshot"; "error" => ?err);
                 Ok(reply::internal_server_error(err))
@@ -228,7 +223,7 @@ mod tests {
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
-        message_adapters::ToSnapshotMessageAdapter,
+        message_adapters::{ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter},
         services::{MockHttpMessageService, MockSignedEntityService},
     };
     use chrono::{DateTime, Utc};
@@ -285,13 +280,14 @@ mod tests {
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(5),
         );
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
+        let message = ToSnapshotListMessageAdapter::adapt(signed_entities);
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
             .expect_get_last_signed_snapshots()
-            .return_once(|_| Ok(signed_entities))
+            .return_once(|_| Ok(message))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshots";
@@ -314,13 +310,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ko() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
+        let mut mock_http_message_service = MockHttpMessageService::new();
+        mock_http_message_service
             .expect_get_last_signed_snapshots()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshots";

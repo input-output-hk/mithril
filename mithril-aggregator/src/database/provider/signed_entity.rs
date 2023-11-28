@@ -13,7 +13,7 @@ use mithril_common::{
     },
     messages::{
         MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
-        SignerWithStakeMessagePart, SnapshotMessage,
+        SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
     },
     signable_builder::Artifact,
     sqlite::{
@@ -136,15 +136,43 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionListItemMessage {
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
-        let mithril_stake_distribution_list_item_message =
-            MithrilStakeDistributionListItemMessage {
-                epoch: artifact.epoch,
-                hash: artifact.hash,
-                certificate_hash: value.certificate_id,
-                created_at: value.created_at,
-            };
+        let message = MithrilStakeDistributionListItemMessage {
+            epoch: artifact.epoch,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+        };
 
-        Ok(mithril_stake_distribution_list_item_message)
+        Ok(message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpSnapshot {
+            digest: String,
+            beacon: Beacon,
+            size: u64,
+            locations: Vec<String>,
+            compression_algorithm: Option<CompressionAlgorithm>,
+            cardano_node_version: Option<String>,
+        }
+        let artifact = serde_json::from_str::<TmpSnapshot>(&value.artifact)?;
+        let message = SnapshotListItemMessage {
+            digest: artifact.digest,
+            beacon: artifact.beacon,
+            certificate_hash: value.certificate_id,
+            size: artifact.size,
+            created_at: value.created_at,
+            locations: artifact.locations,
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
+        };
+
+        Ok(message)
     }
 }
 

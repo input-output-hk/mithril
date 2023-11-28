@@ -9,7 +9,7 @@ use mithril_common::{
     entities::SignedEntityTypeDiscriminants,
     messages::{
         CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
-        MithrilStakeDistributionMessage, SnapshotMessage,
+        MithrilStakeDistributionMessage, SnapshotListMessage, SnapshotMessage,
     },
     StdResult,
 };
@@ -44,6 +44,10 @@ pub trait HttpMessageService: Sync + Send {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SnapshotMessage>>;
+
+    /// Return the list of the last signed snapshots. The limit of the list is
+    /// passed as argument.
+    async fn get_last_signed_snapshots(&self, limit: usize) -> StdResult<SnapshotListMessage>;
 
     /// Return the information regarding the given snapshot
     async fn get_mithril_stake_distribution_message(
@@ -98,16 +102,22 @@ impl HttpMessageService for MithrilHttpMessageService {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SnapshotMessage>> {
-        let signed_entity = match self
+        let signed_entity = self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)
-            .await?
-        {
-            Some(v) => v,
-            None => return Ok(None),
-        };
+            .await?;
 
-        Ok(Some(signed_entity.try_into()?))
+        signed_entity.map(|s| s.try_into()).transpose()
+    }
+
+    async fn get_last_signed_snapshots(&self, limit: usize) -> StdResult<SnapshotListMessage> {
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoImmutableFilesFull;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
     }
 
     async fn get_mithril_stake_distribution_message(
@@ -142,7 +152,10 @@ mod tests {
 
     use chrono::{DateTime, Utc};
     use mithril_common::{
-        entities::{Beacon, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType},
+        entities::{
+            Beacon, CompressionAlgorithm, Epoch, MithrilStakeDistribution, SignedEntity,
+            SignedEntityType, Snapshot,
+        },
         messages::ToMessageAdapter,
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
@@ -152,6 +165,7 @@ mod tests {
         dependency_injection::DependenciesBuilder,
         message_adapters::{
             ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+            ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter,
         },
         Configuration,
     };
@@ -242,6 +256,103 @@ mod tests {
         let snapshot = service.get_snapshot_message("whatever").await.unwrap();
 
         assert!(snapshot.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_snapshot() {
+        let beacon = fake_data::beacon();
+        let entity = SignedEntity {
+            signed_entity_id: "msd1".to_string(),
+            signed_entity_type:
+                mithril_common::entities::SignedEntityType::CardanoImmutableFilesFull(
+                    beacon.clone(),
+                ),
+            certificate_id: "certificate1".to_string(),
+            artifact: Snapshot {
+                digest: "whatever".to_string(),
+                beacon: beacon.clone(),
+                size: 123456,
+                locations: vec!["location".to_string()],
+                compression_algorithm: CompressionAlgorithm::Gzip,
+                cardano_node_version: "whatever".to_string(),
+            },
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        };
+        let record = SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        };
+        let message = ToSnapshotMessageAdapter::adapt(entity);
+
+        // setup
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(Some(record)))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_http_message_service().await.unwrap();
+        let response = service
+            .get_snapshot_message("msd1")
+            .await
+            .unwrap()
+            .expect("A SnapshotMessage was expected.");
+
+        assert_eq!(message, response);
+    }
+
+    #[tokio::test]
+    async fn get_snapshot_list_message() {
+        let beacon = fake_data::beacon();
+        let entity = SignedEntity {
+            signed_entity_id: "msd1".to_string(),
+            signed_entity_type:
+                mithril_common::entities::SignedEntityType::CardanoImmutableFilesFull(
+                    beacon.clone(),
+                ),
+            certificate_id: "certificate1".to_string(),
+            artifact: Snapshot {
+                digest: "whatever".to_string(),
+                beacon: beacon.clone(),
+                size: 123456,
+                locations: vec!["location".to_string()],
+                compression_algorithm: CompressionAlgorithm::Gzip,
+                cardano_node_version: "whatever".to_string(),
+            },
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        };
+        let records = vec![SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        }];
+        let entities = vec![entity];
+        let message = ToSnapshotListMessageAdapter::adapt(entities);
+
+        // setup
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_last_signed_entities_by_type()
+            .return_once(|_, _| Ok(records))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_http_message_service().await.unwrap();
+        let response = service.get_last_signed_snapshots(3).await.unwrap();
+
+        assert_eq!(message, response);
     }
 
     #[tokio::test]
