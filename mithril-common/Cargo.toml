@@ -1,13 +1,13 @@
 [package]
 name = "mithril-common"
-version = "0.2.136"
+version = "0.2.138"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
-include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore", "openapi.yaml"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
