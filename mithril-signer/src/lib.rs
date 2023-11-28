@@ -24,3 +24,6 @@ pub use message_adapters::{
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;
+
+/// HTTP request timeout duration in milliseconds
+const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
