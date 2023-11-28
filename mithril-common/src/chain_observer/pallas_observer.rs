@@ -54,7 +54,7 @@ impl PallasChainObserver {
         self.new_client()
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Failed to create new client")
+            .with_context(|| "PallasChainObserver Failed to create new client")
     }
 
     /// Fetches the current epoch number using the provided `statequery` client.
@@ -63,17 +63,17 @@ impl PallasChainObserver {
             .acquire(None)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Failed to acquire statequery")?;
+            .with_context(|| "PallasChainObserver Failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Failed to get current era")?;
+            .with_context(|| "PallasChainObserver Failed to get current era")?;
 
         let epoch = queries_v16::get_block_epoch_number(statequery, era)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Failed to get block epoch number")?;
+            .with_context(|| "PallasChainObserver Failed to get block epoch number")?;
 
         Ok(epoch)
     }
@@ -85,13 +85,13 @@ impl PallasChainObserver {
             .send_release()
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Send release failed")?;
+            .with_context(|| "PallasChainObserver send release failed")?;
 
         statequery
             .send_done()
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Send done failed")?;
+            .with_context(|| "PallasChainObserver send done failed")?;
 
         Ok(())
     }
@@ -103,7 +103,7 @@ impl PallasChainObserver {
             .send_done()
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Chainsync send done failed")?;
+            .with_context(|| "PallasChainObserver chainsync send done failed")?;
         Ok(())
     }
 
