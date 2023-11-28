@@ -19,6 +19,9 @@ fn read_version_from_open_api_spec_file(spec_file_path: PathBuf) -> OpenAPIVersi
 
 fn list_all_open_api_spec_files() -> Vec<PathBuf> {
     let mut open_api_spec_files = Vec::new();
+    for entry in glob("./openapi*.yaml").unwrap() {
+        open_api_spec_files.push(entry.unwrap())
+    }
     for entry in glob("../openapi*.yaml").unwrap() {
         open_api_spec_files.push(entry.unwrap())
     }
@@ -51,7 +54,7 @@ fn main() {
 /// Open API file name
 pub type OpenAPIFileName = String;
 
-/// Open PAI raw version
+/// Open API raw version
 pub type OpenAPIVersionRaw = String;
 
 /// Build Open API versions mapping
