@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_network::facades::NodeClient;
-use pallas_network::miniprotocols::localstate::queries_v16;
+use pallas_network::miniprotocols::localstate::{queries_v16, Client};
 use std::path::{Path, PathBuf};
 
 use crate::chain_observer::interface::*;
@@ -36,6 +36,7 @@ impl PallasChainObserver {
         }
     }
 
+    /// Creates and returns a new `NodeClient` connected to the specified socket.
     async fn new_client(&self) -> StdResult<NodeClient> {
         let magic = self.network.code();
         let client = NodeClient::connect(&self.socket, magic).await?;
@@ -43,22 +44,21 @@ impl PallasChainObserver {
         Ok(client)
     }
 
+    /// Returns a reference to the fallback `CardanoCliChainObserver` instance.
     fn get_fallback(&self) -> StdResult<&CardanoCliChainObserver> {
         Ok(&self.fallback)
     }
-}
 
-#[async_trait]
-impl ChainObserver for PallasChainObserver {
-    async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
-        let mut client = self
-            .new_client()
+    /// Creates and returns a new `NodeClient`, handling any potential errors.
+    async fn get_client(&self) -> StdResult<NodeClient> {
+        self.new_client()
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "Failed to create new client")?;
+            .with_context(|| "Failed to create new client")
+    }
 
-        let statequery = client.statequery();
-
+    /// Fetches the current epoch number using the provided `statequery` client.
+    async fn get_epoch(&self, statequery: &mut Client) -> StdResult<u32> {
         statequery
             .acquire(None)
             .await
@@ -75,6 +75,12 @@ impl ChainObserver for PallasChainObserver {
             .map_err(|err| anyhow!(err))
             .with_context(|| "Failed to get block epoch number")?;
 
+        Ok(epoch)
+    }
+
+    /// Processes a state query with the `NodeClient`, releasing the state query.
+    async fn process_statequery(&self, client: &mut NodeClient) -> StdResult<()> {
+        let statequery = client.statequery();
         statequery
             .send_release()
             .await
@@ -87,12 +93,37 @@ impl ChainObserver for PallasChainObserver {
             .map_err(|err| anyhow!(err))
             .with_context(|| "Send done failed")?;
 
+        Ok(())
+    }
+
+    /// Synchronizes the `NodeClient` with the cardano server using `chainsync`.
+    async fn sync(&self, client: &mut NodeClient) -> StdResult<()> {
         client
             .chainsync()
             .send_done()
             .await
             .map_err(|err| anyhow!(err))
             .with_context(|| "Chainsync send done failed")?;
+        Ok(())
+    }
+
+    /// Post-processes a state query afterwards.
+    async fn post_process_statequery(&self, client: &mut NodeClient) -> StdResult<()> {
+        self.process_statequery(client).await?;
+        self.sync(client).await?;
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl ChainObserver for PallasChainObserver {
+    async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
+        let mut client = self.get_client().await?;
+
+        let epoch = self.get_epoch(client.statequery()).await?;
+
+        self.post_process_statequery(&mut client).await?;
 
         drop(client.plexer_handle);
 
