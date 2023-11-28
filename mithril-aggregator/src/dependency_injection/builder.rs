@@ -939,7 +939,6 @@ impl DependenciesBuilder {
         let snapshot_uploader = self.build_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
             .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version), error: Some(e.into()) })?;
-
         let cardano_immutable_files_full_artifact_builder =
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 &cardano_node_version,
