@@ -199,14 +199,13 @@ mod tests {
         temp_dir
     }
 
-    #[tokio::test]
-    async fn get_current_epoch_with_fallback() {
-        let server = tokio::spawn({
+    /// Sets up a mock server.
+    async fn setup_server() -> tokio::task::JoinHandle<()> {
+        tokio::spawn({
             async move {
                 let temp_dir = create_temp_dir("pallas_chain_observer_test");
                 let socket_path = temp_dir.join("node.socket").as_path().to_owned();
                 if socket_path.exists() {
-                    println!("Removing previous socket");
                     fs::remove_file(&socket_path).expect("Previous socket removal failed");
                 }
 
@@ -224,8 +223,12 @@ mod tests {
                 let result = mock_server(&mut server).await;
                 server.statequery().send_result(result).await.unwrap();
             }
-        });
+        })
+    }
 
+    #[tokio::test]
+    async fn get_current_epoch_with_fallback() {
+        let server = setup_server().await;
         let client = tokio::spawn(async move {
             let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
             let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
@@ -234,10 +237,11 @@ mod tests {
                 CardanoNetwork::TestNet(10),
                 fallback,
             );
-            let epoch = observer.get_current_epoch().await.unwrap().unwrap();
-            assert_eq!(epoch, 8);
+            observer.get_current_epoch().await.unwrap().unwrap()
         });
 
-        _ = tokio::join!(client, server);
+        let (_, client_res) = tokio::join!(server, client);
+        let epoch = client_res.expect("Client failed");
+        assert_eq!(epoch, 8);
     }
 }
