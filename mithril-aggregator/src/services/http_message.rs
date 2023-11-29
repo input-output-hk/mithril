@@ -49,7 +49,7 @@ pub trait HttpMessageService: Sync + Send {
     /// passed as argument.
     async fn get_last_signed_snapshots(&self, limit: usize) -> StdResult<SnapshotListMessage>;
 
-    /// Return the information regarding the given snapshot
+    /// Return the information regarding the MSD for the given identifier.
     async fn get_mithril_stake_distribution_message(
         &self,
         signed_entity_id: &str,
