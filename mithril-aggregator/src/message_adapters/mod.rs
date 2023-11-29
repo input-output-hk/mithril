@@ -1,7 +1,5 @@
 mod from_register_signature;
 mod from_register_signer;
-mod to_certificate_list_message;
-mod to_certificate_message;
 mod to_certificate_pending_message;
 mod to_epoch_settings_message;
 mod to_mithril_stake_distribution_list_message;
@@ -11,8 +9,6 @@ mod to_snapshot_message;
 
 pub use from_register_signature::FromRegisterSingleSignatureAdapter;
 pub use from_register_signer::FromRegisterSignerAdapter;
-pub use to_certificate_list_message::ToCertificateListMessageAdapter;
-pub use to_certificate_message::ToCertificateMessageAdapter;
 pub use to_certificate_pending_message::ToCertificatePendingMessageAdapter;
 pub use to_epoch_settings_message::ToEpochSettingsMessageAdapter;
 pub use to_mithril_stake_distribution_list_message::ToMithrilStakeDistributionListMessageAdapter;
