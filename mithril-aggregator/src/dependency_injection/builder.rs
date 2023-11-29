@@ -4,7 +4,9 @@ use anyhow::Context;
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
-    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
+    chain_observer::{
+        CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver, PallasChainObserver,
+    },
     crypto_helper::{
         ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
     },
@@ -463,9 +465,17 @@ impl DependenciesBuilder {
 
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
-            ExecutionEnvironment::Production => Arc::new(CardanoCliChainObserver::new(
-                self.get_cardano_cli_runner().await?,
-            )),
+            ExecutionEnvironment::Production => {
+                let fallback = CardanoCliChainObserver::new(self.get_cardano_cli_runner().await?);
+                let observer = PallasChainObserver::new(
+                    &self.configuration.cardano_node_socket_path,
+                    self.configuration.get_network().with_context(|| {
+                        "Dependencies Builder can not get Cardano network while building cardano cli runner"
+                    })?,
+                    fallback,
+                );
+                Arc::new(observer)
+            }
             _ => Arc::new(FakeObserver::default()),
         };
 

@@ -1,6 +1,5 @@
 use crate::assertions;
 use crate::MithrilInfrastructure;
-use mithril_common::chain_observer::ChainObserver;
 use mithril_common::StdResult;
 
 pub struct RunOnly<'a> {

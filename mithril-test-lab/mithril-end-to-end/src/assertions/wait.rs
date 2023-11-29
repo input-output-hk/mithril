@@ -1,11 +1,8 @@
 use crate::{attempt, utils::AttemptResult};
 use anyhow::{anyhow, Context};
 use mithril_common::{
-    chain_observer::{CardanoCliChainObserver, ChainObserver},
-    digesters::ImmutableFile,
-    entities::Epoch,
-    messages::EpochSettingsMessage,
-    StdResult,
+    chain_observer::ChainObserver, digesters::ImmutableFile, entities::Epoch,
+    messages::EpochSettingsMessage, StdResult,
 };
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
@@ -73,7 +70,7 @@ pub async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> StdResult<Epo
 }
 
 pub async fn wait_for_target_epoch(
-    chain_observer: Arc<CardanoCliChainObserver>,
+    chain_observer: Arc<dyn ChainObserver>,
     target_epoch: Epoch,
     wait_reason: String,
 ) -> StdResult<()> {

@@ -1,6 +1,8 @@
 use crate::{Aggregator, Client, Devnet, RelayAggregator, RelaySigner, Signer, DEVNET_MAGIC_ID};
 use anyhow::anyhow;
-use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
+use mithril_common::chain_observer::{
+    CardanoCliChainObserver, CardanoCliRunner, ChainObserver, PallasChainObserver,
+};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
@@ -16,7 +18,7 @@ pub struct MithrilInfrastructure {
     signers: Vec<Signer>,
     relay_aggregators: Vec<RelayAggregator>,
     relay_signers: Vec<RelaySigner>,
-    cardano_chain_observer: Arc<CardanoCliChainObserver>,
+    cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
 }
 
@@ -104,13 +106,17 @@ impl MithrilInfrastructure {
             signers.push(signer);
         }
 
-        let cardano_chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
-            CardanoCliRunner::new(
-                devnet.cardano_cli_path(),
-                bft_node.socket_path.clone(),
-                CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-            ),
+        let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
+            devnet.cardano_cli_path(),
+            bft_node.socket_path.clone(),
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
         )));
+
+        let cardano_chain_observer = Arc::new(PallasChainObserver::new(
+            &bft_node.socket_path,
+            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+            fallback,
+        ));
 
         Ok(Self {
             work_dir: work_dir.to_path_buf(),
@@ -153,7 +159,7 @@ impl MithrilInfrastructure {
         &self.relay_signers
     }
 
-    pub fn chain_observer(&self) -> Arc<CardanoCliChainObserver> {
+    pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
         self.cardano_chain_observer.clone()
     }
 

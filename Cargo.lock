@@ -1119,6 +1119,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cryptoxide"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "382ce8820a5bb815055d3553a610e8cb542b2d767bbacea99038afda96cd760d"
+
+[[package]]
 name = "csv"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3142,6 +3148,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "minicbor"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7005aaf257a59ff4de471a9d5538ec868a21586534fff7f85dd97d4043a6139"
+dependencies = [
+ "half 1.8.2",
+ "minicbor-derive",
+]
+
+[[package]]
+name = "minicbor-derive"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1154809406efdb7982841adb6311b3d095b46f78342dd646736122fe6b19e267"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3169,7 +3196,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.12"
+version = "0.4.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3279,7 +3306,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.138"
+version = "0.2.139"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3298,6 +3325,8 @@ dependencies = [
  "mithril-stm",
  "mockall",
  "nom",
+ "pallas-codec",
+ "pallas-network",
  "rand_chacha",
  "rand_core 0.6.4",
  "rayon",
@@ -3325,7 +3354,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.2.23"
+version = "0.2.24"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3373,7 +3402,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.91"
+version = "0.2.92"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3894,6 +3923,48 @@ checksum = "ccd746e37177e1711c20dd619a1620f34f5c8b569c53590a72dedd5344d8924a"
 dependencies = [
  "dlv-list",
  "hashbrown 0.12.3",
+]
+
+[[package]]
+name = "pallas-codec"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5443cc4e8d59a8845282a8d35c4021a434a1911d3bc82914c3a8fcda8247d1ae"
+dependencies = [
+ "hex",
+ "minicbor",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "pallas-crypto"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd1116c3da7bc5ae8aa3a87a3ccc42a46d07994458d084c7d3c1dc732320bfc0"
+dependencies = [
+ "cryptoxide",
+ "hex",
+ "pallas-codec",
+ "rand_core 0.6.4",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "pallas-network"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69d5fb0899c37f74b2b3366d44eef85d44aea2b1cd8e9548263977baa252d9f4"
+dependencies = [
+ "byteorder",
+ "hex",
+ "itertools",
+ "pallas-codec",
+ "pallas-crypto",
+ "thiserror",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
