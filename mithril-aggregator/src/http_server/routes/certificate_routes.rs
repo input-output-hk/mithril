@@ -83,7 +83,7 @@ mod handlers {
         debug!("⇄ HTTP SERVER: certificate_certificates",);
 
         match http_message_service
-            .get_last_certificates(LIST_MAX_ITEMS)
+            .get_certificate_list_message(LIST_MAX_ITEMS)
             .await
         {
             Ok(certificates) => Ok(reply::json(&certificates, StatusCode::OK)),
@@ -105,7 +105,7 @@ mod handlers {
         );
 
         match http_message_service
-            .get_certificate(&certificate_hash)
+            .get_certificate_message(&certificate_hash)
             .await
         {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),

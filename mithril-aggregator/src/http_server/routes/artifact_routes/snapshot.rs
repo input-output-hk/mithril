@@ -108,7 +108,7 @@ mod handlers {
         debug!("⇄ HTTP SERVER: artifacts");
 
         match http_message_service
-            .get_last_signed_snapshots(LIST_MAX_ITEMS)
+            .get_snapshot_list_message(LIST_MAX_ITEMS)
             .await
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
@@ -283,7 +283,7 @@ mod tests {
         let message = ToSnapshotListMessageAdapter::adapt(signed_entities);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_last_signed_snapshots()
+            .expect_get_snapshot_list_message()
             .return_once(|_| Ok(message))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
@@ -312,7 +312,7 @@ mod tests {
     async fn test_snapshots_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_last_signed_snapshots()
+            .expect_get_snapshot_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;

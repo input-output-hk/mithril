@@ -31,13 +31,14 @@ pub enum MessageServiceError {
 #[async_trait]
 pub trait MessageService: Sync + Send {
     /// Return the message representation of a certificate if it exists.
-    async fn get_certificate(
+    async fn get_certificate_message(
         &self,
         certificate_hash: &str,
     ) -> StdResult<Option<CertificateMessage>>;
 
     /// Return the message representation of the last N certificates
-    async fn get_last_certificates(&self, limit: usize) -> StdResult<CertificateListMessage>;
+    async fn get_certificate_list_message(&self, limit: usize)
+        -> StdResult<CertificateListMessage>;
 
     /// Return the information regarding the given snapshot
     async fn get_snapshot_message(
@@ -47,7 +48,7 @@ pub trait MessageService: Sync + Send {
 
     /// Return the list of the last signed snapshots. The limit of the list is
     /// passed as argument.
-    async fn get_last_signed_snapshots(&self, limit: usize) -> StdResult<SnapshotListMessage>;
+    async fn get_snapshot_list_message(&self, limit: usize) -> StdResult<SnapshotListMessage>;
 
     /// Return the information regarding the MSD for the given identifier.
     async fn get_mithril_stake_distribution_message(
@@ -83,7 +84,7 @@ impl MithrilMessageService {
 
 #[async_trait]
 impl MessageService for MithrilMessageService {
-    async fn get_certificate(
+    async fn get_certificate_message(
         &self,
         certificate_hash: &str,
     ) -> StdResult<Option<CertificateMessage>> {
@@ -92,7 +93,10 @@ impl MessageService for MithrilMessageService {
             .await
     }
 
-    async fn get_last_certificates(&self, limit: usize) -> StdResult<CertificateListMessage> {
+    async fn get_certificate_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CertificateListMessage> {
         self.certificate_repository
             .get_latest_certificates(limit)
             .await
@@ -110,7 +114,7 @@ impl MessageService for MithrilMessageService {
         signed_entity.map(|s| s.try_into()).transpose()
     }
 
-    async fn get_last_signed_snapshots(&self, limit: usize) -> StdResult<SnapshotListMessage> {
+    async fn get_snapshot_list_message(&self, limit: usize) -> StdResult<SnapshotListMessage> {
         let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoImmutableFilesFull;
         let entities = self
             .signed_entity_storer
@@ -179,7 +183,10 @@ mod tests {
 
         // test
         let certificate_hash = "whatever";
-        let certficate_message = service.get_certificate(certificate_hash).await.unwrap();
+        let certficate_message = service
+            .get_certificate_message(certificate_hash)
+            .await
+            .unwrap();
         assert!(certficate_message.is_none());
     }
 
@@ -206,7 +213,7 @@ mod tests {
 
         // test
         let certficate_message = service
-            .get_certificate(&genesis_certificate.hash)
+            .get_certificate_message(&genesis_certificate.hash)
             .await
             .unwrap()
             .expect("There should be a certificate.");
@@ -242,7 +249,7 @@ mod tests {
             .unwrap();
 
         // test
-        let certficate_messages = service.get_last_certificates(5).await.unwrap();
+        let certficate_messages = service.get_certificate_list_message(5).await.unwrap();
 
         assert_eq!(2, certficate_messages.len());
         assert_eq!(genesis_certificate.hash, certficate_messages[0].hash);
@@ -350,7 +357,7 @@ mod tests {
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
         let service = dep_builder.get_message_service().await.unwrap();
-        let response = service.get_last_signed_snapshots(3).await.unwrap();
+        let response = service.get_snapshot_list_message(3).await.unwrap();
 
         assert_eq!(message, response);
     }
