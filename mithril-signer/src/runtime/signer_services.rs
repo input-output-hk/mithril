@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use sqlite::{Connection, ConnectionWithFullMutex};
-use std::{fs, sync::Arc};
+use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -27,6 +27,7 @@ use mithril_common::{
 use crate::{
     aggregator_client::AggregatorClient, single_signer::SingleSigner, AggregatorHTTPClient,
     Configuration, MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
+    HTTP_REQUEST_TIMEOUT_DURATION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -229,6 +230,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             self.config.aggregator_endpoint.clone(),
             self.config.relay_endpoint.clone(),
             api_version_provider.clone(),
+            Some(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION)),
         ));
 
         let cardano_immutable_snapshot_builder =

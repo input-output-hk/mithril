@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
 use slog_scope::debug;
-use std::{io, sync::Arc};
+use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
@@ -106,6 +106,7 @@ pub struct AggregatorHTTPClient {
     aggregator_endpoint: String,
     relay_endpoint: Option<String>,
     api_version_provider: Arc<APIVersionProvider>,
+    timeout_duration: Option<Duration>,
 }
 
 impl AggregatorHTTPClient {
@@ -114,12 +115,14 @@ impl AggregatorHTTPClient {
         aggregator_endpoint: String,
         relay_endpoint: Option<String>,
         api_version_provider: Arc<APIVersionProvider>,
+        timeout_duration: Option<Duration>,
     ) -> Self {
         debug!("New AggregatorHTTPClient created");
         Self {
             aggregator_endpoint,
             relay_endpoint,
             api_version_provider,
+            timeout_duration,
         }
     }
 
@@ -140,7 +143,7 @@ impl AggregatorHTTPClient {
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder
+        let request_builder = request_builder
             .header(
                 MITHRIL_API_VERSION_HEADER,
                 self.api_version_provider
@@ -148,7 +151,13 @@ impl AggregatorHTTPClient {
                     .unwrap()
                     .to_string(),
             )
-            .header(MITHRIL_SIGNER_VERSION_HEADER, env!("CARGO_PKG_VERSION"))
+            .header(MITHRIL_SIGNER_VERSION_HEADER, env!("CARGO_PKG_VERSION"));
+
+        if let Some(duration) = self.timeout_duration {
+            request_builder.timeout(duration)
+        } else {
+            request_builder
+        }
     }
 
     /// API version error handling
@@ -450,6 +459,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
@@ -471,6 +481,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let epoch_settings = certificate_handler
             .retrieve_epoch_settings()
@@ -491,6 +502,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
 
         match certificate_handler
@@ -501,6 +513,31 @@ mod tests {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
+    }
+
+    #[tokio::test]
+    async fn test_epoch_settings_timeout() {
+        let (server, config, api_version_provider) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/epoch-settings");
+            then.delay(Duration::from_millis(200));
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            Some(Duration::from_millis(50)),
+        );
+
+        let error = certificate_handler
+            .retrieve_epoch_settings()
+            .await
+            .expect_err("retrieve_epoch_settings should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
     }
 
     #[tokio::test]
@@ -516,6 +553,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         pending_certificate.as_ref().expect("unexpected error");
@@ -538,6 +576,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let error = certificate_handler
             .retrieve_pending_certificate()
@@ -558,6 +597,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         assert!(pending_certificate.expect("unexpected error").is_none());
@@ -574,6 +614,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
 
         match certificate_handler
@@ -584,6 +625,31 @@ mod tests {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
+    }
+
+    #[tokio::test]
+    async fn test_pending_certificate_timeout() {
+        let (server, config, api_version_provider) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/certificate-pending");
+            then.delay(Duration::from_millis(200));
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            Some(Duration::from_millis(50)),
+        );
+
+        let error = certificate_handler
+            .retrieve_pending_certificate()
+            .await
+            .expect_err("retrieve_pending_certificate should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
     }
 
     #[tokio::test]
@@ -600,6 +666,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let register_signer = certificate_handler
             .register_signer(epoch, single_signer)
@@ -622,6 +689,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let error = certificate_handler
             .register_signer(epoch, single_signer)
@@ -651,6 +719,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
 
         match certificate_handler
@@ -681,6 +750,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
 
         match certificate_handler
@@ -691,6 +761,34 @@ mod tests {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_timeout() {
+        let epoch = Epoch(1);
+        let single_signers = fake_data::signers(1);
+        let single_signer = single_signers.first().unwrap();
+        let (server, config, api_version_provider) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signer");
+            then.delay(Duration::from_millis(200));
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            Some(Duration::from_millis(50)),
+        );
+
+        let error = certificate_handler
+            .register_signer(epoch, single_signer)
+            .await
+            .expect_err("register_signer should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
     }
 
     #[tokio::test]
@@ -705,6 +803,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let register_signatures = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
@@ -725,6 +824,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         let error = certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
@@ -752,6 +852,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         match certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
@@ -775,6 +876,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         match certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
@@ -798,6 +900,7 @@ mod tests {
             config.aggregator_endpoint,
             config.relay_endpoint,
             Arc::new(api_version_provider),
+            None,
         );
         match certificate_handler
             .register_signatures(&SignedEntityType::dummy(), &single_signatures)
@@ -807,5 +910,31 @@ mod tests {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_timeout() {
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let (server, config, api_version_provider) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.delay(Duration::from_millis(200));
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            Some(Duration::from_millis(50)),
+        );
+
+        let error = certificate_handler
+            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .await
+            .expect_err("register_signatures should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
     }
 }
