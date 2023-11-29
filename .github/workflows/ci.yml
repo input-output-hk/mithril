@@ -251,7 +251,7 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} ${{ matrix.extra_args }}
+        run: ./mithril-end-to-end -vvv --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} ${{ matrix.extra_args }}
 
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}
