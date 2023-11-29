@@ -110,7 +110,24 @@ jobs:
           binaries-build-args: ${{ matrix.binaries-build-args }}
           libraries-build-args: ${{ matrix.libraries-build-args }}
           common-build-args: ${{ matrix.common-build-args }}
-  
+
+  build-wasm:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cargo-tools: wasm-pack
+
+      - name: Cargo build 'mithril-client' - WASM package
+        shell: bash
+        run: |
+          wasm-pack build mithril-client --release
+
   test:
     strategy:
       fail-fast: false

@@ -53,6 +53,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4.37"
 serde-wasm-bindgen = "0.6.0"
 getrandom = { version = "0.2", features = ["js"] }
+reqwest = { version = "0.11.22", features = ["json", "stream"] }
 
 [dev-dependencies]
 httpmock = "0.6.8"
