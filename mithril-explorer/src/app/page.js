@@ -60,7 +60,7 @@ export default function Explorer() {
     }
 
     dispatch(updatePoolsForAggregator(selectedAggregator));
-  }, [selectedAggregator]);
+  }, [selectedAggregator, router, searchParams, dispatch]);
 
   // Allow navigation to work (previous, next)
   useEffect(() => {
@@ -71,7 +71,7 @@ export default function Explorer() {
 
       dispatch(selectAggregator(aggregatorInUrl));
     }
-  }, [searchParams]);
+  }, [searchParams, dispatch, isUpdatingAggregatorInUrl]);
 
   return (
     <Stack gap={3}>
