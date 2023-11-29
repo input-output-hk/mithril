@@ -7,10 +7,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     crypto_helper::ProtocolParameters,
-    entities::{
-        Beacon, CompressionAlgorithm, Epoch, SignedEntity, SignedEntityType,
-        SignedEntityTypeDiscriminants, Snapshot,
-    },
+    entities::{Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
     messages::{
         MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
         SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
@@ -75,17 +72,7 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
-        #[derive(Deserialize)]
-        struct TmpSnapshot {
-            digest: String,
-            beacon: Beacon,
-            size: u64,
-            locations: Vec<String>,
-            compression_algorithm: Option<CompressionAlgorithm>,
-            cardano_node_version: Option<String>,
-        }
-
-        let artifact = serde_json::from_str::<TmpSnapshot>(&value.artifact)?;
+        let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
         let snapshot_message = SnapshotMessage {
             digest: artifact.digest,
             beacon: artifact.beacon,
@@ -93,8 +80,8 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
             size: artifact.size,
             created_at: value.created_at,
             locations: artifact.locations,
-            compression_algorithm: artifact.compression_algorithm,
-            cardano_node_version: artifact.cardano_node_version,
+            compression_algorithm: Some(artifact.compression_algorithm),
+            cardano_node_version: Some(artifact.cardano_node_version),
         };
 
         Ok(snapshot_message)
@@ -151,16 +138,7 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
-        #[derive(Deserialize)]
-        struct TmpSnapshot {
-            digest: String,
-            beacon: Beacon,
-            size: u64,
-            locations: Vec<String>,
-            compression_algorithm: Option<CompressionAlgorithm>,
-            cardano_node_version: Option<String>,
-        }
-        let artifact = serde_json::from_str::<TmpSnapshot>(&value.artifact)?;
+        let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
         let message = SnapshotListItemMessage {
             digest: artifact.digest,
             beacon: artifact.beacon,
@@ -168,8 +146,8 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
             size: artifact.size,
             created_at: value.created_at,
             locations: artifact.locations,
-            compression_algorithm: artifact.compression_algorithm,
-            cardano_node_version: artifact.cardano_node_version,
+            compression_algorithm: Some(artifact.compression_algorithm),
+            cardano_node_version: Some(artifact.cardano_node_version),
         };
 
         Ok(message)
