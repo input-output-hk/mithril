@@ -33,7 +33,7 @@ fn artifact_mithril_stake_distribution_by_id(
 
 pub mod handlers {
     use crate::http_server::routes::reply;
-    use crate::services::HttpMessageService;
+    use crate::services::MessageService;
 
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -44,7 +44,7 @@ pub mod handlers {
 
     /// List MithrilStakeDistribution artifacts
     pub async fn list_artifacts(
-        http_message_service: Arc<dyn HttpMessageService>,
+        http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifacts");
 
@@ -64,7 +64,7 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
-        http_message_service: Arc<dyn HttpMessageService>,
+        http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
 
@@ -93,7 +93,7 @@ pub mod tests {
         message_adapters::{
             ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
         },
-        services::MockHttpMessageService,
+        services::MockMessageService,
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{
@@ -150,13 +150,13 @@ pub mod tests {
             fake_data::mithril_stake_distributions(5),
         );
         let message = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entity_records);
-        let mut mock_http_message_service = MockHttpMessageService::new();
+        let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_list_message()
             .return_once(|_| Ok(message))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distributions";
@@ -179,13 +179,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distributions_get_ko() {
-        let mut mock_http_message_service = MockHttpMessageService::new();
+        let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distributions";
@@ -216,13 +216,13 @@ pub mod tests {
         .unwrap()
         .to_owned();
         let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
-        let mut mock_http_message_service = MockHttpMessageService::new();
+        let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
             .return_once(|_| Ok(Some(message)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
@@ -245,13 +245,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_ok_norecord() {
-        let mut mock_http_message_service = MockHttpMessageService::new();
+        let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
@@ -274,13 +274,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_get_ko() {
-        let mut mock_http_message_service = MockHttpMessageService::new();
+        let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.http_message_service = Arc::new(mock_http_message_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";

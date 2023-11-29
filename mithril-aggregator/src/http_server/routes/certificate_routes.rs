@@ -45,7 +45,7 @@ fn certificate_certificate_hash(
 
 mod handlers {
     use crate::{
-        http_server::routes::reply, services::HttpMessageService, CertificatePendingStore,
+        http_server::routes::reply, services::MessageService, CertificatePendingStore,
         ToCertificatePendingMessageAdapter,
     };
 
@@ -78,7 +78,7 @@ mod handlers {
 
     /// List all Certificates
     pub async fn certificate_certificates(
-        http_message_service: Arc<dyn HttpMessageService>,
+        http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_certificates",);
 
@@ -97,7 +97,7 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        http_message_service: Arc<dyn HttpMessageService>,
+        http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: certificate_certificate_hash/{}",

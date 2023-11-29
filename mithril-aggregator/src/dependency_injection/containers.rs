@@ -16,7 +16,7 @@ use mithril_common::{
     BeaconProvider,
 };
 
-use crate::services::{EpochService, HttpMessageService};
+use crate::services::{EpochService, MessageService};
 use crate::{
     configuration::*,
     database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
@@ -134,7 +134,7 @@ pub struct DependencyContainer {
     pub signer_getter: Arc<dyn SignerGetter>,
 
     /// HTTP message service
-    pub http_message_service: Arc<dyn HttpMessageService>,
+    pub message_service: Arc<dyn MessageService>,
 }
 
 #[doc(hidden)]

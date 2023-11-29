@@ -21,7 +21,7 @@ use mockall::automock;
 
 /// Error related to the [HttpMessageService]
 #[derive(Debug, Error)]
-pub enum HttpMessageServiceError {
+pub enum MessageServiceError {
     /// There is no current PendingCertificate
     #[error("There is no current pending certificate.")]
     PendingCertificateDoesNotExist,
@@ -29,7 +29,7 @@ pub enum HttpMessageServiceError {
 /// HTTP Message service trait.
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait HttpMessageService: Sync + Send {
+pub trait MessageService: Sync + Send {
     /// Return the message representation of a certificate if it exists.
     async fn get_certificate(
         &self,
@@ -63,12 +63,12 @@ pub trait HttpMessageService: Sync + Send {
 }
 
 /// Implementation of the [HttpMessageService]
-pub struct MithrilHttpMessageService {
+pub struct MithrilMessageService {
     certificate_repository: Arc<CertificateRepository>,
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
 }
 
-impl MithrilHttpMessageService {
+impl MithrilMessageService {
     /// Constructor
     pub fn new(
         certificate_repository: Arc<CertificateRepository>,
@@ -82,7 +82,7 @@ impl MithrilHttpMessageService {
 }
 
 #[async_trait]
-impl HttpMessageService for MithrilHttpMessageService {
+impl MessageService for MithrilMessageService {
     async fn get_certificate(
         &self,
         certificate_hash: &str,
@@ -175,7 +175,7 @@ mod tests {
         // setup
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
 
         // test
         let certificate_hash = "whatever";
@@ -188,7 +188,7 @@ mod tests {
         // setup
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let genesis_beacon = Beacon {
@@ -217,7 +217,7 @@ mod tests {
     async fn get_last_certificates() {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let genesis_beacon = Beacon {
@@ -252,7 +252,7 @@ mod tests {
     async fn get_no_snapshot() {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let snapshot = service.get_snapshot_message("whatever").await.unwrap();
 
         assert!(snapshot.is_none());
@@ -298,7 +298,7 @@ mod tests {
             .return_once(|_| Ok(Some(record)))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let response = service
             .get_snapshot_message("msd1")
             .await
@@ -349,7 +349,7 @@ mod tests {
             .return_once(|_, _| Ok(records))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let response = service.get_last_signed_snapshots(3).await.unwrap();
 
         assert_eq!(message, response);
@@ -388,7 +388,7 @@ mod tests {
             .return_once(|_| Ok(Some(record)))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let response = service
             .get_mithril_stake_distribution_message("msd1")
             .await
@@ -408,7 +408,7 @@ mod tests {
             .return_once(|_| Ok(None))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let response = service
             .get_mithril_stake_distribution_message("msd1")
             .await
@@ -450,7 +450,7 @@ mod tests {
             .return_once(|_, _| Ok(records))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_http_message_service().await.unwrap();
+        let service = dep_builder.get_message_service().await.unwrap();
         let response = service
             .get_mithril_stake_distribution_list_message(10)
             .await
