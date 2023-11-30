@@ -60,18 +60,21 @@ export default function Explorer() {
     }
 
     dispatch(updatePoolsForAggregator(selectedAggregator));
-  }, [selectedAggregator, router, searchParams, dispatch]);
+  }, [selectedAggregator]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Allow navigation to work (previous, next)
   useEffect(() => {
-    if (isUpdatingAggregatorInUrl) {
-      setIsUpdatingAggregatorInUrl(false);
-    } else {
-      const aggregatorInUrl = searchParams.get("aggregator");
+    function allowNavigation() {
+      if (isUpdatingAggregatorInUrl) {
+        setIsUpdatingAggregatorInUrl(false);
+      } else {
+        const aggregatorInUrl = searchParams.get("aggregator");
 
-      dispatch(selectAggregator(aggregatorInUrl));
+        dispatch(selectAggregator(aggregatorInUrl));
+      }
     }
-  }, [searchParams, dispatch, isUpdatingAggregatorInUrl]);
+    allowNavigation();
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Stack gap={3}>

@@ -90,7 +90,7 @@ export default function Registrations() {
     } else {
       setCurrentError(error);
     }
-  }, [searchParams, dispatch]);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {
