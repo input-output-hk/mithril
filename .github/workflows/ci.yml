@@ -19,6 +19,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test-fork:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Debug info
+        shell: bash
+        run: |
+          echo "github.event.pull_request.head.repo.organization=${{ github.event.pull_request.head.repo.organization }}"
+          echo "github.event.pull_request.head.repo.fork.organization=${{ github.event.pull_request.head.repo.fork.organization }}"
+
   build-ubuntu-X64:
     runs-on: ubuntu-20.04
     outputs:
