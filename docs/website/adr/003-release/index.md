@@ -66,7 +66,7 @@ Starting just after a new release has been made:
 ​
 In case of a blocking issue (following a distribution release) on the release environment that requires an immediate fix:
 ​
-1. Create a branch on the last release tag with the following scheme: **hotfix/{last_distribution-version}.{last_patch_number + 1}**.
+1. Create a branch on the last release tag with the following scheme: `hotfix/{last_distribution-version}.{last_patch_number + 1}`.
 1. Development of the fix is done on this branch.
 1. After each commit on this branch, the CI creates an `unstable` tag & release which is not deployed on testing environment (testing must be done on an ad hoc environment manually created).
 1. Push a tag on the branch last commit using the branch distribution version with a `-hotfix` suffix.

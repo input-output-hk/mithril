@@ -90,7 +90,7 @@ export default function Registrations() {
     } else {
       setCurrentError(error);
     }
-  }, [searchParams]);
+  }, [searchParams, dispatch]);
 
   function getNoRegistrationsMessage() {
     if (currentEpoch === registrationEpoch) {
