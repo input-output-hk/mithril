@@ -871,6 +871,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-merkle-mountain-range"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d15193decfa1e0b151ce19e42d118db048459a27720fb3de7d3103c30adccb12"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "clap"
 version = "4.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4484,6 +4493,8 @@ name = "poc-utxo-reader"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "blake2 0.10.6",
+ "ckb-merkle-mountain-range",
  "clap",
  "hex",
  "pallas",
