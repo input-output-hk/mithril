@@ -13,11 +13,6 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
-[[example]]
-name = "snapshot_list_get_show_download_verify"
-path = "examples/snapshot_list_get_show_download_verify.rs"
-required-features = ["fs"]
-
 [[test]]
 name = "snapshot_list_get_show_download_verify"
 path = "tests/snapshot_list_get_show_download_verify.rs"

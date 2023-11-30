@@ -160,7 +160,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
 fn get_temp_dir() -> MithrilResult<PathBuf> {
     let dir = std::env::temp_dir()
         .join("mithril_examples")
-        .join("snapshot_list_get_show_download_verify");
+        .join("client_snapshot");
 
     if dir.exists() {
         std::fs::remove_dir_all(&dir).with_context(|| format!("Could not remove dir {dir:?}"))?;
