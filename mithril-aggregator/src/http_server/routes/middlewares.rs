@@ -2,7 +2,7 @@ use crate::{
     database::provider::SignerGetter,
     dependency_injection::EpochServiceWrapper,
     event_store::{EventMessage, TransmitterService},
-    services::{CertifierService, HttpMessageService, SignedEntityService, TickerService},
+    services::{CertifierService, MessageService, SignedEntityService, TickerService},
     CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
     VerificationKeyStorer,
 };
@@ -99,6 +99,6 @@ pub fn with_api_version_provider(
 /// With Message service
 pub fn with_http_message_service(
     dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<dyn HttpMessageService>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.http_message_service.clone())
+) -> impl Filter<Extract = (Arc<dyn MessageService>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.message_service.clone())
 }

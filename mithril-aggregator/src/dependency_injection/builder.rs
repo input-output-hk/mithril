@@ -54,8 +54,8 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        CertifierService, HttpMessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilHttpMessageService, MithrilSignedEntityService, MithrilStakeDistributionService,
+        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
+        MithrilMessageService, MithrilSignedEntityService, MithrilStakeDistributionService,
         MithrilTickerService, SignedEntityService, StakeDistributionService, TickerService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
@@ -189,7 +189,7 @@ pub struct DependenciesBuilder {
     pub signed_entity_storer: Option<Arc<dyn SignedEntityStorer>>,
 
     /// HTTP Message service
-    pub http_message_service: Option<Arc<dyn HttpMessageService>>,
+    pub message_service: Option<Arc<dyn MessageService>>,
 }
 
 impl DependenciesBuilder {
@@ -230,7 +230,7 @@ impl DependenciesBuilder {
             certifier_service: None,
             epoch_service: None,
             signed_entity_storer: None,
-            http_message_service: None,
+            message_service: None,
         }
     }
 
@@ -1037,7 +1037,7 @@ impl DependenciesBuilder {
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
-            http_message_service: self.get_http_message_service().await?,
+            message_service: self.get_message_service().await?,
         };
 
         Ok(dependency_manager)
@@ -1224,22 +1224,23 @@ impl DependenciesBuilder {
     }
 
     /// build HTTP message service
-    pub async fn build_http_message_service(&mut self) -> Result<Arc<dyn HttpMessageService>> {
+    pub async fn build_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
         let certificate_repository = Arc::new(CertificateRepository::new(
             self.get_sqlite_connection().await?,
         ));
-        let service = MithrilHttpMessageService::new(certificate_repository);
+        let signed_entity_storer = self.get_signed_entity_storer().await?;
+        let service = MithrilMessageService::new(certificate_repository, signed_entity_storer);
 
         Ok(Arc::new(service))
     }
 
-    /// [HttpMessageService] service
-    pub async fn get_http_message_service(&mut self) -> Result<Arc<dyn HttpMessageService>> {
-        if self.http_message_service.is_none() {
-            self.http_message_service = Some(self.build_http_message_service().await?);
+    /// [MessageService] service
+    pub async fn get_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
+        if self.message_service.is_none() {
+            self.message_service = Some(self.build_message_service().await?);
         }
 
-        Ok(self.http_message_service.as_ref().cloned().unwrap())
+        Ok(self.message_service.as_ref().cloned().unwrap())
     }
 
     /// Remove the dependencies builder from memory to release Arc instances.

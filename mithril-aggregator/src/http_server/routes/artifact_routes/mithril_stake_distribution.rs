@@ -17,7 +17,7 @@ fn artifact_mithril_stake_distributions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distributions")
         .and(warp::get())
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::list_artifacts)
 }
 
@@ -27,18 +27,14 @@ fn artifact_mithril_stake_distribution_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::get())
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
 pub mod handlers {
     use crate::http_server::routes::reply;
-    use crate::message_adapters::{
-        ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
-    };
-    use crate::services::SignedEntityService;
+    use crate::services::MessageService;
 
-    use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -48,20 +44,18 @@ pub mod handlers {
 
     /// List MithrilStakeDistribution artifacts
     pub async fn list_artifacts(
-        signed_entity_service: Arc<dyn SignedEntityService>,
+        http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifacts");
 
-        match signed_entity_service
-            .get_last_signed_mithril_stake_distributions(LIST_MAX_ITEMS)
+        match http_message_service
+            .get_mithril_stake_distribution_list_message(LIST_MAX_ITEMS)
             .await
         {
-            Ok(signed_entities) => {
-                let messages = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entities);
-                Ok(reply::json(&messages, StatusCode::OK))
-            }
+            Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!("list_artifacts_mithril_stake_distribution"; "error" => ?err);
+
                 Ok(reply::internal_server_error(err))
             }
         }
@@ -70,18 +64,15 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
-        signed_entity_service: Arc<dyn SignedEntityService>,
+        http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
 
-        match signed_entity_service
-            .get_signed_mithril_stake_distribution_by_id(&signed_entity_id)
+        match http_message_service
+            .get_mithril_stake_distribution_message(&signed_entity_id)
             .await
         {
-            Ok(Some(signed_entity)) => {
-                let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
-                Ok(reply::json(&message, StatusCode::OK))
-            }
+            Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
                 warn!("get_mithril_stake_distribution_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
@@ -97,11 +88,17 @@ pub mod handlers {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockSignedEntityService,
+        http_server::SERVER_BASE_PATH,
+        initialize_dependencies,
+        message_adapters::{
+            ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+        },
+        services::MockMessageService,
     };
     use chrono::{DateTime, Utc};
     use mithril_common::{
         entities::{Epoch, SignedEntity, SignedEntityType},
+        messages::ToMessageAdapter,
         signable_builder::Artifact,
         sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
@@ -152,13 +149,14 @@ pub mod tests {
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(5),
         );
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_last_signed_mithril_stake_distributions()
-            .return_once(|_| Ok(signed_entity_records))
+        let message = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entity_records);
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_list_message()
+            .return_once(|_| Ok(message))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distributions";
@@ -181,13 +179,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distributions_get_ko() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_last_signed_mithril_stake_distributions()
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distributions";
@@ -217,13 +215,14 @@ pub mod tests {
         .first()
         .unwrap()
         .to_owned();
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_mithril_stake_distribution_by_id()
-            .return_once(|_| Ok(Some(signed_entity)))
+        let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_message()
+            .return_once(|_| Ok(Some(message)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
@@ -246,13 +245,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_ok_norecord() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_mithril_stake_distribution_by_id()
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_message()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
@@ -275,13 +274,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_get_ko() {
-        let mut mock_signed_entity_service = MockSignedEntityService::new();
-        mock_signed_entity_service
-            .expect_get_signed_mithril_stake_distribution_by_id()
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_mithril_stake_distribution_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";

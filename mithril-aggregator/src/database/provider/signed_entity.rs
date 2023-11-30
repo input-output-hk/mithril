@@ -6,14 +6,19 @@ use sqlite::{Connection, ConnectionWithFullMutex, Value};
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::{SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
+    crypto_helper::ProtocolParameters,
+    entities::{Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
+    messages::{
+        MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
+        SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
+    },
     signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
     store::adapter::AdapterError,
-    StdResult,
+    StdError, StdResult,
 };
 
 #[cfg(test)]
@@ -60,6 +65,92 @@ where
         };
 
         Ok(signed_entity)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for SnapshotMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
+        let snapshot_message = SnapshotMessage {
+            digest: artifact.digest,
+            beacon: artifact.beacon,
+            certificate_hash: value.certificate_id,
+            size: artifact.size,
+            created_at: value.created_at,
+            locations: artifact.locations,
+            compression_algorithm: Some(artifact.compression_algorithm),
+            cardano_node_version: Some(artifact.cardano_node_version),
+        };
+
+        Ok(snapshot_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpMithrilStakeDistribution {
+            epoch: Epoch,
+            signers_with_stake: Vec<SignerWithStakeMessagePart>,
+            hash: String,
+            protocol_parameters: ProtocolParameters,
+        }
+        let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
+        let mithtril_stake_distribution_message = MithrilStakeDistributionMessage {
+            epoch: artifact.epoch,
+            signers_with_stake: artifact.signers_with_stake,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+            protocol_parameters: artifact.protocol_parameters.into(),
+        };
+
+        Ok(mithtril_stake_distribution_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpMithrilStakeDistribution {
+            epoch: Epoch,
+            hash: String,
+        }
+        let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
+        let message = MithrilStakeDistributionListItemMessage {
+            epoch: artifact.epoch,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+        };
+
+        Ok(message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
+        let message = SnapshotListItemMessage {
+            digest: artifact.digest,
+            beacon: artifact.beacon,
+            certificate_hash: value.certificate_id,
+            size: artifact.size,
+            created_at: value.created_at,
+            locations: artifact.locations,
+            compression_algorithm: Some(artifact.compression_algorithm),
+            cardano_node_version: Some(artifact.cardano_node_version),
+        };
+
+        Ok(message)
     }
 }
 
