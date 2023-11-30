@@ -1234,7 +1234,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(service))
     }
 
-    /// [HttpMessageService] service
+    /// [MessageService] service
     pub async fn get_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
         if self.message_service.is_none() {
             self.message_service = Some(self.build_message_service().await?);

@@ -19,7 +19,7 @@ use crate::database::provider::{CertificateRepository, SignedEntityStorer};
 #[cfg(test)]
 use mockall::automock;
 
-/// Error related to the [HttpMessageService]
+/// Error related to the [MessageService]
 #[derive(Debug, Error)]
 pub enum MessageServiceError {
     /// There is no current PendingCertificate
@@ -63,7 +63,7 @@ pub trait MessageService: Sync + Send {
     ) -> StdResult<MithrilStakeDistributionListMessage>;
 }
 
-/// Implementation of the [HttpMessageService]
+/// Implementation of the [MessageService]
 pub struct MithrilMessageService {
     certificate_repository: Arc<CertificateRepository>,
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
@@ -269,7 +269,7 @@ mod tests {
     async fn get_snapshot() {
         let beacon = fake_data::beacon();
         let entity = SignedEntity {
-            signed_entity_id: "msd1".to_string(),
+            signed_entity_id: "snapshot1".to_string(),
             signed_entity_type:
                 mithril_common::entities::SignedEntityType::CardanoImmutableFilesFull(
                     beacon.clone(),
@@ -307,7 +307,7 @@ mod tests {
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
         let service = dep_builder.get_message_service().await.unwrap();
         let response = service
-            .get_snapshot_message("msd1")
+            .get_snapshot_message("whatever")
             .await
             .unwrap()
             .expect("A SnapshotMessage was expected.");
@@ -319,7 +319,7 @@ mod tests {
     async fn get_snapshot_list_message() {
         let beacon = fake_data::beacon();
         let entity = SignedEntity {
-            signed_entity_id: "msd1".to_string(),
+            signed_entity_id: "whatever".to_string(),
             signed_entity_type:
                 mithril_common::entities::SignedEntityType::CardanoImmutableFilesFull(
                     beacon.clone(),
@@ -397,7 +397,7 @@ mod tests {
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
         let service = dep_builder.get_message_service().await.unwrap();
         let response = service
-            .get_mithril_stake_distribution_message("msd1")
+            .get_mithril_stake_distribution_message("whatever")
             .await
             .unwrap()
             .expect("A MithrilStakeDistributionMessage was expected.");
@@ -417,7 +417,7 @@ mod tests {
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
         let service = dep_builder.get_message_service().await.unwrap();
         let response = service
-            .get_mithril_stake_distribution_message("msd1")
+            .get_mithril_stake_distribution_message("whatever")
             .await
             .unwrap();
 
