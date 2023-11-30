@@ -106,3 +106,38 @@ Query the UTxO set for all addresses up to a specific immutable file:
 $ ./poc-utxo-reader --command query --db-path ./utxo-preprod.sqlite3 --immutable-file-number-query 250 | jq .
 ```
 
+## Certify UTxO from imported immutable files
+
+Certify the latest UTxOs for an address:
+```bash
+$ ./poc-utxo-reader --command certify --db-path ./utxo-preprod.sqlite3 --address addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx
+>> Retrieving all the UTxOs from the database...
+>> Retrieved all 185550 UTxOs
+ 
+>> Creating the Merkle tree...
+>> Created a Merkle tree with 185550 leaves and root 27118b2138a80427aa799fef8f0292f3f96aba92b6dd9bd1a0b0f9108d762d70
+ 
+>> Verifying UTxOs of address addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx...
+>>>> Create Merkle proof for UTxO UTxO {
+    address: "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx",
+    hash: "b1a7cc8964a6233340e8fb5d4aeb0544f327b15380c3faf2cfa41a166567728a",
+    index: 0,
+    quantity: 2000000,
+    data_hash: Some(
+        "868e5606149c66c3cb8558a098113dffec0758cb26bbe3709f55ec76d4274271",
+    ),
+}
+>>>>>> Congrats, the Merkle roof is valid!
+>>>> Create Merkle proof for UTxO UTxO {
+    address: "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx",
+    hash: "b1a7cc8964a6233340e8fb5d4aeb0544f327b15380c3faf2cfa41a166567728a",
+    index: 1,
+    quantity: 9997822971,
+    data_hash: Some(
+        "",
+    ),
+}
+>>>>>> Congrats, the Merkle roof is valid!
+>> Congrats, all UTxOs of address addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx are valid!
+```
+
