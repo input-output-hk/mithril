@@ -102,15 +102,15 @@ impl<'a> MKTree<'a> {
     }
 
     /// Generate root of the Merkle tree
-    pub fn generate_root(&self) -> StdResult<MKTreeNode> {
+    pub fn compute_root(&self) -> StdResult<MKTreeNode> {
         Ok(self.inner_tree.get_root()?)
     }
 
     /// Generate Merkle proof of membership in the tree
-    pub fn generate_proof(&self, leaf: &MKTreeNode) -> StdResult<Option<MKProof>> {
+    pub fn compute_proof(&self, leaf: &MKTreeNode) -> StdResult<Option<MKProof>> {
         if let Some(leaf_position) = self.inner_leaves.get(leaf) {
             return Ok(Some(MKProof {
-                inner_root: self.generate_root()?,
+                inner_root: self.compute_root()?,
                 inner_leaf: (*leaf_position, leaf.to_owned()),
                 inner_proof: self.inner_tree.gen_proof(vec![*leaf_position])?,
             }));
@@ -136,7 +136,7 @@ mod tests {
         let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
         let leaf_to_verify = &leaves[0];
         let proof = mktree
-            .generate_proof(leaf_to_verify)
+            .compute_proof(leaf_to_verify)
             .expect("MKProof generation should not fail")
             .expect("A MKProof should exist");
         proof.verify().expect("The MKProof should be valid");
@@ -152,7 +152,7 @@ mod tests {
         let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
         let leaf_to_verify = &leaves[0];
         let mut proof = mktree
-            .generate_proof(leaf_to_verify)
+            .compute_proof(leaf_to_verify)
             .expect("MKProof generation should not fail")
             .expect("A MKProof should exist");
         proof.inner_root = leaves[10].to_owned();

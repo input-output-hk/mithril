@@ -1,7 +1,10 @@
 use anyhow::anyhow;
+use ckb_merkle_mountain_range::util::MemStore;
 use clap::Parser;
+use hex::ToHex;
 use poc_utxo_reader::{
     entities::ImmutableFileNumber, errors::*, immutable_parser::*, ledger::Ledger,
+    merkle_tree::MKTree,
 };
 use rayon::prelude::*;
 use sqlite::Connection;
@@ -56,6 +59,7 @@ fn main() -> StdResult<()> {
     match config.command.as_str() {
         "import" => run_import_command(&config)?,
         "query" => run_query_command(&config)?,
+        "certify" => run_certify_command(&config)?,
         _ => unimplemented!(),
     }
 
@@ -119,6 +123,56 @@ fn run_query_command(config: &Config) -> StdResult<()> {
                 &ledger.get_utxos_for_all_addresses(&immutable_file_number_query)?
             )?
         );
+    }
+
+    Ok(())
+}
+
+/// Run certify command
+fn run_certify_command(config: &Config) -> StdResult<()> {
+    let db_path = config.db_path.to_owned();
+    let connection = Connection::open(db_path)?;
+    let ledger = Ledger::new(connection)?;
+
+    let max_immutable_file_number_query = (u32::MAX - 1) as usize;
+    let immutable_file_number_query = config
+        .immutable_file_number_query
+        .unwrap_or(max_immutable_file_number_query);
+
+    println!(">> Retrieving all the UTxOs from the database...");
+    let all_utxos = ledger
+        .get_utxos_for_all_addresses(&immutable_file_number_query)?
+        .into_values()
+        .flatten()
+        .map(|utxo| utxo.into())
+        .collect::<Vec<_>>();
+    println!(">> Retrieved all {} UTxOs", all_utxos.len());
+    println!(" ");
+
+    println!(">> Creating the Merkle tree...");
+    let store = MemStore::default();
+    let mktree = MKTree::new(&all_utxos, &store)?;
+    let mktree_root = mktree.compute_root()?.encode_hex::<String>();
+    let mktree_total_leaves = mktree.total_leaves();
+    println!(">> Created a Merkle tree with {mktree_total_leaves} leaves and root {mktree_root}");
+    println!(" ");
+
+    if let Some(address) = config.address.to_owned() {
+        println!(">> Verifying UTxOs of address {address}...");
+        let address_utxos = ledger.get_utxos_for_address(&address, &immutable_file_number_query)?;
+        if address_utxos.is_empty() {
+            return Err(anyhow!("No UTxO exist for this address..."));
+        }
+        for utxo in address_utxos {
+            println!(">>>> Create Merkle proof for UTxO {utxo:#?}");
+            if let Some(proof) = mktree.compute_proof(&utxo.into())? {
+                proof.verify()?;
+                println!(">>>>>> Congrats, the Merkle proof is valid!");
+            } else {
+                return Err(anyhow!("No valid proof exist..."));
+            }
+        }
+        println!(">> Congrats, all UTxOs of address {address} are valid!");
     }
 
     Ok(())

@@ -1,4 +1,5 @@
-use crate::errors::*;
+use crate::{errors::*, merkle_tree::MKTreeNode};
+use blake2::{Blake2s256, Digest};
 use hex::ToHex;
 use pallas::ledger::{
     primitives::babbage::PseudoDatumOption,
@@ -6,6 +7,7 @@ use pallas::ledger::{
 };
 use serde::{Deserialize, Serialize};
 
+pub type Bytes = Vec<u8>;
 pub type Era = String;
 pub type SlotNumber = u64;
 pub type BlockNumber = u64;
@@ -56,6 +58,27 @@ pub struct UTxO {
     pub index: TransactionIndex,
     pub quantity: Lovelace,
     pub data_hash: Option<TransactionDataHash>,
+}
+
+impl UTxO {
+    pub fn compute_hash(&self) -> Bytes {
+        let mut hasher = Blake2s256::new();
+        hasher.update(self.address.as_bytes());
+        hasher.update(self.hash.as_bytes());
+        hasher.update(self.index.to_be_bytes());
+        hasher.update(self.quantity.to_be_bytes());
+        if let Some(data_hash) = &self.data_hash {
+            hasher.update(data_hash.as_bytes());
+        }
+        let hash = hasher.finalize();
+        hash.to_vec()
+    }
+}
+
+impl From<UTxO> for MKTreeNode {
+    fn from(other: UTxO) -> MKTreeNode {
+        MKTreeNode::new(other.compute_hash())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
