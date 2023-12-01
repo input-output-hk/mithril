@@ -4,9 +4,9 @@
 
 From time to time, we may need to deploy manually on a test Mithril network a test distribution in order to test unreleased features independently from the regular [release process](https://mithril.network/doc/adr/3). In that case, we have the opportunity to manually deploy to a pre-configured network a specific distribution.
 
-## Run the associated 'Test network deploy' GitHub Actions workflow
+## Run the associated 'Test network deployment' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Docker image test](https://github.com/input-output-hk/mithril/actions/workflows/test-deploy.yml)
+Go to the page of the workflow with your browser: [Test network deployment](https://github.com/input-output-hk/mithril/actions/workflows/test-deploy-network.yml)
 
 Then, click on the **Run workflow** button:
 
