@@ -6,6 +6,7 @@ mod cli_observer;
 mod fake_observer;
 mod interface;
 mod model;
+#[cfg(feature = "fs")]
 mod pallas_observer;
 
 #[cfg(test)]
@@ -24,4 +25,5 @@ pub use interface::{ChainObserver, ChainObserverError};
 pub use model::{
     ChainAddress, TxDatum, TxDatumBuilder, TxDatumError, TxDatumFieldTypeName, TxDatumFieldValue,
 };
+#[cfg(feature = "fs")]
 pub use pallas_observer::PallasChainObserver;
