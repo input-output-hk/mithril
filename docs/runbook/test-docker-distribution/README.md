@@ -7,7 +7,7 @@ This is a convenient way for testing early releases of the Cardano node. This is
 
 ## Run the associated 'Docker images test' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Docker image test](https://github.com/input-output-hk/mithril/actions/workflows/test-docker.yml)
+Go to the page of the workflow with your browser: [Docker image test](https://github.com/input-output-hk/mithril/actions/workflows/test-docker-distribution.yml)
 
 Then, click on the **Run workflow** button:
 
