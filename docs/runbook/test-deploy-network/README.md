@@ -6,7 +6,7 @@ From time to time, we may need to deploy manually on a test Mithril network a te
 
 ## Run the associated 'Test network deploy' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Docker image test](https://github.com/input-output-hk/mithril/actions/workflows/test-deploy.yml)
+Go to the page of the workflow with your browser: [Docker image test](https://github.com/input-output-hk/mithril/actions/workflows/test-deploy-network.yml)
 
 Then, click on the **Run workflow** button:
 
