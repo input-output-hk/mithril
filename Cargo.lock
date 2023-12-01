@@ -4497,6 +4497,7 @@ dependencies = [
  "ckb-merkle-mountain-range",
  "clap",
  "hex",
+ "mithril-common",
  "pallas",
  "rayon",
  "serde",

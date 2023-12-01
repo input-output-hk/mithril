@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use ckb_merkle_mountain_range::util::MemStore;
 use clap::Parser;
 use hex::ToHex;
+use mithril_common::crypto_helper::key_encode_hex;
 use poc_utxo_reader::{
     entities::ImmutableFileNumber, errors::*, immutable_parser::*, ledger::Ledger,
     merkle_tree::MKTree,
@@ -166,6 +167,9 @@ fn run_certify_command(config: &Config) -> StdResult<()> {
         for utxo in address_utxos {
             println!(">>>> Create Merkle proof for UTxO {utxo:#?}");
             if let Some(proof) = mktree.compute_proof(&utxo.into())? {
+                println!(">>>>>> Serialized Merkle proof is:");
+                let proof_serialized = key_encode_hex(&proof)?;
+                println!("{proof_serialized}");
                 proof.verify()?;
                 println!(">>>>>> Congrats, the Merkle proof is valid!");
             } else {

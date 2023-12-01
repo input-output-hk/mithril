@@ -1,6 +1,7 @@
 use anyhow::anyhow;
 use blake2::{Blake2s256, Digest};
-use ckb_merkle_mountain_range::{util::MemStore, Merge, MerkleProof, Result, MMR};
+use ckb_merkle_mountain_range::{util::MemStore, Merge, MerkleProof, Result as MMRResult, MMR};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Deref};
 
 use crate::errors::StdResult;
@@ -12,7 +13,7 @@ type Bytes = Vec<u8>;
 type MKTreeLeafPosition = u64;
 
 /// A node of a Merkle tree
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
 pub struct MKTreeNode {
     hash: Bytes,
 }
@@ -45,7 +46,7 @@ struct MergeMKTreeNode {}
 impl Merge for MergeMKTreeNode {
     type Item = MKTreeNode;
 
-    fn merge(lhs: &Self::Item, rhs: &Self::Item) -> Result<Self::Item> {
+    fn merge(lhs: &Self::Item, rhs: &Self::Item) -> MMRResult<Self::Item> {
         let mut hasher = Blake2s256::new();
         hasher.update(lhs.deref());
         hasher.update(rhs.deref());
@@ -56,19 +57,24 @@ impl Merge for MergeMKTreeNode {
 }
 
 // A Merkle proof
+#[derive(Serialize, Deserialize)]
 pub struct MKProof {
     inner_root: MKTreeNode,
     inner_leaf: (MKTreeLeafPosition, MKTreeNode),
-    inner_proof: MerkleProof<MKTreeNode, MergeMKTreeNode>,
+    inner_proof_size: u64,
+    inner_proof_items: Vec<MKTreeNode>,
 }
 
 impl MKProof {
     /// Verification of a Merkle proof
     pub fn verify(&self) -> StdResult<()> {
-        self.inner_proof
-            .verify(self.inner_root.to_owned(), vec![self.inner_leaf.to_owned()])?
-            .then_some(())
-            .ok_or(anyhow!("Invalid MKProof"))
+        MerkleProof::<MKTreeNode, MergeMKTreeNode>::new(
+            self.inner_proof_size,
+            self.inner_proof_items.clone(),
+        )
+        .verify(self.inner_root.to_owned(), vec![self.inner_leaf.to_owned()])?
+        .then_some(())
+        .ok_or(anyhow!("Invalid MKProof"))
     }
 }
 
@@ -109,10 +115,12 @@ impl<'a> MKTree<'a> {
     /// Generate Merkle proof of membership in the tree
     pub fn compute_proof(&self, leaf: &MKTreeNode) -> StdResult<Option<MKProof>> {
         if let Some(leaf_position) = self.inner_leaves.get(leaf) {
+            let proof = self.inner_tree.gen_proof(vec![*leaf_position])?;
             return Ok(Some(MKProof {
                 inner_root: self.compute_root()?,
                 inner_leaf: (*leaf_position, leaf.to_owned()),
-                inner_proof: self.inner_tree.gen_proof(vec![*leaf_position])?,
+                inner_proof_size: proof.mmr_size(),
+                inner_proof_items: proof.proof_items().to_vec(),
             }));
         }
 
