@@ -1,0 +1,44 @@
+name: Manually publish crates
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Dry run will not publish to crates.io registry
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  publish-crate:
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        package: [ mithril-stm, mithril-common, mithril-client ]
+        include:
+        - package: mithril-stm
+          api_token_secret_name: CRATES_IO_API_TOKEN
+        - package: mithril-common
+          api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
+        - package: mithril-client
+          api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CLIENT
+          
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+        
+      - name: Publish package to crates.io
+        uses: ./.github/workflows/actions/publish-crate-package
+        with:
+          #dry_run: ${{ inputs.dry_run }}
+          dry_run: "true"
+          package: ${{ matrix.package }}
+          api_token: test123
+          #api_token: ${{ secrets[matrix.api_token_secret_name] }}
