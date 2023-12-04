@@ -60,7 +60,7 @@ impl Merge for MergeMKTreeNode {
 #[derive(Serialize, Deserialize)]
 pub struct MKProof {
     inner_root: MKTreeNode,
-    inner_leaf: (MKTreeLeafPosition, MKTreeNode),
+    inner_leaves: Vec<(MKTreeLeafPosition, MKTreeNode)>,
     inner_proof_size: u64,
     inner_proof_items: Vec<MKTreeNode>,
 }
@@ -72,7 +72,7 @@ impl MKProof {
             self.inner_proof_size,
             self.inner_proof_items.clone(),
         )
-        .verify(self.inner_root.to_owned(), vec![self.inner_leaf.to_owned()])?
+        .verify(self.inner_root.to_owned(), self.inner_leaves.to_owned())?
         .then_some(())
         .ok_or(anyhow!("Invalid MKProof"))
     }
@@ -112,19 +112,30 @@ impl<'a> MKTree<'a> {
         Ok(self.inner_tree.get_root()?)
     }
 
-    /// Generate Merkle proof of membership in the tree
-    pub fn compute_proof(&self, leaf: &MKTreeNode) -> StdResult<Option<MKProof>> {
-        if let Some(leaf_position) = self.inner_leaves.get(leaf) {
-            let proof = self.inner_tree.gen_proof(vec![*leaf_position])?;
-            return Ok(Some(MKProof {
-                inner_root: self.compute_root()?,
-                inner_leaf: (*leaf_position, leaf.to_owned()),
-                inner_proof_size: proof.mmr_size(),
-                inner_proof_items: proof.proof_items().to_vec(),
-            }));
-        }
-
-        Ok(None)
+    /// Generate Merkle proof of memberships in the tree
+    pub fn compute_proof(&self, leaves: &[MKTreeNode]) -> StdResult<MKProof> {
+        let inner_leaves = leaves
+            .iter()
+            .map(|leaf| {
+                if let Some(leaf_position) = self.inner_leaves.get(leaf) {
+                    Ok((*leaf_position, leaf.to_owned()))
+                } else {
+                    Err(anyhow!("Leaf not found in the Merkle tree"))
+                }
+            })
+            .collect::<StdResult<Vec<_>>>()?;
+        let proof = self.inner_tree.gen_proof(
+            inner_leaves
+                .iter()
+                .map(|(leaf_position, _leaf)| *leaf_position)
+                .collect(),
+        )?;
+        return Ok(MKProof {
+            inner_root: self.compute_root()?,
+            inner_leaves,
+            inner_proof_size: proof.mmr_size(),
+            inner_proof_items: proof.proof_items().to_vec(),
+        });
     }
 }
 
@@ -142,11 +153,10 @@ mod tests {
             .collect::<Vec<_>>();
         let store = MemStore::default();
         let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
-        let leaf_to_verify = &leaves[0];
+        let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let proof = mktree
-            .compute_proof(leaf_to_verify)
-            .expect("MKProof generation should not fail")
-            .expect("A MKProof should exist");
+            .compute_proof(leaves_to_verify)
+            .expect("MKProof generation should not fail");
         proof.verify().expect("The MKProof should be valid");
     }
 
@@ -158,11 +168,10 @@ mod tests {
             .collect::<Vec<_>>();
         let store = MemStore::default();
         let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
-        let leaf_to_verify = &leaves[0];
+        let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let mut proof = mktree
-            .compute_proof(leaf_to_verify)
-            .expect("MKProof generation should not fail")
-            .expect("A MKProof should exist");
+            .compute_proof(leaves_to_verify)
+            .expect("MKProof generation should not fail");
         proof.inner_root = leaves[10].to_owned();
         proof.verify().expect_err("The MKProof should be invalid");
     }

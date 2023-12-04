@@ -164,18 +164,19 @@ fn run_certify_command(config: &Config) -> StdResult<()> {
         if address_utxos.is_empty() {
             return Err(anyhow!("No UTxO exist for this address..."));
         }
-        for utxo in address_utxos {
-            println!(">>>> Create Merkle proof for UTxO {utxo:#?}");
-            if let Some(proof) = mktree.compute_proof(&utxo.into())? {
-                println!(">>>>>> Serialized Merkle proof is:");
-                let proof_serialized = key_encode_hex(&proof)?;
-                println!("{proof_serialized}");
-                proof.verify()?;
-                println!(">>>>>> Congrats, the Merkle proof is valid!");
-            } else {
-                return Err(anyhow!("No valid proof exist..."));
-            }
-        }
+        println!(">>>> Create Merkle proof for UTxOs {address_utxos:#?}");
+        let proof = mktree.compute_proof(
+            address_utxos
+                .into_iter()
+                .map(|utxo| utxo.into())
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )?;
+        println!(">>>>>> Serialized Merkle proof is:");
+        let proof_serialized = key_encode_hex(&proof)?;
+        println!("{proof_serialized}");
+        proof.verify()?;
+        println!(">>>>>> Congrats, the Merkle proof is valid!");
         println!(">> Congrats, all UTxOs of address {address} are valid!");
     }
 
