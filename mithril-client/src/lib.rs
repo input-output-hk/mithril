@@ -68,6 +68,8 @@ macro_rules! cfg_fs {
 pub mod aggregator_client;
 pub mod certificate_client;
 mod client;
+#[cfg(target_family = "wasm")]
+mod client_wasm;
 pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;

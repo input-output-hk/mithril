@@ -9,8 +9,21 @@ let client = await new MithrilClient(
   aggregator_endpoint,
   genesis_verification_key
 )
-let result = await client.list_mithril_stake_distributions()
-console.log("stake distributions:", result)
+let mithril_stake_distributions_list = await client.list_mithril_stake_distributions();
+console.log("stake distributions:", mithril_stake_distributions_list);
+
+let last_mithril_stake_distribution = mithril_stake_distributions_list[0];
+console.log("last_mithril_stake_distribution:", last_mithril_stake_distribution);
+
+let last_stake_distribution = await client.get_mithril_stake_distribution(last_mithril_stake_distribution.hash);
+console.log("last_stake_distribution:", last_stake_distribution);
+
+let certificate = await client.get_mithril_certificate(last_stake_distribution.certificate_hash);
+console.log("certificate:", certificate);
+
+let certificate2 = await client.verify_certificate_chain(certificate.hash);
+console.log("certificate2:", certificate2);
+
 
 /* let msd = result[0]
 console.log(`Checking ${msd.hash} validity ...`)
