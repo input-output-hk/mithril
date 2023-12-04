@@ -5,9 +5,9 @@
 From time to time, we may need to create a test Docker distribution with custom arguments (notably the version of the Cardano CLi that is used).
 This is a convenient way for testing early releases of the Cardano node. This is also commonly used to create a Docker distribution from an unmerged PR.
 
-## Run the associated 'Docker images test' GitHub Actions workflow
+## Run the associated 'Test Docker images build' GitHub Actions workflow
 
-Go to the page of the workflow with your browser: [Docker image test](https://github.com/input-output-hk/mithril/actions/workflows/test-docker.yml)
+Go to the page of the workflow with your browser: [Test Docker images build](https://github.com/input-output-hk/mithril/actions/workflows/test-docker-distribution.yml)
 
 Then, click on the **Run workflow** button:
 

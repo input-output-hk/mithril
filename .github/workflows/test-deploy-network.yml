@@ -1,4 +1,4 @@
-name: Test network deploy
+name: Test network deployment
 
 on:
   workflow_dispatch:
