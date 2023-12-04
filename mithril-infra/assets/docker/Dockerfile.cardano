@@ -1,5 +1,6 @@
 ARG CARDANO_IMAGE_ID
-FROM ghcr.io/intersectmbo/cardano-node:$CARDANO_IMAGE_ID
+ARG CARDANO_IMAGE_REGISTRY
+FROM $CARDANO_IMAGE_REGISTRY:$CARDANO_IMAGE_ID
 
 # Fix env file rights
 # In order to be able to interact with the Cardano node trough its 'node.socket'

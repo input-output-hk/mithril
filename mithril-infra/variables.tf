@@ -144,6 +144,12 @@ variable "cardano_image_id" {
   default     = "8.7.3"
 }
 
+variable "cardano_image_registry" {
+  type        = string
+  description = "The Cardano image repository of service to deploy"
+  default     = "ghcr.io/intersectmbo/cardano-node"
+}
+
 variable "cardano_configurations_repository_commit" {
   type        = string
   description = "The Cardano configurations commit to use"
