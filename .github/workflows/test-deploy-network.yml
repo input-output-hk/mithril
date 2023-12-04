@@ -15,6 +15,7 @@ on:
         type: choice
         options:
         - dev-preview
+        - testing-sanchonet
       dry_run:
         description: Dry run will not deploy the distribution to the Mithril network
         required: true
@@ -26,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ dev-preview ]
+        environment: [ dev-preview, testing-sanchonet ]
         include:
         - environment: dev-preview
           environment_prefix: dev
@@ -52,6 +53,30 @@ jobs:
               "3" = {
                 type    = "unverified",
                 pool_id = "pool1r0tln8nct3mpyvehgy6uu3cdlmjnmtr2fxjcqnfl6v0qg0we42e",
+              },
+            }
+          terraform_backend_bucket: hydra-terraform-admin
+          google_region: europe-west1
+          google_zone: europe-west1-b
+          google_machine_type: e2-highmem-4
+          google_compute_instance_boot_disk_size: 200
+          google_compute_instance_data_disk_size: 250
+        - environment: testing-sanchonet
+          environment_prefix: testing
+          cardano_network: sanchonet
+          mithril_use_p2p_network: false
+          mithril_api_domain: api.mithril.network
+          mithril_protocol_parameters: |
+            {
+              k     = 5
+              m     = 100
+              phi_f = 0.65
+            }
+          mithril_signers: |
+            {
+              "1" = {
+                type    = "verified",
+                pool_id = "",
               },
             }
           terraform_backend_bucket: hydra-terraform-admin
