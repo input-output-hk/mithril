@@ -1,10 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
-use crate::{
-    entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType},
-    test_utils::fake_keys,
-};
+use crate::entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType};
+#[cfg(feature = "test_tools")]
+use crate::test_utils::fake_keys;
 
 era_deprecate!("make signed_entity_type of RegisterSignatureMessage not optional");
 /// Message structure to register single signature.
@@ -26,13 +25,15 @@ pub struct RegisterSignatureMessage {
 }
 
 impl RegisterSignatureMessage {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            signed_entity_type: Some(SignedEntityType::dummy()),
-            party_id: "party_id".to_string(),
-            signature: fake_keys::single_signature()[0].to_string(),
-            won_indexes: vec![1, 3],
+    cfg_test_tools! {
+        /// Return a dummy test entity (test-only).
+        pub fn dummy() -> Self {
+            Self {
+                signed_entity_type: Some(SignedEntityType::dummy()),
+                party_id: "party_id".to_string(),
+                signature: fake_keys::single_signature()[0].to_string(),
+                won_indexes: vec![1, 3],
+            }
         }
     }
 }

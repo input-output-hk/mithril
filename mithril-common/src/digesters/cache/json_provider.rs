@@ -13,6 +13,7 @@ use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
 };
+#[cfg(feature = "fs")]
 use tokio::{
     fs,
     fs::File,

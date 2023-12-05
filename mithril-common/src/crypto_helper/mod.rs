@@ -5,12 +5,16 @@ mod codec;
 mod conversions;
 mod era;
 mod genesis;
+#[cfg(feature = "test_tools")]
 pub mod tests_setup;
 mod types;
 
+#[cfg(feature = "random")]
+pub use cardano::ColdKeyGenerator;
+
 pub use cardano::{
-    ColdKeyGenerator, KESPeriod, OpCert, ProtocolInitializerErrorWrapper,
-    ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat, Sum6KesBytes,
+    KESPeriod, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
+    SerDeShelleyFileFormat, Sum6KesBytes,
 };
 pub use codec::*;
 pub use era::{

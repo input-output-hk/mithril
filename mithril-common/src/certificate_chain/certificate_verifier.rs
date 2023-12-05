@@ -60,7 +60,8 @@ pub enum CertificateVerifierError {
 /// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and
 /// [certificates](Certificate)
 #[cfg_attr(test, automock)]
-#[async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 pub trait CertificateVerifier: Send + Sync {
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(
@@ -232,7 +233,8 @@ impl MithrilCertificateVerifier {
     }
 }
 
-#[async_trait]
+#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
+#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
 impl CertificateVerifier for MithrilCertificateVerifier {
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(

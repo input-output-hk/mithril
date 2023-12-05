@@ -1,10 +1,11 @@
+#[cfg(feature = "test_tools")]
+use crate::test_utils::fake_keys;
 use crate::{
     crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
     entities::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         SignerWithStake, Stake,
     },
-    test_utils::fake_keys,
     StdResult,
 };
 use anyhow::Context;
@@ -46,17 +47,19 @@ pub struct SignerWithStakeMessagePart {
 }
 
 impl SignerWithStakeMessagePart {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
-            verification_key: fake_keys::signer_verification_key()[0].to_string(),
-            verification_key_signature: Some(
-                fake_keys::signer_verification_key_signature()[0].to_string(),
-            ),
-            operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-            kes_period: Some(6),
-            stake: 234,
+    cfg_test_tools! {
+        /// Return a dummy test entity (test-only).
+        pub fn dummy() -> Self {
+            Self {
+                party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
+                verification_key: fake_keys::signer_verification_key()[0].to_string(),
+                verification_key_signature: Some(
+                    fake_keys::signer_verification_key_signature()[0].to_string(),
+                ),
+                operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
+                kes_period: Some(6),
+                stake: 234,
+            }
         }
     }
 
@@ -175,16 +178,18 @@ pub struct SignerMessagePart {
 }
 
 impl SignerMessagePart {
-    /// Return a dummy test entity (test-only).
-    pub fn dummy() -> Self {
-        Self {
-            party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
-            verification_key: fake_keys::signer_verification_key()[0].to_string(),
-            verification_key_signature: Some(
-                fake_keys::signer_verification_key_signature()[0].to_string(),
-            ),
-            operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
-            kes_period: Some(6),
+    cfg_test_tools! {
+        /// Return a dummy test entity (test-only).
+        pub fn dummy() -> Self {
+            Self {
+                party_id: "pool1m8crhnqj5k2kyszf5j2scshupystyxc887zdfrpzh6ty6eun4fx".to_string(),
+                verification_key: fake_keys::signer_verification_key()[0].to_string(),
+                verification_key_signature: Some(
+                    fake_keys::signer_verification_key_signature()[0].to_string(),
+                ),
+                operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
+                kes_period: Some(6),
+            }
         }
     }
 }

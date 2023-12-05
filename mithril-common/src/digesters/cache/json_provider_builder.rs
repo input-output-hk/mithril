@@ -5,6 +5,7 @@ use crate::{
 use anyhow::Context;
 use slog::{info, Logger};
 use std::path::Path;
+#[cfg(feature = "fs")]
 use tokio::fs;
 
 /// A [JsonImmutableFileDigestCacheProvider] builder.

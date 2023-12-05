@@ -3214,7 +3214,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.16"
+version = "0.4.17"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3254,7 +3254,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.5.8"
+version = "0.5.9"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3263,6 +3263,7 @@ dependencies = [
  "flate2",
  "flume",
  "futures",
+ "getrandom",
  "httpmock",
  "indicatif",
  "mithril-common",
@@ -3270,6 +3271,7 @@ dependencies = [
  "reqwest",
  "semver",
  "serde",
+ "serde-wasm-bindgen",
  "serde_json",
  "slog",
  "slog-async",
@@ -3280,12 +3282,14 @@ dependencies = [
  "tokio",
  "uuid",
  "warp",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
  "zstd",
 ]
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.5.7"
+version = "0.5.8"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3324,7 +3328,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.141"
+version = "0.2.142"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3372,7 +3376,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.2.26"
+version = "0.2.27"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3397,7 +3401,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "clap",
@@ -3420,7 +3424,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.95"
+version = "0.2.96"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4929,6 +4933,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25dd9975e68d0cb5aa1120c288333fc98731bd1dd12f561e468ea4728c042b89"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-wasm-bindgen"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17ba92964781421b6cef36bf0d7da26d201e96d84e1b10e7ae6ed416e516906d"
+dependencies = [
+ "js-sys",
+ "serde",
+ "wasm-bindgen",
 ]
 
 [[package]]
