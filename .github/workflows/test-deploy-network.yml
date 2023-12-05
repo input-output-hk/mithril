@@ -34,6 +34,7 @@ jobs:
           cardano_network: preview
           mithril_use_p2p_network: true
           mithril_api_domain: api.mithril.network
+          mithril_era_reader_adapter_type: cardano-chain
           mithril_protocol_parameters: |
             {
               k     = 5
@@ -66,6 +67,7 @@ jobs:
           cardano_network: sanchonet
           mithril_use_p2p_network: false
           mithril_api_domain: api.mithril.network
+          mithril_era_reader_adapter_type: bootstrap
           mithril_protocol_parameters: |
             {
               k     = 5
@@ -120,6 +122,7 @@ jobs:
           mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
           mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
           mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
+          mithril_era_reader_adapter_type: ${{ matrix.mithril_era_reader_adapter_type }}
           mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
           mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
           mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}

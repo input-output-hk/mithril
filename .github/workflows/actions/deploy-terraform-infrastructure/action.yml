@@ -64,6 +64,10 @@ inputs:
   mithril_genesis_verification_key_url: 
     description: Mithril genesis verification key location.
     required: true
+  mithril_era_reader_adapter_type:
+    description: Mithril era reader adapter type.
+    required: false
+    default: "cardano-chain"
   mithril_era_reader_address_url: 
     description: Mithril era reader address location.
     required: true
@@ -163,7 +167,7 @@ runs:
         mithril_genesis_secret_key                        = "${{ inputs.mithril_genesis_secret_key }}"
         mithril_protocol_parameters                       = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
         mithril_signers                                   = ${{ fromJSON(inputs.mithril_signers) }}
-        mithril_era_reader_adapter_type                   = "cardano-chain"
+        mithril_era_reader_adapter_type                   = "${{ inputs.mithril_era_reader_adapter_type }}"
         mithril_era_reader_address_url                    = "${{ inputs.mithril_era_reader_address_url }}"
         mithril_era_reader_verification_key_url           = "${{ inputs.mithril_era_reader_verification_key_url }}"
         mithril_era_reader_secret_key                     = "${{ inputs.mithril_era_reader_secret_key }}"
