@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.5.9"
+version = "0.5.10"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -12,11 +12,6 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
-
-[[example]]
-name = "snapshot_list_get_show_download_verify"
-path = "examples/snapshot_list_get_show_download_verify.rs"
-required-features = ["fs"]
 
 [[test]]
 name = "snapshot_list_get_show_download_verify"

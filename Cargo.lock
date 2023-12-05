@@ -883,6 +883,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-mithril-stake-distribution"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "mithril-client",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
+name = "client-snapshot"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "futures",
+ "indicatif",
+ "mithril-client",
+ "tokio",
+]
+
+[[package]]
 name = "cloud-storage"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3254,7 +3278,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.5.9"
+version = "0.5.10"
 dependencies = [
  "anyhow",
  "async-recursion",
