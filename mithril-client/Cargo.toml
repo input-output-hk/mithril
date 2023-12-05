@@ -39,7 +39,7 @@ zstd = { version = "0.13.0", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 mithril-common = { path = "../mithril-common", version = "0.2", features = [
-    "full",
+    "fs",
 ] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
@@ -54,7 +54,8 @@ wasm-bindgen-futures = "0.4.37"
 httpmock = "0.6.8"
 indicatif = { version = "0.17.7", features = ["tokio"] }
 mithril-common = { path = "../mithril-common", version = "0.2", features = [
-    "test_http_server",
+    "random",
+    "test_tools",
 ] }
 mockall = "0.11.4"
 slog-async = "2.8.0"
