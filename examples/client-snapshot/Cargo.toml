@@ -14,5 +14,5 @@ anyhow = "1.0.75"
 async-trait = "0.1.73"
 futures = "0.3.28"
 indicatif = "0.17.7"
-mithril-client = { path = "../../mithril-client" }
+mithril-client = { path = "../../mithril-client", features = ["fs"] }
 tokio = { version = "1.32.0", features = ["full"] }
