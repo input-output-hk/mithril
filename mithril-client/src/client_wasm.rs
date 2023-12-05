@@ -1,5 +1,6 @@
 #![cfg(target_family = "wasm")]
-use super::{Client, ClientBuilder};
+use super::{Client, ClientBuilder, MessageBuilder};
+use mithril_common::messages::CertificateMessage;
 use wasm_bindgen::prelude::*;
 
 type WasmResult = Result<JsValue, JsValue>;
@@ -71,6 +72,35 @@ impl ClientWasm {
             .map_err(|err| format!("{err:?}"))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client to compute a mithril stake distribution message
+    #[wasm_bindgen(js_name = compute_mithril_stake_distribution_message)]
+    pub async fn compute_mithril_stake_distribution_message(
+        &self,
+        stake_distribution: JsValue,
+    ) -> WasmResult {
+        let stake_distribution =
+            serde_wasm_bindgen::from_value(stake_distribution).map_err(|err| format!("{err:?}"))?;
+        let result = MessageBuilder::new()
+            .compute_mithril_stake_distribution_message(&stake_distribution)
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    ///
+    #[wasm_bindgen(js_name = verify_message_match_certificate)]
+    pub async fn verify_message_match_certificate(
+        &self,
+        message: JsValue,
+        certificate: JsValue,
+    ) -> WasmResult {
+        let certificate: CertificateMessage =
+            serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
+        let message = serde_wasm_bindgen::from_value(message).map_err(|err| format!("{err:?}"))?;
+
+        Ok(JsValue::from(certificate.match_message(&message)))
     }
 
     /// Call the client to get a mithril certificate from a certificate hash

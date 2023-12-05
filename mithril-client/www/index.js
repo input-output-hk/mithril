@@ -3,7 +3,7 @@ import { Client as MithrilClient } from "mithril-client/mithril_client"
 let aggregator_endpoint =
   "https://aggregator.testing-preview.api.mithril.network/aggregator"
 let genesis_verification_key =
-  "5b3139312c36362c3134302c3138352c3133382c31312c3233372c3230372c3235302c3134342c32372c322c3138382c33302c31322c38312c3135352c3230342c31302c3137392c37352c32332c3133382c3139362c3231372c352c31342c32302c35372c37392c33392c3137365d"
+  "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
 
 let client = await new MithrilClient(
   aggregator_endpoint,
@@ -21,15 +21,11 @@ console.log("last_stake_distribution:", last_stake_distribution);
 let certificate = await client.get_mithril_certificate(last_stake_distribution.certificate_hash);
 console.log("certificate:", certificate);
 
-let certificate2 = await client.verify_certificate_chain(certificate.hash);
-console.log("certificate2:", certificate2);
+let last_certificate_from_chain = await client.verify_certificate_chain(certificate.hash);
+console.log("verify certificate chain OK, last_certificate_from_chain:", last_certificate_from_chain);
 
+let mithril_stake_distributions_message = await client.compute_mithril_stake_distribution_message(last_stake_distribution);
+console.log("mithril_stake_distributions_message:", mithril_stake_distributions_message);
 
-/* let msd = result[0]
-console.log(`Checking ${msd.hash} validity ...`)
-await client
-  .mithril_stake_distribution_validate(msd.hash, genesis_verification_key)
-  .then(() => console.log("success"))
-  .catch((error) => {
-    console.error("Validate:", error)
-  }) */
+let valid_stake_distribution_message = await client.verify_message_match_certificate(mithril_stake_distributions_message, last_certificate_from_chain);
+console.log("valid_stake_distribution_message:", valid_stake_distribution_message);
