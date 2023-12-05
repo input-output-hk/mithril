@@ -43,7 +43,7 @@ pub trait StorePruner {
 
 #[cfg(test)]
 mod tests {
-    use std::{cmp::min, sync::Arc};
+    use std::cmp::min;
 
     use sqlite::Connection;
 
@@ -84,7 +84,7 @@ mod tests {
     }
 
     async fn get_adapter(data_len: u64) -> SQLiteAdapter<u64, String> {
-        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let mut adapter: SQLiteAdapter<u64, String> =
             SQLiteAdapter::new("whatever", connection).unwrap();
 

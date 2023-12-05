@@ -1,6 +1,6 @@
 use anyhow::Context;
-use sqlite::Connection;
 
+use super::SqliteConnection;
 use crate::StdResult;
 
 use super::{EntityCursor, SqLiteEntity, WhereCondition};
@@ -12,7 +12,7 @@ pub trait Provider<'conn> {
     type Entity: SqLiteEntity;
 
     /// Share the connection.
-    fn get_connection(&'conn self) -> &'conn Connection;
+    fn get_connection(&'conn self) -> &'conn SqliteConnection;
 
     /// Perform the parametrized definition query.
     fn find(&'conn self, filters: WhereCondition) -> StdResult<EntityCursor<'conn, Self::Entity>> {
@@ -42,7 +42,7 @@ pub trait Provider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Value;
+    use sqlite::{Connection, Value};
 
     use crate::sqlite::{Projection, SourceAlias};
 
@@ -80,11 +80,11 @@ mod tests {
     }
 
     struct TestEntityProvider {
-        connection: Connection,
+        connection: SqliteConnection,
     }
 
     impl TestEntityProvider {
-        pub fn new(connection: Connection) -> Self {
+        pub fn new(connection: SqliteConnection) -> Self {
             Self { connection }
         }
     }
@@ -92,7 +92,7 @@ mod tests {
     impl<'conn> Provider<'conn> for TestEntityProvider {
         type Entity = TestEntity;
 
-        fn get_connection(&'conn self) -> &'conn Connection {
+        fn get_connection(&'conn self) -> &'conn SqliteConnection {
             &self.connection
         }
 
@@ -105,11 +105,11 @@ mod tests {
     }
 
     struct TestEntityUpdateProvider {
-        connection: Connection,
+        connection: SqliteConnection,
     }
 
     impl TestEntityUpdateProvider {
-        pub fn new(connection: Connection) -> Self {
+        pub fn new(connection: SqliteConnection) -> Self {
             Self { connection }
         }
     }
@@ -117,7 +117,7 @@ mod tests {
     impl<'conn> Provider<'conn> for TestEntityUpdateProvider {
         type Entity = TestEntity;
 
-        fn get_connection(&'conn self) -> &'conn Connection {
+        fn get_connection(&'conn self) -> &'conn SqliteConnection {
             &self.connection
         }
 
@@ -138,8 +138,8 @@ returning {projection}
         }
     }
 
-    fn init_database() -> Connection {
-        let connection = Connection::open(":memory:").unwrap();
+    fn init_database() -> SqliteConnection {
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         connection
             .execute(
                 "
