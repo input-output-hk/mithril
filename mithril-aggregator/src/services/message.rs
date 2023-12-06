@@ -154,14 +154,10 @@ impl MessageService for MithrilMessageService {
 mod tests {
     use std::sync::Arc;
 
-    use chrono::{DateTime, Utc};
     use mithril_common::{
-        entities::{
-            Beacon, CompressionAlgorithm, Epoch, MithrilStakeDistribution, SignedEntity,
-            SignedEntityType, Snapshot,
-        },
+        entities::{Beacon, MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot},
         messages::ToMessageAdapter,
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::MithrilFixtureBuilder,
     };
 
     use crate::{
@@ -267,29 +263,10 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot() {
-        let beacon = fake_data::beacon();
-        let entity = SignedEntity {
-            signed_entity_id: "snapshot1".to_string(),
-            signed_entity_type:
-                mithril_common::entities::SignedEntityType::CardanoImmutableFilesFull(
-                    beacon.clone(),
-                ),
-            certificate_id: "certificate1".to_string(),
-            artifact: Snapshot {
-                digest: "whatever".to_string(),
-                beacon: beacon.clone(),
-                size: 123456,
-                locations: vec!["location".to_string()],
-                compression_algorithm: CompressionAlgorithm::Gzip,
-                cardano_node_version: "whatever".to_string(),
-            },
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        };
+        let entity = SignedEntity::<Snapshot>::dummy();
         let record = SignedEntityRecord {
             signed_entity_id: entity.signed_entity_id.clone(),
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
+            signed_entity_type: entity.signed_entity_type.clone(),
             certificate_id: entity.certificate_id.clone(),
             artifact: serde_json::to_string(&entity.artifact).unwrap(),
             created_at: entity.created_at,
@@ -317,29 +294,10 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot_list_message() {
-        let beacon = fake_data::beacon();
-        let entity = SignedEntity {
-            signed_entity_id: "whatever".to_string(),
-            signed_entity_type:
-                mithril_common::entities::SignedEntityType::CardanoImmutableFilesFull(
-                    beacon.clone(),
-                ),
-            certificate_id: "certificate1".to_string(),
-            artifact: Snapshot {
-                digest: "whatever".to_string(),
-                beacon: beacon.clone(),
-                size: 123456,
-                locations: vec!["location".to_string()],
-                compression_algorithm: CompressionAlgorithm::Gzip,
-                cardano_node_version: "whatever".to_string(),
-            },
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        };
+        let entity = SignedEntity::<Snapshot>::dummy();
         let records = vec![SignedEntityRecord {
             signed_entity_id: entity.signed_entity_id.clone(),
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
+            signed_entity_type: entity.signed_entity_type.clone(),
             certificate_id: entity.certificate_id.clone(),
             artifact: serde_json::to_string(&entity.artifact).unwrap(),
             created_at: entity.created_at,
@@ -364,21 +322,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_mithril_stake_distribution() {
-        let entity = SignedEntity {
-            signed_entity_id: "msd1".to_string(),
-            signed_entity_type:
-                mithril_common::entities::SignedEntityType::MithrilStakeDistribution(Epoch(12)),
-            certificate_id: "certificate1".to_string(),
-            artifact: MithrilStakeDistribution {
-                epoch: Epoch(12),
-                signers_with_stake: fake_data::signers_with_stakes(3),
-                hash: "whatever".to_string(),
-                protocol_parameters: fake_data::protocol_parameters(),
-            },
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        };
+        let entity = SignedEntity::<MithrilStakeDistribution>::dummy();
         let record = SignedEntityRecord {
             signed_entity_id: entity.signed_entity_id.clone(),
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(entity.artifact.epoch),
@@ -426,21 +370,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_mithril_stake_distribution_list_message() {
-        let entity = SignedEntity {
-            signed_entity_id: "msd1".to_string(),
-            signed_entity_type:
-                mithril_common::entities::SignedEntityType::MithrilStakeDistribution(Epoch(12)),
-            certificate_id: "certificate1".to_string(),
-            artifact: MithrilStakeDistribution {
-                epoch: Epoch(12),
-                signers_with_stake: fake_data::signers_with_stakes(3),
-                hash: "whatever".to_string(),
-                protocol_parameters: fake_data::protocol_parameters(),
-            },
-            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        };
+        let entity = SignedEntity::<MithrilStakeDistribution>::dummy();
         let records = vec![SignedEntityRecord {
             signed_entity_id: entity.signed_entity_id.clone(),
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(entity.artifact.epoch),
