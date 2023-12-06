@@ -52,12 +52,13 @@
 //! ```
 
 use async_trait::async_trait;
+use serde::Serialize;
 use slog::{info, Logger};
 use std::sync::{Arc, RwLock};
 use uuid::Uuid;
 
 /// Event that can be reported by a [FeedbackReceiver].
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
 pub enum MithrilEvent {
     /// A snapshot download has started
     SnapshotDownloadStarted {

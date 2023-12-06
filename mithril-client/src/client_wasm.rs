@@ -1,9 +1,35 @@
 #![cfg(target_family = "wasm")]
-use super::{Client, ClientBuilder, MessageBuilder};
+use super::{
+    feedback::{FeedbackReceiver, MithrilEvent},
+    Client, ClientBuilder, MessageBuilder,
+};
+use async_trait::async_trait;
 use mithril_common::messages::CertificateMessage;
+use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 type WasmResult = Result<JsValue, JsValue>;
+
+struct JSBroadcastChannelFeedbackReceiver {
+    channel: String,
+}
+
+impl JSBroadcastChannelFeedbackReceiver {
+    pub fn new(channel: &str) -> Self {
+        Self {
+            channel: channel.to_string(),
+        }
+    }
+}
+
+#[async_trait(?Send)]
+impl FeedbackReceiver for JSBroadcastChannelFeedbackReceiver {
+    async fn handle_event(&self, event: MithrilEvent) {
+        let _ = web_sys::BroadcastChannel::new(&self.channel)
+            .unwrap()
+            .post_message(&serde_wasm_bindgen::to_value(&event).unwrap());
+    }
+}
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen(js_name = Client))]
 struct ClientWasm {
@@ -15,7 +41,9 @@ impl ClientWasm {
     /// Constructor for wasm client
     #[wasm_bindgen(constructor)]
     pub async fn new(aggregator_endpoint: &str, genesis_verification_key: &str) -> ClientWasm {
+        let feedback_receiver = Arc::new(JSBroadcastChannelFeedbackReceiver::new("mithril-client"));
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
+            .add_feedback_receiver(feedback_receiver)
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
