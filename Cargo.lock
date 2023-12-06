@@ -3264,7 +3264,7 @@ dependencies = [
  "slog-bunyan",
  "slog-scope",
  "slog-term",
- "sqlite 0.32.0",
+ "sqlite",
  "tar",
  "tempfile",
  "thiserror",
@@ -3389,7 +3389,7 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
- "sqlite 0.32.0",
+ "sqlite",
  "strum",
  "thiserror",
  "tokio",
@@ -3470,7 +3470,7 @@ dependencies = [
  "slog-bunyan",
  "slog-scope",
  "slog-term",
- "sqlite 0.31.1",
+ "sqlite",
  "thiserror",
  "tokio",
 ]
@@ -5328,16 +5328,6 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
-]
-
-[[package]]
-name = "sqlite"
-version = "0.31.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05439db7afa0ce0b38f6d1b4c691f368adde108df021e15e900fec6a1af92488"
-dependencies = [
- "libc",
- "sqlite3-sys",
 ]
 
 [[package]]

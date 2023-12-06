@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use sqlite::{Connection, ConnectionWithFullMutex};
+use sqlite::Connection;
 use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
@@ -20,6 +20,7 @@ use mithril_common::{
         CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
         MithrilStakeDistributionSignableBuilder, SignableBuilderService,
     },
+    sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdResult,
 };
@@ -147,13 +148,13 @@ impl<'a> ProductionServiceBuilder<'a> {
         Ok(Some(Arc::new(cache_provider)))
     }
 
-    async fn build_sqlite_connection(&self) -> StdResult<Arc<ConnectionWithFullMutex>> {
+    async fn build_sqlite_connection(&self) -> StdResult<Arc<SqliteConnection>> {
         let sqlite_db_path = self.config.get_sqlite_file()?;
-        let sqlite_connection = Arc::new(Connection::open_with_full_mutex(sqlite_db_path)?);
+        let sqlite_connection = Arc::new(Connection::open_thread_safe(sqlite_db_path)?);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Signer,
-            sqlite_connection.clone(),
+            &sqlite_connection,
         );
 
         for migration in crate::database::migration::get_migrations() {
