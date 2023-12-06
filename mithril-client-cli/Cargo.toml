@@ -37,6 +37,7 @@ futures = "0.3.28"
 hex = "0.4.3"
 human_bytes = { version = "0.4.3", features = ["fast"] }
 indicatif = { version = "0.17.7", features = ["tokio"] }
+mithril-client = { path = "../mithril-client", features = ["fs"] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 openssl = { version = "0.10.57", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }

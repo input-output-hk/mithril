@@ -50,10 +50,7 @@ use mithril_common::{
 use crate::{
     aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient},
     common::{CertificateVerifier, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier},
-    utils::{
-        DownloadProgressReporter, ProgressOutputType, ProgressPrinter, SnapshotUnpacker,
-        SnapshotUnpackerError,
-    },
+    utils::{ProgressOutputType, ProgressPrinter, SnapshotUnpacker, SnapshotUnpackerError},
 };
 
 /// [SnapshotService] related errors.
@@ -234,7 +231,7 @@ impl SnapshotService for MithrilClientSnapshotService {
     ) -> StdResult<PathBuf> {
         debug!("Snapshot service: download.");
 
-        let db_dir = download_dir.join("db");
+        let db_dir: PathBuf = download_dir.join("db");
         let progress_bar = ProgressPrinter::new(progress_output_type, 6);
         progress_bar.report_step(1, "Checking local disk info…")?;
         let unpacker = SnapshotUnpacker;
@@ -281,19 +278,19 @@ impl SnapshotService for MithrilClientSnapshotService {
             .unwrap()
             .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
             .progress_chars("#>-"));
-        self.snapshot_client
-            .download_unpack(
-                &snapshot_entity.artifact,
-                &db_dir,
-                DownloadProgressReporter::new(pb, progress_output_type),
-            )
-            .await
-            .with_context(|| {
-                format!(
-                    "Could not download file in directory '{}'",
-                    download_dir.display()
-                )
-            })?;
+        // self.snapshot_client
+        //     .download_unpack(
+        //         &snapshot_entity.artifact,
+        //         &db_dir,
+        //         DownloadProgressReporter::new(pb, progress_output_type),
+        //     )
+        //     .await
+        //     .with_context(|| {
+        //         format!(
+        //             "Could not download file in directory '{}'",
+        //             download_dir.display()
+        //         )
+        //     })?;
 
         // Append 'clean' file to speedup node bootstrap
         if let Err(error) = File::create(db_dir.join("clean")) {
