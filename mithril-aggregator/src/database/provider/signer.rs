@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, ConnectionWithFullMutex, Value};
+use sqlite::Value;
 use std::collections::HashMap;
 use std::iter::repeat;
 use std::sync::Arc;
@@ -8,7 +8,7 @@ use std::sync::Arc;
 use mithril_common::sqlite::{
     EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
-use mithril_common::StdResult;
+use mithril_common::{sqlite::SqliteConnection, StdResult};
 
 use crate::signer_registerer::SignerRecorder;
 
@@ -93,12 +93,12 @@ impl SqLiteEntity for SignerRecord {
 
 /// Simple [SignerRecord] provider.
 pub struct SignerRecordProvider<'client> {
-    client: &'client Connection,
+    client: &'client SqliteConnection,
 }
 
 impl<'client> SignerRecordProvider<'client> {
     /// Create a new provider
-    pub fn new(client: &'client Connection) -> Self {
+    pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
     }
 
@@ -129,7 +129,7 @@ impl<'client> SignerRecordProvider<'client> {
 impl<'client> Provider<'client> for SignerRecordProvider<'client> {
     type Entity = SignerRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.client
     }
 
@@ -142,12 +142,12 @@ impl<'client> Provider<'client> for SignerRecordProvider<'client> {
 
 /// Query to insert the signer record
 pub struct RegisterSignerRecordProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> RegisterSignerRecordProvider<'conn> {
     /// Create a new instance
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -184,7 +184,7 @@ impl<'conn> RegisterSignerRecordProvider<'conn> {
 impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
     type Entity = SignerRecord;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -203,12 +203,12 @@ impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
 
 /// Query to update the signer record
 pub struct ImportSignerRecordProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> ImportSignerRecordProvider<'conn> {
     /// Create a new instance
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -262,7 +262,7 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
 impl<'conn> Provider<'conn> for ImportSignerRecordProvider<'conn> {
     type Entity = SignerRecord;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -289,12 +289,12 @@ pub trait SignerGetter: Sync + Send {
 
 /// Service to deal with signer (read & write).
 pub struct SignerStore {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
 }
 
 impl SignerStore {
     /// Create a new SignerStore service
-    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
 
@@ -380,6 +380,7 @@ mod tests {
     use crate::database::provider::apply_all_migrations_to_db;
     use chrono::Duration;
     use mithril_common::StdResult;
+    use sqlite::Connection;
     use std::collections::BTreeMap;
 
     use super::*;
@@ -405,7 +406,7 @@ mod tests {
     }
 
     pub fn setup_signer_db(
-        connection: &Connection,
+        connection: &SqliteConnection,
         signer_records: Vec<SignerRecord>,
     ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
@@ -468,7 +469,7 @@ mod tests {
 
     #[test]
     fn get_signer_record_by_signer_id() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignerRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signer_id("signer-123".to_string())
@@ -482,7 +483,7 @@ mod tests {
     #[test]
     fn insert_signer_record() {
         let signer_record = fake_signer_records(1).first().unwrap().to_owned();
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = RegisterSignerRecordProvider::new(&connection);
         let condition = provider.get_register_condition(signer_record.clone());
         let (values, params) = condition.expand();
@@ -506,7 +507,7 @@ mod tests {
     #[test]
     fn update_signer_record() {
         let signer_records = fake_signer_records(2);
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = ImportSignerRecordProvider::new(&connection);
         let condition = provider.get_import_condition(signer_records.clone());
         let (values, params) = condition.expand();
@@ -536,7 +537,7 @@ mod tests {
     fn test_get_signer_records() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = SignerRecordProvider::new(&connection);
@@ -570,7 +571,7 @@ mod tests {
     fn test_insert_signer_record() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
         let provider = RegisterSignerRecordProvider::new(&connection);
@@ -591,7 +592,7 @@ mod tests {
     fn test_update_signer_record() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = ImportSignerRecordProvider::new(&connection);
@@ -614,7 +615,7 @@ mod tests {
         let mut signer_records_fake = fake_signer_records(5);
         signer_records_fake.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = ImportSignerRecordProvider::new(&connection);
@@ -635,7 +636,7 @@ mod tests {
     async fn test_get_all_signers() {
         let signer_records = fake_signer_records(5);
         let expected: Vec<_> = signer_records.iter().rev().cloned().collect();
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, signer_records).unwrap();
 
         let store = SignerStore::new(Arc::new(connection));
@@ -652,7 +653,7 @@ mod tests {
     async fn test_signer_recorder() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
         let connection = Arc::new(connection);
@@ -682,7 +683,7 @@ mod tests {
     async fn test_store_import_signer() {
         let signer_records_fake = fake_signer_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
 
         let connection = Arc::new(connection);
@@ -721,7 +722,7 @@ mod tests {
             .map(|r| (r.signer_id, r.pool_ticker))
             .collect();
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, Vec::new()).unwrap();
         let store = SignerStore::new(Arc::new(connection));
 

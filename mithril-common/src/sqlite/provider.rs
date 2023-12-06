@@ -79,21 +79,21 @@ mod tests {
         }
     }
 
-    struct TestEntityProvider {
-        connection: SqliteConnection,
+    struct TestEntityProvider<'conn> {
+        connection: &'conn SqliteConnection,
     }
 
-    impl TestEntityProvider {
-        pub fn new(connection: SqliteConnection) -> Self {
+    impl<'conn> TestEntityProvider<'conn> {
+        pub fn new(connection: &'conn SqliteConnection) -> Self {
             Self { connection }
         }
     }
 
-    impl<'conn> Provider<'conn> for TestEntityProvider {
+    impl<'conn> Provider<'conn> for TestEntityProvider<'conn> {
         type Entity = TestEntity;
 
         fn get_connection(&'conn self) -> &'conn SqliteConnection {
-            &self.connection
+            self.connection
         }
 
         fn get_definition(&self, condition: &str) -> String {
@@ -104,21 +104,21 @@ mod tests {
         }
     }
 
-    struct TestEntityUpdateProvider {
-        connection: SqliteConnection,
+    struct TestEntityUpdateProvider<'conn> {
+        connection: &'conn SqliteConnection,
     }
 
-    impl TestEntityUpdateProvider {
-        pub fn new(connection: SqliteConnection) -> Self {
+    impl<'conn> TestEntityUpdateProvider<'conn> {
+        pub fn new(connection: &'conn SqliteConnection) -> Self {
             Self { connection }
         }
     }
 
-    impl<'conn> Provider<'conn> for TestEntityUpdateProvider {
+    impl<'conn> Provider<'conn> for TestEntityUpdateProvider<'conn> {
         type Entity = TestEntity;
 
         fn get_connection(&'conn self) -> &'conn SqliteConnection {
-            &self.connection
+            self.connection
         }
 
         fn get_definition(&self, _condition: &str) -> String {
@@ -156,7 +156,8 @@ returning {projection}
 
     #[test]
     pub fn simple_test() {
-        let provider = TestEntityProvider::new(init_database());
+        let connection = init_database();
+        let provider = TestEntityProvider::new(&connection);
         let mut cursor = provider.find(WhereCondition::default()).unwrap();
         let entity = cursor
             .next()
@@ -188,7 +189,8 @@ returning {projection}
 
     #[test]
     pub fn test_condition() {
-        let provider = TestEntityProvider::new(init_database());
+        let connection = init_database();
+        let provider = TestEntityProvider::new(&connection);
         let mut cursor = provider
             .find(WhereCondition::new("maybe_null is not null", Vec::new()))
             .unwrap();
@@ -209,7 +211,8 @@ returning {projection}
 
     #[test]
     pub fn test_parameters() {
-        let provider = TestEntityProvider::new(init_database());
+        let connection = init_database();
+        let provider = TestEntityProvider::new(&connection);
         let mut cursor = provider
             .find(WhereCondition::new(
                 "text_data like ?",
@@ -232,7 +235,8 @@ returning {projection}
     }
     #[test]
     fn test_upsertion() {
-        let provider = TestEntityUpdateProvider::new(init_database());
+        let connection = init_database();
+        let provider = TestEntityUpdateProvider::new(&connection);
         let params = [
             Value::String("row 1".to_string()),
             Value::Float(1.234),

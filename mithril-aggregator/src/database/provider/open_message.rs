@@ -1,12 +1,15 @@
 use anyhow::Context;
 use mithril_common::{
     entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures},
-    sqlite::{HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition},
+    sqlite::{
+        HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
+        WhereCondition,
+    },
     StdResult,
 };
 
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, ConnectionWithFullMutex, Row, Value};
+use sqlite::{Row, Value};
 use std::sync::Arc;
 
 use uuid::Uuid;
@@ -156,11 +159,11 @@ impl SqLiteEntity for OpenMessageRecord {
 }
 
 struct OpenMessageProvider<'client> {
-    connection: &'client Connection,
+    connection: &'client SqliteConnection,
 }
 
 impl<'client> OpenMessageProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
+    pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -194,7 +197,7 @@ impl<'client> OpenMessageProvider<'client> {
 impl<'client> Provider<'client> for OpenMessageProvider<'client> {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.connection
     }
 
@@ -210,11 +213,11 @@ impl<'client> Provider<'client> for OpenMessageProvider<'client> {
 }
 
 struct InsertOpenMessageProvider<'client> {
-    connection: &'client Connection,
+    connection: &'client SqliteConnection,
 }
 
 impl<'client> InsertOpenMessageProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
+    pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -242,7 +245,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
 impl<'client> Provider<'client> for InsertOpenMessageProvider<'client> {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.connection
     }
 
@@ -255,10 +258,10 @@ impl<'client> Provider<'client> for InsertOpenMessageProvider<'client> {
 }
 
 struct UpdateOpenMessageProvider<'client> {
-    connection: &'client Connection,
+    connection: &'client SqliteConnection,
 }
 impl<'client> UpdateOpenMessageProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
+    pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -288,7 +291,7 @@ where open_message_id = ?*";
 impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.connection
     }
 
@@ -301,11 +304,11 @@ impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
 }
 
 struct DeleteOpenMessageProvider<'client> {
-    connection: &'client Connection,
+    connection: &'client SqliteConnection,
 }
 
 impl<'client> DeleteOpenMessageProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
+    pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -317,7 +320,7 @@ impl<'client> DeleteOpenMessageProvider<'client> {
 impl<'client> Provider<'client> for DeleteOpenMessageProvider<'client> {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.connection
     }
 
@@ -424,11 +427,11 @@ else json_group_array( \
 }
 
 struct OpenMessageWithSingleSignaturesProvider<'client> {
-    connection: &'client Connection,
+    connection: &'client SqliteConnection,
 }
 
 impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
+    pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -453,7 +456,7 @@ impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
 impl<'client> Provider<'client> for OpenMessageWithSingleSignaturesProvider<'client> {
     type Entity = OpenMessageWithSingleSignaturesRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.connection
     }
 
@@ -483,12 +486,12 @@ order by open_message.created_at desc, open_message.rowid desc
 /// This is a business oriented layer to perform actions on the database through
 /// providers.
 pub struct OpenMessageRepository {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
 }
 
 impl OpenMessageRepository {
     /// Instanciate service
-    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
 
@@ -564,6 +567,7 @@ impl OpenMessageRepository {
 #[cfg(test)]
 mod tests {
     use mithril_common::{entities::Beacon, sqlite::SourceAlias};
+    use sqlite::Connection;
 
     use crate::database::provider::{
         apply_all_migrations_to_db, disable_foreign_key_support, SingleSignatureRecord,
@@ -576,7 +580,7 @@ mod tests {
 
     use super::*;
 
-    async fn get_connection() -> Arc<ConnectionWithFullMutex> {
+    async fn get_connection() -> Arc<SqliteConnection> {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let connection = builder.get_sqlite_connection().await.unwrap();
@@ -592,7 +596,7 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
         connection
     }
 
-    fn insert_golden_open_message_with_signature(connection: &Connection) {
+    fn insert_golden_open_message_with_signature(connection: &SqliteConnection) {
         connection
             .execute(
                 r#"
@@ -624,7 +628,7 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         insert_golden_open_message_with_signature(&connection);
@@ -687,7 +691,7 @@ else json_group_array( \
 
     #[test]
     fn provider_epoch_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
         let (expr, params) = provider.get_epoch_condition(Epoch(12)).expand();
 
@@ -697,7 +701,7 @@ else json_group_array( \
 
     #[test]
     fn provider_message_type_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
         let beacon = Beacon {
             network: "whatever".to_string(),
@@ -726,7 +730,7 @@ else json_group_array( \
 
     #[test]
     fn provider_message_id_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
         let (expr, params) = provider
             .get_open_message_id_condition("cecd7983-8b3a-42b1-b778-6d75e87828ee")
@@ -743,7 +747,7 @@ else json_group_array( \
 
     #[test]
     fn insert_provider_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = InsertOpenMessageProvider::new(&connection);
         let epoch = Epoch(12);
         let (expr, params) = provider
@@ -776,7 +780,7 @@ else json_group_array( \
 
     #[test]
     fn update_provider_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = UpdateOpenMessageProvider::new(&connection);
         let open_message = OpenMessageRecord {
             open_message_id: Uuid::new_v4(),
@@ -811,7 +815,7 @@ else json_group_array( \
 
     #[test]
     fn delete_provider_epoch_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = DeleteOpenMessageProvider::new(&connection);
         let (expr, params) = provider.get_epoch_condition(Epoch(12)).expand();
 
@@ -947,7 +951,7 @@ else json_group_array( \
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_exist() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         let connection = Arc::new(connection);
@@ -986,7 +990,7 @@ else json_group_array( \
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_not_exist() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         let repository = OpenMessageRepository::new(Arc::new(connection));

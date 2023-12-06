@@ -200,21 +200,22 @@ mod test {
             },
             SignedEntityTypeDiscriminants,
         },
+        sqlite::SqliteConnection,
         StdResult,
     };
-    use sqlite::{Connection, ConnectionWithFullMutex};
+    use sqlite::Connection;
     use std::{collections::HashMap, sync::Arc};
 
     use super::CertificatesHashMigrator;
 
-    fn connection_with_foreign_key_support() -> ConnectionWithFullMutex {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+    fn connection_with_foreign_key_support() -> SqliteConnection {
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
 
         connection
     }
 
-    fn connection_without_foreign_key_support() -> ConnectionWithFullMutex {
+    fn connection_without_foreign_key_support() -> SqliteConnection {
         let connection = connection_with_foreign_key_support();
         disable_foreign_key_support(&connection).unwrap();
 
@@ -250,7 +251,7 @@ mod test {
     }
 
     async fn fill_certificates_and_signed_entities_in_db(
-        connection: Arc<ConnectionWithFullMutex>,
+        connection: Arc<SqliteConnection>,
         certificates_and_signed_entity: &[(Certificate, Option<SignedEntityTypeDiscriminants>)],
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let certificate_repository: CertificateRepository =
@@ -414,7 +415,7 @@ mod test {
     }
 
     async fn get_certificates_and_signed_entities(
-        connection: Arc<ConnectionWithFullMutex>,
+        connection: Arc<SqliteConnection>,
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let mut result = vec![];
         let certificate_repository: CertificateRepository =
@@ -441,7 +442,7 @@ mod test {
     }
 
     async fn run_migration_test(
-        sqlite_connection: Arc<ConnectionWithFullMutex>,
+        sqlite_connection: Arc<SqliteConnection>,
         certificates_and_signed_entity: Vec<(Certificate, Option<SignedEntityTypeDiscriminants>)>,
     ) {
         // Arrange

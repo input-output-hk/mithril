@@ -180,9 +180,10 @@ impl SPOItem {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::sqlite::SqliteConnection;
     use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
-    use sqlite::{Connection, ConnectionWithFullMutex};
+    use sqlite::Connection;
     use std::collections::{BTreeMap, BTreeSet};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -218,8 +219,8 @@ mod tests {
         }
     }
 
-    fn connection_without_foreign_key_support() -> ConnectionWithFullMutex {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+    fn connection_without_foreign_key_support() -> SqliteConnection {
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
 
@@ -227,7 +228,7 @@ mod tests {
     }
 
     async fn fill_signer_db(
-        connection: Arc<ConnectionWithFullMutex>,
+        connection: Arc<SqliteConnection>,
         test_signers: &[TestSigner],
     ) -> StdResult<()> {
         let store = SignerStore::new(connection);
@@ -241,9 +242,7 @@ mod tests {
         Ok(())
     }
 
-    async fn get_all_signers(
-        connection: Arc<ConnectionWithFullMutex>,
-    ) -> StdResult<BTreeSet<TestSigner>> {
+    async fn get_all_signers(connection: Arc<SqliteConnection>) -> StdResult<BTreeSet<TestSigner>> {
         let store = SignerStore::new(connection);
 
         let signers = store

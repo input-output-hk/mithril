@@ -243,7 +243,7 @@ mod tests {
         Arc<ProtocolGenesisVerifier>,
         Arc<dyn CertificateVerifier>,
     ) {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(

@@ -1,9 +1,9 @@
 use anyhow::Context;
 use chrono::Utc;
-use mithril_common::test_utils::fake_keys;
-use mithril_common::{entities::Epoch, StdResult};
-use sqlite::{Connection, Value};
+use sqlite::Value;
 use uuid::Uuid;
+
+use mithril_common::{entities::Epoch, sqlite::SqliteConnection, test_utils::fake_keys, StdResult};
 
 use crate::database::{migration::get_migrations, provider::UpdateSingleSignatureRecordProvider};
 
@@ -36,14 +36,14 @@ pub fn setup_single_signature_records(
     single_signature_records
 }
 
-pub fn disable_foreign_key_support(connection: &Connection) -> StdResult<()> {
+pub fn disable_foreign_key_support(connection: &SqliteConnection) -> StdResult<()> {
     connection
         .execute("pragma foreign_keys=false")
         .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
     Ok(())
 }
 
-pub fn apply_all_migrations_to_db(connection: &Connection) -> StdResult<()> {
+pub fn apply_all_migrations_to_db(connection: &SqliteConnection) -> StdResult<()> {
     for migration in get_migrations() {
         connection.execute(&migration.alterations)?;
     }
@@ -52,7 +52,7 @@ pub fn apply_all_migrations_to_db(connection: &Connection) -> StdResult<()> {
 }
 
 pub fn insert_single_signatures_in_db(
-    connection: &Connection,
+    connection: &SqliteConnection,
     single_signature_records: Vec<SingleSignatureRecord>,
 ) -> StdResult<()> {
     if single_signature_records.is_empty() {
