@@ -1,15 +1,34 @@
+use anyhow::{anyhow, Context};
+use clap::Parser;
+use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use slog_scope::logger;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-use anyhow::Context;
-use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_client::{Client, ClientBuilder, MessageBuilder};
+use mithril_client_cli::dependencies::ConfigParameters;
 use mithril_common::StdResult;
 
-use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
+async fn expand_eventual_artifact_hash_alias(client: &Client, hash: &str) -> StdResult<String> {
+    if hash.to_lowercase() == "latest" {
+        let last_mithril_stake_distribution = client.mithril_stake_distribution().list().await.with_context(|| {
+            "Can not get the list of artifacts while retrieving the latest stake distribution hash"
+        })?;
+        let last_mithril_stake_distribution =
+            last_mithril_stake_distribution.first().ok_or_else(|| {
+                anyhow!(
+                    "Mithril stake distribution '{}' not found",
+                    hash.to_string()
+                )
+            })?;
+        Ok(last_mithril_stake_distribution.hash.to_owned())
+    } else {
+        Ok(hash.to_owned())
+    }
+}
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
@@ -41,27 +60,57 @@ impl MithrilStakeDistributionDownloadCommand {
         let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let mut dependencies_builder = DependenciesBuilder::new(params.clone());
-        let service = dependencies_builder
-            .get_mithril_stake_distribution_service()
-            .await
-            .with_context(|| {
-                "Dependencies Builder can not get Mithril Stake Distribution Service"
-            })?;
+        let aggregator_endpoint = &params.require("aggregator_endpoint")?;
+        let genesis_verification_key = &params.require("genesis_verification_key")?;
+        let download_dir = &params.require("download_dir")?;
+        let download_dir = Path::new(download_dir);
+        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
+            .with_logger(logger())
+            .build()?;
 
-        let filepath = service
-            .download(
-                &self.artifact_hash,
-                Path::new(&params.require("download_dir")?),
-                &params.require("genesis_verification_key")?,
-            )
-            .await
-            .with_context(|| {
-                format!(
-                    "Mithril Stake Distribution Service can not download and verify the artifact for hash: '{}'",
-                    self.artifact_hash
+        let mithril_stake_distribution = client
+            .mithril_stake_distribution()
+            .get(&expand_eventual_artifact_hash_alias(&client, &self.artifact_hash).await?)
+            .await?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Mithril stake distribution not found for hash: '{}'",
+                    &self.artifact_hash
                 )
             })?;
+
+        let certificate = client
+            .certificate()
+            .verify_chain(&mithril_stake_distribution.certificate_hash)
+            .await?;
+
+        let message = MessageBuilder::new()
+            .compute_mithril_stake_distribution_message(&mithril_stake_distribution)?;
+
+        if !certificate.match_message(&message) {
+            return Err(anyhow::anyhow!(
+                    "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
+                    certificate.signed_message,
+                    message.compute_hash()
+                ));
+        }
+
+        if !download_dir.is_dir() {
+            std::fs::create_dir_all(download_dir)?;
+        }
+        let filepath = PathBuf::new().join(download_dir).join(format!(
+            "mithril_stake_distribution-{}.json",
+            mithril_stake_distribution.hash
+        ));
+        std::fs::write(
+            &filepath,
+            serde_json::to_string(&mithril_stake_distribution).with_context(|| {
+                format!(
+                    "Can not serialize stake distribution artifact '{:?}'",
+                    mithril_stake_distribution
+                )
+            })?,
+        )?;
 
         println!(
             "Mithril Stake Distribution '{}' has been verified and saved as '{}'.",

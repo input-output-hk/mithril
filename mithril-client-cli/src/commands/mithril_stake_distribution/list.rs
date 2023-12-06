@@ -1,12 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
-
-use anyhow::Context;
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::StdResult;
+use slog_scope::logger;
+use std::{collections::HashMap, sync::Arc};
 
-use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
+use mithril_client::ClientBuilder;
+use mithril_client_cli::dependencies::ConfigParameters;
+use mithril_common::StdResult;
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]
@@ -23,16 +23,12 @@ impl MithrilStakeDistributionListCommand {
         let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let mut dependencies_builder = DependenciesBuilder::new(params);
-        let service = dependencies_builder
-            .get_mithril_stake_distribution_service()
-            .await
-            .with_context(|| {
-                "Dependencies Builder can not get Mithril Stake Distribution Service"
-            })?;
-        let lines = service.list().await.with_context(|| {
-            "Mithril Stake Distribution Service can not get the list of artifacts"
-        })?;
+        let aggregator_endpoint = &params.require("aggregator_endpoint")?;
+        let genesis_verification_key = &params.require("genesis_verification_key")?;
+        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
+            .with_logger(logger())
+            .build()?;
+        let lines = client.mithril_stake_distribution().list().await?;
 
         if self.json {
             println!("{}", serde_json::to_string(&lines)?);
