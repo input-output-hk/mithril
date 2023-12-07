@@ -4,8 +4,11 @@ use clap::Parser;
 use hex::ToHex;
 use mithril_common::crypto_helper::key_encode_hex;
 use poc_utxo_reader::{
-    entities::ImmutableFileNumber, errors::*, immutable_parser::*, ledger::Ledger,
-    merkle_tree::MKTree,
+    entities::ImmutableFileNumber,
+    errors::*,
+    immutable_parser::*,
+    ledger::Ledger,
+    merkle_tree::{MKTree, MKTreeNode},
 };
 use rayon::prelude::*;
 use sqlite::Connection;
@@ -17,7 +20,7 @@ use std::{
 /// Configuration parameters
 #[derive(Parser, Debug, PartialEq, Clone)]
 #[clap(
-    about = "This program imports transactions from immutable files and queries the associated UTxOs.",
+    about = "This program imports, queries and certifies transactions from immutable files and the associated UTxOs.",
     long_about = None
 )]
 pub struct Config {
@@ -59,8 +62,10 @@ fn main() -> StdResult<()> {
 
     match config.command.as_str() {
         "import" => run_import_command(&config)?,
-        "query" => run_query_command(&config)?,
-        "certify" => run_certify_command(&config)?,
+        "query-utxo" => run_query_utxo_command(&config)?,
+        "certify-utxo" => run_certify_utxo_command(&config)?,
+        "query-tx" => run_query_tx_command(&config)?,
+        "certify-tx" => run_certify_tx_command(&config)?,
         _ => unimplemented!(),
     }
 
@@ -100,8 +105,8 @@ fn run_import_command(config: &Config) -> StdResult<()> {
     Ok(())
 }
 
-/// Run query command
-fn run_query_command(config: &Config) -> StdResult<()> {
+/// Run query UTxO command
+fn run_query_utxo_command(config: &Config) -> StdResult<()> {
     let db_path = config.db_path.to_owned();
     let connection = Connection::open(db_path)?;
     let ledger = Ledger::new(connection)?;
@@ -129,8 +134,8 @@ fn run_query_command(config: &Config) -> StdResult<()> {
     Ok(())
 }
 
-/// Run certify command
-fn run_certify_command(config: &Config) -> StdResult<()> {
+/// Run certify UTxO command
+fn run_certify_utxo_command(config: &Config) -> StdResult<()> {
     let db_path = config.db_path.to_owned();
     let connection = Connection::open(db_path)?;
     let ledger = Ledger::new(connection)?;
@@ -178,6 +183,88 @@ fn run_certify_command(config: &Config) -> StdResult<()> {
         proof.verify()?;
         println!(">>>>>> Congrats, the Merkle proof is valid!");
         println!(">> Congrats, all UTxOs of address {address} are valid!");
+    }
+
+    Ok(())
+}
+
+/// Run query transactions command
+fn run_query_tx_command(config: &Config) -> StdResult<()> {
+    let db_path = config.db_path.to_owned();
+    let connection = Connection::open(db_path)?;
+    let ledger = Ledger::new(connection)?;
+
+    let max_immutable_file_number_query = (u32::MAX - 1) as usize;
+    let immutable_file_number_query = config
+        .immutable_file_number_query
+        .unwrap_or(max_immutable_file_number_query);
+    if let Some(address) = config.address.to_owned() {
+        println!(
+            "{}",
+            serde_json::to_string(
+                &ledger.get_txs_for_address(&address, &immutable_file_number_query)?
+            )?
+        );
+    } else {
+        println!(
+            "{}",
+            serde_json::to_string(
+                &ledger.get_txs_for_all_addresses(&immutable_file_number_query)?
+            )?
+        );
+    }
+
+    Ok(())
+}
+
+/// Run certify transactions command
+fn run_certify_tx_command(config: &Config) -> StdResult<()> {
+    let db_path = config.db_path.to_owned();
+    let connection = Connection::open(db_path)?;
+    let ledger = Ledger::new(connection)?;
+
+    let max_immutable_file_number_query = (u32::MAX - 1) as usize;
+    let immutable_file_number_query = config
+        .immutable_file_number_query
+        .unwrap_or(max_immutable_file_number_query);
+
+    println!(">> Retrieving all the transactions from the database...");
+    let all_txs = ledger
+        .get_txs_for_all_addresses(&immutable_file_number_query)?
+        .into_iter()
+        .map(|tx| MKTreeNode::new(tx.as_bytes().to_vec()))
+        .collect::<Vec<_>>();
+    println!(">> Retrieved all {} transactions", all_txs.len());
+    println!(" ");
+
+    println!(">> Creating the Merkle tree...");
+    let store = MemStore::default();
+    let mktree = MKTree::new(&all_txs, &store)?;
+    let mktree_root = mktree.compute_root()?.encode_hex::<String>();
+    let mktree_total_leaves = mktree.total_leaves();
+    println!(">> Created a Merkle tree with {mktree_total_leaves} leaves and root {mktree_root}");
+    println!(" ");
+
+    if let Some(address) = config.address.to_owned() {
+        println!(">> Verifying transactions of address {address}...");
+        let address_txs = ledger.get_txs_for_address(&address, &immutable_file_number_query)?;
+        if address_txs.is_empty() {
+            return Err(anyhow!("No transaction exist for this address..."));
+        }
+        println!(">>>> Create Merkle proof for transactions {address_txs:#?}");
+        let proof = mktree.compute_proof(
+            address_txs
+                .into_iter()
+                .map(|tx| MKTreeNode::new(tx.as_bytes().to_vec()))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )?;
+        println!(">>>>>> Serialized Merkle proof is:");
+        let proof_serialized = key_encode_hex(&proof)?;
+        println!("{proof_serialized}");
+        proof.verify()?;
+        println!(">>>>>> Congrats, the Merkle proof is valid!");
+        println!(">> Congrats, all transactions of address {address} are valid!");
     }
 
     Ok(())

@@ -217,7 +217,7 @@ CREATE TABLE IF NOT EXISTS tx_in (
         Ok(())
     }
 
-    /// Get all addresses transaction history
+    /// Get all addresses UTxOs history
     pub fn get_utxos_for_all_addresses(
         &self,
         immutable_file_number: &ImmutableFileNumber,
@@ -267,7 +267,7 @@ ORDER BY tx_out.rowid;
         Ok(utxos_by_address)
     }
 
-    /// Get transaction history for an address
+    /// Get transaction UTxOs for an address
     pub fn get_utxos_for_address(
         &self,
         address: &Address,
@@ -308,6 +308,59 @@ ORDER BY tx_out.rowid;
                     .read::<Option<&str>, _>("data_hash")
                     .map(|s| s.to_string()),
             })
+            .collect())
+    }
+
+    /// Get all transactions
+    pub fn get_txs_for_all_addresses(
+        &self,
+        immutable_file_number: &ImmutableFileNumber,
+    ) -> StdResult<Vec<TransactionHash>> {
+        let query = r#"
+SELECT DISTINCT tx.hash AS tx_hash
+FROM tx
+    INNER JOIN block ON tx.block_number = block.number
+WHERE block.immutable_file_number <= ?1
+ORDER BY tx.rowid;        
+        "#;
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[(1, Value::Integer(*immutable_file_number as i64))])?;
+
+        let txs: Vec<_> = statement
+            .into_iter()
+            .map(|row| row.unwrap())
+            .map(|row| row.read::<&str, _>("tx_hash").to_string())
+            .collect();
+
+        Ok(txs)
+    }
+
+    /// Get transactions for an address
+    pub fn get_txs_for_address(
+        &self,
+        address: &Address,
+        immutable_file_number: &ImmutableFileNumber,
+    ) -> StdResult<Vec<TransactionHash>> {
+        let query = r#"
+SELECT DISTINCT tx_out.address,
+    tx.hash AS tx_hash
+FROM tx_out
+    INNER JOIN tx ON tx.hash = tx_out.tx_hash
+    INNER JOIN block AS block_out ON tx.block_number = block_out.number
+WHERE block_out.immutable_file_number <= ?1
+    AND tx_out.address = ?2
+ORDER BY tx_out.rowid;        
+        "#;
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[
+            (1, Value::Integer(*immutable_file_number as i64)),
+            (2, Value::String(address.to_owned())),
+        ])?;
+
+        Ok(statement
+            .into_iter()
+            .map(|row| row.unwrap())
+            .map(|row| row.read::<&str, _>("tx_hash").to_string())
             .collect())
     }
 
