@@ -161,8 +161,8 @@ impl FeedbackSender {
 }
 
 /// A receiver of [MithrilEvent].
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait FeedbackReceiver: Sync + Send {
     /// Callback called by a [FeedbackSender] when it needs to send an [event][MithrilEvent].
     async fn handle_event(&self, event: MithrilEvent);
@@ -180,8 +180,8 @@ impl SlogFeedbackReceiver {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl FeedbackReceiver for SlogFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         match event {
@@ -277,8 +277,8 @@ impl Default for StackFeedbackReceiver {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl FeedbackReceiver for StackFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         let mut events = self.stacked_events.write().unwrap();

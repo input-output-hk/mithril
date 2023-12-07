@@ -15,8 +15,8 @@ pub struct CertificateRetrieverError(#[source] pub StdError);
 
 /// CertificateRetriever is in charge of retrieving a [Certificate] given its hash
 #[cfg_attr(test, automock)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait CertificateRetriever: Sync + Send {
     /// Get [Certificate] details
     async fn get_certificate_details(
