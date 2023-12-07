@@ -6,22 +6,18 @@ let genesis_verification_key =
   "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
 
 const broadcast_channel = new BroadcastChannel("mithril-client");
-broadcast_channel.onmessage = (event) => {
-  objectToString(event.data ?? event, '')
-};
-
-function objectToString(obj, stack) {
-  for (var property in obj) {
-    if (obj.hasOwnProperty(property)) {
-      if (typeof obj[property] == "object") {
-        objectToString(obj[property], stack + '.' + property);
-      } else {
-        console.log(property + ": " + obj[property]);
-        document.body.appendChild(document.createElement('div')).innerHTML = "<b>" + property + "</b>: " + obj[property];
-      }
-    }
+broadcast_channel.onmessage = (e) => {
+  let event = e.data;
+  if (event.type == "CertificateChainValidationStarted") {
+    console.log("The certificate chain validation has started");
+  } else if (event.type == "CertificateValidated") {
+    console.log("A certificate has been validated, certificate_hash: " + event.payload.certificate_hash);
+  } else if (event.type == "CertificateChainValidated") {
+    console.log("The certificate chain is valid");
+  } else {
+    console.log(event);
   }
-}
+};
 
 let client = await new MithrilClient(
   aggregator_endpoint,

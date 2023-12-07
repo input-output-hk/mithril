@@ -3301,6 +3301,7 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
+ "strum",
  "tar",
  "thiserror",
  "tokio",

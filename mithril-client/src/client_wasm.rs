@@ -5,6 +5,7 @@ use super::{
 };
 use async_trait::async_trait;
 use mithril_common::messages::CertificateMessage;
+use serde::Serialize;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
@@ -25,9 +26,27 @@ impl JSBroadcastChannelFeedbackReceiver {
 #[async_trait(?Send)]
 impl FeedbackReceiver for JSBroadcastChannelFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
+        let event = MithrilEventWasm::from(event);
         let _ = web_sys::BroadcastChannel::new(&self.channel)
             .unwrap()
             .post_message(&serde_wasm_bindgen::to_value(&event).unwrap());
+    }
+}
+
+#[derive(Serialize)]
+struct MithrilEventWasm {
+    #[serde(rename = "type")]
+    event_type: String,
+    #[serde(rename = "payload")]
+    event_data: MithrilEvent,
+}
+
+impl From<MithrilEvent> for MithrilEventWasm {
+    fn from(event: MithrilEvent) -> Self {
+        Self {
+            event_type: event.to_string(),
+            event_data: event,
+        }
     }
 }
 

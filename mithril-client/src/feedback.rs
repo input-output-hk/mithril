@@ -55,10 +55,13 @@ use async_trait::async_trait;
 use serde::Serialize;
 use slog::{info, Logger};
 use std::sync::{Arc, RwLock};
+use strum::Display;
 use uuid::Uuid;
 
 /// Event that can be reported by a [FeedbackReceiver].
-#[derive(Debug, Clone, Eq, PartialEq, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Display, Serialize)]
+#[strum(serialize_all = "PascalCase")]
+#[serde(untagged)]
 pub enum MithrilEvent {
     /// A snapshot download has started
     SnapshotDownloadStarted {
