@@ -9,6 +9,7 @@ members = [
   "mithril-aggregator",
   "mithril-client",
   "mithril-client-cli",
+  "mithril-client-wasm",
   "mithril-common",
   "mithril-relay",
   "mithril-signer",
