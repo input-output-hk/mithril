@@ -3305,7 +3305,6 @@ dependencies = [
  "reqwest",
  "semver",
  "serde",
- "serde-wasm-bindgen",
  "serde_json",
  "slog",
  "slog-async",
@@ -3317,9 +3316,6 @@ dependencies = [
  "tokio",
  "uuid",
  "warp",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
  "zstd",
 ]
 
