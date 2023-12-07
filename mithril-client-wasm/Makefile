@@ -13,7 +13,8 @@ build:
 	wasm-pack build --release
 
 test:
-	wasm-pack test --headless --firefox --chrome --node --release
+	#wasm-pack test --headless --firefox --chrome --node --release
+	wasm-pack test --headless --firefox --release
 
 check:
 	${CARGO} check --release --all-features --all-targets

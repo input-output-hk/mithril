@@ -51,7 +51,7 @@ impl From<MithrilEvent> for MithrilEventWasm {
 }
 
 #[cfg_attr(target_family = "wasm", wasm_bindgen(js_name = MithrilClient))]
-struct MithrilClient {
+pub struct MithrilClient {
     client: Client,
 }
 
@@ -187,5 +187,25 @@ impl MithrilClient {
             .map_err(|err| format!("{err:?}"))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+    #[wasm_bindgen_test]
+    async fn certificate_get_list() {
+        let wasm_client = MithrilClient::new(
+        "https://aggregator.testing-preview.api.mithril.network/aggregator",
+        "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d",
+    ).await;
+
+        let list = wasm_client
+            .list_mithril_stake_distributions()
+            .await
+            .expect("should not fail");
     }
 }
