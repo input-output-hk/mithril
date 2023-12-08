@@ -18,7 +18,7 @@ members = [
 ]
 
 [workspace.package]
-authors = ["dev@iohk.io"]
+authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
 homepage = "https://mithril.network"
