@@ -2,19 +2,20 @@ use anyhow::anyhow;
 use ckb_merkle_mountain_range::util::MemStore;
 use clap::Parser;
 use hex::ToHex;
-use mithril_common::crypto_helper::key_encode_hex;
+use mithril_common::crypto_helper::{key_decode_hex, key_encode_hex};
 use poc_utxo_reader::{
     entities::ImmutableFileNumber,
     errors::*,
     immutable_parser::*,
     ledger::Ledger,
-    merkle_tree::{MKTree, MKTreeNode},
+    merkle_tree::{MKProof, MKTree, MKTreeNode},
 };
 use rayon::prelude::*;
 use sqlite::Connection;
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
+    time::Instant,
 };
 
 /// Configuration parameters
@@ -146,30 +147,39 @@ fn run_certify_utxo_command(config: &Config) -> StdResult<()> {
         .unwrap_or(max_immutable_file_number_query);
 
     println!(">> Retrieving all the UTxOs from the database...");
+    let start = Instant::now();
     let all_utxos = ledger
         .get_utxos_for_all_addresses(&immutable_file_number_query)?
         .into_values()
         .flatten()
         .map(|utxo| utxo.into())
         .collect::<Vec<_>>();
-    println!(">> Retrieved all {} UTxOs", all_utxos.len());
+    let duration = start.elapsed();
+    println!(">> Retrieved all {} UTxOs in {duration:?}", all_utxos.len());
     println!(" ");
 
     println!(">> Creating the Merkle tree...");
+    let start = Instant::now();
     let store = MemStore::default();
     let mktree = MKTree::new(&all_utxos, &store)?;
     let mktree_root = mktree.compute_root()?.encode_hex::<String>();
     let mktree_total_leaves = mktree.total_leaves();
-    println!(">> Created a Merkle tree with {mktree_total_leaves} leaves and root {mktree_root}");
+    let duration = start.elapsed();
+    println!(">> Created a Merkle tree with {mktree_total_leaves} leaves and root {mktree_root} in {duration:?}");
     println!(" ");
 
     if let Some(address) = config.address.to_owned() {
-        println!(">> Verifying UTxOs of address {address}...");
+        println!(">> Retrieving UTxOs of address {address}...");
+        let start = Instant::now();
         let address_utxos = ledger.get_utxos_for_address(&address, &immutable_file_number_query)?;
         if address_utxos.is_empty() {
             return Err(anyhow!("No UTxO exist for this address..."));
         }
-        println!(">>>> Create Merkle proof for UTxOs {address_utxos:#?}");
+        let duration = start.elapsed();
+        println!(">> Retrieved UTxOs of address {address} in {duration:?}");
+
+        println!(">>>> Creating Merkle proof for UTxOs {address_utxos:#?}...");
+        let start = Instant::now();
         let proof = mktree.compute_proof(
             address_utxos
                 .into_iter()
@@ -177,11 +187,17 @@ fn run_certify_utxo_command(config: &Config) -> StdResult<()> {
                 .collect::<Vec<_>>()
                 .as_slice(),
         )?;
-        println!(">>>>>> Serialized Merkle proof is:");
-        let proof_serialized = key_encode_hex(&proof)?;
+        let duration = start.elapsed();
+        println!(">>>>>> Created Merkle proof in {duration:?}:");
+        let proof_serialized = key_encode_hex(proof)?;
         println!("{proof_serialized}");
-        proof.verify()?;
-        println!(">>>>>> Congrats, the Merkle proof is valid!");
+
+        println!(">>>> Verifying Merkle proof...");
+        let start = Instant::now();
+        let proof_deserialized: MKProof = key_decode_hex(&proof_serialized)?;
+        proof_deserialized.verify()?;
+        let duration = start.elapsed();
+        println!(">>>>>> Verified the Merkle proof in {duration:?}");
         println!(">> Congrats, all UTxOs of address {address} are valid!");
     }
 
@@ -229,29 +245,41 @@ fn run_certify_tx_command(config: &Config) -> StdResult<()> {
         .unwrap_or(max_immutable_file_number_query);
 
     println!(">> Retrieving all the transactions from the database...");
+    let start = Instant::now();
     let all_txs = ledger
         .get_txs_for_all_addresses(&immutable_file_number_query)?
         .into_iter()
         .map(|tx| MKTreeNode::new(tx.as_bytes().to_vec()))
         .collect::<Vec<_>>();
-    println!(">> Retrieved all {} transactions", all_txs.len());
+    let duration = start.elapsed();
+    println!(
+        ">> Retrieved all {} transactions in {duration:?}",
+        all_txs.len()
+    );
     println!(" ");
 
     println!(">> Creating the Merkle tree...");
+    let start = Instant::now();
     let store = MemStore::default();
     let mktree = MKTree::new(&all_txs, &store)?;
     let mktree_root = mktree.compute_root()?.encode_hex::<String>();
     let mktree_total_leaves = mktree.total_leaves();
-    println!(">> Created a Merkle tree with {mktree_total_leaves} leaves and root {mktree_root}");
+    let duration = start.elapsed();
+    println!(">> Created a Merkle tree with {mktree_total_leaves} leaves and root {mktree_root} in {duration:?}");
     println!(" ");
 
     if let Some(address) = config.address.to_owned() {
-        println!(">> Verifying transactions of address {address}...");
+        println!(">> Retrieving transactions of address {address}...");
+        let start = Instant::now();
         let address_txs = ledger.get_txs_for_address(&address, &immutable_file_number_query)?;
         if address_txs.is_empty() {
             return Err(anyhow!("No transaction exist for this address..."));
         }
-        println!(">>>> Create Merkle proof for transactions {address_txs:#?}");
+        let duration = start.elapsed();
+        println!(">> Retrieved transactions of address {address} in {duration:?}");
+
+        println!(">>>> Creating Merkle proof for transactions {address_txs:#?}");
+        let start = Instant::now();
         let proof = mktree.compute_proof(
             address_txs
                 .into_iter()
@@ -259,11 +287,17 @@ fn run_certify_tx_command(config: &Config) -> StdResult<()> {
                 .collect::<Vec<_>>()
                 .as_slice(),
         )?;
-        println!(">>>>>> Serialized Merkle proof is:");
-        let proof_serialized = key_encode_hex(&proof)?;
+        let duration = start.elapsed();
+        println!(">>>>>> Created Merkle proof in {duration:?}:");
+        let proof_serialized = key_encode_hex(proof)?;
         println!("{proof_serialized}");
-        proof.verify()?;
-        println!(">>>>>> Congrats, the Merkle proof is valid!");
+
+        println!(">>>> Verifying Merkle proof...");
+        let start = Instant::now();
+        let proof_deserialized: MKProof = key_decode_hex(&proof_serialized)?;
+        proof_deserialized.verify()?;
+        let duration = start.elapsed();
+        println!(">>>>>> Verified the Merkle proof in {duration:?}");
         println!(">> Congrats, all transactions of address {address} are valid!");
     }
 
