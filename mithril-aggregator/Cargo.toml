@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.4.18"
+version = "0.4.19"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -34,7 +34,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
-sqlite = { version = "0.31.1", features = ["bundled"] }
+sqlite = { version = "0.32.0", features = ["bundled"] }
 tar = "0.4.40"
 thiserror = "1.0.49"
 tokio = { version = "1.32.0", features = ["full"] }

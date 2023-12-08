@@ -16,15 +16,18 @@ pub use projection::{Projection, ProjectionField};
 pub use provider::Provider;
 pub use source_alias::SourceAlias;
 
-use sqlite::ConnectionWithFullMutex;
-use std::sync::Arc;
+use sqlite::ConnectionThreadSafe;
 
 use crate::StdResult;
 
+/// Type of the connection used in Mithril
+pub type SqliteConnection = ConnectionThreadSafe;
+
 /// Do a [vacuum](https://www.sqlite.org/lang_vacuum.html) on the given connection, this will
 /// reconstruct the database file, repacking it into a minimal amount of disk space.
-pub async fn vacuum_database(connection: Arc<ConnectionWithFullMutex>) -> StdResult<()> {
+pub async fn vacuum_database(connection: &SqliteConnection) -> StdResult<()> {
     connection.execute("vacuum")?;
+
     Ok(())
 }
 
@@ -32,20 +35,19 @@ pub async fn vacuum_database(connection: Arc<ConnectionWithFullMutex>) -> StdRes
 mod test {
     use crate::sqlite::vacuum_database;
     use sqlite::Connection;
-    use std::sync::Arc;
 
     #[tokio::test]
     async fn calling_vacuum_on_an_empty_in_memory_db_should_not_fail() {
-        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
 
-        vacuum_database(connection)
+        vacuum_database(&connection)
             .await
             .expect("Vacuum should not fail");
     }
 
     #[test]
     fn sqlite_version_should_be_3_42_or_more() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let mut statement = connection.prepare("select sqlite_version()").unwrap();
         let cursor = statement.iter().next().unwrap().unwrap();
         let db_version = cursor.read::<&str, _>(0);

@@ -1,7 +1,7 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, ConnectionWithFullMutex, Value};
+use sqlite::Value;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::{
@@ -12,7 +12,7 @@ use mithril_common::{
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        WhereCondition,
+        SqliteConnection, WhereCondition,
     },
     store::adapter::AdapterError,
     StdResult,
@@ -189,12 +189,12 @@ impl SqLiteEntity for SignerRegistrationRecord {
 
 /// Simple [SignerRegistrationRecord] provider.
 pub struct SignerRegistrationRecordProvider<'client> {
-    client: &'client Connection,
+    client: &'client SqliteConnection,
 }
 
 impl<'client> SignerRegistrationRecordProvider<'client> {
     /// Create a new provider
-    pub fn new(client: &'client Connection) -> Self {
+    pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
     }
 
@@ -248,7 +248,7 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
 impl<'client> Provider<'client> for SignerRegistrationRecordProvider<'client> {
     type Entity = SignerRegistrationRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.client
     }
 
@@ -261,12 +261,12 @@ impl<'client> Provider<'client> for SignerRegistrationRecordProvider<'client> {
 
 /// Query to insert or replace a signer_registration record
 pub struct InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     /// Create a new instance
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -322,7 +322,7 @@ impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
 impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     type Entity = SignerRegistrationRecord;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -340,13 +340,13 @@ impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<
 
 /// Provider to remove old data from the signer_registration table
 pub struct DeleteSignerRegistrationRecordProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> Provider<'conn> for DeleteSignerRegistrationRecordProvider<'conn> {
     type Entity = SignerRegistrationRecord;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -364,7 +364,7 @@ impl<'conn> Provider<'conn> for DeleteSignerRegistrationRecordProvider<'conn> {
 
 impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
     /// Create a new instance
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -402,12 +402,12 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
 
 /// Service to deal with signer_registration (read & write).
 pub struct SignerRegistrationStore {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
 }
 
 impl SignerRegistrationStore {
     /// Create a new [SignerRegistrationStore] service
-    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
 }
@@ -495,6 +495,7 @@ mod tests {
     use std::collections::HashMap;
 
     use mithril_common::test_utils::MithrilFixtureBuilder;
+    use sqlite::Connection;
 
     use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
     use crate::store::test_verification_key_storer;
@@ -502,7 +503,7 @@ mod tests {
     use super::*;
 
     pub fn setup_signer_registration_db(
-        connection: &Connection,
+        connection: &SqliteConnection,
         signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)>,
     ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
@@ -584,7 +585,7 @@ mod tests {
         Ok(())
     }
 
-    fn insert_golden_signer_registration(connection: &Connection) {
+    fn insert_golden_signer_registration(connection: &SqliteConnection) {
         connection
             .execute(
                 r#"
@@ -606,7 +607,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         insert_golden_signer_registration(&connection);
@@ -652,7 +653,7 @@ mod tests {
 
     #[test]
     fn get_signer_registration_record_by_epoch() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignerRegistrationRecordProvider::new(&connection);
         let condition = provider.condition_by_epoch(&Epoch(17)).unwrap();
         let (filter, values) = condition.expand();
@@ -663,7 +664,7 @@ mod tests {
 
     #[test]
     fn get_signer_registration_record_by_signer_id() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignerRegistrationRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signer_id("signer-123".to_string())
@@ -682,7 +683,7 @@ mod tests {
             signer_with_stakes.first().unwrap().to_owned(),
             Epoch(1),
         );
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&connection);
         let condition =
             provider.get_insert_or_replace_condition(signer_registration_record.clone());
@@ -715,7 +716,7 @@ mod tests {
 
     #[test]
     fn delete() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = DeleteSignerRegistrationRecordProvider::new(&connection);
         let condition = provider.get_delete_condition_by_epoch(Epoch(5));
         let (condition, params) = condition.expand();
@@ -726,7 +727,7 @@ mod tests {
 
     #[test]
     fn prune() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = DeleteSignerRegistrationRecordProvider::new(&connection);
         let condition = provider.get_prune_condition(Epoch(5));
         let (condition, params) = condition.expand();
@@ -743,7 +744,7 @@ mod tests {
             .map(|e| (Epoch(e), signer_with_stakes.clone()))
             .collect();
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_registration_db(&connection, signer_with_stakes_by_epoch.clone()).unwrap();
 
         let provider = SignerRegistrationRecordProvider::new(&connection);
@@ -835,7 +836,7 @@ mod tests {
             })
             .collect::<Vec<SignerWithStake>>();
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_registration_db(&connection, Vec::new()).unwrap();
 
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&connection);
@@ -862,7 +863,7 @@ mod tests {
     pub fn init_signer_registration_store(
         initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
     ) -> Arc<dyn VerificationKeyStorer> {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
             .into_iter()
             .map(|(e, signers)| (e, signers.into_values().collect::<Vec<_>>()))

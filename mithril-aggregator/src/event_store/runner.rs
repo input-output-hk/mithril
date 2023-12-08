@@ -1,9 +1,10 @@
 use anyhow::Context;
-use mithril_common::StdResult;
 use slog_scope::{debug, info};
 use sqlite::Connection;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
+
+use mithril_common::StdResult;
 
 use super::{EventMessage, EventPersister};
 
@@ -24,8 +25,8 @@ impl EventStore {
     pub async fn run(&mut self, file: Option<PathBuf>) -> StdResult<()> {
         let connection = {
             let connection = match file {
-                Some(path) => Connection::open_with_full_mutex(path)?,
-                None => Connection::open_with_full_mutex(":memory:")?,
+                Some(path) => Connection::open_thread_safe(path)?,
+                None => Connection::open_thread_safe(":memory:")?,
             };
             Arc::new(connection)
         };

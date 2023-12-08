@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, ConnectionWithFullMutex, Value};
+use sqlite::Value;
 use std::sync::Arc;
 
 use uuid::Uuid;
@@ -8,7 +8,7 @@ use mithril_common::{
     entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignatures},
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        WhereCondition,
+        SqliteConnection, WhereCondition,
     },
     StdError, StdResult,
 };
@@ -142,12 +142,12 @@ impl SqLiteEntity for SingleSignatureRecord {
 
 /// Simple [SingleSignatureRecord] provider.
 pub struct SingleSignatureRecordProvider<'client> {
-    client: &'client Connection,
+    client: &'client SqliteConnection,
 }
 
 impl<'client> SingleSignatureRecordProvider<'client> {
     /// Create a new provider
-    pub fn new(client: &'client Connection) -> Self {
+    pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
     }
 
@@ -202,7 +202,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
 impl<'client> Provider<'client> for SingleSignatureRecordProvider<'client> {
     type Entity = SingleSignatureRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.client
     }
 
@@ -215,12 +215,12 @@ impl<'client> Provider<'client> for SingleSignatureRecordProvider<'client> {
 
 /// Query to update the single_signature record
 pub struct UpdateSingleSignatureRecordProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
     /// Create a new instance
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -262,7 +262,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
 impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
     type Entity = SingleSignatureRecord;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -280,12 +280,12 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
 
 /// Service to deal with single_signature (read & write).
 pub struct SingleSignatureRepository {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
 }
 
 impl SingleSignatureRepository {
     /// Create a new SingleSignatureStoreAdapter service
-    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
 
@@ -309,6 +309,7 @@ impl SingleSignatureRepository {
 #[cfg(test)]
 mod tests {
     use mithril_common::test_utils::fake_data;
+    use sqlite::Connection;
 
     use crate::database::provider::{
         apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
@@ -346,7 +347,7 @@ mod tests {
 
     #[test]
     fn get_single_signature_record_by_epoch() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
         let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
         let condition = provider
@@ -363,7 +364,7 @@ mod tests {
 
     #[test]
     fn get_single_signature_record_by_signer_id() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signer_id("signer-123".to_string())
@@ -376,7 +377,7 @@ mod tests {
 
     #[test]
     fn get_single_signature_record_by_registration_epoch() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
         let condition = provider
             .condition_by_registration_epoch(&Epoch(17))
@@ -396,7 +397,7 @@ mod tests {
             Epoch(1),
         )
         .unwrap();
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
         let condition = provider.get_update_condition(&single_signature_record);
         let (values, params) = condition.expand();
@@ -424,7 +425,7 @@ mod tests {
     async fn test_get_single_signature_records() {
         let single_signature_records_src = setup_single_signature_records(2, 3, 4);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
         insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
@@ -498,7 +499,7 @@ mod tests {
         let single_signature_records = setup_single_signature_records(2, 3, 4);
         let single_signature_records_copy = single_signature_records.clone();
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         apply_all_migrations_to_db(&connection).unwrap();
         disable_foreign_key_support(&connection).unwrap();
 

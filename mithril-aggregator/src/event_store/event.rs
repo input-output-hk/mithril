@@ -1,11 +1,11 @@
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
-use sqlite::{Connection, ConnectionWithFullMutex};
 
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::sqlite::{
-    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
+    WhereCondition,
 };
 use mithril_common::StdResult;
 
@@ -103,11 +103,11 @@ impl SqLiteEntity for Event {
 }
 
 struct EventPersisterProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> EventPersisterProvider<'conn> {
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         let myself = Self { connection };
         myself.create_table_if_not_exists();
 
@@ -131,7 +131,7 @@ impl<'conn> EventPersisterProvider<'conn> {
 impl<'conn> Provider<'conn> for EventPersisterProvider<'conn> {
     type Entity = Event;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -145,12 +145,12 @@ impl<'conn> Provider<'conn> for EventPersisterProvider<'conn> {
 /// The EventPersister is the adapter to persist EventMessage turning them into
 /// Event.
 pub struct EventPersister {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
 }
 
 impl EventPersister {
     /// Instanciate an EventPersister
-    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
 
@@ -188,6 +188,7 @@ impl EventPersister {
 mod tests {
     use super::*;
     use mithril_common::StdResult;
+    use sqlite::Connection;
 
     #[test]
     fn event_projection() {
@@ -201,7 +202,7 @@ mod tests {
 
     #[test]
     fn provider_sql() {
-        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
+        let connection = Arc::new(Connection::open_thread_safe(":memory:").unwrap());
         let persister = EventPersister::new(connection);
         let message = EventMessage::new("source", "action", "content");
         let (parameters, values) = persister.get_persist_parameters(message).unwrap().expand();
@@ -215,7 +216,7 @@ mod tests {
 
     #[test]
     fn can_persist_event() -> StdResult<()> {
-        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
+        let connection = Arc::new(Connection::open_thread_safe(":memory:").unwrap());
         let persister = EventPersister::new(connection);
         let message = EventMessage::new("source", "action", "content");
 

@@ -2,7 +2,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use sqlite::{Connection, ConnectionWithFullMutex, Value};
+use sqlite::Value;
 use std::sync::Arc;
 
 use mithril_common::{
@@ -15,7 +15,7 @@ use mithril_common::{
     signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        WhereCondition,
+        SqliteConnection, WhereCondition,
     },
     store::adapter::AdapterError,
     StdError, StdResult,
@@ -219,12 +219,12 @@ impl SqLiteEntity for SignedEntityRecord {
 
 /// Simple [SignedEntityRecord] provider.
 pub struct SignedEntityRecordProvider<'client> {
-    client: &'client Connection,
+    client: &'client SqliteConnection,
 }
 
 impl<'client> SignedEntityRecordProvider<'client> {
     /// Create a new provider
-    pub fn new(client: &'client Connection) -> Self {
+    pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
     }
 
@@ -319,7 +319,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
 impl<'client> Provider<'client> for SignedEntityRecordProvider<'client> {
     type Entity = SignedEntityRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.client
     }
 
@@ -334,12 +334,12 @@ impl<'client> Provider<'client> for SignedEntityRecordProvider<'client> {
 
 /// Query to insert the signed_entity record
 pub struct InsertSignedEntityRecordProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> InsertSignedEntityRecordProvider<'conn> {
     /// Create a new instance
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -373,7 +373,7 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
 impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
     type Entity = SignedEntityRecord;
 
-    fn get_connection(&'conn self) -> &'conn Connection {
+    fn get_connection(&'conn self) -> &'conn SqliteConnection {
         self.connection
     }
 
@@ -388,11 +388,11 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
 }
 
 struct UpdateSignedEntityProvider<'client> {
-    connection: &'client Connection,
+    connection: &'client SqliteConnection,
 }
 
 impl<'client> UpdateSignedEntityProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
+    pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -432,7 +432,7 @@ where signed_entity_id = ?*";
 impl<'client> Provider<'client> for UpdateSignedEntityProvider<'client> {
     type Entity = SignedEntityRecord;
 
-    fn get_connection(&'client self) -> &'client Connection {
+    fn get_connection(&'client self) -> &'client SqliteConnection {
         self.connection
     }
 
@@ -485,12 +485,12 @@ pub trait SignedEntityStorer: Sync + Send {
 
 /// Service to deal with signed_entity (read & write).
 pub struct SignedEntityStoreAdapter {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
 }
 
 impl SignedEntityStoreAdapter {
     /// Create a new SignedEntityStoreAdapter service
-    pub fn new(connection: Arc<ConnectionWithFullMutex>) -> Self {
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
 }
@@ -583,6 +583,7 @@ mod tests {
     use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
     use mithril_common::entities::MithrilStakeDistribution;
     use mithril_common::{entities::Beacon, test_utils::fake_data};
+    use sqlite::Connection;
 
     use super::*;
 
@@ -626,7 +627,7 @@ mod tests {
     }
 
     pub fn setup_signed_entity_db(
-        connection: &Connection,
+        connection: &SqliteConnection,
         signed_entity_records: Vec<SignedEntityRecord>,
     ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
@@ -677,7 +678,7 @@ mod tests {
         Ok(())
     }
 
-    fn insert_golden_signed_entities(connection: &Connection) {
+    fn insert_golden_signed_entities(connection: &SqliteConnection) {
         connection
             .execute(r#"
             -- Cardano immutable file full
@@ -727,7 +728,7 @@ mod tests {
 
     #[test]
     fn test_golden_master() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, vec![]).unwrap();
         insert_golden_signed_entities(&connection);
 
@@ -778,7 +779,7 @@ mod tests {
 
     #[test]
     fn get_signed_entity_record_by_signed_entity_type() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignedEntityRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signed_entity_type(
@@ -793,7 +794,7 @@ mod tests {
 
     #[test]
     fn get_signed_entity_record_by_signed_entity_id() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignedEntityRecordProvider::new(&connection);
         let condition = provider
             .condition_by_signed_entity_id("signed-ent-123")
@@ -806,7 +807,7 @@ mod tests {
 
     #[test]
     fn get_signed_entity_record_by_signed_certificate_id() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignedEntityRecordProvider::new(&connection);
         let condition = provider
             .condition_by_certificate_id("certificate_id")
@@ -819,7 +820,7 @@ mod tests {
 
     #[test]
     fn get_signed_entity_record_by_signed_certificates_ids() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = SignedEntityRecordProvider::new(&connection);
         let condition = provider.condition_by_certificates_ids(&["a", "b", "c"]);
         let (condition, params) = condition.expand();
@@ -846,7 +847,7 @@ mod tests {
                 .unwrap()
                 .with_timezone(&Utc),
         );
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = InsertSignedEntityRecordProvider::new(&connection);
         let condition = provider.get_insert_condition(signed_entity_record.clone());
         let (values, params) = condition.expand();
@@ -877,7 +878,7 @@ mod tests {
     fn test_get_signed_entity_records() {
         let signed_entity_records = fake_signed_entity_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
 
         let provider = SignedEntityRecordProvider::new(&connection);
@@ -912,7 +913,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_entity_record_by_certificate_id() {
         let expected_record = fake_signed_entity_records(1).remove(0);
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, vec![expected_record.clone()]).unwrap();
         let store = SignedEntityStoreAdapter::new(Arc::new(connection));
 
@@ -927,7 +928,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_entity_record_by_certificates_ids() {
         let expected_records = fake_signed_entity_records(3);
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, expected_records.clone()).unwrap();
         let store = SignedEntityStoreAdapter::new(Arc::new(connection));
         let certificates_ids: Vec<&str> = expected_records
@@ -951,7 +952,7 @@ mod tests {
     fn test_insert_signed_entity_record() {
         let signed_entity_records = fake_signed_entity_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, Vec::new()).unwrap();
 
         let provider = InsertSignedEntityRecordProvider::new(&connection);
@@ -965,7 +966,7 @@ mod tests {
 
     #[test]
     fn update_provider_condition() {
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = UpdateSignedEntityProvider::new(&connection);
         let snapshots = fake_data::snapshots(1);
         let snapshot = snapshots.first().unwrap().to_owned();
@@ -1008,7 +1009,7 @@ mod tests {
     async fn update_only_given_entities() {
         let mut signed_entity_records = fake_signed_entity_records(5);
 
-        let connection = Connection::open_with_full_mutex(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
         let store = SignedEntityStoreAdapter::new(Arc::new(connection));
 

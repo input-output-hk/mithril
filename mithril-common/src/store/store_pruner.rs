@@ -84,9 +84,9 @@ mod tests {
     }
 
     async fn get_adapter(data_len: u64) -> SQLiteAdapter<u64, String> {
-        let connection = Arc::new(Connection::open_with_full_mutex(":memory:").unwrap());
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let mut adapter: SQLiteAdapter<u64, String> =
-            SQLiteAdapter::new("whatever", connection).unwrap();
+            SQLiteAdapter::new("whatever", Arc::new(connection)).unwrap();
 
         for (key, record) in get_data(data_len) {
             adapter.store_record(&key, &record).await.unwrap();

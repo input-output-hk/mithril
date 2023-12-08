@@ -1,13 +1,16 @@
 use anyhow::anyhow;
 use chrono::{DateTime, NaiveDateTime, Utc};
-use sqlite::{Connection, Row, Value};
+use sqlite::{Row, Value};
 use std::{
     cmp::Ordering,
     fmt::{Debug, Display},
 };
 
 use crate::{
-    sqlite::{HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition},
+    sqlite::{
+        HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
+        WhereCondition,
+    },
     StdResult,
 };
 
@@ -107,12 +110,12 @@ impl PartialOrd for DatabaseVersion {
 
 /// Provider for the [DatabaseVersion] entities using the `DatabaseVersionProjection`.
 pub struct DatabaseVersionProvider<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> DatabaseVersionProvider<'conn> {
     /// [DatabaseVersionProvider] constructor.
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -162,7 +165,7 @@ insert into db_version (application_type, version, updated_at) values ('{applica
 impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
     type Entity = DatabaseVersion;
 
-    fn get_connection(&'conn self) -> &Connection {
+    fn get_connection(&'conn self) -> &SqliteConnection {
         self.connection
     }
 
@@ -183,12 +186,12 @@ where {condition}
 /// Write [Provider] for the [DatabaseVersion] entities.
 /// This will perform an UPSERT and return the updated entity.
 pub struct DatabaseVersionUpdater<'conn> {
-    connection: &'conn Connection,
+    connection: &'conn SqliteConnection,
 }
 
 impl<'conn> DatabaseVersionUpdater<'conn> {
     /// [DatabaseVersionUpdater] constructor.
-    pub fn new(connection: &'conn Connection) -> Self {
+    pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
     }
 
@@ -214,7 +217,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
 impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
     type Entity = DatabaseVersion;
 
-    fn get_connection(&'conn self) -> &Connection {
+    fn get_connection(&'conn self) -> &SqliteConnection {
         self.connection
     }
 
@@ -234,6 +237,8 @@ returning {projection}
 
 #[cfg(test)]
 mod tests {
+    use sqlite::Connection;
+
     use super::*;
 
     #[test]
@@ -250,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_definition() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = DatabaseVersionProvider::new(&connection);
 
         assert_eq!(
@@ -265,7 +270,7 @@ where true
 
     #[test]
     fn test_updated_entity() {
-        let connection = Connection::open(":memory:").unwrap();
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = DatabaseVersionUpdater::new(&connection);
 
         assert_eq!(

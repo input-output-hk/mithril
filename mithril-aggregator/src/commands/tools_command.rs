@@ -74,7 +74,7 @@ impl RecomputeCertificatesHashCommand {
             .await
             .with_context(|| "recompute-certificates-hash: database migration error")?;
 
-        vacuum_database(connection)
+        vacuum_database(&connection)
             .await
             .with_context(|| "recompute-certificates-hash: database vacuum error")?;
 

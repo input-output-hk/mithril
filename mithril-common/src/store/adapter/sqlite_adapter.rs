@@ -2,10 +2,11 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use sqlite::{Connection, ConnectionWithFullMutex, State, Statement};
+use sqlite::{Connection, State, Statement};
 use std::{marker::PhantomData, sync::Arc, thread::sleep, time::Duration};
 
 use super::{AdapterError, StoreAdapter};
+use crate::sqlite::SqliteConnection;
 
 type Result<T> = std::result::Result<T, AdapterError>;
 
@@ -14,7 +15,7 @@ const NB_RETRIES_ON_LOCK: u32 = 3;
 
 /// Store adapter for SQLite3
 pub struct SQLiteAdapter<K, V> {
-    connection: Arc<ConnectionWithFullMutex>,
+    connection: Arc<SqliteConnection>,
     table: String,
     key: PhantomData<K>,
     value: PhantomData<V>,
@@ -26,7 +27,7 @@ where
     V: DeserializeOwned,
 {
     /// Create a new SQLiteAdapter instance.
-    pub fn new(table_name: &str, connection: Arc<ConnectionWithFullMutex>) -> Result<Self> {
+    pub fn new(table_name: &str, connection: Arc<SqliteConnection>) -> Result<Self> {
         {
             Self::check_table_exists(&connection, table_name)?;
         }
@@ -332,8 +333,9 @@ mod tests {
             });
         }
         let tablename = tablename.unwrap_or(TABLE_NAME);
-        let connection = Arc::new(Connection::open_with_full_mutex(filepath).unwrap());
-        SQLiteAdapter::new(tablename, connection).unwrap()
+        let connection = Connection::open_thread_safe(filepath).unwrap();
+
+        SQLiteAdapter::new(tablename, Arc::new(connection)).unwrap()
     }
 
     #[tokio::test]
