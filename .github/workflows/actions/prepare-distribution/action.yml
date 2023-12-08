@@ -58,7 +58,7 @@ runs:
         EOF
 
         cargo metadata --quiet --no-deps | \
-          jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end", "mithril-relay"]) | not) | "| \(.name) | `\(.version)` |"' \
+          jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "client-mithril-stake-distribution", "client-snapshot", "mithril-end-to-end", "mithril-relay"]) | not) | "| \(.name) | `\(.version)` |"' \
           >> ./release-notes-addon.txt
         
     - name: Add compatibility table

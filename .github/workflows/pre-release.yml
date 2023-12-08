@@ -247,3 +247,36 @@ jobs:
         with:
           dry_run: "true"
           package: ${{ matrix.package }}
+
+  publish-wasm-test:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        package: [ mithril-client-wasm ]
+        include:
+          - package: mithril-client-wasm
+            scope: mithril-dev
+            tag: next
+            access: public
+            api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
+          
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cargo-tools: wasm-pack
+        
+      - name: Publish package to npm
+        uses: ./.github/workflows/actions/publish-npm-package
+        with:
+          dry_run: "false"
+          package: ${{ matrix.package }}
+          scope: ${{ matrix.scope }}
+          access: ${{ matrix.access }}
+          api_token: ${{ secrets[matrix.api_token_secret_name] }}
