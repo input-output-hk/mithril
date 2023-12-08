@@ -4,7 +4,7 @@ use anyhow::Context;
 use semver::Version;
 use slog::Logger;
 use slog_scope::debug;
-use sqlite::{Connection, ConnectionThreadSafe};
+use sqlite::Connection;
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -236,7 +236,7 @@ impl DependenciesBuilder {
         }
     }
 
-    async fn build_sqlite_connection(&self) -> Result<Arc<ConnectionThreadSafe>> {
+    async fn build_sqlite_connection(&self) -> Result<Arc<SqliteConnection>> {
         let path = match self.configuration.environment {
             ExecutionEnvironment::Production => {
                 self.configuration.get_sqlite_dir().join(SQLITE_FILE)
