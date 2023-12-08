@@ -123,16 +123,40 @@ jobs:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
 
-      - name: Build 'mithril-client' - WASM package
+      - name: Build 'mithril-client-wasm' library
         shell: bash
         run: |
-          wasm-pack build mithril-client-wasm --release
+          cp LICENSE ./mithril-client-wasm/
+          wasm-pack build mithril-client-wasm --release --target bundler --out-dir ./pkg --scope mithril-dev --out-name index
 
-      - name: Test 'mithril-client' - WASM package
+      - name: Prepare 'mithril-client-wasm' package
         shell: bash
         run: |
-          wasm-pack test --headless --firefox --chrome --node mithril-client-wasm --release
+          cp LICENSE ./mithril-client-wasm/
+          wasm-pack pack mithril-client-wasm/pkg
 
+      - name: Test 'mithril-client-wasm' - Chrome
+        shell: bash
+        run: |
+          wasm-pack test --headless --chrome mithril-client-wasm --release
+
+      - name: Test 'mithril-client-wasm' - Firefox
+        shell: bash
+        run: |
+          wasm-pack test --headless --firefox mithril-client-wasm --release
+
+      - name: Test 'mithril-client-wasm' - NodeJS
+        shell: bash
+        run: |
+          wasm-pack test --node mithril-client-wasm --release
+
+      - name: Publish Mithril Distribution (WASM)
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-distribution-wasm
+          path: |
+            *-mithril-client-wasm-*.tgz
+          if-no-files-found: error
   test:
     strategy:
       fail-fast: false
