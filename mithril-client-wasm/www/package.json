@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/rustwasm/create-wasm-app#readme",
   "dependencies": {
-    "mithril-client": "file:../pkg"
+    "@mithril-dev/mithril-client-wasm": "file:../pkg"
   },
   "devDependencies": {
     "webpack": "^5.88.2",

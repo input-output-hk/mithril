@@ -1,4 +1,4 @@
-import { MithrilClient } from "mithril-client/mithril_client_wasm"
+import { MithrilClient } from "@mithril-dev/mithril-client-wasm"
 
 let aggregator_endpoint =
   "https://aggregator.testing-preview.api.mithril.network/aggregator"

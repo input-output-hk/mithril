@@ -10,7 +10,7 @@ CARGO = cargo
 all: test build
 
 build:
-	wasm-pack build --release
+	wasm-pack build --release --out-name index
 
 test:
 	#wasm-pack test --headless --firefox --chrome --node --release
