@@ -38,7 +38,7 @@ It is responsible for handling the different types of data certified by Mithril,
 
 | Node | Source repository | Rust documentation |
 |:-:|:-----------------:|:------------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) |
+**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril-client/mithril_client/index.html) |
 
 ## Pre-requisites
 
