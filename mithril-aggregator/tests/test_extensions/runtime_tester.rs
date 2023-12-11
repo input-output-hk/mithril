@@ -269,7 +269,7 @@ impl RuntimeTester {
             .get_open_message(&signed_entity_type)
             .await
             .with_context(|| {
-                format!("A open message should exist for signed_entity_type: {signed_entity_type}")
+                format!("An open message should exist for signed_entity_type: {signed_entity_type}")
             })?
             .ok_or(anyhow!("There should be a message to be signed."))?
             .protocol_message;
