@@ -55,10 +55,9 @@ impl SnapshotUnpacker {
     /// Check all prerequisites are met before starting to download and unpack
     /// big snapshot archive.
     pub fn check_prerequisites(
-        &self,
         pathdir: &Path,
         size: u64,
-        compressionn_algorithm: CompressionAlgorithm,
+        compression_algorithm: CompressionAlgorithm,
     ) -> StdResult<()> {
         if pathdir.exists() {
             return Err(
@@ -69,9 +68,10 @@ impl SnapshotUnpacker {
             SnapshotUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
         })?;
         let free_space = fs2::available_space(pathdir)? as f64;
+        // `remove_dir` doesn't remove intermediate directories that could have been created by `create_dir_all`
         remove_dir(pathdir)?;
 
-        if free_space < compressionn_algorithm.free_space_snapshot_ratio() * size as f64 {
+        if free_space < compression_algorithm.free_space_snapshot_ratio() * size as f64 {
             return Err(SnapshotUnpackerError::NotEnoughSpace {
                 left_space: free_space,
                 pathdir: pathdir.to_owned(),
@@ -81,5 +81,101 @@ impl SnapshotUnpacker {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use mithril_common::entities::CompressionAlgorithm;
+    use std::fs::remove_dir_all;
+
+    fn create_temporary_empty_directory(name: &str) -> PathBuf {
+        let pathdir = std::env::temp_dir().join(name);
+        if pathdir.exists() {
+            remove_dir_all(&pathdir).unwrap();
+        }
+        create_dir_all(&pathdir).unwrap();
+        pathdir
+    }
+
+    #[test]
+    fn should_return_ok() {
+        let pathdir = create_temporary_empty_directory("return_ok").join("target_directory");
+
+        SnapshotUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
+            .expect("check_prerequisites should not fail");
+    }
+
+    #[test]
+    fn should_return_error_if_unpack_directory_already_exists() {
+        let pathdir = create_temporary_empty_directory("existing_directory");
+
+        let error =
+            SnapshotUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
+                .expect_err("check_prerequisites should fail");
+
+        assert!(
+            matches!(
+                error.downcast_ref::<SnapshotUnpackerError>(),
+                Some(SnapshotUnpackerError::UnpackDirectoryAlreadyExists(_))
+            ),
+            "Unexpected error: {:?}",
+            error
+        );
+    }
+
+    // This test is not runned on Windows because `set_readonly` is not working on Windows 7+
+    // https://doc.rust-lang.org/std/fs/struct.Permissions.html#method.set_readonly
+    #[cfg(not(target_os = "windows"))]
+    #[test]
+    fn should_return_error_if_directory_could_not_be_created() {
+        let pathdir = create_temporary_empty_directory("read_only_directory");
+
+        let mut perms = std::fs::metadata(&pathdir).unwrap().permissions();
+        perms.set_readonly(true);
+        std::fs::set_permissions(&pathdir, perms).unwrap();
+
+        let targetdir = pathdir.join("target_directory");
+
+        let error =
+            SnapshotUnpacker::check_prerequisites(&targetdir, 12, CompressionAlgorithm::default())
+                .expect_err("check_prerequisites should fail");
+
+        assert!(
+            matches!(
+                error.downcast_ref::<SnapshotUnpackerError>(),
+                Some(SnapshotUnpackerError::UnpackDirectoryIsNotWritable(_, _))
+            ),
+            "Unexpected error: {:?}",
+            error
+        );
+    }
+
+    #[test]
+    fn should_return_error_if_not_enough_available_space() {
+        let pathdir =
+            create_temporary_empty_directory("enough_available_space").join("target_directory");
+        let archive_size = u64::MAX;
+
+        let error = SnapshotUnpacker::check_prerequisites(
+            &pathdir,
+            archive_size,
+            CompressionAlgorithm::default(),
+        )
+        .expect_err("check_prerequisites should fail");
+
+        assert!(
+            matches!(
+                error.downcast_ref::<SnapshotUnpackerError>(),
+                Some(SnapshotUnpackerError::NotEnoughSpace {
+                    left_space: _,
+                    pathdir: _,
+                    archive_size: _
+                })
+            ),
+            "Unexpected error: {:?}",
+            error
+        );
     }
 }

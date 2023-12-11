@@ -8,27 +8,9 @@ use std::{
     sync::Arc,
 };
 
-use mithril_client::{Client, ClientBuilder, MessageBuilder};
-use mithril_client_cli::configuration::ConfigParameters;
+use mithril_client::{ClientBuilder, MessageBuilder};
+use mithril_client_cli::{configuration::ConfigParameters, utils::MithrilStakeDistributionUtils};
 use mithril_common::StdResult;
-
-async fn expand_eventual_artifact_hash_alias(client: &Client, hash: &str) -> StdResult<String> {
-    if hash.to_lowercase() == "latest" {
-        let last_mithril_stake_distribution = client.mithril_stake_distribution().list().await.with_context(|| {
-            "Can not get the list of artifacts while retrieving the latest stake distribution hash"
-        })?;
-        let last_mithril_stake_distribution =
-            last_mithril_stake_distribution.first().ok_or_else(|| {
-                anyhow!(
-                    "Mithril stake distribution '{}' not found",
-                    hash.to_string()
-                )
-            })?;
-        Ok(last_mithril_stake_distribution.hash.to_owned())
-    } else {
-        Ok(hash.to_owned())
-    }
-}
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
@@ -70,7 +52,13 @@ impl MithrilStakeDistributionDownloadCommand {
 
         let mithril_stake_distribution = client
             .mithril_stake_distribution()
-            .get(&expand_eventual_artifact_hash_alias(&client, &self.artifact_hash).await?)
+            .get(
+                &MithrilStakeDistributionUtils::expand_eventual_artifact_hash_alias(
+                    &client,
+                    &self.artifact_hash,
+                )
+                .await?,
+            )
             .await?
             .ok_or_else(|| {
                 anyhow!(

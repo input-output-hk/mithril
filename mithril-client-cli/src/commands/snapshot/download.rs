@@ -74,8 +74,7 @@ impl SnapshotDownloadCommand {
             .ok_or_else(|| anyhow!("No snapshot found for digest: '{}'", &self.digest))?;
 
         progress_printer.report_step(1, "Checking local disk info…")?;
-        let unpacker = SnapshotUnpacker;
-        if let Err(e) = unpacker.check_prerequisites(
+        if let Err(e) = SnapshotUnpacker::check_prerequisites(
             &db_dir,
             snapshot_message.size,
             snapshot_message.compression_algorithm.unwrap_or_default(),
@@ -111,7 +110,8 @@ impl SnapshotDownloadCommand {
                 )
             })?;
 
-        // the snapshot download does not fail if the statistic call fails.
+        // The snapshot download does not fail if the statistic call fails.
+        // It would be nice to implement tests to verify the behavior of `add_statistics`
         if let Err(e) = SnapshotUtils::add_statistics(aggregator_endpoint, &snapshot_message).await
         {
             warn!("Could not POST snapshot download statistics: {e:?}");
