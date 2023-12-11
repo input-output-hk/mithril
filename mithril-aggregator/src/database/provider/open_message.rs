@@ -566,7 +566,7 @@ impl OpenMessageRepository {
         Ok(messages.next())
     }
 
-    /// Return the expired [OpenMessageRecord]s for the given Epoch and [SignedEntityType]
+    /// Return the expired [OpenMessageRecord] for the given Epoch and [SignedEntityType] if it exists
     pub async fn get_expired_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
