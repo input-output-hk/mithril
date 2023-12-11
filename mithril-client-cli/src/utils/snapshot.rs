@@ -6,7 +6,7 @@ use std::{fmt::Write, time::Duration};
 use tokio::sync::RwLock;
 
 use super::{DownloadProgressReporter, ProgressOutputType, SnapshotUnpackerError};
-use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
+use crate::http_client::{AggregatorClient, AggregatorHTTPClient};
 
 use mithril_client::{
     feedback::{FeedbackReceiver, MithrilEvent},

@@ -1,7 +1,6 @@
-pub mod aggregator_client;
 pub mod dependencies;
+pub mod http_client;
 mod message_adapters;
-pub mod services;
 pub mod utils;
 
 pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};

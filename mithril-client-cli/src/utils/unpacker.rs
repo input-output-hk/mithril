@@ -1,15 +1,10 @@
-use anyhow::Context;
-use flate2::read::GzDecoder;
-use flume::Receiver;
 use human_bytes::human_bytes;
 use std::{
     fs::{create_dir_all, remove_dir},
     path::{Path, PathBuf},
 };
-use tar::Archive;
 use thiserror::Error;
 
-use crate::utils::StreamReader;
 use mithril_common::{entities::CompressionAlgorithm, StdError, StdResult};
 
 /// Check and unpack a downloaded archive in a given directory.
@@ -84,42 +79,6 @@ impl SnapshotUnpacker {
             }
             .into());
         }
-
-        Ok(())
-    }
-
-    /// Unpack the snapshot from the given stream into the given directory.
-    pub fn unpack_snapshot(
-        &self,
-        stream: Receiver<Vec<u8>>,
-        compression_algorithm: CompressionAlgorithm,
-        unpack_dir: &Path,
-    ) -> StdResult<()> {
-        let input = StreamReader::new(stream);
-
-        match compression_algorithm {
-            CompressionAlgorithm::Gzip => {
-                let gzip_decoder = GzDecoder::new(input);
-                let mut snapshot_archive = Archive::new(gzip_decoder);
-                snapshot_archive.unpack(unpack_dir).map_err(|e| {
-                    SnapshotUnpackerError::UnpackFailed {
-                        dirpath: unpack_dir.to_owned(),
-                        error: e.into(),
-                    }
-                })?;
-            }
-            CompressionAlgorithm::Zstandard => {
-                let zstandard_decoder = zstd::Decoder::new(input)
-                    .with_context(|| "Unpack failed: Create Zstandard decoder error")?;
-                let mut snapshot_archive = Archive::new(zstandard_decoder);
-                snapshot_archive.unpack(unpack_dir).map_err(|e| {
-                    SnapshotUnpackerError::UnpackFailed {
-                        dirpath: unpack_dir.to_owned(),
-                        error: e.into(),
-                    }
-                })?;
-            }
-        };
 
         Ok(())
     }
