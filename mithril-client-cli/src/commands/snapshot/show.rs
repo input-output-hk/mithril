@@ -6,7 +6,7 @@ use slog_scope::logger;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::ClientBuilder;
-use mithril_client_cli::{dependencies::ConfigParameters, utils::SnapshotUtils};
+use mithril_client_cli::{configuration::ConfigParameters, utils::SnapshotUtils};
 use mithril_common::StdResult;
 
 /// Clap command to show a given snapshot
@@ -26,7 +26,7 @@ impl SnapshotShowCommand {
     /// Snapshot Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder.build()?;
-        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+        let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
         let aggregator_endpoint = &params.require("aggregator_endpoint")?;

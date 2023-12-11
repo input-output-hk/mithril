@@ -1,11 +1,6 @@
 use serde::Deserialize;
-use slog::Logger;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 use thiserror::Error;
-
-use mithril_common::{api_version::APIVersionProvider, StdResult};
-
-use crate::http_client::{AggregatorClient, AggregatorHTTPClient};
 
 /// Configuration error
 #[derive(Debug, Error)]
@@ -61,53 +56,6 @@ impl ConfigParameters {
     pub fn require(&self, name: &str) -> Result<String, ConfigError> {
         self.get(name)
             .ok_or_else(|| ConfigError::Required(name.to_string()))
-    }
-}
-
-/// Dependencies builder
-pub struct DependenciesBuilder {
-    /// Configuration
-    pub config: Arc<ConfigParameters>,
-
-    /// HTTP Aggregator client
-    pub aggregator_client: Option<Arc<dyn AggregatorClient>>,
-}
-
-impl DependenciesBuilder {
-    /// Constructor
-    pub fn new(config: Arc<ConfigParameters>) -> Self {
-        Self {
-            config,
-            aggregator_client: None,
-        }
-    }
-
-    async fn build_logger(&mut self) -> StdResult<Logger> {
-        Ok(slog_scope::logger())
-    }
-
-    /// Return an instance of the logger. Since the logger is a singleton it is
-    /// provider directly by its own library.
-    pub async fn get_logger(&mut self) -> StdResult<Logger> {
-        self.build_logger().await
-    }
-
-    async fn build_aggregator_client(&mut self) -> StdResult<Arc<dyn AggregatorClient>> {
-        let client = AggregatorHTTPClient::new(
-            &self.config.require("aggregator_endpoint")?,
-            APIVersionProvider::compute_all_versions_sorted()?,
-        );
-
-        Ok(Arc::new(client))
-    }
-
-    /// Get a clone of the [AggregatorClient] dependency
-    pub async fn get_aggregator_client(&mut self) -> StdResult<Arc<dyn AggregatorClient>> {
-        if self.aggregator_client.is_none() {
-            self.aggregator_client = Some(self.build_aggregator_client().await?);
-        }
-
-        Ok(self.aggregator_client.as_ref().cloned().unwrap())
     }
 }
 

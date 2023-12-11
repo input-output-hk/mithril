@@ -1,4 +1,4 @@
-pub mod dependencies;
+pub mod configuration;
 pub mod http_client;
 mod message_adapters;
 pub mod utils;

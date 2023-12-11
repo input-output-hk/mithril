@@ -9,7 +9,7 @@ use std::{
 };
 
 use mithril_client::{Client, ClientBuilder, MessageBuilder};
-use mithril_client_cli::dependencies::ConfigParameters;
+use mithril_client_cli::configuration::ConfigParameters;
 use mithril_common::StdResult;
 
 async fn expand_eventual_artifact_hash_alias(client: &Client, hash: &str) -> StdResult<String> {
@@ -57,7 +57,7 @@ impl MithrilStakeDistributionDownloadCommand {
             .set_default("download_dir", ".")?
             .add_source(self.clone())
             .build()?;
-        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+        let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
         let aggregator_endpoint = &params.require("aggregator_endpoint")?;

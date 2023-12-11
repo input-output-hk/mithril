@@ -11,7 +11,7 @@ use std::{
 
 use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_client_cli::{
-    dependencies::ConfigParameters,
+    configuration::ConfigParameters,
     utils::{
         IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter, SnapshotUnpacker,
         SnapshotUtils,
@@ -48,7 +48,7 @@ impl SnapshotDownloadCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         debug!("Snapshot service: download.");
         let config = config_builder.add_source(self.clone()).build()?;
-        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+        let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
         let aggregator_endpoint = &params.require("aggregator_endpoint")?;
