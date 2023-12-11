@@ -16,9 +16,8 @@ use mithril_client_cli::{
         IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter, SnapshotUnpacker,
         SnapshotUtils,
     },
-    FromSnapshotMessageAdapter,
 };
-use mithril_common::{messages::FromMessageAdapter, StdResult};
+use mithril_common::StdResult;
 
 /// Clap command to download the snapshot and verify the certificate.
 #[derive(Parser, Debug, Clone)]
@@ -73,8 +72,6 @@ impl SnapshotDownloadCommand {
             .get(&SnapshotUtils::expand_eventual_snapshot_alias(&client, &self.digest).await?)
             .await?
             .ok_or_else(|| anyhow!("No snapshot found for digest: '{}'", &self.digest))?;
-
-        let snapshot_entity = FromSnapshotMessageAdapter::adapt(snapshot_message.clone());
 
         progress_printer.report_step(1, "Checking local disk info…")?;
         let unpacker = SnapshotUnpacker;
@@ -170,9 +167,9 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 "###,
                 &self.digest,
                 db_dir.display(),
-                snapshot_entity.artifact.cardano_node_version,
+                snapshot_message.cardano_node_version.unwrap(),
                 canonicalized_filepath.display(),
-                snapshot_entity.artifact.beacon.network,
+                snapshot_message.beacon.network,
             );
         }
 

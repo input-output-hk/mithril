@@ -1,9 +1,6 @@
 pub mod configuration;
 pub mod http_client;
-mod message_adapters;
 pub mod utils;
-
-pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};
 
 /// `mithril-common` re-exports
 pub mod common {
