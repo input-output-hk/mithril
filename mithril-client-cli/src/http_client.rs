@@ -100,7 +100,7 @@ impl AggregatorHTTPClient {
 
         let response = request_builder.send().await.map_err(|e| {
             AggregatorHTTPClientError::SubsystemError(
-                anyhow!(e).context("Error while POSTing data '{json}' to URL='{url}'."),
+                anyhow!(e).context(format!("Error while POSTing data '{json}' to URL='{url}'.")),
             )
         })?;
 
