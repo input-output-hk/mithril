@@ -48,7 +48,8 @@ runs:
     shell: bash
     run: |
       echo "Build '@${{ inputs.scope }}/${{ inputs.package }}' package"
-      cp LICENSE ./mithril-client-wasm/
+      cp ./LICENSE ./mithril-client-wasm/
+      cp -f ./mithril-client-wasm/npm/README.md ./mithril-client-wasm/
       wasm-pack build ${{ inputs.package }} --release --target bundler --out-dir ./pkg --scope ${{ inputs.scope }} --out-name index
 
   - name: List package
