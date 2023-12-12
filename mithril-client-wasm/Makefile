@@ -26,3 +26,9 @@ clean:
 
 doc:
 	${CARGO} doc --no-deps --open --features full
+
+www-install:
+	npm --prefix www install
+
+www-serve:
+	npm --prefix www run start
