@@ -1,3 +1,4 @@
+use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use mithril_common::StdResult;
 use slog_scope::warn;
@@ -49,8 +50,9 @@ impl ProgressPrinter {
     pub fn report_step(&self, step_number: u16, text: &str) -> StdResult<()> {
         match self.output_type {
             ProgressOutputType::JsonReporter => println!(
-                r#"{{"step_num": {step_number}, "total_steps": {}, "message": "{text}"}}"#,
-                self.number_of_steps
+                r#"{{"timestamp": "{timestamp}", "step_num": {step_number}, "total_steps": {number_of_steps}, "message": "{text}"}}"#,
+                timestamp = Utc::now().to_rfc3339(),
+                number_of_steps = self.number_of_steps,
             ),
             ProgressOutputType::TTY => self
                 .multi_progress
@@ -99,7 +101,8 @@ impl DownloadProgressReporter {
 
             if should_report {
                 println!(
-                    r#"{{ "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{}, "seconds_elapsed": {}.{} }}"#,
+                    r#"{{ "timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{}, "seconds_elapsed": {}.{} }}"#,
+                    Utc::now().to_rfc3339(),
                     self.progress_bar.position(),
                     self.progress_bar.length().unwrap_or(0),
                     self.progress_bar.eta().as_secs(),

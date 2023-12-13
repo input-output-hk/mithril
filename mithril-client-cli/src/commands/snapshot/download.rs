@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context};
+use chrono::Utc;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog_scope::{debug, logger, warn};
@@ -183,7 +184,8 @@ impl SnapshotDownloadCommand {
 
         if self.json {
             println!(
-                r#"{{"db_directory": "{}"}}"#,
+                r#"{{"timestamp": "{}", "db_directory": "{}"}}"#,
+                Utc::now().to_rfc3339(),
                 canonicalized_filepath.display()
             );
         } else {
