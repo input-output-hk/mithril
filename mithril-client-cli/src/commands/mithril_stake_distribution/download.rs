@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog_scope::logger;
@@ -60,20 +60,29 @@ impl MithrilStakeDistributionDownloadCommand {
                 .await?,
             )
             .await?
-            .ok_or_else(|| {
-                anyhow!(
-                    "Mithril stake distribution not found for hash: '{}'",
-                    &self.artifact_hash
+            .with_context(|| {
+                format!(
+                    "Can not download and verify the artifact for hash: '{}'",
+                    self.artifact_hash
                 )
             })?;
 
         let certificate = client
             .certificate()
             .verify_chain(&mithril_stake_distribution.certificate_hash)
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Can not verify the certificate chain from certificate_hash: '{}'",
+                    &mithril_stake_distribution.certificate_hash
+                )
+            })?;
 
         let message = MessageBuilder::new()
-            .compute_mithril_stake_distribution_message(&mithril_stake_distribution)?;
+            .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+            .with_context(|| {
+                "Can not compute the message for the given Mithril stake distribution"
+            })?;
 
         if !certificate.match_message(&message) {
             return Err(anyhow::anyhow!(
