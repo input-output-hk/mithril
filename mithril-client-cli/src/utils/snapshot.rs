@@ -4,7 +4,7 @@ use indicatif::{MultiProgress, ProgressBar};
 use std::time::Duration;
 
 use super::SnapshotUnpackerError;
-use crate::http_client::{AggregatorClient, AggregatorHTTPClient};
+use crate::http_client::AggregatorHTTPClient;
 
 use mithril_client::{Client, MithrilResult};
 use mithril_common::{

@@ -1,15 +1,11 @@
 use anyhow::anyhow;
 use async_recursion::async_recursion;
-use async_trait::async_trait;
 use reqwest::{Client, Response, StatusCode};
 use semver::Version;
 use slog_scope::debug;
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
-
-#[cfg(test)]
-use mockall::automock;
 
 use mithril_common::{StdError, MITHRIL_API_VERSION_HEADER};
 
@@ -33,17 +29,6 @@ pub enum AggregatorHTTPClientError {
     SubsystemError(#[source] StdError),
 }
 
-/// API that defines a client for the Aggregator
-#[async_trait]
-pub trait AggregatorClient: Sync + Send {
-    /// Post information to the Aggregator, the URL is a relative path for a resource
-    async fn post_content(
-        &self,
-        url: &str,
-        json: &str,
-    ) -> Result<String, AggregatorHTTPClientError>;
-}
-
 /// Responsible of HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
     aggregator_endpoint: String,
@@ -58,6 +43,21 @@ impl AggregatorHTTPClient {
             aggregator_endpoint: aggregator_endpoint.to_owned(),
             api_versions: Arc::new(RwLock::new(api_versions)),
         }
+    }
+
+    pub async fn post_content(
+        &self,
+        url: &str,
+        json: &str,
+    ) -> Result<String, AggregatorHTTPClientError> {
+        let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
+        let response = self.post(&url, json).await?;
+
+        response.text().await.map_err(|e| {
+            AggregatorHTTPClientError::SubsystemError(
+                anyhow!(e).context("Could not find a text body in the response."),
+            )
+        })
     }
 
     /// Computes the current api version
@@ -138,24 +138,5 @@ impl AggregatorHTTPClient {
                 self.compute_current_api_version().await.unwrap()
             ))
         }
-    }
-}
-
-#[cfg_attr(test, automock)]
-#[async_trait]
-impl AggregatorClient for AggregatorHTTPClient {
-    async fn post_content(
-        &self,
-        url: &str,
-        json: &str,
-    ) -> Result<String, AggregatorHTTPClientError> {
-        let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
-        let response = self.post(&url, json).await?;
-
-        response.text().await.map_err(|e| {
-            AggregatorHTTPClientError::SubsystemError(
-                anyhow!(e).context("Could not find a text body in the response."),
-            )
-        })
     }
 }
