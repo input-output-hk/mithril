@@ -167,7 +167,9 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 "###,
                 &self.digest,
                 db_dir.display(),
-                snapshot_message.cardano_node_version.unwrap(),
+                snapshot_message
+                    .cardano_node_version
+                    .unwrap_or("latest".to_string()),
                 canonicalized_filepath.display(),
                 snapshot_message.beacon.network,
             );
