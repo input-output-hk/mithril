@@ -93,8 +93,8 @@ impl AggregatorRequest {
 }
 
 /// API that defines a client for the Aggregator
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait AggregatorClient: Sync + Send {
     /// Get the content back from the Aggregator
     async fn get_content(
@@ -166,8 +166,8 @@ impl AggregatorHTTPClient {
     }
 
     /// Perform a HTTP GET request on the Aggregator and return the given JSON
-    #[cfg_attr(target_arch = "wasm32", async_recursion(?Send))]
-    #[cfg_attr(not(target_arch = "wasm32"), async_recursion)]
+    #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_recursion)]
     async fn get(&self, url: Url) -> Result<Response, AggregatorClientError> {
         debug!(self.logger, "GET url='{url}'.");
         let request_builder = self.http_client.get(url.clone());
@@ -238,8 +238,8 @@ impl AggregatorHTTPClient {
 }
 
 #[cfg_attr(test, automock)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorClient for AggregatorHTTPClient {
     async fn get_content(
         &self,

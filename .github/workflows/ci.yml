@@ -111,7 +111,7 @@ jobs:
           libraries-build-args: ${{ matrix.libraries-build-args }}
           common-build-args: ${{ matrix.common-build-args }}
 
-  build-wasm:
+  build-test-wasm:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -123,11 +123,40 @@ jobs:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
 
-      - name: Cargo build 'mithril-client' - WASM package
+      - name: Build 'mithril-client-wasm' library
         shell: bash
         run: |
-          wasm-pack build mithril-client --release
+          cp LICENSE ./mithril-client-wasm/
+          wasm-pack build mithril-client-wasm --release --target bundler --out-dir ./pkg --scope mithril-dev --out-name index
 
+      - name: Prepare 'mithril-client-wasm' package
+        shell: bash
+        run: |
+          cp LICENSE ./mithril-client-wasm/
+          wasm-pack pack mithril-client-wasm/pkg
+
+      - name: Test 'mithril-client-wasm' - Chrome
+        shell: bash
+        run: |
+          wasm-pack test --headless --chrome mithril-client-wasm --release
+
+      - name: Test 'mithril-client-wasm' - Firefox
+        shell: bash
+        run: |
+          wasm-pack test --headless --firefox mithril-client-wasm --release
+
+      - name: Test 'mithril-client-wasm' - NodeJS
+        shell: bash
+        run: |
+          wasm-pack test --node mithril-client-wasm --release
+
+      - name: Publish Mithril Distribution (WASM)
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-distribution-wasm
+          path: |
+            mithril-client-wasm/**/*-mithril-client-wasm-*.tgz
+          if-no-files-found: error
   test:
     strategy:
       fail-fast: false
@@ -403,11 +432,47 @@ jobs:
           dry_run: "true"
           package: ${{ matrix.package }}
 
+  publish-wasm-test:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        package: [ mithril-client-wasm ]
+        include:
+          - package: mithril-client-wasm
+            scope: mithril-dev
+            tag: latest
+            access: public
+            api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
+          
+    runs-on: ubuntu-22.04
+    needs:
+      - build-test-wasm
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cargo-tools: wasm-pack
+        
+      - name: Publish package to npm
+        uses: ./.github/workflows/actions/publish-npm-package
+        with:
+          dry_run: "true"
+          package: ${{ matrix.package }}
+          scope: ${{ matrix.scope }}
+          access: ${{ matrix.access }}
+          api_token: ${{ secrets[matrix.api_token_secret_name] }}
+
   unstable-release:
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
     runs-on: ubuntu-22.04
     needs:
       - build
+      - build-test-wasm
       - test
       - run-test-lab
       - check
