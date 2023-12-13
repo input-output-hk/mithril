@@ -136,7 +136,7 @@ impl MithrilClient {
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
-    ///
+    /// Call the client to verify a mithril stake distribution message
     // #[wasm_bindgen(js_name = verify_message_match_certificate)]
     pub async fn verify_message_match_certificate(
         &self,
