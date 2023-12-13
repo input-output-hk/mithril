@@ -99,7 +99,7 @@ impl DownloadProgressReporter {
 
             if should_report {
                 println!(
-                    r#"{{ "bytesDownloaded": {}, "bytesTotal": {}, "secondsLeft": {}.{}, "secondsElapsed": {}.{} }}"#,
+                    r#"{{ "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{}, "seconds_elapsed": {}.{} }}"#,
                     self.progress_bar.position(),
                     self.progress_bar.length().unwrap_or(0),
                     self.progress_bar.eta().as_secs(),
