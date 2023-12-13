@@ -71,7 +71,7 @@ impl SnapshotDownloadCommand {
             .snapshot()
             .get(&SnapshotUtils::expand_eventual_snapshot_alias(&client, &self.digest).await?)
             .await?
-            .ok_or_else(|| anyhow!("No snapshot found for digest: '{}'", &self.digest))?;
+            .with_context(|| format!("Can not get the snapshot for digest: '{}'", self.digest))?;
 
         progress_printer.report_step(1, "Checking local disk info…")?;
         if let Err(e) = SnapshotUnpacker::check_prerequisites(
@@ -96,7 +96,13 @@ impl SnapshotDownloadCommand {
         let certificate = client
             .certificate()
             .verify_chain(&snapshot_message.certificate_hash)
-            .await?;
+            .await
+            .with_context(|| {
+                format!(
+                    "Can not verify the certificate chain from certificate_hash: '{}'",
+                    &snapshot_message.certificate_hash
+                )
+            })?;
 
         progress_printer.report_step(3, "Downloading and unpacking the snapshot…")?;
         client
@@ -130,7 +136,13 @@ impl SnapshotDownloadCommand {
             &progress_printer,
             MessageBuilder::new().compute_snapshot_message(&certificate, &db_dir),
         )
-        .await?;
+        .await
+        .with_context(|| {
+            format!(
+                "Can not compute the snapshot message from the directory: '{:?}'",
+                &db_dir
+            )
+        })?;
 
         progress_printer.report_step(5, "Verifying the snapshot signature…")?;
         if !certificate.match_message(&message) {
