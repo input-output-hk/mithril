@@ -5,6 +5,9 @@ use mithril_common::StdResult;
 pub struct ExpanderUtils;
 
 impl ExpanderUtils {
+    /// Expands an id alias to the latest id.
+    /// If the provided id is "latest", retrieves the list of ids using the given future and returns the first one.
+    /// Otherwise, returns the provided id as is.
     pub async fn expand_eventual_id_alias(
         id: &str,
         get_list_of_ids: impl Future<Output = StdResult<Vec<String>>>,
