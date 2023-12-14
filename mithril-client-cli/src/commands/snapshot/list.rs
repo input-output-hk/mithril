@@ -1,6 +1,7 @@
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
+use mithril_common::test_utils::fake_keys;
 use slog_scope::logger;
 use std::{collections::HashMap, sync::Arc};
 
@@ -22,9 +23,16 @@ impl SnapshotListCommand {
         let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
+        // TODO: This should not be done this way.
+        // Now that mithril-client-cli uses the mithril-client library, the genesis verification key is required for all commands
+        let fallback_genesis_verification_key =
+            fake_keys::genesis_verification_key()[0].to_string();
         let client = ClientBuilder::aggregator(
             &params.require("aggregator_endpoint")?,
-            &params.require("genesis_verification_key")?,
+            &params.get_or(
+                "genesis_verification_key",
+                &fallback_genesis_verification_key,
+            ),
         )
         .with_logger(logger())
         .build()?;
