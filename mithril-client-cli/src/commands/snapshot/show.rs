@@ -1,12 +1,13 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
+use slog_scope::logger;
 use std::{collections::HashMap, sync::Arc};
 
+use mithril_client::ClientBuilder;
+use mithril_client_cli::{configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_common::StdResult;
-
-use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]
@@ -25,20 +26,35 @@ impl SnapshotShowCommand {
     /// Snapshot Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder.build()?;
-        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+        let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let mut dependencies_builder = DependenciesBuilder::new(params);
-        let snapshot_service = dependencies_builder
-            .get_snapshot_service()
-            .await
-            .with_context(|| "Dependencies Builder can not get Snapshot Service")?;
-        let snapshot_message = snapshot_service.show(&self.digest).await.with_context(|| {
-            format!(
-                "Snapshot Service can not show the snapshot for digest: '{}'",
-                self.digest
+        let client = ClientBuilder::aggregator(
+            &params.require("aggregator_endpoint")?,
+            &params.require("genesis_verification_key")?,
+        )
+        .with_logger(logger())
+        .build()?;
+
+        let get_list_of_artifact_ids = || async {
+            let snapshots = client.snapshot().list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest snapshot digest"
+            })?;
+
+            Ok(snapshots
+                .iter()
+                .map(|snapshot| snapshot.digest.to_owned())
+                .collect::<Vec<String>>())
+        };
+
+        let snapshot_message = client
+            .snapshot()
+            .get(
+                &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
+                    .await?,
             )
-        })?;
+            .await?
+            .ok_or_else(|| anyhow!("Snapshot not found for digest: '{}'", &self.digest))?;
 
         if self.json {
             println!("{}", serde_json::to_string(&snapshot_message)?);

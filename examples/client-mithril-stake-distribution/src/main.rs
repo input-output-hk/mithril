@@ -5,7 +5,6 @@
 //! The [SlogFeedbackReceiver] is used to report the progress to the console.
 
 use anyhow::anyhow;
-use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
 use slog::info;
 use std::sync::Arc;
@@ -16,7 +15,7 @@ async fn main() -> MithrilResult<()> {
     let genesis_verification_key = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
     let logger = build_logger();
     let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-        .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(logger.clone())))
+        .with_logger(logger.clone())
         .build()?;
 
     let mithril_stake_distributions = client.mithril_stake_distribution().list().await?;

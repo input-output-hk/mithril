@@ -1,14 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
-
-use anyhow::Context;
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
-
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_client_cli::{
-    common::StdResult,
-    dependencies::{ConfigParameters, DependenciesBuilder},
-};
+use slog_scope::logger;
+use std::{collections::HashMap, sync::Arc};
+
+use mithril_client::ClientBuilder;
+use mithril_client_cli::{common::StdResult, configuration::ConfigParameters};
 
 /// Clap command to list existing snapshots
 #[derive(Parser, Debug, Clone)]
@@ -22,18 +19,16 @@ impl SnapshotListCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder.build()?;
-        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+        let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let mut dependencies_builder = DependenciesBuilder::new(params);
-        let snapshot_service = dependencies_builder
-            .get_snapshot_service()
-            .await
-            .with_context(|| "Dependencies Builder can not get Snapshot Service")?;
-        let items = snapshot_service
-            .list()
-            .await
-            .with_context(|| "Snapshot Service can not get the list of snapshots")?;
+        let client = ClientBuilder::aggregator(
+            &params.require("aggregator_endpoint")?,
+            &params.require("genesis_verification_key")?,
+        )
+        .with_logger(logger())
+        .build()?;
+        let items = client.snapshot().list().await?;
 
         if self.json {
             println!("{}", serde_json::to_string(&items)?);
