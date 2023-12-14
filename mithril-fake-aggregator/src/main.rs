@@ -6,7 +6,11 @@ use clap::Parser;
 use futures::stream::StreamExt;
 use signal_hook::consts::*;
 use signal_hook_tokio::Signals;
-use tracing::{debug, error, info, Level};
+use tower_http::{
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
+};
+use tracing::{debug, error, info, trace, Level};
 
 type StdResult<T> = anyhow::Result<T>;
 
@@ -45,8 +49,6 @@ impl CliArguments {
 
 #[tracing::instrument]
 async fn epoch_settings() -> String {
-    info!("Returning epoch settings…");
-
     r#"{"epoch":112,"protocol":{"k":5,"m":100,"phi_f":0.65},"next_protocol":{"k":5,"m":100,"phi_f":0.65}}"#.to_string()
 }
 
@@ -78,15 +80,27 @@ async fn main() -> StdResult<()> {
         env!("CARGO_PKG_VERSION")
     );
 
-    debug!("setting up signal hook…");
+    trace!("setting up signal hook…");
     // supported signals
     let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
 
     // launch signal detector
     let signal_handler = signals.handle();
 
-    debug!("configuring router…");
-    let app = Router::new().route("/epoch-settings", get(epoch_settings));
+    trace!("configuring router…");
+    let app = Router::new()
+        .route("/epoch-settings", get(epoch_settings))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(DefaultMakeSpan::new().include_headers(true))
+                .on_request(DefaultOnRequest::new().level(Level::DEBUG))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .include_headers(true)
+                        .level(Level::INFO)
+                        .latency_unit(LatencyUnit::Micros),
+                ),
+        );
     let listener = {
         let connection_string = format!("{}:{}", params.ip_address, params.tcp_port);
         debug!("binding on {connection_string}");
@@ -95,18 +109,18 @@ async fn main() -> StdResult<()> {
             .with_context(|| format!("Could not listen on '{}'.", connection_string))?
     };
 
-    debug!("starting server…");
+    trace!("starting server…");
     let result = tokio::select!(
         res = axum::serve(listener, app).into_future() => res.map_err(|e| anyhow!(e)),
         _res = OsSignalHandler::handle_signal(signals) => Ok(()),
     );
 
-    debug!("closing signal handler…");
+    trace!("closing signal handler…");
     signal_handler.close();
 
     match &result {
         Err(e) => error!("{e}"),
-        Ok(_) => debug!("terminated!"),
+        Ok(_) => trace!("terminated!"),
     };
 
     result
