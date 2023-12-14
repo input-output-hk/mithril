@@ -11,6 +11,7 @@ members = [
   "mithril-client-cli",
   "mithril-client-wasm",
   "mithril-common",
+  "mithril-fake-aggregator",
   "mithril-relay",
   "mithril-signer",
   "mithril-stm",
