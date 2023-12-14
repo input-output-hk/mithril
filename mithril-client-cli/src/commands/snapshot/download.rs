@@ -13,8 +13,8 @@ use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_client_cli::{
     configuration::ConfigParameters,
     utils::{
-        IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter, SnapshotUnpacker,
-        SnapshotUtils,
+        ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
+        SnapshotUnpacker, SnapshotUtils,
     },
 };
 use mithril_common::StdResult;
@@ -67,9 +67,24 @@ impl SnapshotDownloadCommand {
                 progress_output_type,
             )))
             .build()?;
+
+        let get_list_of_artifact_ids = || async {
+            let snapshots = client.snapshot().list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest snapshot digest"
+            })?;
+
+            Ok(snapshots
+                .iter()
+                .map(|snapshot| snapshot.digest.to_owned())
+                .collect::<Vec<String>>())
+        };
+
         let snapshot_message = client
             .snapshot()
-            .get(&SnapshotUtils::expand_eventual_snapshot_alias(&client, &self.digest).await?)
+            .get(
+                &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
+                    .await?,
+            )
             .await?
             .with_context(|| format!("Can not get the snapshot for digest: '{}'", self.digest))?;
 

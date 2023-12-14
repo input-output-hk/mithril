@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
@@ -6,7 +6,7 @@ use slog_scope::logger;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::ClientBuilder;
-use mithril_client_cli::{configuration::ConfigParameters, utils::SnapshotUtils};
+use mithril_client_cli::{configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_common::StdResult;
 
 /// Clap command to show a given snapshot
@@ -34,9 +34,24 @@ impl SnapshotShowCommand {
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .with_logger(logger())
             .build()?;
+
+        let get_list_of_artifact_ids = || async {
+            let snapshots = client.snapshot().list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest snapshot digest"
+            })?;
+
+            Ok(snapshots
+                .iter()
+                .map(|snapshot| snapshot.digest.to_owned())
+                .collect::<Vec<String>>())
+        };
+
         let snapshot_message = client
             .snapshot()
-            .get(&SnapshotUtils::expand_eventual_snapshot_alias(&client, &self.digest).await?)
+            .get(
+                &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
+                    .await?,
+            )
             .await?
             .ok_or_else(|| anyhow!("Snapshot not found for digest: '{}'", &self.digest))?;
 

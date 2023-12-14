@@ -9,7 +9,7 @@ use std::{
 };
 
 use mithril_client::{ClientBuilder, MessageBuilder};
-use mithril_client_cli::{configuration::ConfigParameters, utils::MithrilStakeDistributionUtils};
+use mithril_client_cli::{configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_common::StdResult;
 
 /// Download and verify a Mithril Stake Distribution information. If the
@@ -50,12 +50,22 @@ impl MithrilStakeDistributionDownloadCommand {
             .with_logger(logger())
             .build()?;
 
+        let get_list_of_artifact_ids = || async {
+            let mithril_stake_distributions = client.mithril_stake_distribution().list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest stake distribution hash"
+            })?;
+
+            Ok(mithril_stake_distributions
+                .iter()
+                .map(|msd| msd.hash.to_owned())
+                .collect::<Vec<String>>())
+        };
         let mithril_stake_distribution = client
             .mithril_stake_distribution()
             .get(
-                &MithrilStakeDistributionUtils::expand_eventual_artifact_hash_alias(
-                    &client,
+                &ExpanderUtils::expand_eventual_id_alias(
                     &self.artifact_hash,
+                    get_list_of_artifact_ids(),
                 )
                 .await?,
             )

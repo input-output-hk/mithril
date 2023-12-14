@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
 use futures::Future;
 use indicatif::{MultiProgress, ProgressBar};
 use std::time::Duration;
@@ -6,7 +6,7 @@ use std::time::Duration;
 use super::SnapshotUnpackerError;
 use crate::http_client::AggregatorHTTPClient;
 
-use mithril_client::{Client, MithrilResult};
+use mithril_client::MithrilResult;
 use mithril_common::{
     api_version::APIVersionProvider, messages::SnapshotMessage, StdError, StdResult,
 };
@@ -15,27 +15,6 @@ use mithril_common::{
 pub struct SnapshotUtils;
 
 impl SnapshotUtils {
-    /// Return latest snpashot digest if `latest` is specified as digest
-    pub async fn expand_eventual_snapshot_alias(
-        client: &Client,
-        snapshot_id: &str,
-    ) -> StdResult<String> {
-        if snapshot_id.to_lowercase() == "latest" {
-            let last_snapshot = client.snapshot().list().await.with_context(|| {
-                "Can not get the list of snapshots while retrieving the latest snapshot digest"
-            })?;
-            let last_snapshot = last_snapshot.first().ok_or_else(|| {
-                anyhow!(
-                    "Snapshot not found for digest: '{}'",
-                    snapshot_id.to_string()
-                )
-            })?;
-            Ok(last_snapshot.digest.to_owned())
-        } else {
-            Ok(snapshot_id.to_owned())
-        }
-    }
-
     /// Handle the error return by `check_prerequisites`
     pub fn check_disk_space_error(error: StdError) -> StdResult<String> {
         if let Some(SnapshotUnpackerError::NotEnoughSpace {
@@ -89,41 +68,9 @@ impl SnapshotUtils {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::extensions::fake::FakeCertificateVerifier;
-    use mithril_client::{ClientBuilder, SnapshotListItem};
-    use mithril_common::test_utils::{
-        fake_keys,
-        test_http_server::{test_http_server, TestHttpServer},
-    };
+    use mithril_common::test_utils::test_http_server::test_http_server;
     use std::path::PathBuf;
     use warp::Filter;
-
-    fn get_snapshots(digests: Vec<&str>) -> String {
-        serde_json::to_string(
-            &digests
-                .iter()
-                .map(|d| SnapshotListItem {
-                    digest: d.to_string(),
-                    ..SnapshotListItem::dummy()
-                })
-                .collect::<Vec<_>>(),
-        )
-        .unwrap()
-    }
-
-    fn create_client_with_snapshots(snapshots: String) -> (Client, TestHttpServer) {
-        let server =
-            test_http_server(warp::path!("artifact" / "snapshots").map(move || snapshots.clone()));
-        let genesis_verification_key = fake_keys::genesis_verification_key()[0];
-        let client = ClientBuilder::aggregator(&server.url(), genesis_verification_key)
-            .with_certificate_verifier(
-                FakeCertificateVerifier::build_that_validate_any_certificate(),
-            )
-            .build()
-            .unwrap();
-
-        (client, server)
-    }
 
     #[tokio::test]
     async fn add_statistics_should_return_ok() {
@@ -181,53 +128,5 @@ mod test {
             "Unexpected error: {:?}",
             error
         );
-    }
-
-    #[tokio::test]
-    async fn expand_eventual_snapshot_alias_should_returns_id() {
-        let snapshots = get_snapshots(vec!["digest-123", "digest-234", "digest-345"]);
-        let (client, _server) = create_client_with_snapshots(snapshots);
-
-        let digest = SnapshotUtils::expand_eventual_snapshot_alias(&client, "digest-234")
-            .await
-            .unwrap();
-
-        assert_eq!("digest-234", digest);
-    }
-
-    #[tokio::test]
-    async fn expand_eventual_snapshot_alias_latest_lowercase() {
-        let snapshots = get_snapshots(vec!["digest-123", "digest-234", "digest-345"]);
-        let (client, _server) = create_client_with_snapshots(snapshots);
-
-        let digest = SnapshotUtils::expand_eventual_snapshot_alias(&client, "latest")
-            .await
-            .expect("expand_eventual_snapshot_alias should not error when latest is passed as parameter.");
-
-        assert_eq!("digest-123".to_string(), digest);
-    }
-
-    #[tokio::test]
-    async fn expand_eventual_snapshot_alias_latest_uppercase() {
-        let snapshots = get_snapshots(vec!["digest-123", "digest-234", "digest-345"]);
-        let (client, _server) = create_client_with_snapshots(snapshots);
-
-        let digest = SnapshotUtils::expand_eventual_snapshot_alias(&client, "LATEST")
-            .await
-            .expect("expand_eventual_snapshot_alias should not error when latest is passed as parameter.");
-
-        assert_eq!("digest-123".to_string(), digest);
-    }
-
-    #[tokio::test]
-    async fn expand_eventual_snapshot_alias_should_error() {
-        let snapshots = "[]";
-        let (client, _server) = create_client_with_snapshots(snapshots.to_string());
-
-        let _ = SnapshotUtils::expand_eventual_snapshot_alias(&client, "LATEST")
-            .await
-            .expect_err(
-                "expand_eventual_snapshot_alias should returns an error if there is no latest.",
-            );
     }
 }
