@@ -50,8 +50,6 @@ impl SnapshotDownloadCommand {
         let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let aggregator_endpoint = &params.require("aggregator_endpoint")?;
-        let genesis_verification_key = &params.require("genesis_verification_key")?;
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
 
@@ -61,12 +59,15 @@ impl SnapshotDownloadCommand {
             ProgressOutputType::TTY
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
-        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-            .with_logger(logger())
-            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
-                progress_output_type,
-            )))
-            .build()?;
+        let client = ClientBuilder::aggregator(
+            &params.require("aggregator_endpoint")?,
+            &params.require("genesis_verification_key")?,
+        )
+        .with_logger(logger())
+        .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
+            progress_output_type,
+        )))
+        .build()?;
 
         let get_list_of_artifact_ids = || async {
             let snapshots = client.snapshot().list().await.with_context(|| {
@@ -133,7 +134,11 @@ impl SnapshotDownloadCommand {
 
         // The snapshot download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
-        if let Err(e) = SnapshotUtils::add_statistics(aggregator_endpoint, &snapshot_message).await
+        if let Err(e) = SnapshotUtils::add_statistics(
+            &params.require("aggregator_endpoint")?,
+            &snapshot_message,
+        )
+        .await
         {
             warn!("Could not POST snapshot download statistics: {e:?}");
         }

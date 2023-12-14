@@ -42,13 +42,14 @@ impl MithrilStakeDistributionDownloadCommand {
         let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let aggregator_endpoint = &params.require("aggregator_endpoint")?;
-        let genesis_verification_key = &params.require("genesis_verification_key")?;
         let download_dir = &params.require("download_dir")?;
         let download_dir = Path::new(download_dir);
-        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-            .with_logger(logger())
-            .build()?;
+        let client = ClientBuilder::aggregator(
+            &params.require("aggregator_endpoint")?,
+            &params.require("genesis_verification_key")?,
+        )
+        .with_logger(logger())
+        .build()?;
 
         let get_list_of_artifact_ids = || async {
             let mithril_stake_distributions = client.mithril_stake_distribution().list().await.with_context(|| {
