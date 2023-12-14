@@ -1,6 +1,4 @@
 pub mod configuration;
-#[cfg(test)]
-pub mod extensions;
 pub mod http_client;
 pub mod utils;
 

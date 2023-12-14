@@ -3315,7 +3315,6 @@ dependencies = [
  "indicatif",
  "mithril-client",
  "mithril-common",
- "mockall",
  "openssl",
  "openssl-probe",
  "reqwest",
