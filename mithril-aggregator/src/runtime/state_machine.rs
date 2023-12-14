@@ -200,7 +200,7 @@ impl AggregatorRuntime {
                 } else if let Some(open_message) = self
                     .runner
                     .get_current_non_certified_open_message(&chain_beacon)
-                    .await.with_context(|| "AggregatorRuntime can not get the current non certified open message")?
+                    .await.with_context(|| "AggregatorRuntime can not get the current open message")?
                 {
                     // transition READY > SIGNING
                     info!("→ transitioning to SIGNING");
@@ -224,25 +224,28 @@ impl AggregatorRuntime {
                     self.runner.get_beacon_from_chain().await.with_context(|| {
                         "AggregatorRuntime in the state SIGNING can not get current beacon from chain"
                     })?;
-                let has_newer_open_message = if let Some(open_message_new) = self
+                let current_open_message = self
                     .runner
-                    .get_current_non_certified_open_message_for_signed_entity_type(
+                    .get_current_open_message_for_signed_entity_type(
                         &state.open_message.signed_entity_type,
                     )
                     .await
-                    .with_context(|| format!("AggregatorRuntime can not get the current non certified open message for signed entity type: '{}'", &state.open_message.signed_entity_type))?
-                {
-                    open_message_new.signed_entity_type != state.open_message.signed_entity_type
-                } else {
-                    false
-                };
+                    .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &state.open_message.signed_entity_type))?;
+                let has_expired_open_message = current_open_message
+                    .as_ref()
+                    .map(|om| om.is_expired)
+                    .unwrap_or(false);
+                let has_newer_open_message = current_open_message
+                    .as_ref()
+                    .map(|om| om.signed_entity_type != state.open_message.signed_entity_type)
+                    .unwrap_or(false);
 
                 if state.current_beacon.epoch < chain_beacon.epoch {
                     // SIGNING > IDLE
                     info!("→ Epoch changed, transitioning to IDLE");
                     let new_state = self.transition_from_signing_to_idle(state).await?;
                     self.state = AggregatorState::Idle(new_state);
-                } else if has_newer_open_message {
+                } else if has_newer_open_message || has_expired_open_message {
                     // SIGNING > READY
                     info!("→ Open message changed, transitioning to READY");
                     let new_state = self
@@ -254,7 +257,7 @@ impl AggregatorRuntime {
                     let new_state = self
                         .transition_from_signing_to_ready_multisignature(state)
                         .await?;
-                    info!("→ a multi-signature have been created, build a snapshot & a certificate and transitioning back to READY");
+                    info!("→ a multi-signature have been created, build an artifact & a certificate and transitioning back to READY");
                     self.state = AggregatorState::Ready(new_state);
                 }
             }
@@ -631,7 +634,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_get_current_non_certified_open_message_for_signed_entity_type()
+            .expect_get_current_open_message_for_signed_entity_type()
             .once()
             .returning(|_| {
                 Ok(Some(OpenMessage {
@@ -665,7 +668,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_get_current_non_certified_open_message_for_signed_entity_type()
+            .expect_get_current_open_message_for_signed_entity_type()
             .once()
             .returning(|_| Ok(Some(OpenMessage::dummy())));
         runner
@@ -701,7 +704,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_get_current_non_certified_open_message_for_signed_entity_type()
+            .expect_get_current_open_message_for_signed_entity_type()
             .once()
             .returning(|_| Ok(Some(OpenMessage::dummy())));
         runner
@@ -744,7 +747,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_get_current_non_certified_open_message_for_signed_entity_type()
+            .expect_get_current_open_message_for_signed_entity_type()
             .once()
             .returning(|_| Ok(Some(OpenMessage::dummy())));
         runner
