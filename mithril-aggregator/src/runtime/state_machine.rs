@@ -4,7 +4,7 @@ use crate::{
 };
 
 use anyhow::Context;
-use mithril_common::entities::Beacon;
+use mithril_common::entities::{Beacon, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -231,21 +231,24 @@ impl AggregatorRuntime {
                     )
                     .await
                     .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &state.open_message.signed_entity_type))?;
-                let has_expired_open_message = current_open_message
+                let is_expired_open_message = current_open_message
                     .as_ref()
                     .map(|om| om.is_expired)
                     .unwrap_or(false);
-                let has_newer_open_message = current_open_message
-                    .as_ref()
-                    .map(|om| om.signed_entity_type != state.open_message.signed_entity_type)
-                    .unwrap_or(false);
+                let exists_newer_open_message = {
+                    let new_signed_entity_type = SignedEntityType::from_beacon(
+                        &state.open_message.signed_entity_type.clone().into(),
+                        &chain_beacon,
+                    );
+                    new_signed_entity_type != state.open_message.signed_entity_type
+                };
 
                 if state.current_beacon.epoch < chain_beacon.epoch {
                     // SIGNING > IDLE
                     info!("→ Epoch changed, transitioning to IDLE");
                     let new_state = self.transition_from_signing_to_idle(state).await?;
                     self.state = AggregatorState::Idle(new_state);
-                } else if has_newer_open_message || has_expired_open_message {
+                } else if exists_newer_open_message || is_expired_open_message {
                     // SIGNING > READY
                     info!("→ Open message changed, transitioning to READY");
                     let new_state = self
