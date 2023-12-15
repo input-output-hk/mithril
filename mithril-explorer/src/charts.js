@@ -89,8 +89,4 @@ function setChartJsDefaults(chartJs) {
   chartJs.defaults.elements.bar.borderWidth = 1;
 }
 
-module.exports = {
-  computeSignersWeightDataset,
-  computeStakeShapesDataset,
-  setChartJsDefaults,
-};
+export { computeSignersWeightDataset, computeStakeShapesDataset, setChartJsDefaults };
