@@ -3303,6 +3303,7 @@ dependencies = [
  "serde_json",
  "slog",
  "slog-async",
+ "slog-bunyan",
  "slog-scope",
  "slog-term",
  "thiserror",

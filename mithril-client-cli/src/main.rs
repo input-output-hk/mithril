@@ -43,6 +43,10 @@ pub struct Args {
     /// Override configuration Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
     aggregator_endpoint: Option<String>,
+
+    /// Enable JSON output for logs displayed according to verbosity level
+    #[clap(long)]
+    log_format_json: bool,
 }
 
 impl Args {
@@ -69,10 +73,21 @@ impl Args {
     }
 
     fn build_logger(&self) -> Logger {
-        let decorator = slog_term::TermDecorator::new().build();
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
+        let drain = if self.log_format_json {
+            let drain = slog_bunyan::new(std::io::stdout())
+                .set_pretty(false)
+                .build()
+                .fuse();
+            let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+
+            slog_async::Async::new(drain).build().fuse()
+        } else {
+            let decorator = slog_term::TermDecorator::new().build();
+            let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+            let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+
+            slog_async::Async::new(drain).build().fuse()
+        };
 
         Logger::root(Arc::new(drain), slog::o!())
     }
