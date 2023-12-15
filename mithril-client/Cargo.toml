@@ -55,7 +55,7 @@ mithril-common = { path = "../mithril-common", version = "0.2", features = [
     "random",
     "test_tools",
 ] }
-mockall = "0.11.4"
+mockall = "0.12.0"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"

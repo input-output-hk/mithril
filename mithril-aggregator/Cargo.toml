@@ -50,7 +50,7 @@ mithril-common = { path = "../mithril-common", features = [
     "allow_skip_signer_certification",
     "test_tools",
 ] }
-mockall = "0.11.4"
+mockall = "0.12.0"
 slog-term = "2.9.0"
 tempfile = "3.8.0"
 
