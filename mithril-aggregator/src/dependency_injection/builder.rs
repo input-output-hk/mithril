@@ -106,6 +106,9 @@ pub struct DependenciesBuilder {
     /// Certificate repository.
     pub certificate_repository: Option<Arc<CertificateRepository>>,
 
+    /// Open message repository.
+    pub open_message_repository: Option<Arc<OpenMessageRepository>>,
+
     /// Verification key store.
     pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
@@ -205,6 +208,7 @@ impl DependenciesBuilder {
             multi_signer: None,
             certificate_pending_store: None,
             certificate_repository: None,
+            open_message_repository: None,
             verification_key_store: None,
             protocol_parameters_store: None,
             cardano_cli_runner: None,
@@ -428,6 +432,21 @@ impl DependenciesBuilder {
         }
 
         Ok(self.certificate_repository.as_ref().cloned().unwrap())
+    }
+
+    async fn build_open_message_repository(&mut self) -> Result<Arc<OpenMessageRepository>> {
+        Ok(Arc::new(OpenMessageRepository::new(
+            self.get_sqlite_connection().await?,
+        )))
+    }
+
+    /// Get a configured [OpenMessageRepository].
+    pub async fn get_open_message_repository(&mut self) -> Result<Arc<OpenMessageRepository>> {
+        if self.open_message_repository.is_none() {
+            self.open_message_repository = Some(self.build_open_message_repository().await?);
+        }
+
+        Ok(self.open_message_repository.as_ref().cloned().unwrap())
     }
 
     async fn build_verification_key_store(&mut self) -> Result<Arc<dyn VerificationKeyStorer>> {
@@ -1015,6 +1034,7 @@ impl DependenciesBuilder {
             multi_signer: self.get_multi_signer().await?,
             certificate_pending_store: self.get_certificate_pending_store().await?,
             certificate_repository: self.get_certificate_repository().await?,
+            open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,
             protocol_parameters_store: self.get_protocol_parameters_store().await?,
             chain_observer: self.get_chain_observer().await?,
@@ -1189,9 +1209,7 @@ impl DependenciesBuilder {
 
     /// Create [CertifierService] service
     pub async fn build_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
-        let open_message_repository = Arc::new(OpenMessageRepository::new(
-            self.get_sqlite_connection().await?,
-        ));
+        let open_message_repository = self.get_open_message_repository().await?;
         let single_signature_repository = Arc::new(SingleSignatureRepository::new(
             self.get_sqlite_connection().await?,
         ));
