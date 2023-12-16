@@ -1,11 +1,33 @@
 use anyhow::anyhow;
-use serde::Serialize;
+// required for derive attrs to work
+use pallas_codec::utils::{Int, KeyValuePairs};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use strum::{Display, EnumDiscriminants};
 use thiserror::Error;
 
 use crate::{StdError, StdResult};
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct Constr<A> {
+    pub tag: u64,
+    pub constructor: Option<u64>,
+    pub fields: Vec<A>,
+}
+
+#[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum Metadatum {
+    Datum(Constr<Metadatum>),
+    Int(Int),
+    Bytes(String),
+    Text(String),
+    List(Vec<Metadatum>),
+    Map(KeyValuePairs<Metadatum, Metadatum>),
+}
+
+pub type Datums = Vec<TxDatum>;
 
 /// [ChainAddress] represents an on chain address.
 pub type ChainAddress = String;

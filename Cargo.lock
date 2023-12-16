@@ -542,6 +542,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4cbbc9d0964165b47557570cce6c952866c2678457aca742aafc9fb771d30270"
 
 [[package]]
+name = "base58"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6107fe1be6682a68940da878d9e9f5e90ca5745b3dec9fd1bb393c8777d4f581"
+
+[[package]]
 name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1015,6 +1021,21 @@ checksum = "ce420fe07aecd3e67c5f910618fe65e94158f6dcc0adf44e00d69ce2bdfe0fd0"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "crc"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "86ec7a15cbe22e59248fc7eadb1907dab5ba09372595da4d73dd805ed4417dfe"
+dependencies = [
+ "crc-catalog",
+]
+
+[[package]]
+name = "crc-catalog"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19d374276b40fb8bbdee95aef7c7fa6b5316ec764510eb64b8dd0e2ed0d7e7f5"
 
 [[package]]
 name = "crc32fast"
@@ -3368,10 +3389,13 @@ dependencies = [
  "http",
  "jsonschema",
  "kes-summed-ed25519",
+ "minicbor",
  "mithril-stm",
  "mockall",
  "nom",
+ "pallas-addresses",
  "pallas-codec",
+ "pallas-crypto",
  "pallas-network",
  "rand_chacha",
  "rand_core 0.6.4",
@@ -3972,10 +3996,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallas-addresses"
+version = "0.20.0"
+dependencies = [
+ "base58",
+ "bech32",
+ "crc",
+ "hex",
+ "pallas-codec",
+ "pallas-crypto",
+ "sha3",
+ "thiserror",
+]
+
+[[package]]
 name = "pallas-codec"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5443cc4e8d59a8845282a8d35c4021a434a1911d3bc82914c3a8fcda8247d1ae"
 dependencies = [
  "hex",
  "minicbor",
@@ -3986,8 +4022,6 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd1116c3da7bc5ae8aa3a87a3ccc42a46d07994458d084c7d3c1dc732320bfc0"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4000,8 +4034,6 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69d5fb0899c37f74b2b3366d44eef85d44aea2b1cd8e9548263977baa252d9f4"
 dependencies = [
  "byteorder",
  "hex",

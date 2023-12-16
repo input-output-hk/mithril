@@ -1,6 +1,11 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use minicbor::display;
+use pallas_addresses::Address;
+use pallas_codec::utils::{AnyCbor, Bytes, CborWrap, TagWrap};
+use pallas_crypto::hash::Hash;
 use pallas_network::facades::NodeClient;
+use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
 use pallas_network::miniprotocols::localstate::{queries_v16, Client};
 use std::path::{Path, PathBuf};
 
@@ -11,6 +16,7 @@ use crate::entities::StakeDistribution;
 use crate::CardanoNetwork;
 use crate::{entities::Epoch, StdResult};
 
+use super::model::{Datums, Metadatum};
 use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
@@ -78,6 +84,77 @@ impl PallasChainObserver {
         Ok(epoch)
     }
 
+    /// Inspects the given `AnyCbor` instance.
+    fn inspect<R>(&self, cbor: AnyCbor) -> R
+    where
+        for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
+    {
+        cbor.into_decode().unwrap()
+    }
+
+    /// Returns inline datums from the given `Values` instance.
+    fn inspect_datum(&self, values: &Values) -> Metadatum {
+        let datum = values.inline_datum.as_ref().unwrap().1.clone();
+        let datum = CborWrap(datum).to_vec();
+        let datum = AnyCbor { inner: datum };
+        let datum = self.inspect(datum);
+        let cbor = AnyCbor { inner: datum };
+        let inspec = self.inspect(cbor);
+        println!("inspec: {:?}", inspec);
+        let serialized = serde_json::to_string(&inspec).expect("Failed to serialize");
+        println!("serialized: {:?}", serialized);
+        inspec
+    }
+
+    /// Serializes datum to `TxDatum` instance.
+    fn serialize_datum(&self, values: &Values) -> TxDatum {
+        let datum = self.inspect_datum(values);
+        let serialized = serde_json::to_string(&datum).expect("Failed to serialize");
+        TxDatum(serialized)
+    }
+
+    /// Maps the given `UTxOByAddress` instance to Datums.
+    fn map_datums(&self, utxo: UTxOByAddress) -> Datums {
+        utxo.utxo
+            .iter()
+            .map(|(_, values)| self.serialize_datum(values))
+            .collect()
+    }
+
+    /// Returns a vector of `TxDatum` instances.
+    async fn get_utxo_datums(&self, utxo: UTxOByAddress) -> Result<Datums, ChainObserverError> {
+        Ok(self.map_datums(utxo))
+    }
+
+    /// Fetches the current UTxO by address using the provided `statequery` client.
+    async fn get_utxo_by_address(
+        &self,
+        statequery: &mut Client,
+        address: &ChainAddress,
+    ) -> StdResult<UTxOByAddress> {
+        // ) -> StdResult<Vec<TxDatum>> {
+        statequery
+            .acquire(None)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver Failed to acquire statequery")?;
+
+        let era = queries_v16::get_current_era(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver Failed to get current era")?;
+
+        let addr: Address = Address::from_bech32(address).unwrap();
+        let addr: Addr = addr.to_vec().into();
+        let addrs: Addrs = vec![addr];
+        let utxo = queries_v16::get_utxo_by_address(statequery, era, addrs)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver Failed to get utxo")?;
+
+        Ok(utxo)
+    }
+
     /// Processes a state query with the `NodeClient`, releasing the state query.
     async fn process_statequery(&self, client: &mut NodeClient) -> StdResult<()> {
         let statequery = client.statequery();
@@ -133,9 +210,17 @@ impl ChainObserver for PallasChainObserver {
     async fn get_current_datums(
         &self,
         address: &ChainAddress,
-    ) -> Result<Vec<TxDatum>, ChainObserverError> {
-        let fallback = self.get_fallback();
-        fallback.get_current_datums(address).await
+    ) -> Result<Datums, ChainObserverError> {
+        let mut client = self.get_client().await?;
+        let utxo = self
+            .get_utxo_by_address(client.statequery(), address)
+            .await?;
+
+        self.get_utxo_datums(utxo).await
+        // println!("datums final: {:?}", datums);
+        //
+        // let fallback = self.get_fallback();
+        // fallback.get_current_datums(address).await
     }
 
     async fn get_current_stake_distribution(
@@ -158,12 +243,43 @@ impl ChainObserver for PallasChainObserver {
 mod tests {
     use std::fs;
 
-    use pallas_codec::utils::AnyCbor;
-    use pallas_network::miniprotocols::localstate::{self, ClientQueryRequest};
+    use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
+    use pallas_crypto::hash::Hash;
+    use pallas_network::miniprotocols::localstate::{self, queries_v16::Value, ClientQueryRequest};
     use tokio::net::UnixListener;
 
     use super::*;
     use crate::{chain_observer::test_cli_runner::TestCliRunner, CardanoNetwork};
+
+    fn get_utxo_mock() -> UTxOByAddress {
+        let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
+        let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
+        let transaction_id = Hash::from(txbytes);
+        let index = AnyUInt::MajorByte(2);
+        let lovelace = AnyUInt::MajorByte(2);
+        // let hex_datum = "9118D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA";
+        let hex_datum = "98A718D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA1850187018DA18EA185E189918BF181B18C018E10718841837181C183218B7188C1218FC1858181C18621884183E181918D9187B1832187518AF184D18C906188A188F18E5183E18381853183D1618A1187F18DB1819186E18FA1860186B18FF18D81879189F18401840181B0000000118E51861184E18CB0018FF18D81879189F000018FF18D81879189F189F18D81879189F1858181C182D181E15181918E7182A182B187C18EA18C518F1184F18D1187118C318B118A3184418E618F6184C06186718F418BF18621828041858181C187A1896184718D2041888187018A01872186F187818621818186318E01837189718DC1718B918461847183A183518DE18D4185F187518FF18FF189F181A1819188B18DB18BA18FF18FF18FF";
+        let datum = hex::decode(hex_datum).unwrap().into();
+        let tag = TagWrap::<_, 24>::new(datum);
+        let inline_datum = Some((1_u16, tag));
+        let values = localstate::queries_v16::Values {
+            address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
+                .to_vec()
+                .into(),
+            amount: Value::Coin(lovelace),
+            inline_datum,
+        };
+
+        let utxo = KeyValuePairs::from(vec![(
+            localstate::queries_v16::UTxO {
+                transaction_id,
+                index,
+            },
+            values,
+        )]);
+
+        localstate::queries_v16::UTxOByAddress { utxo }
+    }
 
     /// pallas responses mock server.
     async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
@@ -172,6 +288,8 @@ mod tests {
                 ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
                 x => panic!("unexpected message from client: {x:?}"),
             };
+
+        let utxo = get_utxo_mock();
 
         match query {
             localstate::queries_v16::Request::LedgerQuery(
@@ -185,6 +303,12 @@ mod tests {
                     localstate::queries_v16::BlockQuery::GetEpochNo,
                 ),
             ) => AnyCbor::from_encode([8]),
+            localstate::queries_v16::Request::LedgerQuery(
+                localstate::queries_v16::LedgerQuery::BlockQuery(
+                    _,
+                    localstate::queries_v16::BlockQuery::GetUTxOByAddress(_),
+                ),
+            ) => AnyCbor::from_encode(utxo),
             _ => panic!("unexpected query from client: {query:?}"),
         }
     }
@@ -243,5 +367,26 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let epoch = client_res.expect("Client failed");
         assert_eq!(epoch, 8);
+    }
+
+    #[tokio::test]
+    async fn get_current_datums_with_fallback() {
+        let server = setup_server().await;
+        let client = tokio::spawn(async move {
+            let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
+            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
+            let observer = super::PallasChainObserver::new(
+                socket_path.as_path(),
+                CardanoNetwork::TestNet(10),
+                fallback,
+            );
+            let address =
+                "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".to_string();
+            observer.get_current_datums(&address).await.unwrap()
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let datums = client_res.expect("Client failed");
+        assert_eq!(vec![TxDatum(r#"{"tag":121,"constructor":0,"fields":[{"tag":121,"constructor":0,"fields":[{"bytes":"c9cf71661e531691ba5070daea5e99bf1bc0e10784371c32b78c12fc"},{"bytes":"62843e19d97b3275af4dc9068a8fe53e38533d16a17fdb196efa606b"}]},{"tag":121,"constructor":0,"fields":[{"bytes":""},{"bytes":""},{"int":8143326923},{"int":0}]},{"tag":121,"constructor":0,"fields":[{"int":0},{"int":0}]},{"tag":121,"constructor":0,"fields":[{"list":[{"tag":121,"constructor":0,"fields":[{"bytes":"2d1e1519e72a2b7ceac5f14fd171c3b1a344e6f64c0667f4bf622804"},{"bytes":"7a9647d2048870a0726f78621863e03797dc17b946473a35ded45f75"}]}]},{"list":[{"int":428596154}]}]}]}"#.to_string())], datums);
     }
 }
