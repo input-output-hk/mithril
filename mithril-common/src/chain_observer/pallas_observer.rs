@@ -138,7 +138,6 @@ impl PallasChainObserver {
         statequery: &mut Client,
         address: &ChainAddress,
     ) -> StdResult<UTxOByAddress> {
-        // ) -> StdResult<Vec<TxDatum>> {
         statequery
             .acquire(None)
             .await
