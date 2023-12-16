@@ -122,7 +122,13 @@ impl PallasChainObserver {
     }
 
     /// Returns a vector of `TxDatum` instances.
-    async fn get_utxo_datums(&self, utxo: UTxOByAddress) -> Result<Datums, ChainObserverError> {
+    async fn get_utxo_datums(
+        &self,
+        client: &mut NodeClient,
+        address: &ChainAddress,
+    ) -> Result<Datums, ChainObserverError> {
+        let statequery = client.statequery();
+        let utxo = self.get_utxo_by_address(statequery, address).await?;
         Ok(self.map_datums(utxo))
     }
 
@@ -212,15 +218,14 @@ impl ChainObserver for PallasChainObserver {
         address: &ChainAddress,
     ) -> Result<Datums, ChainObserverError> {
         let mut client = self.get_client().await?;
-        let utxo = self
-            .get_utxo_by_address(client.statequery(), address)
-            .await?;
 
-        self.get_utxo_datums(utxo).await
-        // println!("datums final: {:?}", datums);
-        //
-        // let fallback = self.get_fallback();
-        // fallback.get_current_datums(address).await
+        let datums = self.get_utxo_datums(&mut client, address).await?;
+
+        self.post_process_statequery(&mut client).await?;
+
+        drop(client.plexer_handle);
+
+        Ok(datums)
     }
 
     async fn get_current_stake_distribution(
