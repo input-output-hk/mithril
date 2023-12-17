@@ -1,4 +1,4 @@
-use minicbor::{data::Tag, display};
+use minicbor::data::Tag;
 use pallas_codec::utils::Bytes;
 use serde::ser::SerializeMap;
 use serde::Serialize;
@@ -46,16 +46,6 @@ impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
                 "Can't turn data type into metadatum",
             )),
         }
-    }
-}
-
-impl<C> minicbor::Encode<C> for Metadatum {
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
     }
 }
 
@@ -128,18 +118,5 @@ where
                 "bad tag code for inline datum data",
             )),
         }
-    }
-}
-
-impl<C, A> minicbor::encode::Encode<C> for Constr<A>
-where
-    A: minicbor::encode::Encode<C>,
-{
-    fn encode<W: minicbor::encode::Write>(
-        &self,
-        e: &mut minicbor::Encoder<W>,
-        ctx: &mut C,
-    ) -> Result<(), minicbor::encode::Error<W::Error>> {
-        todo!()
     }
 }

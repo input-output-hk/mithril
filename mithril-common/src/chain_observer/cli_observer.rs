@@ -431,7 +431,6 @@ impl ChainObserver for CardanoCliChainObserver {
                     .map(|datum| TxDatum(datum.to_string()))
             })
             .collect();
-        println!("resp = '{resp:?}'", resp = resp);
 
         Ok(resp)
     }

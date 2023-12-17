@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use minicbor::display;
 use pallas_addresses::Address;
-use pallas_codec::utils::{AnyCbor, Bytes, CborWrap, TagWrap};
+use pallas_codec::utils::{AnyCbor, CborWrap};
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
 use pallas_network::miniprotocols::localstate::{queries_v16, Client};
@@ -287,8 +286,6 @@ mod tests {
                 x => panic!("unexpected message from client: {x:?}"),
             };
 
-        let utxo = get_utxo_mock();
-
         match query {
             localstate::queries_v16::Request::LedgerQuery(
                 localstate::queries_v16::LedgerQuery::HardForkQuery(
@@ -306,7 +303,7 @@ mod tests {
                     _,
                     localstate::queries_v16::BlockQuery::GetUTxOByAddress(_),
                 ),
-            ) => AnyCbor::from_encode(utxo),
+            ) => AnyCbor::from_encode(get_utxo_mock()),
             _ => panic!("unexpected query from client: {query:?}"),
         }
     }
