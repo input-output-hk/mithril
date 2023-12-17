@@ -102,17 +102,12 @@ where
         let tag = d.tag()?;
 
         match tag {
-            Tag::Unassigned(t) => match t {
-                121 => Ok(Constr {
-                    fields: d.decode_with(ctx)?,
-                    constructor: Some(0),
-                }),
-                _ => Err(minicbor::decode::Error::message(
-                    "bad tag code for inline datum data",
-                )),
-            },
+            Tag::Unassigned(121) => Ok(Constr {
+                fields: d.decode_with(ctx)?,
+                constructor: Some(0),
+            }),
             _ => Err(minicbor::decode::Error::message(
-                "bad tag code for inline datum data",
+                "unknown tag for inline datum data tag",
             )),
         }
     }
