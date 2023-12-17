@@ -423,16 +423,13 @@ impl ChainObserver for CardanoCliChainObserver {
             .with_context(|| format!("output was = '{output}'"))
             .map_err(ChainObserverError::InvalidContent)?;
 
-        let resp = v
-            .values()
+        Ok(v.values()
             .filter_map(|v| {
                 v.get("inlineDatum")
                     .filter(|datum| !datum.is_null())
                     .map(|datum| TxDatum(datum.to_string()))
             })
-            .collect();
-
-        Ok(resp)
+            .collect())
     }
 
     // TODO: This function implements a fallback mechanism to compute the stake distribution: new/optimized computation when available, legacy computation otherwise

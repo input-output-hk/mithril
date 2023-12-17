@@ -42,7 +42,7 @@ impl CliRunner for TestCliRunner {
                 {
                     "bytes": "5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a"
                 }
-            ],
+            ]
         },
         "inlineDatumhash": "b97cbaa0dc5b41864c83c2f625d9bc2a5f3e6b5cd5071c14a2090e630e188c80",
         "referenceScript": null,
