@@ -143,7 +143,10 @@ impl PallasChainObserver {
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver Failed to get current era")?;
 
-        let addr: Address = Address::from_bech32(address).unwrap();
+        let addr: Address = Address::from_bech32(address)
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver Failed to parse address")?;
+
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = vec![addr];
         let utxo = queries_v16::get_utxo_by_address(statequery, era, addrs)
