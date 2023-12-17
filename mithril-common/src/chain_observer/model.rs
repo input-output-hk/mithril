@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{StdError, StdResult};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Constr<A> {
     pub tag: u64,
     pub constructor: Option<u64>,
