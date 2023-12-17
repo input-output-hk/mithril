@@ -57,12 +57,10 @@ impl Serialize for Metadatum {
         match self {
             Metadatum::Datum(constr) => {
                 let Constr {
-                    tag,
                     constructor,
                     fields,
                 } = constr;
                 let mut state = serializer.serialize_map(Some(3))?;
-                state.serialize_entry("tag", tag)?;
                 state.serialize_entry("constructor", constructor)?;
                 state.serialize_entry("fields", fields)?;
                 state.end()
@@ -106,7 +104,6 @@ where
         match tag {
             Tag::Unassigned(t) => match t {
                 121 => Ok(Constr {
-                    tag: t,
                     fields: d.decode_with(ctx)?,
                     constructor: Some(0),
                 }),

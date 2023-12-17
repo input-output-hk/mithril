@@ -11,7 +11,6 @@ use crate::{StdError, StdResult};
 
 #[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct Constr<A> {
-    pub tag: u64,
     pub constructor: Option<u64>,
     pub fields: Vec<A>,
 }

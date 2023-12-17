@@ -382,6 +382,6 @@ mod tests {
 
         let (_, client_res) = tokio::join!(server, client);
         let datums = client_res.expect("Client failed");
-        assert_eq!(vec![TxDatum(r#"{"tag":121,"constructor":0,"fields":[{"tag":121,"constructor":0,"fields":[{"bytes":"c9cf71661e531691ba5070daea5e99bf1bc0e10784371c32b78c12fc"},{"bytes":"62843e19d97b3275af4dc9068a8fe53e38533d16a17fdb196efa606b"}]},{"tag":121,"constructor":0,"fields":[{"bytes":""},{"bytes":""},{"int":8143326923},{"int":0}]},{"tag":121,"constructor":0,"fields":[{"int":0},{"int":0}]},{"tag":121,"constructor":0,"fields":[{"list":[{"tag":121,"constructor":0,"fields":[{"bytes":"2d1e1519e72a2b7ceac5f14fd171c3b1a344e6f64c0667f4bf622804"},{"bytes":"7a9647d2048870a0726f78621863e03797dc17b946473a35ded45f75"}]}]},{"list":[{"int":428596154}]}]}]}"#.to_string())], datums);
+        assert_eq!(vec![TxDatum(r#"{"constructor":0,"fields":[{"constructor":0,"fields":[{"bytes":"c9cf71661e531691ba5070daea5e99bf1bc0e10784371c32b78c12fc"},{"bytes":"62843e19d97b3275af4dc9068a8fe53e38533d16a17fdb196efa606b"}]},{"constructor":0,"fields":[{"bytes":""},{"bytes":""},{"int":8143326923},{"int":0}]},{"constructor":0,"fields":[{"int":0},{"int":0}]},{"constructor":0,"fields":[{"list":[{"constructor":0,"fields":[{"bytes":"2d1e1519e72a2b7ceac5f14fd171c3b1a344e6f64c0667f4bf622804"},{"bytes":"7a9647d2048870a0726f78621863e03797dc17b946473a35ded45f75"}]}]},{"list":[{"int":428596154}]}]}]}"#.to_string())], datums);
     }
 }
