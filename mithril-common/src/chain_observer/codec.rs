@@ -7,8 +7,6 @@ use super::model::{Constr, Metadatum};
 
 impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        println!("decode metadatum");
-        println!("d.datatype: {:?}", d.datatype()?);
         match d.datatype()? {
             minicbor::data::Type::U8
             | minicbor::data::Type::U16
@@ -38,9 +36,7 @@ impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
                 let tag = probe.tag()?;
 
                 match tag {
-                    Tag::Unassigned(121..=127 | 1280..=1400 | 102) => {
-                        Ok(Self::Datum(d.decode_with(ctx)?))
-                    }
+                    Tag::Unassigned(121) => Ok(Self::Datum(d.decode_with(ctx)?)),
                     _ => Err(minicbor::decode::Error::message(
                         "unknown tag for inline datum data tag",
                     )),
@@ -115,25 +111,15 @@ where
     A: minicbor::decode::Decode<'b, C>,
 {
     fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        println!("decode constr");
         let tag = d.tag()?;
 
         match tag {
-            Tag::Unassigned(x) => match x {
-                121..=127 | 1280..=1400 => Ok(Constr {
-                    tag: x,
+            Tag::Unassigned(t) => match t {
+                121 => Ok(Constr {
+                    tag: t,
                     fields: d.decode_with(ctx)?,
                     constructor: Some(0),
                 }),
-                102 => {
-                    d.array()?;
-
-                    Ok(Constr {
-                        tag: x,
-                        constructor: Some(d.decode_with(ctx)?),
-                        fields: d.decode_with(ctx)?,
-                    })
-                }
                 _ => Err(minicbor::decode::Error::message(
                     "bad tag code for inline datum data",
                 )),
