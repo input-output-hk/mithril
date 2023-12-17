@@ -26,6 +26,7 @@ pub enum Metadatum {
     Map(KeyValuePairs<Metadatum, Metadatum>),
 }
 
+/// [Datums] represents a list of [TxDatum].
 pub type Datums = Vec<TxDatum>;
 
 /// [ChainAddress] represents an on chain address.
