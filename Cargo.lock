@@ -3998,6 +3998,7 @@ dependencies = [
 [[package]]
 name = "pallas-addresses"
 version = "0.20.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=any-cbor-inner-pub#5bfc770a40b97bfe1f6771e562d88463335768af"
 dependencies = [
  "base58",
  "bech32",
@@ -4012,6 +4013,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "0.20.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=any-cbor-inner-pub#5bfc770a40b97bfe1f6771e562d88463335768af"
 dependencies = [
  "hex",
  "minicbor",
@@ -4022,6 +4024,7 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "0.20.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=any-cbor-inner-pub#5bfc770a40b97bfe1f6771e562d88463335768af"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4034,6 +4037,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "0.20.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=any-cbor-inner-pub#5bfc770a40b97bfe1f6771e562d88463335768af"
 dependencies = [
  "byteorder",
  "hex",

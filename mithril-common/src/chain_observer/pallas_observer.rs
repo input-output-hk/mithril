@@ -3,7 +3,6 @@ use async_trait::async_trait;
 use minicbor::display;
 use pallas_addresses::Address;
 use pallas_codec::utils::{AnyCbor, Bytes, CborWrap, TagWrap};
-use pallas_crypto::hash::Hash;
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
 use pallas_network::miniprotocols::localstate::{queries_v16, Client};
