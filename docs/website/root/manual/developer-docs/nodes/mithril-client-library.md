@@ -13,8 +13,8 @@ Mithril client library can be used by Rust developers to use the Mithril network
 
 It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
 - [**Snapshot**](../../../glossary.md#snapshot): list, get and download tarball.
-- [**Mithril stake distribution**](../../../glossary#stake-distribution): list and get.
-- [**Certificate**](../../../glossary#certificate): list, get, and chain validation.
+- [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
+- [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
 :::
 
@@ -38,7 +38,7 @@ It is responsible for handling the different types of data certified by Mithril,
 
 | Node | Source repository | Rust documentation |
 |:-:|:-----------------:|:------------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/mithril-client/doc/mithril_client/index.html) |
+**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client/index.html) |
 
 ## Pre-requisites
 

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.97"
+version = "0.2.98"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -37,7 +37,7 @@ tokio = { version = "1.32.0", features = ["full"] }
 [dev-dependencies]
 httpmock = "0.6.8"
 mithril-common = { path = "../mithril-common" }
-mockall = "0.11.4"
+mockall = "0.12.0"
 slog-term = "2.9.0"
 
 [features]

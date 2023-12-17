@@ -118,6 +118,10 @@ impl DownloadProgressReporter {
         };
     }
 
+    pub fn finish(&self, message: &str) {
+        self.progress_bar.finish_with_message(message.to_string());
+    }
+
     fn get_remaining_time_since_last_json_report(&self) -> Option<Duration> {
         match self.last_json_report_instant.read() {
             Ok(instant) => (*instant).map(|instant| instant.elapsed()),

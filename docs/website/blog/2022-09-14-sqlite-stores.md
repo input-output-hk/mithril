@@ -17,7 +17,7 @@ There are 2 ways of getting the new version and the associated migration tool. E
 
 ### Downloading
 
-Download the new `mithril-signer` and `mithril-signer-migrate` files from the [nightly builds page](https://github.com/input-output-hk/mithril/releases/tag/nightly). Make them executable:
+Download the new `mithril-signer` and `mithril-signer-migrate` files from the [nightly builds page](https://github.com/input-output-hk/mithril/releases/tag/unstable). Make them executable:
 
 ```
 $> chmod +x mithril-signer*

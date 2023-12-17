@@ -91,7 +91,7 @@ In its initial version, the Mithril aggregator comprises two main components:
 
 :::tip
 
-The Mithril aggregator's **REST API** documentation can be found [here](/aggregator-api).
+The Mithril aggregator's **REST API** documentation can be found [here](/doc/aggregator-api).
 
 :::
 

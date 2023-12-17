@@ -13,7 +13,7 @@ The **Mithril client library** allows developers to use all the tooling necessar
 
 Here are some useful documentation that can be used by developers:
 - **Developer documentation**: https://docs.rs/mithril-client/0.5.7/mithril_client/
-- **Example of implementations**:https://github.com/input-output-hk/mithril/blob/main/mithril-client/examples/
+- **Example of implementations**:https://github.com/input-output-hk/mithril/blob/main/examples/
 - **Mithril client repository**: https://github.com/input-output-hk/mithril/tree/main/mithril-client
 - **Crates.io**: https://crates.io/crates/mithril-client
 

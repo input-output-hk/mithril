@@ -1,0 +1,35 @@
+[package]
+name = "mithril-client-wasm"
+version = "0.1.1"
+description = "Mithril client WASM"
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+categories = ["cryptography"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+async-trait = "0.1.73"
+futures = "0.3.28"
+mithril-client = { path = "../mithril-client" }
+serde = { version = "1.0.188", features = ["derive"] }
+serde-wasm-bindgen = "0.6.0"
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4.37"
+web-sys = { version = "0.3.4", features = ["BroadcastChannel"] }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3.20"
+
+[features]
+# Include nothing by default
+default = []
+
+[package.metadata.docs.rs]
+all-features = true
+# enable unstable features in the documentation
+rustdoc-args = ["--cfg", "docsrs"]
