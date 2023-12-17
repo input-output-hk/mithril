@@ -99,9 +99,7 @@ impl PallasChainObserver {
         let datum = AnyCbor { inner: datum };
         let datum = self.inspect(datum);
         let cbor = AnyCbor { inner: datum };
-        let inspec = self.inspect(cbor);
-        let serialized = serde_json::to_string(&inspec).expect("Failed to serialize");
-        inspec
+        self.inspect(cbor)
     }
 
     /// Serializes datum to `TxDatum` instance.
