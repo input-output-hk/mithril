@@ -60,7 +60,7 @@ impl Serialize for Metadatum {
                     constructor,
                     fields,
                 } = constr;
-                let mut state = serializer.serialize_map(Some(3))?;
+                let mut state = serializer.serialize_map(Some(2))?;
                 state.serialize_entry("constructor", constructor)?;
                 state.serialize_entry("fields", fields)?;
                 state.end()
