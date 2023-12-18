@@ -6,7 +6,7 @@
 //!
 //! It handles the different types that can be queried to a Mithril aggregator:
 //!
-//! - [Snapshot][snapshot_client] list, get and download tarball.
+//! - [Snapshot][snapshot_client] list, get, download tarball and add statistics.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!
@@ -45,6 +45,11 @@
 //!     .snapshot()
 //!     .download_unpack(&snapshot, &target_directory)
 //!     .await?;
+//!
+//! if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+//!     println!("Could not POST snapshot download statistics: {:?}", e);
+//! }
+//!
 //!
 //! let message = MessageBuilder::new()
 //!     .compute_snapshot_message(&certificate, &target_directory)
