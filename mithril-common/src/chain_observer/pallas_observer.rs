@@ -111,6 +111,7 @@ impl PallasChainObserver {
     fn map_datums(&self, utxo: UTxOByAddress) -> Datums {
         utxo.utxo
             .iter()
+            .filter(|(_, values)| values.inline_datum.is_some())
             .map(|(_, values)| self.serialize_datum(values))
             .collect()
     }
