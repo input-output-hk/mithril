@@ -1,7 +1,7 @@
 use crate::StdResult;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use strum::{Display, EnumDiscriminants};
+use strum::{Display, EnumDiscriminants, EnumString};
 
 cfg_database! {
     use crate::{sqlite::HydrationError};
@@ -26,6 +26,7 @@ const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: usize = 2;
 /// variants.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
+#[strum_discriminants(derive(EnumString))]
 pub enum SignedEntityType {
     /// Mithril stake distribution
     MithrilStakeDistribution(Epoch),
