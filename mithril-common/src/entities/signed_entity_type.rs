@@ -1,5 +1,6 @@
 use crate::StdResult;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use strum::{Display, EnumDiscriminants};
 
 cfg_database! {
@@ -104,6 +105,29 @@ impl SignedEntityType {
         };
 
         Ok(value)
+    }
+
+    /// Return the associated open message timeout
+    pub fn get_open_message_timeout(&self) -> Option<Duration> {
+        match self {
+            Self::MithrilStakeDistribution(_) | Self::CardanoImmutableFilesFull(_) => None,
+            Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(600)),
+        }
+    }
+
+    /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
+    pub fn from_beacon(discriminant: &SignedEntityTypeDiscriminants, beacon: &Beacon) -> Self {
+        match discriminant {
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
+                Self::MithrilStakeDistribution(beacon.epoch)
+            }
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
+                Self::CardanoStakeDistribution(beacon.epoch)
+            }
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
+                Self::CardanoImmutableFilesFull(beacon.to_owned())
+            }
+        }
     }
 }
 

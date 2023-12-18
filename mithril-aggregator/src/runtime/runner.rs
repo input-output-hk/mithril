@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog_scope::{debug, info, warn};
+use slog_scope::{debug, warn};
 use std::{path::Path, path::PathBuf, sync::Arc};
 
 use mithril_common::entities::{
@@ -47,8 +47,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
     async fn get_beacon_from_chain(&self) -> StdResult<Beacon>;
 
-    /// Retrieves the current non certified open message for a given signed entity type.
-    async fn get_current_non_certified_open_message_for_signed_entity_type(
+    /// Retrieves the current open message for a given signed entity type.
+    async fn get_current_open_message_for_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>>;
@@ -79,6 +79,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage>;
+
+    /// Mark expired open message.
+    async fn mark_open_message_if_expired(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessage>>;
 
     /// Create a new pending certificate.
     async fn create_new_pending_certificate(
@@ -154,50 +160,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(beacon)
     }
 
-    async fn get_current_non_certified_open_message_for_signed_entity_type(
+    async fn get_current_open_message_for_signed_entity_type(
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_non_certified_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
-        let open_message_maybe = match self
+        debug!("RUNNER: get_current_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
+        self.mark_open_message_if_expired(signed_entity_type)
+            .await?;
+
+        Ok(self
             .dependencies
             .certifier_service
             .get_open_message(signed_entity_type)
             .await
-            .with_context(|| format!("CertifierService can not get open message for signed_entity_type: '{signed_entity_type}'"))?
-        {
-            Some(existing_open_message) if !existing_open_message.is_certified => {
-                info!(
-                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found, not already certified";
-                    "signed_entity_type" => ?signed_entity_type
-                );
-
-                Some(existing_open_message)
-            }
-            Some(_) => {
-                info!(
-                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found, already certified";
-                    "signed_entity_type" => ?signed_entity_type
-                );
-
-                None
-            }
-            None => {
-                info!(
-                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: no open message found, a new one will be created";
-                    "signed_entity_type" => ?signed_entity_type
-                );
-                let protocol_message = self.compute_protocol_message(signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
-
-                Some(
-                    self.create_open_message(signed_entity_type, &protocol_message)
-                        .await
-                        .with_context(|| format!("AggregatorRunner can not create open message for signed_entity_type: '{signed_entity_type}'"))?,
-                )
-            }
-        };
-
-        Ok(open_message_maybe)
+            .with_context(|| format!("CertifierService can not get open message for signed_entity_type: '{signed_entity_type}'"))?)
     }
 
     async fn get_current_non_certified_open_message(
@@ -212,16 +188,23 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         for signed_entity_type in signed_entity_types {
             if let Some(open_message) = self
-                .get_current_non_certified_open_message_for_signed_entity_type(&signed_entity_type)
+                .get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
-                .with_context(|| format!("AggregatorRunner can not get current non certified open message for signed entity type: '{}'", &signed_entity_type))?
+                .with_context(|| format!("AggregatorRunner can not get current open message for signed entity type: '{}'", &signed_entity_type))?
             {
-                return Ok(Some(open_message));
+                if !open_message.is_certified {
+                    return Ok(Some(open_message));
+                }
+                if open_message.is_certified || open_message.is_expired {
+                    continue;
+                }
             }
-            info!(
-                "RUNNER: get_current_non_certified_open_message: open message already certified";
-                "signed_entity_type" => ?signed_entity_type
-            );
+            let protocol_message = self.compute_protocol_message(&signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
+            let open_message_new = self.create_open_message(&signed_entity_type, &protocol_message)
+            .await
+            .with_context(|| format!("AggregatorRunner can not create open message for signed_entity_type: '{signed_entity_type}'"))?;
+
+            return Ok(Some(open_message_new));
         }
 
         Ok(None)
@@ -303,6 +286,27 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         );
 
         Ok(protocol_message)
+    }
+
+    async fn mark_open_message_if_expired(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessage>> {
+        debug!("RUNNER: mark expired open message");
+
+        let expired_open_message = self
+            .dependencies
+            .certifier_service
+            .mark_open_message_if_expired(signed_entity_type)
+            .await
+            .with_context(|| "CertifierService can not mark expired open message")?;
+
+        debug!(
+            "RUNNER: marked expired open messages: {:#?}",
+            expired_open_message
+        );
+
+        Ok(expired_open_message)
     }
 
     async fn create_new_pending_certificate(
@@ -484,6 +488,7 @@ pub mod tests {
         DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
+    use chrono::{DateTime, Utc};
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -660,6 +665,40 @@ pub mod tests {
 
         let saved_current_round = signer_registration_round_opener.get_current_round().await;
         assert!(saved_current_round.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_expire_open_message() {
+        let pending_certificate = fake_data::certificate_pending();
+
+        let open_message_expected = OpenMessage {
+            signed_entity_type: pending_certificate.signed_entity_type.clone(),
+            is_certified: false,
+            is_expired: false,
+            expires_at: Some(
+                DateTime::parse_from_rfc3339("2000-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            ),
+            ..OpenMessage::dummy()
+        };
+        let open_message_clone = open_message_expected.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .return_once(|_| Ok(Some(open_message_clone)));
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = build_runner_with_fixture_data(deps).await;
+        let open_message_expired = runner
+            .mark_open_message_if_expired(&open_message_expected.signed_entity_type)
+            .await
+            .expect("mark_open_message_if_expired should not fail");
+
+        assert_eq!(Some(open_message_expected), open_message_expired);
     }
 
     #[tokio::test]
@@ -863,6 +902,10 @@ pub mod tests {
             .expect_create_open_message()
             .return_once(|_, _| Ok(open_message_clone))
             .times(1);
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .return_once(|_| Ok(None))
+            .times(1);
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
@@ -885,12 +928,13 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists(
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists_and_not_expired(
     ) {
         let beacon = fake_data::beacon();
         let open_message_expected = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: false,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_clone = open_message_expected.clone();
@@ -899,6 +943,10 @@ pub mod tests {
         mock_certifier_service
             .expect_get_open_message()
             .return_once(|_| Ok(Some(open_message_clone)))
+            .times(1);
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .return_once(|_| Ok(None))
             .times(1);
         mock_certifier_service.expect_create_open_message().never();
 
@@ -921,11 +969,13 @@ pub mod tests {
         let open_message_already_certified = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_expected = OpenMessage {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
             is_certified: false,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_clone = open_message_expected.clone();
@@ -939,6 +989,10 @@ pub mod tests {
             .expect_get_open_message()
             .return_once(|_| Ok(Some(open_message_clone)))
             .times(1);
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .returning(|_| Ok(None))
+            .times(2);
         mock_certifier_service.expect_create_open_message().never();
 
         let mut deps = initialize_dependencies().await;
@@ -960,11 +1014,13 @@ pub mod tests {
         let open_message_already_certified = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_expected = OpenMessage {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
             is_certified: false,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_clone = open_message_expected.clone();
@@ -988,6 +1044,10 @@ pub mod tests {
             .expect_create_open_message()
             .return_once(|_, _| Ok(open_message_clone))
             .times(1);
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .returning(|_| Ok(None))
+            .times(2);
 
         let mut mock_signable_builder_service = MockSignableBuilderServiceImpl::new();
         mock_signable_builder_service
@@ -1022,11 +1082,13 @@ pub mod tests {
         let open_message_already_certified_mithril_stake_distribution = OpenMessage {
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             is_certified: true,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_already_certified_cardano_immutable_files = OpenMessage {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
             is_certified: true,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
 
@@ -1043,6 +1105,10 @@ pub mod tests {
             .expect_get_open_message()
             .return_once(|_| Ok(Some(open_message_already_certified_cardano_immutable_files)))
             .times(1);
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .returning(|_| Ok(None))
+            .times(2);
         mock_certifier_service.expect_create_open_message().never();
 
         let mut deps = initialize_dependencies().await;
@@ -1055,5 +1121,40 @@ pub mod tests {
             .await
             .unwrap();
         assert!(open_message_returned.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_all_open_message_already_expired(
+    ) {
+        let beacon = fake_data::beacon();
+        let open_message_expired_cardano_immutable_files = OpenMessage {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            is_certified: false,
+            is_expired: true,
+            ..OpenMessage::dummy()
+        };
+        let open_message_expected = open_message_expired_cardano_immutable_files.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(Some(open_message_expired_cardano_immutable_files)))
+            .times(1);
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .return_once(|_| Ok(None))
+            .times(1);
+        mock_certifier_service.expect_create_open_message().never();
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = build_runner_with_fixture_data(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message(&beacon)
+            .await
+            .unwrap();
+        assert_eq!(Some(open_message_expected), open_message_returned);
     }
 }

@@ -16,7 +16,6 @@ use mithril_common::{
     BeaconProvider,
 };
 
-use crate::services::{EpochService, MessageService};
 use crate::{
     configuration::*,
     database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
@@ -27,6 +26,10 @@ use crate::{
     snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
+};
+use crate::{
+    database::provider::OpenMessageRepository,
+    services::{EpochService, MessageService},
 };
 
 /// MultiSignerWrapper wraps a [MultiSigner]
@@ -60,6 +63,9 @@ pub struct DependencyContainer {
 
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,
+
+    /// Open message store.
+    pub open_message_repository: Arc<OpenMessageRepository>,
 
     /// Verification key store.
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,

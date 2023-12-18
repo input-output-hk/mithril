@@ -50,6 +50,11 @@ pub enum CertifierServiceError {
     #[error("Open message for beacon {0:?} already certified.")]
     AlreadyCertified(SignedEntityType),
 
+    /// The open message is expired, no more single signatures may be
+    /// attached to it nor be certified again.
+    #[error("Open message for beacon {0:?} is expired.")]
+    Expired(SignedEntityType),
+
     /// No parent certificate could be found, this certifier cannot create genesis certificates.
     #[error(
         "No parent certificate could be found, this certifier cannot create genesis certificates."
@@ -105,6 +110,12 @@ pub trait CertifierService: Sync + Send {
     /// Return the open message at the given Beacon. If the message does not
     /// exist, None is returned.
     async fn get_open_message(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessage>>;
+
+    /// Mark the open message if it has expired.
+    async fn mark_open_message_if_expired(
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>>;
@@ -231,6 +242,12 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
+        if open_message.is_expired {
+            warn!("CertifierService::register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature.");
+
+            return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
+        }
+
         let multi_signer = self.multi_signer.read().await;
         multi_signer
             .verify_single_signature(&open_message.protocol_message, signature)
@@ -292,6 +309,28 @@ impl CertifierService for MithrilCertifierService {
         Ok(open_message)
     }
 
+    async fn mark_open_message_if_expired(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessage>> {
+        debug!("CertifierService::mark_open_message_if_expired");
+
+        let mut open_message_record = self
+            .open_message_repository
+            .get_expired_open_message(signed_entity_type)
+            .await
+            .with_context(|| "Certifier can not get expired open messages")?;
+        if let Some(open_message_record) = open_message_record.as_mut() {
+            open_message_record.is_expired = true;
+            self.open_message_repository
+                .update_open_message(open_message_record)
+                .await
+                .with_context(|| "Certifier can not update open message to mark it as expired")?;
+        }
+
+        Ok(open_message_record.map(|record| record.into()))
+    }
+
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -310,6 +349,12 @@ impl CertifierService for MithrilCertifierService {
             warn!("CertifierService::create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate.");
 
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
+        }
+
+        if open_message.is_expired {
+            warn!("CertifierService::create_certificate: open message {signed_entity_type:?} is expired, cannot create certificate.");
+
+            return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
         let multi_signer = self.multi_signer.read().await;
@@ -458,6 +503,7 @@ mod tests {
         dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner,
         services::FakeEpochService, Configuration,
     };
+    use chrono::{DateTime, Days};
     use mithril_common::{
         entities::{Beacon, ProtocolMessagePartKey},
         test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
@@ -541,6 +587,92 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn should_mark_open_message_expired_when_exists() {
+        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
+        let protocol_message = ProtocolMessage::new();
+        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
+        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
+        let mut open_message = certifier_service
+            .open_message_repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
+            .await
+            .unwrap();
+        open_message.expires_at = Some(
+            DateTime::parse_from_rfc3339("2000-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        );
+        certifier_service
+            .open_message_repository
+            .update_open_message(&open_message)
+            .await
+            .unwrap();
+
+        let open_message = certifier_service
+            .mark_open_message_if_expired(&signed_entity_type)
+            .await
+            .expect("mark_open_message_if_expired should not fail");
+        assert!(open_message.is_some());
+        assert!(open_message.unwrap().is_expired);
+    }
+
+    #[tokio::test]
+    async fn should_not_mark_open_message_expired_when_does_not_expire() {
+        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
+        let protocol_message = ProtocolMessage::new();
+        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
+        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
+        let mut open_message = certifier_service
+            .open_message_repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
+            .await
+            .unwrap();
+        open_message.expires_at = None;
+        certifier_service
+            .open_message_repository
+            .update_open_message(&open_message)
+            .await
+            .unwrap();
+
+        let open_message = certifier_service
+            .mark_open_message_if_expired(&signed_entity_type)
+            .await
+            .expect("mark_open_message_if_expired should not fail");
+        assert!(open_message.is_none());
+    }
+
+    #[tokio::test]
+    async fn should_not_mark_open_message_expired_when_has_not_expired_yet() {
+        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
+        let protocol_message = ProtocolMessage::new();
+        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
+        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
+        let mut open_message = certifier_service
+            .open_message_repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
+            .await
+            .unwrap();
+        open_message.expires_at = Some(Utc::now().checked_add_days(Days::new(1)).unwrap());
+        certifier_service
+            .open_message_repository
+            .update_open_message(&open_message)
+            .await
+            .unwrap();
+
+        let open_message = certifier_service
+            .mark_open_message_if_expired(&signed_entity_type)
+            .await
+            .expect("mark_open_message_if_expired should not fail");
+        assert!(open_message.is_none());
+    }
+
+    #[tokio::test]
     async fn should_register_valid_single_signature() {
         let beacon = Beacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
@@ -619,6 +751,38 @@ mod tests {
             .await
             .unwrap();
         open_message.is_certified = true;
+        certifier_service
+            .open_message_repository
+            .update_open_message(&open_message)
+            .await
+            .unwrap();
+
+        let mut signatures = Vec::new();
+        for signer_fixture in fixture.signers_fixture() {
+            if let Some(signature) = signer_fixture.sign(&protocol_message) {
+                signatures.push(signature);
+            }
+        }
+        certifier_service
+            .register_single_signature(&signed_entity_type, &signatures[0])
+            .await
+            .expect_err("register_single_signature should fail");
+    }
+
+    #[tokio::test]
+    async fn should_not_register_single_signature_for_expired_open_message() {
+        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
+        let protocol_message = ProtocolMessage::new();
+        let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
+        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
+        let certifier_service = setup_certifier_service(&fixture, &epochs_with_signers, None).await;
+        let mut open_message = certifier_service
+            .open_message_repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
+            .await
+            .unwrap();
+        open_message.is_expired = true;
         certifier_service
             .open_message_repository
             .update_open_message(&open_message)

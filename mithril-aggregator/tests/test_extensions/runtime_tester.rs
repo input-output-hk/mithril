@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
-use mithril_aggregator::database::provider::SignedEntityRecord;
+use chrono::Utc;
+use mithril_aggregator::database::provider::{OpenMessageRepository, SignedEntityRecord};
 use mithril_aggregator::{
     dependency_injection::DependenciesBuilder, event_store::EventMessage, AggregatorRuntime,
     Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
@@ -22,6 +23,7 @@ use mithril_common::{
 use slog::Drain;
 use slog_scope::debug;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
@@ -65,6 +67,7 @@ pub struct RuntimeTester {
     pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
     pub observer: Arc<AggregatorObserver>,
+    pub open_message_repository: Arc<OpenMessageRepository>,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -104,6 +107,7 @@ impl RuntimeTester {
         let runtime = deps_builder.create_aggregator_runner().await.unwrap();
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
+        let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
 
         Self {
             snapshot_uploader,
@@ -117,6 +121,7 @@ impl RuntimeTester {
             receiver,
             era_reader_adapter,
             observer,
+            open_message_repository,
             _logs_guard: logger,
         }
     }
@@ -269,7 +274,7 @@ impl RuntimeTester {
             .get_open_message(&signed_entity_type)
             .await
             .with_context(|| {
-                format!("A open message should exist for signed_entity_type: {signed_entity_type}")
+                format!("An open message should exist for signed_entity_type: {signed_entity_type}")
             })?
             .ok_or(anyhow!("There should be a message to be signed."))?
             .protocol_message;
@@ -358,6 +363,31 @@ impl RuntimeTester {
                 beacon.network, beacon.epoch, beacon.immutable_file_number
             ))
             .await;
+    }
+
+    /// Activate open message expiration
+    pub async fn activate_open_message_expiration(
+        &self,
+        discriminant: SignedEntityTypeDiscriminants,
+        timeout: Duration,
+    ) -> StdResult<()> {
+        let signed_entity_type = self
+            .observer
+            .get_current_signed_entity_type(discriminant)
+            .await?;
+        let mut open_message = self
+            .open_message_repository
+            .get_open_message(&signed_entity_type)
+            .await
+            .with_context(|| "Querying open message should not fail")?
+            .ok_or(anyhow!("An open message should exist"))?;
+        open_message.expires_at = Some(Utc::now() + timeout);
+        self.open_message_repository
+            .update_open_message(&open_message)
+            .await
+            .with_context(|| "Saving open message should not fail")?;
+
+        Ok(())
     }
 
     /// Update the Era markers
