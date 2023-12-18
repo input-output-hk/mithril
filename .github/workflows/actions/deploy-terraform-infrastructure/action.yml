@@ -69,6 +69,10 @@ inputs:
   mithril_era_reader_secret_key: 
     description: Mithril era reader secret key (onlye for test networks).
     required: false
+  mithril_aggregator_signed_entity_types:
+    description: Mithril aggregator signed entity types parameters (discriminants names in an ordered comma separated list).
+    required: false
+    default: ""
   mithril_aggregator_cdn_cname:
     description: Mithril aggregator uses CDN domain for constructing snapshot url.
     required: true
@@ -158,6 +162,7 @@ runs:
         mithril_era_reader_address_url                    = "${{ inputs.mithril_era_reader_address_url }}"
         mithril_era_reader_verification_key_url           = "${{ inputs.mithril_era_reader_verification_key_url }}"
         mithril_era_reader_secret_key                     = "${{ inputs.mithril_era_reader_secret_key }}"
+        mithril_aggregator_signed_entity_types            = "${{ inputs.mithril_aggregator_signed_entity_types }}"
         mithril_aggregator_cdn_cname                      = "${{ inputs.mithril_aggregator_cdn_cname }}"
         mithril_aggregator_snapshot_use_cdn_domain        = ${{ inputs.mithril_aggregator_snapshot_use_cdn_domain }}
         mithril_aggregator_snapshot_compression_algorithm = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
