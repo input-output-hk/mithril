@@ -4,12 +4,8 @@ use indicatif::{MultiProgress, ProgressBar};
 use std::time::Duration;
 
 use super::SnapshotUnpackerError;
-use crate::http_client::AggregatorHTTPClient;
-
 use mithril_client::MithrilResult;
-use mithril_common::{
-    api_version::APIVersionProvider, messages::SnapshotMessage, StdError, StdResult,
-};
+use mithril_common::{StdError, StdResult};
 
 /// Utility functions for to the Snapshot commands
 pub struct SnapshotUtils;
@@ -47,50 +43,12 @@ impl SnapshotUtils {
             res = future => res,
         }
     }
-
-    /// Increments Aggregator's download statistics
-    pub async fn add_statistics(
-        aggregator_endpoint: &str,
-        snapshot: &SnapshotMessage,
-    ) -> StdResult<()> {
-        let url = "statistics/snapshot";
-        let json = serde_json::to_string(&snapshot)?;
-        let http_client = AggregatorHTTPClient::new(
-            aggregator_endpoint,
-            APIVersionProvider::compute_all_versions_sorted()?,
-        );
-        let _response = http_client.post_content(url, &json).await?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use mithril_common::test_utils::test_http_server::test_http_server;
     use std::path::PathBuf;
-    use warp::Filter;
-
-    #[tokio::test]
-    async fn add_statistics_should_return_ok() {
-        let server =
-            test_http_server(warp::path!("statistics" / "snapshot").map(move || "".to_string()));
-        let snapshot_message = SnapshotMessage::dummy();
-
-        let result = SnapshotUtils::add_statistics(&server.url(), &snapshot_message).await;
-
-        assert!(result.is_ok())
-    }
-
-    #[tokio::test]
-    async fn add_statistics_should_return_error() {
-        let snapshot_message = SnapshotMessage::dummy();
-
-        let result = SnapshotUtils::add_statistics("http://whatever", &snapshot_message).await;
-
-        assert!(result.is_err())
-    }
 
     #[test]
     fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space() {

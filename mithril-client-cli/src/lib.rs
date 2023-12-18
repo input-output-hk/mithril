@@ -1,5 +1,4 @@
 pub mod configuration;
-pub mod http_client;
 pub mod utils;
 
 /// `mithril-common` re-exports

@@ -3283,7 +3283,6 @@ name = "mithril-client-cli"
 version = "0.5.12"
 dependencies = [
  "anyhow",
- "async-recursion",
  "async-trait",
  "chrono",
  "clap",
@@ -3297,7 +3296,6 @@ dependencies = [
  "mithril-common",
  "openssl",
  "openssl-probe",
- "reqwest",
  "semver",
  "serde",
  "serde_json",
@@ -3308,7 +3306,6 @@ dependencies = [
  "slog-term",
  "thiserror",
  "tokio",
- "warp",
 ]
 
 [[package]]

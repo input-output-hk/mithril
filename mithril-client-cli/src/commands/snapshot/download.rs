@@ -135,12 +135,7 @@ impl SnapshotDownloadCommand {
 
         // The snapshot download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
-        if let Err(e) = SnapshotUtils::add_statistics(
-            &params.require("aggregator_endpoint")?,
-            &snapshot_message,
-        )
-        .await
-        {
+        if let Err(e) = client.snapshot().add_statistics(&snapshot_message).await {
             warn!("Could not POST snapshot download statistics: {e:?}");
         }
 
