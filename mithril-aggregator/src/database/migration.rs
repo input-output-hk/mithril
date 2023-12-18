@@ -601,5 +601,14 @@ alter table signer add column last_registered_at text null;
 update signer set last_registered_at = created_at; 
         "#,
         ),
+        // Migration 20
+        // Alter `open_message` table to add `expires_at` and 'is_expired' fields
+        SqlMigration::new(
+            20,
+            r#"
+alter table open_message add column is_expired bool not null default false;
+alter table open_message add column expires_at text null;
+        "#,
+        ),
     ]
 }

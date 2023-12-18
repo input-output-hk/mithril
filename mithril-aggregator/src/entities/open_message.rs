@@ -24,11 +24,17 @@ pub struct OpenMessage {
     /// Has this message been converted into a Certificate?
     pub is_certified: bool,
 
+    /// Has this open message expired
+    pub is_expired: bool,
+
     /// associated single signatures
     pub single_signatures: Vec<SingleSignatures>,
 
     /// Message creation datetime
     pub created_at: DateTime<Utc>,
+
+    /// Message expiration datetime, if it exists.
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 impl OpenMessage {
@@ -54,11 +60,13 @@ impl OpenMessage {
             signed_entity_type,
             protocol_message: ProtocolMessage::new(),
             is_certified: false,
+            is_expired: false,
             single_signatures: vec![
                 fake_data::single_signatures(vec![1, 4, 5]),
                 fake_data::single_signatures(vec![2, 3, 8]),
             ],
             created_at: Utc::now(),
+            expires_at: None,
         }
     }
 }
@@ -70,8 +78,10 @@ impl From<OpenMessageRecord> for OpenMessage {
             signed_entity_type: record.signed_entity_type,
             protocol_message: record.protocol_message,
             is_certified: record.is_certified,
+            is_expired: record.is_expired,
             single_signatures: vec![],
             created_at: record.created_at,
+            expires_at: record.expires_at,
         }
     }
 }
@@ -83,8 +93,10 @@ impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessage {
             signed_entity_type: record.signed_entity_type,
             protocol_message: record.protocol_message,
             is_certified: record.is_certified,
+            is_expired: record.is_expired,
             single_signatures: record.single_signatures,
             created_at: record.created_at,
+            expires_at: record.expires_at,
         }
     }
 }
@@ -111,15 +123,19 @@ mod test {
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
+            is_expired: false,
             created_at,
+            expires_at: None,
         };
         let expected = OpenMessage {
             epoch: Epoch(1),
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
+            is_expired: false,
             single_signatures: vec![],
             created_at,
+            expires_at: None,
         };
         let result: OpenMessage = record.into();
 
@@ -135,7 +151,9 @@ mod test {
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
+            is_expired: false,
             created_at,
+            expires_at: None,
             single_signatures: vec![fake_data::single_signatures(vec![1, 4, 5])],
         };
         let expected = OpenMessage {
@@ -143,8 +161,10 @@ mod test {
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
+            is_expired: false,
             single_signatures: vec![fake_data::single_signatures(vec![1, 4, 5])],
             created_at,
+            expires_at: None,
         };
         let result: OpenMessage = record.into();
 
