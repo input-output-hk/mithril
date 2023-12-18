@@ -12,7 +12,7 @@ import CompiledBinaries from '../../../compiled-binaries.md'
 Mithril client library can be used by Rust developers to use the Mithril network in their applications.
 
 It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
-- [**Snapshot**](../../../glossary.md#snapshot): list, get and download tarball.
+- [**Snapshot**](../../../glossary.md#snapshot): list, get, download tarball and add statistics.
 - [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
@@ -88,6 +88,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
         .snapshot()
         .download_unpack(&snapshot, target_directory)
         .await?;
+
+    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+        println!("Could not POST snapshot download statistics: {:?}", e);
+    }
     
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
@@ -142,6 +146,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
         .snapshot()
         .download_unpack(&snapshot, target_directory)
         .await?;
+
+    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+        println!("Could not POST snapshot download statistics: {:?}", e);
+    }
     
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
