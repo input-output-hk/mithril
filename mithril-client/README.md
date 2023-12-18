@@ -5,7 +5,7 @@
 * `mithril-client` defines all the tooling necessary to manipulate Mithril certified types available from a Mithril aggregator.
 
 * The different types of available data certified by Mithril are:
-    * Snapshot: list, get and download tarball.
+    * Snapshot: list, get, download tarball and add statistics.
     * Mithril stake distribution: list and get.
     * Certificate: list, get, and chain validation.
 
@@ -37,6 +37,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
         .snapshot()
         .download_unpack(&snapshot, target_directory)
         .await?;
+
+    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+        println!("Could not POST snapshot download statistics: {:?}", e);
+    }
     
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
