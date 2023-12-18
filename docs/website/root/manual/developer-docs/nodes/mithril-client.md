@@ -137,6 +137,10 @@ Options:
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
           Override configuration Aggregator endpoint URL
+      --log-format-json
+          Enable JSON output for logs displayed according to verbosity level
+      --log-output <LOG_OUTPUT>
+          Redirect the logs to a file
   -h, --help
           Print help
   -V, --version
@@ -296,13 +300,21 @@ Here is a list of the available parameters:
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
 | `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
-| `json_output` | `--json` | `-j` | - | Enable JSON output | no | - | - |
+| `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
+| `log_output` | `--log-output` | `-o` | - | Redirect the logs to a file | - | `./mithril-client.log` | - |
 
 `snapshot show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
+| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+
+`snapshot list` command:
+
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
 `snapshot download` command:
 
@@ -310,6 +322,13 @@ Here is a list of the available parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the snapshot will be downloaded | . | - | - |
+| `json` | `--json` | - | - | Enable JSON output for progress logs | - | - | - |
+
+`mithril-stake-distribution list` command:
+
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
 `mithril-stake-distribution download` command:
 

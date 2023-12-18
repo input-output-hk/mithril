@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.5.11"
+version = "0.5.12"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -46,6 +46,7 @@ slog = { version = "2.7.0", features = [
     "release_max_level_debug",
 ] }
 slog-async = "2.8.0"
+slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
 thiserror = "1.0.49"
