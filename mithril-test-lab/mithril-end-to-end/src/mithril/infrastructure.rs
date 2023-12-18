@@ -23,12 +23,14 @@ pub struct MithrilInfrastructure {
 }
 
 impl MithrilInfrastructure {
+    #[allow(clippy::too_many_arguments)]
     pub async fn start(
         server_port: u64,
         devnet: Devnet,
         work_dir: &Path,
         bin_dir: &Path,
         mithril_era: &str,
+        signed_entity_types: Option<&str>,
         run_only_mode: bool,
         use_p2p_network_mode: bool,
     ) -> StdResult<Self> {
@@ -46,6 +48,7 @@ impl MithrilInfrastructure {
             work_dir,
             bin_dir,
             mithril_era,
+            signed_entity_types,
         )?;
         aggregator.set_protocol_parameters(&ProtocolParameters {
             k: 75,

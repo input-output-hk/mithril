@@ -56,6 +56,10 @@ pub struct Args {
     #[clap(long, default_value = "thales")]
     mithril_era: String,
 
+    /// Signed entity types parameters (discriminants names in an ordered comma separated list).
+    #[clap(long)]
+    signed_entity_types: Option<String>,
+
     /// Enable run only mode
     #[clap(long)]
     run_only: bool,
@@ -129,6 +133,7 @@ async fn main() -> StdResult<()> {
         &work_dir,
         &args.bin_directory,
         &args.mithril_era,
+        args.signed_entity_types.as_deref(),
         run_only_mode,
         use_p2p_network_mode,
     )
