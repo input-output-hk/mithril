@@ -115,6 +115,9 @@ pub struct Configuration {
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
 
+    /// Signed entity types parameters (discriminants names in an ordered comma separated list).
+    pub signed_entity_types: Option<String>,
+
     /// Compression algorithm used for the snapshot archive artifacts.
     pub snapshot_compression_algorithm: CompressionAlgorithm,
 
@@ -192,6 +195,7 @@ impl Configuration {
             store_retention_limit: None,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            signed_entity_types: None,
             snapshot_compression_algorithm: CompressionAlgorithm::Zstandard,
             zstandard_parameters: Some(ZstandardCompressionParameters::default()),
             cexplorer_pools_url: None,
