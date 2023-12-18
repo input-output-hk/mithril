@@ -538,8 +538,7 @@ jobs:
           body_path: ./release-notes-addon.txt
 
   deploy-testing:
-    # Don't run on pull request from forks since they don't have access to all the needed secrets
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork)
+    if: vars.DEPLOY_NETWORKS_IN_CI == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request')
     strategy:
       fail-fast: false
       matrix:
