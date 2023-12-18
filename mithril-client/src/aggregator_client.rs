@@ -68,6 +68,9 @@ pub enum AggregatorRequest {
     },
     /// Lists the aggregator [snapshots][crate::Snapshot]
     ListSnapshots,
+
+    /// Increments Aggregator's download statistics
+    AddStatistics,
 }
 
 impl AggregatorRequest {
@@ -88,6 +91,7 @@ impl AggregatorRequest {
                 format!("artifact/snapshot/{}", digest)
             }
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
+            AggregatorRequest::AddStatistics => "statistics/snapshot".to_string(),
         }
     }
 }
@@ -100,6 +104,13 @@ pub trait AggregatorClient: Sync + Send {
     async fn get_content(
         &self,
         request: AggregatorRequest,
+    ) -> Result<String, AggregatorClientError>;
+
+    /// Post information to the Aggregator, the URL is a relative path for a resource
+    async fn post_content(
+        &self,
+        request: AggregatorRequest,
+        content: &str,
     ) -> Result<String, AggregatorClientError>;
 }
 
@@ -208,6 +219,49 @@ impl AggregatorHTTPClient {
         }
     }
 
+    #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_recursion)]
+    async fn post(&self, url: Url, json: &str) -> Result<Response, AggregatorClientError> {
+        debug!(self.logger, "POST url='{url}' json='{json}'.");
+        let request_builder = self.http_client.post(url.to_owned()).body(json.to_owned());
+        let current_api_version = self
+            .compute_current_api_version()
+            .await
+            .unwrap()
+            .to_string();
+        debug!(
+            self.logger,
+            "Prepare request with version: {current_api_version}"
+        );
+        let request_builder =
+            request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        let response = request_builder.send().await.map_err(|e| {
+            AggregatorClientError::SubsystemError(
+                anyhow!(e).context("Error while POSTing data '{json}' to URL='{url}'."),
+            )
+        })?;
+
+        match response.status() {
+            StatusCode::OK | StatusCode::CREATED => Ok(response),
+            StatusCode::PRECONDITION_FAILED => {
+                if self.discard_current_api_version().await.is_some()
+                    && !self.api_versions.read().await.is_empty()
+                {
+                    return self.post(url, json).await;
+                }
+
+                Err(self.handle_api_error(&response).await)
+            }
+            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                "Url='{url} not found"
+            ))),
+            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                "Unhandled error {status_code}"
+            ))),
+        }
+    }
+
     /// API version error handling
     async fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
@@ -252,6 +306,22 @@ impl AggregatorClient for AggregatorHTTPClient {
             AggregatorClientError::SubsystemError(anyhow!(e).context(format!(
                 "Could not find a JSON body in the response '{content}'."
             )))
+        })
+    }
+
+    async fn post_content(
+        &self,
+        request: AggregatorRequest,
+        content: &str,
+    ) -> Result<String, AggregatorClientError> {
+        let response = self
+            .post(self.get_url_for_route(&request.route())?, content)
+            .await?;
+
+        response.text().await.map_err(|e| {
+            AggregatorClientError::SubsystemError(
+                anyhow!(e).context("Could not find a text body in the response."),
+            )
         })
     }
 }

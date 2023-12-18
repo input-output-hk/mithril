@@ -154,65 +154,76 @@ impl SnapshotClient {
     }
 
     cfg_fs! {
-    /// Download and unpack the given snapshot to the given directory
-    ///
-    /// **NOTE**: The directory should already exist, and the user running the binary
-    /// must have read/write access to it.
-    pub async fn download_unpack(
-        &self,
-        snapshot: &Snapshot,
-        target_dir: &std::path::Path,
-    ) -> MithrilResult<()> {
-        use crate::feedback::MithrilEvent;
+        /// Download and unpack the given snapshot to the given directory
+        ///
+        /// **NOTE**: The directory should already exist, and the user running the binary
+        /// must have read/write access to it.
+        pub async fn download_unpack(
+            &self,
+            snapshot: &Snapshot,
+            target_dir: &std::path::Path,
+        ) -> MithrilResult<()> {
+            use crate::feedback::MithrilEvent;
 
-        for location in snapshot.locations.as_slice() {
-            if self.snapshot_downloader.probe(location).await.is_ok() {
-                let download_id = MithrilEvent::new_snapshot_download_id();
-                self.feedback_sender
-                    .send_event(MithrilEvent::SnapshotDownloadStarted {
-                        digest: snapshot.digest.clone(),
-                        download_id: download_id.clone(),
-                        size: snapshot.size,
-                    })
-                    .await;
-                return match self
-                    .snapshot_downloader
-                    .download_unpack(
-                        location,
-                        target_dir,
-                        snapshot.compression_algorithm.unwrap_or_default(),
-                        &download_id,
-                        snapshot.size,
-                    )
-                    .await
-                {
-                    Ok(()) => {
-                        // todo: add snapshot statistics to cli (it was previously done here)
-                        // note: the snapshot download does not fail if the statistic call fails.
-                        self.feedback_sender
-                            .send_event(MithrilEvent::SnapshotDownloadCompleted { download_id })
-                            .await;
-                        Ok(())
-                    }
-                    Err(e) => {
-                        slog::warn!(
-                            self.logger,
-                            "Failed downloading snapshot from '{location}' Error: {e}."
-                        );
-                        Err(e)
-                    }
-                };
+            for location in snapshot.locations.as_slice() {
+                if self.snapshot_downloader.probe(location).await.is_ok() {
+                    let download_id = MithrilEvent::new_snapshot_download_id();
+                    self.feedback_sender
+                        .send_event(MithrilEvent::SnapshotDownloadStarted {
+                            digest: snapshot.digest.clone(),
+                            download_id: download_id.clone(),
+                            size: snapshot.size,
+                        })
+                        .await;
+                    return match self
+                        .snapshot_downloader
+                        .download_unpack(
+                            location,
+                            target_dir,
+                            snapshot.compression_algorithm.unwrap_or_default(),
+                            &download_id,
+                            snapshot.size,
+                        )
+                        .await
+                    {
+                        Ok(()) => {
+                            self.feedback_sender
+                                .send_event(MithrilEvent::SnapshotDownloadCompleted { download_id })
+                                .await;
+                            Ok(())
+                        }
+                        Err(e) => {
+                            slog::warn!(
+                                self.logger,
+                                "Failed downloading snapshot from '{location}' Error: {e}."
+                            );
+                            Err(e)
+                        }
+                    };
+                }
             }
-        }
 
-        let locations = snapshot.locations.join(", ");
+            let locations = snapshot.locations.join(", ");
 
-        Err(SnapshotClientError::NoWorkingLocation {
-            digest: snapshot.digest.clone(),
-            locations,
+            Err(SnapshotClientError::NoWorkingLocation {
+                digest: snapshot.digest.clone(),
+                locations,
+            }
+            .into())
         }
-        .into())
     }
+
+    /// Increments Aggregator's download statistics
+    pub async fn add_statistics(&self, snapshot: &Snapshot) -> MithrilResult<()> {
+        let _response = self
+            .aggregator_client
+            .post_content(
+                AggregatorRequest::AddStatistics,
+                &serde_json::to_string(snapshot)?,
+            )
+            .await?;
+
+        Ok(())
     }
 }
 

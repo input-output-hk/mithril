@@ -163,7 +163,8 @@ mod file {
                         serde_json::to_string(&data.clone()).unwrap()
                     }),
                 )
-                .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone()));
+                .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone()))
+                .or(warp::path!("statistics" / "snapshot").map(|| ""));
 
             let snapshot_archive_path = build_fake_zstd_snapshot(immutable_db, work_dir);
 

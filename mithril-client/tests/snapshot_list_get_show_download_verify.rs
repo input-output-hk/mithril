@@ -58,6 +58,18 @@ async fn snapshot_list_get_show_download_verify() {
         .await
         .expect("download/unpack snapshot should not fail");
 
+    client
+        .snapshot()
+        .add_statistics(&snapshot)
+        .await
+        .expect("add_statistics should not fail");
+
+    // TODO: find a way to verify that the last route called is the right one
+    // assert_eq!(
+    //     "statistics/snapshot",
+    //     fake_aggregator.get_last_route_called()
+    // );
+
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, &unpacked_dir)
         .await
