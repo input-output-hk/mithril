@@ -1,7 +1,19 @@
-use std::{future::IntoFuture, path::PathBuf};
+mod shared_state;
+
+use std::{
+    future::IntoFuture,
+    path::{Path as StdPath, PathBuf},
+};
 
 use anyhow::{anyhow, Context};
-use axum::{routing::get, Router};
+use axum::{
+    body::Body,
+    extract::{Path, State},
+    http::{Response, StatusCode},
+    response::IntoResponse,
+    routing::get,
+    Json, Router,
+};
 use clap::Parser;
 use futures::stream::StreamExt;
 use signal_hook::consts::*;
@@ -11,6 +23,8 @@ use tower_http::{
     LatencyUnit,
 };
 use tracing::{debug, error, info, trace, Level};
+
+use crate::shared_state::{AppState, SharedState};
 
 type StdResult<T> = anyhow::Result<T>;
 
@@ -47,9 +61,75 @@ impl CliArguments {
     }
 }
 
-#[tracing::instrument]
-async fn epoch_settings() -> String {
-    r#"{"epoch":112,"protocol":{"k":5,"m":100,"phi_f":0.65},"next_protocol":{"k":5,"m":100,"phi_f":0.65}}"#.to_string()
+/// error that wraps `anyhow::Error`.
+pub struct AppError(anyhow::Error);
+
+/// Tell axum how to convert `AppError` into a response.
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response<Body> {
+        error!("{}", self.0);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Something went wrong: {}", self.0),
+        )
+            .into_response()
+    }
+}
+
+// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+// `Result<_, AppError>`. That way you don't need to do that manually.
+impl<E> From<E> for AppError
+where
+    E: Into<anyhow::Error>,
+{
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
+pub async fn epoch_settings_handler(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let epoch_settings = app_state.get_epoch_settings().await?;
+
+    Ok(epoch_settings.into())
+}
+
+pub async fn snapshot(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> StdResult<Json<String>> {
+    todo!()
+}
+
+pub async fn snapshots_handler(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let snapshots = app_state.get_snapshots().await?;
+
+    Ok(snapshots)
+}
+
+pub async fn msds_handler(State(state): State<SharedState>) -> Result<Json<String>, AppError> {
+    todo!()
+}
+
+pub async fn msd_handler(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Json<String>, AppError> {
+    todo!()
+}
+
+pub async fn certificates_handler(
+    State(state): State<SharedState>,
+) -> Result<Json<String>, AppError> {
+    todo!()
+}
+
+pub async fn certificate_handler(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Json<String>, AppError> {
+    todo!()
 }
 
 pub struct OsSignalHandler;
@@ -87,17 +167,34 @@ async fn main() -> StdResult<()> {
     // launch signal detector
     let signal_handler = signals.handle();
 
+    trace!("setting up shared state…");
+    let shared_state: SharedState = AppState::default().into();
+
     trace!("configuring router…");
     let app = Router::new()
-        .route("/epoch-settings", get(epoch_settings))
+        .route("/aggregator/epoch-settings", get(epoch_settings_handler))
+        .route("/aggregator/artifact/snapshots", get(snapshots_handler))
+        .route(
+            "/aggregator/artifact/mithril-stake-distributions",
+            get(msds_handler),
+        )
+        .route(
+            "/aggregator/artifact/mithril-stake-distribution/:digest",
+            get(msd_handler),
+        )
+        .with_state(shared_state.clone())
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(DefaultMakeSpan::new().include_headers(true))
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .include_headers(true)
+                        .level(Level::DEBUG),
+                )
                 .on_request(DefaultOnRequest::new().level(Level::DEBUG))
                 .on_response(
                     DefaultOnResponse::new()
-                        .include_headers(true)
                         .level(Level::INFO)
+                        .include_headers(true)
                         .latency_unit(LatencyUnit::Micros),
                 ),
         );
