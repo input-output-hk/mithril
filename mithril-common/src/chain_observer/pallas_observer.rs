@@ -83,21 +83,20 @@ impl PallasChainObserver {
     }
 
     /// Inspects the given `AnyCbor` instance.
-    fn inspect<R>(&self, cbor: AnyCbor) -> R
+    fn inspect<R>(&self, inner: Vec<u8>) -> R
     where
         for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
     {
-        cbor.into_decode().unwrap()
+        minicbor::decode(&inner).unwrap()
     }
 
     /// Returns inline datums from the given `Values` instance.
     fn inspect_datum(&self, values: &Values) -> Metadatum {
         let datum = values.inline_datum.as_ref().unwrap().1.clone();
         let datum = CborWrap(datum).to_vec();
-        let datum = AnyCbor { inner: datum };
         let datum = self.inspect(datum);
-        let cbor = AnyCbor { inner: datum };
-        self.inspect(cbor)
+
+        self.inspect(datum)
     }
 
     /// Serializes datum to `TxDatum` instance.
