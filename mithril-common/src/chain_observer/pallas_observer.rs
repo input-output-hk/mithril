@@ -90,11 +90,16 @@ impl PallasChainObserver {
         minicbor::decode(&inner).unwrap()
     }
 
+    /// Returns inline datum bytes from the given `Values` instance.
+    fn get_datum_bytes(&self, values: &Values) -> Vec<u8> {
+        let bytes = values.inline_datum.as_ref().unwrap().1.clone();
+        let bytes = CborWrap(bytes).to_vec();
+        self.inspect(bytes)
+    }
+
     /// Returns inline datums from the given `Values` instance.
     fn inspect_datum(&self, values: &Values) -> Metadatum {
-        let datum = values.inline_datum.as_ref().unwrap().1.clone();
-        let datum = CborWrap(datum).to_vec();
-        let datum = self.inspect(datum);
+        let datum = self.get_datum_bytes(values);
 
         self.inspect(datum)
     }
