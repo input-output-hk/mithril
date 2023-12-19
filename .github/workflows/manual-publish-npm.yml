@@ -1,0 +1,71 @@
+name: Manual npm publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: |
+          SHA of the commit on which the mithril npm packages should be obtained.
+        required: true
+        type: string
+      package:
+        description: |
+          Packages(s) to be published to npm registry.
+        required: true
+        type: choice
+        options:
+        - all
+        - mithril-client-wasm
+      tag:
+        description: |
+          Package(s) tag to be published to npm registry.
+        required: true
+        type: choice
+        options:
+        - latest
+        - next
+      dry_run:
+        description: Dry run will not publish packages to npm registry.
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  publish-package:
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        package: [ mithril-client-wasm ]
+        include:
+          - package: mithril-client-wasm
+            scope: mithril-dev
+            tag: latest
+            access: public
+            api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
+          
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        if: inputs.package == matrix.package || inputs.package == 'all'
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.commit_sha }}
+
+      - name: Install stable toolchain, tools, and restore cache
+        if: inputs.package == matrix.package || inputs.package == 'all'
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cargo-tools: wasm-pack
+        
+      - name: Publish package to npm
+        if: inputs.package == matrix.package || inputs.package == 'all'
+        uses: ./.github/workflows/actions/publish-npm-package
+        with:
+          dry_run: ${{ inputs.dry_run }}
+          package: ${{ matrix.package }}
+          scope: ${{ matrix.scope }}
+          tag: ${{ matrix.tag }}
+          access: ${{ matrix.access }}
+          api_token: ${{ secrets[matrix.api_token_secret_name] }}
