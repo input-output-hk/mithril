@@ -468,7 +468,7 @@ jobs:
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
 
   unstable-release:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
+    if: vars.PUBLISH_UNSTABLE_RELEASE_IN_CI == true && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
     runs-on: ubuntu-22.04
     needs:
       - build
