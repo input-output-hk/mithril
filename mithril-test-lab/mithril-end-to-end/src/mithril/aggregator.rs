@@ -24,11 +24,13 @@ impl Aggregator {
         work_dir: &Path,
         bin_dir: &Path,
         mithril_era: &str,
+        signed_entity_types: &[String],
     ) -> StdResult<Self> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = server_port.to_string();
         let era_reader_adapter_params =
             format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
+        let signed_entity_types = signed_entity_types.join(",");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", "400"),
@@ -49,6 +51,8 @@ impl Aggregator {
             ("GENESIS_SECRET_KEY", "5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d"),
             ("ERA_READER_ADAPTER_TYPE", "dummy"),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
+            ("SIGNED_ENTITY_TYPES", &signed_entity_types),
+            ("CARDANO_NODE_VERSION", "8.1.2"),
             ("CARDANO_NODE_VERSION", "8.1.2"),
         ]);
         let args = vec!["--db-directory", bft_node.db_path.to_str().unwrap(), "-vvv"];
