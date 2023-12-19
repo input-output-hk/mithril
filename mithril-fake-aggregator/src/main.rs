@@ -1,3 +1,4 @@
+mod handlers;
 mod shared_state;
 
 use std::{
@@ -62,75 +63,41 @@ impl CliArguments {
 }
 
 /// error that wraps `anyhow::Error`.
-pub struct AppError(anyhow::Error);
+pub enum AppError {
+    /// Catching anyhow errors
+    Internal(anyhow::Error),
+
+    /// Resource not found (specify what)
+    NotFound(String),
+}
 
 /// Tell axum how to convert `AppError` into a response.
 impl IntoResponse for AppError {
     fn into_response(self) -> Response<Body> {
-        error!("{}", self.0);
+        match self {
+            Self::Internal(e) => {
+                error!("{}", e);
 
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Error: {:?}", self.0),
-        )
-            .into_response()
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {:?}", e)).into_response()
+            }
+            Self::NotFound(resource) => (
+                StatusCode::NOT_FOUND,
+                format!("resource '{resource}' not found"),
+            )
+                .into_response(),
+        }
     }
 }
 
-// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
-// `Result<_, AppError>`. That way you don't need to do that manually.
+/// This enables using `?` on functions that return `Result<_, anyhow::Error>` to turn them into
+/// `Result<_, AppError>`. That way you don't need to do that manually.
 impl<E> From<E> for AppError
 where
     E: Into<anyhow::Error>,
 {
     fn from(err: E) -> Self {
-        Self(err.into())
+        Self::Internal(err.into())
     }
-}
-
-pub async fn epoch_settings_handler(State(state): State<SharedState>) -> Result<String, AppError> {
-    let app_state = state.read().await;
-    let epoch_settings = app_state.get_epoch_settings().await?;
-
-    Ok(epoch_settings.into())
-}
-
-pub async fn snapshot_handler(
-    Path(key): Path<String>,
-    State(state): State<SharedState>,
-) -> StdResult<Json<String>> {
-    todo!()
-}
-
-pub async fn snapshots_handler(State(state): State<SharedState>) -> Result<String, AppError> {
-    let app_state = state.read().await;
-    let snapshots = app_state.get_snapshots().await?;
-
-    Ok(snapshots)
-}
-
-pub async fn msds_handler(State(state): State<SharedState>) -> Result<Json<String>, AppError> {
-    todo!()
-}
-
-pub async fn msd_handler(
-    Path(key): Path<String>,
-    State(state): State<SharedState>,
-) -> Result<Json<String>, AppError> {
-    todo!()
-}
-
-pub async fn certificates_handler(
-    State(state): State<SharedState>,
-) -> Result<Json<String>, AppError> {
-    todo!()
-}
-
-pub async fn certificate_handler(
-    Path(key): Path<String>,
-    State(state): State<SharedState>,
-) -> Result<Json<String>, AppError> {
-    todo!()
 }
 
 pub struct OsSignalHandler;
@@ -173,15 +140,19 @@ async fn main() -> StdResult<()> {
 
     trace!("configuring router…");
     let app = Router::new()
-        .route("/aggregator/epoch-settings", get(epoch_settings_handler))
-        .route("/aggregator/artifact/snapshots", get(snapshots_handler))
+        .route("/aggregator/epoch-settings", get(handlers::epoch_settings))
+        .route("/aggregator/artifact/snapshots", get(handlers::snapshots))
         .route(
             "/aggregator/artifact/mithril-stake-distributions",
-            get(msds_handler),
+            get(handlers::msds),
         )
         .route(
             "/aggregator/artifact/mithril-stake-distribution/:digest",
-            get(msd_handler),
+            get(handlers::msd),
+        )
+        .route(
+            "/aggregator/artifact/snapshot/:digest",
+            get(handlers::snapshot),
         )
         .with_state(shared_state.clone())
         .layer(

@@ -104,6 +104,22 @@ impl AppState {
             .with_context(|| "could not JSON serialize the snapshots list.")
     }
 
+    pub async fn get_msds(&self) -> StdResult<String> {
+        let values: Vec<Value> = self.msds.iter().map(|(_k, v)| v.to_owned()).collect();
+
+        serde_json::to_string(&Value::Array(values))
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "could not JSON serialize the mithril stake distributions list.")
+    }
+
+    pub async fn get_snapshot(&self, key: &str) -> StdResult<Option<String>> {
+        self.snapshots
+            .get(key)
+            .map(|v| serde_json::to_string(v))
+            .transpose()
+            .map_err(|e| e.into())
+    }
+
     pub async fn get_epoch_settings(&self) -> StdResult<String> {
         Ok(self.epoch_settings.to_owned())
     }
