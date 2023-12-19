@@ -278,5 +278,6 @@ jobs:
           dry_run: "false"
           package: ${{ matrix.package }}
           scope: ${{ matrix.scope }}
+          tag: next
           access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}
