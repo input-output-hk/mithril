@@ -82,7 +82,7 @@ impl PallasChainObserver {
         Ok(epoch)
     }
 
-    /// Inspects the given `AnyCbor` instance.
+    /// Inspects the given bytes and returns a decoded `R` instance.
     fn inspect<R>(&self, inner: Vec<u8>) -> R
     where
         for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
