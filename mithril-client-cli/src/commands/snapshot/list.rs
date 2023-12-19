@@ -1,12 +1,12 @@
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::test_utils::fake_keys;
 use slog_scope::logger;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::ClientBuilder;
-use mithril_client_cli::{common::StdResult, configuration::ConfigParameters};
+use mithril_client_cli::configuration::ConfigParameters;
+use mithril_common::{test_utils::fake_keys, StdResult};
 
 /// Clap command to list existing snapshots
 #[derive(Parser, Debug, Clone)]
