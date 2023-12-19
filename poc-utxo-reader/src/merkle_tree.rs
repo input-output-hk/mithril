@@ -4,7 +4,7 @@ use ckb_merkle_mountain_range::{util::MemStore, Merge, MerkleProof, Result as MM
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, ops::Deref};
 
-use crate::errors::StdResult;
+use crate::errors::{StdError, StdResult};
 
 /// Alias for a byte
 type Bytes = Vec<u8>;
@@ -38,6 +38,13 @@ impl From<String> for MKTreeNode {
         Self {
             hash: other.as_bytes().to_vec(),
         }
+    }
+}
+
+impl TryFrom<MKTree<'_>> for MKTreeNode {
+    type Error = StdError;
+    fn try_from(other: MKTree) -> Result<Self, Self::Error> {
+        other.compute_root()
     }
 }
 
