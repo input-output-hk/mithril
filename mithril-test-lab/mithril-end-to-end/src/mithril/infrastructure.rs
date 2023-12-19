@@ -7,8 +7,19 @@ use mithril_common::entities::ProtocolParameters;
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::borrow::BorrowMut;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
+
+pub struct MithrilInfrastructureConfig {
+    pub server_port: u64,
+    pub devnet: Devnet,
+    pub work_dir: PathBuf,
+    pub bin_dir: PathBuf,
+    pub mithril_era: String,
+    pub signed_entity_types: Vec<String>,
+    pub run_only_mode: bool,
+    pub use_p2p_network_mode: bool,
+}
 
 pub struct MithrilInfrastructure {
     work_dir: PathBuf,
@@ -21,34 +32,23 @@ pub struct MithrilInfrastructure {
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
 }
-
 impl MithrilInfrastructure {
-    #[allow(clippy::too_many_arguments)]
-    pub async fn start(
-        server_port: u64,
-        devnet: Devnet,
-        work_dir: &Path,
-        bin_dir: &Path,
-        mithril_era: &str,
-        signed_entity_types: Option<&str>,
-        run_only_mode: bool,
-        use_p2p_network_mode: bool,
-    ) -> StdResult<Self> {
-        devnet.run().await?;
-        let devnet_topology = devnet.topology();
+    pub async fn start(config: &MithrilInfrastructureConfig) -> StdResult<Self> {
+        config.devnet.run().await?;
+        let devnet_topology = config.devnet.topology();
         let bft_node = devnet_topology
             .bft_nodes
             .first()
             .ok_or_else(|| anyhow!("No BFT node available for the aggregator"))?;
 
         let mut aggregator = Aggregator::new(
-            server_port,
+            config.server_port,
             bft_node,
-            &devnet.cardano_cli_path(),
-            work_dir,
-            bin_dir,
-            mithril_era,
-            signed_entity_types,
+            &config.devnet.cardano_cli_path(),
+            &config.work_dir,
+            &config.bin_dir,
+            &config.mithril_era,
+            &config.signed_entity_types,
         )?;
         aggregator.set_protocol_parameters(&ProtocolParameters {
             k: 75,
@@ -59,21 +59,25 @@ impl MithrilInfrastructure {
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
-        if use_p2p_network_mode {
+        if config.use_p2p_network_mode {
             info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
-            let mut relay_aggregator =
-                RelayAggregator::new(server_port + 100, aggregator.endpoint(), work_dir, bin_dir)?;
+            let mut relay_aggregator = RelayAggregator::new(
+                config.server_port + 100,
+                aggregator.endpoint(),
+                &config.work_dir,
+                &config.bin_dir,
+            )?;
             relay_aggregator.start()?;
 
             for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
                 let mut relay_signer = RelaySigner::new(
-                    server_port + index as u64 + 200,
+                    config.server_port + index as u64 + 200,
                     relay_aggregator.peer_addr().to_owned(),
                     aggregator.endpoint(),
                     pool_node,
-                    work_dir,
-                    bin_dir,
+                    &config.work_dir,
+                    &config.bin_dir,
                 )?;
                 relay_signer.start()?;
 
@@ -90,7 +94,7 @@ impl MithrilInfrastructure {
             // TODO: Should be removed once the signer certification is fully deployed
             let enable_certification =
                 index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
-            let aggregator_endpoint = if use_p2p_network_mode {
+            let aggregator_endpoint = if config.use_p2p_network_mode {
                 relay_signers[index].endpoint()
             } else {
                 aggregator.endpoint()
@@ -98,10 +102,10 @@ impl MithrilInfrastructure {
             let mut signer = Signer::new(
                 aggregator_endpoint,
                 pool_node,
-                &devnet.cardano_cli_path(),
-                work_dir,
-                bin_dir,
-                mithril_era,
+                &config.devnet.cardano_cli_path(),
+                &config.work_dir,
+                &config.bin_dir,
+                &config.mithril_era,
                 enable_certification,
             )?;
             signer.start()?;
@@ -110,7 +114,7 @@ impl MithrilInfrastructure {
         }
 
         let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
-            devnet.cardano_cli_path(),
+            config.devnet.cardano_cli_path(),
             bft_node.socket_path.clone(),
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
         )));
@@ -122,15 +126,15 @@ impl MithrilInfrastructure {
         ));
 
         Ok(Self {
-            work_dir: work_dir.to_path_buf(),
-            bin_dir: bin_dir.to_path_buf(),
-            devnet,
+            work_dir: config.work_dir.to_path_buf(),
+            bin_dir: config.bin_dir.to_path_buf(),
+            devnet: config.devnet.clone(),
             aggregator,
             signers,
             relay_aggregators,
             relay_signers,
             cardano_chain_observer,
-            run_only_mode,
+            run_only_mode: config.run_only_mode,
         })
     }
 

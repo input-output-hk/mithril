@@ -22,7 +22,7 @@ pub async fn bootstrap_aggregator(
         &args.work_dir,
         &args.bin_dir,
         &args.mithril_era,
-        None,
+        &[],
     )
     .unwrap();
 

@@ -1,6 +1,8 @@
 use clap::Parser;
 use mithril_common::StdResult;
-use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
+use mithril_end_to_end::{
+    Devnet, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
@@ -57,8 +59,8 @@ pub struct Args {
     mithril_era: String,
 
     /// Signed entity types parameters (discriminants names in an ordered comma separated list).
-    #[clap(long)]
-    signed_entity_types: Option<String>,
+    #[clap(long, value_delimiter = ',', default_value = "")]
+    signed_entity_types: Vec<String>,
 
     /// Enable run only mode
     #[clap(long)]
@@ -127,16 +129,16 @@ async fn main() -> StdResult<()> {
     )
     .await?;
 
-    let mut infrastructure = MithrilInfrastructure::start(
+    let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
         server_port,
-        devnet.clone(),
-        &work_dir,
-        &args.bin_directory,
-        &args.mithril_era,
-        args.signed_entity_types.as_deref(),
+        devnet: devnet.clone(),
+        work_dir,
+        bin_dir: args.bin_directory,
+        mithril_era: args.mithril_era,
+        signed_entity_types: args.signed_entity_types,
         run_only_mode,
         use_p2p_network_mode,
-    )
+    })
     .await?;
 
     let runner: StdResult<()> = match run_only_mode {
