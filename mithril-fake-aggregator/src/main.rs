@@ -68,9 +68,10 @@ pub struct AppError(anyhow::Error);
 impl IntoResponse for AppError {
     fn into_response(self) -> Response<Body> {
         error!("{}", self.0);
+
         (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Something went wrong: {}", self.0),
+            format!("Error: {:?}", self.0),
         )
             .into_response()
     }
@@ -94,7 +95,7 @@ pub async fn epoch_settings_handler(State(state): State<SharedState>) -> Result<
     Ok(epoch_settings.into())
 }
 
-pub async fn snapshot(
+pub async fn snapshot_handler(
     Path(key): Path<String>,
     State(state): State<SharedState>,
 ) -> StdResult<Json<String>> {

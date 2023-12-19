@@ -1,5 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
+use anyhow::{anyhow, Context};
 use serde_json::Value;
 use tokio::sync::RwLock;
 
@@ -98,7 +99,9 @@ impl AppState {
     pub async fn get_snapshots(&self) -> StdResult<String> {
         let values: Vec<Value> = self.snapshots.iter().map(|(_k, v)| v.to_owned()).collect();
 
-        serde_json::from_value(Value::Array(values)).map_err(|e| e.into())
+        serde_json::to_string(&Value::Array(values))
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "could not JSON serialize the snapshots list.")
     }
 
     pub async fn get_epoch_settings(&self) -> StdResult<String> {
