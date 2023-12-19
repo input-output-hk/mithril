@@ -5,10 +5,15 @@ use mithril_client::{
 };
 use mithril_common::messages::CertificateMessage;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
+use std::convert::Infallible;
 use std::sync::Arc;
+use tokio::sync::Mutex;
+use warp::filters::path::FullPath;
 use warp::Filter;
 
 use crate::extensions::mock;
+
+type FakeAggregatorCalls = Arc<Mutex<Vec<String>>>;
 
 pub struct FakeCertificateVerifier;
 
@@ -21,10 +26,47 @@ impl FakeCertificateVerifier {
     }
 }
 
-pub struct FakeAggregator;
+pub struct FakeAggregator {
+    calls: FakeAggregatorCalls,
+}
 
 impl FakeAggregator {
+    pub fn new() -> Self {
+        FakeAggregator {
+            calls: Arc::new(Mutex::new(vec![])),
+        }
+    }
+
+    async fn get_calls(&self) -> Vec<String> {
+        let calls = self.calls.lock().await;
+
+        calls.clone()
+    }
+
+    pub async fn get_last_call(&self) -> Option<String> {
+        self.get_calls().await.last().cloned()
+    }
+
+    fn with_calls_middleware(
+        calls: FakeAggregatorCalls,
+    ) -> impl Filter<Extract = (FakeAggregatorCalls,), Error = Infallible> + Clone {
+        warp::any().map(move || calls.clone())
+    }
+
+    async fn store_call_and_return_value(
+        _params: Vec<String>,
+        full_path: FullPath,
+        calls: FakeAggregatorCalls,
+        returned_value: String,
+    ) -> Result<impl warp::Reply, Infallible> {
+        let mut call_list = calls.lock().await;
+        call_list.push(full_path.as_str().to_string());
+
+        Ok(returned_value)
+    }
+
     pub fn spawn_with_mithril_stake_distribution(
+        &self,
         msd_hash: &str,
         certificate_hash: &str,
     ) -> TestHttpServer {
@@ -58,16 +100,44 @@ impl FakeAggregator {
 
         test_http_server(
             warp::path!("artifact" / "mithril-stake-distributions")
-                .map(move || mithril_stake_distribution_list_json.clone())
+                .and(warp::path::full().map(move |p| p))
+                .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                .and_then(move |fullpath, calls| {
+                    FakeAggregator::store_call_and_return_value(
+                        vec![],
+                        fullpath,
+                        calls,
+                        mithril_stake_distribution_list_json.clone(),
+                    )
+                })
                 .or(
                     warp::path!("artifact" / "mithril-stake-distribution" / String)
-                        .map(move |_hash| mithril_stake_distribution_json.clone()),
+                        .and(warp::path::full().map(move |p| p))
+                        .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                        .and_then(move |param, fullpath, calls| {
+                            FakeAggregator::store_call_and_return_value(
+                                vec![param],
+                                fullpath,
+                                calls,
+                                mithril_stake_distribution_json.clone(),
+                            )
+                        }),
                 )
-                .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone())),
+                .or(warp::path!("certificate" / String)
+                    .and(warp::path::full().map(move |p| p))
+                    .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                    .and_then(move |param, fullpath, calls| {
+                        FakeAggregator::store_call_and_return_value(
+                            vec![param],
+                            fullpath,
+                            calls,
+                            certificate_json.clone(),
+                        )
+                    })),
         )
     }
 
-    pub fn spawn_with_certificate(certificate_hash_list: &[String]) -> TestHttpServer {
+    pub fn spawn_with_certificate(&self, certificate_hash_list: &[String]) -> TestHttpServer {
         let certificate_json = serde_json::to_string(&CertificateMessage {
             hash: certificate_hash_list[0].to_string(),
             ..CertificateMessage::dummy()
@@ -86,7 +156,16 @@ impl FakeAggregator {
 
         test_http_server(
             warp::path!("certificates")
-                .map(move || certificate_list_json.clone())
+                .and(warp::path::full().map(move |p| p))
+                .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                .and_then(move |fullpath, calls| {
+                    FakeAggregator::store_call_and_return_value(
+                        vec![],
+                        fullpath,
+                        calls,
+                        certificate_list_json.clone(),
+                    )
+                })
                 .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone())),
         )
     }
@@ -108,6 +187,7 @@ mod file {
     impl FakeAggregator {
         #[cfg(feature = "fs")]
         pub async fn spawn_with_snapshot(
+            &self,
             snapshot_digest: &str,
             certificate_hash: &str,
             immutable_db: &DummyImmutableDb,
@@ -156,37 +236,84 @@ mod file {
             let certificate_json = serde_json::to_string(&certificate).unwrap();
 
             let routes = warp::path!("artifact" / "snapshots")
-                .map(move || snapshot_list_json.clone())
-                .or(
-                    warp::path!("artifact" / "snapshot" / String).map(move |_digest| {
+                .and(warp::path::full().map(move |p| p))
+                .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                .and_then(move |fullpath, calls| {
+                    FakeAggregator::store_call_and_return_value(
+                        vec![],
+                        fullpath,
+                        calls,
+                        snapshot_list_json.clone(),
+                    )
+                })
+                .or(warp::path!("artifact" / "snapshot" / String)
+                    .and(warp::path::full().map(move |p| p))
+                    .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                    .and_then(move |param, fullpath, calls| {
                         let data = snapshot_clone.read().unwrap();
-                        serde_json::to_string(&data.clone()).unwrap()
-                    }),
-                )
-                .or(warp::path!("certificate" / String).map(move |_hash| certificate_json.clone()))
-                .or(warp::path!("statistics" / "snapshot").map(|| ""));
+                        FakeAggregator::store_call_and_return_value(
+                            vec![param],
+                            fullpath,
+                            calls,
+                            serde_json::to_string(&data.clone()).unwrap(),
+                        )
+                    }))
+                .or(warp::path!("certificate" / String)
+                    .and(warp::path::full().map(move |p| p))
+                    .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                    .and_then(move |param, fullpath, calls| {
+                        FakeAggregator::store_call_and_return_value(
+                            vec![param],
+                            fullpath,
+                            calls,
+                            certificate_json.clone(),
+                        )
+                    }))
+                .or(warp::path!("statistics" / "snapshot")
+                    .and(warp::path::full().map(move |p| p))
+                    .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
+                    .and_then(move |fullpath, calls| {
+                        FakeAggregator::store_call_and_return_value(
+                            vec![],
+                            fullpath,
+                            calls,
+                            "".to_string(),
+                        )
+                    }));
 
             let snapshot_archive_path = build_fake_zstd_snapshot(immutable_db, work_dir);
 
             let routes = routes.or(warp::path!("artifact" / "snapshot" / String / "download")
+                .and(warp::path::full().map(move |p| p))
+                .and(FakeAggregator::with_calls_middleware(self.calls.clone()))
                 .and(warp::fs::file(snapshot_archive_path))
-                .map(|_digest, reply: warp::fs::File| {
-                    let filepath = reply.path().to_path_buf();
-                    Box::new(warp::reply::with_header(
-                        reply,
-                        "Content-Disposition",
-                        format!(
-                            "attachment; filename=\"{}\"",
-                            filepath.file_name().unwrap().to_str().unwrap()
-                        ),
-                    )) as Box<dyn warp::Reply>
-                }));
+                .and_then(store_call_and_download_return));
             let server = test_http_server(routes);
 
             update_snapshot_location(&server.url(), snapshot_digest, snapshot);
 
             server
         }
+    }
+
+    pub async fn store_call_and_download_return(
+        _digest: String,
+        full_path: FullPath,
+        calls: FakeAggregatorCalls,
+        reply: warp::fs::File,
+    ) -> Result<impl warp::Reply, Infallible> {
+        let mut call_list = calls.lock().await;
+        call_list.push(full_path.as_str().to_string());
+
+        let filepath = reply.path().to_path_buf();
+        Ok(Box::new(warp::reply::with_header(
+            reply,
+            "Content-Disposition",
+            format!(
+                "attachment; filename=\"{}\"",
+                filepath.file_name().unwrap().to_str().unwrap()
+            ),
+        )) as Box<dyn warp::Reply>)
     }
 
     /// Compress the given db into an zstd archive in the given target directory.

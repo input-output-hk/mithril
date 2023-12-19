@@ -1,6 +1,7 @@
 mod extensions;
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
+use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};
 use mithril_common::digesters::DummyImmutablesDbBuilder;
@@ -17,10 +18,11 @@ async fn snapshot_list_get_show_download_verify() {
         .with_immutables(&[1, 2, 3])
         .append_immutable_trio()
         .build();
-    let fake_aggregator =
-        FakeAggregator::spawn_with_snapshot(digest, certificate_hash, &immutable_db, &work_dir)
-            .await;
-    let client = ClientBuilder::aggregator(&fake_aggregator.url(), genesis_verification_key)
+    let fake_aggregator = FakeAggregator::new();
+    let test_http_server = fake_aggregator
+        .spawn_with_snapshot(digest, certificate_hash, &immutable_db, &work_dir)
+        .await;
+    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
         .add_feedback_receiver(Arc::new(SlogFeedbackReceiver::new(
             extensions::test_logger(),
@@ -33,6 +35,10 @@ async fn snapshot_list_get_show_download_verify() {
         .list()
         .await
         .expect("List MithrilStakeDistribution should not fail");
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!("/{}", AggregatorRequest::ListSnapshots.route()))
+    );
 
     let last_digest = snapshots.first().unwrap().digest.as_ref();
 
@@ -42,6 +48,16 @@ async fn snapshot_list_get_show_download_verify() {
         .await
         .expect("Get Snapshot should not fail ")
         .unwrap_or_else(|| panic!("A Snapshot should exist for hash '{last_digest}'"));
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}",
+            AggregatorRequest::GetSnapshot {
+                digest: (last_digest.to_string())
+            }
+            .route()
+        ))
+    );
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
@@ -51,24 +67,42 @@ async fn snapshot_list_get_show_download_verify() {
         .verify_chain(&snapshot.certificate_hash)
         .await
         .expect("Validating the chain should not fail");
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}",
+            AggregatorRequest::GetCertificate {
+                hash: (snapshot.certificate_hash.clone())
+            }
+            .route()
+        ))
+    );
 
     client
         .snapshot()
         .download_unpack(&snapshot, &unpacked_dir)
         .await
         .expect("download/unpack snapshot should not fail");
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}/download",
+            AggregatorRequest::GetSnapshot {
+                digest: (snapshot.digest.clone())
+            }
+            .route()
+        ))
+    );
 
     client
         .snapshot()
         .add_statistics(&snapshot)
         .await
         .expect("add_statistics should not fail");
-
-    // TODO: find a way to verify that the last route called is the right one
-    // assert_eq!(
-    //     "statistics/snapshot",
-    //     fake_aggregator.get_last_route_called()
-    // );
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!("/{}", AggregatorRequest::AddStatistics.route()))
+    );
 
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, &unpacked_dir)
