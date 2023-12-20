@@ -92,39 +92,35 @@ impl SnapshotDownloadCommand {
             .await?
             .with_context(|| format!("Can not get the snapshot for digest: '{}'", self.digest))?;
 
-        SnapshotDownloadCommand::check_local_disk_info(
-            1,
-            &progress_printer,
-            &db_dir,
-            &snapshot_message,
-        )?;
+        Self::check_local_disk_info(1, &progress_printer, &db_dir, &snapshot_message)?;
 
-        let certificate = SnapshotDownloadCommand::fetching_certificate_and_verifying_chain(
+        let certificate = Self::fetch_certificate_and_verifying_chain(
             2,
             &progress_printer,
             &client,
-            &snapshot_message,
+            &snapshot_message.certificate_hash,
         )
         .await?;
 
-        SnapshotDownloadCommand::downloading_and_unpacking_snapshot(
+        Self::download_and_unpack_snapshot(
             3,
             &progress_printer,
             &client,
             &snapshot_message,
             &db_dir,
         )
-        .await?;
+        .await
+        .with_context(|| {
+            format!(
+                "Can not get download and unpack snapshot for digest: '{}'",
+                self.digest
+            )
+        })?;
 
-        let message = SnapshotDownloadCommand::computing_snapshot_digest(
-            4,
-            &progress_printer,
-            &certificate,
-            &db_dir,
-        )
-        .await?;
+        let message =
+            Self::compute_snapshot_message(4, &progress_printer, &certificate, &db_dir).await?;
 
-        SnapshotDownloadCommand::verifying_snapshot_signature(
+        Self::verify_snapshot_signature(
             5,
             &progress_printer,
             &certificate,
@@ -133,7 +129,7 @@ impl SnapshotDownloadCommand {
         )
         .await?;
 
-        SnapshotDownloadCommand::log_download_information(&db_dir, &snapshot_message, self.json)?;
+        Self::log_download_information(&db_dir, &snapshot_message, self.json)?;
 
         Ok(())
     }
@@ -142,13 +138,13 @@ impl SnapshotDownloadCommand {
         step_number: u16,
         progress_printer: &ProgressPrinter,
         db_dir: &PathBuf,
-        snapshot_message: &Snapshot,
+        snapshot: &Snapshot,
     ) -> StdResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
         if let Err(e) = SnapshotUnpacker::check_prerequisites(
             db_dir,
-            snapshot_message.size,
-            snapshot_message.compression_algorithm.unwrap_or_default(),
+            snapshot.size,
+            snapshot.compression_algorithm.unwrap_or_default(),
         ) {
             progress_printer
                 .report_step(step_number, &SnapshotUtils::check_disk_space_error(e)?)?;
@@ -164,11 +160,11 @@ impl SnapshotDownloadCommand {
         Ok(())
     }
 
-    async fn fetching_certificate_and_verifying_chain(
+    async fn fetch_certificate_and_verifying_chain(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         client: &Client,
-        snapshot_message: &Snapshot,
+        certificate_hash: &str,
     ) -> StdResult<MithrilCertificate> {
         progress_printer.report_step(
             step_number,
@@ -176,40 +172,31 @@ impl SnapshotDownloadCommand {
         )?;
         let certificate = client
             .certificate()
-            .verify_chain(&snapshot_message.certificate_hash)
+            .verify_chain(certificate_hash)
             .await
             .with_context(|| {
                 format!(
                     "Can not verify the certificate chain from certificate_hash: '{}'",
-                    snapshot_message.certificate_hash
+                    certificate_hash
                 )
             })?;
 
         Ok(certificate)
     }
 
-    async fn downloading_and_unpacking_snapshot(
+    async fn download_and_unpack_snapshot(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         client: &Client,
-        snapshot_message: &Snapshot,
+        snapshot: &Snapshot,
         db_dir: &Path,
     ) -> StdResult<()> {
         progress_printer.report_step(step_number, "Downloading and unpacking the snapshot…")?;
-        client
-            .snapshot()
-            .download_unpack(snapshot_message, db_dir)
-            .await
-            .with_context(|| {
-                format!(
-                    "Snapshot Service can not download and verify the snapshot for digest: '{}'",
-                    snapshot_message.digest
-                )
-            })?;
+        client.snapshot().download_unpack(snapshot, db_dir).await?;
 
         // The snapshot download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
-        if let Err(e) = client.snapshot().add_statistics(snapshot_message).await {
+        if let Err(e) = client.snapshot().add_statistics(snapshot).await {
             warn!("Could not increment snapshot download statistics: {e:?}");
         }
 
@@ -224,13 +211,13 @@ impl SnapshotDownloadCommand {
         Ok(())
     }
 
-    async fn computing_snapshot_digest(
+    async fn compute_snapshot_message(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
         db_dir: &Path,
     ) -> StdResult<ProtocolMessage> {
-        progress_printer.report_step(step_number, "Computing the snapshot digest…")?;
+        progress_printer.report_step(step_number, "Computing the snapshot message")?;
         let message = SnapshotUtils::wait_spinner(
             progress_printer,
             MessageBuilder::new().compute_snapshot_message(certificate, db_dir),
@@ -246,12 +233,12 @@ impl SnapshotDownloadCommand {
         Ok(message)
     }
 
-    async fn verifying_snapshot_signature(
+    async fn verify_snapshot_signature(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
         message: &ProtocolMessage,
-        snapshot_message: &Snapshot,
+        snapshot: &Snapshot,
     ) -> StdResult<()> {
         progress_printer.report_step(step_number, "Verifying the snapshot signature…")?;
         if !certificate.match_message(message) {
@@ -259,7 +246,7 @@ impl SnapshotDownloadCommand {
 
             return Err(anyhow!(
                 "Certificate verification failed (snapshot digest = '{}').",
-                snapshot_message.digest.clone()
+                snapshot.digest.clone()
             ));
         }
 
@@ -268,7 +255,7 @@ impl SnapshotDownloadCommand {
 
     fn log_download_information(
         db_dir: &Path,
-        snapshot_message: &Snapshot,
+        snapshot: &Snapshot,
         json_output: bool,
     ) -> StdResult<()> {
         let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
@@ -285,6 +272,10 @@ impl SnapshotDownloadCommand {
                 canonicalized_filepath.display()
             );
         } else {
+            let cardano_node_version = snapshot
+                .cardano_node_version
+                .clone()
+                .unwrap_or("latest".to_string());
             println!(
                 r###"Snapshot '{}' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
                     
@@ -292,17 +283,15 @@ impl SnapshotDownloadCommand {
     
     If you are using Cardano Docker image, you can restore a Cardano Node with:
     
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:8.1.2
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:{}
     
     "###,
-                snapshot_message.digest,
+                snapshot.digest,
                 db_dir.display(),
-                snapshot_message
-                    .cardano_node_version
-                    .clone()
-                    .unwrap_or("latest".to_string()),
+                cardano_node_version,
                 canonicalized_filepath.display(),
-                snapshot_message.beacon.network,
+                snapshot.beacon.network,
+                cardano_node_version
             );
         }
 

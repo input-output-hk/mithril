@@ -3296,7 +3296,6 @@ dependencies = [
  "mithril-common",
  "openssl",
  "openssl-probe",
- "semver",
  "serde",
  "serde_json",
  "slog",
