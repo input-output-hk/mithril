@@ -43,19 +43,11 @@ resource "null_resource" "mithril_signer" {
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/mithril/snapshots",
       "echo -n ${local.mithril_signers_relay_cardano_port[each.key]} > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/port",
       <<-EOT
-# Setup cardano node topology
-cat > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json << EOF
-{
-  "Producers": [
-    {
-      "addr": "${google_compute_address.mithril-external-address.address}",
-      "port": ${local.mithril_signers_relay_cardano_port[each.key]},
-      "valency": 1
-    }
-  ]
-}
-EOF
-cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq '.Producers[1] |= . + { "addr": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}, "valency": 1}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
+# Setup cardano node block producer topology
+cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq 'del(.publicRoots[0].accessPoints[0:])' | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_relay_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json
+
+# Setup cardano node relay topology
+cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
 EOT
       ,
       <<-EOT
