@@ -103,7 +103,10 @@ async fn snapshot_list_get_show_download_verify() {
         fake_aggregator.get_last_call().await,
         Some(format!(
             "/{}",
-            AggregatorRequest::IncrementSnapshotStatistic.route()
+            AggregatorRequest::IncrementSnapshotStatistic {
+                snapshot: "whatever".to_string()
+            }
+            .route()
         ))
     );
 

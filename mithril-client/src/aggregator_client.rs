@@ -70,7 +70,10 @@ pub enum AggregatorRequest {
     ListSnapshots,
 
     /// Increments the aggregator snapshot download statistics
-    IncrementSnapshotStatistic,
+    IncrementSnapshotStatistic {
+        /// Snapshot as HTTP request body
+        snapshot: String,
+    },
 }
 
 impl AggregatorRequest {
@@ -91,7 +94,19 @@ impl AggregatorRequest {
                 format!("artifact/snapshot/{}", digest)
             }
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
-            AggregatorRequest::IncrementSnapshotStatistic => "statistics/snapshot".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
+                "statistics/snapshot".to_string()
+            }
+        }
+    }
+
+    /// Get the request body to send to the aggregator
+    pub fn get_body(&self) -> Option<String> {
+        match self {
+            AggregatorRequest::IncrementSnapshotStatistic { snapshot } => {
+                Some(snapshot.to_string())
+            }
+            _ => None,
         }
     }
 }
@@ -110,7 +125,6 @@ pub trait AggregatorClient: Sync + Send {
     async fn post_content(
         &self,
         request: AggregatorRequest,
-        content: &str,
     ) -> Result<String, AggregatorClientError>;
 }
 
@@ -312,10 +326,12 @@ impl AggregatorClient for AggregatorHTTPClient {
     async fn post_content(
         &self,
         request: AggregatorRequest,
-        content: &str,
     ) -> Result<String, AggregatorClientError> {
         let response = self
-            .post(self.get_url_for_route(&request.route())?, content)
+            .post(
+                self.get_url_for_route(&request.route())?,
+                &request.get_body().unwrap_or_default(),
+            )
             .await?;
 
         response.text().await.map_err(|e| {

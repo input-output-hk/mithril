@@ -243,10 +243,9 @@ impl SnapshotClient {
     pub async fn add_statistics(&self, snapshot: &Snapshot) -> MithrilResult<()> {
         let _response = self
             .aggregator_client
-            .post_content(
-                AggregatorRequest::IncrementSnapshotStatistic,
-                &serde_json::to_string(snapshot)?,
-            )
+            .post_content(AggregatorRequest::IncrementSnapshotStatistic {
+                snapshot: serde_json::to_string(snapshot)?,
+            })
             .await?;
 
         Ok(())
