@@ -1,4 +1,3 @@
-#![cfg(target_family = "wasm")]
 use async_trait::async_trait;
 use mithril_client::{
     feedback::{FeedbackReceiver, MithrilEvent},
@@ -10,6 +9,7 @@ use wasm_bindgen::prelude::*;
 
 type WasmResult = Result<JsValue, JsValue>;
 
+#[wasm_bindgen]
 struct JSBroadcastChannelFeedbackReceiver {
     channel: String,
 }
@@ -50,12 +50,12 @@ impl From<MithrilEvent> for MithrilEventWasm {
     }
 }
 
-#[cfg_attr(target_family = "wasm", wasm_bindgen(js_name = MithrilClient))]
+#[wasm_bindgen]
 pub struct MithrilClient {
     client: Client,
 }
 
-#[wasm_bindgen(js_class = MithrilClient)]
+#[wasm_bindgen]
 impl MithrilClient {
     /// Constructor for wasm client
     #[wasm_bindgen(constructor)]
@@ -70,7 +70,6 @@ impl MithrilClient {
     }
 
     /// Call the client to get a snapshot from a digest
-    // #[wasm_bindgen(js_name = get_snapshot)]
     pub async fn get_snapshot(&self, digest: &str) -> WasmResult {
         let result = self
             .client
@@ -83,7 +82,6 @@ impl MithrilClient {
     }
 
     /// Call the client to get the list of available snapshots
-    // #[wasm_bindgen(js_name = list_snapshots)]
     pub async fn list_snapshots(&self) -> WasmResult {
         let result = self
             .client
@@ -96,7 +94,6 @@ impl MithrilClient {
     }
 
     /// Call the client to get a mithril stake distribution from a hash
-    // #[wasm_bindgen(js_name = get_mithril_stake_distribution)]
     pub async fn get_mithril_stake_distribution(&self, hash: &str) -> WasmResult {
         let result = self
             .client
@@ -109,7 +106,6 @@ impl MithrilClient {
     }
 
     /// Call the client for the list of available mithril stake distributions
-    // #[wasm_bindgen(js_name = list_mithril_stake_distributions)]
     pub async fn list_mithril_stake_distributions(&self) -> WasmResult {
         let result = self
             .client
@@ -122,7 +118,6 @@ impl MithrilClient {
     }
 
     /// Call the client to compute a mithril stake distribution message
-    // #[wasm_bindgen(js_name = compute_mithril_stake_distribution_message)]
     pub async fn compute_mithril_stake_distribution_message(
         &self,
         stake_distribution: JsValue,
@@ -137,7 +132,6 @@ impl MithrilClient {
     }
 
     /// Call the client to verify a mithril stake distribution message
-    // #[wasm_bindgen(js_name = verify_message_match_certificate)]
     pub async fn verify_message_match_certificate(
         &self,
         message: JsValue,
@@ -151,7 +145,6 @@ impl MithrilClient {
     }
 
     /// Call the client to get a mithril certificate from a certificate hash
-    // #[wasm_bindgen(js_name = get_mithril_certificate)]
     pub async fn get_mithril_certificate(&self, hash: &str) -> WasmResult {
         let result = self
             .client
@@ -164,7 +157,6 @@ impl MithrilClient {
     }
 
     /// Call the client for the list of available mithril certificates
-    // #[wasm_bindgen(js_name = list_mithril_certificates)]
     pub async fn list_mithril_certificates(&self) -> WasmResult {
         let result = self
             .client
@@ -177,7 +169,6 @@ impl MithrilClient {
     }
 
     /// Call the client to verify the certificate chain from a certificate hash
-    // #[wasm_bindgen(js_name = verify_certificate_chain)]
     pub async fn verify_certificate_chain(&self, hash: &str) -> WasmResult {
         let result = self
             .client
@@ -203,7 +194,7 @@ mod tests {
         "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d",
     ).await;
 
-        let list = wasm_client
+        wasm_client
             .list_mithril_stake_distributions()
             .await
             .expect("should not fail");
