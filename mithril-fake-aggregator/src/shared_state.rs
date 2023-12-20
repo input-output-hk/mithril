@@ -120,8 +120,36 @@ impl AppState {
             .map_err(|e| e.into())
     }
 
+    pub async fn get_msd(&self, key: &str) -> StdResult<Option<String>> {
+        self.msds
+            .get(key)
+            .map(|v| serde_json::to_string(v))
+            .transpose()
+            .map_err(|e| e.into())
+    }
+
     pub async fn get_epoch_settings(&self) -> StdResult<String> {
         Ok(self.epoch_settings.to_owned())
+    }
+
+    pub async fn get_certificates(&self) -> StdResult<String> {
+        let values: Vec<Value> = self
+            .certificates
+            .iter()
+            .map(|(_k, v)| v.to_owned())
+            .collect();
+
+        serde_json::to_string(&Value::Array(values))
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "could not JSON serialize the certificates list.")
+    }
+
+    pub async fn get_certificate(&self, key: &str) -> StdResult<Option<String>> {
+        self.certificates
+            .get(key)
+            .map(|v| serde_json::to_string(v))
+            .transpose()
+            .map_err(|e| e.into())
     }
 }
 /*

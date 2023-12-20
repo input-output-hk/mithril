@@ -1,11 +1,12 @@
 use axum::{
+    body::Body,
     extract::{Path, State},
-    response::{IntoResponse, Response},
-    Json,
+    http::Response,
+    response::IntoResponse,
 };
 
-use crate::shared_state::{AppState, SharedState};
-use crate::{AppError, StdResult};
+use crate::shared_state::SharedState;
+use crate::AppError;
 
 pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, AppError> {
     let app_state = state.read().await;
@@ -17,7 +18,7 @@ pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, 
 pub async fn snapshot(
     Path(key): Path<String>,
     State(state): State<SharedState>,
-) -> Result<Response, AppError> {
+) -> Result<Response<Body>, AppError> {
     let app_state = state.read().await;
 
     app_state
@@ -34,24 +35,42 @@ pub async fn snapshots(State(state): State<SharedState>) -> Result<String, AppEr
     Ok(snapshots)
 }
 
-pub async fn msds(State(state): State<SharedState>) -> Result<Json<String>, AppError> {
-    todo!()
+pub async fn msds(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let msds = app_state.get_msds().await?;
+
+    Ok(msds)
 }
 
 pub async fn msd(
     Path(key): Path<String>,
     State(state): State<SharedState>,
-) -> Result<Json<String>, AppError> {
-    todo!()
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_msd(&key)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| AppError::NotFound(format!("mithril stake distribution epoch={key}")))
 }
 
-pub async fn certificates(State(state): State<SharedState>) -> Result<Json<String>, AppError> {
-    todo!()
+pub async fn certificates(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let certificates = app_state.get_certificates().await?;
+
+    Ok(certificates)
 }
 
 pub async fn certificate(
     Path(key): Path<String>,
     State(state): State<SharedState>,
-) -> Result<Json<String>, AppError> {
-    todo!()
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_certificate(&key)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| AppError::NotFound(format!("certificate hash={key}")))
 }

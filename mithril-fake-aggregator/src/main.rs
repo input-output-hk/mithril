@@ -1,19 +1,17 @@
 mod handlers;
 mod shared_state;
 
-use std::{
-    future::IntoFuture,
-    path::{Path as StdPath, PathBuf},
-};
+use std::{future::IntoFuture, path::PathBuf};
 
 use anyhow::{anyhow, Context};
 use axum::{
     body::Body,
-    extract::{Path, State},
-    http::{Response, StatusCode},
+    extract::Request,
+    http::{HeaderValue, Response, StatusCode},
+    middleware::{self, Next},
     response::IntoResponse,
     routing::get,
-    Json, Router,
+    Router,
 };
 use clap::Parser;
 use futures::stream::StreamExt;
@@ -154,7 +152,10 @@ async fn main() -> StdResult<()> {
             "/aggregator/artifact/snapshot/:digest",
             get(handlers::snapshot),
         )
+        .route("/aggregator/certificates", get(handlers::certificates))
+        .route("/aggregator/certificate/:hash", get(handlers::certificate))
         .with_state(shared_state.clone())
+        .layer(middleware::from_fn(set_json_app_header))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(
@@ -193,4 +194,21 @@ async fn main() -> StdResult<()> {
     };
 
     result
+}
+
+async fn set_json_app_header(
+    req: Request,
+    next: Next,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let mut res = next.run(req).await;
+
+    if res.status() == StatusCode::OK {
+        let headers = res.headers_mut();
+        headers.insert(
+            "Content-Type",
+            HeaderValue::from_static("application/json; charset=utf-8"),
+        );
+    }
+
+    Ok(res)
 }
