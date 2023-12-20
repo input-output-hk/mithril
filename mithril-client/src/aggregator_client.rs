@@ -69,8 +69,8 @@ pub enum AggregatorRequest {
     /// Lists the aggregator [snapshots][crate::Snapshot]
     ListSnapshots,
 
-    /// Increments Aggregator's download statistics
-    AddStatistics,
+    /// Increments the aggregator snapshot download statistics
+    IncrementSnapshotStatistic,
 }
 
 impl AggregatorRequest {
@@ -91,7 +91,7 @@ impl AggregatorRequest {
                 format!("artifact/snapshot/{}", digest)
             }
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
-            AggregatorRequest::AddStatistics => "statistics/snapshot".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic => "statistics/snapshot".to_string(),
         }
     }
 }
@@ -106,7 +106,7 @@ pub trait AggregatorClient: Sync + Send {
         request: AggregatorRequest,
     ) -> Result<String, AggregatorClientError>;
 
-    /// Post information to the Aggregator, the URL is a relative path for a resource
+    /// Post information to the Aggregator
     async fn post_content(
         &self,
         request: AggregatorRequest,

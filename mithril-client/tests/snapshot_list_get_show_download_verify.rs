@@ -101,7 +101,10 @@ async fn snapshot_list_get_show_download_verify() {
         .expect("add_statistics should not fail");
     assert_eq!(
         fake_aggregator.get_last_call().await,
-        Some(format!("/{}", AggregatorRequest::AddStatistics.route()))
+        Some(format!(
+            "/{}",
+            AggregatorRequest::IncrementSnapshotStatistic.route()
+        ))
     );
 
     let message = MessageBuilder::new()

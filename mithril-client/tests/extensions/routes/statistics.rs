@@ -16,6 +16,6 @@ fn add_statistics(
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
         .and_then(move |fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(vec![], fullpath, calls, "".to_string())
+            FakeAggregator::store_call_and_return_value(fullpath, calls, "".to_string())
         })
 }

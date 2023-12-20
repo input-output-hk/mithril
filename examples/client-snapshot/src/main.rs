@@ -56,7 +56,7 @@ async fn main() -> MithrilResult<()> {
         .await?;
 
     if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
-        println!("Could not POST snapshot download statistics: {:?}", e);
+        println!("Could not increment snapshot download statistics: {:?}", e);
     }
 
     println!("Computing snapshot '{}' message ...", snapshot.digest);

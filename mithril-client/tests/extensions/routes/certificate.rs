@@ -26,12 +26,7 @@ fn certificate_certificates(
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
         .and_then(move |fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(
-                vec![],
-                fullpath,
-                calls,
-                returned_value.clone(),
-            )
+            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
         })
 }
 
@@ -43,12 +38,7 @@ fn certificate_certificate_hash(
     warp::path!("certificate" / String)
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
-        .and_then(move |param, fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(
-                vec![param],
-                fullpath,
-                calls,
-                returned_value.clone(),
-            )
+        .and_then(move |_param, fullpath, calls| {
+            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
         })
 }

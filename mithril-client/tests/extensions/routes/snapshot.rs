@@ -26,12 +26,7 @@ fn snapshots(
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
         .and_then(move |fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(
-                vec![],
-                fullpath,
-                calls,
-                returned_value.clone(),
-            )
+            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
         })
 }
 
@@ -43,10 +38,9 @@ fn snapshot_by_id(
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
-        .and_then(move |param, fullpath, calls| {
+        .and_then(move |_param, fullpath, calls| {
             let data = returned_value.read().unwrap();
             FakeAggregator::store_call_and_return_value(
-                vec![param],
                 fullpath,
                 calls,
                 serde_json::to_string(&data.clone()).unwrap(),

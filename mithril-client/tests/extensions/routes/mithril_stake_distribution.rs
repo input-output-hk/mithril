@@ -21,12 +21,7 @@ fn mithril_stake_distributions(
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
         .and_then(move |fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(
-                vec![],
-                fullpath,
-                calls,
-                returned_value.clone(),
-            )
+            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
         })
 }
 
@@ -38,12 +33,7 @@ fn mithril_stake_distribution_by_id(
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::path::full().map(move |p| p))
         .and(with_calls_middleware(calls.clone()))
-        .and_then(move |param, fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(
-                vec![param],
-                fullpath,
-                calls,
-                returned_value.clone(),
-            )
+        .and_then(move |_param, fullpath, calls| {
+            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
         })
 }

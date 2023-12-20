@@ -48,7 +48,6 @@ impl FakeAggregator {
     }
 
     pub async fn store_call_and_return_value(
-        _params: Vec<String>,
         full_path: FullPath,
         calls: FakeAggregatorCalls,
         returned_value: String,

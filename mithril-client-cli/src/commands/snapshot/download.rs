@@ -210,7 +210,7 @@ impl SnapshotDownloadCommand {
         // The snapshot download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
         if let Err(e) = client.snapshot().add_statistics(snapshot_message).await {
-            warn!("Could not POST snapshot download statistics: {e:?}");
+            warn!("Could not increment snapshot download statistics: {e:?}");
         }
 
         // Append 'clean' file to speedup node bootstrap

@@ -66,7 +66,7 @@
 //! # Add statistics
 //! **Note:** _Available on crate feature_ **fs** _only._
 //!
-//! Increments Aggregator's download statistics using the [ClientBuilder][crate::client::ClientBuilder].
+//! Increments the aggregator snapshot download statistics using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
@@ -239,12 +239,12 @@ impl SnapshotClient {
         }
     }
 
-    /// Increments Aggregator's download statistics
+    /// Increments the aggregator snapshot download statistics
     pub async fn add_statistics(&self, snapshot: &Snapshot) -> MithrilResult<()> {
         let _response = self
             .aggregator_client
             .post_content(
-                AggregatorRequest::AddStatistics,
+                AggregatorRequest::IncrementSnapshotStatistic,
                 &serde_json::to_string(snapshot)?,
             )
             .await?;
