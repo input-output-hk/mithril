@@ -1,4 +1,4 @@
-use pallas_primitives::conway::{BigInt, Constr, PlutusData};
+use pallas_primitives::conway::PlutusData;
 use pallas_primitives::ToCanonicalJson;
 
 use super::model::Datum;
