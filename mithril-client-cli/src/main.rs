@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::Context;
-use clap::{Arg, Command, CommandFactory, Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory, Command, Arg};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
@@ -79,8 +79,7 @@ pub struct Args {
 }
 
 impl Args {
-
-    pub fn doc_markdown() {
+    pub fn doc_markdown() -> String {
 
         // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
@@ -100,47 +99,64 @@ impl Args {
             format!("| `{parameter}` | {long_option} | {short_option} | {env_variable} | {description} | {default_value} | {example} | {is_required} |")
         }
 
-        fn format_parameters(cmd: &Command) {
+        fn format_parameters(cmd: &Command) -> String {
             if cmd.get_arguments().peekable().peek().is_some() {
-                println!("### Configuration parameters");
 
-                println!("| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |");
-                println!("|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|");
-            
-                for arg in cmd.get_arguments() {
-                    println!("{}", format_arg(arg));
-                }
+                let parameters_lines: Vec<String> = cmd.get_arguments().map(|arg| format_arg(arg)).collect();
+
+                let parameters_table = format!("### Configuration parameters\n\n{}\n{}\n{}\n",
+                    "| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |",
+                    "|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|",
+                    parameters_lines.join("\n"),
+                );
+                println!("{}", parameters_table);
+                parameters_table
+            } else {
+                String::from("")
             }
         }
 
-        fn format_command(cmd: &Command, parent: Option<String>)  {
-            println!("### {} {}\n", parent.clone().map(|s| format!("{} ", s)).unwrap_or(String::from("")), cmd.get_name());
-            
+        fn format_command(cmd: &Command, parent: Option<String>) -> String {
+            let title = format!("### {} {}\n", parent.clone().map(|s| format!("{} ", s)).unwrap_or(String::from("")), cmd.get_name());
+            let description = format!("{}", cmd.get_about().map(|s| s.to_string()).unwrap_or(String::from("")));
 
-            if cmd.get_subcommands().peekable().peek().is_some() {
-            
-                println!("{}", String::from("| Subcommand | Performed action |"));
-                println!("{}", String::from("|------------|------------------|"));
-        
-                for command in cmd.get_subcommands() {
-                    let doc = command.get_about().map(|s| s.to_string()).unwrap_or(String::from(""));
-        
-                    println!("| **{}** | {} |",
-                        command.get_name(), doc
+            let subcommands_table = if cmd.get_subcommands().peekable().peek().is_some() {
+                let subcommands_lines: Vec<String> = cmd.get_subcommands().map(|command| {
+                    format!("| **{}** | {} |",
+                        command.get_name(), 
+                        command.get_about().map(|s| s.to_string()).unwrap_or(String::from(""))
                     )
-                }
-                println!("");
-            }
-            format_parameters(&cmd);
+                }).collect();
+
+                let subcommands_table = format!("{}\n{}\n{}\n",
+                    "| Subcommand | Performed action |",
+                    "|------------|------------------|",
+                    subcommands_lines.join("\n"),
+                );
+
+                println!("{}", subcommands_table);
+                subcommands_table
+            } else {
+                String::from("")
+            };
+
+            let parameters = format_parameters(&cmd);
 
             for sub_command in cmd.get_subcommands() {
                 let p = Some(parent.clone().map(|s| format!("{} ", s)).unwrap_or(String::from("")) + cmd.get_name());
                 format_command(sub_command, p);
             }
+
+            let subcommands: Vec<String> = cmd.get_subcommands().map(|sub_command| {
+                let p = Some(parent.clone().map(|s| format!("{} ", s)).unwrap_or(String::from("")) + cmd.get_name());
+                format_command(sub_command, p)
+            }).collect();
+
+            format!("{}\n{}\n{}\n{}\n{}", title, description, subcommands_table, parameters, subcommands.join("\n"))
  
         }
 
-        format_command(&cmd, None);
+        format_command(&cmd, None)
 
 
     }
@@ -331,7 +347,11 @@ impl ArtifactCommands {
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     //Args::document();
-    Args::doc_markdown();
+    let doc = Args::doc_markdown();
+    let mut buffer: File = File::create("generated_doc.md")?;
+    buffer.write(b"Generated doc\n\n");
+    buffer.write(doc.as_bytes());
+    
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
