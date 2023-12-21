@@ -14,3 +14,11 @@ impl ToCanonicalJson for Datum {
         self.0.to_json()
     }
 }
+
+/// Inspects the given bytes and returns a decoded `R` instance.
+pub fn inspect<R>(inner: Vec<u8>) -> R
+where
+    for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
+{
+    minicbor::decode(&inner).unwrap()
+}

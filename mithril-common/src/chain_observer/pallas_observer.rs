@@ -15,6 +15,7 @@ use crate::entities::StakeDistribution;
 use crate::CardanoNetwork;
 use crate::{entities::Epoch, StdResult};
 
+use super::codec::inspect;
 use super::model::{Datum, Datums};
 use super::CardanoCliChainObserver;
 
@@ -83,42 +84,35 @@ impl PallasChainObserver {
         Ok(epoch)
     }
 
-    /// Inspects the given bytes and returns a decoded `R` instance.
-    fn inspect<R>(&self, inner: Vec<u8>) -> R
-    where
-        for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
-    {
-        minicbor::decode(&inner).unwrap()
-    }
-
     /// Returns inline datum bytes from the given `Values` instance.
-    fn get_datum_bytes(&self, values: &Values) -> Vec<u8> {
-        let bytes = values.inline_datum.as_ref().unwrap().1.clone();
+    fn get_datum_bytes(&self, utxo: &Values) -> Vec<u8> {
+        let bytes = utxo.inline_datum.as_ref().unwrap().1.clone();
         let bytes = CborWrap(bytes).to_vec();
-        self.inspect(bytes)
+        inspect(bytes)
     }
 
     /// Returns inline datums from the given `Values` instance.
-    fn inspect_datum(&self, values: &Values) -> Datum {
-        let datum = self.get_datum_bytes(values);
+    fn inspect_datum(&self, utxo: &Values) -> Datum {
+        let datum = self.get_datum_bytes(utxo);
 
-        self.inspect(datum)
+        inspect(datum)
     }
 
     /// Serializes datum to `TxDatum` instance.
-    fn serialize_datum(&self, values: &Values) -> TxDatum {
-        let datum = self.inspect_datum(values);
+    fn serialize_datum(&self, utxo: &Values) -> TxDatum {
+        let datum = self.inspect_datum(utxo);
         let serialized = serde_json::to_string(&datum.to_json()).expect("Failed to serialize");
 
         TxDatum(serialized)
     }
 
     /// Maps the given `UTxOByAddress` instance to Datums.
-    fn map_datums(&self, utxo: UTxOByAddress) -> Datums {
-        utxo.utxo
+    fn map_datums(&self, transaction: UTxOByAddress) -> Datums {
+        transaction
+            .utxo
             .iter()
-            .filter(|(_, values)| values.inline_datum.is_some())
-            .map(|(_, values)| self.serialize_datum(values))
+            .filter(|(_, utxo)| utxo.inline_datum.is_some())
+            .map(|(_, utxo)| self.serialize_datum(utxo))
             .collect()
     }
 
