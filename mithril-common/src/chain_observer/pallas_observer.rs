@@ -264,10 +264,13 @@ mod tests {
         let datum = hex::decode(hex_datum).unwrap().into();
         let tag = TagWrap::<_, 24>::new(datum);
         let inline_datum = Some((1_u16, tag));
+
+        let address: Address =
+            Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
+                .unwrap();
+        let address: Addr = address.to_vec().into();
         let values = localstate::queries_v16::Values {
-            address: b"addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0"
-                .to_vec()
-                .into(),
+            address,
             amount: Value::Coin(lovelace),
             inline_datum,
         };
