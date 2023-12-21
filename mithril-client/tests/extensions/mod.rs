@@ -4,6 +4,7 @@
 
 pub mod fake;
 pub mod mock;
+mod routes;
 
 use std::path::PathBuf;
 
