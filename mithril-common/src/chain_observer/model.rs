@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 // required for derive attrs to work
-use pallas_codec::utils::{Int, KeyValuePairs};
+use pallas_primitives::conway::PlutusData;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -9,22 +9,10 @@ use thiserror::Error;
 
 use crate::{StdError, StdResult};
 
-#[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct Constr<A> {
-    pub constructor: Option<u64>,
-    pub fields: Vec<A>,
-}
-
+/// [Datum] represents an inline datum from UTxO.
 #[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[serde(rename_all = "lowercase")]
-pub enum Metadatum {
-    Datum(Constr<Metadatum>),
-    Int(Int),
-    Bytes(String),
-    Text(String),
-    List(Vec<Metadatum>),
-    Map(KeyValuePairs<Metadatum, Metadatum>),
-}
+pub struct Datum(pub PlutusData);
 
 /// [Datums] represents a list of [TxDatum].
 pub type Datums = Vec<TxDatum>;

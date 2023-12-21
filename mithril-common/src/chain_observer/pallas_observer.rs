@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_addresses::Address;
-use pallas_codec::utils::{AnyCbor, CborWrap};
+use pallas_codec::utils::CborWrap;
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
 use pallas_network::miniprotocols::localstate::{queries_v16, Client};
@@ -14,7 +14,7 @@ use crate::entities::StakeDistribution;
 use crate::CardanoNetwork;
 use crate::{entities::Epoch, StdResult};
 
-use super::model::{Datums, Metadatum};
+use super::model::{Datum, Datums};
 use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
@@ -98,7 +98,7 @@ impl PallasChainObserver {
     }
 
     /// Returns inline datums from the given `Values` instance.
-    fn inspect_datum(&self, values: &Values) -> Metadatum {
+    fn inspect_datum(&self, values: &Values) -> Datum {
         let datum = self.get_datum_bytes(values);
 
         self.inspect(datum)
@@ -108,6 +108,7 @@ impl PallasChainObserver {
     fn serialize_datum(&self, values: &Values) -> TxDatum {
         let datum = self.inspect_datum(values);
         let serialized = serde_json::to_string(&datum).expect("Failed to serialize");
+
         TxDatum(serialized)
     }
 
@@ -128,6 +129,7 @@ impl PallasChainObserver {
     ) -> Result<Datums, ChainObserverError> {
         let statequery = client.statequery();
         let utxo = self.get_utxo_by_address(statequery, address).await?;
+
         Ok(self.map_datums(utxo))
     }
 

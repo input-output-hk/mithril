@@ -1,114 +1,56 @@
-use minicbor::data::Tag;
-use pallas_codec::utils::Bytes;
-use serde::ser::SerializeMap;
+use pallas_primitives::conway::{BigInt, Constr, PlutusData};
+use serde::ser::{SerializeMap, SerializeStruct};
 use serde::Serialize;
 
-use super::model::{Constr, Metadatum};
+use super::model::Datum;
 
-impl<'b, C> minicbor::Decode<'b, C> for Metadatum {
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        match d.datatype()? {
-            minicbor::data::Type::U8
-            | minicbor::data::Type::U16
-            | minicbor::data::Type::U32
-            | minicbor::data::Type::U64
-            | minicbor::data::Type::I8
-            | minicbor::data::Type::I16
-            | minicbor::data::Type::I32
-            | minicbor::data::Type::I64
-            | minicbor::data::Type::Int => {
-                let i = d.decode()?;
-                Ok(Metadatum::Int(i))
-            }
-            minicbor::data::Type::Bytes => {
-                let b = d.decode_with(ctx)?;
-                Ok(Metadatum::Bytes(Bytes::to_string(&b)))
-            }
-            minicbor::data::Type::String => Ok(Metadatum::Text(d.decode_with(ctx)?)),
-            minicbor::data::Type::Array | minicbor::data::Type::ArrayIndef => {
-                Ok(Metadatum::List(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Map | minicbor::data::Type::MapIndef => {
-                Ok(Metadatum::Map(d.decode_with(ctx)?))
-            }
-            minicbor::data::Type::Tag => {
-                let mut probe = d.probe();
-                let tag = probe.tag()?;
-
-                match tag {
-                    Tag::Unassigned(121) => Ok(Self::Datum(d.decode_with(ctx)?)),
-                    _ => Err(minicbor::decode::Error::message(
-                        "unknown tag for inline datum data tag",
-                    )),
-                }
-            }
-            _ => Err(minicbor::decode::Error::message(
-                "Can't turn data type into metadatum",
-            )),
-        }
+impl<'a, C> minicbor::Decode<'a, C> for Datum {
+    fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        PlutusData::decode(d, ctx).map(Datum)
     }
 }
 
-impl Serialize for Metadatum {
+impl Serialize for Datum {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        match self {
-            Metadatum::Datum(constr) => {
-                let Constr {
-                    constructor,
-                    fields,
-                } = constr;
-                let mut state = serializer.serialize_map(Some(2))?;
-                state.serialize_entry("constructor", constructor)?;
-                state.serialize_entry("fields", fields)?;
+        match &self.0 {
+            PlutusData::Constr(constr) => {
+                let Constr { fields, .. }: Constr<Datum> = Constr {
+                    tag: constr.tag,
+                    any_constructor: constr.any_constructor,
+                    fields: constr.fields.iter().cloned().map(Datum).collect(),
+                };
+                let mut state = serializer.serialize_struct("Datum", 2)?;
+                state.serialize_field("constructor", &constr.any_constructor.unwrap_or(0))?;
+                state.serialize_field("fields", &fields)?;
                 state.end()
             }
-            Metadatum::Int(int) => {
+            PlutusData::BigInt(big_int) => match big_int {
+                BigInt::Int(int) => serializer.serialize_newtype_variant("BigInt", 0, "int", int),
+                BigInt::BigUInt(bytes) | BigInt::BigNInt(bytes) => serializer
+                    .serialize_newtype_variant(
+                        "BigInt",
+                        0,
+                        "bytes",
+                        &hex::encode(bytes.as_slice()),
+                    ),
+            },
+            PlutusData::BoundedBytes(s) => {
+                serializer.serialize_newtype_variant("PlutusData", 0, "bytes", s)
+            }
+            PlutusData::Array(list) => {
+                let list: Vec<Datum> = list.iter().cloned().map(Datum).collect();
                 let mut state = serializer.serialize_map(Some(1))?;
-                state.serialize_entry("int", int)?;
+                state.serialize_entry("list", &list)?;
                 state.end()
             }
-            Metadatum::Bytes(s) => {
-                let mut state = serializer.serialize_map(Some(1))?;
-                state.serialize_entry("bytes", s)?;
-                state.end()
-            }
-            Metadatum::Text(s) => {
-                let mut state = serializer.serialize_map(Some(1))?;
-                state.serialize_entry("text", s)?;
-                state.end()
-            }
-            Metadatum::List(list) => {
-                let mut state = serializer.serialize_map(Some(1))?;
-                state.serialize_entry("list", list)?;
-                state.end()
-            }
-            Metadatum::Map(map) => {
+            PlutusData::Map(map) => {
                 let mut state = serializer.serialize_map(Some(1))?;
                 state.serialize_entry("map", map)?;
                 state.end()
             }
-        }
-    }
-}
-
-impl<'b, C, A> minicbor::decode::Decode<'b, C> for Constr<A>
-where
-    A: minicbor::decode::Decode<'b, C>,
-{
-    fn decode(d: &mut minicbor::Decoder<'b>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
-        let tag = d.tag()?;
-
-        match tag {
-            Tag::Unassigned(121) => Ok(Constr {
-                fields: d.decode_with(ctx)?,
-                constructor: Some(0),
-            }),
-            _ => Err(minicbor::decode::Error::message(
-                "unknown tag for inline datum data tag",
-            )),
         }
     }
 }
