@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-// required for derive attrs to work
 use pallas_primitives::conway::PlutusData;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
