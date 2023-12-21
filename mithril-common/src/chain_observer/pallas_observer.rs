@@ -5,6 +5,7 @@ use pallas_codec::utils::CborWrap;
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
 use pallas_network::miniprotocols::localstate::{queries_v16, Client};
+use pallas_primitives::ToCanonicalJson;
 use std::path::{Path, PathBuf};
 
 use crate::chain_observer::interface::*;
@@ -107,7 +108,7 @@ impl PallasChainObserver {
     /// Serializes datum to `TxDatum` instance.
     fn serialize_datum(&self, values: &Values) -> TxDatum {
         let datum = self.inspect_datum(values);
-        let serialized = serde_json::to_string(&datum).expect("Failed to serialize");
+        let serialized = serde_json::to_string(&datum.to_json()).expect("Failed to serialize");
 
         TxDatum(serialized)
     }

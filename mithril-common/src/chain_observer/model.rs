@@ -9,7 +9,7 @@ use thiserror::Error;
 use crate::{StdError, StdResult};
 
 /// [Datum] represents an inline datum from UTxO.
-#[derive(Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[serde(rename_all = "lowercase")]
 pub struct Datum(pub PlutusData);
 
