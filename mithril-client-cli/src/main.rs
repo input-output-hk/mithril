@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::Context;
+use std::ffi::OsStr;
+use clap::builder::StyledStr;
 use clap::{Parser, Subcommand, CommandFactory, Command, Arg};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
@@ -86,16 +88,13 @@ impl Args {
         let mut cmd: clap::Command = <Self as CommandFactory>::command();
 
         fn format_arg(arg: &Arg) -> String {
-            let parameter=arg.get_id();
-
+            let parameter = arg.get_id();
             let short_option = arg.get_short().map_or("".into(), |c| format!("`-{}`", c));
             let long_option = arg.get_long().map_or("".into(), |c| format!("`--{}`", c));
-          //  let env_variable =  format_value_names(arg);
-            let env_variable = arg.get_env().map_or("".into(), |s| s.to_os_string().into_string().map_or("".into(), |s| format!("`{}`", s)));
+            let env_variable = arg.get_env().and_then(OsStr::to_str).map_or("".into(), |s| format!("`{}`", s));
             let description = "?";
-            let default_value:Vec<String> = arg.get_default_values().iter().map(|v| format!("{}", v.to_str().map_or("-".into(), |s| format!("`{}`", s)))).collect();
-            let default_value = default_value.join(" ");
-            let example = arg.get_help().map_or("".into(), |s| s.to_string());
+            let default_value = arg.get_default_values().iter().map(|s| format!("`{}`", s.to_string_lossy())).collect::<Vec<String>>().join(",");
+            let example = arg.get_help().map_or("".into(), StyledStr::to_string);
             let is_required = if arg.is_required_set() {":heavy_check_mark:"} else {"-"};
             format!("| `{parameter}` | {long_option} | {short_option} | {env_variable} | {description} | {default_value} | {example} | {is_required} |")
         }
@@ -103,7 +102,7 @@ impl Args {
         fn format_parameters(cmd: &Command) -> String {
             if cmd.get_arguments().peekable().peek().is_some() {
 
-                let parameters_lines: Vec<String> = cmd.get_arguments().map(|arg| format_arg(arg)).collect();
+                let parameters_lines = cmd.get_arguments().map(|arg| format_arg(arg)).collect::<Vec<String>>();
 
                 let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n{}\n{}\n",
                     "| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |",
@@ -124,16 +123,17 @@ impl Args {
         }
 
         fn format_command(cmd: &mut Command, parent: Option<String>) -> String {
-            let title = format!("### {} {}\n", parent.clone().map_or("".into(), |s| format!("{} ", s)), cmd.get_name());
-            let description = format!("{}", cmd.get_about().map_or("".into(), |s| s.to_string()));
+            let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
+            let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
+            let description = format!("{}", cmd.get_about().map_or("".into(), StyledStr::to_string));
 
             let subcommands_table = if cmd.get_subcommands().peekable().peek().is_some() {
-                let subcommands_lines: Vec<String> = cmd.get_subcommands().map(|command| {
+                let subcommands_lines = cmd.get_subcommands().map(|command| {
                     format!("| **{}** | {} |",
                         command.get_name(),
-                        command.get_about().map_or("".into(), |s| s.to_string())
+                        command.get_about().map_or("".into(), StyledStr::to_string)
                     )
-                }).collect();
+                }).collect::<Vec<String>>();
 
                 let subcommands_table = format!("{}\n{}\n{}\n",
                     "| Subcommand | Performed action |",
@@ -141,7 +141,6 @@ impl Args {
                     subcommands_lines.join("\n"),
                 );
 
-                println!("{}", subcommands_table);
                 subcommands_table
             } else {
                 String::from("")
@@ -149,11 +148,9 @@ impl Args {
 
             let parameters = format_parameters(&cmd);
 
-            let subcommands: Vec<String> = cmd.get_subcommands().map(|sub_command: &Command| {
-                let mut sub_command = sub_command.clone();
-                let p = Some(parent.clone().map_or("".into(), |s| format!("{} ", s)) + cmd.get_name());
-                format_command(&mut sub_command, p)
-            }).collect();
+            let subcommands = cmd.get_subcommands().map(|sub_command: &Command| {
+                format_command(&mut sub_command.clone(), Some(format!("{} {}", parent_ancestors, cmd.get_name())))
+            }).collect::<Vec<String>>();
            
             // let usage = format!("```bash\n{}\n```", cmd.render_usage()); // Already in help 
             // let help = format!("```bash\n{}\n```", cmd.render_help());
