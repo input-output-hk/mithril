@@ -11,6 +11,7 @@ Usage: mithril-client [OPTIONS] <COMMAND>
 Commands:
   snapshot                    Snapshot management
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  generate-doc                Generate documentation
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -46,10 +47,11 @@ Options:
           Print version
 
 ```
-| Subcommand | Performed action |
-|------------|------------------|
-| **snapshot** | Snapshot management |
-| **mithril-stake-distribution** | Mithril Stake Distribution management (alias: msd) |
+| Subcommand | Aliases | Performed action |
+|------------|---------|------------------|
+| **snapshot** |  | Snapshot management |
+| **mithril-stake-distribution** | msd | Mithril Stake Distribution management (alias: msd) |
+| **generate-doc** | doc | Generate documentation |
 
 
 The configuration parameters can be set in either of the following ways:
@@ -89,11 +91,11 @@ Options:
           Print help
 
 ```
-| Subcommand | Performed action |
-|------------|------------------|
-| **list** | List available snapshots |
-| **show** | Show detailed informations about a snapshot |
-| **download** | Download the snapshot and verify the certificate |
+| Subcommand | Aliases | Performed action |
+|------------|---------|------------------|
+| **list** |  | List available snapshots |
+| **show** |  | Show detailed informations about a snapshot |
+| **download** |  | Download the snapshot and verify the certificate |
 
 
 ###  mithril-client  snapshot list
@@ -234,10 +236,10 @@ Options:
           Print help
 
 ```
-| Subcommand | Performed action |
-|------------|------------------|
-| **list** | List certified stake distributions |
-| **download** | Download and verify the given Mithril Stake Distribution |
+| Subcommand | Aliases | Performed action |
+|------------|---------|------------------|
+| **list** |  | List certified stake distributions |
+| **download** |  | Download and verify the given Mithril Stake Distribution |
 
 
 ###  mithril-client  mithril-stake-distribution list
@@ -315,4 +317,38 @@ Here is a list of the available parameters:
 | `artifact_hash` |  |  |  | ? |  | Hash of the Mithril Stake Distribution artifact | :heavy_check_mark: |
 | `download_dir` | `--download-dir` |  |  | ? |  | Directory where the Mithril Stake Distribution will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - |
 | `genesis_verification_key` | `--genesis-verification-key` |  | `GENESIS_VERIFICATION_KEY` | ? |  | Genesis Verification Key to check the certifiate chain | - |
+
+
+###  mithril-client generate-doc
+
+Generate documentation
+```bash
+Generate documentation
+
+Usage: generate-doc [OPTIONS]
+
+Options:
+      --output <OUTPUT>
+          Generated documentation file
+          
+          [default: generated_doc.md]
+
+  -h, --help
+          Print help
+
+```
+
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
+### Configuration parameters
+
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `output` | `--output` |  |  | ? | `generated_doc.md` | Generated documentation file | - |
 
