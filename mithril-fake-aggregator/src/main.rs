@@ -32,8 +32,8 @@ type StdResult<T> = anyhow::Result<T>;
 #[command(version)]
 pub struct CliArguments {
     /// Directory where the response files are located.
-    #[arg(short, long, default_value = "data")]
-    data_directory: PathBuf,
+    #[arg(short, long)]
+    data_directory: Option<PathBuf>,
 
     /// Verbose mode (-q, -v, -vv, -vvv, etc)
     #[arg(short, long, action = clap::ArgAction::Count)]
@@ -121,72 +121,8 @@ async fn main() -> StdResult<()> {
     tracing_subscriber::fmt()
         .with_max_level(params.get_verbosity_level())
         .init();
-    info!(
-        "starting Fake Aggregator version {}",
-        env!("CARGO_PKG_VERSION")
-    );
 
-    trace!("setting up signal hook…");
-    // supported signals
-    let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
-
-    // launch signal detector
-    let signal_handler = signals.handle();
-
-    trace!("setting up shared state…");
-    let shared_state: SharedState = AppState::default().into();
-
-    trace!("configuring router…");
-    let app = Router::new()
-        .route("/aggregator/epoch-settings", get(handlers::epoch_settings))
-        .route("/aggregator/artifact/snapshots", get(handlers::snapshots))
-        .route(
-            "/aggregator/artifact/mithril-stake-distributions",
-            get(handlers::msds),
-        )
-        .route(
-            "/aggregator/artifact/mithril-stake-distribution/:digest",
-            get(handlers::msd),
-        )
-        .route(
-            "/aggregator/artifact/snapshot/:digest",
-            get(handlers::snapshot),
-        )
-        .route("/aggregator/certificates", get(handlers::certificates))
-        .route("/aggregator/certificate/:hash", get(handlers::certificate))
-        .with_state(shared_state.clone())
-        .layer(middleware::from_fn(set_json_app_header))
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(
-                    DefaultMakeSpan::new()
-                        .include_headers(true)
-                        .level(Level::DEBUG),
-                )
-                .on_request(DefaultOnRequest::new().level(Level::DEBUG))
-                .on_response(
-                    DefaultOnResponse::new()
-                        .level(Level::INFO)
-                        .include_headers(true)
-                        .latency_unit(LatencyUnit::Micros),
-                ),
-        );
-    let listener = {
-        let connection_string = format!("{}:{}", params.ip_address, params.tcp_port);
-        debug!("binding on {connection_string}");
-        tokio::net::TcpListener::bind(&connection_string)
-            .await
-            .with_context(|| format!("Could not listen on '{}'.", connection_string))?
-    };
-
-    trace!("starting server…");
-    let result = tokio::select!(
-        res = axum::serve(listener, app).into_future() => res.map_err(|e| anyhow!(e)),
-        _res = OsSignalHandler::handle_signal(signals) => Ok(()),
-    );
-
-    trace!("closing signal handler…");
-    signal_handler.close();
+    let result = Application::run(params).await;
 
     match &result {
         Err(e) => error!("{e}"),
@@ -194,6 +130,83 @@ async fn main() -> StdResult<()> {
     };
 
     result
+}
+struct Application;
+
+impl Application {
+    pub async fn run(params: CliArguments) -> StdResult<()> {
+        info!(
+            "starting Fake Aggregator version {}",
+            env!("CARGO_PKG_VERSION")
+        );
+
+        trace!("setting up signal hook…");
+        // supported signals
+        let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
+
+        // launch signal detector
+        let signal_handler = signals.handle();
+
+        trace!("setting up shared state…");
+        let shared_state: SharedState = match params.data_directory {
+            Some(directory) => AppState::from_directory(&directory)?.into(),
+            None => AppState::default().into(),
+        };
+
+        trace!("configuring router…");
+        let app = Router::new()
+            .route("/aggregator/epoch-settings", get(handlers::epoch_settings))
+            .route("/aggregator/artifact/snapshots", get(handlers::snapshots))
+            .route(
+                "/aggregator/artifact/mithril-stake-distributions",
+                get(handlers::msds),
+            )
+            .route(
+                "/aggregator/artifact/mithril-stake-distribution/:digest",
+                get(handlers::msd),
+            )
+            .route(
+                "/aggregator/artifact/snapshot/:digest",
+                get(handlers::snapshot),
+            )
+            .route("/aggregator/certificates", get(handlers::certificates))
+            .route("/aggregator/certificate/:hash", get(handlers::certificate))
+            .with_state(shared_state.clone())
+            .layer(middleware::from_fn(set_json_app_header))
+            .layer(
+                TraceLayer::new_for_http()
+                    .make_span_with(
+                        DefaultMakeSpan::new()
+                            .include_headers(true)
+                            .level(Level::DEBUG),
+                    )
+                    .on_request(DefaultOnRequest::new().level(Level::DEBUG))
+                    .on_response(
+                        DefaultOnResponse::new()
+                            .level(Level::INFO)
+                            .include_headers(true)
+                            .latency_unit(LatencyUnit::Micros),
+                    ),
+            );
+        let listener = {
+            let connection_string = format!("{}:{}", params.ip_address, params.tcp_port);
+            debug!("binding on {connection_string}");
+            tokio::net::TcpListener::bind(&connection_string)
+                .await
+                .with_context(|| format!("Could not listen on '{}'.", connection_string))?
+        };
+
+        trace!("starting server…");
+        let result = tokio::select!(
+            res = axum::serve(listener, app).into_future() => res.map_err(|e| anyhow!(e)),
+            _res = OsSignalHandler::handle_signal(signals) => Ok(()),
+        );
+
+        trace!("closing signal handler…");
+        signal_handler.close();
+
+        result
+    }
 }
 
 async fn set_json_app_header(
