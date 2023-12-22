@@ -83,7 +83,7 @@ impl Args {
 
         // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
-        let cmd: clap::Command = <Self as CommandFactory>::command();
+        let mut cmd: clap::Command = <Self as CommandFactory>::command();
 
         fn format_arg(arg: &Arg) -> String {
             let parameter=arg.get_id();
@@ -123,7 +123,7 @@ impl Args {
             }
         }
 
-        fn format_command(cmd: &Command, parent: Option<String>) -> String {
+        fn format_command(cmd: &mut Command, parent: Option<String>) -> String {
             let title = format!("### {} {}\n", parent.clone().map_or("".into(), |s| format!("{} ", s)), cmd.get_name());
             let description = format!("{}", cmd.get_about().map_or("".into(), |s| s.to_string()));
 
@@ -149,22 +149,21 @@ impl Args {
 
             let parameters = format_parameters(&cmd);
 
-            for sub_command in cmd.get_subcommands() {
+            let subcommands: Vec<String> = cmd.get_subcommands().map(|sub_command: &Command| {
+                let mut sub_command = sub_command.clone();
                 let p = Some(parent.clone().map_or("".into(), |s| format!("{} ", s)) + cmd.get_name());
-                format_command(sub_command, p);
-            }
-
-            let subcommands: Vec<String> = cmd.get_subcommands().map(|sub_command| {
-                let p = Some(parent.clone().map_or("".into(), |s| format!("{} ", s)) + cmd.get_name());
-                format_command(sub_command, p)
+                format_command(&mut sub_command, p)
             }).collect();
+           
+            // let usage = format!("```bash\n{}\n```", cmd.render_usage()); // Already in help 
+            // let help = format!("```bash\n{}\n```", cmd.render_help());
+            let help = format!("```bash\n{}\n```", cmd.render_long_help()); // More readable than help
 
-            format!("{}\n{}\n{}\n{}\n{}", title, description, subcommands_table, parameters, subcommands.join("\n"))
+            format!("{}\n{}\n{}\n{}\n{}\n{}", title, description, help, subcommands_table, parameters, subcommands.join("\n"))
 
         }
 
-        format_command(&cmd, None)
-
+        format_command(&mut cmd, None)
 
     }
 
