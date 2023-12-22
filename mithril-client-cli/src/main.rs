@@ -105,13 +105,19 @@ impl Args {
 
                 let parameters_lines: Vec<String> = cmd.get_arguments().map(|arg| format_arg(arg)).collect();
 
-                let parameters_table = format!("### Configuration parameters\n\n{}\n{}\n{}\n",
+                let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n{}\n{}\n",
                     "| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |",
                     "|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|",
                     parameters_lines.join("\n"),
                 );
-                println!("{}", parameters_table);
-                parameters_table
+                let parameters_explanation = format!("\n\
+                    The configuration parameters can be set in either of the following ways:\n\
+                    \n\
+                    1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
+                    \n\
+                    2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
+                    ");
+                format!("{}\n{}", parameters_explanation, parameters_table)
             } else {
                 String::from("")
             }

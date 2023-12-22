@@ -8,6 +8,14 @@ This program shows, downloads and verifies certified blockchain artifacts.
 | **snapshot** | Snapshot management |
 | **mithril-stake-distribution** | Mithril Stake Distribution management (alias: msd) |
 
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
 ### Configuration parameters
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
@@ -33,6 +41,14 @@ Snapshot management
 
 List available snapshots
 
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
 ### Configuration parameters
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
@@ -44,6 +60,14 @@ List available snapshots
 
 Show detailed informations about a snapshot
 
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
 ### Configuration parameters
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
@@ -56,6 +80,14 @@ Show detailed informations about a snapshot
 
 Download the snapshot and verify the certificate
 
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
 ### Configuration parameters
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
@@ -79,6 +111,14 @@ Mithril Stake Distribution management (alias: msd)
 
 List certified stake distributions
 
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
 ### Configuration parameters
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
@@ -90,6 +130,14 @@ List certified stake distributions
 
 Download and verify the given Mithril Stake Distribution
 
+
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+Here is a list of the available parameters:
 ### Configuration parameters
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
