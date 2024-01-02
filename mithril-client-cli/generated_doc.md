@@ -63,8 +63,8 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `run_mode` | `--run-mode` |  | `RUN_MODE` | ? | `dev` | Run Mode | - |
 | `verbose` | `--verbose` | `-v` |  | ? |  | Verbosity level (-v=warning, -vv=info, -vvv=debug) | - |
 | `config_directory` | `--config-directory` |  |  | ? | `./config` | Directory where configuration file is located | - |
@@ -125,8 +125,8 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` |  |  | ? |  | Enable JSON output | - |
 
 
@@ -163,8 +163,8 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` |  |  | ? |  | Enable JSON output | - |
 | `digest` |  |  |  | ? |  | Snapshot digest | :heavy_check_mark: |
 
@@ -210,8 +210,8 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` |  |  | ? |  | Enable JSON output | - |
 | `digest` |  |  |  | ? |  | Digest of the snapshot to download. Use the `list` command to get that information | :heavy_check_mark: |
 | `download_dir` | `--download-dir` |  |  | ? |  | Directory where the snapshot will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - |
@@ -269,8 +269,8 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` |  |  | ? |  | Enable JSON output | - |
 
 
@@ -312,8 +312,8 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `artifact_hash` |  |  |  | ? |  | Hash of the Mithril Stake Distribution artifact | :heavy_check_mark: |
 | `download_dir` | `--download-dir` |  |  | ? |  | Directory where the Mithril Stake Distribution will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - |
 | `genesis_verification_key` | `--genesis-verification-key` |  | `GENESIS_VERIFICATION_KEY` | ? |  | Genesis Verification Key to check the certifiate chain | - |
@@ -348,7 +348,7 @@ The configuration parameters can be set in either of the following ways:
 Here is a list of the available parameters:
 ### Configuration parameters
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `output` | `--output` |  |  | ? | `generated_doc.md` | Generated documentation file | - |
 

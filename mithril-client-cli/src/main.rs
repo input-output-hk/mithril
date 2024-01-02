@@ -80,23 +80,50 @@ pub struct Args {
     unstable: bool,
 }
 
-impl Args {
-    pub fn doc_markdown() -> String {
+pub mod markdown_formatter {
+ 
+    pub fn format_table_line(data: &Vec<String>) -> String {
+        format!("| {} |", data.join(" | "))
+    }
 
+    pub fn format_table_header(data: &Vec<&str>) -> String {
+        let headers = data.iter().map(|header| {
+            let align_left = header.chars().next().map(|c| c == ':').unwrap_or(false);
+            let align_right = header.chars().last().map(|c| c == ':').unwrap_or(false);
+            let label = &header[(if align_left {1} else {0})..(header.len()-(if align_right {1} else {0}))];
+            (label, align_left, align_right)
+        }).collect::<Vec<(&str, bool, bool)>>();
+
+        let sublines = headers.iter().map(|(label, left, right)| {
+            format!("{}{}{}", if *left {":"} else {"-"}, "-".repeat(label.len()), if *right {":"} else {"-"})
+        }).collect::<Vec<String>>();
+
+        let labels = headers.iter().map(|(label, _, _)| {
+            label.to_string()
+        }).collect::<Vec<String>>();
+
+        format!("| {} |\n|{}|", labels.join(" | "), sublines.join("|"))
+    }
+}
+
+impl Args {
+
+    pub fn doc_markdown() -> String {
         // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
         let mut cmd: clap::Command = <Self as CommandFactory>::command();
 
         fn format_arg(arg: &Arg) -> String {
-            let parameter = arg.get_id();
+            let parameter = format!("`{}`", arg.get_id());
             let short_option = arg.get_short().map_or("".into(), |c| format!("`-{}`", c));
             let long_option = arg.get_long().map_or("".into(), |c| format!("`--{}`", c));
             let env_variable = arg.get_env().and_then(OsStr::to_str).map_or("".into(), |s| format!("`{}`", s));
-            let description = "?";
+            let description = String::from("?");
             let default_value = arg.get_default_values().iter().map(|s| format!("`{}`", s.to_string_lossy())).collect::<Vec<String>>().join(",");
             let example = arg.get_help().map_or("".into(), StyledStr::to_string);
-            let is_required = if arg.is_required_set() {":heavy_check_mark:"} else {"-"};
-            format!("| `{parameter}` | {long_option} | {short_option} | {env_variable} | {description} | {default_value} | {example} | {is_required} |")
+            let is_required = String::from(if arg.is_required_set() {":heavy_check_mark:"} else {"-"});
+            
+            markdown_formatter::format_table_line(&vec!(parameter, long_option, short_option, env_variable, description, default_value, example, is_required))
         }
 
         fn format_parameters(cmd: &Command) -> String {
@@ -104,9 +131,9 @@ impl Args {
 
                 let parameters_lines = cmd.get_arguments().map(|arg| format_arg(arg)).collect::<Vec<String>>();
 
-                let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n{}\n{}\n",
-                    "| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |",
-                    "|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|",
+                
+                let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n{}\n",
+                    markdown_formatter::format_table_header(&vec!("Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:")),
                     parameters_lines.join("\n"),
                 );
                 let parameters_explanation = format!("\n\
