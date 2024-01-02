@@ -206,19 +206,17 @@ impl Args {
 
             fn format_required(arg: &Arg, value: &str) -> String {
                 if arg.is_required_set() {
-                    format!("<{}>", value.to_string())
-                 } else {
-                     format!("[{}]", value.to_string())
-                 }
+                    format!("<{value}>")
+                } else {
+                    format!("[{value}]")
+                }
             }
 
-            let formatted_names = arg.get_value_names()
-            .map(|v| {
-                let b: Vec<String> = v.iter().map(|t| format_required(arg, t)).collect();
-                format!("{}", b.join(" "))
-            }
-             ).unwrap_or(String::from("?"));
-            formatted_names
+            arg.get_value_names().map(|values| {
+                    values.iter().map(|value| format_required(arg, value)).collect::<Vec<String>>().join(" ")
+                }
+            ).unwrap_or(String::from("?"))
+            
             //format!("{} (postional={}, required={})", formatted_names, arg.is_positional(), arg.is_required_set())
         }
 
@@ -237,17 +235,15 @@ impl Args {
            //     println!("{}", format_arg(arg));
            // }
 
-            let posargs: Vec<String> = command.get_positionals().map(|arg| format!("{}",format_value_names(arg))).collect();
-            let pa = posargs.join(" ");
-
-            let subcmds: Vec<String> = command.get_subcommands().map(|cmd| format!("   {}",format_command(cmd))).collect();
-            let s = subcmds.join("\n");
-
-            let args: Vec<String> = command.get_arguments().map(|arg| format!("   {}",format_arg(arg))).collect();
-            let a = args.join("\n");
+            let positional_arguments = command.get_positionals().map(|arg| format!("{}",format_value_names(arg))).collect::<Vec<String>>();
+            let sub_commands = command.get_subcommands().map(|cmd| format!("   {}",format_command(cmd))).collect::<Vec<String>>();
+            let arguments = command.get_arguments().map(|arg| format!("   {}",format_arg(arg))).collect::<Vec<String>>();
 
             format!("{} {}\n{}\n{}",
-                command.get_name(), pa, a, s
+                command.get_name(), 
+                positional_arguments.join(" "), 
+                arguments.join("\n"),
+                sub_commands.join("\n"),
             )
         }
 
