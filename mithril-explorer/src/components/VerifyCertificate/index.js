@@ -1,22 +1,159 @@
-import { Modal } from "react-bootstrap";
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
+import { Modal, Spinner } from "react-bootstrap";
+import init, { MithrilClient } from "@mithril-dev/mithril-client-wasm";
+import { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
+import LocalDateTime from "../LocalDateTime";
 
 export default function VerifyCertificate({ show, onClose, certificateHash }) {
-    let aggregatorEdpoint = "https://aggregator.testing-preview.api.mithril.network/aggregator";
-    let genesisVerificationKey = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+  const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
+  const [loading, setLoading] = useState(false);
+  const [certificateData, setCertificateData] = useState(null);
+  const [verificationDuration, setVerificationDuration] = useState(null);
 
-    let client = new MithrilClient(aggregatorEdpoint, genesisVerificationKey);
-    console.log(client);
+  useEffect(() => {
+    let startTime;
+    async function buildClientAndVerifyChain() {
+      try {
+        const client = await initializeClient();
+        if (certificateHash !== null && certificateHash !== undefined) {
+          startTime = performance.now();
+          const certificate = await client.get_mithril_certificate(certificateHash);
+          setCertificateData(certificate);
+          await client.verify_certificate_chain(certificateHash);
 
-    return (
-    <Modal show={show} onHide={onClose} size="xl" aria-labelledby="contained-modal-title-vcenter" centered>
+          // Process duration
+          const duration = performance.now() - startTime;
+          const minutes = Math.floor(duration / 60000);
+          const seconds = Math.floor((duration % 60000) / 1000);
+          setVerificationDuration(
+            minutes > 0 ? `${minutes} minutes and ${seconds} seconds` : `${seconds} seconds`,
+          );
+        }
+      } catch (error) {
+        console.error("Error:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    const broadcast_channel = new BroadcastChannel("mithril-client");
+    broadcast_channel.onmessage = eventListener;
+
+    if (certificateHash && show) {
+      setLoading(true);
+      buildClientAndVerifyChain();
+    } else {
+      // Reset state when the modal is closed
+      setCertificateData(null);
+      setLoading(false);
+    }
+
+    return () => {
+      // Cleanup: remove the previous event listener
+      broadcast_channel.onmessage = null;
+    };
+  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function initializeClient() {
+    await init();
+    const genesisVerificationKey = await fetchGenesisVerificationKey();
+    return new MithrilClient(currentAggregator, genesisVerificationKey);
+  }
+
+  async function fetchGenesisVerificationKey() {
+    try {
+      let network = currentAggregator.match(/aggregator\.(.*?)\.api/);
+      network = network && network[1] ? network[1] : null;
+
+      const response = await fetch(
+        "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/" +
+          network +
+          "/genesis.vkey",
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch the genesis verification key. Status: ${response.status}`);
+      }
+
+      const genesisVerificationKey = await response.text();
+      return genesisVerificationKey;
+    } catch (error) {
+      console.error("Error fetching genesis verification key:", error.message);
+      throw error;
+    }
+  }
+
+  function eventListener(e) {
+    let event = e.data;
+    if (event.type === "CertificateChainValidationStarted") {
+      displayEventInDOM("The certificate chain validation has started...");
+    } else if (event.type === "CertificateValidated") {
+      displayEventInDOM(
+        "A certificate has been validated, hash: " + event.payload.certificate_hash,
+      );
+    } else if (event.type === "CertificateChainValidated") {
+      displayEventInDOM("The certificate chain is valid ✅");
+    } else {
+      displayEventInDOM(event);
+    }
+  }
+
+  function displayEventInDOM(message) {
+    let eventDiv = document.createElement("div");
+    eventDiv.innerHTML = message;
+    let mithrilEventsDiv = document.getElementById("mithril-events");
+    mithrilEventsDiv &&
+      (mithrilEventsDiv.appendChild(eventDiv),
+      (mithrilEventsDiv.scrollTop = mithrilEventsDiv.scrollHeight));
+  }
+
+  return (
+    <Modal
+      show={show}
+      onHide={onClose}
+      size="xl"
+      aria-labelledby="contained-modal-title-vcenter"
+      centered>
       <Modal.Header closeButton>
-        <Modal.Title>Verify Mithril certificate</Modal.Title>
+        <Modal.Title>Verify certificate and certificate chain</Modal.Title>
       </Modal.Header>
       <Modal.Body>
+        {certificateData && (
+          <>
+            <h4>Certificate Details</h4>
+            <div>Certificate hash: {certificateData.hash}</div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div>
+                Sealed at: <LocalDateTime datetime={certificateData.metadata.sealed_at} />
+              </div>
+              {loading ? (
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <div style={{ marginLeft: "10px", paddingRight: "10px" }}>
+                    Verifying the certificate chain...
+                  </div>
+                  <Spinner animation="border" variant="primary" />
+                </div>
+              ) : (
+                <div style={{ marginLeft: "10px", paddingRight: "10px" }}>
+                  Verification duration: {verificationDuration}
+                </div>
+              )}
+            </div>
+            <hr />
+            <div>
+              <div
+                id="mithril-events"
+                style={{
+                  height: "400px",
+                  maxHeight: "400px",
+                  overflowY: "auto",
+                  marginTop: "10px",
+                }}></div>
+            </div>
+          </>
+        )}
       </Modal.Body>
-      <Modal.Footer>
-      </Modal.Footer>
+      <Modal.Footer></Modal.Footer>
     </Modal>
   );
 }
