@@ -82,6 +82,13 @@ pub struct Args {
 
 pub mod markdown_formatter {
  
+    pub fn format_table(header: &Vec<&str>, lines: &Vec<Vec<String>>) -> String {
+        format!("{}\n{}",
+            format_table_header(header),
+            lines.iter().map(|line| format_table_line(line)).collect::<Vec<String>>().join("\n"),
+        )
+    }
+
     pub fn format_table_line(data: &Vec<String>) -> String {
         format!("| {} |", data.join(" | "))
     }
@@ -113,7 +120,7 @@ impl Args {
 
         let mut cmd: clap::Command = <Self as CommandFactory>::command();
 
-        fn format_arg(arg: &Arg) -> String {
+        fn format_arg(arg: &Arg) -> Vec<String> {
             let parameter = format!("`{}`", arg.get_id());
             let short_option = arg.get_short().map_or("".into(), |c| format!("`-{}`", c));
             let long_option = arg.get_long().map_or("".into(), |c| format!("`--{}`", c));
@@ -123,19 +130,19 @@ impl Args {
             let example = arg.get_help().map_or("".into(), StyledStr::to_string);
             let is_required = String::from(if arg.is_required_set() {":heavy_check_mark:"} else {"-"});
             
-            markdown_formatter::format_table_line(&vec!(parameter, long_option, short_option, env_variable, description, default_value, example, is_required))
+            vec!(parameter, long_option, short_option, env_variable, description, default_value, example, is_required)
         }
 
         fn format_parameters(cmd: &Command) -> String {
             if cmd.get_arguments().peekable().peek().is_some() {
 
-                let parameters_lines = cmd.get_arguments().map(|arg| format_arg(arg)).collect::<Vec<String>>();
-
-                
-                let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n{}\n",
-                    markdown_formatter::format_table_header(&vec!("Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:")),
-                    parameters_lines.join("\n"),
+                let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n",
+                    markdown_formatter::format_table(
+                        &vec!("Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"),
+                        &cmd.get_arguments().map(format_arg).collect(),
+                    ),
                 );
+
                 let parameters_explanation = format!("\n\
                     The configuration parameters can be set in either of the following ways:\n\
                     \n\
@@ -156,20 +163,17 @@ impl Args {
 
             let subcommands_table = if cmd.get_subcommands().peekable().peek().is_some() {
                 let subcommands_lines = cmd.get_subcommands().map(|command| {
-                    format!("| **{}** | {} | {} |",
-                        command.get_name(),
+                    vec!(
+                        format!("**{}**", command.get_name()),
                         command.get_all_aliases().collect::<Vec<&str>>().join(","),
                         command.get_about().map_or("".into(), StyledStr::to_string)
                     )
-                }).collect::<Vec<String>>();
+                }).collect();
 
-                let subcommands_table = format!("{}\n{}\n{}\n",
-                    "| Subcommand | Aliases | Performed action |",
-                    "|------------|---------|------------------|",
-                    subcommands_lines.join("\n"),
-                );
-
-                subcommands_table
+                markdown_formatter::format_table(
+                    &vec!("Subcommand", "Aliases", "Performed action"),
+                    &subcommands_lines,
+                )
             } else {
                 String::from("")
             };

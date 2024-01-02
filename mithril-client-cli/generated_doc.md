@@ -53,7 +53,6 @@ Options:
 | **mithril-stake-distribution** | msd | Mithril Stake Distribution management (alias: msd) |
 | **generate-doc** | doc | Generate documentation |
 
-
 The configuration parameters can be set in either of the following ways:
 
 1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
@@ -96,7 +95,6 @@ Options:
 | **list** |  | List available snapshots |
 | **show** |  | Show detailed informations about a snapshot |
 | **download** |  | Download the snapshot and verify the certificate |
-
 
 ###  mithril-client  snapshot list
 
@@ -240,7 +238,6 @@ Options:
 |------------|---------|------------------|
 | **list** |  | List certified stake distributions |
 | **download** |  | Download and verify the given Mithril Stake Distribution |
-
 
 ###  mithril-client  mithril-stake-distribution list
 
