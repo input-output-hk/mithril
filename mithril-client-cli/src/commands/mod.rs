@@ -4,8 +4,10 @@
 //!
 
 pub mod cardano_transaction;
+pub mod generate_doc;
 pub mod mithril_stake_distribution;
 pub mod snapshot;
+
 
 use mithril_client::{ClientBuilder, MithrilResult};
 use slog_scope::logger;

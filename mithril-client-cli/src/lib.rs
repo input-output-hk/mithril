@@ -9,4 +9,4 @@
 
 pub mod commands;
 mod configuration;
-pub mod utils;
+mod utils;

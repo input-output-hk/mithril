@@ -1,9 +1,8 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::Context;
-use clap::{Parser, Subcommand, CommandFactory, Command};
+use clap::{Parser, Subcommand, CommandFactory};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_client_cli::utils;
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
 use slog_scope::debug;
@@ -15,7 +14,7 @@ use std::{fs::File, path::PathBuf};
 use mithril_client::MithrilResult;
 
 use mithril_client_cli::commands::{
-    cardano_transaction::CardanoTransactionCommands,
+    cardano_transaction::CardanoTransactionCommands, generate_doc::GenerateDocCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
 
@@ -78,7 +77,6 @@ pub struct Args {
     #[clap(long)]
     unstable: bool,
 }
-
 
 impl Args {
 
@@ -183,6 +181,7 @@ impl ArtifactCommands {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
+
             Self::CardanoTransaction(ctx) => {
                 if !unstable_enabled {
                     Err(anyhow::anyhow!(
@@ -195,33 +194,10 @@ impl ArtifactCommands {
                     ctx.execute(config_builder).await
                 }
             },
-            Self::GenerateDoc(cmd) => {
-                let mut cmd_to_document = <Args as CommandFactory>::command();
-                cmd.execute(&mut cmd_to_document).await
-            },
+            Self::GenerateDoc(cmd) => cmd.execute(&mut Args::command()).await,
         }
     }
 }
-/// Generate documentation
-#[derive(Parser, Debug, Clone)]
-pub struct GenerateDocCommands {
-    /// Generated documentation file 
-    #[clap(long, default_value = "generated_doc.md")]
-    output: String,
-}
-impl GenerateDocCommands {
-
-    pub async fn execute(&self, cmd_to_document: &mut Command) -> MithrilResult<()> {
-        let doc = utils::doc_markdown(cmd_to_document);
-        
-        let mut buffer: File = File::create(&self.output)?;
-        buffer.write(b"Generated doc\n\n")?;
-        buffer.write(doc.as_bytes())?;
-        println!("Documentation generated in file `{}`", &self.output);
-        Ok(())
-    }
-}
-
 
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
