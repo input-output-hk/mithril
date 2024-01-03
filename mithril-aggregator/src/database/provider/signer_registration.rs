@@ -292,7 +292,7 @@ impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
                             .unwrap_or(Value::Null),
                 signer_registration_record
                             .kes_period
-                            .map(|k| Value::Integer(i64::try_from(k).unwrap()))
+                            .map(|k| Value::Integer(i64::from(k)))
                             .unwrap_or(Value::Null),
                 signer_registration_record
                             .stake

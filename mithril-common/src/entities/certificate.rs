@@ -279,9 +279,7 @@ mod tests {
                     let mut protocol_message_modified = certificate.protocol_message.clone();
                     protocol_message_modified.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
-                        fake_keys::aggregate_verification_key()[2]
-                            .try_into()
-                            .unwrap(),
+                        fake_keys::aggregate_verification_key()[2].into(),
                     );
 
                     protocol_message_modified
