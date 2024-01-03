@@ -2,7 +2,6 @@
 
 #[cfg(all(feature = "fs", feature = "random"))]
 mod cli_observer;
-mod codec;
 #[cfg(feature = "test_tools")]
 mod fake_observer;
 mod interface;

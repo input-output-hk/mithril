@@ -15,8 +15,7 @@ use crate::entities::StakeDistribution;
 use crate::CardanoNetwork;
 use crate::{entities::Epoch, StdResult};
 
-use super::codec::inspect;
-use super::model::{Datum, Datums};
+use super::model::{inspect, Datum, Datums};
 use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols

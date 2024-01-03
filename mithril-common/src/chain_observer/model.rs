@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use pallas_primitives::conway::PlutusData;
+use pallas_primitives::{conway::PlutusData, ToCanonicalJson};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -12,6 +12,26 @@ use crate::{StdError, StdResult};
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 #[serde(rename_all = "lowercase")]
 pub struct Datum(pub PlutusData);
+
+impl<'a, C> minicbor::Decode<'a, C> for Datum {
+    fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+        PlutusData::decode(d, ctx).map(Datum)
+    }
+}
+
+impl ToCanonicalJson for Datum {
+    fn to_json(&self) -> serde_json::Value {
+        self.0.to_json()
+    }
+}
+
+/// Inspects the given bytes and returns a decoded `R` instance.
+pub fn inspect<R>(inner: Vec<u8>) -> R
+where
+    for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
+{
+    minicbor::decode(&inner).unwrap()
+}
 
 /// [Datums] represents a list of [TxDatum].
 pub type Datums = Vec<TxDatum>;
