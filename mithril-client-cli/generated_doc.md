@@ -129,8 +129,8 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` |  |  | ? | `false` | Enable JSON output | - |
-| `help` | `--help` | `-h` |  | ? |  | Print help | - |
+| `json` | `--json` |  |  | Enable JSON output | `false` | ? | - |
+| `help` | `--help` | `-h` |  | Print help |  | ? | - |
 
 
 ###  mithril-client  snapshot show
@@ -168,9 +168,9 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` |  |  | ? | `false` | Enable JSON output | - |
-| `digest` |  |  |  | ? |  | Snapshot digest | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | ? |  | Print help (see more with '--help') | - |
+| `json` | `--json` |  |  | Enable JSON output | `false` | ? | - |
+| `digest` |  |  |  | Snapshot digest |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` |  | Print help (see more with '--help') |  | ? | - |
 
 
 ###  mithril-client  snapshot download
@@ -216,11 +216,11 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` |  |  | ? | `false` | Enable JSON output | - |
-| `digest` |  |  |  | ? |  | Digest of the snapshot to download. Use the `list` command to get that information | :heavy_check_mark: |
-| `download_dir` | `--download-dir` |  |  | ? |  | Directory where the snapshot will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - |
-| `genesis_verification_key` | `--genesis-verification-key` |  | `GENESIS_VERIFICATION_KEY` | ? |  | Genesis Verification Key to check the certifiate chain | - |
-| `help` | `--help` | `-h` |  | ? |  | Print help (see more with '--help') | - |
+| `json` | `--json` |  |  | Enable JSON output | `false` | ? | - |
+| `digest` |  |  |  | Digest of the snapshot to download. Use the `list` command to get that information |  | ? | :heavy_check_mark: |
+| `download_dir` | `--download-dir` |  |  | Directory where the snapshot will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate |  | ? | - |
+| `genesis_verification_key` | `--genesis-verification-key` |  | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain |  | ? | - |
+| `help` | `--help` | `-h` |  | Print help (see more with '--help') |  | ? | - |
 
 
 ###  mithril-client mithril-stake-distribution
@@ -276,8 +276,8 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` |  |  | ? | `false` | Enable JSON output | - |
-| `help` | `--help` | `-h` |  | ? |  | Print help | - |
+| `json` | `--json` |  |  | Enable JSON output | `false` | ? | - |
+| `help` | `--help` | `-h` |  | Print help |  | ? | - |
 
 
 ###  mithril-client  mithril-stake-distribution download
@@ -320,10 +320,10 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `artifact_hash` |  |  |  | ? |  | Hash of the Mithril Stake Distribution artifact | :heavy_check_mark: |
-| `download_dir` | `--download-dir` |  |  | ? |  | Directory where the Mithril Stake Distribution will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - |
-| `genesis_verification_key` | `--genesis-verification-key` |  | `GENESIS_VERIFICATION_KEY` | ? |  | Genesis Verification Key to check the certifiate chain | - |
-| `help` | `--help` | `-h` |  | ? |  | Print help (see more with '--help') | - |
+| `artifact_hash` |  |  |  | Hash of the Mithril Stake Distribution artifact |  | ? | :heavy_check_mark: |
+| `download_dir` | `--download-dir` |  |  | Directory where the Mithril Stake Distribution will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate |  | ? | - |
+| `genesis_verification_key` | `--genesis-verification-key` |  | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain |  | ? | - |
+| `help` | `--help` | `-h` |  | Print help (see more with '--help') |  | ? | - |
 
 
 ###  mithril-client generate-doc
@@ -357,6 +357,6 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `output` | `--output` |  |  | ? | `generated_doc.md` | Generated documentation file | - |
-| `help` | `--help` | `-h` |  | ? |  | Print help | - |
+| `output` | `--output` |  |  | Generated documentation file | `generated_doc.md` | ? | - |
+| `help` | `--help` | `-h` |  | Print help |  | ? | - |
 

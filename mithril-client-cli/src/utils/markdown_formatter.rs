@@ -39,7 +39,7 @@ pub fn format_table_header(data: &Vec<&str>) -> String {
     format!("| {} |\n|{}|", labels.join(" | "), sublines.join("|"))
 }
 
-
+/// Create a documentation of the command and its sub-commands. 
 pub fn doc_markdown(cmd: &mut Command) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
@@ -48,9 +48,9 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
         let short_option = arg.get_short().map_or("".into(), |c| format!("`-{}`", c));
         let long_option = arg.get_long().map_or("".into(), |c| format!("`--{}`", c));
         let env_variable = arg.get_env().and_then(OsStr::to_str).map_or("".into(), |s| format!("`{}`", s));
-        let description = String::from("?");
+        let description = arg.get_help().map_or("".into(), StyledStr::to_string);
         let default_value = arg.get_default_values().iter().map(|s| format!("`{}`", s.to_string_lossy())).collect::<Vec<String>>().join(",");
-        let example = arg.get_help().map_or("".into(), StyledStr::to_string);
+        let example = String::from("?");
         let is_required = String::from(if arg.is_required_set() {":heavy_check_mark:"} else {"-"});
         
         vec!(parameter, long_option, short_option, env_variable, description, default_value, example, is_required)
