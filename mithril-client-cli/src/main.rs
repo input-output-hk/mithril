@@ -1,9 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::Context;
-use std::ffi::OsStr;
-use clap::builder::StyledStr;
-use clap::{Parser, Subcommand, CommandFactory, Command, Arg};
+use clap::{Parser, Subcommand, CommandFactory, Command};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_client_cli::utils;
 use slog::{Drain, Fuse, Level, Logger};
@@ -81,159 +79,8 @@ pub struct Args {
     unstable: bool,
 }
 
-pub fn doc_markdown(cmd: &mut Command) -> String {
-    // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
-
-    fn format_arg(arg: &Arg) -> Vec<String> {
-        let parameter = format!("`{}`", arg.get_id());
-        let short_option = arg.get_short().map_or("".into(), |c| format!("`-{}`", c));
-        let long_option = arg.get_long().map_or("".into(), |c| format!("`--{}`", c));
-        let env_variable = arg.get_env().and_then(OsStr::to_str).map_or("".into(), |s| format!("`{}`", s));
-        let description = String::from("?");
-        let default_value = arg.get_default_values().iter().map(|s| format!("`{}`", s.to_string_lossy())).collect::<Vec<String>>().join(",");
-        let example = arg.get_help().map_or("".into(), StyledStr::to_string);
-        let is_required = String::from(if arg.is_required_set() {":heavy_check_mark:"} else {"-"});
-        
-        vec!(parameter, long_option, short_option, env_variable, description, default_value, example, is_required)
-    }
-
-    fn format_parameters(cmd: &Command) -> String {
-        if cmd.get_arguments().peekable().filter(|arg| arg.get_id().as_str() != "help").count() > 0 {
-            let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n",
-                utils::format_table(
-                    &vec!("Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"),
-                    &cmd.get_arguments().map(format_arg).collect(),
-                ),
-            );
-
-            let parameters_explanation = format!("\n\
-                The configuration parameters can be set in either of the following ways:\n\
-                \n\
-                1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
-                \n\
-                2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
-                ");
-            format!("{}\n{}", parameters_explanation, parameters_table)
-        } else {
-            String::from("")
-        }
-    }
-
-    fn format_command(cmd: &mut Command, parent: Option<String>) -> String {
-        // It's important to start by calling `render_help` because that built the command.
-        // The initialization add `help` command and default values for parameters.
-        // This is why the command parameter is a mutable reference.
-
-        // let usage = format!("```bash\n{}\n```", cmd.render_usage()); // Already in help 
-        // let help = format!("```bash\n{}\n```", cmd.render_help());
-        let help = format!("```bash\n{}\n```", cmd.render_long_help()); // More readable than help
-        format_command_internal(cmd, parent, help)
-    }
-
-    fn format_command_internal(cmd: &Command, parent: Option<String>, help: String) -> String {
-        let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
-        let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
-        let description = format!("{}", cmd.get_about().map_or("".into(), StyledStr::to_string));
-
-        let subcommands_table = if cmd.get_subcommands().peekable().peek().is_some() {
-            let subcommands_lines = cmd.get_subcommands().map(|command| {
-                vec!(
-                    format!("**{}**", command.get_name()),
-                    command.get_all_aliases().collect::<Vec<&str>>().join(","),
-                    command.get_about().map_or("".into(), StyledStr::to_string)
-                )
-            }).collect();
-
-            utils::format_table(
-                &vec!("Subcommand", "Aliases", "Performed action"),
-                &subcommands_lines,
-            )
-        } else {
-            String::from("")
-        };
-
-        let parameters = format_parameters(cmd);
-
-        let subcommands = cmd.get_subcommands()
-            .filter(|sub_command| sub_command.get_name() != String::from("help"))
-            .map(|sub_command: &Command| {
-                format_command(&mut sub_command.clone(), Some(format!("{} {}", parent_ancestors, cmd.get_name())))
-            }
-        ).collect::<Vec<String>>();
-            
-        format!("{}\n{}\n{}\n{}\n{}\n{}", title, description, help, subcommands_table, parameters, subcommands.join("\n"))
-
-    }
-
-    format_command(cmd, None)
-
-}
 
 impl Args {
-
-//    pub fn document() {
-//
-//        // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
-//
-//        let cmd: clap::Command = <Self as CommandFactory>::command();
-//
-//        fn format_value_names(arg: &Arg) -> String {
-//
-//            fn format_required(arg: &Arg, value: &str) -> String {
-//                if arg.is_required_set() {
-//                    format!("<{value}>")
-//                } else {
-//                    format!("[{value}]")
-//                }
-//            }
-//
-//            arg.get_value_names().map(|values| {
-//                    values.iter().map(|value| format_required(arg, value)).collect::<Vec<String>>().join(" ")
-//                }
-//            ).unwrap_or(String::from("?"))
-//            
-//            //format!("{} (postional={}, required={})", formatted_names, arg.is_positional(), arg.is_required_set())
-//        }
-//
-//        fn format_arg(arg: &Arg) -> String {
-//            format!("  {}{} {} {}",
-//                arg.get_short().map(|c| format!("-{}, ", c)).unwrap_or(String::from("")),
-//                arg.get_long().map(|c| format!("--{}", c)).unwrap_or(String::from("")),
-//                format_value_names(arg),
-//                arg.get_help().map(|s| s.to_string()).unwrap_or(String::from("")),
-//            )
-//        }
-//
-//        fn format_command(command: &Command) -> String {
-//           // println!("POSITIONAL ARGUMENTS:");
-//           // for arg in cmd.get_positionals() {
-//           //     println!("{}", format_arg(arg));
-//           // }
-//
-//            let positional_arguments = command.get_positionals().map(|arg| format!("{}",format_value_names(arg))).collect::<Vec<String>>();
-//            let sub_commands = command.get_subcommands().map(|cmd| format!("   {}",format_command(cmd))).collect::<Vec<String>>();
-//            let arguments = command.get_arguments().map(|arg| format!("   {}",format_arg(arg))).collect::<Vec<String>>();
-//
-//            format!("{} {}\n{}\n{}",
-//                command.get_name(), 
-//                positional_arguments.join(" "), 
-//                arguments.join("\n"),
-//                sub_commands.join("\n"),
-//            )
-//        }
-//
-//
-//        println!("ARGUMENTS:");
-//        for arg in cmd.get_arguments() {
-//            println!("{}", format_arg(arg));
-//        }
-//
-//        println!("SUBCOMMANDS:");
-//        for command in cmd.get_subcommands() {
-//            println!("{}", format_command(command));
-//        }
-//
-//    }
 
     pub async fn execute(&self) -> MithrilResult<()> {
         debug!("Run Mode: {}", self.run_mode);
@@ -363,8 +210,9 @@ pub struct GenerateDocCommands {
     output: String,
 }
 impl GenerateDocCommands {
+
     pub async fn execute(&self, cmd_to_document: &mut Command) -> MithrilResult<()> {
-        let doc = doc_markdown(cmd_to_document);
+        let doc = utils::doc_markdown(cmd_to_document);
         
         let mut buffer: File = File::create(&self.output)?;
         buffer.write(b"Generated doc\n\n")?;
