@@ -55,38 +55,6 @@ git checkout master
 git pull
 git checkout ${var.cardano_configurations_repository_commit}
 EOT
-      ,
-      <<-EOT
-# Deactivate P2P in preview
-CONFIG_JSON=$(cat /home/curry/docker/cardano-configurations/network/preview/cardano-node/config.json | jq '.EnableP2P = false') && echo $CONFIG_JSON > /home/curry/docker/cardano-configurations/network/preview/cardano-node/config.json
-cat > /home/curry/docker/cardano-configurations/network/preview/cardano-node/topology.json << EOF 
-{
-  "Producers": [
-    {
-      "addr": "preview-node.world.dev.cardano.org",
-      "port": 30002,
-      "valency": 1
-    }
-  ]
-}
-EOF
-
-# Deactivate P2P in preprod
-CONFIG_JSON=$(cat /home/curry/docker/cardano-configurations/network/preprod/cardano-node/config.json | jq '.EnableP2P = false') && echo $CONFIG_JSON > /home/curry/docker/cardano-configurations/network/preprod/cardano-node/config.json
-cat > /home/curry/docker/cardano-configurations/network/preprod/cardano-node/topology.json << EOF 
-{
-  "Producers": [
-    {
-      "addr": "preprod-node.world.dev.cardano.org",
-      "port": 30000,
-      "valency": 1
-    }
-  ]
-}
-EOF
-
-EOT
-
     ]
   }
 }

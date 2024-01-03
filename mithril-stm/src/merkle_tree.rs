@@ -337,7 +337,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                 if ordered_indices[i] & 1 == 0 {
                     new_hashes.push(
                         D::new()
-                            .chain(values.get(0).ok_or(MerkleTreeError::SerializationError)?)
+                            .chain(values.first().ok_or(MerkleTreeError::SerializationError)?)
                             .chain(&leaves[i])
                             .finalize()
                             .to_vec(),
@@ -358,7 +358,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                         new_hashes.push(
                             D::new()
                                 .chain(&leaves[i])
-                                .chain(values.get(0).ok_or(MerkleTreeError::SerializationError)?)
+                                .chain(values.first().ok_or(MerkleTreeError::SerializationError)?)
                                 .finalize()
                                 .to_vec(),
                         );

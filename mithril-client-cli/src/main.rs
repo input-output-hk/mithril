@@ -13,7 +13,7 @@ use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
-use mithril_client_cli::common::StdResult;
+use mithril_common::StdResult;
 
 use commands::{
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,

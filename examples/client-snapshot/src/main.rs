@@ -55,6 +55,10 @@ async fn main() -> MithrilResult<()> {
         .download_unpack(&snapshot, &unpacked_dir)
         .await?;
 
+    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+        println!("Could not increment snapshot download statistics: {:?}", e);
+    }
+
     println!("Computing snapshot '{}' message ...", snapshot.digest);
     let message = wait_spinner(
         &progress_bar,

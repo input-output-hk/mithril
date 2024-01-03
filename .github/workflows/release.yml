@@ -148,6 +148,7 @@ jobs:
           mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
           mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
           mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
+          mithril_aggregator_signed_entity_types: ${{ vars.AGGREGATOR_SIGNED_ENTITY_TYPES }}
           mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
           mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
           mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
@@ -226,5 +227,6 @@ jobs:
           dry_run: "false"
           package: ${{ matrix.package }}
           scope: ${{ matrix.scope }}
+          tag: latest
           access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}

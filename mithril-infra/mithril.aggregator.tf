@@ -49,6 +49,7 @@ EOT
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
       "export AGGREGATOR_HOST=${local.mithril_aggregator_host}",
       "export GOOGLE_APPLICATION_CREDENTIALS_JSON='${local.google_cloud_storage_credentials_json}'",
+      "export SIGNED_ENTITY_TYPES='${var.mithril_aggregator_signed_entity_types}'",
       "export SNAPSHOT_BUCKET_NAME='${google_storage_bucket.cloud_storage.name}'",
       "export SNAPSHOT_USE_CDN_DOMAIN='${var.mithril_aggregator_snapshot_use_cdn_domain}'",
       "export SNAPSHOT_COMPRESSION_ALGORITHM=${var.mithril_aggregator_snapshot_compression_algorithm}",

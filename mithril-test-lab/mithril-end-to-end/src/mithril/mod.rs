@@ -7,7 +7,7 @@ mod signer;
 
 pub use aggregator::Aggregator;
 pub use client::{Client, ClientCommand, MithrilStakeDistributionCommand, SnapshotCommand};
-pub use infrastructure::MithrilInfrastructure;
+pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;
 pub use relay_signer::RelaySigner;
 pub use signer::Signer;

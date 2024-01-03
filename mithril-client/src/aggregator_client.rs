@@ -68,6 +68,12 @@ pub enum AggregatorRequest {
     },
     /// Lists the aggregator [snapshots][crate::Snapshot]
     ListSnapshots,
+
+    /// Increments the aggregator snapshot download statistics
+    IncrementSnapshotStatistic {
+        /// Snapshot as HTTP request body
+        snapshot: String,
+    },
 }
 
 impl AggregatorRequest {
@@ -88,6 +94,19 @@ impl AggregatorRequest {
                 format!("artifact/snapshot/{}", digest)
             }
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
+                "statistics/snapshot".to_string()
+            }
+        }
+    }
+
+    /// Get the request body to send to the aggregator
+    pub fn get_body(&self) -> Option<String> {
+        match self {
+            AggregatorRequest::IncrementSnapshotStatistic { snapshot } => {
+                Some(snapshot.to_string())
+            }
+            _ => None,
         }
     }
 }
@@ -98,6 +117,12 @@ impl AggregatorRequest {
 pub trait AggregatorClient: Sync + Send {
     /// Get the content back from the Aggregator
     async fn get_content(
+        &self,
+        request: AggregatorRequest,
+    ) -> Result<String, AggregatorClientError>;
+
+    /// Post information to the Aggregator
+    async fn post_content(
         &self,
         request: AggregatorRequest,
     ) -> Result<String, AggregatorClientError>;
@@ -208,6 +233,49 @@ impl AggregatorHTTPClient {
         }
     }
 
+    #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_recursion)]
+    async fn post(&self, url: Url, json: &str) -> Result<Response, AggregatorClientError> {
+        debug!(self.logger, "POST url='{url}' json='{json}'.");
+        let request_builder = self.http_client.post(url.to_owned()).body(json.to_owned());
+        let current_api_version = self
+            .compute_current_api_version()
+            .await
+            .unwrap()
+            .to_string();
+        debug!(
+            self.logger,
+            "Prepare request with version: {current_api_version}"
+        );
+        let request_builder =
+            request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        let response = request_builder.send().await.map_err(|e| {
+            AggregatorClientError::SubsystemError(
+                anyhow!(e).context("Error while POSTing data '{json}' to URL='{url}'."),
+            )
+        })?;
+
+        match response.status() {
+            StatusCode::OK | StatusCode::CREATED => Ok(response),
+            StatusCode::PRECONDITION_FAILED => {
+                if self.discard_current_api_version().await.is_some()
+                    && !self.api_versions.read().await.is_empty()
+                {
+                    return self.post(url, json).await;
+                }
+
+                Err(self.handle_api_error(&response).await)
+            }
+            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                "Url='{url} not found"
+            ))),
+            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                "Unhandled error {status_code}"
+            ))),
+        }
+    }
+
     /// API version error handling
     async fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
@@ -252,6 +320,24 @@ impl AggregatorClient for AggregatorHTTPClient {
             AggregatorClientError::SubsystemError(anyhow!(e).context(format!(
                 "Could not find a JSON body in the response '{content}'."
             )))
+        })
+    }
+
+    async fn post_content(
+        &self,
+        request: AggregatorRequest,
+    ) -> Result<String, AggregatorClientError> {
+        let response = self
+            .post(
+                self.get_url_for_route(&request.route())?,
+                &request.get_body().unwrap_or_default(),
+            )
+            .await?;
+
+        response.text().await.map_err(|e| {
+            AggregatorClientError::SubsystemError(
+                anyhow!(e).context("Could not find a text body in the response."),
+            )
         })
     }
 }

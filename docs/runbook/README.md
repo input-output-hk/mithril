@@ -20,3 +20,4 @@ This page gathers the available guides to operate a Mithril network.
 | **Create test Docker distribution**       | [test-docker-distribution](./test-docker-distribution/README.md)       | Create a custom test Docker distribution.                                 |
 | **Deploy a test network manually**        | [test-deploy-network](./test-deploy-network/README.md)                 | Manually deploy a test distribution to a test Mithril network.            |
 | **Publish crates to crates.io manually**  | [manual-publish-crates](./manual-publish-crates/README.md)             | Manually publish Rust crates to crates.io.                                |
+| **Publish packages to npm manually**      | [manual-publish-npm](./manual-publish-npm/README.md)                   | Manually publish packages to npm registry.                                |

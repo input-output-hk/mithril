@@ -31,7 +31,7 @@ runs:
     shell: bash
     run: |
       echo "Check crate latest published version for '${{ inputs.package}}' package"
-      LATEST_REMOTE_VERSION=$(npm view @${{ inputs.scope }}/${{ inputs.package }} dist-tags.latest 2> /dev/null || true)
+      LATEST_REMOTE_VERSION=$(npm view @${{ inputs.scope }}/${{ inputs.package }} dist-tags.${{ inputs.tag }} 2> /dev/null || true)
       LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
       echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
       echo "Local version: $LOCAL_VERSION"

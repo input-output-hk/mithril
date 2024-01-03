@@ -177,6 +177,12 @@ locals {
 }
 
 
+variable "mithril_aggregator_signed_entity_types" {
+  type        = string
+  description = "The custom signed list of entity types used by the mithril aggregator (discriminants names in an ordered comma separated list)."
+  default     = ""
+}
+
 variable "mithril_aggregator_snapshot_compression_algorithm" {
   type        = string
   description = "The compression algorithm of the snapshot archive"
