@@ -5,6 +5,7 @@ use std::ffi::OsStr;
 use clap::builder::StyledStr;
 use clap::{Parser, Subcommand, CommandFactory, Command, Arg};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_client_cli::utils;
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
 use slog_scope::debug;
@@ -80,39 +81,6 @@ pub struct Args {
     unstable: bool,
 }
 
-pub mod markdown_formatter {
- 
-    pub fn format_table(header: &Vec<&str>, lines: &Vec<Vec<String>>) -> String {
-        format!("{}\n{}",
-            format_table_header(header),
-            lines.iter().map(|line| format_table_line(line)).collect::<Vec<String>>().join("\n"),
-        )
-    }
-
-    pub fn format_table_line(data: &Vec<String>) -> String {
-        format!("| {} |", data.join(" | "))
-    }
-
-    pub fn format_table_header(data: &Vec<&str>) -> String {
-        let headers = data.iter().map(|header| {
-            let align_left = header.chars().next().map(|c| c == ':').unwrap_or(false);
-            let align_right = header.chars().last().map(|c| c == ':').unwrap_or(false);
-            let label = &header[(if align_left {1} else {0})..(header.len()-(if align_right {1} else {0}))];
-            (label, align_left, align_right)
-        }).collect::<Vec<(&str, bool, bool)>>();
-
-        let sublines = headers.iter().map(|(label, left, right)| {
-            format!("{}{}{}", if *left {":"} else {"-"}, "-".repeat(label.len()), if *right {":"} else {"-"})
-        }).collect::<Vec<String>>();
-
-        let labels = headers.iter().map(|(label, _, _)| {
-            label.to_string()
-        }).collect::<Vec<String>>();
-
-        format!("| {} |\n|{}|", labels.join(" | "), sublines.join("|"))
-    }
-}
-
 impl Args {
 
     pub fn doc_markdown() -> String {
@@ -137,7 +105,7 @@ impl Args {
             if cmd.get_arguments().peekable().peek().is_some() {
 
                 let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n",
-                    markdown_formatter::format_table(
+                    utils::format_table(
                         &vec!("Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"),
                         &cmd.get_arguments().map(format_arg).collect(),
                     ),
@@ -170,7 +138,7 @@ impl Args {
                     )
                 }).collect();
 
-                markdown_formatter::format_table(
+                utils::format_table(
                     &vec!("Subcommand", "Aliases", "Performed action"),
                     &subcommands_lines,
                 )
