@@ -1,5 +1,5 @@
 ---
-title: Mithril signer node service recommended configuration is updated
+title: Mithril signer service new configuration
 authors:
 - name: Mithril Team
 tags: [spo, mithril signer, production]
@@ -37,5 +37,10 @@ EOF'
 
 We highly recommend to update your existing configuration file (`/etc/systemd/system/mithril-signer.service`) with the values specified in the [guide](https://mithril.network/doc/next/manual/getting-started/run-signer-node/#installing-the-service)
 
+:warning: Following this modification, the service needs to be restarted with the following command:
+
+```bash
+sudo systemctl restart mithril-signer
+```
 
 Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
