@@ -70,6 +70,7 @@ impl MithrilClient {
     }
 
     /// Call the client to get a snapshot from a digest
+    #[wasm_bindgen]
     pub async fn get_snapshot(&self, digest: &str) -> WasmResult {
         let result = self
             .client
@@ -198,6 +199,8 @@ impl MithrilClient {
     }
 }
 
+// The tests are commented for now, as we don't want to run them on a testnet aggregator.
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -433,3 +436,4 @@ mod tests {
     }
     */
 }
+*/
