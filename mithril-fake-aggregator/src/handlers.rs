@@ -12,7 +12,7 @@ pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, 
     let app_state = state.read().await;
     let epoch_settings = app_state.get_epoch_settings().await?;
 
-    Ok(epoch_settings.into())
+    Ok(epoch_settings)
 }
 
 pub async fn snapshot(

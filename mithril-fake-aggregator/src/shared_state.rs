@@ -3,6 +3,7 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 use anyhow::{anyhow, Context};
 use serde_json::Value;
 use tokio::sync::RwLock;
+use tracing::{debug, trace};
 
 use crate::StdResult;
 
@@ -43,7 +44,7 @@ impl AppState {
         let epoch_settings = default_values::epoch_settings().to_owned();
         let (certificate_list, certificates) = read_files(data_dir, "certificate", "hash")?;
         let (snapshot_list, snapshots) = read_files(data_dir, "snapshot", "digest")?;
-        let (msd_list, msds) = read_files(data_dir, "msd", "hash")?;
+        let (msd_list, msds) = read_files(data_dir, "mithril-stake-distribution", "hash")?;
 
         let instance = Self {
             epoch_settings,
@@ -92,6 +93,8 @@ fn read_files(
     entity: &str,
     field_id: &str,
 ) -> StdResult<(String, BTreeMap<String, String>)> {
+    debug!("Read data files, entity='{entity}', field='{field_id}'.");
+
     if !data_dir.exists() {
         return Err(anyhow!(format!(
             "Path '{}' does not exist.",
@@ -108,8 +111,9 @@ fn read_files(
     let list_file = {
         let list_file_name = format!("{entity}s.json");
 
-        data_dir.to_owned().join(&list_file_name)
+        data_dir.to_owned().join(list_file_name)
     };
+    trace!("Reading JSON list file '{}'.", list_file.display());
     let list = std::fs::read_to_string(&list_file)
         .with_context(|| format!("Error while reading file '{}'.", list_file.display()))?;
     let list_json: Value = serde_json::from_str(&list)
@@ -137,6 +141,7 @@ fn read_files(
     for id in ids {
         let filename = format!("{entity}-{id}.json");
         let path = data_dir.to_owned().join(&filename);
+        trace!("Reading {entity} JSON file '{}'.", path.display());
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("Could not read entity file '{}'.", path.display()))?;
         let _value: Value = serde_json::from_str(&content).with_context(|| {

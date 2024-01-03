@@ -21,7 +21,7 @@ use tower_http::{
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
-use tracing::{debug, error, info, trace, Level};
+use tracing::{debug, error, info, trace, warn, Level};
 
 use crate::shared_state::{AppState, SharedState};
 
@@ -105,9 +105,12 @@ impl OsSignalHandler {
         while let Some(signal) = signals.next().await {
             match signal {
                 SIGTERM | SIGINT | SIGQUIT => {
-                    tracing::warn!("Signal caught: {signal}");
+                    warn!("Signal caught: {signal}, exiting.");
 
                     break;
+                }
+                SIGHUP => {
+                    info!("SIGHUP signal caught.");
                 }
                 _ => unreachable!(),
             }
@@ -126,7 +129,7 @@ async fn main() -> StdResult<()> {
 
     match &result {
         Err(e) => error!("{e}"),
-        Ok(_) => trace!("terminated!"),
+        Ok(_) => debug!("soft terminated"),
     };
 
     result
@@ -142,15 +145,21 @@ impl Application {
 
         trace!("setting up signal hook…");
         // supported signals
-        let signals = Signals::new(&[SIGTERM, SIGINT, SIGQUIT])?;
+        let signals = Signals::new([SIGTERM, SIGINT, SIGQUIT, SIGHUP])?;
 
         // launch signal detector
         let signal_handler = signals.handle();
 
         trace!("setting up shared state…");
         let shared_state: SharedState = match params.data_directory {
-            Some(directory) => AppState::from_directory(&directory)?.into(),
-            None => AppState::default().into(),
+            Some(directory) => {
+                info!("Read data files from directory '{}'.", directory.display());
+                AppState::from_directory(&directory)?.into()
+            }
+            None => {
+                debug!("Using default data set.");
+                AppState::default().into()
+            }
         };
 
         trace!("configuring router…");
@@ -190,7 +199,7 @@ impl Application {
             );
         let listener = {
             let connection_string = format!("{}:{}", params.ip_address, params.tcp_port);
-            debug!("binding on {connection_string}");
+            info!("binding on {connection_string}");
             tokio::net::TcpListener::bind(&connection_string)
                 .await
                 .with_context(|| format!("Could not listen on '{}'.", connection_string))?
