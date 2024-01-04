@@ -5,7 +5,7 @@ use mithril_common::{entities::Epoch, test_utils::MithrilFixture, StdResult};
 
 use crate::{
     stress_test::{entities::AggregatorParameters, fake_chain, fake_signer, wait},
-    Aggregator,
+    Aggregator, AggregatorConfig,
 };
 
 /// Bootstrap an aggregator and make it compute its genesis certificate
@@ -15,15 +15,19 @@ pub async fn bootstrap_aggregator(
     current_epoch: &mut Epoch,
 ) -> StdResult<Aggregator> {
     info!(">> Launch Aggregator");
-    let mut aggregator = Aggregator::new(
-        args.server_port as u64,
-        &args.bft_node,
-        &args.cardano_cli_path,
-        &args.work_dir,
-        &args.bin_dir,
-        &args.mithril_era,
-        &[],
-    )
+    let signed_entity_types = vec![];
+    let chain_observer_type = "cardano-cli";
+
+    let mut aggregator = Aggregator::new(&AggregatorConfig {
+        server_port: args.server_port as u64,
+        bft_node: &args.bft_node,
+        cardano_cli_path: &args.cardano_cli_path,
+        work_dir: &args.work_dir,
+        bin_dir: &args.bin_dir,
+        mithril_era: &args.mithril_era,
+        signed_entity_types: &signed_entity_types,
+        chain_observer_type,
+    })
     .unwrap();
 
     fake_chain::set_epoch(&args.mock_epoch_file_path(), *current_epoch);
