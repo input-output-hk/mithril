@@ -60,6 +60,7 @@ EOT
       "export PROTOCOL_PARAMETERS__K='${var.mithril_protocol_parameters.k}'",
       "export PROTOCOL_PARAMETERS__M='${var.mithril_protocol_parameters.m}'",
       "export PROTOCOL_PARAMETERS__PHI_F='${var.mithril_protocol_parameters.phi_f}'",
+      "export CHAIN_OBSERVER_TYPE='${var.mithril_aggregator_chain_observer_type}'",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",

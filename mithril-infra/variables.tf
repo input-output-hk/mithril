@@ -183,6 +183,12 @@ variable "mithril_aggregator_signed_entity_types" {
   default     = ""
 }
 
+variable "mithril_aggregator_chain_observer_type" {
+  type        = string
+  description = "The chain observer type used by the mithril aggregator."
+  default     = "pallas"
+}
+
 variable "mithril_aggregator_snapshot_compression_algorithm" {
   type        = string
   description = "The compression algorithm of the snapshot archive"
