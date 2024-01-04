@@ -5,9 +5,7 @@ use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    chain_observer::{
-        CardanoCliChainObserver, CardanoCliRunner, ChainObserver, PallasChainObserver,
-    },
+    chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
@@ -60,19 +58,28 @@ impl<'a> ProductionServiceBuilder<'a> {
     pub fn new(config: &'a Configuration) -> Self {
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |config: &Configuration| {
-                let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
-                    config.cardano_cli_path.clone(),
-                    config.cardano_node_socket_path.clone(),
-                    config.get_network()?,
-                )));
-
-                let observer = PallasChainObserver::new(
-                    &config.cardano_node_socket_path,
-                    config.get_network()?,
-                    fallback,
+                let chain_observer_type = ChainObserverType::Pallas;
+                let cardano_cli_path = &config.cardano_cli_path;
+                let cardano_node_socket_path = &config.cardano_node_socket_path;
+                let cardano_network = &config.get_network().with_context(|| {
+                    "Production Service Builder can not get Cardano network while building the chain observer"
+                })?;
+                let cardano_cli_runner = &CardanoCliRunner::new(
+                    cardano_cli_path.to_owned(),
+                    cardano_node_socket_path.to_owned(),
+                    cardano_network.to_owned(),
                 );
 
-                Ok(Arc::new(observer))
+                let chain_observer_builder = ChainObserverBuilder::new(
+                    &chain_observer_type,
+                    cardano_node_socket_path,
+                    cardano_network,
+                    Some(cardano_cli_runner),
+                );
+
+                chain_observer_builder
+                    .build()
+                    .with_context(|| "Dependencies Builder can not build chain observer")
             };
 
         let immutable_file_observer_builder: fn(
