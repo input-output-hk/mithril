@@ -205,7 +205,7 @@ impl ChainObserver for PallasChainObserver {
 
         self.post_process_statequery(&mut client).await?;
 
-        drop(client.plexer_handle);
+        client.abort().await;
 
         Ok(Some(Epoch(epoch as u64)))
     }
@@ -220,7 +220,7 @@ impl ChainObserver for PallasChainObserver {
 
         self.post_process_statequery(&mut client).await?;
 
-        drop(client.plexer_handle);
+        client.abort().await;
 
         Ok(datums)
     }

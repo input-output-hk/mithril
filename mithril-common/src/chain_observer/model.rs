@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use pallas_codec::minicbor::{decode, Decode, Decoder};
 use pallas_primitives::{conway::PlutusData, ToCanonicalJson};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -13,8 +14,8 @@ use crate::{StdError, StdResult};
 #[serde(rename_all = "lowercase")]
 pub struct Datum(pub PlutusData);
 
-impl<'a, C> minicbor::Decode<'a, C> for Datum {
-    fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+impl<'a, C> Decode<'a, C> for Datum {
+    fn decode(d: &mut Decoder<'a>, ctx: &mut C) -> Result<Self, decode::Error> {
         PlutusData::decode(d, ctx).map(Datum)
     }
 }
@@ -30,7 +31,7 @@ pub fn inspect<R>(inner: Vec<u8>) -> R
 where
     for<'b> R: pallas_codec::minicbor::Decode<'b, ()>,
 {
-    minicbor::decode(&inner).unwrap()
+    decode(&inner).unwrap()
 }
 
 /// [Datums] represents a list of [TxDatum].
