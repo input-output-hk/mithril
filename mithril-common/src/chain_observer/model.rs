@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use strum::{Display, EnumDiscriminants};
@@ -8,6 +8,7 @@ use thiserror::Error;
 use crate::{StdError, StdResult};
 
 cfg_fs! {
+    use serde::Deserialize;
     use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
     /// [Datum] represents an inline datum from UTxO.
     #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
