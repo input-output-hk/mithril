@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use pallas_codec::minicbor::{decode, Decode, Decoder};
-use pallas_primitives::{conway::PlutusData, ToCanonicalJson};
+use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
