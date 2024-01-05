@@ -5,26 +5,26 @@ use serde_json::Value;
 use std::collections::HashMap;
 use strum::{Display, EnumDiscriminants};
 use thiserror::Error;
-cfg_fs! {
-    use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
-}
 
 use crate::{StdError, StdResult};
 
-/// [Datum] represents an inline datum from UTxO.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-#[serde(rename_all = "lowercase")]
-pub struct Datum(pub PlutusData);
+cfg_fs! {
+    use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
+    /// [Datum] represents an inline datum from UTxO.
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+    #[serde(rename_all = "lowercase")]
+    pub struct Datum(pub PlutusData);
 
-impl<'a, C> minicbor::Decode<'a, C> for Datum {
-    fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, decode::Error> {
-        PlutusData::decode(d, ctx).map(Datum)
+    impl ToCanonicalJson for Datum {
+        fn to_json(&self) -> serde_json::Value {
+            self.0.to_json()
+        }
     }
-}
 
-impl ToCanonicalJson for Datum {
-    fn to_json(&self) -> serde_json::Value {
-        self.0.to_json()
+    impl<'a, C> minicbor::Decode<'a, C> for Datum {
+        fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, decode::Error> {
+            PlutusData::decode(d, ctx).map(Datum)
+        }
     }
 }
 
