@@ -104,7 +104,7 @@ fs = [
   "pallas-network",
   "pallas-addresses",
   "pallas-primitives",
-  "pallas-codec",
+  "pallas-codec"
 ]
 
 # Portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
