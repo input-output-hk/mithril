@@ -1,11 +1,13 @@
 use anyhow::anyhow;
 use minicbor::decode;
-use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use strum::{Display, EnumDiscriminants};
 use thiserror::Error;
+cfg_fs! {
+    use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
+}
 
 use crate::{StdError, StdResult};
 

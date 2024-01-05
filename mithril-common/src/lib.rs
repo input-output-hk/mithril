@@ -10,6 +10,16 @@
 //! - A [certificate chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
 
+macro_rules! cfg_fs {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "fs")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "fs")))]
+            $item
+        )*
+    }
+}
+
 macro_rules! cfg_database {
     ($($item:item)*) => {
         $(
