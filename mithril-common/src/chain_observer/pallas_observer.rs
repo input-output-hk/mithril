@@ -253,7 +253,7 @@ mod tests {
     use super::*;
     use crate::{chain_observer::test_cli_runner::TestCliRunner, CardanoNetwork};
 
-    fn get_utxo_mock() -> UTxOByAddress {
+    fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
         let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
         let transaction_id = Hash::from(txbytes);
@@ -310,7 +310,7 @@ mod tests {
                     _,
                     localstate::queries_v16::BlockQuery::GetUTxOByAddress(_),
                 ),
-            ) => AnyCbor::from_encode(get_utxo_mock()),
+            ) => AnyCbor::from_encode(get_fake_utxo_by_address()),
             _ => panic!("unexpected query from client: {query:?}"),
         }
     }
