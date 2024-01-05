@@ -3171,16 +3171,6 @@ dependencies = [
 
 [[package]]
 name = "minicbor"
-version = "0.19.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7005aaf257a59ff4de471a9d5538ec868a21586534fff7f85dd97d4043a6139"
-dependencies = [
- "half 1.8.2",
- "minicbor-derive",
-]
-
-[[package]]
-name = "minicbor"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d15f4203d71fdf90903c2696e55426ac97a363c67b218488a73b534ce7aca10"
@@ -3361,7 +3351,7 @@ dependencies = [
  "http",
  "jsonschema",
  "kes-summed-ed25519",
- "minicbor 0.19.1",
+ "minicbor",
  "mithril-stm",
  "mockall",
  "nom",
@@ -3979,7 +3969,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaf1bfb0b6b942a380032e2d8fe8dabd4d97d2ec949ba9acf8e54b79f9c91682"
 dependencies = [
  "hex",
- "minicbor 0.20.0",
+ "minicbor",
  "serde",
  "thiserror",
 ]
