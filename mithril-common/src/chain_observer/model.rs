@@ -33,12 +33,12 @@ cfg_fs! {
     where
         for<'b> R: minicbor::Decode<'b, ()>,
     {
-        Ok(minicbor::decode(&inner).map_err(|e| anyhow!(e)).with_context(|| {
+        minicbor::decode(&inner).map_err(|e| anyhow!(e)).with_context(|| {
             format!(
                 "failed to decode datum: {}",
                 hex::encode(&inner)
             )
-        })?)
+        })
     }
 
     /// [Datums] represents a list of [TxDatum].
