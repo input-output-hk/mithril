@@ -15,7 +15,7 @@ use crate::entities::StakeDistribution;
 use crate::CardanoNetwork;
 use crate::{entities::Epoch, StdResult};
 
-use super::model::{inspect, Datum, Datums};
+use super::model::{try_inspect, Datum, Datums};
 use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
@@ -87,14 +87,14 @@ impl PallasChainObserver {
     fn get_datum_bytes(&self, utxo: &Values) -> Vec<u8> {
         let bytes = utxo.inline_datum.as_ref().unwrap().1.clone();
         let bytes = CborWrap(bytes).to_vec();
-        inspect(bytes)
+        try_inspect(bytes).expect("Failed to inspect datum bytes")
     }
 
     /// Returns inline datums from the given `Values` instance.
     fn inspect_datum(&self, utxo: &Values) -> Datum {
         let datum = self.get_datum_bytes(utxo);
 
-        inspect(datum)
+        try_inspect(datum).expect("Failed to inspect datum")
     }
 
     /// Serializes datum to `TxDatum` instance.
@@ -110,11 +110,11 @@ impl PallasChainObserver {
         transaction
             .utxo
             .iter()
-            .filter_map(
-                |(_, utxo)| utxo.inline_datum.as_ref().map(
-                    |_| self.serialize_datum(utxo)
-                )
-            )
+            .filter_map(|(_, utxo)| {
+                utxo.inline_datum
+                    .as_ref()
+                    .map(|_| self.serialize_datum(utxo))
+            })
             .collect()
     }
 

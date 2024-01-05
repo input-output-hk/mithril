@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use anyhow::Context;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -28,11 +29,16 @@ cfg_fs! {
     }
 
     /// Inspects the given bytes and returns a decoded `R` instance.
-    pub fn inspect<R>(inner: Vec<u8>) -> R
+    pub fn try_inspect<R>(inner: Vec<u8>) -> StdResult<R>
     where
         for<'b> R: minicbor::Decode<'b, ()>,
     {
-        minicbor::decode(&inner).unwrap()
+        Ok(minicbor::decode(&inner).map_err(|e| anyhow!(e)).with_context(|| {
+            format!(
+                "failed to decode datum: {}",
+                hex::encode(&inner)
+            )
+        })?)
     }
 
     /// [Datums] represents a list of [TxDatum].
