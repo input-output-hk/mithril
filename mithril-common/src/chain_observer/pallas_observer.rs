@@ -87,7 +87,7 @@ impl PallasChainObserver {
     fn get_datum_bytes(&self, utxo: &Values) -> StdResult<Vec<u8>> {
         let bytes = utxo.inline_datum.as_ref().unwrap().1.clone();
         let bytes = CborWrap(bytes).to_vec();
-        try_inspect(bytes)
+        try_inspect::<Vec<u8>>(bytes)
     }
 
     /// Returns inline datums from the given `Values` instance.
