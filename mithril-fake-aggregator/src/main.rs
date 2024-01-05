@@ -10,7 +10,7 @@ use axum::{
     http::{HeaderValue, Response, StatusCode},
     middleware::{self, Next},
     response::IntoResponse,
-    routing::get,
+    routing::{get, post},
     Router,
 };
 use clap::Parser;
@@ -35,7 +35,7 @@ pub struct CliArguments {
     #[arg(short, long)]
     data_directory: Option<PathBuf>,
 
-    /// Verbose mode (-q, -v, -vv, -vvv, etc)
+    /// Verbosity level  (-v WARN, -vv INFO, -vvv DEBUG, etc)
     #[arg(short, long, action = clap::ArgAction::Count)]
     verbose: u8,
 
@@ -46,16 +46,24 @@ pub struct CliArguments {
     /// IP Address to bind server to
     #[arg(short, long, default_value = "127.0.0.1")]
     ip_address: String,
+
+    /// Quiet mode, no log will be emitted. Critical error messages will still pop on STDERR
+    #[arg(short, long, default_value_t = false)]
+    quiet: bool,
 }
 
 impl CliArguments {
-    pub fn get_verbosity_level(&self) -> Level {
-        match self.verbose {
-            0 => Level::ERROR,
-            1 => Level::WARN,
-            2 => Level::INFO,
-            3 => Level::DEBUG,
-            _ => Level::TRACE,
+    pub fn get_verbosity_level(&self) -> Option<Level> {
+        if self.quiet {
+            None
+        } else {
+            match self.verbose {
+                0 => Some(Level::ERROR),
+                1 => Some(Level::WARN),
+                2 => Some(Level::INFO),
+                3 => Some(Level::DEBUG),
+                _ => Some(Level::TRACE),
+            }
         }
     }
 }
@@ -121,9 +129,10 @@ impl OsSignalHandler {
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let params = CliArguments::parse();
-    tracing_subscriber::fmt()
-        .with_max_level(params.get_verbosity_level())
-        .init();
+
+    if let Some(level) = params.get_verbosity_level() {
+        tracing_subscriber::fmt().with_max_level(level).init();
+    }
 
     let result = Application::run(params).await;
 
@@ -180,13 +189,17 @@ impl Application {
             )
             .route("/aggregator/certificates", get(handlers::certificates))
             .route("/aggregator/certificate/:hash", get(handlers::certificate))
+            .route(
+                "/aggregator/statistics/snapshot",
+                post(handlers::statistics),
+            )
             .with_state(shared_state.clone())
             .layer(middleware::from_fn(set_json_app_header))
             .layer(
                 TraceLayer::new_for_http()
                     .make_span_with(
                         DefaultMakeSpan::new()
-                            .include_headers(true)
+                            .include_headers(false)
                             .level(Level::DEBUG),
                     )
                     .on_request(DefaultOnRequest::new().level(Level::DEBUG))
@@ -199,7 +212,7 @@ impl Application {
             );
         let listener = {
             let connection_string = format!("{}:{}", params.ip_address, params.tcp_port);
-            info!("binding on {connection_string}");
+            debug!("binding on {connection_string}");
             tokio::net::TcpListener::bind(&connection_string)
                 .await
                 .with_context(|| format!("Could not listen on '{}'.", connection_string))?
@@ -234,3 +247,6 @@ async fn set_json_app_header(
 
     Ok(res)
 }
+
+#[cfg(test)]
+mod tests {}

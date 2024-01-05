@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::{Path, State},
-    http::Response,
+    http::{Response, StatusCode},
     response::IntoResponse,
 };
 
@@ -73,4 +73,10 @@ pub async fn certificate(
         .await?
         .map(|s| s.into_response())
         .ok_or_else(|| AppError::NotFound(format!("certificate hash={key}")))
+}
+
+pub async fn statistics() -> Result<Response<Body>, AppError> {
+    let response = Response::builder().status(StatusCode::CREATED);
+
+    response.body(String::new().into()).map_err(|e| e.into())
 }
