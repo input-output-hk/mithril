@@ -68,17 +68,17 @@ impl PallasChainObserver {
             .acquire(None)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to acquire statequery")?;
+            .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to get current era")?;
+            .with_context(|| "PallasChainObserver failed to get current era")?;
 
         let epoch = queries_v16::get_block_epoch_number(statequery, era)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to get block epoch number")?;
+            .with_context(|| "PallasChainObserver failed to get block epoch number")?;
 
         Ok(epoch)
     }
