@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use minicbor::decode;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -22,22 +21,22 @@ cfg_fs! {
     }
 
     impl<'a, C> minicbor::Decode<'a, C> for Datum {
-        fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, decode::Error> {
+        fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
             PlutusData::decode(d, ctx).map(Datum)
         }
     }
-}
 
-/// Inspects the given bytes and returns a decoded `R` instance.
-pub fn inspect<R>(inner: Vec<u8>) -> R
-where
-    for<'b> R: minicbor::Decode<'b, ()>,
-{
-    minicbor::decode(&inner).unwrap()
-}
+    /// Inspects the given bytes and returns a decoded `R` instance.
+    pub fn inspect<R>(inner: Vec<u8>) -> R
+    where
+        for<'b> R: minicbor::Decode<'b, ()>,
+    {
+        minicbor::decode(&inner).unwrap()
+    }
 
-/// [Datums] represents a list of [TxDatum].
-pub type Datums = Vec<TxDatum>;
+    /// [Datums] represents a list of [TxDatum].
+    pub type Datums = Vec<TxDatum>;
+}
 
 /// [ChainAddress] represents an on chain address.
 pub type ChainAddress = String;
