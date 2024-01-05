@@ -84,29 +84,31 @@ impl PallasChainObserver {
     }
 
     /// Returns inline datum bytes from the given `Values` instance.
-    fn get_datum_bytes(&self, utxo: &Values) -> Vec<u8> {
+    fn get_datum_bytes(&self, utxo: &Values) -> StdResult<Vec<u8>> {
         let bytes = utxo.inline_datum.as_ref().unwrap().1.clone();
         let bytes = CborWrap(bytes).to_vec();
-        try_inspect(bytes).expect("Failed to inspect datum bytes")
+        try_inspect(bytes)
     }
 
     /// Returns inline datums from the given `Values` instance.
-    fn inspect_datum(&self, utxo: &Values) -> Datum {
-        let datum = self.get_datum_bytes(utxo);
+    fn inspect_datum(&self, utxo: &Values) -> StdResult<Datum> {
+        let datum = self.get_datum_bytes(utxo)?;
 
-        try_inspect(datum).expect("Failed to inspect datum")
+        try_inspect::<Datum>(datum)
     }
 
     /// Serializes datum to `TxDatum` instance.
-    fn serialize_datum(&self, utxo: &Values) -> TxDatum {
-        let datum = self.inspect_datum(utxo);
-        let serialized = serde_json::to_string(&datum.to_json()).expect("Failed to serialize");
+    fn serialize_datum(&self, utxo: &Values) -> StdResult<TxDatum> {
+        let datum = self.inspect_datum(utxo)?;
+        let serialized = serde_json::to_string(&datum.to_json())
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to serialize datum")?;
 
-        TxDatum(serialized)
+        Ok(TxDatum(serialized))
     }
 
     /// Maps the given `UTxOByAddress` instance to Datums.
-    fn map_datums(&self, transaction: UTxOByAddress) -> Datums {
+    fn map_datums(&self, transaction: UTxOByAddress) -> StdResult<Datums> {
         transaction
             .utxo
             .iter()
@@ -115,7 +117,7 @@ impl PallasChainObserver {
                     .as_ref()
                     .map(|_| self.serialize_datum(utxo))
             })
-            .collect()
+            .collect::<StdResult<Datums>>()
     }
 
     /// Returns a vector of `TxDatum` instances.
@@ -127,7 +129,7 @@ impl PallasChainObserver {
         let statequery = client.statequery();
         let utxo = self.get_utxo_by_address(statequery, address).await?;
 
-        Ok(self.map_datums(utxo))
+        Ok(self.map_datums(utxo)?)
     }
 
     /// Fetches the current UTxO by address using the provided `statequery` client.
