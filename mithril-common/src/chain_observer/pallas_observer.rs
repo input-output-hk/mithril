@@ -110,8 +110,11 @@ impl PallasChainObserver {
         transaction
             .utxo
             .iter()
-            .filter(|(_, utxo)| utxo.inline_datum.is_some())
-            .map(|(_, utxo)| self.serialize_datum(utxo))
+            .filter_map(
+                |(_, utxo)| utxo.inline_datum.as_ref().map(
+                    |_| self.serialize_datum(utxo)
+                )
+            )
             .collect()
     }
 
