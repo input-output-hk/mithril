@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_addresses::Address;
-use pallas_codec::utils::CborWrap;
+use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::facades::NodeClient;
 use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
 use pallas_network::miniprotocols::localstate::{queries_v16, Client};
@@ -83,10 +83,20 @@ impl PallasChainObserver {
         Ok(epoch)
     }
 
+    /// Returns inline datum tag from the given `Values` instance.
+    fn get_datum_tag(&self, utxo: &Values) -> StdResult<TagWrap<Bytes, 24>> {
+        Ok(utxo
+            .inline_datum
+            .as_ref()
+            .with_context(|| "PallasChainObserver failed to get inline datum")?
+            .1
+            .clone())
+    }
+
     /// Returns inline datum bytes from the given `Values` instance.
     fn get_datum_bytes(&self, utxo: &Values) -> StdResult<Vec<u8>> {
-        let bytes = utxo.inline_datum.as_ref().unwrap().1.clone();
-        let bytes = CborWrap(bytes).to_vec();
+        let tag = self.get_datum_tag(utxo)?;
+        let bytes = CborWrap(tag).to_vec();
         try_inspect::<Vec<u8>>(bytes)
     }
 
