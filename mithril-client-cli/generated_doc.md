@@ -65,14 +65,14 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `run_mode` | `--run-mode` |  | `RUN_MODE` | ? | `dev` | Run Mode | - |
-| `verbose` | `--verbose` | `-v` |  | ? | `0` | Verbosity level (-v=warning, -vv=info, -vvv=debug) | - |
-| `config_directory` | `--config-directory` |  |  | ? | `./config` | Directory where configuration file is located | - |
-| `aggregator_endpoint` | `--aggregator-endpoint` |  | `AGGREGATOR_ENDPOINT` | ? |  | Override configuration Aggregator endpoint URL | - |
-| `log_format_json` | `--log-format-json` |  |  | ? |  | Enable JSON output for logs displayed according to verbosity level | - |
-| `log_output` | `--log-output` |  |  | ? |  | Redirect the logs to a file | - |
-| `help` | `--help` | `-h` |  | ? |  | Print help | - |
-| `version` | `--version` | `-V` |  | ? |  | Print version | - |
+| `run_mode` | `--run-mode` |  | `RUN_MODE` | Run Mode | `dev` | ? | - |
+| `verbose` | `--verbose` | `-v` |  | Verbosity level (-v=warning, -vv=info, -vvv=debug) | `0` | ? | - |
+| `config_directory` | `--config-directory` |  |  | Directory where configuration file is located | `./config` | ? | - |
+| `aggregator_endpoint` | `--aggregator-endpoint` |  | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL |  | ? | - |
+| `log_format_json` | `--log-format-json` |  |  | Enable JSON output for logs displayed according to verbosity level | `false` | ? | - |
+| `log_output` | `--log-output` |  |  | Redirect the logs to a file |  | ? | - |
+| `help` | `--help` | `-h` |  | Print help |  | ? | - |
+| `version` | `--version` | `-V` |  | Print version |  | ? | - |
 
 ###  mithril-client snapshot
 
