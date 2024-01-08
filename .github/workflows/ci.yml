@@ -127,7 +127,7 @@ jobs:
         shell: bash
         run: |
           cp LICENSE ./mithril-client-wasm/
-          wasm-pack build mithril-client-wasm --release --target bundler --out-dir ./pkg --scope mithril-dev --out-name index
+          wasm-pack build mithril-client-wasm --release --target web --out-dir ./pkg --scope mithril-dev --out-name index
 
       - name: Prepare 'mithril-client-wasm' package
         shell: bash
