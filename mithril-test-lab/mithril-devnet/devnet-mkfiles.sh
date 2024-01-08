@@ -1,38 +1,14 @@
 #!/usr/bin/env bash
 
 set -e
-#set -x
 
-ROOT=$1
-NUM_BFT_NODES=$2
-NUM_POOL_NODES=$3
-SLOT_LENGTH=$4
-EPOCH_LENGTH=$5
+# Debug mode
+if [ -v DEBUG ]; then
+    set -x
+fi
 
+# Script directory variable
 SCRIPT_DIRECTORY=$(dirname $0)
-
-if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" = "true" ]]; then
-  SKIP_CARDANO_BIN_DOWNLOAD=true
-else
-  SKIP_CARDANO_BIN_DOWNLOAD=false
-fi
-
-SUPPLY=100000000000
-NETWORK_MAGIC=42
-SECURITY_PARAM=2
-
-NODE_PORT_START=3000
-NODE_ADDR_PREFIX="172.16.238"
-NODE_ADDR_INCREMENT=10
-CARDANO_NODE_VERSION="8.1.2"
-CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-linux.tar.gz"
-GENESIS_VERIFICATION_KEY=5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d
-GENESIS_SECRET_KEY=5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d
-
-if ! mkdir -p "${ROOT}"; then
-  echo "The ${ROOT} directory already exists, please move or remove it"
-  exit
-fi
 
 # Init script
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-init.sh
@@ -40,14 +16,14 @@ fi
 # Generate the topology
 . ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-topology.sh
 
-# Bootstrap Cardano devnet
+# Generate Cardano devnet artifacts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-cardano.sh
-
-# Generate the pools scripts
-. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-pools.sh
 
 # Generate the start scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-start.sh
+
+# Generate the pools scripts
+#. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-pools.sh
 
 # Generate the query scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-query.sh

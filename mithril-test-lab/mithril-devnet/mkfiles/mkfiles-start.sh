@@ -1,13 +1,3 @@
-
-
-echo "====================================================================="
-echo
-echo "First change directory:"
-echo
-echo cd ${ROOT}
-echo
-echo "To start the nodes, in separate terminals use:"
-echo
 cat >> start-cardano.sh <<EOF
 #!/usr/bin/env bash
 
@@ -21,10 +11,8 @@ set -e
 ./cardano-node --version
 
 EOF
+
 for NODE in ${BFT_NODES}; do
-
-  echo ./${ROOT}/${NODE}/start-node.sh
-
   cat >> ${NODE}/start-node.sh <<EOF
 #!/usr/bin/env bash
 
@@ -33,27 +21,18 @@ for NODE in ${BFT_NODES}; do
   --topology                        ${NODE}/topology.json \\
   --database-path                   ${NODE}/db \\
   --socket-path                     ${NODE}/ipc/node.sock \\
-  --shelley-kes-key                 ${NODE}/shelley/kes.skey \\
-  --shelley-vrf-key                 ${NODE}/shelley/vrf.skey \\
-  --shelley-operational-certificate ${NODE}/shelley/node.cert \\
   --port                            $(cat ${NODE}/port) \\
-  --delegation-certificate          ${NODE}/byron/delegate.cert \\
-  --signing-key                     ${NODE}/byron/delegate.key \\
   > ${NODE}/node.log
 EOF
   chmod u+x ${NODE}/start-node.sh
-
   cat >> start-cardano.sh <<EOF
 echo ">> Starting Cardano node '${NODE}'"
 ./${NODE}/start-node.sh &
 
 EOF
-
 done
+
 for NODE in ${POOL_NODES}; do
-
-  echo ./${ROOT}/${NODE}/start-node.sh
-
   cat >> ${NODE}/start-node.sh <<EOF
 #!/usr/bin/env bash
 
@@ -62,20 +41,20 @@ for NODE in ${POOL_NODES}; do
   --topology                        ${NODE}/topology.json \\
   --database-path                   ${NODE}/db \\
   --socket-path                     ${NODE}/ipc/node.sock \\
+  --byron-delegation-certificate    ${NODE}/byron/delegate.cert \\
+  --byron-signing-key               ${NODE}/byron/delegate.key \\
   --shelley-kes-key                 ${NODE}/shelley/kes.skey \\
   --shelley-vrf-key                 ${NODE}/shelley/vrf.skey \\
-  --shelley-operational-certificate ${NODE}/shelley/node.cert \\
+  --shelley-operational-certificate ${NODE}/shelley/opcert.cert \\
   --port                            $(cat ${NODE}/port) \\
   > ${NODE}/node.log
 EOF
   chmod u+x ${NODE}/start-node.sh
-
   cat >> start-cardano.sh <<EOF
 echo ">> Starting Cardano node '${NODE}'"
 ./${NODE}/start-node.sh &
 
 EOF
-
 done
 
 cat >> start-cardano.sh <<EOF
@@ -85,7 +64,7 @@ CARDANO_ACTIVATION_WAIT_ROUNDS=1
 CARDANO_ACTIVATION_WAIT_ROUND_DELAY=2
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     if [ "\$EPOCH" != "" ] ; then
         echo ">>>> Cardano network is ready!"
         break
@@ -99,9 +78,6 @@ do
         exit 1
     fi
 done
-
-echo ">> Activate Cardano pools"
-./activate.sh ${ROOT}
 
 EOF
 
@@ -187,10 +163,10 @@ done
 cat >> start-mithril.sh <<EOF
 
 echo ">> Wait for Mithril signers to be registered"
-EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     EPOCH_DELTA=\$(( \$EPOCH - \$EPOCH_NOW ))
     if [ \$EPOCH_DELTA -ge 2 ] ; then
         echo ">>>> Ready!"

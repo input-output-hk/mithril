@@ -1,65 +1,35 @@
-ALONZO_GENESIS_URL="https://book.world.dev.cardano.org/environments/private/alonzo-genesis.json"
-CONWAY_GENESIS_URL="https://book.world.dev.cardano.org/environments/private/conway-genesis.json"
+ROOT_TEMP=./temp
+mkdir -p ${ROOT_TEMP}
 
-INIT_SUPPLY=$(( SUPPLY+2000000 ))
-FUNDS_PER_GENESIS_ADDRESS=$((${INIT_SUPPLY} / ${NUM_BFT_NODES}))
-FUNDS_PER_BYRON_ADDRESS=$((${FUNDS_PER_GENESIS_ADDRESS} - 1000000))
-# We need to allow for a fee to transfer the funds out of the genesis.
-# We don't care too much, 1 ada is more than enough.
+# Step 1: Bootstrap the devnet artifacts
+# Adapted from https://github.com/IntersectMBO/cardano-node/blob/master/scripts/babbage/mkfiles.sh
 
-OS=$(uname -s) DATE=
-case $OS in
-  Darwin )       DATE="gdate";;
-  * )            DATE="date";;
+UNAME=$(uname -s) SED=
+case $UNAME in
+  Darwin )      SED="gsed";;
+  Linux )       SED="sed";;
 esac
 
-START_TIME="$(${DATE} -d "now + 30 seconds" +%s)"
 
-# copy and tweak the configuration
-popd
-cp configuration.yaml ${ROOT}/
-sed -i ${ROOT}/configuration.yaml \
-    -e 's/Protocol: RealPBFT/Protocol: Cardano\nPBftSignatureThreshold: 0.6/' \
-    -e 's/minSeverity: Info/minSeverity: Info/' \
-    -e 's/TracingVerbosity: NormalVerbosity/TracingVerbosity: MinimalVerbosity/' \
-    -e 's/TurnOnLogMetrics: True/TurnOnLogMetrics: False/' \
-    -e 's|GenesisFile: genesis.json|ByronGenesisFile: byron/genesis.json|' \
-    -e '/ByronGenesisFile/ aConwayGenesisFile: shelley/genesis.conway.json' \
-    -e '/ByronGenesisFile/ aAlonzoGenesisFile: shelley/genesis.alonzo.json' \
-    -e '/ByronGenesisFile/ aShelleyGenesisFile: shelley/genesis.json' \
-    -e 's/RequiresNoMagic/RequiresMagic/' \
-    -e 's/LastKnownBlockVersion-Major: 0/LastKnownBlockVersion-Major: 8/' \
-    -e 's/LastKnownBlockVersion-Minor: 2/LastKnownBlockVersion-Minor: 0/' \
-    -e 's/LastKnownBlockVersion-Alt: 0/LastKnownBlockVersion-Alt: 0/'
-# Options for making it easier to trigger the transition to Shelley
-# If neither of those are used, we have to
-# - post an update proposal + votes to go to protocol version 1
-# - after that's activated, change the configuration to have
-#   'LastKnownBlockVersion-Major: 2', and restart the nodes
-# - post another proposal + vote to go to protocol version 2
+UNAME=$(uname -s) DATE=
+case $UNAME in
+  Darwin )      DATE="gdate";;
+  Linux )       DATE="date";;
+  MINGW64_NT* ) UNAME="Windows_NT"
+                DATE="date";;
+esac
 
-#uncomment this for an automatic transition after the first epoch
-echo "TestShelleyHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
-echo "TestAllegraHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
-echo "TestMaryHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
-echo "TestAlonzoHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
-echo "ExperimentalHardForksEnabled: True" >> ${ROOT}/configuration.yaml
-echo "ExperimentalProtocolsEnabled: True" >> ${ROOT}/configuration.yaml
+CARDANO_CLI=./cardano-cli
+NUM_SPO_NODES=$NUM_POOL_NODES
+INIT_SUPPLY=12000000
+TOTAL_SUPPLY=2000000000000
+DELEGATED_SUPPLY=240000000002
+SECURITY_PARAM=2
+START_GENESIS_DELAY=1
 
-#uncomment this to trigger the hardfork with protocol version 1
-#echo "TestShelleyHardForkAtVersion: 1"  >> ${ROOT}/configuration.yaml
+START_TIME="$(${DATE} -d "now + ${START_GENESIS_DELAY} seconds" +%s)"
 
-pushd ${ROOT}
-
-# create the configuration files
-for NODE in ${ALL_NODES}; do
-
-  cp configuration.yaml ${NODE}/configuration.yaml
-
-done
-
-# Byron setup
-cat > byron.genesis.spec.json <<EOF
+cat > "${ROOT_TEMP}/byron.genesis.spec.json" <<EOF
 {
   "heavyDelThd":     "300000000000",
   "maxBlockSize":    "2000000",
@@ -85,295 +55,98 @@ cat > byron.genesis.spec.json <<EOF
 }
 EOF
 
-./cardano-cli byron genesis genesis \
+$CARDANO_CLI byron genesis genesis \
   --protocol-magic ${NETWORK_MAGIC} \
-  --start-time ${START_TIME} \
+  --start-time "${START_TIME}" \
   --k ${SECURITY_PARAM} \
   --n-poor-addresses 0 \
-  --n-delegate-addresses ${NUM_BFT_NODES} \
+  --n-delegate-addresses ${NUM_SPO_NODES} \
   --total-balance ${INIT_SUPPLY} \
   --delegate-share 1 \
   --avvm-entry-count 0 \
   --avvm-entry-balance 0 \
-  --protocol-parameters-file byron.genesis.spec.json \
-  --genesis-output-dir byron
+  --protocol-parameters-file "${ROOT_TEMP}/byron.genesis.spec.json" \
+  --genesis-output-dir "${ROOT_TEMP}/byron-gen-command"
 
-mv byron.genesis.spec.json byron/genesis.spec.json
+cp $SCRIPT_DIRECTORY/configuration/babbage/alonzo-babbage-test-genesis.json "${ROOT_TEMP}/genesis.alonzo.spec.json"
+cp $SCRIPT_DIRECTORY/configuration/babbage/conway-babbage-test-genesis.json "${ROOT_TEMP}/genesis.conway.spec.json"
 
-# Copy the genesis files
+# Fix 8.1.2, to avoid the following error: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: example/genesis.conway.spec.json Error: Error in $: key "genDelegs" not found'
+mv ${ROOT_TEMP}/genesis.conway.spec.json ${ROOT_TEMP}/genesis.conway.spec.json.tmp && cat ${ROOT_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"genDelegs":{}}' > ${ROOT_TEMP}/genesis.conway.spec.json && rm ${ROOT_TEMP}/genesis.conway.spec.json.tmp
+
+cp $SCRIPT_DIRECTORY/configuration/byron/configuration.yaml "${ROOT_TEMP}/"
+$SED -i "${ROOT_TEMP}/configuration.yaml" \
+     -e 's/Protocol: RealPBFT/Protocol: Cardano/' \
+     -e '/Protocol/ aPBftSignatureThreshold: 0.6' \
+     -e 's/minSeverity: Info/minSeverity: Info/' \
+     -e 's/: True/: False/' \
+     -e 's/TracingVerbosity: NormalVerbosity/TracingVerbosity: NormalVerbosity/' \
+     -e 's/TurnOnLogging: False/TurnOnLogging: True/' \
+     -e 's/TraceChainDb: False/TraceChainDb: True/' \
+     -e 's/TraceErrorPolicy: False/TraceErrorPolicy: True/' \
+     -e 's/TraceLocalErrorPolicy: False/TraceLocalErrorPolicy: True/' \
+     -e 's/TraceMempool: False/TraceMempool: True/' \
+     -e 's|GenesisFile: genesis.json|ByronGenesisFile: byron/genesis.json|' \
+     -e '/ByronGenesisFile/ aShelleyGenesisFile: shelley/genesis.json' \
+     -e '/ByronGenesisFile/ aAlonzoGenesisFile: shelley/genesis.alonzo.json' \
+     -e '/ByronGenesisFile/ aConwayGenesisFile: shelley/genesis.conway.json' \
+     -e 's/RequiresNoMagic/RequiresMagic/' \
+     -e 's/LastKnownBlockVersion-Major: 0/LastKnownBlockVersion-Major: 6/' \
+     -e 's/LastKnownBlockVersion-Minor: 2/LastKnownBlockVersion-Minor: 0/'
+
+echo "TestShelleyHardForkAtEpoch: 0" >> "${ROOT_TEMP}/configuration.yaml"
+echo "TestAllegraHardForkAtEpoch: 0" >> "${ROOT_TEMP}/configuration.yaml"
+echo "TestMaryHardForkAtEpoch: 0" >> "${ROOT_TEMP}/configuration.yaml"
+echo "TestAlonzoHardForkAtEpoch: 0" >> "${ROOT_TEMP}/configuration.yaml"
+echo "TestBabbageHardForkAtEpoch: 0" >> "${ROOT_TEMP}/configuration.yaml"
+echo "TestConwayHardForkAtEpoch: 0" >> "${ROOT_TEMP}/configuration.yaml"
+echo "ExperimentalProtocolsEnabled: True" >> "${ROOT_TEMP}/configuration.yaml"
+
+$CARDANO_CLI genesis create-staked --genesis-dir "${ROOT_TEMP}" \
+  --testnet-magic "${NETWORK_MAGIC}" \
+  --gen-pools ${NUM_SPO_NODES} \
+  --supply ${TOTAL_SUPPLY} \
+  --supply-delegated ${DELEGATED_SUPPLY} \
+  --gen-stake-delegs ${NUM_SPO_NODES} \
+  --gen-utxo-keys ${NUM_SPO_NODES}
+
+## Customize the Shelley genesis file
+cat ${ROOT_TEMP}/genesis.json | jq --argjson slot_length ${SLOT_LENGTH} --argjson epoch_length ${EPOCH_LENGTH} --argjson security_param ${SECURITY_PARAM} '. + {slotLength: $slot_length, activeSlotsCoeff: 0.50, securityParam: $security_param, epochLength: $epoch_length, maxLovelaceSupply: 10000000000000, updateQuorum: 2}' > ${ROOT_TEMP}/genesis.json.tmp
+cat ${ROOT_TEMP}/genesis.json.tmp | jq --raw-output '.protocolParams.protocolVersion.major = 7 | .protocolParams.minFeeA = 44 | .protocolParams.minFeeB = 155381 | .protocolParams.minUTxOValue = 1000000 | .protocolParams.decentralisationParam = 0.7 | .protocolParams.rho = 0.1 | .protocolParams.tau = 0.1'  > ${ROOT_TEMP}/genesis.json
+rm ${ROOT_TEMP}/genesis.json.tmp
+
+# Step 2: Dispatch artifacts in the correct directories
+
+## Copy the configuration files
 for NODE in ${ALL_NODES}; do
-
-  cp byron/genesis*.json     ${NODE}/byron/
-
+  cp ${ROOT_TEMP}/configuration.yaml ${NODE}/
 done
 
-# Copy the BFT operator keys from the genesis delegates, for uniformity
-for N in ${BFT_NODES_N}; do
-
-  cp byron/delegate-keys.00$((${N} - 1)).key     node-bft${N}/byron/delegate.key
-  cp byron/delegation-cert.00$((${N} - 1)).json  node-bft${N}/byron/delegate.cert
-
-done
-
-# Create keys, addresses and transactions to withdraw the initial UTxO into
-# regular addresses.
-for N in ${BFT_NODES_N}; do
-
-  ./cardano-cli byron key keygen \
-    --secret byron/payment-keys.00$((${N} - 1)).key \
-
-  ./cardano-cli byron key signing-key-address \
-    --testnet-magic ${NETWORK_MAGIC} \
-    --secret byron/payment-keys.00$((${N} - 1)).key > byron/address-00$((${N} - 1))
-
-  ./cardano-cli byron key signing-key-address \
-    --testnet-magic ${NETWORK_MAGIC} \
-    --secret byron/genesis-keys.00$((${N} - 1)).key > byron/genesis-address-00$((${N} - 1))
-done
-
-# Update Proposal and votes
-./cardano-cli byron governance create-update-proposal \
-            --filepath byron/update-proposal \
-            --testnet-magic ${NETWORK_MAGIC} \
-            --signing-key byron/delegate-keys.000.key \
-            --protocol-version-major 1 \
-            --protocol-version-minor 0 \
-            --protocol-version-alt 0 \
-            --application-name "cardano-sl" \
-            --software-version-num 1 \
-            --system-tag "linux" \
-            --installer-hash 0
-
-for N in ${BFT_NODES_N}; do
-    ./cardano-cli byron governance create-proposal-vote \
-                --proposal-filepath byron/update-proposal \
-                --testnet-magic ${NETWORK_MAGIC} \
-                --signing-key byron/delegate-keys.00$((${N} - 1)).key \
-                --vote-yes \
-                --output-filepath byron/update-vote.00$((${N} - 1))
-done
-
-./cardano-cli byron governance create-update-proposal \
-            --filepath byron/update-proposal-1 \
-            --testnet-magic ${NETWORK_MAGIC} \
-            --signing-key byron/delegate-keys.000.key \
-            --protocol-version-major 2 \
-            --protocol-version-minor 0 \
-            --protocol-version-alt 0 \
-            --application-name "cardano-sl" \
-            --software-version-num 1 \
-            --system-tag "linux" \
-            --installer-hash 0
-
-for N in ${BFT_NODES_N}; do
-    ./cardano-cli byron governance create-proposal-vote \
-                --proposal-filepath byron/update-proposal-1 \
-                --testnet-magic ${NETWORK_MAGIC} \
-                --signing-key byron/delegate-keys.00$((${N} - 1)).key \
-                --vote-yes \
-                --output-filepath byron/update-vote-1.00$((${N} - 1))
-done
-
-echo "====================================================================="
-echo "Generated genesis keys and genesis files:"
-echo
-ls -1 byron/*
-echo "====================================================================="
-
-
-# Shelley era. Set up our template
-mkdir shelley
-curl -s ${ALONZO_GENESIS_URL} -o shelley/genesis.alonzo.spec.json
-curl -s ${CONWAY_GENESIS_URL} -o shelley/genesis.conway.spec.json
-# Fix the error that crashes the startup of the devnet: 
-# `Command failed: genesis create  Error: Error while decoding Shelley genesis at: shelley/genesis.conway.spec.json Error: Error in $: key "genDelegs" not found`
-# The error is due to a missing field 'genDelegs' in the genesis configuration file downloaded. This fix adds it manually after the download.
-mv shelley/genesis.conway.spec.json shelley/genesis.conway.spec.json.tmp && cat shelley/genesis.conway.spec.json.tmp | jq '. += {"genDelegs":{}}' > shelley/genesis.conway.spec.json && rm shelley/genesis.conway.spec.json.tmp
-./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley --start-time $(date -u +%Y-%m-%dT%H:%M:%SZ)
-mv shelley/genesis.spec.json shelley/genesis.spec.json.tmp && cat shelley/genesis.spec.json.tmp | jq . > shelley/genesis.spec.json && rm shelley/genesis.spec.json.tmp
-
-# Then edit the genesis.spec.json ...
-
-# We're going to use really quick epochs (300 seconds), by using short slots 0.2s
-# and K=10, but we'll keep long KES periods so we don't have to bother
-# cycling KES keys
-sed -i shelley/genesis.spec.json \
-    -e 's/"slotLength": 1/"slotLength": '${SLOT_LENGTH}'/' \
-    -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.50/' \
-    -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
-    -e 's/"epochLength": 432000/"epochLength": '${EPOCH_LENGTH}'/' \
-    -e 's/"maxLovelaceSupply": 0/"maxLovelaceSupply": 1000000000/' \
-    -e 's/"decentralisationParam": 1.0/"decentralisationParam": 0.7/' \
-    -e 's/"major": 0/"major": 4/' \
-    -e 's/"updateQuorum": 5/"updateQuorum": 2/'
-
-# Now generate for real:
-
-./cardano-cli genesis create \
-    --testnet-magic ${NETWORK_MAGIC} \
-    --genesis-dir shelley/ \
-    --gen-genesis-keys ${NUM_BFT_NODES} \
-    --gen-utxo-keys ${NUM_POOL_NODES}
-
-echo "====================================================================="
-echo "Generated genesis keys and genesis files:"
-echo
-ls -1 shelley/*
-echo "====================================================================="
-
-echo "Generated genesis.json:"
-echo
-cat shelley/genesis.json
-echo
-echo "====================================================================="
-
-# Copy the genesis files
+## Copy the Byron genesis files
 for NODE in ${ALL_NODES}; do
-
-  cp shelley/genesis*.json     ${NODE}/shelley/
-
+  cp ${ROOT_TEMP}/byron-gen-command/genesis.json ${NODE}/byron/
+  cp ${ROOT_TEMP}/genesis.spec.json ${NODE}/byron/
 done
 
-# Make the pool operator cold keys
-# This was done already for the BFT nodes as part of the genesis creation
-
-for NODE in ${POOL_NODES}; do
-
-  ./cardano-cli node key-gen \
-      --cold-verification-key-file                 ${NODE}/shelley/operator.vkey \
-      --cold-signing-key-file                      ${NODE}/shelley/operator.skey \
-      --operational-certificate-issue-counter-file ${NODE}/shelley/operator.counter
-
-  ./cardano-cli node key-gen-VRF \
-      --verification-key-file ${NODE}/shelley/vrf.vkey \
-      --signing-key-file      ${NODE}/shelley/vrf.skey
-
-done
-
-# Copy the BFT operator keys from the genesis delegates, for uniformity
-
-for N in ${BFT_NODES_N}; do
-
-  cp shelley/delegate-keys/delegate${N}.skey node-bft${N}/shelley/operator.skey
-  cp shelley/delegate-keys/delegate${N}.vkey node-bft${N}/shelley/operator.vkey
-  cp shelley/delegate-keys/delegate${N}.counter node-bft${N}/shelley/operator.counter
-  cp shelley/delegate-keys/delegate${N}.vrf.vkey node-bft${N}/shelley/vrf.vkey
-  cp shelley/delegate-keys/delegate${N}.vrf.skey node-bft${N}/shelley/vrf.skey
-
-done
-
-
-# Make hot keys and for all nodes
-
-for NODE in ${ALL_NODES}; do
-
-  ./cardano-cli node key-gen-KES \
-      --verification-key-file ${NODE}/shelley/kes.vkey \
-      --signing-key-file      ${NODE}/shelley/kes.skey
-
-  ./cardano-cli node issue-op-cert \
-      --kes-period 0 \
-      --kes-verification-key-file                  ${NODE}/shelley/kes.vkey \
-      --cold-signing-key-file                      ${NODE}/shelley/operator.skey \
-      --operational-certificate-issue-counter-file ${NODE}/shelley/operator.counter \
-      --out-file                                   ${NODE}/shelley/node.cert
-
-done
-
-echo "Generated node operator keys (cold, hot) and operational certs:"
-echo
-ls -1 ${ALL_NODES}
-echo "====================================================================="
-
-
-# Make some payment and stake addresses
-# user1..n:       will own all the funds in the system, we'll set this up from
-#                 initial utxo the
-# pool-owner1..n: will be the owner of the pools and we'll use their reward
-#                 account for pool rewards
-
-ADDRS="${USER_ADDRS} ${POOL_ADDRS}"
-
-mkdir addresses
-
-cp -r shelley/utxo-keys/* addresses
-
-for ADDR in ${UTXO_ADDRS}; do
-     # Payment addresses
-    ./cardano-cli address build \
-        --payment-verification-key-file addresses/${ADDR}.vkey \
-        --testnet-magic ${NETWORK_MAGIC} \
-        --out-file addresses/${ADDR}.addr
-done
-
-for ADDR in ${ADDRS}; do
-
-  # Payment address keys
-  ./cardano-cli address key-gen \
-      --verification-key-file addresses/${ADDR}.vkey \
-      --signing-key-file      addresses/${ADDR}.skey
-
-  # Stake address keys
-  ./cardano-cli stake-address key-gen \
-      --verification-key-file addresses/${ADDR}-stake.vkey \
-      --signing-key-file      addresses/${ADDR}-stake.skey
-
-  # Payment addresses
-  ./cardano-cli address build \
-      --payment-verification-key-file addresses/${ADDR}.vkey \
-      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
-      --testnet-magic ${NETWORK_MAGIC} \
-      --out-file addresses/${ADDR}.addr
-
-  # Stake addresses
-  ./cardano-cli stake-address build \
-      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
-      --testnet-magic ${NETWORK_MAGIC} \
-      --out-file addresses/${ADDR}-stake.addr
-
-  # Stake addresses registration certs
-  ./cardano-cli stake-address registration-certificate \
-      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
-      --out-file addresses/${ADDR}-stake.reg.cert
-
-done
-
-# user N will delegate to pool N
+## Copy the Byron delegation artifacts
 for N in ${POOL_NODES_N}; do
-
-  # Stake address delegation certs
-  ./cardano-cli stake-address delegation-certificate \
-      --stake-verification-key-file addresses/user${N}-stake.vkey \
-      --cold-verification-key-file  node-pool${N}/shelley/operator.vkey \
-      --out-file addresses/user${N}-stake.deleg.cert
-
-  cp addresses/pool-owner${N}-stake.vkey node-pool${N}/owner.vkey
-  cp addresses/pool-owner${N}-stake.skey node-pool${N}/owner.skey
-
+  cp ${ROOT_TEMP}/byron-gen-command/delegate-keys.00$((${N} - 1)).key node-pool${N}/byron/delegate.key
+  cp ${ROOT_TEMP}/byron-gen-command/delegation-cert.00$((${N} - 1)).json node-pool${N}/byron/delegate.cert
 done
 
-echo "Generated payment address keys, stake address keys,"
-echo "stake address regitration certs, and stake address delegatation certs"
-echo
-ls -1 addresses/
-echo "====================================================================="
-echo
-
-# Next is to make the stake pool registration cert
-for NODE in ${POOL_NODES}; do
-
-  ./cardano-cli stake-pool registration-certificate \
-    --testnet-magic ${NETWORK_MAGIC} \
-    --pool-pledge 0 --pool-cost 0 --pool-margin 0 \
-    --cold-verification-key-file             ${NODE}/shelley/operator.vkey \
-    --vrf-verification-key-file              ${NODE}/shelley/vrf.vkey \
-    --reward-account-verification-key-file   ${NODE}/owner.vkey \
-    --pool-owner-stake-verification-key-file ${NODE}/owner.vkey \
-    --out-file                               ${NODE}/registration.cert
-
+## Copy the Shelley genesis files
+for NODE in ${ALL_NODES}; do
+  cp ${ROOT_TEMP}/genesis*.json ${NODE}/shelley/
 done
 
-echo "Generated stake pool registration certs:"
-ls -1 node-*/registration.cert
-echo "====================================================================="
-echo
+## Copy the SPO artifacts
+for N in ${POOL_NODES_N}; do
+  cp ${ROOT_TEMP}/pools/vrf${N}.skey node-pool${N}/shelley/vrf.skey
+  cp ${ROOT_TEMP}/pools/vrf${N}.vkey node-pool${N}/shelley/vrf.vkey
+  cp ${ROOT_TEMP}/pools/cold${N}.skey node-pool${N}/shelley/cold.skey
+  cp ${ROOT_TEMP}/pools/cold${N}.vkey node-pool${N}/shelley/cold.vkey
+  cp ${ROOT_TEMP}/pools/kes${N}.skey node-pool${N}/shelley/kes.skey
+  cp ${ROOT_TEMP}/pools/kes${N}.vkey node-pool${N}/shelley/kes.vkey
+  cp ${ROOT_TEMP}/pools/opcert${N}.counter node-pool${N}/shelley/opcert.counter  
+  cp ${ROOT_TEMP}/pools/opcert${N}.cert node-pool${N}/shelley/opcert.cert  
+done
