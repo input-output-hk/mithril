@@ -4,7 +4,6 @@
 //!
 
 pub mod cardano_transaction;
-pub mod generate_doc;
 pub mod mithril_stake_distribution;
 pub mod snapshot;
 

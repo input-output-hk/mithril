@@ -3477,6 +3477,7 @@ dependencies = [
  "blake2 0.10.6",
  "chrono",
  "ckb-merkle-mountain-range",
+ "clap",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",

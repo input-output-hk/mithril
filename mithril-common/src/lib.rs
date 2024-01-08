@@ -86,3 +86,5 @@ pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";
 
 /// Mithril Signer node version header name
 pub const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
+
+pub mod generate_doc;

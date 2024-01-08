@@ -23,6 +23,7 @@ bech32 = "0.9.1"
 blake2 = "0.10.6"
 chrono = { version = "0.4.33", features = ["serde"] }
 ckb-merkle-mountain-range = "0.6.0"
+clap = { version = "4.4.6", features = ["derive"] }
 digest = "0.10.7"
 ed25519-dalek = { version = "2.1.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"

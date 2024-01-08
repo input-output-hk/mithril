@@ -11,10 +11,11 @@ use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
-use mithril_client::MithrilResult;
+
+use mithril_client::{MithrilResult, generate_doc::GenerateDocCommands};
 
 use mithril_client_cli::commands::{
-    cardano_transaction::CardanoTransactionCommands, generate_doc::GenerateDocCommands,
+    cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
 

@@ -102,7 +102,7 @@ mod utils;
 pub use client::*;
 pub use message::*;
 pub use type_alias::*;
-
+pub use mithril_common::generate_doc;
 #[cfg(test)]
 pub(crate) mod test_utils {
     use slog::Drain;
