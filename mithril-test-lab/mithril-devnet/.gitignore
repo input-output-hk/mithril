@@ -6,4 +6,4 @@ artifacts
 cardano-cli
 cardano-node
 tmp
-.tar.gz
+*.tar.gz

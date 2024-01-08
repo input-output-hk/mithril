@@ -34,7 +34,8 @@ echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
 echo ">> Cardano SPO nodes: ${NUM_POOL_NODES}"
 echo ">> Cardano Slot Length: ${SLOT_LENGTH}s"
 echo ">> Cardano Epoch Length: ${EPOCH_LENGTH}s"
-rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES} ${SLOT_LENGTH} ${EPOCH_LENGTH}> /dev/null
+rm -rf ${ROOT} > /dev/null
+$(pwd)/devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES} ${SLOT_LENGTH} ${EPOCH_LENGTH} > /dev/null
 echo
 
 # Change directory
