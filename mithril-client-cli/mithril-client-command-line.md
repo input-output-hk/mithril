@@ -1,4 +1,3 @@
-Generated doc
 
 ### mithril-client
 
@@ -338,7 +337,7 @@ Options:
       --output <OUTPUT>
           Generated documentation file
           
-          [default: generated_doc.md]
+          [default: "[PROGRAM NAME]-command-line.md"]
 
   -h, --help
           Print help
@@ -357,6 +356,6 @@ Here is a list of the available parameters:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `output` | `--output` |  |  | Generated documentation file | `generated_doc.md` | ? | - |
+| `output` | `--output` |  |  | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
 | `help` | `--help` | `-h` |  | Print help |  | ? | - |
 

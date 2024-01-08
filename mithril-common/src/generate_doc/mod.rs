@@ -19,7 +19,7 @@ pub struct GenerateDocCommands {
 }
 impl GenerateDocCommands {
     /// Generate the command line documentation.
-    pub async fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
+    pub fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
         let cmd_name = cmd_to_document.get_name().to_owned();
         let doc = markdown_formatter::doc_markdown(cmd_to_document);
         
@@ -29,7 +29,7 @@ impl GenerateDocCommands {
             self.output.clone()
         };
         let mut buffer: File = File::create(&output)?;
-        buffer.write(b"Generated doc\n\n")?;
+        buffer.write(b"\n")?;
         buffer.write(doc.as_bytes())?;
         println!("Documentation generated in file `{}`", &output);
         Ok(())

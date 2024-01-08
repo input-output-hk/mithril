@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use clap::Parser;
+use clap::{CommandFactory, Parser, Subcommand};
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{crit, debug};
 use std::path::PathBuf;
@@ -10,7 +10,7 @@ use tokio::{
     task::JoinSet,
 };
 
-use mithril_common::StdResult;
+use mithril_common::{StdResult, generate_doc::GenerateDocCommands};
 use mithril_signer::{
     Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
     SignerState, StateMachine,
@@ -22,6 +22,10 @@ use mithril_signer::{
 #[clap(about = "An implementation of a Mithril Signer", long_about = None)]
 #[command(version)]
 pub struct Args {
+    /// Available commands
+    #[command(subcommand)]
+    command: Option<SignerCommands>,
+    
     /// Run Mode
     #[clap(short, long, env("RUN_MODE"), default_value = "dev")]
     run_mode: String,
@@ -78,11 +82,22 @@ fn build_logger(min_level: Level) -> Logger {
     Logger::root(Arc::new(drain), o!())
 }
 
+
+#[derive(Subcommand, Debug, Clone)]
+enum SignerCommands {
+    #[clap(alias("doc"))]
+    GenerateDoc(GenerateDocCommands),
+}
+
 #[tokio::main]
 async fn main() -> StdResult<()> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
+    
+    if let Some(SignerCommands::GenerateDoc(cmd)) = &args.command {
+        return cmd.execute(&mut Args::command());
+    }
 
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();

@@ -316,7 +316,7 @@ impl Demonstrator {
             })
             .collect::<Vec<Vec<u8>>>();
         Self {
-            config: *config,
+            config: config.clone(),
             parties,
             verifier: None,
             messages,

@@ -3,7 +3,7 @@ mod genesis_command;
 mod serve_command;
 mod tools_command;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, CommandFactory};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
 use slog::Level;
@@ -11,6 +11,8 @@ use slog_scope::debug;
 use std::path::PathBuf;
 
 use crate::DefaultConfiguration;
+use mithril_common::generate_doc::GenerateDocCommands;
+
 
 /// Main command selector
 #[derive(Debug, Clone, Subcommand)]
@@ -19,6 +21,8 @@ pub enum MainCommand {
     Era(era_command::EraCommand),
     Serve(serve_command::ServeCommand),
     Tools(tools_command::ToolsCommand),
+    #[clap(alias("doc"))]
+    GenerateDoc(GenerateDocCommands),
 }
 
 impl MainCommand {
@@ -28,6 +32,7 @@ impl MainCommand {
             Self::Era(cmd) => cmd.execute(config_builder).await,
             Self::Serve(cmd) => cmd.execute(config_builder).await,
             Self::Tools(cmd) => cmd.execute(config_builder).await,
+            Self::GenerateDoc(cmd) => cmd.execute(&mut MainOpts::command()),
         }
     }
 }

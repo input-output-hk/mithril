@@ -2,13 +2,18 @@ mod demonstrator;
 mod types;
 
 use crate::demonstrator::{Demonstrator, ProtocolDemonstrator};
-use clap::Parser;
+use clap::{CommandFactory, Parser, Subcommand};
+use mithril_common::generate_doc::GenerateDocCommands;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 /// Simple demonstration of the Mithril protocol
-#[derive(Parser, Debug, PartialEq, Clone, Copy)]
+#[derive(Parser, Debug)]
 pub struct Config {
+    /// Available commands
+    #[command(subcommand)]
+    command: Option<DemoCommands>,
+
     /// Security parameter, upper bound on indices
     #[clap(short, long, default_value_t = 200)]
     m: u64,
@@ -30,8 +35,28 @@ pub struct Config {
     nmessages: usize,
 }
 
+impl Clone for Config {
+    fn clone(&self) -> Self {
+        Config {
+            command: None,
+            ..*self
+        }
+    }
+}
+
+#[derive(Subcommand, Debug)]
+enum DemoCommands {
+    #[clap(alias("doc"))]
+    GenerateDoc(GenerateDocCommands),
+}
+
 fn main() {
     let config = Config::parse();
+
+    if let Some(DemoCommands::GenerateDoc(cmd)) = &config.command {
+        cmd.execute(&mut Config::command()).unwrap();
+        return
+    }
 
     println!(">> Launch Mithril protocol demonstrator with configuration: \n{config:#?}");
 

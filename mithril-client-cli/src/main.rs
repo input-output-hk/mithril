@@ -182,7 +182,6 @@ impl ArtifactCommands {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
-
             Self::CardanoTransaction(ctx) => {
                 if !unstable_enabled {
                     Err(anyhow::anyhow!(
@@ -195,7 +194,7 @@ impl ArtifactCommands {
                     ctx.execute(config_builder).await
                 }
             },
-            Self::GenerateDoc(cmd) => cmd.execute(&mut Args::command()).await,
+            Self::GenerateDoc(cmd) => cmd.execute(&mut Args::command()),
         }
     }
 }
