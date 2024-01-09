@@ -1,8 +1,9 @@
 import { Modal, Spinner } from "react-bootstrap";
-import init, { MithrilClient } from "@mithril-dev/mithril-client-wasm";
+import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import LocalDateTime from "../LocalDateTime";
+import { formatProcessDuration, computeAggregatorNetworkFromUrl } from "../../utils";
 
 export default function VerifyCertificate({ show, onClose, certificateHash }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
@@ -11,23 +12,15 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
   const [verificationDuration, setVerificationDuration] = useState(null);
 
   useEffect(() => {
-    let startTime;
     async function buildClientAndVerifyChain() {
       try {
         const client = await initializeClient();
         if (certificateHash !== null && certificateHash !== undefined) {
-          startTime = performance.now();
+          let startTime = performance.now();
           const certificate = await client.get_mithril_certificate(certificateHash);
           setCertificateData(certificate);
           await client.verify_certificate_chain(certificateHash);
-
-          // Process duration
-          const duration = performance.now() - startTime;
-          const minutes = Math.floor(duration / 60000);
-          const seconds = Math.floor((duration % 60000) / 1000);
-          setVerificationDuration(
-            minutes > 0 ? `${minutes} minutes and ${seconds} seconds` : `${seconds} seconds`,
-          );
+          setVerificationDuration(formatProcessDuration(startTime));
         }
       } catch (error) {
         console.error("Error:", error);
@@ -55,16 +48,14 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function initializeClient() {
-    await init();
+    await initMithrilClient();
     const genesisVerificationKey = await fetchGenesisVerificationKey();
     return new MithrilClient(currentAggregator, genesisVerificationKey);
   }
 
   async function fetchGenesisVerificationKey() {
     try {
-      let network = currentAggregator.match(/aggregator\.(.*?)\.api/);
-      network = network && network[1] ? network[1] : null;
-
+      const network = computeAggregatorNetworkFromUrl(currentAggregator);
       const response = await fetch(
         "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/" +
           network +
@@ -89,10 +80,10 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
       displayEventInDOM("The certificate chain validation has started...");
     } else if (event.type === "CertificateValidated") {
       displayEventInDOM(
-        "A certificate has been validated, hash: " + event.payload.certificate_hash,
+        "A certificate has been validated, hash: <strong>" + event.payload.certificate_hash + "<strong>",
       );
     } else if (event.type === "CertificateChainValidated") {
-      displayEventInDOM("The certificate chain is valid ✅");
+      displayEventInDOM("<strong>The certificate chain is valid ✅<strong>");
     } else {
       displayEventInDOM(event);
     }
@@ -115,7 +106,7 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
       aria-labelledby="contained-modal-title-vcenter"
       centered>
       <Modal.Header closeButton>
-        <Modal.Title>Verify certificate and certificate chain</Modal.Title>
+        <Modal.Title>Verify certificate</Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {certificateData && (
