@@ -9,6 +9,18 @@ use std::time::Duration;
 use tokio::process::Child;
 
 #[derive(Debug)]
+pub struct AggregatorConfig<'a> {
+    pub server_port: u64,
+    pub bft_node: &'a BftNode,
+    pub cardano_cli_path: &'a Path,
+    pub work_dir: &'a Path,
+    pub bin_dir: &'a Path,
+    pub mithril_era: &'a str,
+    pub signed_entity_types: &'a [String],
+    pub chain_observer_type: &'a str,
+}
+
+#[derive(Debug)]
 pub struct Aggregator {
     server_port: u64,
     db_directory: PathBuf,
@@ -17,20 +29,14 @@ pub struct Aggregator {
 }
 
 impl Aggregator {
-    pub fn new(
-        server_port: u64,
-        bft_node: &BftNode,
-        cardano_cli_path: &Path,
-        work_dir: &Path,
-        bin_dir: &Path,
-        mithril_era: &str,
-        signed_entity_types: &[String],
-    ) -> StdResult<Self> {
+    pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
-        let server_port_parameter = server_port.to_string();
-        let era_reader_adapter_params =
-            format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
-        let signed_entity_types = signed_entity_types.join(",");
+        let server_port_parameter = aggregator_config.server_port.to_string();
+        let era_reader_adapter_params = format!(
+            r#"{{"markers": [{{"name": "{}", "epoch": 1}}]}}"#,
+            aggregator_config.mithril_era
+        );
+        let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", "400"),
@@ -43,25 +49,35 @@ impl Aggregator {
             ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
             (
                 "CARDANO_NODE_SOCKET_PATH",
-                bft_node.socket_path.to_str().unwrap(),
+                aggregator_config.bft_node.socket_path.to_str().unwrap(),
             ),
             ("STORE_RETENTION_LIMIT", "10"),
-            ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
+            ("CARDANO_CLI_PATH", aggregator_config.cardano_cli_path.to_str().unwrap()),
             ("GENESIS_VERIFICATION_KEY", "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d"),
             ("GENESIS_SECRET_KEY", "5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d"),
             ("ERA_READER_ADAPTER_TYPE", "dummy"),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
             ("CARDANO_NODE_VERSION", "8.1.2"),
-            ("CARDANO_NODE_VERSION", "8.1.2"),
+            ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
         ]);
-        let args = vec!["--db-directory", bft_node.db_path.to_str().unwrap(), "-vvv"];
+        let args = vec![
+            "--db-directory",
+            aggregator_config.bft_node.db_path.to_str().unwrap(),
+            "-vvv",
+        ];
 
-        let command = MithrilCommand::new("mithril-aggregator", work_dir, bin_dir, env, &args)?;
+        let command = MithrilCommand::new(
+            "mithril-aggregator",
+            aggregator_config.work_dir,
+            aggregator_config.bin_dir,
+            env,
+            &args,
+        )?;
 
         Ok(Self {
-            server_port,
-            db_directory: bft_node.db_path.clone(),
+            server_port: aggregator_config.server_port,
+            db_directory: aggregator_config.bft_node.db_path.clone(),
             command,
             process: None,
         })
