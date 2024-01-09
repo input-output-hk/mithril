@@ -23,7 +23,7 @@ SCRIPT_DIRECTORY=$(dirname $0)
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-start.sh
 
 # Generate the pools scripts
-#. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-pools.sh
+. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-pools.sh
 
 # Generate the query scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-query.sh

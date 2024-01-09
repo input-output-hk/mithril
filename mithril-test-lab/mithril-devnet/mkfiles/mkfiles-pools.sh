@@ -14,7 +14,7 @@ NODE_ID=1
 PARTY_IDS=()
 for NODE in ${POOL_NODES}; do
     PARTY_ID=$(./cardano-cli stake-pool id \
-                --cold-verification-key-file ${NODE}/shelley/operator.vkey)
+                --cold-verification-key-file ${NODE}/shelley/cold.vkey)
     PARTY_IDS[$NODE_ID]=$PARTY_ID
     echo PARTY_ID=${PARTY_ID} > ${NODE}/pool.env
     cat >> ${NODE}/metadata.json <<EOF
