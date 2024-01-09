@@ -8,7 +8,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 /// Simple demonstration of the Mithril protocol
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, PartialEq)]
 pub struct Config {
     /// Available commands
     #[command(subcommand)]
@@ -44,7 +44,7 @@ impl Clone for Config {
     }
 }
 
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, PartialEq)]
 enum DemoCommands {
     #[clap(alias("doc"))]
     GenerateDoc(GenerateDocCommands),

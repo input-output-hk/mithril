@@ -11,7 +11,7 @@ use crate::StdResult;
 const DEFAULT_OUTPUT_FILE_TEMPLATE: &str = "[PROGRAM NAME]-command-line.md";
 
 /// Generate documentation
-#[derive(Parser, Debug, Clone)]
+#[derive(Parser, Debug, PartialEq, Clone)]
 pub struct GenerateDocCommands {
     /// Generated documentation file 
     #[clap(long, default_value = DEFAULT_OUTPUT_FILE_TEMPLATE)]
