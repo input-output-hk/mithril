@@ -5,7 +5,7 @@ use clap::{Command, Arg, builder::StyledStr};
 
 
 /// Format a list of label and a list of text list into a markdown table.
-pub fn format_table(header: &Vec<&str>, lines: &Vec<Vec<String>>) -> String {
+pub fn format_table(header: &[&str], lines: &[Vec<String>]) -> String {
     format!("{}\n{}",
         format_table_header(header),
         lines.iter().map(|line| format_table_line(line)).collect::<Vec<String>>().join("\n"),
@@ -13,14 +13,14 @@ pub fn format_table(header: &Vec<&str>, lines: &Vec<Vec<String>>) -> String {
 }
 
 /// Format a list of text as a markdown table line.
-pub fn format_table_line(data: &Vec<String>) -> String {
+pub fn format_table_line(data: &[String]) -> String {
     format!("| {} |", data.join(" | "))
 }
 
 /// Format a list of label to a markdown header.
 /// To align the text to left, right or to center it, you need to ad `:` at left, right or both.
 /// Example:  :Description: 
-pub fn format_table_header(data: &Vec<&str>) -> String {
+pub fn format_table_header(data: &[&str]) -> String {
     let headers = data.iter().map(|header| {
         let align_left = header.chars().next().map(|c| c == ':').unwrap_or(false);
         let align_right = header.chars().last().map(|c| c == ':').unwrap_or(false);
@@ -60,18 +60,18 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
         if cmd.get_arguments().peekable().filter(|arg| arg.get_id().as_str() != "help").count() > 0 {
             let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n",
                 format_table(
-                    &vec!("Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"),
-                    &cmd.get_arguments().map(format_arg).collect(),
+                    &["Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"],
+                    &cmd.get_arguments().map(format_arg).collect::<Vec<Vec<String>>>(),
                 ),
             );
 
-            let parameters_explanation = format!("\n\
+            let parameters_explanation = "\n\
                 The configuration parameters can be set in either of the following ways:\n\
                 \n\
                 1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
                 \n\
                 2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
-                ");
+                ";
             format!("{}\n{}", parameters_explanation, parameters_table)
         } else {
             String::from("")
@@ -92,7 +92,7 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
     fn format_command_internal(cmd: &Command, parent: Option<String>, help: String) -> String {
         let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
         let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
-        let description = format!("{}", cmd.get_about().map_or("".into(), StyledStr::to_string));
+        let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
         let subcommands_table = if cmd.get_subcommands().peekable().peek().is_some() {
             let subcommands_lines = cmd.get_subcommands().map(|command| {
@@ -101,10 +101,10 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
                     command.get_all_aliases().collect::<Vec<&str>>().join(","),
                     command.get_about().map_or("".into(), StyledStr::to_string)
                 )
-            }).collect();
+            }).collect::<Vec<Vec<String>>>();
 
             format_table(
-                &vec!("Subcommand", "Aliases", "Performed action"),
+                &["Subcommand", "Aliases", "Performed action"],
                 &subcommands_lines,
             )
         } else {
@@ -114,7 +114,7 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
         let parameters = format_parameters(cmd);
 
         let subcommands = cmd.get_subcommands()
-            .filter(|sub_command| sub_command.get_name() != String::from("help"))
+            .filter(|sub_command| sub_command.get_name() != "help")
             .map(|sub_command: &Command| {
                 format_command(&mut sub_command.clone(), Some(format!("{} {}", parent_ancestors, cmd.get_name())))
             }

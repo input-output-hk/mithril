@@ -11,7 +11,7 @@ Commands:
   aggregator    Run a relay for a Mithril aggregator
   signer        Run a relay for a Mithril signer
   passive       Run a passive relay (just a peer in the P2P network)
-  generate-doc  Generate documentation
+  generate-doc  Generate command line documentation
   help          Print this message or the help of the given subcommand(s)
 
 Options:
@@ -41,7 +41,7 @@ Options:
 | **aggregator** |  | Run a relay for a Mithril aggregator |
 | **signer** |  | Run a relay for a Mithril signer |
 | **passive** |  | Run a passive relay (just a peer in the P2P network) |
-| **generate-doc** | doc | Generate documentation |
+| **generate-doc** | doc | Generate command line documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
 The configuration parameters can be set in either of the following ways:
@@ -208,9 +208,9 @@ Here is a list of the available parameters:
 
 ###  mithril-relay generate-doc
 
-Generate documentation
+Generate command line documentation
 ```bash
-Generate documentation
+Generate command line documentation
 
 Usage: generate-doc [OPTIONS]
 

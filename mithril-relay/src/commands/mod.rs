@@ -13,10 +13,11 @@ pub use signer::SignerCommand;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 use mithril_common::StdResult;
-use slog::{Drain, Level, Logger};
+use slog::Level;
 use slog_scope::debug;
-use std::{path::PathBuf, sync::Arc};
+use std::path::PathBuf;
 
+/// Relay for Mithril Node
 #[derive(Parser, Debug, Clone)]
 #[clap(name = "mithril-relay")]
 #[clap(
@@ -43,6 +44,7 @@ pub struct Args {
 }
 
 impl Args {
+    /// execute command
     pub async fn execute(&self) -> StdResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
@@ -54,7 +56,8 @@ impl Args {
         self.command.execute(config).await
     }
 
-    fn log_level(&self) -> Level {
+    /// get log level from parameters
+    pub fn log_level(&self) -> Level {
         match self.verbose {
             0 => Level::Error,
             1 => Level::Warning,
@@ -64,14 +67,6 @@ impl Args {
         }
     }
 
-    pub fn build_logger(&self) -> Logger {
-        let decorator = slog_term::TermDecorator::new().build();
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-
-        Logger::root(Arc::new(drain), slog::o!())
-    }
 }
 
 impl Source for Args {

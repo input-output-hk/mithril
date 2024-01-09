@@ -29,8 +29,7 @@ impl GenerateDocCommands {
             self.output.clone()
         };
         let mut buffer: File = File::create(&output)?;
-        buffer.write(b"\n")?;
-        buffer.write(doc.as_bytes())?;
+        write!(buffer, "\n{}", doc)?;
         println!("Documentation generated in file `{}`", &output);
         Ok(())
     }
