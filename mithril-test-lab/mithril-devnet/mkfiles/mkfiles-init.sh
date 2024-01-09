@@ -8,6 +8,15 @@ fi
 if [ -z "${NETWORK_MAGIC}" ]; then 
   NETWORK_MAGIC=42
 fi
+if [ -z "${HARD_FORK_BABBAGE_AT_EPOCH}" ]; then 
+  HARD_FORK_BABBAGE_AT_EPOCH=0
+fi
+if [ -n "${HARD_FORK_LATEST_ERA_AT_EPOCH}" ]; then 
+  HARD_FORK_CONWAY_AT_EPOCH=$(( HARD_FORK_BABBAGE_AT_EPOCH + HARD_FORK_LATEST_ERA_AT_EPOCH ))
+fi
+if [ -z "${HARD_FORK_CONWAY_AT_EPOCH}" ]; then 
+  HARD_FORK_CONWAY_AT_EPOCH=0
+fi
 if [ -z "${NUM_BFT_NODES}" ]; then 
   NUM_BFT_NODES="1"
 fi
@@ -25,15 +34,16 @@ if [ -z "${LISTENING_ADDR}" ]; then
 fi
 
 # Display configuration summary
-echo ">> Artifacts Directory: ${ARTIFACTS_DIR}"
-echo ">> Cardano Node Version: ${CARDANO_NODE_VERSION}"
-echo ">> Cardano Network Magic: ${NETWORK_MAGIC}"
-echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
-echo ">> Cardano SPO nodes: ${NUM_POOL_NODES}"
-echo ">> Cardano Slot Length: ${SLOT_LENGTH}s"
-echo ">> Cardano Epoch Length: ${EPOCH_LENGTH}s"
-echo ">> Cardano Delegation Period: ${DELEGATE_PERIOD}s"
-echo ">> Cardano Listening Address: ${LISTENING_ADDR}"
+echo ">> Artifacts Directory[env::ARTIFACTS_DIR]: ${ARTIFACTS_DIR}"
+echo ">> Cardano BFT nodes [env::NUM_BFT_NODES]: ${NUM_BFT_NODES}"
+echo ">> Cardano SPO nodes [env::NUM_POOL_NODES]: ${NUM_POOL_NODES}"
+echo ">> Cardano Node Version [env::CARDANO_NODE_VERSION]: ${CARDANO_NODE_VERSION}"
+echo ">> Cardano Network Magic [env::NETWORK_MAGIC]: ${NETWORK_MAGIC}"
+echo ">> Cardano Hard Fork Babbage At Epoch [env::HARD_FORK_BABBAGE_AT_EPOCH]: ${HARD_FORK_BABBAGE_AT_EPOCH}"
+echo ">> Cardano Hard Fork Conway At Epoch [env::HARD_FORK_CONWAY_AT_EPOCH]: ${HARD_FORK_CONWAY_AT_EPOCH}"
+echo ">> Cardano Slot Length [env::SLOT_LENGTH]: ${SLOT_LENGTH}s"
+echo ">> Cardano Epoch Length [env::EPOCH_LENGTH]: ${EPOCH_LENGTH}s"
+echo ">> Cardano Listening Address [env::LISTENING_ADDR]: ${LISTENING_ADDR}"
 
 # Check if root directory already exists
 if ! mkdir -p "${ARTIFACTS_DIR}"; then

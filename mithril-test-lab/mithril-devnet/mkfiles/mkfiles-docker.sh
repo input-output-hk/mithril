@@ -39,7 +39,7 @@ cat >> docker-compose.yaml <<EOF
         "--socket-path",
         "/data/ipc/node.sock",
         "--shelley-operational-certificate",
-        "/data/shelley/node.cert",
+        "/data/shelley/opcert.cert",
         "--shelley-kes-key",
         "/data/shelley/kes.skey",
         "--shelley-vrf-key",
@@ -88,7 +88,7 @@ cat >> docker-compose.yaml <<EOF
         "--socket-path",
         "/data/ipc/node.sock",
         "--shelley-operational-certificate",
-        "/data/shelley/node.cert",
+        "/data/shelley/opcert.cert",
         "--shelley-kes-key",
         "/data/shelley/kes.skey",
         "--shelley-vrf-key",
@@ -221,7 +221,7 @@ EOF
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - KES_SECRET_KEY_PATH=/data/shelley/kes.skey
-      - OPERATIONAL_CERTIFICATE_PATH=/data/shelley/node.cert
+      - OPERATIONAL_CERTIFICATE_PATH=/data/shelley/opcert.cert
     command:
       [
         "-vvv"

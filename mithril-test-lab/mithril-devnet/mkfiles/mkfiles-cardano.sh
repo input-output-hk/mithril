@@ -98,8 +98,8 @@ echo "TestShelleyHardForkAtEpoch: 0" >> "${ARTIFACTS_DIR_TEMP}/configuration.yam
 echo "TestAllegraHardForkAtEpoch: 0" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 echo "TestMaryHardForkAtEpoch: 0" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 echo "TestAlonzoHardForkAtEpoch: 0" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
-echo "TestBabbageHardForkAtEpoch: 0" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
-echo "TestConwayHardForkAtEpoch: 0" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
+echo "TestBabbageHardForkAtEpoch: ${HARD_FORK_BABBAGE_AT_EPOCH}" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
+echo "TestConwayHardForkAtEpoch: ${HARD_FORK_CONWAY_AT_EPOCH}" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 echo "ExperimentalProtocolsEnabled: True" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 
 $CARDANO_CLI genesis create-staked --genesis-dir "${ARTIFACTS_DIR_TEMP}" \
