@@ -33,7 +33,7 @@ impl Aggregator {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
         let era_reader_adapter_params = format!(
-            r#"{{"markers": [{{"name": "{}", "epoch": 1}}]}}"#,
+            r#"{{"markers": [{{"name": "{}", "epoch": 0}}]}}"#,
             aggregator_config.mithril_era
         );
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");

@@ -84,20 +84,19 @@ impl Devnet {
             "SKIP_CARDANO_BIN_DOWNLOAD",
             skip_cardano_bin_download.to_string(),
         );
-        let command_args = &[
-            artifacts_target_dir.to_str().unwrap(),
-            &number_of_bft_nodes.to_string(),
-            &number_of_pool_nodes.to_string(),
-            &cardano_slot_length.to_string(),
-            &cardano_epoch_length.to_string(),
-        ];
+        bootstrap_command.env("ARTIFACTS_DIR", artifacts_target_dir.to_str().unwrap());
+        bootstrap_command.env("NUM_BFT_NODES", number_of_bft_nodes.to_string());
+        bootstrap_command.env("NUM_POOL_NODES", number_of_pool_nodes.to_string());
+        bootstrap_command.env("SLOT_LENGTH", cardano_slot_length.to_string());
+        bootstrap_command.env("EPOCH_LENGTH", cardano_epoch_length.to_string());
+        bootstrap_command.env("HARD_FORK_LATEST_ERA_AT_EPOCH", "1000"); //TODO: set as configuration parameter
+
         bootstrap_command
             .current_dir(devnet_scripts_dir)
-            .args(command_args)
             .stdout(Stdio::null())
             .kill_on_drop(true);
 
-        info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display(), "args" => #?&command_args);
+        info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display());
 
         bootstrap_command
             .spawn()
@@ -149,7 +148,7 @@ impl Devnet {
                     .join(format!("node-pool{n}/shelley/kes.skey")),
                 operational_certificate_path: self
                     .artifacts_dir
-                    .join(format!("node-pool{n}/shelley/node.cert")),
+                    .join(format!("node-pool{n}/shelley/opcert.cert")),
             })
             .collect::<Vec<_>>();
 
@@ -273,7 +272,7 @@ mod tests {
                     pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
                     kes_secret_key_path: PathBuf::from(r"test/path/node-pool1/shelley/kes.skey"),
                     operational_certificate_path: PathBuf::from(
-                        r"test/path/node-pool1/shelley/node.cert"
+                        r"test/path/node-pool1/shelley/opcert.cert"
                     ),
                 },],
             },
