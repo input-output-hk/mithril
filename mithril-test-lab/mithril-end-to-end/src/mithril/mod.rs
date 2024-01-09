@@ -5,7 +5,7 @@ mod relay_aggregator;
 mod relay_signer;
 mod signer;
 
-pub use aggregator::Aggregator;
+pub use aggregator::{Aggregator, AggregatorConfig};
 pub use client::{Client, ClientCommand, MithrilStakeDistributionCommand, SnapshotCommand};
 pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;

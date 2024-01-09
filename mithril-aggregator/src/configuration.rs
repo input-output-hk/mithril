@@ -1,5 +1,6 @@
 use anyhow::anyhow;
 use config::{ConfigError, Map, Source, Value, ValueKind};
+use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
@@ -63,6 +64,9 @@ pub struct Configuration {
 
     /// Cardano network
     pub network: String,
+
+    /// Cardano chain observer type
+    pub chain_observer_type: ChainObserverType,
 
     /// Protocol parameters
     pub protocol_parameters: ProtocolParameters,
@@ -175,6 +179,7 @@ impl Configuration {
             cardano_node_version: "0.0.1".to_string(),
             network_magic: Some(42),
             network: "devnet".to_string(),
+            chain_observer_type: ChainObserverType::Fake,
             protocol_parameters: ProtocolParameters {
                 k: 5,
                 m: 100,
@@ -263,6 +268,9 @@ pub struct DefaultConfiguration {
     /// Era reader adapter type
     pub era_reader_adapter_type: String,
 
+    /// Chain observer type
+    pub chain_observer_type: String,
+
     /// ImmutableDigesterCacheProvider default setting
     pub reset_digests_cache: String,
 
@@ -290,6 +298,7 @@ impl Default for DefaultConfiguration {
             snapshot_store_type: "local".to_string(),
             snapshot_uploader_type: "gcp".to_string(),
             era_reader_adapter_type: "bootstrap".to_string(),
+            chain_observer_type: "pallas".to_string(),
             reset_digests_cache: "false".to_string(),
             disable_digests_cache: "false".to_string(),
             snapshot_compression_algorithm: "zstandard".to_string(),

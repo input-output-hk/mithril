@@ -1,4 +1,7 @@
-use crate::{Aggregator, Client, Devnet, RelayAggregator, RelaySigner, Signer, DEVNET_MAGIC_ID};
+use crate::{
+    Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelaySigner, Signer,
+    DEVNET_MAGIC_ID,
+};
 use anyhow::anyhow;
 use mithril_common::chain_observer::{
     CardanoCliChainObserver, CardanoCliRunner, ChainObserver, PallasChainObserver,
@@ -40,16 +43,18 @@ impl MithrilInfrastructure {
             .bft_nodes
             .first()
             .ok_or_else(|| anyhow!("No BFT node available for the aggregator"))?;
+        let chain_observer_type = "pallas";
 
-        let mut aggregator = Aggregator::new(
-            config.server_port,
+        let mut aggregator = Aggregator::new(&AggregatorConfig {
+            server_port: config.server_port,
             bft_node,
-            &config.devnet.cardano_cli_path(),
-            &config.work_dir,
-            &config.bin_dir,
-            &config.mithril_era,
-            &config.signed_entity_types,
-        )?;
+            cardano_cli_path: &config.devnet.cardano_cli_path(),
+            work_dir: &config.work_dir,
+            bin_dir: &config.bin_dir,
+            mithril_era: &config.mithril_era,
+            signed_entity_types: &config.signed_entity_types,
+            chain_observer_type,
+        })?;
         aggregator.set_protocol_parameters(&ProtocolParameters {
             k: 75,
             m: 100,
