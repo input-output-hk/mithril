@@ -59,7 +59,7 @@ impl PallasChainObserver {
         self.new_client()
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to create new client")
+            .with_context(|| "PallasChainObserver failed to create new client")
     }
 
     /// Fetches the current epoch number using the provided `statequery` client.
@@ -152,23 +152,23 @@ impl PallasChainObserver {
             .acquire(None)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to acquire statequery")?;
+            .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
         let era = queries_v16::get_current_era(statequery)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to get current era")?;
+            .with_context(|| "PallasChainObserver failed to get current era")?;
 
         let addr: Address = Address::from_bech32(address)
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to parse address")?;
+            .with_context(|| "PallasChainObserver failed to parse address")?;
 
         let addr: Addr = addr.to_vec().into();
         let addrs: Addrs = vec![addr];
         let utxo = queries_v16::get_utxo_by_address(statequery, era, addrs)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver Failed to get utxo")?;
+            .with_context(|| "PallasChainObserver failed to get utxo")?;
 
         Ok(utxo)
     }
