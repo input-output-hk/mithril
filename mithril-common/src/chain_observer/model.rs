@@ -10,6 +10,7 @@ use crate::{StdError, StdResult};
 
 cfg_fs! {
     use serde::Deserialize;
+    use minicbor::{Decode, Decoder, decode};
     use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
     /// [Datum] represents an inline datum from UTxO.
     #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
@@ -22,8 +23,8 @@ cfg_fs! {
         }
     }
 
-    impl<'a, C> minicbor::Decode<'a, C> for Datum {
-        fn decode(d: &mut minicbor::Decoder<'a>, ctx: &mut C) -> Result<Self, minicbor::decode::Error> {
+    impl<'a, C> Decode<'a, C> for Datum {
+        fn decode(d: &mut Decoder<'a>, ctx: &mut C) -> Result<Self, decode::Error> {
             PlutusData::decode(d, ctx).map(Datum)
         }
     }
@@ -31,9 +32,9 @@ cfg_fs! {
     /// Inspects the given bytes and returns a decoded `R` instance.
     pub fn try_inspect<R>(inner: Vec<u8>) -> StdResult<R>
     where
-        for<'b> R: minicbor::Decode<'b, ()>,
+        for<'b> R: Decode<'b, ()>,
     {
-        minicbor::decode(&inner).map_err(|e| anyhow!(e)).with_context(|| {
+        decode(&inner).map_err(|e| anyhow!(e)).with_context(|| {
             format!(
                 "failed to decode datum: {}",
                 hex::encode(&inner)
