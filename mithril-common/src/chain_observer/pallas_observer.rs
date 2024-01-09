@@ -2,9 +2,13 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_addresses::Address;
 use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
-use pallas_network::facades::NodeClient;
-use pallas_network::miniprotocols::localstate::queries_v16::{Addr, Addrs, UTxOByAddress, Values};
-use pallas_network::miniprotocols::localstate::{queries_v16, Client};
+use pallas_network::{
+    facades::NodeClient,
+    miniprotocols::localstate::{
+        queries_v16::{self, Addr, Addrs, UTxOByAddress, Values},
+        Client,
+    },
+};
 use pallas_primitives::ToCanonicalJson;
 use std::path::{Path, PathBuf};
 
