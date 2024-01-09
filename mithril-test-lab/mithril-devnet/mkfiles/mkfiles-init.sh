@@ -25,8 +25,7 @@ if [ -z "${LISTENING_ADDR}" ]; then
 fi
 
 # Display configuration summary
-echo ">> Directory: ${ROOT}"
-echo ">> Nodes: ${NODES}"
+echo ">> Artifacts Directory: ${ARTIFACTS_DIR}"
 echo ">> Cardano Node Version: ${CARDANO_NODE_VERSION}"
 echo ">> Cardano Network Magic: ${NETWORK_MAGIC}"
 echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
@@ -37,8 +36,8 @@ echo ">> Cardano Delegation Period: ${DELEGATE_PERIOD}s"
 echo ">> Cardano Listening Address: ${LISTENING_ADDR}"
 
 # Check if root directory already exists
-if ! mkdir -p "${ROOT}"; then
-  echo ">> The ${ROOT} directory already exists, please move or remove it"
+if ! mkdir -p "${ARTIFACTS_DIR}"; then
+  echo "The ${ARTIFACTS_DIR} directory already exists, please move or remove it"
   exit
 fi
 
@@ -51,7 +50,7 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
 fi
 
 # And copy cardano-cli & cardano-node
-cp cardano-cli ${ROOT}/cardano-cli
-cp cardano-node ${ROOT}/cardano-node
+cp cardano-cli ${ARTIFACTS_DIR}/cardano-cli
+cp cardano-node ${ARTIFACTS_DIR}/cardano-node
 
-pushd ${ROOT} > /dev/null
+pushd ${ARTIFACTS_DIR} > /dev/null

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
 # Default values
-if [ -z "${ROOT}" ]; then 
-  ROOT="artifacts"
+if [ -z "${ARTIFACTS_DIR}" ]; then 
+  ARTIFACTS_DIR="artifacts"
 fi
 if [ -z "${NODES}" ]; then 
   NODES="*"
 fi
 
 # Change directory
-cd ${ROOT}
+cd ${ARTIFACTS_DIR}
 
 # Query devnet
 echo "====================================================================="

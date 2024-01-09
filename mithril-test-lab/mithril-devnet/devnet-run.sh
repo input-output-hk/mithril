@@ -5,11 +5,11 @@ set -e
 if [ -z "${NODES}" ]; then 
   NODES="*"
 fi
-if [ -z "${ROOT}" ]; then 
-  ROOT="artifacts"
+if [ -z "${ARTIFACTS_DIR}" ]; then 
+  ARTIFACTS_DIR="artifacts"
 fi
-if [ -z "${FORCE_DELETE_ROOT_DIRECTORY}" ]; then 
-  FORCE_DELETE_ROOT_DIRECTORY="true"
+if [ -z "${FORCE_DELETE_ARTIFACTS_DIR}" ]; then 
+  FORCE_DELETE_ARTIFACTS_DIR="true"
 fi
 if [ -z "${DELEGATE_PERIOD}" ]; then 
   DELEGATE_PERIOD="180"
@@ -21,15 +21,15 @@ echo "====================================================================="
 echo " Bootstrap Mithril/Cardano devnet"
 echo "====================================================================="
 echo
-if [[ "$FORCE_DELETE_ROOT_DIRECTORY" == "true" ]]; then
-  echo ">> The ${ROOT} directory was force deleted"
-  rm -rf ${ROOT} > /dev/null
+if [[ "$FORCE_DELETE_ARTIFACTS_DIR" == "true" ]]; then
+  echo ">> The ${ARTIFACTS_DIR} directory was force deleted"
+  rm -rf ${ARTIFACTS_DIR} > /dev/null
 fi
-ROOT=${ROOT} $(pwd)/devnet-mkfiles.sh
+ARTIFACTS_DIR=${ARTIFACTS_DIR} $(pwd)/devnet-mkfiles.sh
 echo
 
 # Change directory
-pushd ${ROOT} > /dev/null
+pushd ${ARTIFACTS_DIR} > /dev/null
 
 # Start devnet Cardano nodes
 if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
