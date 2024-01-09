@@ -32,8 +32,10 @@ fi
 if [ -z "${LISTENING_ADDR}" ]; then 
   LISTENING_ADDR="127.0.0.1"
 fi
+DEVNET_VERSION=$(cat VERSION)
 
 # Display configuration summary
+echo ">> Devnet Version: ${DEVNET_VERSION}"
 echo ">> Artifacts Directory[env::ARTIFACTS_DIR]: ${ARTIFACTS_DIR}"
 echo ">> Cardano BFT nodes [env::NUM_BFT_NODES]: ${NUM_BFT_NODES}"
 echo ">> Cardano SPO nodes [env::NUM_POOL_NODES]: ${NUM_POOL_NODES}"
