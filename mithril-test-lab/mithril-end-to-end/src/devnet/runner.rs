@@ -52,47 +52,72 @@ pub struct DevnetTopology {
     pub pool_nodes: Vec<PoolNode>,
 }
 
+#[derive(Debug, Clone)]
+pub struct DevnetBootstrapArgs {
+    pub devnet_scripts_dir: PathBuf,
+    pub artifacts_target_dir: PathBuf,
+    pub number_of_bft_nodes: u8,
+    pub number_of_pool_nodes: u8,
+    pub cardano_slot_length: f64,
+    pub cardano_epoch_length: f64,
+    pub cardano_hard_fork_latest_era_at_epoch: u16,
+    pub skip_cardano_bin_download: bool,
+}
+
 impl Devnet {
-    pub async fn bootstrap(
-        devnet_scripts_dir: PathBuf,
-        artifacts_target_dir: PathBuf,
-        number_of_bft_nodes: u8,
-        number_of_pool_nodes: u8,
-        cardano_slot_length: f64,
-        cardano_epoch_length: f64,
-        skip_cardano_bin_download: bool,
-    ) -> StdResult<Devnet> {
+    pub async fn bootstrap(bootstrap_args: &DevnetBootstrapArgs) -> StdResult<Devnet> {
         let bootstrap_script = "devnet-mkfiles.sh";
-        let bootstrap_script_path = devnet_scripts_dir
+        let bootstrap_script_path = bootstrap_args
+            .devnet_scripts_dir
             .canonicalize()
             .with_context(|| {
                 format!(
                     "Can't find bootstrap script '{}' in {}",
                     bootstrap_script,
-                    devnet_scripts_dir.display(),
+                    bootstrap_args.devnet_scripts_dir.display(),
                 )
             })?
             .join(bootstrap_script);
 
-        if artifacts_target_dir.exists() {
-            fs::remove_dir_all(&artifacts_target_dir)
+        if bootstrap_args.artifacts_target_dir.exists() {
+            fs::remove_dir_all(&bootstrap_args.artifacts_target_dir)
                 .with_context(|| "Previous artifacts dir removal failed")?;
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
         bootstrap_command.env(
             "SKIP_CARDANO_BIN_DOWNLOAD",
-            skip_cardano_bin_download.to_string(),
+            bootstrap_args.skip_cardano_bin_download.to_string(),
         );
-        bootstrap_command.env("ARTIFACTS_DIR", artifacts_target_dir.to_str().unwrap());
-        bootstrap_command.env("NUM_BFT_NODES", number_of_bft_nodes.to_string());
-        bootstrap_command.env("NUM_POOL_NODES", number_of_pool_nodes.to_string());
-        bootstrap_command.env("SLOT_LENGTH", cardano_slot_length.to_string());
-        bootstrap_command.env("EPOCH_LENGTH", cardano_epoch_length.to_string());
-        bootstrap_command.env("HARD_FORK_LATEST_ERA_AT_EPOCH", "1000"); //TODO: set as configuration parameter
+        bootstrap_command.env(
+            "ARTIFACTS_DIR",
+            bootstrap_args.artifacts_target_dir.to_str().unwrap(),
+        );
+        bootstrap_command.env(
+            "NUM_BFT_NODES",
+            bootstrap_args.number_of_bft_nodes.to_string(),
+        );
+        bootstrap_command.env(
+            "NUM_POOL_NODES",
+            bootstrap_args.number_of_pool_nodes.to_string(),
+        );
+        bootstrap_command.env(
+            "SLOT_LENGTH",
+            bootstrap_args.cardano_slot_length.to_string(),
+        );
+        bootstrap_command.env(
+            "EPOCH_LENGTH",
+            bootstrap_args.cardano_epoch_length.to_string(),
+        );
+        bootstrap_command.env(
+            "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
+            bootstrap_args
+                .cardano_hard_fork_latest_era_at_epoch
+                .to_string(),
+        );
 
         bootstrap_command
-            .current_dir(devnet_scripts_dir)
+            .current_dir(&bootstrap_args.devnet_scripts_dir)
             .stdout(Stdio::null())
             .kill_on_drop(true);
 
@@ -106,9 +131,9 @@ impl Devnet {
             .with_context(|| format!("{bootstrap_script} failed to run"))?;
 
         Ok(Devnet {
-            artifacts_dir: artifacts_target_dir,
-            number_of_bft_nodes,
-            number_of_pool_nodes,
+            artifacts_dir: bootstrap_args.artifacts_target_dir.to_owned(),
+            number_of_bft_nodes: bootstrap_args.number_of_bft_nodes,
+            number_of_pool_nodes: bootstrap_args.number_of_pool_nodes,
         })
     }
 

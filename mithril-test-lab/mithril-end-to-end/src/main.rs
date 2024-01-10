@@ -1,7 +1,7 @@
 use clap::Parser;
 use mithril_common::StdResult;
 use mithril_end_to_end::{
-    Devnet, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
 };
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
@@ -53,6 +53,10 @@ pub struct Args {
     /// Length of a Cardano epoch in the devnet (in s)
     #[clap(long, default_value_t = 45.0)]
     cardano_epoch_length: f64,
+
+    /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
+    #[clap(long, default_value_t = 0)]
+    cardano_hard_fork_latest_era_at_epoch: u16,
 
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
@@ -118,15 +122,16 @@ async fn main() -> StdResult<()> {
     let run_only_mode = args.run_only;
     let use_p2p_network_mode = args.use_p2p_network;
 
-    let devnet = Devnet::bootstrap(
-        args.devnet_scripts_directory,
-        work_dir.join("devnet"),
-        args.number_of_bft_nodes,
-        args.number_of_pool_nodes,
-        args.cardano_slot_length,
-        args.cardano_epoch_length,
-        args.skip_cardano_bin_download,
-    )
+    let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
+        devnet_scripts_dir: args.devnet_scripts_directory,
+        artifacts_target_dir: work_dir.join("devnet"),
+        number_of_bft_nodes: args.number_of_bft_nodes,
+        number_of_pool_nodes: args.number_of_pool_nodes,
+        cardano_slot_length: args.cardano_slot_length,
+        cardano_epoch_length: args.cardano_epoch_length,
+        cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
+        skip_cardano_bin_download: args.skip_cardano_bin_download,
+    })
     .await?;
 
     let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
