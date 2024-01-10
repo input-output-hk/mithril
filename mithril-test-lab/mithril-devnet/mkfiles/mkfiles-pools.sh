@@ -39,37 +39,43 @@ CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 EOF
 
-# Prepare transactions for activating stake pools
+# Prepare transactions for delegating to stake pools
 for N in ${POOL_NODES_N}; do
-
-  # We'll transfer funds to the user1, which delegates to pool1
-  # We'll register certs to:
-  #  1. delegate from the user1 stake address to the stake pool
   cat >> delegate.sh <<EOF
-    
     AMOUNT_STAKED=\$(( $N*1000000 +  DELEGATION_ROUND*1 ))
 
+    # Get the UTxO
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
-      --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file tmp.txt \\
-      && cat tmp.txt | jq  -r 'to_entries | [last] | .[0].key' \\
-      && rm -f tmp.txt)
+      --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file /dev/stdout \\
+      | jq  -r 'to_entries | [last] | .[0].key')
 
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
-        --alonzo-era \\
-        --tx-in \${TX_IN} \\
-        --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
-        --change-address \$(cat addresses/utxo${N}.addr) \\
-        --testnet-magic ${NETWORK_MAGIC} \\
-        --certificate-file addresses/user${N}-stake.deleg.cert \\
-        --invalid-hereafter 100000 \\
-        --out-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.txbody \\
-        --witness-override 2
+    # Build the transaction
+    if [ "\$DELEGATION_ROUND" -eq 1 ]; then
+      # First delegation round, we need to include registration certificate and delegation certificate
+      CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
+          --tx-in \${TX_IN} \\
+          --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
+          --change-address \$(cat addresses/utxo${N}.addr) \\
+          --testnet-magic ${NETWORK_MAGIC} \\
+          --certificate-file addresses/user${N}-stake.reg.cert \\
+          --certificate-file addresses/user${N}-stake.deleg.cert \\
+          --invalid-hereafter 100000 \\
+          --out-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.txbody \\
+          --witness-override 2
+    else
+      # All other delegation rounds, we need to include only delegation certificate
+      CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
+          --tx-in \${TX_IN} \\
+          --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
+          --change-address \$(cat addresses/utxo${N}.addr) \\
+          --testnet-magic ${NETWORK_MAGIC} \\
+          --certificate-file addresses/user${N}-stake.deleg.cert \\
+          --invalid-hereafter 100000 \\
+          --out-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.txbody \\
+          --witness-override 2
+    fi
 
-EOF
-
-  # So we'll need to sign this with a the following keys:
-  # 1. the user1 stake address key, due to the delegation cert
-  cat >> delegate.sh <<EOF
+    # Sign the transaction
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction sign \\
         --signing-key-file addresses/utxo${N}.skey \\
         --signing-key-file addresses/user${N}-stake.skey \\
@@ -77,10 +83,7 @@ EOF
         --tx-body-file  node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.txbody \\
         --out-file      node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.tx
 
-EOF
-
-  # Copy submit transaction to delegate.sh script
-  cat >> delegate.sh <<EOF
+    # Submit the transaction
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction submit \\
         --tx-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.tx \\
         --testnet-magic ${NETWORK_MAGIC}

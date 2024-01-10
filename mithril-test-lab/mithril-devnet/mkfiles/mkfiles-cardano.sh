@@ -150,3 +150,53 @@ for N in ${POOL_NODES_N}; do
   cp ${ARTIFACTS_DIR_TEMP}/pools/opcert${N}.counter node-pool${N}/shelley/opcert.counter  
   cp ${ARTIFACTS_DIR_TEMP}/pools/opcert${N}.cert node-pool${N}/shelley/opcert.cert  
 done
+
+# Prepare staking
+cp -r ${ARTIFACTS_DIR_TEMP}/utxo-keys/* addresses
+
+for ADDR in ${UTXO_ADDRS}; do
+    # Payment addresses
+    ./cardano-cli address build \
+        --payment-verification-key-file addresses/${ADDR}.vkey \
+        --testnet-magic ${NETWORK_MAGIC} \
+        --out-file addresses/${ADDR}.addr
+done
+
+for ADDR in ${USER_ADDRS}; do
+  # Payment address keys
+  ./cardano-cli address key-gen \
+      --verification-key-file addresses/${ADDR}.vkey \
+      --signing-key-file      addresses/${ADDR}.skey
+
+  # Stake address keys
+  ./cardano-cli stake-address key-gen \
+      --verification-key-file addresses/${ADDR}-stake.vkey \
+      --signing-key-file      addresses/${ADDR}-stake.skey
+
+  # Payment addresses
+  ./cardano-cli address build \
+      --payment-verification-key-file addresses/${ADDR}.vkey \
+      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
+      --testnet-magic ${NETWORK_MAGIC} \
+      --out-file addresses/${ADDR}.addr
+
+  # Stake addresses
+  ./cardano-cli stake-address build \
+      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
+      --testnet-magic ${NETWORK_MAGIC} \
+      --out-file addresses/${ADDR}-stake.addr
+
+  # Stake addresses registration certs
+  ./cardano-cli stake-address registration-certificate \
+      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
+      --out-file addresses/${ADDR}-stake.reg.cert
+done
+
+# User N will delegate to pool N
+for N in ${POOL_NODES_N}; do
+  # Stake address delegation certs
+  ./cardano-cli stake-address delegation-certificate \
+      --stake-verification-key-file addresses/user${N}-stake.vkey \
+      --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
+      --out-file addresses/user${N}-stake.deleg.cert
+done

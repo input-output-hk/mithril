@@ -65,4 +65,8 @@ fi
 cp cardano-cli ${ARTIFACTS_DIR}/cardano-cli
 cp cardano-node ${ARTIFACTS_DIR}/cardano-node
 
+# Switch to artifacts directory
 pushd ${ARTIFACTS_DIR} > /dev/null
+
+# Create addresses sub-directory
+mkdir addresses
