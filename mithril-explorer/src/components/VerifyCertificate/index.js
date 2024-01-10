@@ -80,7 +80,9 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
       displayEventInDOM("The certificate chain validation has started...");
     } else if (event.type === "CertificateValidated") {
       displayEventInDOM(
-        "A certificate has been validated, hash: <strong>" + event.payload.certificate_hash + "<strong>",
+        "A certificate has been validated, hash: <strong>" +
+          event.payload.certificate_hash +
+          "<strong>",
       );
     } else if (event.type === "CertificateChainValidated") {
       displayEventInDOM("<strong>The certificate chain is valid ✅<strong>");

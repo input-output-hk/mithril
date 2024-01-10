@@ -8,7 +8,7 @@ import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
 import ProtocolParameters from "../ProtocolParameters";
 import SignerTable from "../SignerTable";
-import VerifyCertificate from "../VerifyCertificate"; 
+import VerifyCertificate from "../VerifyCertificate";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -181,7 +181,11 @@ export default function CertificateModal(props) {
         )}
         <RawJsonButton href={certificateEndpoint} size="sm" />
       </Modal.Footer>
-      <VerifyCertificate show={showVerifyCertificateModal} onClose={() => setShowVerifyCertificateModal(false)} certificateHash={certificate.hash} />
+      <VerifyCertificate
+        show={showVerifyCertificateModal}
+        onClose={() => setShowVerifyCertificateModal(false)}
+        certificateHash={certificate.hash}
+      />
     </Modal>
   );
 }
