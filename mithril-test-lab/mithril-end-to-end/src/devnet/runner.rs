@@ -204,13 +204,14 @@ impl Devnet {
         }
     }
 
-    pub async fn delegate_stakes(&self) -> StdResult<()> {
+    pub async fn delegate_stakes(&self, delegation_round: u16) -> StdResult<()> {
         let run_script = "delegate.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
         run_command
             .current_dir(&self.artifacts_dir)
             .kill_on_drop(true);
+        run_command.env("DELEGATION_ROUND", delegation_round.to_string());
 
         info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
 
