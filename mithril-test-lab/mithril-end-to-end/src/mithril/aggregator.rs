@@ -39,7 +39,7 @@ impl Aggregator {
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "400"),
+            ("RUN_INTERVAL", "200"),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
             ("URL_SNAPSHOT_MANIFEST", ""),

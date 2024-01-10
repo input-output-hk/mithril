@@ -51,7 +51,7 @@ pub struct Args {
     cardano_slot_length: f64,
 
     /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 45.0)]
+    #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
 
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
