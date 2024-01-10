@@ -1,7 +1,8 @@
 use axum::{
     body::Body,
-    extract::{Path, State},
-    http::{Response, StatusCode},
+    extract::{Path, Request, State},
+    http::{HeaderValue, Response, StatusCode},
+    middleware::Next,
     response::IntoResponse,
 };
 
@@ -79,4 +80,103 @@ pub async fn statistics() -> Result<Response<Body>, AppError> {
     let response = Response::builder().status(StatusCode::CREATED);
 
     response.body(String::new().into()).map_err(|e| e.into())
+}
+
+pub async fn set_json_app_header(
+    req: Request,
+    next: Next,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let mut res = next.run(req).await;
+
+    if res.status() == StatusCode::OK {
+        let headers = res.headers_mut();
+        headers.insert(
+            "Content-Type",
+            HeaderValue::from_static("application/json; charset=utf-8"),
+        );
+    }
+
+    Ok(res)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::shared_state::AppState;
+
+    pub use super::*;
+
+    #[tokio::test]
+    async fn invalid_snapshot_digest() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let digest = Path("whatever".to_string());
+
+        let error = snapshot(digest, state).await.expect_err(
+            "The handler was expected to fail since the snapshot's digest does not exist.",
+        );
+
+        assert!(matches!(error, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn existing_snapshot_digest() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let digest =
+            Path("b65e89b4b504d71cdb035960d7300449f8d8602dc80dd805bf222a6100d66dbd".to_string());
+
+        let response = snapshot(digest, state)
+            .await
+            .expect("The handler was expected to succeed since the snapshot's digest does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_msd_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = msd(hash, state)
+            .await
+            .expect_err("The handler was expected to fail since the msd's hash does not exist.");
+
+        assert!(matches!(error, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn existing_certificate_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash =
+            Path("74ad5da3825aea1c9c2323a42cdcb4abebeee0424fec41885973f57f6520a164".to_string());
+
+        let response = certificate(hash, state)
+            .await
+            .expect("The handler was expected to succeed since the certificate's hash does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_certificate_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = certificate(hash, state).await.expect_err(
+            "The handler was expected to fail since the certificate's hash does not exist.",
+        );
+
+        assert!(matches!(error, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn existing_msd_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash =
+            Path("11b6f0165d431ba6a9906c8f8ffab317e10104a06c986517165fc7766cc22dbe".to_string());
+
+        let response = msd(hash, state)
+            .await
+            .expect("The handler was expected to succeed since the msd's hash does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
 }
