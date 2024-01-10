@@ -266,11 +266,14 @@ jobs:
       matrix:
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
         run_id: [1,2,3]
+        # Deactivate Conway era which is not currently working with the Pallas Chain Observer yet, value should be 5-10
+        hard_fork_latest_era_at_epoch: [1000] 
         extra_args: [""]
 
         include:
           - era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
             run_id: 3
+            hard_fork_latest_era_at_epoch: 1000
             extra_args: "--use-p2p-network"
     steps:
       - name: Checkout sources
@@ -297,7 +300,7 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        run: ./mithril-end-to-end -vvv --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} ${{ matrix.extra_args }}
+        run: ./mithril-end-to-end -vvv --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} ${{ matrix.extra_args }} --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }}
 
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}
