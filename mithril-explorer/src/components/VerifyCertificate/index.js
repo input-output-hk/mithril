@@ -10,6 +10,7 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
   const [loading, setLoading] = useState(false);
   const [certificateData, setCertificateData] = useState(null);
   const [verificationDuration, setVerificationDuration] = useState(null);
+  const [showWarning, setShowWarning] = useState(false);
 
   useEffect(() => {
     async function buildClientAndVerifyChain() {
@@ -100,10 +101,19 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
       (mithrilEventsDiv.scrollTop = mithrilEventsDiv.scrollHeight));
   }
 
+  const handleModalClose = () => {
+    // Only allow closing if not loading
+    if (loading) {
+      setShowWarning(true);
+    } else {
+      onClose();
+    }
+  };
+
   return (
     <Modal
       show={show}
-      onHide={onClose}
+      onHide={handleModalClose}
       size="xl"
       aria-labelledby="contained-modal-title-vcenter"
       centered>
@@ -111,6 +121,12 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
         <Modal.Title>Verify certificate</Modal.Title>
       </Modal.Header>
       <Modal.Body>
+        {showWarning && loading && (
+          <div className="alert alert-warning" role="alert">
+            Verification is in progress. Please wait until the process is complete (less than a
+            minute).
+          </div>
+        )}
         {certificateData && (
           <>
             <h4>Certificate Details</h4>
