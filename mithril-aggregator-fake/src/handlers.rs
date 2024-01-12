@@ -5,12 +5,49 @@ use axum::{
     body::Body,
     extract::{Path, Request, State},
     http::{HeaderValue, Response, StatusCode},
-    middleware::Next,
+    middleware::{from_fn, Next},
     response::IntoResponse,
+    routing::{get, post},
+    Router,
 };
+use tower_http::{
+    cors::CorsLayer,
+    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
+    LatencyUnit,
+};
+use tracing::Level;
 
 use crate::shared_state::SharedState;
 use crate::AppError;
+
+pub async fn aggregator_router() -> Router<SharedState> {
+    Router::new()
+        .route("/epoch-settings", get(epoch_settings))
+        .route("/artifact/snapshots", get(snapshots))
+        .route("/artifact/mithril-stake-distributions", get(msds))
+        .route("/artifact/mithril-stake-distribution/:digest", get(msd))
+        .route("/artifact/snapshot/:digest", get(snapshot))
+        .route("/certificates", get(certificates))
+        .route("/certificate/:hash", get(certificate))
+        .route("/statistics/snapshot", post(statistics))
+        .layer(CorsLayer::permissive())
+        .layer(from_fn(set_json_app_header))
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(
+                    DefaultMakeSpan::new()
+                        .include_headers(false)
+                        .level(Level::DEBUG),
+                )
+                .on_request(DefaultOnRequest::new().level(Level::DEBUG))
+                .on_response(
+                    DefaultOnResponse::new()
+                        .level(Level::INFO)
+                        .include_headers(true)
+                        .latency_unit(LatencyUnit::Micros),
+                ),
+        )
+}
 
 /// HTTP: Return the Epoch Settings.
 pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, AppError> {

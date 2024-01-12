@@ -1,20 +1,11 @@
 use std::future::IntoFuture;
 
 use anyhow::{anyhow, Context};
-use axum::{
-    middleware::{self},
-    routing::{get, post},
-    Router,
-};
+use axum::Router;
 use futures::stream::StreamExt;
 use signal_hook::consts::*;
 use signal_hook_tokio::Signals;
-use tower_http::{
-    cors::CorsLayer,
-    trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
-    LatencyUnit,
-};
-use tracing::{debug, info, trace, warn, Level};
+use tracing::{debug, info, trace, warn};
 
 use crate::shared_state::{AppState, SharedState};
 use crate::{handlers, CliArguments, StdResult};
@@ -72,45 +63,9 @@ impl Application {
         };
 
         trace!("configuring router…");
-        let app = Router::new()
-            .route("/aggregator/epoch-settings", get(handlers::epoch_settings))
-            .route("/aggregator/artifact/snapshots", get(handlers::snapshots))
-            .route(
-                "/aggregator/artifact/mithril-stake-distributions",
-                get(handlers::msds),
-            )
-            .route(
-                "/aggregator/artifact/mithril-stake-distribution/:digest",
-                get(handlers::msd),
-            )
-            .route(
-                "/aggregator/artifact/snapshot/:digest",
-                get(handlers::snapshot),
-            )
-            .route("/aggregator/certificates", get(handlers::certificates))
-            .route("/aggregator/certificate/:hash", get(handlers::certificate))
-            .route(
-                "/aggregator/statistics/snapshot",
-                post(handlers::statistics),
-            )
-            .with_state(shared_state)
-            .layer(CorsLayer::permissive())
-            .layer(middleware::from_fn(handlers::set_json_app_header))
-            .layer(
-                TraceLayer::new_for_http()
-                    .make_span_with(
-                        DefaultMakeSpan::new()
-                            .include_headers(false)
-                            .level(Level::DEBUG),
-                    )
-                    .on_request(DefaultOnRequest::new().level(Level::DEBUG))
-                    .on_response(
-                        DefaultOnResponse::new()
-                            .level(Level::INFO)
-                            .include_headers(true)
-                            .latency_unit(LatencyUnit::Micros),
-                    ),
-            );
+        let router = Router::new()
+            .nest("/aggregator", handlers::aggregator_router().await)
+            .with_state(shared_state);
         let listener = {
             let connection_string = format!("{}:{}", params.ip_address, params.tcp_port);
             debug!("binding on {connection_string}");
@@ -121,7 +76,7 @@ impl Application {
 
         trace!("starting server…");
         let result = tokio::select!(
-            res = axum::serve(listener, app).into_future() => res.map_err(|e| anyhow!(e)),
+            res = axum::serve(listener, router).into_future() => res.map_err(|e| anyhow!(e)),
             _res = OsSignalHandler::handle_signal(signals) => Ok(()),
         );
 
