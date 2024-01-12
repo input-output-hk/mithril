@@ -80,6 +80,9 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-datum.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
+    ## Wait for the transaction to be confirmed
+    sleep 2
+    
 EOF
 
 chmod u+x era-mithril.sh
