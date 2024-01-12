@@ -17,7 +17,7 @@ build: yarn.lock
 serve: build
 	yarn run start
 
-dev:
+dev: build
 	@echo "Serving dev build at: http://localhost:3000/explorer"
 	yarn run dev
 

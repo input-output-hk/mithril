@@ -8,12 +8,14 @@ import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
 import ProtocolParameters from "../ProtocolParameters";
 import SignerTable from "../SignerTable";
+import VerifyCertificate from "../VerifyCertificate";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
   const [charts, setCharts] = useState({
     stakesBreakdown: {},
   });
+  const [showVerifyCertificateModal, setShowVerifyCertificateModal] = useState(false);
   const certificateEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/certificate/${props.hash}`,
   );
@@ -40,6 +42,10 @@ export default function CertificateModal(props) {
 
   function showPrevious() {
     props.onHashChange(certificate.previous_hash);
+  }
+
+  function verifyCertificate(certificate) {
+    setShowVerifyCertificateModal(true);
   }
 
   function close() {
@@ -161,6 +167,9 @@ export default function CertificateModal(props) {
         )}
       </Modal.Body>
       <Modal.Footer>
+        <Button size="sm" onClick={() => verifyCertificate(certificate)} className="text-break">
+          Verify certificate
+        </Button>
         {certificate.genesis_signature !== "" ? (
           <Badge bg="warning">Genesis</Badge>
         ) : (
@@ -172,6 +181,11 @@ export default function CertificateModal(props) {
         )}
         <RawJsonButton href={certificateEndpoint} size="sm" />
       </Modal.Footer>
+      <VerifyCertificate
+        show={showVerifyCertificateModal}
+        onClose={() => setShowVerifyCertificateModal(false)}
+        certificateHash={certificate.hash}
+      />
     </Modal>
   );
 }

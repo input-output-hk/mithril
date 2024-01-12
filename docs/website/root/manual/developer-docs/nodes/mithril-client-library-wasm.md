@@ -52,7 +52,6 @@ The Mithril client library is compatible with the following browsers:
 | **Firefox for Android** | `38` | 2015-05-12 | - |
 | **Opera Android** | `41` | 2016-10-25 | - |
 | **Safari on iOS** | `15.4` | 2022-03-14 | - |
-| **Node.Js** | `15.4.0` | 2020-12-09 | :heavy_check_mark: |
 
 
 :::warning

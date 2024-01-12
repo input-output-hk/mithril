@@ -1,7 +1,4 @@
-// TODO: improve the management of function returned values by adding an event mechanism
-// Errors should be handled too.
-
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm"
+import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm"
 
 let aggregator_endpoint =
   "https://aggregator.testing-preview.api.mithril.network/aggregator"
@@ -36,7 +33,9 @@ function displayStepInDOM(number, content) {
   document.body.appendChild(div);
 }
 
-let client = await new MithrilClient(
+await initMithrilClient();
+
+let client = new MithrilClient(
   aggregator_endpoint,
   genesis_verification_key
 )

@@ -12,7 +12,13 @@ Install [node.js](https://nodejs.org/en/) && (yarn)[https://yarnpkg.com/getting-
 
 ## Getting Started
 
-First, run the development server:
+First, build the `mithril-client-wasm` package:
+
+```bash
+make -C ../mithril-client-wasm build
+```
+
+Then, run the development server:
 
 ```bash
 make dev
