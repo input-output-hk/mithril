@@ -13,7 +13,14 @@ build:
 	wasm-pack build --target web --release --out-name index
 
 test:
-	wasm-pack test --headless --firefox --chrome --node --release
+	pkill -f "mithril-aggregator-fake" || true
+	${CARGO} run -p mithril-aggregator-fake -- -p 8000 &
+	if wasm-pack test --headless --firefox --chrome --node --release; then \
+		pkill -f "mithril-aggregator-fake" || true; \
+	else \
+		pkill -f "mithril-aggregator-fake" || true; \
+		exit 1; \
+	fi
 
 check:
 	${CARGO} check --release --all-features --all-targets
