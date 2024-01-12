@@ -2,14 +2,15 @@ use anyhow::{anyhow, Context};
 use mithril_common::entities::PartyId;
 use mithril_common::StdResult;
 use slog_scope::info;
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
 
 #[derive(Debug, Clone, Default)]
 pub struct Devnet {
-    artifacts_dir: PathBuf,
+    pub artifacts_dir: PathBuf,
     number_of_bft_nodes: u8,
     number_of_pool_nodes: u8,
 }
@@ -147,6 +148,22 @@ impl Devnet {
         }
     }
 
+    pub fn mithril_era_marker_address_path(&self) -> PathBuf {
+        self.artifacts_dir
+            .join("addresses")
+            .join("mithril-era.addr")
+    }
+
+    pub fn mithril_era_marker_address(&self) -> StdResult<String> {
+        let mut mithril_era_marker_address_file =
+            File::open(self.mithril_era_marker_address_path())?;
+        let mut mithril_era_marker_address_buffer = Vec::new();
+        mithril_era_marker_address_file.read_to_end(&mut mithril_era_marker_address_buffer)?;
+
+        String::from_utf8(mithril_era_marker_address_buffer)
+            .with_context(|| "Failed to read mithril era marker address file")
+    }
+
     pub fn cardano_cli_path(&self) -> PathBuf {
         self.artifacts_dir.join("cardano-cli")
     }
@@ -250,6 +267,32 @@ impl Devnet {
             Some(0) => Ok(()),
             Some(code) => Err(anyhow!("Delegating stakes exited with status code: {code}")),
             None => Err(anyhow!("Delegating stakes terminated by signal")),
+        }
+    }
+
+    pub async fn write_era_marker(&self, target_path: &Path) -> StdResult<()> {
+        let run_script = "era-mithril.sh";
+        let run_script_path = self.artifacts_dir.join(run_script);
+        let mut run_command = Command::new(&run_script_path);
+        run_command
+            .current_dir(&self.artifacts_dir)
+            .kill_on_drop(true);
+        run_command.env("DATUM_FILE", target_path.to_str().unwrap());
+
+        info!("Writing era marker on chain"; "script" => &run_script_path.display());
+
+        let status = run_command
+            .spawn()
+            .with_context(|| "Failed to write era marker on chain")?
+            .wait()
+            .await
+            .with_context(|| "Error while writin era marker on chain")?;
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(anyhow!(
+                "Write era marker on chain exited with status code: {code}"
+            )),
+            None => Err(anyhow!("Write era marker on chain terminated by signal")),
         }
     }
 }

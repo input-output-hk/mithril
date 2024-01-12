@@ -1,5 +1,5 @@
 use crate::{
-    Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelaySigner, Signer,
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelaySigner, Signer,
     DEVNET_MAGIC_ID,
 };
 use anyhow::anyhow;
@@ -12,6 +12,8 @@ use slog_scope::info;
 use std::borrow::BorrowMut;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use super::signer::SignerConfig;
 
 pub struct MithrilInfrastructureConfig {
     pub server_port: u64,
@@ -52,6 +54,7 @@ impl MithrilInfrastructure {
             work_dir: &config.work_dir,
             bin_dir: &config.bin_dir,
             mithril_era: &config.mithril_era,
+            mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
             signed_entity_types: &config.signed_entity_types,
             chain_observer_type,
         })?;
@@ -60,6 +63,7 @@ impl MithrilInfrastructure {
             m: 100,
             phi_f: 0.95,
         });
+        assertions::register_era_marker(&mut aggregator, &config.devnet).await?;
         aggregator.serve()?;
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
@@ -104,15 +108,16 @@ impl MithrilInfrastructure {
             } else {
                 aggregator.endpoint()
             };
-            let mut signer = Signer::new(
+            let mut signer = Signer::new(&SignerConfig {
                 aggregator_endpoint,
                 pool_node,
-                &config.devnet.cardano_cli_path(),
-                &config.work_dir,
-                &config.bin_dir,
-                &config.mithril_era,
+                cardano_cli_path: &config.devnet.cardano_cli_path(),
+                work_dir: &config.work_dir,
+                bin_dir: &config.bin_dir,
+                mithril_era: &config.mithril_era,
+                mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 enable_certification,
-            )?;
+            })?;
             signer.start()?;
 
             signers.push(signer);
