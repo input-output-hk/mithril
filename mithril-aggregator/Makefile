@@ -33,7 +33,7 @@ docker-build:
 	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile .
 
 docker-build-ci: build
-	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile.ci --build-arg DOCKER_IMAGE_FROM .
+	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile.ci --build-arg DOCKER_IMAGE_FROM --build-arg CARDANO_NODE_VERSION .
 
 docker-run:
 	docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator serve
