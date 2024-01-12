@@ -1,3 +1,10 @@
+#![warn(missing_docs)]
+//! # Mithril Fake Aggregator
+//!
+//! This software mimics an aggregator API. It returns a static set of data. These data can either
+//! be data compiled with this software (default data) or given using JSON files.
+//!
+//! The fake aggregator uses Axum as web server with tower for logging.
 mod application;
 mod error;
 mod handlers;
@@ -39,6 +46,7 @@ pub struct CliArguments {
 }
 
 impl CliArguments {
+    /// converts the inner logging level to Tracing Level.
     pub fn get_verbosity_level(&self) -> Option<Level> {
         if self.quiet {
             None

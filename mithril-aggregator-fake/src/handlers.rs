@@ -1,3 +1,6 @@
+//! HTTP handlers module
+//! This module contains the controllers for the different routes and middlewares.
+
 use axum::{
     body::Body,
     extract::{Path, Request, State},
@@ -9,6 +12,7 @@ use axum::{
 use crate::shared_state::SharedState;
 use crate::AppError;
 
+/// HTTP: Return the Epoch Settings.
 pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, AppError> {
     let app_state = state.read().await;
     let epoch_settings = app_state.get_epoch_settings().await?;
@@ -16,6 +20,7 @@ pub async fn epoch_settings(State(state): State<SharedState>) -> Result<String, 
     Ok(epoch_settings)
 }
 
+/// HTTP: Return a snapshot identified by its digest.
 pub async fn snapshot(
     Path(key): Path<String>,
     State(state): State<SharedState>,
@@ -29,6 +34,7 @@ pub async fn snapshot(
         .ok_or_else(|| AppError::NotFound(format!("snapshot digest={key}")))
 }
 
+/// HTTP: return the list of snapshots.
 pub async fn snapshots(State(state): State<SharedState>) -> Result<String, AppError> {
     let app_state = state.read().await;
     let snapshots = app_state.get_snapshots().await?;
@@ -36,6 +42,7 @@ pub async fn snapshots(State(state): State<SharedState>) -> Result<String, AppEr
     Ok(snapshots)
 }
 
+/// HTTP: return the list of mithril stake distributions.
 pub async fn msds(State(state): State<SharedState>) -> Result<String, AppError> {
     let app_state = state.read().await;
     let msds = app_state.get_msds().await?;
@@ -43,6 +50,7 @@ pub async fn msds(State(state): State<SharedState>) -> Result<String, AppError> 
     Ok(msds)
 }
 
+/// HTTP: return a mithril stake distribution identified by its hash.
 pub async fn msd(
     Path(key): Path<String>,
     State(state): State<SharedState>,
@@ -56,6 +64,7 @@ pub async fn msd(
         .ok_or_else(|| AppError::NotFound(format!("mithril stake distribution epoch={key}")))
 }
 
+/// HTTP: return the list of certificates
 pub async fn certificates(State(state): State<SharedState>) -> Result<String, AppError> {
     let app_state = state.read().await;
     let certificates = app_state.get_certificates().await?;
@@ -63,6 +72,7 @@ pub async fn certificates(State(state): State<SharedState>) -> Result<String, Ap
     Ok(certificates)
 }
 
+/// HTTP: return a certificate identified by its hash.
 pub async fn certificate(
     Path(key): Path<String>,
     State(state): State<SharedState>,
@@ -76,12 +86,14 @@ pub async fn certificate(
         .ok_or_else(|| AppError::NotFound(format!("certificate hash={key}")))
 }
 
+/// HTTP: return OK when the client registers download statistics
 pub async fn statistics() -> Result<Response<Body>, AppError> {
     let response = Response::builder().status(StatusCode::CREATED);
 
     response.body(String::new().into()).map_err(|e| e.into())
 }
 
+/// MIDDLEWARE: set JSON application type in HTTP headers
 pub async fn set_json_app_header(
     req: Request,
     next: Next,

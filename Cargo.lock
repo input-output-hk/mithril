@@ -3387,6 +3387,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-aggregator-fake"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "clap",
+ "clap_derive",
+ "futures",
+ "http 0.2.11",
+ "mithril-common",
+ "reqwest",
+ "serde_json",
+ "signal-hook",
+ "signal-hook-tokio",
+ "tokio",
+ "tower-http",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "mithril-client"
 version = "0.5.16"
 dependencies = [
@@ -3534,27 +3555,6 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
-]
-
-[[package]]
-name = "mithril-fake-aggregator"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "axum",
- "clap",
- "clap_derive",
- "futures",
- "http 0.2.11",
- "mithril-common",
- "reqwest",
- "serde_json",
- "signal-hook",
- "signal-hook-tokio",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]

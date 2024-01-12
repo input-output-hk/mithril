@@ -1,5 +1,5 @@
 [package]
-name = "mithril-fake-aggregator"
+name = "mithril-aggregator-fake"
 version = "0.1.0"
 description = "Mithril Fake Aggregator for client testing"
 authors = { workspace = true }
