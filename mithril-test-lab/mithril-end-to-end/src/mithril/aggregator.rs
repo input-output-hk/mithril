@@ -58,7 +58,7 @@ impl Aggregator {
             ("ERA_READER_ADAPTER_TYPE", "dummy"),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
-            ("CARDANO_NODE_VERSION", "8.1.2"),
+            ("CARDANO_NODE_VERSION", "8.7.3"),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
         ]);
         let args = vec![
