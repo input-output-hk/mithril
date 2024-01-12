@@ -10,6 +10,7 @@ use futures::stream::StreamExt;
 use signal_hook::consts::*;
 use signal_hook_tokio::Signals;
 use tower_http::{
+    cors::CorsLayer,
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
@@ -93,6 +94,7 @@ impl Application {
                 post(handlers::statistics),
             )
             .with_state(shared_state)
+            .layer(CorsLayer::permissive())
             .layer(middleware::from_fn(handlers::set_json_app_header))
             .layer(
                 TraceLayer::new_for_http()
@@ -149,7 +151,7 @@ mod tests {
     const BASE_URL: &str = "http://127.0.0.1:PORT/aggregator";
 
     // tester
-    async fn test<T>(fn_test: JoinHandle<StdResult<()>>, port: u16) {
+    async fn test(fn_test: JoinHandle<StdResult<()>>, port: u16) {
         let params = CliArguments {
             data_directory: None,
             verbose: 0,
@@ -193,7 +195,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -222,7 +224,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -251,7 +253,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -287,7 +289,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -307,7 +309,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -339,7 +341,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -362,7 +364,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -394,7 +396,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -414,7 +416,7 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 
     #[tokio::test]
@@ -443,6 +445,6 @@ mod tests {
             Ok(())
         });
 
-        test::<StdResult<()>>(task, PORT).await;
+        test(task, PORT).await;
     }
 }
