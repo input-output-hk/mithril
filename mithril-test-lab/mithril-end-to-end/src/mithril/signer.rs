@@ -28,10 +28,10 @@ impl Signer {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let data_stores_path = format!("./stores/signer-{party_id}");
         let era_reader_adapater_params =
-            format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
+            format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 0}}]}}"#);
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "200"),
+            ("RUN_INTERVAL", "100"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("DATA_STORES_DIRECTORY", &data_stores_path),

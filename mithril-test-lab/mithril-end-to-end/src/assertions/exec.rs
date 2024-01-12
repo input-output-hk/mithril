@@ -16,10 +16,10 @@ pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> StdRe
     Ok(())
 }
 
-pub async fn delegate_stakes_to_pools(devnet: &Devnet) -> StdResult<()> {
+pub async fn delegate_stakes_to_pools(devnet: &Devnet, delegation_round: u16) -> StdResult<()> {
     info!("Delegate stakes to the cardano pools");
 
-    devnet.delegate_stakes().await?;
+    devnet.delegate_stakes(delegation_round).await?;
 
     Ok(())
 }
