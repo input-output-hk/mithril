@@ -131,6 +131,14 @@ jobs:
           cp LICENSE ./mithril-client-wasm/
           wasm-pack pack mithril-client-wasm/pkg
 
+      - name: Build a fake aggregator
+        shell: bash
+        run: cargo build -p mithril-aggregator-fake
+
+      - name: Start a fake aggregator
+        shell: bash
+        run: cargo run -p mithril-aggregator-fake -- -p 8000 &
+
       - name: Test 'mithril-client-wasm' - Chrome
         shell: bash
         run: |
