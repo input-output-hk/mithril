@@ -52,52 +52,76 @@ pub struct DevnetTopology {
     pub pool_nodes: Vec<PoolNode>,
 }
 
+#[derive(Debug, Clone)]
+pub struct DevnetBootstrapArgs {
+    pub devnet_scripts_dir: PathBuf,
+    pub artifacts_target_dir: PathBuf,
+    pub number_of_bft_nodes: u8,
+    pub number_of_pool_nodes: u8,
+    pub cardano_slot_length: f64,
+    pub cardano_epoch_length: f64,
+    pub cardano_hard_fork_latest_era_at_epoch: u16,
+    pub skip_cardano_bin_download: bool,
+}
+
 impl Devnet {
-    pub async fn bootstrap(
-        devnet_scripts_dir: PathBuf,
-        artifacts_target_dir: PathBuf,
-        number_of_bft_nodes: u8,
-        number_of_pool_nodes: u8,
-        cardano_slot_length: f64,
-        cardano_epoch_length: f64,
-        skip_cardano_bin_download: bool,
-    ) -> StdResult<Devnet> {
+    pub async fn bootstrap(bootstrap_args: &DevnetBootstrapArgs) -> StdResult<Devnet> {
         let bootstrap_script = "devnet-mkfiles.sh";
-        let bootstrap_script_path = devnet_scripts_dir
+        let bootstrap_script_path = bootstrap_args
+            .devnet_scripts_dir
             .canonicalize()
             .with_context(|| {
                 format!(
                     "Can't find bootstrap script '{}' in {}",
                     bootstrap_script,
-                    devnet_scripts_dir.display(),
+                    bootstrap_args.devnet_scripts_dir.display(),
                 )
             })?
             .join(bootstrap_script);
 
-        if artifacts_target_dir.exists() {
-            fs::remove_dir_all(&artifacts_target_dir)
+        if bootstrap_args.artifacts_target_dir.exists() {
+            fs::remove_dir_all(&bootstrap_args.artifacts_target_dir)
                 .with_context(|| "Previous artifacts dir removal failed")?;
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
         bootstrap_command.env(
             "SKIP_CARDANO_BIN_DOWNLOAD",
-            skip_cardano_bin_download.to_string(),
+            bootstrap_args.skip_cardano_bin_download.to_string(),
         );
-        let command_args = &[
-            artifacts_target_dir.to_str().unwrap(),
-            &number_of_bft_nodes.to_string(),
-            &number_of_pool_nodes.to_string(),
-            &cardano_slot_length.to_string(),
-            &cardano_epoch_length.to_string(),
-        ];
+        bootstrap_command.env(
+            "ARTIFACTS_DIR",
+            bootstrap_args.artifacts_target_dir.to_str().unwrap(),
+        );
+        bootstrap_command.env(
+            "NUM_BFT_NODES",
+            bootstrap_args.number_of_bft_nodes.to_string(),
+        );
+        bootstrap_command.env(
+            "NUM_POOL_NODES",
+            bootstrap_args.number_of_pool_nodes.to_string(),
+        );
+        bootstrap_command.env(
+            "SLOT_LENGTH",
+            bootstrap_args.cardano_slot_length.to_string(),
+        );
+        bootstrap_command.env(
+            "EPOCH_LENGTH",
+            bootstrap_args.cardano_epoch_length.to_string(),
+        );
+        bootstrap_command.env(
+            "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
+            bootstrap_args
+                .cardano_hard_fork_latest_era_at_epoch
+                .to_string(),
+        );
+
         bootstrap_command
-            .current_dir(devnet_scripts_dir)
-            .args(command_args)
+            .current_dir(&bootstrap_args.devnet_scripts_dir)
             .stdout(Stdio::null())
             .kill_on_drop(true);
 
-        info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display(), "args" => #?&command_args);
+        info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display());
 
         bootstrap_command
             .spawn()
@@ -107,9 +131,9 @@ impl Devnet {
             .with_context(|| format!("{bootstrap_script} failed to run"))?;
 
         Ok(Devnet {
-            artifacts_dir: artifacts_target_dir,
-            number_of_bft_nodes,
-            number_of_pool_nodes,
+            artifacts_dir: bootstrap_args.artifacts_target_dir.to_owned(),
+            number_of_bft_nodes: bootstrap_args.number_of_bft_nodes,
+            number_of_pool_nodes: bootstrap_args.number_of_pool_nodes,
         })
     }
 
@@ -149,7 +173,7 @@ impl Devnet {
                     .join(format!("node-pool{n}/shelley/kes.skey")),
                 operational_certificate_path: self
                     .artifacts_dir
-                    .join(format!("node-pool{n}/shelley/node.cert")),
+                    .join(format!("node-pool{n}/shelley/opcert.cert")),
             })
             .collect::<Vec<_>>();
 
@@ -205,13 +229,14 @@ impl Devnet {
         }
     }
 
-    pub async fn delegate_stakes(&self) -> StdResult<()> {
+    pub async fn delegate_stakes(&self, delegation_round: u16) -> StdResult<()> {
         let run_script = "delegate.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
         run_command
             .current_dir(&self.artifacts_dir)
             .kill_on_drop(true);
+        run_command.env("DELEGATION_ROUND", delegation_round.to_string());
 
         info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
 
@@ -273,7 +298,7 @@ mod tests {
                     pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
                     kes_secret_key_path: PathBuf::from(r"test/path/node-pool1/shelley/kes.skey"),
                     operational_certificate_path: PathBuf::from(
-                        r"test/path/node-pool1/shelley/node.cert"
+                        r"test/path/node-pool1/shelley/opcert.cert"
                     ),
                 },],
             },

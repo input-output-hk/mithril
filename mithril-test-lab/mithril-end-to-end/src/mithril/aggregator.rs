@@ -33,13 +33,13 @@ impl Aggregator {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
         let era_reader_adapter_params = format!(
-            r#"{{"markers": [{{"name": "{}", "epoch": 1}}]}}"#,
+            r#"{{"markers": [{{"name": "{}", "epoch": 0}}]}}"#,
             aggregator_config.mithril_era
         );
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "400"),
+            ("RUN_INTERVAL", "200"),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
             ("URL_SNAPSHOT_MANIFEST", ""),
@@ -58,7 +58,7 @@ impl Aggregator {
             ("ERA_READER_ADAPTER_TYPE", "dummy"),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
-            ("CARDANO_NODE_VERSION", "8.1.2"),
+            ("CARDANO_NODE_VERSION", "8.7.3"),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
         ]);
         let args = vec![

@@ -42,7 +42,9 @@ impl<'a> Spec<'a> {
             "epoch after which the stake distribution will change".to_string(),
         )
         .await?;
-        assertions::delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
+        let delegation_round = 1;
+        assertions::delegate_stakes_to_pools(self.infrastructure.devnet(), delegation_round)
+            .await?;
 
         // Wait 2 epochs before changing protocol parameters
         target_epoch += 2;
