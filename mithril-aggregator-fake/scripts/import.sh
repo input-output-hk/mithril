@@ -31,14 +31,32 @@ download_artifacts() {
     echo -n "Downloading ${artifact} data: "
     tput sc;
 
-    for digest in $(jq -r .[].${json_field} < $DATA_DIR/${artifact}s.json);
+    for field in $(jq -r .[].${json_field} < $DATA_DIR/${artifact}s.json);
     do
         tput rc;
-        wget -O $DATA_DIR/${artifact}-${digest}.json --quiet "${url}/${digest}"
+        wget -O $DATA_DIR/${artifact}-${field}.json --quiet "${url}/${field}"
         let "nb=nb+1"
         echo -n "$nb   "
     done
     echo
+}
+
+download_certificate_chain() {
+    echo -n "Downloading certificate chain: "
+    tput sc;
+    local parent_hash=$(jq -r .[0].hash $DATA_DIR/certificates.json);
+    local certificate_hash;
+
+    until [ -z "$parent_hash" ];
+    do
+        certificate_hash=$parent_hash;
+        wget -O $DATA_DIR/certificate-${certificate_hash}.json --quiet "${BASE_URL}/certificate/${certificate_hash}";
+        parent_hash=$(jq -r .previous_hash $DATA_DIR/certificate-${certificate_hash}.json);
+        echo -n "${parent_hash} ";
+        tput rc;
+    done
+
+    echo "ok                                                                ";
 }
 
 # MAIN execution
@@ -54,7 +72,7 @@ export DATA_DIR URL;
 clean_directory;
 
 download_list $BASE_URL/certificates certificates
-download_artifacts $BASE_URL/certificate certificate "hash"
+download_certificate_chain
 
 download_list $BASE_URL/artifact/snapshots snapshots
 download_artifacts $BASE_URL/artifact/snapshot snapshot digest
