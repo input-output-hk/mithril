@@ -7,10 +7,6 @@ on:
       - 'hotfix**'
   pull_request:
     types: [opened, reopened, synchronize]
-    paths-ignore: # ignore docs only changes since they use a dedicated workflows: docs.yml
-      - 'docs/**'
-      - 'mithril-explorer/**'
-      - '.github/workflows/docs.yml'
     branches-ignore:
       - 'hotfix**' # hotfix are handled by the push trigger
 
