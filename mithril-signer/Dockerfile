@@ -33,7 +33,8 @@ RUN /app/target/release/mithril-signer --version
 FROM debian:11-slim
 
 # Args
-ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/8.7.3/cardano-node-8.7.3-linux.tar.gz
+ARG CARDANO_NODE_VERSION=8.7.3
+ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
