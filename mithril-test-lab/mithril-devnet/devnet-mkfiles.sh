@@ -3,7 +3,7 @@
 set -e
 
 # Debug mode
-if [ -v DEBUG ]; then
+if [[ -n $DEBUG ]]; then
     set -x
 fi
 
