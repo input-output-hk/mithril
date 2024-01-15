@@ -63,7 +63,8 @@ impl MithrilInfrastructure {
             m: 100,
             phi_f: 0.95,
         });
-        assertions::register_era_marker(&mut aggregator, &config.devnet).await?;
+        assertions::register_era_marker(&mut aggregator, &config.devnet, &config.mithril_era)
+            .await?;
         aggregator.serve()?;
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];

@@ -5,6 +5,7 @@ use crate::{
     GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
+use mithril_common::era::SupportedEra;
 use mithril_common::{entities, StdResult};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -145,10 +146,19 @@ impl Aggregator {
     }
 
     // TODO: This works only for the current epoch, and needs to be fixed
-    pub async fn era_generate_tx_datum(&mut self, target_path: &Path) -> StdResult<()> {
-        let exit_status = self
-            .command
-            .start(&[
+    pub async fn era_generate_tx_datum(
+        &mut self,
+        target_path: &Path,
+        mithril_era: &str,
+    ) -> StdResult<()> {
+        let mithril_eras = SupportedEra::eras();
+        let args = if mithril_eras
+            .iter()
+            .position(|&era| era.to_string() == mithril_era)
+            == Some(0)
+        {
+            // Current era
+            vec![
                 "era".to_string(),
                 "generate-tx-datum".to_string(),
                 "--current-era-epoch".to_string(),
@@ -157,7 +167,26 @@ impl Aggregator {
                 ERA_MARKERS_SECRET_KEY.to_string(),
                 "--target-path".to_string(),
                 target_path.to_str().unwrap().to_string(),
-            ])?
+            ]
+        } else {
+            // Next era
+            vec![
+                "era".to_string(),
+                "generate-tx-datum".to_string(),
+                "--current-era-epoch".to_string(),
+                "0".to_string(),
+                "--next-era-epoch".to_string(),
+                "1".to_string(),
+                "--era-markers-secret-key".to_string(),
+                ERA_MARKERS_SECRET_KEY.to_string(),
+                "--target-path".to_string(),
+                target_path.to_str().unwrap().to_string(),
+            ]
+        };
+
+        let exit_status = self
+            .command
+            .start(&args)?
             .wait()
             .await
             .with_context(|| "`mithril-aggregator era generate-tx-datum` crashed")?;
