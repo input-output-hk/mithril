@@ -1,6 +1,6 @@
 # Cardano node version
 if [ -z "${CARDANO_NODE_VERSION}" ]; then 
-  CARDANO_NODE_VERSION="8.1.2"
+  CARDANO_NODE_VERSION="8.7.3"
 fi
 if [ -z "${CARDANO_BINARY_URL}" ]; then 
   CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-linux.tar.gz"

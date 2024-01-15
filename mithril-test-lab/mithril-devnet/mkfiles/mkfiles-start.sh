@@ -133,6 +133,8 @@ if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
   else
     DOCKER_BUILD_CMD="make docker-build"
   fi
+  export CARDANO_NODE_VERSION=${CARDANO_NODE_VERSION}
+  echo ">>>> Docker builder will use Cardano node version: '\$CARDANO_NODE_VERSION'"
   echo ">>>> Docker builder will build images with command: '\$DOCKER_BUILD_CMD'"
   echo ">>>> Building Mithril Aggregator node Docker image"
   cd mithril-aggregator && \$DOCKER_BUILD_CMD && cd ..
