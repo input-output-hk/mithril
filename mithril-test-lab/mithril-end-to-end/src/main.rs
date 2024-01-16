@@ -62,6 +62,10 @@ pub struct Args {
     #[clap(long, default_value = "thales")]
     mithril_era: String,
 
+    /// Mithril era reader adapter
+    #[clap(long, default_value = "cardano-chain")]
+    mithril_era_reader_adapter: String,
+
     /// Signed entity types parameters (discriminants names in an ordered comma separated list).
     #[clap(long, value_delimiter = ',', default_value = "")]
     signed_entity_types: Vec<String>,
@@ -140,6 +144,7 @@ async fn main() -> StdResult<()> {
         work_dir,
         bin_dir: args.bin_directory,
         mithril_era: args.mithril_era,
+        mithril_era_reader_adapter: args.mithril_era_reader_adapter,
         signed_entity_types: args.signed_entity_types,
         run_only_mode,
         use_p2p_network_mode,

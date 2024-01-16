@@ -10,7 +10,7 @@ use tokio::process::Command;
 
 #[derive(Debug, Clone, Default)]
 pub struct Devnet {
-    pub artifacts_dir: PathBuf,
+    artifacts_dir: PathBuf,
     number_of_bft_nodes: u8,
     number_of_pool_nodes: u8,
 }
@@ -146,6 +146,10 @@ impl Devnet {
             number_of_bft_nodes,
             number_of_pool_nodes,
         }
+    }
+
+    pub fn artifacts_dir(&self) -> PathBuf {
+        self.artifacts_dir.clone()
     }
 
     pub fn mithril_era_marker_address_path(&self) -> PathBuf {

@@ -26,6 +26,7 @@ pub async fn bootstrap_aggregator(
         bin_dir: &args.bin_dir,
         mithril_era: &args.mithril_era,
         mithril_era_marker_address: "",
+        mithril_era_reader_adapter: "dummy",
         signed_entity_types: &signed_entity_types,
         chain_observer_type,
     })

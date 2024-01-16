@@ -27,7 +27,7 @@ pub async fn register_era_marker(
 
     info!("> generating era marker tx datum...");
     let tx_datum_file_path = devnet
-        .artifacts_dir
+        .artifacts_dir()
         .join(PathBuf::from("era-tx-datum.txt".to_string()));
     aggregator
         .era_generate_tx_datum(&tx_datum_file_path, mithril_era)

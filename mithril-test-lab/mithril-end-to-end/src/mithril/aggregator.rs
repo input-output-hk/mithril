@@ -20,6 +20,7 @@ pub struct AggregatorConfig<'a> {
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub mithril_era: &'a str,
+    pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
     pub chain_observer_type: &'a str,
@@ -37,10 +38,18 @@ impl Aggregator {
     pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
-        let era_reader_adapter_params = format!(
-            r#"{{"address": "{}", "verification_key": "{}"}}"#,
-            aggregator_config.mithril_era_marker_address, ERA_MARKERS_VERIFICATION_KEY
-        );
+        let era_reader_adapter_params =
+            if aggregator_config.mithril_era_reader_adapter == "cardano-chain" {
+                format!(
+                    r#"{{"address": "{}", "verification_key": "{}"}}"#,
+                    aggregator_config.mithril_era_marker_address, ERA_MARKERS_VERIFICATION_KEY
+                )
+            } else {
+                format!(
+                    r#"{{"markers": [{{"name": "{}", "epoch": 0}}]}}"#,
+                    aggregator_config.mithril_era
+                )
+            };
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
@@ -63,7 +72,10 @@ impl Aggregator {
             ),
             ("GENESIS_VERIFICATION_KEY", GENESIS_VERIFICATION_KEY),
             ("GENESIS_SECRET_KEY", GENESIS_SECRET_KEY),
-            ("ERA_READER_ADAPTER_TYPE", "cardano-chain"),
+            (
+                "ERA_READER_ADAPTER_TYPE",
+                aggregator_config.mithril_era_reader_adapter,
+            ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
             ("CARDANO_NODE_VERSION", "8.7.3"),
@@ -145,44 +157,30 @@ impl Aggregator {
         Ok(())
     }
 
-    // TODO: This works only for the current epoch, and needs to be fixed
     pub async fn era_generate_tx_datum(
         &mut self,
         target_path: &Path,
         mithril_era: &str,
     ) -> StdResult<()> {
-        let mithril_eras = SupportedEra::eras();
-        let args = if mithril_eras
-            .iter()
-            .position(|&era| era.to_string() == mithril_era)
-            == Some(0)
-        {
-            // Current era
-            vec![
-                "era".to_string(),
-                "generate-tx-datum".to_string(),
-                "--current-era-epoch".to_string(),
-                "0".to_string(),
-                "--era-markers-secret-key".to_string(),
-                ERA_MARKERS_SECRET_KEY.to_string(),
-                "--target-path".to_string(),
-                target_path.to_str().unwrap().to_string(),
-            ]
-        } else {
-            // Next era
-            vec![
-                "era".to_string(),
-                "generate-tx-datum".to_string(),
-                "--current-era-epoch".to_string(),
-                "0".to_string(),
-                "--next-era-epoch".to_string(),
-                "1".to_string(),
-                "--era-markers-secret-key".to_string(),
-                ERA_MARKERS_SECRET_KEY.to_string(),
-                "--target-path".to_string(),
-                target_path.to_str().unwrap().to_string(),
-            ]
-        };
+        let is_not_first_era =
+            SupportedEra::eras().first().map(|e| e.to_string()) != Some(mithril_era.to_string());
+
+        let mut args = vec![
+            "era".to_string(),
+            "generate-tx-datum".to_string(),
+            "--current-era-epoch".to_string(),
+            "0".to_string(),
+            "--era-markers-secret-key".to_string(),
+            ERA_MARKERS_SECRET_KEY.to_string(),
+            "--target-path".to_string(),
+            target_path.to_str().unwrap().to_string(),
+        ];
+
+        // If only the first available era is targeted we have no "next-era" to activate
+        if is_not_first_era {
+            args.push("--next-era-epoch".to_string());
+            args.push("1".to_string());
+        }
 
         let exit_status = self
             .command

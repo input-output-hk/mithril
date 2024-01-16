@@ -21,6 +21,7 @@ pub struct MithrilInfrastructureConfig {
     pub work_dir: PathBuf,
     pub bin_dir: PathBuf,
     pub mithril_era: String,
+    pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
     pub run_only_mode: bool,
     pub use_p2p_network_mode: bool,
@@ -54,6 +55,7 @@ impl MithrilInfrastructure {
             work_dir: &config.work_dir,
             bin_dir: &config.bin_dir,
             mithril_era: &config.mithril_era,
+            mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
             mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
             signed_entity_types: &config.signed_entity_types,
             chain_observer_type,
@@ -63,8 +65,10 @@ impl MithrilInfrastructure {
             m: 100,
             phi_f: 0.95,
         });
-        assertions::register_era_marker(&mut aggregator, &config.devnet, &config.mithril_era)
-            .await?;
+        if config.mithril_era_reader_adapter == "cardano-chain" {
+            assertions::register_era_marker(&mut aggregator, &config.devnet, &config.mithril_era)
+                .await?;
+        }
         aggregator.serve()?;
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
@@ -116,6 +120,7 @@ impl MithrilInfrastructure {
                 work_dir: &config.work_dir,
                 bin_dir: &config.bin_dir,
                 mithril_era: &config.mithril_era,
+                mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
                 mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 enable_certification,
             })?;

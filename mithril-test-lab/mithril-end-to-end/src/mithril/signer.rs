@@ -15,6 +15,7 @@ pub struct SignerConfig<'a> {
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub mithril_era: &'a str,
+    pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
     pub enable_certification: bool,
 }
@@ -31,10 +32,18 @@ impl Signer {
         let party_id = signer_config.pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let data_stores_path = format!("./stores/signer-{party_id}");
-        let era_reader_adapter_params = format!(
-            r#"{{"address": "{}", "verification_key": "{}"}}"#,
-            signer_config.mithril_era_marker_address, ERA_MARKERS_VERIFICATION_KEY
-        );
+        let era_reader_adapter_params =
+            if signer_config.mithril_era_reader_adapter == "cardano-chain" {
+                format!(
+                    r#"{{"address": "{}", "verification_key": "{}"}}"#,
+                    signer_config.mithril_era_marker_address, ERA_MARKERS_VERIFICATION_KEY
+                )
+            } else {
+                format!(
+                    r#"{{"markers": [{{"name": "{}", "epoch": 0}}]}}"#,
+                    signer_config.mithril_era
+                )
+            };
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", "100"),
@@ -53,7 +62,10 @@ impl Signer {
                 "CARDANO_CLI_PATH",
                 signer_config.cardano_cli_path.to_str().unwrap(),
             ),
-            ("ERA_READER_ADAPTER_TYPE", "cardano-chain"),
+            (
+                "ERA_READER_ADAPTER_TYPE",
+                signer_config.mithril_era_reader_adapter,
+            ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
         ]);
         if signer_config.enable_certification {
