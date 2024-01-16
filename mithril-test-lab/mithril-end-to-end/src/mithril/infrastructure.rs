@@ -12,6 +12,8 @@ use slog_scope::info;
 use std::borrow::BorrowMut;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::time::sleep;
 
 use super::signer::SignerConfig;
 
@@ -70,6 +72,7 @@ impl MithrilInfrastructure {
         if config.mithril_era_reader_adapter == "cardano-chain" {
             assertions::register_era_marker(&mut aggregator, &config.devnet, &config.mithril_era)
                 .await?;
+            sleep(Duration::from_secs(5)).await;
         }
         aggregator.serve()?;
 
