@@ -35,7 +35,9 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
     },
-    signable_builder::{MithrilSignableBuilderService, SignableBuilderService},
+    signable_builder::{
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService, SignableBuilderService,
+    },
     sqlite::SqliteConnection,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
@@ -938,9 +940,11 @@ impl DependenciesBuilder {
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
+            cardano_transactions_builder,
         ));
 
         Ok(signable_builder_service)
