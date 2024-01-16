@@ -61,6 +61,7 @@ pub struct DevnetBootstrapArgs {
     pub number_of_pool_nodes: u8,
     pub cardano_slot_length: f64,
     pub cardano_epoch_length: f64,
+    pub cardano_node_version: String,
     pub cardano_hard_fork_latest_era_at_epoch: u16,
     pub skip_cardano_bin_download: bool,
 }
@@ -110,6 +111,7 @@ impl Devnet {
             "EPOCH_LENGTH",
             bootstrap_args.cardano_epoch_length.to_string(),
         );
+        bootstrap_command.env("CARDANO_NODE_VERSION", &bootstrap_args.cardano_node_version);
         bootstrap_command.env(
             "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
             bootstrap_args
@@ -290,7 +292,7 @@ impl Devnet {
             .with_context(|| "Failed to write era marker on chain")?
             .wait()
             .await
-            .with_context(|| "Error while writin era marker on chain")?;
+            .with_context(|| "Error while writing era marker on chain")?;
         match status.code() {
             Some(0) => Ok(()),
             Some(code) => Err(anyhow!(

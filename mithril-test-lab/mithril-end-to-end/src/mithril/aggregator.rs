@@ -19,6 +19,7 @@ pub struct AggregatorConfig<'a> {
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
+    pub cardano_node_version: &'a str,
     pub mithril_era: &'a str,
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
@@ -78,7 +79,10 @@ impl Aggregator {
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
-            ("CARDANO_NODE_VERSION", "8.7.3"),
+            (
+                "CARDANO_NODE_VERSION",
+                aggregator_config.cardano_node_version,
+            ),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
         ]);
         let args = vec![
