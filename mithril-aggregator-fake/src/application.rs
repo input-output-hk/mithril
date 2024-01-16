@@ -222,7 +222,7 @@ mod tests {
             let path = "/certificate/{certificate_hash}";
             let url = BASE_URL.replace("PORT", &PORT.to_string());
             let certificate_hash =
-                "74ad5da3825aea1c9c2323a42cdcb4abebeee0424fec41885973f57f6520a164";
+                "8f4e859b16774da9a57926d7af226bfe0a655a8e309ae4be234d0e776eb4a59f";
             let response = reqwest::get(&format!(
                 "{url}{}",
                 path.replace("{certificate_hash}", certificate_hash)
@@ -276,7 +276,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/snapshot/{digest}";
-            let digest = "83d3b70729cf0d2c27f91c49aba6ec7e90210511d9e431c6c4c7db8996386072";
+            let digest = "000ee4c84c7b64a62dc30ec78a765a1f3bb81cd9dd4bd1eccf9f2da785e70877";
             let url = BASE_URL.replace("PORT", &PORT.to_string());
             let response = reqwest::get(&format!("{url}{}", path.replace("{digest}", digest)))
                 .await
@@ -331,7 +331,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/mithril-stake-distribution/{hash}";
-            let hash = "11b6f0165d431ba6a9906c8f8ffab317e10104a06c986517165fc7766cc22dbe";
+            let hash = "03ebb00e6626037f2e58eb7cc50d308fd57c253baa1fe2b04eb5945ced16b5bd";
             let url = BASE_URL.replace("PORT", &PORT.to_string());
             let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
                 .await

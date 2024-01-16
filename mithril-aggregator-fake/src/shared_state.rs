@@ -153,7 +153,7 @@ impl DataDir {
 
     fn read_entity_file(&self, entity: &str, id: &str) -> StdResult<(String, Value)> {
         let filename = format!("{entity}-{id}.json");
-        let path = self.data_dir.to_owned().join(&filename);
+        let path = self.data_dir.to_owned().join(filename);
         trace!("Reading {entity} JSON file '{}'.", path.display());
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("Could not read entity file '{}'.", path.display()))?;
@@ -219,7 +219,7 @@ impl DataDir {
                 .map(|v| v.to_owned())
                 .ok_or_else(|| anyhow!("Field 'previous_hash' does not exist in the first certificate of the certificatd list."))?;
 
-        while previous_hash.len() > 0 {
+        while previous_hash.is_empty() {
             let (certificate, value) = self.read_entity_file("certificate", &previous_hash)?;
             let _ = certificates.insert(previous_hash.clone(), certificate);
             previous_hash = value["previous_hash"]

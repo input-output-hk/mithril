@@ -170,7 +170,7 @@ mod tests {
     async fn existing_snapshot_digest() {
         let state: State<SharedState> = State(AppState::default().into());
         let digest =
-            Path("b65e89b4b504d71cdb035960d7300449f8d8602dc80dd805bf222a6100d66dbd".to_string());
+            Path("000ee4c84c7b64a62dc30ec78a765a1f3bb81cd9dd4bd1eccf9f2da785e70877".to_string());
 
         let response = snapshot(digest, state)
             .await
@@ -195,7 +195,7 @@ mod tests {
     async fn existing_certificate_hash() {
         let state: State<SharedState> = State(AppState::default().into());
         let hash =
-            Path("74ad5da3825aea1c9c2323a42cdcb4abebeee0424fec41885973f57f6520a164".to_string());
+            Path("8f4e859b16774da9a57926d7af226bfe0a655a8e309ae4be234d0e776eb4a59f".to_string());
 
         let response = certificate(hash, state)
             .await
@@ -220,7 +220,7 @@ mod tests {
     async fn existing_msd_hash() {
         let state: State<SharedState> = State(AppState::default().into());
         let hash =
-            Path("11b6f0165d431ba6a9906c8f8ffab317e10104a06c986517165fc7766cc22dbe".to_string());
+            Path("03ebb00e6626037f2e58eb7cc50d308fd57c253baa1fe2b04eb5945ced16b5bd".to_string());
 
         let response = msd(hash, state)
             .await
