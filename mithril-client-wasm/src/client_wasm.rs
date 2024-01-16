@@ -50,6 +50,7 @@ impl From<MithrilEvent> for MithrilEventWasm {
     }
 }
 
+/// Structure that wraps a [Client] and enables its functions to be used in WASM
 #[wasm_bindgen]
 pub struct MithrilClient {
     client: Client,
