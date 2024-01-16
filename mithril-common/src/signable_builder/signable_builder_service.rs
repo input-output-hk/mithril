@@ -63,6 +63,7 @@ impl SignableBuilderService for MithrilSignableBuilderService {
                     "Signable builder service can not compute protocol message with beacon: '{beacon}'"
                 ))?,
             SignedEntityType::CardanoStakeDistribution(_) => todo!(),
+            SignedEntityType::CardanoTransactions(_) => todo!(),
         };
 
         Ok(protocol_message)

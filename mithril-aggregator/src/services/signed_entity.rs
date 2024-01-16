@@ -114,6 +114,7 @@ impl MithrilSignedEntityService {
                     })?,
             )),
             SignedEntityType::CardanoStakeDistribution(_) => todo!(),
+            SignedEntityType::CardanoTransactions(_) => todo!(),
         }
     }
 }

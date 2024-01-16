@@ -18,6 +18,9 @@ const ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION: usize = 1;
 /// Database representation of the SignedEntityType::CardanoImmutableFilesFull value
 const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: usize = 2;
 
+/// Database representation of the SignedEntityType::CardanoTransactions value
+const ENTITY_TYPE_CARDANO_TRANSACTIONS: usize = 3;
+
 /// The signed entity type that represents a type of data signed by the Mithril
 /// protocol Note: Each variant of this enum must be associated to an entry in
 /// the `signed_entity_type` table of the signer/aggregator nodes. The variant
@@ -36,6 +39,9 @@ pub enum SignedEntityType {
 
     /// Full Cardano Immutable Files
     CardanoImmutableFilesFull(Beacon),
+
+    /// Cardano Transactions
+    CardanoTransactions(Beacon),
 }
 
 impl SignedEntityType {
@@ -47,7 +53,7 @@ impl SignedEntityType {
     /// Return the epoch from the intern beacon.
     pub fn get_epoch(&self) -> Epoch {
         match self {
-            Self::CardanoImmutableFilesFull(b) => b.epoch,
+            Self::CardanoImmutableFilesFull(b) | Self::CardanoTransactions(b) => b.epoch,
             Self::CardanoStakeDistribution(e) | Self::MithrilStakeDistribution(e) => *e,
         }
     }
@@ -80,6 +86,14 @@ impl SignedEntityType {
                     })?;
                     Self::CardanoImmutableFilesFull(beacon)
                 }
+                ENTITY_TYPE_CARDANO_TRANSACTIONS => {
+                    let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
+                        HydrationError::InvalidData(format!(
+                            "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
+                        ))
+                    })?;
+                    Self::CardanoTransactions(beacon)
+                }
                 index => panic!("Invalid entity_type_id {index}."),
             };
 
@@ -93,13 +107,16 @@ impl SignedEntityType {
             Self::MithrilStakeDistribution(_) => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution(_) => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
             Self::CardanoImmutableFilesFull(_) => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
+            Self::CardanoTransactions(_) => ENTITY_TYPE_CARDANO_TRANSACTIONS,
         }
     }
 
     /// Return a JSON serialized value of the internal beacon
     pub fn get_json_beacon(&self) -> StdResult<String> {
         let value = match self {
-            Self::CardanoImmutableFilesFull(value) => serde_json::to_string(value)?,
+            Self::CardanoImmutableFilesFull(value) | Self::CardanoTransactions(value) => {
+                serde_json::to_string(value)?
+            }
             Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {
                 serde_json::to_string(value)?
             }
@@ -112,7 +129,9 @@ impl SignedEntityType {
     pub fn get_open_message_timeout(&self) -> Option<Duration> {
         match self {
             Self::MithrilStakeDistribution(_) | Self::CardanoImmutableFilesFull(_) => None,
-            Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(600)),
+            Self::CardanoStakeDistribution(_) | Self::CardanoTransactions(_) => {
+                Some(Duration::from_secs(600))
+            }
         }
     }
 
@@ -128,6 +147,9 @@ impl SignedEntityType {
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 Self::CardanoImmutableFilesFull(beacon.to_owned())
             }
+            SignedEntityTypeDiscriminants::CardanoTransactions => {
+                Self::CardanoTransactions(beacon.to_owned())
+            }
         }
     }
 }
@@ -139,6 +161,7 @@ impl SignedEntityTypeDiscriminants {
             Self::MithrilStakeDistribution => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
             Self::CardanoImmutableFilesFull => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
+            Self::CardanoTransactions => ENTITY_TYPE_CARDANO_TRANSACTIONS,
         }
     }
 }
