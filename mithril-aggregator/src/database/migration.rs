@@ -610,5 +610,14 @@ alter table open_message add column is_expired bool not null default false;
 alter table open_message add column expires_at text null;
         "#,
         ),
+        // Migration 21
+        // Add the `signed_entity_type` record for 'CardanoTransactions'
+        SqlMigration::new(
+            21,
+            r#"
+insert into signed_entity_type (signed_entity_type_id, name) 
+    values  (3, 'Cardano Transactions');
+"#,
+        ),
     ]
 }

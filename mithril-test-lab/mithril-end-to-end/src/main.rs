@@ -71,7 +71,7 @@ pub struct Args {
     mithril_era_reader_adapter: String,
 
     /// Signed entity types parameters (discriminants names in an ordered comma separated list).
-    #[clap(long, value_delimiter = ',', default_value = "")]
+    #[clap(long, value_delimiter = ',', default_value = "CardanoTransactions")]
     signed_entity_types: Vec<String>,
 
     /// Enable run only mode

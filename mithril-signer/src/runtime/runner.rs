@@ -460,8 +460,8 @@ mod tests {
             EraChecker, EraReader,
         },
         signable_builder::{
-            CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
-            MithrilStakeDistributionSignableBuilder,
+            CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
+            MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         },
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
@@ -526,9 +526,11 @@ mod tests {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
+            cardano_transactions_builder,
         ));
 
         SignerServices {

@@ -910,27 +910,21 @@ else json_group_array( \
         let repository = OpenMessageRepository::new(connection.clone());
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
-        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(beacon.epoch);
-        repository
-            .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
-            .await
-            .unwrap();
-        let open_message_result = repository
-            .get_open_message(&signed_entity_type)
-            .await
-            .unwrap();
-        assert!(open_message_result.is_some());
-
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
-        repository
-            .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
-            .await
-            .unwrap();
-        let open_message_result = repository
-            .get_open_message(&signed_entity_type)
-            .await
-            .unwrap();
-        assert!(open_message_result.is_some());
+        for signed_entity_type in [
+            SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+            SignedEntityType::CardanoTransactions(beacon.clone()),
+        ] {
+            repository
+                .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
+                .await
+                .unwrap();
+            let open_message_result = repository
+                .get_open_message(&signed_entity_type)
+                .await
+                .unwrap();
+            assert!(open_message_result.is_some());
+        }
     }
 
     #[tokio::test]

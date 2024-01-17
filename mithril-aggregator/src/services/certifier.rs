@@ -397,6 +397,7 @@ impl CertifierService for MithrilCertifierService {
                 }
             }
             SignedEntityType::CardanoImmutableFilesFull(beacon) => beacon.clone(),
+            SignedEntityType::CardanoTransactions(beacon) => beacon.clone(),
         };
         let metadata = CertificateMetadata::new(
             protocol_version,
