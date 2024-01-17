@@ -1,9 +1,26 @@
 #!/usr/bin/env bash
 set +a -eu -o pipefail
-#set -v
+#set -vx
+
+check_requirements() {
+    which wget >/dev/null ||
+        error "It seems 'wget' is not installed or not in the path.";
+}
+
+display_help() {
+    if [ -n "${1-""}" ]; then echo "ERROR: ${1}"; echo; fi
+    echo "HELP"
+    echo $0
+    echo
+    echo "Import and save data from a given Mithril Aggregator."
+    echo
+    echo "Usage: $0 DATA_DIRECTORY URL"
+    echo
+    exit 1;
+}
 
 error() {
-    echo $1;
+    echo "ERROR: $1";
     exit 1;
 }
 
@@ -63,14 +80,18 @@ download_certificate_chain() {
 
 # MAIN execution
 
-declare -r DATA_DIR=${1:?"No data directory given to download JSON files."};
-declare -r BASE_URL=${2:?"No Mithril Aggregator URL given."};
+if [ -z "${1-""}" ]; then display_help "No data directory given to download JSON files."; fi;
+if [ -z "${2-""}" ]; then display_help "No Mithril Aggregator URL given."; fi;
+
+declare -r DATA_DIR=$1;
+declare -r BASE_URL=$2;
 
 if [ ! -d "$DATA_DIR" ]; then error "Specified directory '${DATA_DIR}' is not a directory."; fi
-wget --quiet --server-response --spider $BASE_URL || error "Could not reach URL '${BASE_URL}'.";
+wget --quiet --server-response --spider $BASE_URL 2>/dev/null || error "Could not reach URL '${BASE_URL}'.";
 
 export DATA_DIR URL;
 
+check_requirements;
 clean_directory;
 
 download_list "$BASE_URL/certificates" "certificates"

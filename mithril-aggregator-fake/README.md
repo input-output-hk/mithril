@@ -30,17 +30,32 @@ For each file, the identifiers of the corresponding artifacts are extracted and 
 
 If a file is missing or incomplete, the software will stop with an error message.
 
+This project comes with a shell script that reads data from a given Mithril Aggregator URL and creates the data files in a directory:
+
+```
+./scripts/import.sh some/data/directory http://valid.mithril.url/aggregator
+```
+
 ## Command line synopsis
 
-Usage: `mithril-fake-aggregator [OPTIONS]`
+Usage: `mithril-aggregator-fake [OPTIONS]`
 
 Options:
 
 ```
   -d, --data-directory <DATA_DIRECTORY>  Directory where the response files are located
-  -v, --verbose...                       Verbose mode (-q, -v, -vv, -vvv, etc)
+  -v, --verbose...                       Verbose mode (-v, -vv, -vvv, etc)
+  -q, --quiet                            Quiet mode. Suppress all outputs.
   -p, --tcp-port <TCP_PORT>              TCP port to listen on [default: 80]
   -i, --ip-address <IP_ADDRESS>          IP Address to bind server to [default: 127.0.0.1]
   -h, --help                             Print help
   -V, --version                          Print version
 ```
+
+## Examples
+
+Launching the fake Aggregator on `127.0.0.1:80` (requires root privileges) using builtin data with the ERROR verbose level:
+`./mithril-aggregator-fake`
+
+Launching the fake Aggregator on `127.0.0.1:8000` reading data from `some/data/directory` subdirectory with the INFO verbose level:
+`./mithril-aggregator-fake -p 8000 -d some/data/directory -vv`
