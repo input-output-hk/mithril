@@ -14,7 +14,7 @@ pub enum ProgressOutputType {
     /// Output to json
     JsonReporter,
     /// Output to tty
-    TTY,
+    Tty,
     /// No output
     Hidden,
 }
@@ -23,7 +23,7 @@ impl From<ProgressOutputType> for ProgressDrawTarget {
     fn from(value: ProgressOutputType) -> Self {
         match value {
             ProgressOutputType::JsonReporter => ProgressDrawTarget::hidden(),
-            ProgressOutputType::TTY => ProgressDrawTarget::stdout(),
+            ProgressOutputType::Tty => ProgressDrawTarget::stdout(),
             ProgressOutputType::Hidden => ProgressDrawTarget::hidden(),
         }
     }
@@ -54,7 +54,7 @@ impl ProgressPrinter {
                 timestamp = Utc::now().to_rfc3339(),
                 number_of_steps = self.number_of_steps,
             ),
-            ProgressOutputType::TTY => self
+            ProgressOutputType::Tty => self
                 .multi_progress
                 .println(format!("{step_number}/{} - {text}", self.number_of_steps))?,
             ProgressOutputType::Hidden => (),

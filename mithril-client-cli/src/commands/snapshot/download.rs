@@ -59,7 +59,7 @@ impl SnapshotDownloadCommand {
         let progress_output_type = if self.json {
             ProgressOutputType::JsonReporter
         } else {
-            ProgressOutputType::TTY
+            ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
         let client = ClientBuilder::aggregator(

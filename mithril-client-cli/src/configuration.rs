@@ -24,6 +24,7 @@ impl ConfigParameters {
     }
 
     /// Useful constructor for testing
+    #[cfg(test)]
     pub fn build(parameters: &[(&str, &str)]) -> Self {
         let parameters = parameters
             .iter()
@@ -34,6 +35,7 @@ impl ConfigParameters {
     }
 
     /// Add or replace a parameter in the holder
+    #[cfg(test)]
     pub fn add_parameter(&mut self, name: &str, value: &str) -> &mut Self {
         let _ = self.parameters.insert(name.to_string(), value.to_string());
 
