@@ -1,7 +1,11 @@
 use crate::devnet::BftNode;
 use crate::utils::MithrilCommand;
-use crate::DEVNET_MAGIC_ID;
+use crate::{
+    DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY,
+    GENESIS_VERIFICATION_KEY,
+};
 use anyhow::{anyhow, Context};
+use mithril_common::era::SupportedEra;
 use mithril_common::{entities, StdResult};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -15,7 +19,10 @@ pub struct AggregatorConfig<'a> {
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
+    pub cardano_node_version: &'a str,
     pub mithril_era: &'a str,
+    pub mithril_era_reader_adapter: &'a str,
+    pub mithril_era_marker_address: &'a str,
     pub signed_entity_types: &'a [String],
     pub chain_observer_type: &'a str,
 }
@@ -32,10 +39,18 @@ impl Aggregator {
     pub fn new(aggregator_config: &AggregatorConfig) -> StdResult<Self> {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let server_port_parameter = aggregator_config.server_port.to_string();
-        let era_reader_adapter_params = format!(
-            r#"{{"markers": [{{"name": "{}", "epoch": 0}}]}}"#,
-            aggregator_config.mithril_era
-        );
+        let era_reader_adapter_params =
+            if aggregator_config.mithril_era_reader_adapter == "cardano-chain" {
+                format!(
+                    r#"{{"address": "{}", "verification_key": "{}"}}"#,
+                    aggregator_config.mithril_era_marker_address, ERA_MARKERS_VERIFICATION_KEY
+                )
+            } else {
+                format!(
+                    r#"{{"markers": [{{"name": "{}", "epoch": 0}}]}}"#,
+                    aggregator_config.mithril_era
+                )
+            };
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
@@ -52,13 +67,22 @@ impl Aggregator {
                 aggregator_config.bft_node.socket_path.to_str().unwrap(),
             ),
             ("STORE_RETENTION_LIMIT", "10"),
-            ("CARDANO_CLI_PATH", aggregator_config.cardano_cli_path.to_str().unwrap()),
-            ("GENESIS_VERIFICATION_KEY", "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d"),
-            ("GENESIS_SECRET_KEY", "5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d"),
-            ("ERA_READER_ADAPTER_TYPE", "dummy"),
+            (
+                "CARDANO_CLI_PATH",
+                aggregator_config.cardano_cli_path.to_str().unwrap(),
+            ),
+            ("GENESIS_VERIFICATION_KEY", GENESIS_VERIFICATION_KEY),
+            ("GENESIS_SECRET_KEY", GENESIS_SECRET_KEY),
+            (
+                "ERA_READER_ADAPTER_TYPE",
+                aggregator_config.mithril_era_reader_adapter,
+            ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("SIGNED_ENTITY_TYPES", &signed_entity_types),
-            ("CARDANO_NODE_VERSION", "8.7.3"),
+            (
+                "CARDANO_NODE_VERSION",
+                aggregator_config.cardano_node_version,
+            ),
             ("CHAIN_OBSERVER_TYPE", aggregator_config.chain_observer_type),
         ]);
         let args = vec![
@@ -135,6 +159,54 @@ impl Aggregator {
                 .with_context(|| "Could not kill aggregator")?;
         }
         Ok(())
+    }
+
+    pub async fn era_generate_tx_datum(
+        &mut self,
+        target_path: &Path,
+        mithril_era: &str,
+    ) -> StdResult<()> {
+        let is_not_first_era =
+            SupportedEra::eras().first().map(|e| e.to_string()) != Some(mithril_era.to_string());
+
+        let mut args = vec![
+            "era".to_string(),
+            "generate-tx-datum".to_string(),
+            "--current-era-epoch".to_string(),
+            "0".to_string(),
+            "--era-markers-secret-key".to_string(),
+            ERA_MARKERS_SECRET_KEY.to_string(),
+            "--target-path".to_string(),
+            target_path.to_str().unwrap().to_string(),
+        ];
+
+        // If only the first available era is targeted we have no "next-era" to activate
+        if is_not_first_era {
+            args.push("--next-era-epoch".to_string());
+            args.push("1".to_string());
+        }
+
+        let exit_status = self
+            .command
+            .start(&args)?
+            .wait()
+            .await
+            .with_context(|| "`mithril-aggregator era generate-tx-datum` crashed")?;
+
+        if exit_status.success() {
+            Ok(())
+        } else {
+            Err(match exit_status.code() {
+                Some(c) => {
+                    anyhow!("`mithril-aggregator era generate-tx-datum` exited with code: {c}")
+                }
+                None => {
+                    anyhow!(
+                        "`mithril-aggregator era generate-tx-datum` was terminated with a signal"
+                    )
+                }
+            })
+        }
     }
 
     pub fn set_protocol_parameters(&mut self, protocol_parameters: &entities::ProtocolParameters) {

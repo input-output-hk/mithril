@@ -54,6 +54,10 @@ pub struct Args {
     #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
 
+    /// Cardano node version
+    #[clap(long, default_value = "8.7.3")]
+    cardano_node_version: String,
+
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
     #[clap(long, default_value_t = 0)]
     cardano_hard_fork_latest_era_at_epoch: u16,
@@ -61,6 +65,10 @@ pub struct Args {
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
     mithril_era: String,
+
+    /// Mithril era reader adapter
+    #[clap(long, default_value = "cardano-chain")]
+    mithril_era_reader_adapter: String,
 
     /// Signed entity types parameters (discriminants names in an ordered comma separated list).
     #[clap(long, value_delimiter = ',', default_value = "")]
@@ -129,6 +137,7 @@ async fn main() -> StdResult<()> {
         number_of_pool_nodes: args.number_of_pool_nodes,
         cardano_slot_length: args.cardano_slot_length,
         cardano_epoch_length: args.cardano_epoch_length,
+        cardano_node_version: args.cardano_node_version.to_owned(),
         cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
         skip_cardano_bin_download: args.skip_cardano_bin_download,
     })
@@ -139,7 +148,9 @@ async fn main() -> StdResult<()> {
         devnet: devnet.clone(),
         work_dir,
         bin_dir: args.bin_directory,
+        cardano_node_version: args.cardano_node_version,
         mithril_era: args.mithril_era,
+        mithril_era_reader_adapter: args.mithril_era_reader_adapter,
         signed_entity_types: args.signed_entity_types,
         run_only_mode,
         use_p2p_network_mode,
