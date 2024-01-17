@@ -283,7 +283,7 @@ impl SnapshotDownloadCommand {
     
     If you are using Cardano Docker image, you can restore a Cardano Node with:
     
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node:{}
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}
     
     "###,
                 snapshot.digest,
