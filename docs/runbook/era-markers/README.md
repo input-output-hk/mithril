@@ -49,7 +49,7 @@ $ TX_IN=f0c0345f151f9365fbbb4e7afa217e56b987d9e91fd754ca609d9dfec97275c7#0
 
 Create the initial datum file:
 ```bash
-$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY > $ASSETS_PATH/mithril-era-datum-1.json
+$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY --target-path $ASSETS_PATH/mithril-era-datum-1.json
 ```
 
 Now create the bootstrap transaction with datum:
@@ -150,7 +150,7 @@ Create the updated datum file:
 :warning: The options provided in the following command are for example only, you need to use adequately the options of the `era generate-tx-datum` command, which will depend on the operation you want to execute: announce an upcoming era or activate an upcoming era. This operation should be done very cautiously as a misconfiguration can lead to disturbed service of the network.
 
 ```bash
-$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY > $ASSETS_PATH/mithril-era-datum-2.json
+$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY --target-path $ASSETS_PATH/mithril-era-datum-2.json
 ```
 
 Now create the update transaction with datum:

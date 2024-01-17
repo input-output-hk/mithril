@@ -300,7 +300,7 @@ You can run 'era generate-tx-datum' to create the transaction datum file that wi
 **Case 1**: If there is only one supported era in the code, create the datum file:
 
 ```bash
-./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
+./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY** --target-path **TARGET_PATH**
 ```
 
 You should see something like:
@@ -312,13 +312,13 @@ You should see something like:
 **Case 2**: If there are two supported eras in the code and the activation epoch of the upcoming era is not yet known, run the command:
 
 ```bash
-./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
+./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY** --target-path **TARGET_PATH**
 ```
 
 **Case 3**: If there are two supported eras in the code and the activation epoch of the era switch is known to be at the following epoch, run the command:
 
 ```bash
-./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
+./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY** --target-path **TARGET_PATH**
 ```
 
 ## Release the build and run the binary 'tools' command
@@ -485,5 +485,6 @@ Here is a list of the available parameters:
 | `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Epoch at which current era starts. | - | - | - | :heavy_check_mark: |
 | `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Epoch at which the next era starts. If not specified and an upcoming era is available, it will announce the next era. If specified, it must be strictly greater than `current-epoch-era` | - | - | - | - |
 | `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era markers secret key that is used to verify the authenticity of the era markers on the chain. | - | - | - | :heavy_check_mark: |
+| `target_path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |
 
 The `tools recompute-certificates-hash` command has no dedicated parameters. 

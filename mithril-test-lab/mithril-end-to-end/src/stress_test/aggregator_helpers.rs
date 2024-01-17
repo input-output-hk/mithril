@@ -24,7 +24,10 @@ pub async fn bootstrap_aggregator(
         cardano_cli_path: &args.cardano_cli_path,
         work_dir: &args.work_dir,
         bin_dir: &args.bin_dir,
+        cardano_node_version: "1.2.3",
         mithril_era: &args.mithril_era,
+        mithril_era_marker_address: "",
+        mithril_era_reader_adapter: "dummy",
         signed_entity_types: &signed_entity_types,
         chain_observer_type,
     })

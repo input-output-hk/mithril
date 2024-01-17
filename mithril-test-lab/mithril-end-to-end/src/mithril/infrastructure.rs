@@ -1,5 +1,5 @@
 use crate::{
-    Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelaySigner, Signer,
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelaySigner, Signer,
     DEVNET_MAGIC_ID,
 };
 use anyhow::anyhow;
@@ -12,13 +12,19 @@ use slog_scope::info;
 use std::borrow::BorrowMut;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::time::sleep;
+
+use super::signer::SignerConfig;
 
 pub struct MithrilInfrastructureConfig {
     pub server_port: u64,
     pub devnet: Devnet,
     pub work_dir: PathBuf,
     pub bin_dir: PathBuf,
+    pub cardano_node_version: String,
     pub mithril_era: String,
+    pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
     pub run_only_mode: bool,
     pub use_p2p_network_mode: bool,
@@ -51,7 +57,10 @@ impl MithrilInfrastructure {
             cardano_cli_path: &config.devnet.cardano_cli_path(),
             work_dir: &config.work_dir,
             bin_dir: &config.bin_dir,
+            cardano_node_version: &config.cardano_node_version,
             mithril_era: &config.mithril_era,
+            mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
+            mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
             signed_entity_types: &config.signed_entity_types,
             chain_observer_type,
         })?;
@@ -60,6 +69,11 @@ impl MithrilInfrastructure {
             m: 100,
             phi_f: 0.95,
         });
+        if config.mithril_era_reader_adapter == "cardano-chain" {
+            assertions::register_era_marker(&mut aggregator, &config.devnet, &config.mithril_era)
+                .await?;
+            sleep(Duration::from_secs(5)).await;
+        }
         aggregator.serve()?;
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
@@ -104,15 +118,17 @@ impl MithrilInfrastructure {
             } else {
                 aggregator.endpoint()
             };
-            let mut signer = Signer::new(
+            let mut signer = Signer::new(&SignerConfig {
                 aggregator_endpoint,
                 pool_node,
-                &config.devnet.cardano_cli_path(),
-                &config.work_dir,
-                &config.bin_dir,
-                &config.mithril_era,
+                cardano_cli_path: &config.devnet.cardano_cli_path(),
+                work_dir: &config.work_dir,
+                bin_dir: &config.bin_dir,
+                mithril_era: &config.mithril_era,
+                mithril_era_reader_adapter: &config.mithril_era_reader_adapter,
+                mithril_era_marker_address: &config.devnet.mithril_era_marker_address()?,
                 enable_certification,
-            )?;
+            })?;
             signer.start()?;
 
             signers.push(signer);
