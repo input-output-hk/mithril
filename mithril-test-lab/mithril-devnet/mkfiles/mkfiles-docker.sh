@@ -16,7 +16,7 @@ for NODE in ${BFT_NODES}; do
     HOST=$(cat ${NODE}/host)
 cat >> docker-compose.yaml <<EOF
   cardano-${NODE}:
-    image: inputoutput/cardano-node:${CARDANO_NODE_VERSION}
+    image: ghcr.io/intersectmbo/cardano-node:${CARDANO_NODE_VERSION}
     profiles:
       - cardano
     volumes:
@@ -65,7 +65,7 @@ for NODE in ${POOL_NODES}; do
     HOST=$(cat ${NODE}/host)
 cat >> docker-compose.yaml <<EOF
   cardano-${NODE}:
-    image: inputoutput/cardano-node:latest
+    image: ghcr.io/intersectmbo/cardano-node:latest
     profiles:
       - cardano
     volumes:
