@@ -1,7 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-mod commands;
-
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
@@ -15,7 +13,7 @@ use std::{fs::File, path::PathBuf};
 
 use mithril_common::StdResult;
 
-use commands::{
+use mithril_client_cli::commands::{
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
 

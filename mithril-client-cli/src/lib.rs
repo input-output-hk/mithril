@@ -7,5 +7,6 @@
 //
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/client).
 
-pub mod configuration;
-pub mod utils;
+pub mod commands;
+mod configuration;
+mod utils;
