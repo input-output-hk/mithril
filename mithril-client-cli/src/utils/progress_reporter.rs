@@ -72,9 +72,11 @@ impl Deref for ProgressPrinter {
     }
 }
 
+/// Utility to format a [ProgressBar] status as json
 pub struct ProgressBarJsonFormatter;
 
 impl ProgressBarJsonFormatter {
+    /// Get a json formatted string given the progress bar status
     pub fn format(progress_bar: &ProgressBar) -> String {
         format!(
             r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
@@ -97,7 +99,7 @@ pub struct DownloadProgressReporter {
 }
 
 impl DownloadProgressReporter {
-    /// Instanciate a new progress reporter
+    /// Instantiate a new progress reporter
     pub fn new(progress_bar: ProgressBar, output_type: ProgressOutputType) -> Self {
         Self {
             progress_bar,
@@ -129,6 +131,7 @@ impl DownloadProgressReporter {
         };
     }
 
+    /// Report that the current download is finished and print the given message.
     pub fn finish(&self, message: &str) {
         self.progress_bar.finish_with_message(message.to_string());
     }
