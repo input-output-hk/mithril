@@ -44,10 +44,10 @@ resource "null_resource" "mithril_signer" {
       "echo -n ${local.mithril_signers_relay_cardano_port[each.key]} > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/port",
       <<-EOT
 # Setup cardano node block producer topology
-cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq 'del(.publicRoots[0].accessPoints[0:])' | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_relay_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json
+cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}_p2p/cardano-node/topology.json | jq 'del(.publicRoots[0].accessPoints[0:])' | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_relay_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json
 
 # Setup cardano node relay topology
-cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
+cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}_p2p/cardano-node/topology.json | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
 EOT
       ,
       <<-EOT
@@ -56,7 +56,7 @@ SIGNER_TYPES="full relay block-producer"
 for SIGNER_TYPE in $SIGNER_TYPES; do
   SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
   mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
-  cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network} $SIGNER_TYPE_CONFIG_DIRECTORY
+  cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network}_p2p $SIGNER_TYPE_CONFIG_DIRECTORY
   cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
   rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
   mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
