@@ -7,7 +7,6 @@ members = [
   "examples/client-mithril-stake-distribution",
   "examples/client-snapshot",
   "mithril-aggregator",
-  "mithril-aggregator-fake",
   "mithril-client",
   "mithril-client-cli",
   "mithril-client-wasm",
@@ -15,6 +14,7 @@ members = [
   "mithril-relay",
   "mithril-signer",
   "mithril-stm",
+  "mithril-test-lab/mithril-aggregator-fake",
   "mithril-test-lab/mithril-end-to-end",
 ]
 

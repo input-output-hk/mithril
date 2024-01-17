@@ -26,5 +26,5 @@ tracing-subscriber = "0.3.18"
 
 [dev-dependencies]
 http = "0.2.9"
-mithril-common = { "path" = "../mithril-common", features = ["test_tools", "random"] }
+mithril-common = { "path" = "../../mithril-common", features = ["test_tools", "random"] }
 reqwest = "0.11.23"
