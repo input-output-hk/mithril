@@ -30,12 +30,11 @@ SPO beta mainnet deployment : Mandatory : SPOs run Mithril in their mainnet infr
 
 :::info
 
-This step is **optional**, but recommended as it helps us deliver quality software. We are actively looking for SPO candidates to test Mithril on the Cardano testnets. Contact us [here](https://contact.mithril.network/) if you are interested!
+This step is **optional**, but recommended as it helps us deliver quality software. We are actively looking for SPO candidates to test Mithril on the Cardano testnets.
 
 :::
 
 To participate in the Pioneer Program, you will need to:
-- Register for the **Mithril SPO Pioneer Program** using this [form](https://contact.mithril.network/).
 - Run an active SPO on the Cardano `preview` network for at least one epoch or one day. 
 - Set up a **Mithril signer** node on the `pre-release-preview` Mithril network by following the [**Run a Mithril signer node (SPO)**](run-signer-node.md) guide.
 - You can choose between the **Naive** (easier to set up) or the **Production** deployment models.
