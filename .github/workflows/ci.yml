@@ -51,7 +51,7 @@ jobs:
           cargo deb --no-build --package mithril-signer
           cargo deb --no-build --package mithril-client-cli
           cargo deb --no-build --package mithril-relay
-      
+
       - name: Publish Debian packages
         uses: actions/upload-artifact@v3
         with:
@@ -72,13 +72,13 @@ jobs:
           ERAS=$(./target/release/mithril-aggregator era list --json)
           echo "Test Lab Eras: $ERAS"
           echo "eras=$ERAS" >> $GITHUB_OUTPUT
-  
+
   build:
     strategy:
       fail-fast: false
       matrix:
         os: [ macos-12, windows-latest ]
-        
+
         include:
         # Only build client on windows & mac
         - os: macos-12
@@ -90,7 +90,7 @@ jobs:
           binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
           libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend,full
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -99,7 +99,7 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
-      
+
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
@@ -158,7 +158,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-22.04, macos-12, windows-latest ]
-        
+
         include:
           - os: ubuntu-22.04
             test-args: --features portable,full --workspace
@@ -167,9 +167,9 @@ jobs:
             test-args: --package mithril-client --package mithril-client-cli --features full
           - os: windows-latest
             test-args: --package mithril-client --package mithril-client-cli --features full
-    
+
     runs-on: ${{ matrix.os }}
-    
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -179,7 +179,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-nextest
-      
+
       - name: Build tests
         run: cargo nextest run --no-run ${{ matrix.test-args }}
 
@@ -205,7 +205,7 @@ jobs:
           name: test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}
           path: |
             ./test-results-*.xml
-  
+
   check:
     runs-on: ubuntu-22.04
     steps:
@@ -224,7 +224,7 @@ jobs:
           cargo clippy \
             --all-features --all-targets --no-deps --message-format=json \
             | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
-          
+
           # Make this step fail if any warning has been found
           if [[ $(cat rust-clippy-results.sarif | jq '.runs[0].results') != "[]" ]]; then
             false
@@ -246,7 +246,7 @@ jobs:
         if: success() || failure()
         shell: bash
         run: cargo sort -w -c
-      
+
       - name: Dependency & Vulnerabilities Review
         if: github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v3
@@ -311,7 +311,7 @@ jobs:
             !./artifacts/devnet/cardano-cli
             !./artifacts/devnet/cardano-node
           if-no-files-found: error
-  
+
   publish-tests-results:
     if: success() || failure()
     runs-on: ubuntu-22.04
@@ -357,7 +357,7 @@ jobs:
         include:
           - project: mithril-client-cli
             package: mithril-client
-    
+
     permissions:
       contents: read
       packages: write
@@ -409,7 +409,7 @@ jobs:
       max-parallel: 1
       matrix:
         package: [ mithril-stm, mithril-common, mithril-client ]
-          
+
     runs-on: ubuntu-22.04
     needs:
       - build
@@ -424,7 +424,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-        
+
       - name: Publish package to crates.io
         uses: ./.github/workflows/actions/publish-crate-package
         with:
@@ -443,7 +443,7 @@ jobs:
             tag: latest
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
-          
+
     runs-on: ubuntu-22.04
     needs:
       - build-test-wasm
@@ -456,7 +456,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
-        
+
       - name: Publish package to npm
         uses: ./.github/workflows/actions/publish-npm-package
         with:
@@ -478,14 +478,14 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      
+
       - name: Prepare packaging
         run: mkdir package
 
       - name: Get short SHA
         id: slug
         run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-      
+
       - name: Download built artifacts (Linux-X64)
         uses: actions/download-artifact@v3
         with:
@@ -517,7 +517,7 @@ jobs:
           download-url-base: ${{ github.server_url }}/${{ github.repository }}/releases/download/unstable
           gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
           compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "⛔", "testing-preview": "✔" }'
-      
+
       - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest
         with:
