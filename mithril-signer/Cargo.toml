@@ -35,7 +35,7 @@ thiserror = "1.0.49"
 tokio = { version = "1.32.0", features = ["full"] }
 
 [dev-dependencies]
-httpmock = "0.6.8"
+httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common" }
 mockall = "0.12.0"
 slog-term = "2.9.0"
