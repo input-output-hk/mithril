@@ -1,10 +1,9 @@
-use std::sync::Arc;
-
 use anyhow::Context;
 use semver::Version;
 use slog::Logger;
 use slog_scope::debug;
 use sqlite::Connection;
+use std::sync::Arc;
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -21,7 +20,7 @@ use mithril_common::{
     crypto_helper::{
         ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
     },
-    database::{ApplicationNodeType, DatabaseVersionChecker},
+    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
@@ -72,6 +71,7 @@ use crate::{
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
+const SQLITE_FILE_CARDANO_TRANSACTIONS: &str = "cardano-transactions.sqlite3";
 
 /// ## Dependencies container builder
 ///
@@ -90,6 +90,9 @@ pub struct DependenciesBuilder {
 
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
+
+    /// Cardano transactions SQLite database connection
+    pub cardano_transactions_sqlite_connection: Option<Arc<SqliteConnection>>,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
@@ -204,6 +207,7 @@ impl DependenciesBuilder {
         Self {
             configuration,
             sqlite_connection: None,
+            cardano_transactions_sqlite_connection: None,
             stake_store: None,
             snapshot_uploader: None,
             multi_signer: None,
@@ -241,10 +245,14 @@ impl DependenciesBuilder {
         }
     }
 
-    async fn build_sqlite_connection(&self) -> Result<Arc<SqliteConnection>> {
+    async fn build_sqlite_connection(
+        &self,
+        sqlite_file_name: &str,
+        migrations: Vec<SqlMigration>,
+    ) -> Result<Arc<SqliteConnection>> {
         let path = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                self.configuration.get_sqlite_dir().join(SQLITE_FILE)
+                self.configuration.get_sqlite_dir().join(sqlite_file_name)
             }
             _ => self.configuration.data_stores_directory.clone(),
         };
@@ -266,7 +274,7 @@ impl DependenciesBuilder {
             connection.as_ref(),
         );
 
-        for migration in crate::database::migration::get_migrations() {
+        for migration in migrations {
             db_checker.add_migration(migration);
         }
 
@@ -293,8 +301,12 @@ impl DependenciesBuilder {
         Ok(connection)
     }
 
-    async fn drop_sqlite_connection(&self) {
+    async fn drop_sqlite_connections(&self) {
         if let Some(connection) = &self.sqlite_connection {
+            let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
+        }
+
+        if let Some(connection) = &self.cardano_transactions_sqlite_connection {
             let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
         }
     }
@@ -302,10 +314,37 @@ impl DependenciesBuilder {
     /// Get SQLite connection
     pub async fn get_sqlite_connection(&mut self) -> Result<Arc<SqliteConnection>> {
         if self.sqlite_connection.is_none() {
-            self.sqlite_connection = Some(self.build_sqlite_connection().await?);
+            self.sqlite_connection = Some(
+                self.build_sqlite_connection(
+                    SQLITE_FILE,
+                    crate::database::migration::get_migrations(),
+                )
+                .await?,
+            );
         }
 
         Ok(self.sqlite_connection.as_ref().cloned().unwrap())
+    }
+
+    /// Get SQLite connection for the cardano transactions store
+    pub async fn get_sqlite_connection_cardano_transactions(
+        &mut self,
+    ) -> Result<Arc<SqliteConnection>> {
+        if self.cardano_transactions_sqlite_connection.is_none() {
+            self.cardano_transactions_sqlite_connection = Some(
+                self.build_sqlite_connection(
+                    SQLITE_FILE_CARDANO_TRANSACTIONS,
+                    crate::database::cardano_transactions_migration::get_migrations(),
+                )
+                .await?,
+            );
+        }
+
+        Ok(self
+            .cardano_transactions_sqlite_connection
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 
     async fn build_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
@@ -1043,6 +1082,9 @@ impl DependenciesBuilder {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
+            sqlite_connection_cardano_transactions: self
+                .get_sqlite_connection_cardano_transactions()
+                .await?,
             stake_store: self.get_stake_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
@@ -1279,6 +1321,6 @@ impl DependenciesBuilder {
 
     /// Remove the dependencies builder from memory to release Arc instances.
     pub async fn vanish(self) {
-        self.drop_sqlite_connection().await;
+        self.drop_sqlite_connections().await;
     }
 }

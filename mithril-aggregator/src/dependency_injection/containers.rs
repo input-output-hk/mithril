@@ -48,6 +48,9 @@ pub struct DependencyContainer {
     /// services. Shall be private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 
+    /// SQLite database connection for Cardano transactions
+    pub sqlite_connection_cardano_transactions: Arc<SqliteConnection>,
+
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
     pub stake_store: Arc<StakePoolStore>,
