@@ -1,5 +1,5 @@
 use mithril_common::{
-    entities::ImmutableFileNumber,
+    entities::{BlockNumber, ImmutableFileNumber, TransactionHash},
     sqlite::{
         HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
         WhereCondition,
@@ -9,12 +9,6 @@ use mithril_common::{
 
 use sqlite::{Row, Value};
 use std::sync::Arc;
-
-/// TransactionHash is the unique identifier of a cardano transaction.
-pub type TransactionHash = String;
-
-/// BlockNumber is the block number of a cardano transaction.
-pub type BlockNumber = u64;
 
 /// Cardano Transaction record is the representation of a cardano transaction.
 #[derive(Debug, PartialEq, Clone)]

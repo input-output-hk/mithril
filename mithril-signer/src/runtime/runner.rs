@@ -468,7 +468,7 @@ mod tests {
             StakeStore, StakeStorer,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
-        BeaconProvider, BeaconProviderImpl, CardanoNetwork,
+        BeaconProvider, BeaconProviderImpl, CardanoNetwork, DumbTransactionParser,
     };
     use mockall::mock;
     use std::{
@@ -526,7 +526,12 @@ mod tests {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
+        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser.clone(),
+            Path::new(""),
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,

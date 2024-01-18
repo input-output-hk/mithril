@@ -21,7 +21,7 @@ use mithril_common::{
     },
     sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, StdResult,
+    BeaconProvider, BeaconProviderImpl, DumbTransactionParser, StdResult,
 };
 
 use crate::{
@@ -250,7 +250,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
+        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser,
+            &self.config.db_directory,
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,

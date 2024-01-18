@@ -19,7 +19,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
     store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
-    BeaconProvider, BeaconProviderImpl, StdError,
+    BeaconProvider, BeaconProviderImpl, DumbTransactionParser, StdError,
 };
 
 use mithril_signer::{
@@ -157,12 +157,16 @@ impl StateMachineTester {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let cardano_transactions_signable_builder =
-            Arc::new(CardanoTransactionsSignableBuilder::default());
+        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser.clone(),
+            Path::new(""),
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
-            cardano_transactions_signable_builder,
+            cardano_transactions_builder,
         ));
 
         let services = SignerServices {

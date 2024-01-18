@@ -15,6 +15,7 @@ use warp::Filter;
 
 use mithril_common::{
     api_version::APIVersionProvider,
+    cardano_transactions_parser::TransactionParser,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     crypto_helper::{
@@ -128,6 +129,9 @@ pub struct DependenciesBuilder {
     /// Beacon provider service.
     pub beacon_provider: Option<Arc<dyn BeaconProvider>>,
 
+    /// Cardano transactions parser.
+    pub transaction_parser: Option<Arc<dyn TransactionParser>>,
+
     /// Immutable file digester service.
     pub immutable_digester: Option<Arc<dyn ImmutableDigester>>,
 
@@ -219,6 +223,7 @@ impl DependenciesBuilder {
             cardano_cli_runner: None,
             chain_observer: None,
             beacon_provider: None,
+            transaction_parser: None,
             immutable_digester: None,
             immutable_file_observer: None,
             immutable_cache_provider: None,
@@ -659,6 +664,27 @@ impl DependenciesBuilder {
         self.create_logger().await
     }
 
+    async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
+        todo!()
+        /* let immutable_digester_cache = match self.configuration.environment {
+            ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
+            _ => None,
+        };
+        let digester =
+            Car::new(immutable_digester_cache, self.get_logger().await?);
+
+        Ok(Arc::new(digester)) */
+    }
+
+    /// Transaction parser.
+    pub async fn get_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
+        if self.transaction_parser.is_none() {
+            self.transaction_parser = Some(self.build_transaction_parser().await?);
+        }
+
+        Ok(self.transaction_parser.as_ref().cloned().unwrap())
+    }
+
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
         let immutable_digester_cache = match self.configuration.environment {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
@@ -980,7 +1006,11 @@ impl DependenciesBuilder {
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            self.get_transaction_parser().await?,
+            &self.configuration.db_directory,
+            self.get_logger().await?,
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
@@ -1116,6 +1146,7 @@ impl DependenciesBuilder {
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
+            cardano_transactions_parser: self.get_transaction_parser().await?,
         };
 
         Ok(dependency_manager)
