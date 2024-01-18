@@ -931,7 +931,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "mithril-client",
@@ -943,7 +943,7 @@ dependencies = [
 
 [[package]]
 name = "client-snapshot"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3258,7 +3258,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.26"
+version = "0.4.27"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3298,7 +3298,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -3319,7 +3319,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3352,7 +3352,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.5.16"
+version = "0.5.17"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3381,7 +3381,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "async-trait",
  "futures",
@@ -3396,7 +3396,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.151"
+version = "0.2.152"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3444,7 +3444,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.2.34"
+version = "0.2.35"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3469,7 +3469,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -3492,7 +3492,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.102"
+version = "0.2.103"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3521,7 +3521,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.13"
+version = "0.3.14"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -3544,7 +3544,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.26"
+version = "0.1.27"
 dependencies = [
  "base64 0.21.7",
  "blake2 0.10.6",
