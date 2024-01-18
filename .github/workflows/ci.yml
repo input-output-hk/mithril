@@ -648,7 +648,9 @@ jobs:
 
       - name: Generate cargo doc
         run: |
-          cargo doc --no-deps -p mithril-stm -p mithril-common -p mithril-aggregator \
+          # Force `--lib` to avoid a collision between the client lib and the client cli binary who share
+          # the same name (we only want to document those anyway)
+          cargo doc --no-deps --lib -p mithril-stm -p mithril-common -p mithril-aggregator \
                     -p mithril-signer -p mithril-client -p mithril-client-cli \
                     --all-features --message-format=json \
                     | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt

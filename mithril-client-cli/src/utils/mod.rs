@@ -1,5 +1,5 @@
 //! Utilities module
-//! This module contains tools needed mostly in services layers.
+//! This module contains tools needed for the commands layer.
 
 mod expander;
 mod feedback_receiver;

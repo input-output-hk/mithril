@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use futures::Future;
 use mithril_common::StdResult;
 
+/// Utilities to expand aliases into their associated ids.
 pub struct ExpanderUtils;
 
 impl ExpanderUtils {

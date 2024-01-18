@@ -38,17 +38,6 @@ pub enum SnapshotUnpackerError {
     /// Cannot write in the given directory.
     #[error("Unpack directory '{0}' is not writable.")]
     UnpackDirectoryIsNotWritable(PathBuf, #[source] StdError),
-
-    /// Unpacking error
-    #[error("Could not unpack from streamed data snapshot to directory '{dirpath}'")]
-    UnpackFailed {
-        /// Location where the archive is to be extracted.
-        dirpath: PathBuf,
-
-        /// Subsystem error
-        #[source]
-        error: StdError,
-    },
 }
 
 impl SnapshotUnpacker {

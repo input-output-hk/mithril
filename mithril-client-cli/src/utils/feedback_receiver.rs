@@ -35,7 +35,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 download_id: _,
                 size,
             } => {
-                let pb = if self.output_type == ProgressOutputType::TTY {
+                let pb = if self.output_type == ProgressOutputType::Tty {
                     ProgressBar::new(size)
                 } else {
                     ProgressBar::with_draw_target(Some(size), ProgressDrawTarget::hidden())
@@ -68,7 +68,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id: _,
             } => {
-                let pb = if self.output_type == ProgressOutputType::TTY {
+                let pb = if self.output_type == ProgressOutputType::Tty {
                     ProgressBar::new_spinner()
                 } else {
                     ProgressBar::hidden()
