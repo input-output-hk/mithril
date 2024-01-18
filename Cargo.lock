@@ -3226,9 +3226,9 @@ dependencies = [
 
 [[package]]
 name = "minicbor"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7005aaf257a59ff4de471a9d5538ec868a21586534fff7f85dd97d4043a6139"
+checksum = "9d15f4203d71fdf90903c2696e55426ac97a363c67b218488a73b534ce7aca10"
 dependencies = [
  "half 1.8.2",
  "minicbor-derive",
@@ -4036,9 +4036,9 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pallas-codec"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5443cc4e8d59a8845282a8d35c4021a434a1911d3bc82914c3a8fcda8247d1ae"
+checksum = "aaf1bfb0b6b942a380032e2d8fe8dabd4d97d2ec949ba9acf8e54b79f9c91682"
 dependencies = [
  "hex",
  "minicbor",
@@ -4048,9 +4048,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-crypto"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd1116c3da7bc5ae8aa3a87a3ccc42a46d07994458d084c7d3c1dc732320bfc0"
+checksum = "65e3d525729ed4dbf7a41387e15daea2bba582837d4139b8a3b578aad099f67f"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4062,15 +4062,17 @@ dependencies = [
 
 [[package]]
 name = "pallas-network"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69d5fb0899c37f74b2b3366d44eef85d44aea2b1cd8e9548263977baa252d9f4"
+checksum = "b222e9054f01da84b0cd2bb992a6447d23747f0269c7715557c9df7a271baea3"
 dependencies = [
  "byteorder",
  "hex",
  "itertools 0.10.5",
  "pallas-codec",
  "pallas-crypto",
+ "rand",
+ "socket2 0.5.5",
  "thiserror",
  "tokio",
  "tracing",
