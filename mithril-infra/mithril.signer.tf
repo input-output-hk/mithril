@@ -57,6 +57,8 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
   SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
   mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
   cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network}_p2p $SIGNER_TYPE_CONFIG_DIRECTORY
+  rm -rf $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}
+  mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}_p2p $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}
   cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
   rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
   mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
