@@ -75,4 +75,5 @@ runs:
       NPM_TOKEN: ${{ inputs.api_token }}
     run: |
       echo "Publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
+      cd ${{ inputs.package }}/pkg
       npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }}
