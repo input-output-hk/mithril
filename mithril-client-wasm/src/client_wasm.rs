@@ -50,6 +50,7 @@ impl From<MithrilEvent> for MithrilEventWasm {
     }
 }
 
+/// Structure that wraps a [Client] and enables its functions to be used in WASM
 #[wasm_bindgen]
 pub struct MithrilClient {
     client: Client,
@@ -199,8 +200,6 @@ impl MithrilClient {
     }
 }
 
-// The tests are commented for now, as we don't want to run them on a testnet aggregator.
-/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,16 +209,30 @@ mod tests {
     };
     use wasm_bindgen_test::*;
 
-    const AGGREGATOR_ENDPOINT: &str =
-        "https://aggregator.testing-preview.api.mithril.network/aggregator";
     const GENESIS_VERIFICATION_KEY: &str = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
+    const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
+    const FAKE_AGGREGATOR_PORT: &str = "8000";
+    const FAKE_AGGREGATOR_SNAPSHOT_DIGEST: &str =
+        "000ee4c84c7b64a62dc30ec78a765a1f3bb81cd9dd4bd1eccf9f2da785e70877";
+    const FAKE_AGGREGATOR_MSD_HASH: &str =
+        "03ebb00e6626037f2e58eb7cc50d308fd57c253baa1fe2b04eb5945ced16b5bd";
+    const FAKE_CERTIFICATE_HASH: &str =
+        "05bf6740e781e649dd2fe7e3319818747d8038ca759c67711c90cf24cdade8a9";
+
+    fn get_mithril_client() -> MithrilClient {
+        MithrilClient::new(
+            &format!(
+                "http://{}:{}/aggregator",
+                FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
+            ),
+            GENESIS_VERIFICATION_KEY,
+        )
+    }
 
     wasm_bindgen_test_configure!(run_in_browser);
     #[wasm_bindgen_test]
     async fn list_snapshots_should_return_value_convertible_in_rust_type() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-
-        let snapshots_list_js_value = client
+        let snapshots_list_js_value = get_mithril_client()
             .list_snapshots()
             .await
             .expect("list_snapshots should not fail");
@@ -227,33 +240,24 @@ mod tests {
             serde_wasm_bindgen::from_value::<Vec<SnapshotListItem>>(snapshots_list_js_value)
                 .expect("conversion should not fail");
 
-        assert_eq!(snapshots_list.len(), 20);
+        assert_eq!(snapshots_list.len(), 3);
     }
 
     #[wasm_bindgen_test]
     async fn get_snapshot_should_return_value_convertible_in_rust_type() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-        let snapshots_list_js_value = client.list_snapshots().await.unwrap();
-        let snapshots_list =
-            serde_wasm_bindgen::from_value::<Vec<SnapshotListItem>>(snapshots_list_js_value)
-                .unwrap();
-        let last_digest = &snapshots_list.first().unwrap().digest;
-
-        let snapshot_js_value = client
-            .get_snapshot(last_digest)
+        let snapshot_js_value = get_mithril_client()
+            .get_snapshot(FAKE_AGGREGATOR_SNAPSHOT_DIGEST)
             .await
             .expect("get_snapshot should not fail");
         let snapshot = serde_wasm_bindgen::from_value::<Snapshot>(snapshot_js_value)
             .expect("conversion should not fail");
 
-        assert_eq!(snapshot.digest, last_digest.to_string());
+        assert_eq!(snapshot.digest, FAKE_AGGREGATOR_SNAPSHOT_DIGEST);
     }
 
     #[wasm_bindgen_test]
     async fn get_snapshot_should_fail_with_unknown_digest() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-
-        client
+        get_mithril_client()
             .get_snapshot("whatever")
             .await
             .expect_err("get_snapshot should fail");
@@ -261,9 +265,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_mithril_stake_distributions_should_return_value_convertible_in_rust_type() {
-        let wasm_client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-
-        let msd_list_js_value = wasm_client
+        let msd_list_js_value = get_mithril_client()
             .list_mithril_stake_distributions()
             .await
             .expect("list_mithril_stake_distributions should not fail");
@@ -272,34 +274,24 @@ mod tests {
         )
         .expect("conversion should not fail");
 
-        assert_eq!(msd_list.len(), 20);
+        assert_eq!(msd_list.len(), 3);
     }
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_return_value_convertible_in_rust_type() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-        let msd_list_js_value = client.list_mithril_stake_distributions().await.unwrap();
-        let msd_list = serde_wasm_bindgen::from_value::<Vec<MithrilStakeDistributionListItem>>(
-            msd_list_js_value,
-        )
-        .unwrap();
-        let last_hash = &msd_list.first().unwrap().hash;
-
-        let msd_js_value = client
-            .get_mithril_stake_distribution(last_hash)
+        let msd_js_value = get_mithril_client()
+            .get_mithril_stake_distribution(FAKE_AGGREGATOR_MSD_HASH)
             .await
             .expect("get_mithril_stake_distribution should not fail");
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value)
             .expect("conversion should not fail");
 
-        assert_eq!(msd.hash, last_hash.to_string());
+        assert_eq!(msd.hash, FAKE_AGGREGATOR_MSD_HASH);
     }
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_fail_with_unknown_hash() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-
-        client
+        get_mithril_client()
             .get_mithril_stake_distribution("whatever")
             .await
             .expect_err("get_mithril_stake_distribution should fail");
@@ -307,9 +299,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_mithril_certificates_should_return_value_convertible_in_rust_type() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-
-        let certificates_list_js_value = client
+        let certificates_list_js_value = get_mithril_client()
             .list_mithril_certificates()
             .await
             .expect("list_mithril_certificates should not fail");
@@ -318,35 +308,25 @@ mod tests {
         )
         .expect("conversion should not fail");
 
-        assert_eq!(certificates_list.len(), 20);
+        assert_eq!(certificates_list.len(), 7);
     }
 
     #[wasm_bindgen_test]
     async fn get_mithril_certificate_should_return_value_convertible_in_rust_type() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-        let certificates_list_js_value = client.list_mithril_certificates().await.unwrap();
-        let certificates_list = serde_wasm_bindgen::from_value::<Vec<MithrilCertificateListItem>>(
-            certificates_list_js_value,
-        )
-        .unwrap();
-        let last_hash = &certificates_list.first().unwrap().hash;
-
-        let certificate_js_value = client
-            .get_mithril_certificate(last_hash)
+        let certificate_js_value = get_mithril_client()
+            .get_mithril_certificate(FAKE_CERTIFICATE_HASH)
             .await
             .expect("get_mithril_certificate should not fail");
         let certificate =
             serde_wasm_bindgen::from_value::<MithrilCertificate>(certificate_js_value)
                 .expect("conversion should not fail");
 
-        assert_eq!(certificate.hash, last_hash.to_string());
+        assert_eq!(certificate.hash, FAKE_CERTIFICATE_HASH);
     }
 
     #[wasm_bindgen_test]
     async fn get_mithril_certificate_should_fail_with_unknown_hash() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-
-        client
+        get_mithril_client()
             .get_mithril_certificate("whatever")
             .await
             .expect_err("get_mithril_certificate should fail");
@@ -355,15 +335,9 @@ mod tests {
     #[wasm_bindgen_test]
     async fn compute_mithril_stake_distribution_message_should_return_value_convertible_in_rust_type(
     ) {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-        let msd_list_js_value = client.list_mithril_stake_distributions().await.unwrap();
-        let msd_list = serde_wasm_bindgen::from_value::<Vec<MithrilStakeDistributionListItem>>(
-            msd_list_js_value,
-        )
-        .unwrap();
-        let last_hash = &msd_list.first().unwrap().hash;
+        let client = get_mithril_client();
         let msd_js_value = client
-            .get_mithril_stake_distribution(last_hash)
+            .get_mithril_stake_distribution(FAKE_AGGREGATOR_MSD_HASH)
             .await
             .unwrap();
 
@@ -375,20 +349,11 @@ mod tests {
             .expect("conversion should not fail");
     }
 
-    // This test is commented for now as it's execution takes too long with a real testnet aggregator
-    // Timeout in tests is 20s
-    /*
     #[wasm_bindgen_test]
     async fn verify_certificate_chain_should_return_value_convertible_in_rust_type() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-        let msd_list_js_value = client.list_mithril_stake_distributions().await.unwrap();
-        let msd_list = serde_wasm_bindgen::from_value::<Vec<MithrilStakeDistributionListItem>>(
-            msd_list_js_value,
-        )
-        .unwrap();
-        let last_hash = &msd_list.first().unwrap().hash;
+        let client = get_mithril_client();
         let msd_js_value = client
-            .get_mithril_stake_distribution(last_hash)
+            .get_mithril_stake_distribution(FAKE_AGGREGATOR_MSD_HASH)
             .await
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value).unwrap();
@@ -400,22 +365,12 @@ mod tests {
         serde_wasm_bindgen::from_value::<MithrilCertificate>(certificate_js_value)
             .expect("conversion should not fail");
     }
-    */
 
-    // This test is commented for now as it's execution takes too long with a real testnet aggregator
-    // Timeout in tests is 20s
-    /*
     #[wasm_bindgen_test]
     async fn verify_message_match_certificate_should_return_true() {
-        let client = MithrilClient::new(AGGREGATOR_ENDPOINT, GENESIS_VERIFICATION_KEY);
-        let msd_list_js_value = client.list_mithril_stake_distributions().await.unwrap();
-        let msd_list = serde_wasm_bindgen::from_value::<Vec<MithrilStakeDistributionListItem>>(
-            msd_list_js_value,
-        )
-        .unwrap();
-        let last_hash = &msd_list.first().unwrap().hash;
+        let client = get_mithril_client();
         let msd_js_value = client
-            .get_mithril_stake_distribution(last_hash)
+            .get_mithril_stake_distribution(FAKE_AGGREGATOR_MSD_HASH)
             .await
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
@@ -434,6 +389,4 @@ mod tests {
             .await
             .expect("verify_message_match_certificate should not fail");
     }
-    */
 }
-*/
