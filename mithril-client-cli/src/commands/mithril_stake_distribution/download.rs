@@ -8,8 +8,8 @@ use std::{
     sync::Arc,
 };
 
+use crate::{configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_client::{ClientBuilder, MessageBuilder};
-use mithril_client_cli::{configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_common::StdResult;
 
 /// Download and verify a Mithril Stake Distribution information. If the

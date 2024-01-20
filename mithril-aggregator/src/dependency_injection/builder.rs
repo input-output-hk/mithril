@@ -35,7 +35,9 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
     },
-    signable_builder::{MithrilSignableBuilderService, SignableBuilderService},
+    signable_builder::{
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService, SignableBuilderService,
+    },
     sqlite::SqliteConnection,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
@@ -43,7 +45,8 @@ use mithril_common::{
 
 use crate::{
     artifact_builder::{
-        CardanoImmutableFilesFullArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
+        CardanoImmutableFilesFullArtifactBuilder, CardanoTransactionsArtifactBuilder,
+        MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::provider::{
@@ -938,9 +941,11 @@ impl DependenciesBuilder {
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
+            cardano_transactions_builder,
         ));
 
         Ok(signable_builder_service)
@@ -973,10 +978,13 @@ impl DependenciesBuilder {
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
             ));
+        let cardano_transactions_artifact_builder =
+            Arc::new(CardanoTransactionsArtifactBuilder::new());
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
+            cardano_transactions_artifact_builder,
         ));
 
         Ok(signed_entity_service)

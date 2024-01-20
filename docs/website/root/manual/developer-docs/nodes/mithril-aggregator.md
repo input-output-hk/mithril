@@ -442,7 +442,7 @@ Here is a list of the available parameters:
 | `chain_observer_type` | `--chain-observer-type` | - | `CHAIN_OBSERVER_TYPE` | Chain observer type that can be `cardano-cli`, `pallas` or `fake`. | `pallas` | - | - |
 | `era_reader_adapter_type` | `--era-reader-adapter-type` | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type that can be `cardano-chain`, `file` or `bootstrap`. | `bootstrap` | - | - |
 | `era_reader_adapter_params` | `--era-reader-adapter-params` | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter params that is an optional JSON encoded parameters structure that is expected depending on the `era_reader_adapter_type` parameter | - | - | - |
-| `signed_entity_types` | `--signed-entity-types` | - | `AGGREGATOR_SIGNED_ENTITY_TYPES` | Signed entity types parameters (discriminants names in an ordered comma separated list) | - | `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution` | - |
+| `signed_entity_types` | `--signed-entity-types` | - | `SIGNED_ENTITY_TYPES` | Signed entity types parameters (discriminants names in an ordered comma separated list) | - | `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution` | - |
 | `snapshot_compression_algorithm` | `--snapshot-compression-algorithm` | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Compression algorithm of the snapshot archive | `zstandard` | `gzip` or `zstandard` | - |
 | `zstandard_parameters` | - | - | `ZSTANDARD_PARAMETERS__LEVEL` and `ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS` | Zstandard specific parameters | - | `{ level: 9, number_of_workers: 4 }` | - |
 

@@ -65,6 +65,8 @@ runs:
       NPM_TOKEN: ${{ inputs.api_token }}
     run: |
       echo "test publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
+      npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
+      npm whoami
       cd ${{ inputs.package }}/pkg
       npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }} --dry-run
 
@@ -75,4 +77,7 @@ runs:
       NPM_TOKEN: ${{ inputs.api_token }}
     run: |
       echo "Publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
+      npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
+      npm whoami
+      cd ${{ inputs.package }}/pkg
       npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }}

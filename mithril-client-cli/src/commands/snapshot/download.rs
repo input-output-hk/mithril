@@ -10,15 +10,15 @@ use std::{
     sync::Arc,
 };
 
-use mithril_client::{
-    common::ProtocolMessage, Client, ClientBuilder, MessageBuilder, MithrilCertificate, Snapshot,
-};
-use mithril_client_cli::{
+use crate::{
     configuration::ConfigParameters,
     utils::{
         ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
         SnapshotUnpacker, SnapshotUtils,
     },
+};
+use mithril_client::{
+    common::ProtocolMessage, Client, ClientBuilder, MessageBuilder, MithrilCertificate, Snapshot,
 };
 use mithril_common::StdResult;
 
@@ -59,7 +59,7 @@ impl SnapshotDownloadCommand {
         let progress_output_type = if self.json {
             ProgressOutputType::JsonReporter
         } else {
-            ProgressOutputType::TTY
+            ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
         let client = ClientBuilder::aggregator(

@@ -2,6 +2,7 @@
 
 mod beacon;
 mod cardano_network;
+mod cardano_transactions_commitment;
 mod certificate;
 mod certificate_metadata;
 mod certificate_pending;
@@ -20,6 +21,7 @@ mod type_alias;
 
 pub use beacon::{Beacon, BeaconComparison, BeaconComparisonError};
 pub use cardano_network::CardanoNetwork;
+pub use cardano_transactions_commitment::CardanoTransactionsCommitment;
 pub use certificate::{Certificate, CertificateSignature};
 pub use certificate_metadata::{CertificateMetadata, StakeDistributionParty};
 pub use certificate_pending::CertificatePending;

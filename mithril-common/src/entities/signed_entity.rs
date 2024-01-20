@@ -1,6 +1,6 @@
 #[cfg(feature = "test_tools")]
 use super::{Beacon, Epoch};
-use super::{MithrilStakeDistribution, SignedEntityType, Snapshot};
+use super::{CardanoTransactionsCommitment, MithrilStakeDistribution, SignedEntityType, Snapshot};
 use crate::signable_builder::Artifact;
 #[cfg(feature = "test_tools")]
 use crate::test_utils::fake_data;
@@ -54,6 +54,23 @@ impl SignedEntity<MithrilStakeDistribution> {
                 signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
                 certificate_id: "certificate-hash-123".to_string(),
                 artifact: fake_data::mithril_stake_distributions(1)[0].to_owned(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            }
+        }
+    }
+}
+
+impl SignedEntity<CardanoTransactionsCommitment> {
+    cfg_test_tools! {
+        /// Create a dummy [SignedEntity] for [CardanoTransactionsCommitment] entity
+        pub fn dummy() -> Self {
+            SignedEntity {
+                signed_entity_id: "snapshot-id-123".to_string(),
+                signed_entity_type: SignedEntityType::CardanoTransactions(Beacon::default()),
+                certificate_id: "certificate-hash-123".to_string(),
+                artifact: CardanoTransactionsCommitment::new("mkroot123".to_string()),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),

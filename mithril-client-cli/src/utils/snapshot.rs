@@ -67,10 +67,7 @@ mod test {
 
     #[test]
     fn check_disk_space_error_should_return_error_if_error_is_not_error_not_enough_space() {
-        let error = SnapshotUnpackerError::UnpackFailed {
-            dirpath: PathBuf::from(""),
-            error: anyhow::Error::msg("Some error message"),
-        };
+        let error = SnapshotUnpackerError::UnpackDirectoryAlreadyExists(PathBuf::new());
 
         let error = SnapshotUtils::check_disk_space_error(anyhow!(error))
             .expect_err("check_disk_space_error should fail");
@@ -78,10 +75,7 @@ mod test {
         assert!(
             matches!(
                 error.downcast_ref::<SnapshotUnpackerError>(),
-                Some(SnapshotUnpackerError::UnpackFailed {
-                    dirpath: _,
-                    error: _
-                })
+                Some(SnapshotUnpackerError::UnpackDirectoryAlreadyExists(_))
             ),
             "Unexpected error: {:?}",
             error

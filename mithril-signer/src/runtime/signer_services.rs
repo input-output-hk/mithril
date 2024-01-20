@@ -15,8 +15,9 @@ use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
+        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        SignableBuilderService,
     },
     sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
@@ -249,9 +250,11 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
+            cardano_transactions_builder,
         ));
 
         let services = SignerServices {

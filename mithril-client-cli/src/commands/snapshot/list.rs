@@ -4,8 +4,8 @@ use config::{builder::DefaultState, ConfigBuilder};
 use slog_scope::logger;
 use std::{collections::HashMap, sync::Arc};
 
+use crate::configuration::ConfigParameters;
 use mithril_client::ClientBuilder;
-use mithril_client_cli::configuration::ConfigParameters;
 use mithril_common::{test_utils::fake_keys, StdResult};
 
 /// Clap command to list existing snapshots
