@@ -3,11 +3,14 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 
 /// A cold key generator / test only
+#[doc(hidden)]
 #[derive(Debug)]
 pub struct ColdKeyGenerator();
 
 impl ColdKeyGenerator {
-    pub(crate) fn create_deterministic_keypair(seed: [u8; 32]) -> ColdSecretKey {
+    #[doc(hidden)]
+    /// Create a deterministic secret key using the given seed. (test only)
+    pub fn create_deterministic_keypair(seed: [u8; 32]) -> ColdSecretKey {
         let mut rng = ChaCha20Rng::from_seed(seed);
         ColdSecretKey::generate(&mut rng)
     }

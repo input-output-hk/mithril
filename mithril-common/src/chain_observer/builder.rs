@@ -4,7 +4,9 @@ use thiserror::Error;
 
 use crate::{chain_observer::ChainObserver, CardanoNetwork, StdResult};
 
-use super::{CardanoCliChainObserver, CardanoCliRunner, FakeObserver, PallasChainObserver};
+#[cfg(any(test, feature = "test_tools"))]
+use super::FakeObserver;
+use super::{CardanoCliChainObserver, CardanoCliRunner, PallasChainObserver};
 
 /// Type of chain observers available
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -16,7 +18,7 @@ pub enum ChainObserverType {
     /// Pallas chain observer.
     Pallas,
     /// Fake chain observer.
-    #[cfg(feature = "test_tools")]
+    #[cfg(any(test, feature = "test_tools"))]
     Fake,
 }
 
@@ -25,6 +27,7 @@ impl Display for ChainObserverType {
         match self {
             Self::CardanoCli => write!(f, "cardano-cli"),
             Self::Pallas => write!(f, "pallas"),
+            #[cfg(any(test, feature = "test_tools"))]
             Self::Fake => write!(f, "fake"),
         }
     }
@@ -85,7 +88,7 @@ impl ChainObserverBuilder {
                 );
                 Ok(Arc::new(observer))
             }
-            #[cfg(feature = "test_tools")]
+            #[cfg(any(test, feature = "test_tools"))]
             ChainObserverType::Fake => Ok(Arc::new(FakeObserver::default())),
         }
     }
