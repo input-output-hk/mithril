@@ -5,6 +5,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_common::{
     chain_observer::ChainObserver,
+    crypto_helper::tests_setup,
     entities::PartyId,
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
@@ -12,8 +13,6 @@ use mithril_common::{
     },
     CardanoNetwork, StdResult,
 };
-
-const SQLITE_FILE: &str = "signer.sqlite3";
 
 /// Client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +75,33 @@ pub struct Configuration {
 }
 
 impl Configuration {
+    /// Create a sample configuration mainly for tests
+    #[doc(hidden)]
+    pub fn new_sample(party_id: &PartyId) -> Self {
+        let signer_temp_dir = tests_setup::setup_temp_directory_for_signer(party_id, false);
+        Self {
+            aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
+            relay_endpoint: None,
+            cardano_cli_path: PathBuf::new(),
+            cardano_node_socket_path: PathBuf::new(),
+            db_directory: PathBuf::new(),
+            network: "devnet".to_string(),
+            network_magic: Some(42),
+            party_id: Some(party_id.to_owned()),
+            run_interval: 5000,
+            data_stores_directory: PathBuf::new(),
+            store_retention_limit: None,
+            kes_secret_key_path: signer_temp_dir.as_ref().map(|dir| dir.join("kes.sk")),
+            operational_certificate_path: signer_temp_dir
+                .as_ref()
+                .map(|dir| dir.join("opcert.cert")),
+            disable_digests_cache: false,
+            reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
+        }
+    }
+
     /// Return the CardanoNetwork value from the configuration.
     pub fn get_network(&self) -> StdResult<CardanoNetwork> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic).with_context(|| {
@@ -88,7 +114,7 @@ impl Configuration {
 
     /// Create the SQL store directory if not exist and return the path of the
     /// SQLite3 file.
-    pub fn get_sqlite_file(&self) -> StdResult<PathBuf> {
+    pub fn get_sqlite_file(&self, sqlite_file_name: &str) -> StdResult<PathBuf> {
         let store_dir = &self.data_stores_directory;
 
         if !store_dir.exists() {
@@ -100,7 +126,7 @@ impl Configuration {
             })?;
         }
 
-        Ok(self.data_stores_directory.join(SQLITE_FILE))
+        Ok(self.data_stores_directory.join(sqlite_file_name))
     }
 
     /// Create era reader adapter from configuration settings.

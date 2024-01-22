@@ -13,6 +13,7 @@ mod message_adapters;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
+mod transaction_store;
 
 #[cfg(test)]
 pub use aggregator_client::dumb::DumbAggregatorClient;
@@ -27,3 +28,7 @@ pub use single_signer::*;
 
 /// HTTP request timeout duration in milliseconds
 const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
+
+/// SQLite file names
+const SQLITE_FILE: &str = "signer.sqlite3";
+const SQLITE_FILE_CARDANO_TRANSACTIONS: &str = "cardano-transactions.sqlite3";
