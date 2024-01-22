@@ -253,6 +253,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser,
+            todo!(),
             &self.config.db_directory,
             slog_scope::logger(),
         ));

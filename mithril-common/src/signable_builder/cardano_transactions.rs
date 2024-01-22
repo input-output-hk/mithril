@@ -10,12 +10,14 @@ use crate::{
     cardano_transactions_parser::TransactionParser,
     entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
+    store::TransactionStore,
     StdResult,
 };
 
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
     transaction_parser: Arc<dyn TransactionParser>,
+    transaction_store: Arc<dyn TransactionStore>,
     logger: Logger,
     dirpath: PathBuf,
 }
@@ -24,11 +26,13 @@ impl CardanoTransactionsSignableBuilder {
     /// Constructor
     pub fn new(
         transaction_parser: Arc<dyn TransactionParser>,
+        transaction_store: Arc<dyn TransactionStore>,
         dirpath: &Path,
         logger: Logger,
     ) -> Self {
         Self {
             transaction_parser,
+            transaction_store,
             logger,
             dirpath: dirpath.to_owned(),
         }
@@ -54,6 +58,13 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
             transactions.len()
         );
 
+        let transaction_chunk_size = 100;
+        for transactions_in_chunk in transactions.chunks(transaction_chunk_size) {
+            self.transaction_store
+                .store_transactions(transactions_in_chunk)
+                .await?;
+        }
+
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
@@ -67,6 +78,7 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
 #[cfg(test)]
 mod tests {
     use crate::cardano_transactions_parser::DumbTransactionParser;
+    use crate::store::MockTransactionStore;
 
     use super::*;
     use slog::Drain;
@@ -83,8 +95,10 @@ mod tests {
         let beacon = Beacon::default();
         let transactions_count = 0;
         let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let transaction_store = Arc::new(MockTransactionStore::new());
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             transaction_parser,
+            transaction_store,
             Path::new("/tmp"),
             create_logger(),
         );

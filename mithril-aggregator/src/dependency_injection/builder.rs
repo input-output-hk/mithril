@@ -39,8 +39,11 @@ use mithril_common::{
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService, SignableBuilderService,
     },
     sqlite::SqliteConnection,
-    store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
-    BeaconProvider, BeaconProviderImpl,
+    store::{
+        adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
+        TransactionStore,
+    },
+    BeaconProvider, BeaconProviderImpl, CardanoTransactionParser,
 };
 
 use crate::{
@@ -50,9 +53,9 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::provider::{
-        CertificateRepository, EpochSettingStore, OpenMessageRepository, SignedEntityStoreAdapter,
-        SignedEntityStorer, SignerRegistrationStore, SignerStore, SingleSignatureRepository,
-        StakePoolStore,
+        CardanoTransactionRepository, CertificateRepository, EpochSettingStore,
+        OpenMessageRepository, SignedEntityStoreAdapter, SignedEntityStorer,
+        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -128,6 +131,9 @@ pub struct DependenciesBuilder {
 
     /// Beacon provider service.
     pub beacon_provider: Option<Arc<dyn BeaconProvider>>,
+
+    /// Cardano transactions store.
+    pub transaction_store: Option<Arc<dyn TransactionStore>>,
 
     /// Cardano transactions parser.
     pub transaction_parser: Option<Arc<dyn TransactionParser>>,
@@ -224,6 +230,7 @@ impl DependenciesBuilder {
             chain_observer: None,
             beacon_provider: None,
             transaction_parser: None,
+            transaction_store: None,
             immutable_digester: None,
             immutable_file_observer: None,
             immutable_cache_provider: None,
@@ -664,16 +671,27 @@ impl DependenciesBuilder {
         self.create_logger().await
     }
 
-    async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
-        todo!()
-        /* let immutable_digester_cache = match self.configuration.environment {
-            ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
-            _ => None,
-        };
-        let digester =
-            Car::new(immutable_digester_cache, self.get_logger().await?);
+    async fn build_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
+        let transaction_store = CardanoTransactionRepository::new(
+            self.get_sqlite_connection_cardano_transactions().await?,
+        );
 
-        Ok(Arc::new(digester)) */
+        Ok(Arc::new(transaction_store))
+    }
+
+    /// Transaction store.
+    pub async fn get_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
+        if self.transaction_store.is_none() {
+            self.transaction_store = Some(self.build_transaction_store().await?);
+        }
+
+        Ok(self.transaction_store.as_ref().cloned().unwrap())
+    }
+
+    async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
+        let transaction_parser = CardanoTransactionParser::default();
+
+        Ok(Arc::new(transaction_parser))
     }
 
     /// Transaction parser.
@@ -1008,6 +1026,7 @@ impl DependenciesBuilder {
         ));
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             self.get_transaction_parser().await?,
+            self.get_transaction_store().await?,
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
@@ -1147,6 +1166,7 @@ impl DependenciesBuilder {
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
             cardano_transactions_parser: self.get_transaction_parser().await?,
+            cardano_transactions_store: self.get_transaction_store().await?,
         };
 
         Ok(dependency_manager)

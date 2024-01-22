@@ -12,7 +12,7 @@ use mithril_common::{
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     sqlite::SqliteConnection,
-    store::StakeStorer,
+    store::{StakeStorer, TransactionStore},
     test_utils::MithrilFixture,
     BeaconProvider,
 };
@@ -82,6 +82,9 @@ pub struct DependencyContainer {
 
     /// Beacon provider service.
     pub beacon_provider: Arc<dyn BeaconProvider>,
+
+    /// Cardano transactions store.
+    pub cardano_transactions_store: Arc<dyn TransactionStore>,
 
     /// Cardano transactions parser.
     pub cardano_transactions_parser: Arc<dyn TransactionParser>,

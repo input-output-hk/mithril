@@ -454,7 +454,7 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{Epoch, StakeDistribution},
+        entities::{CardanoTransaction, Epoch, StakeDistribution},
         era::{
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
@@ -465,7 +465,7 @@ mod tests {
         },
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
-            StakeStore, StakeStorer,
+            StakeStore, StakeStorer, TransactionStore,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProvider, BeaconProviderImpl, CardanoNetwork, DumbTransactionParser,
@@ -482,6 +482,17 @@ mod tests {
     };
 
     use super::*;
+
+    mock! {
+        TransactionStoreImpl { }
+
+        #[async_trait]
+        impl TransactionStore for TransactionStoreImpl
+        {
+            async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
+
+        }
+    }
 
     const DIGESTER_RESULT: &str = "a digest";
 
@@ -527,8 +538,10 @@ mod tests {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let transaction_store = Arc::new(MockTransactionStoreImpl::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser.clone(),
+            transaction_store.clone(),
             Path::new(""),
             slog_scope::logger(),
         ));
