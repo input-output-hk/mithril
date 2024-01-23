@@ -97,16 +97,10 @@ impl PallasChainObserver {
             .clone())
     }
 
-    /// Returns inline datum bytes from the given `Values` instance.
-    fn get_datum_bytes(&self, utxo: &Values) -> StdResult<Vec<u8>> {
-        let tag = self.get_datum_tag(utxo)?;
-        let bytes = CborWrap(tag).to_vec();
-        try_inspect::<Vec<u8>>(bytes)
-    }
-
     /// Returns inline datums from the given `Values` instance.
     fn inspect_datum(&self, utxo: &Values) -> StdResult<Datum> {
-        let datum = self.get_datum_bytes(utxo)?;
+        let datum = self.get_datum_tag(utxo)?;
+        let datum = CborWrap(datum).to_vec();
 
         try_inspect::<Datum>(datum)
     }
@@ -278,7 +272,7 @@ mod tests {
         let transaction_id = Hash::from(txbytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
-        let hex_datum = "98A718D81879189F18D81879189F1858181C18C918CF18711866181E185316189118BA1850187018DA18EA185E189918BF181B18C018E10718841837181C183218B7188C1218FC1858181C18621884183E181918D9187B1832187518AF184D18C906188A188F18E5183E18381853183D1618A1187F18DB1819186E18FA1860186B18FF18D81879189F18401840181B0000000118E51861184E18CB0018FF18D81879189F000018FF18D81879189F189F18D81879189F1858181C182D181E15181918E7182A182B187C18EA18C518F1184F18D1187118C318B118A3184418E618F6184C06186718F418BF18621828041858181C187A1896184718D2041888187018A01872186F187818621818186318E01837189718DC1718B918461847183A183518DE18D4185F187518FF18FF189F181A1819188B18DB18BA18FF18FF18FF";
+        let hex_datum = "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF";
         let datum = hex::decode(hex_datum).unwrap().into();
         let tag = TagWrap::<_, 24>::new(datum);
         let inline_datum = Some((1_u16, tag));
@@ -408,6 +402,6 @@ mod tests {
 
         let (_, client_res) = tokio::join!(server, client);
         let datums = client_res.expect("Client failed");
-        assert_eq!(vec![TxDatum(r#"{"constructor":0,"fields":[{"constructor":0,"fields":[{"bytes":"c9cf71661e531691ba5070daea5e99bf1bc0e10784371c32b78c12fc"},{"bytes":"62843e19d97b3275af4dc9068a8fe53e38533d16a17fdb196efa606b"}]},{"constructor":0,"fields":[{"bytes":""},{"bytes":""},{"int":8143326923},{"int":0}]},{"constructor":0,"fields":[{"int":0},{"int":0}]},{"constructor":0,"fields":[{"list":[{"constructor":0,"fields":[{"bytes":"2d1e1519e72a2b7ceac5f14fd171c3b1a344e6f64c0667f4bf622804"},{"bytes":"7a9647d2048870a0726f78621863e03797dc17b946473a35ded45f75"}]}]},{"list":[{"int":428596154}]}]}]}"#.to_string())], datums);
+        assert_eq!(vec![TxDatum(r#"{"constructor":0,"fields":[{"bytes":"7b226d61726b657273223a5b7b226e616d65223a227468616c6573222c2265706f6368223a307d5d2c227369676e6174757265223a2238356632326562626164"},{"bytes":"33333537633865613264663036323039376639613138306464333564396633626131643236383263373263386431323238386661643863623864306365656562"},{"bytes":"366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227d"}]}"#.to_string())], datums);
     }
 }
