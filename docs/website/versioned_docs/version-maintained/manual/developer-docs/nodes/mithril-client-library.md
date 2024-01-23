@@ -12,7 +12,7 @@ import CompiledBinaries from '../../../compiled-binaries.md'
 Mithril client library can be used by Rust developers to use the Mithril network in their applications.
 
 It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
-- [**Snapshot**](../../../glossary.md#snapshot): list, get and download tarball.
+- [**Snapshot**](../../../glossary.md#snapshot): list, get, download tarball and record statistics.
 - [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
@@ -88,6 +88,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
         .snapshot()
         .download_unpack(&snapshot, target_directory)
         .await?;
+
+    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+        println!("Could not increment snapshot download statistics: {:?}", e);
+    }
     
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
@@ -102,10 +106,16 @@ async fn main() -> mithril_client::MithrilResult<()> {
 
 Snapshot download and certificate chain validation can take quite some time even with a fast computer and network. We have implemented a feedback mechanism for them, more details on it are available in the [feedback sub-module](https://mithril.network/rust-doc/mithril_client/feedback/index.html).
 
-An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-snapshot). To run it, execute the following command:
+An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-snapshot/src/main.rs). To run it, execute the following command:
 
 ```bash
-cargo run --example snapshot_list_get_show_download_verify --features fs
+cargo run -p client-snapshot
+```
+
+or directly from the example crate directory:
+
+```bash
+cargo run
 ```
 
 :::
@@ -136,6 +146,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
         .snapshot()
         .download_unpack(&snapshot, target_directory)
         .await?;
+
+    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+        println!("Could not increment snapshot download statistics: {:?}", e);
+    }
     
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
