@@ -14,7 +14,7 @@
 Below is a basic example of how to use most of the functions exposed by the Mithril client WASM library:
 
 ```javascript
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm"
+import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm"
 
 let aggregator_endpoint =
   "https://aggregator.testing-preview.api.mithril.network/aggregator"
@@ -34,6 +34,8 @@ broadcast_channel.onmessage = (e) => {
     console.log(event);
   }
 };
+
+await initMithrilClient();
 
 let client = await new MithrilClient(
   aggregator_endpoint,
