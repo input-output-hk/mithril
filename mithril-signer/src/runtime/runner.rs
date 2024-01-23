@@ -462,10 +462,11 @@ mod tests {
         signable_builder::{
             CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
             MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+            TransactionStore,
         },
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
-            StakeStore, StakeStorer, TransactionStore,
+            StakeStore, StakeStorer,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProvider, BeaconProviderImpl, CardanoNetwork, DumbTransactionParser,

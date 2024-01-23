@@ -8,11 +8,21 @@ use slog::{debug, Logger};
 
 use crate::{
     cardano_transactions_parser::TransactionParser,
-    entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey},
+    entities::{Beacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
-    store::TransactionStore,
     StdResult,
 };
+
+#[cfg(test)]
+use mockall::automock;
+
+/// Cardano transactions store
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait TransactionStore: Send + Sync {
+    /// Store list of transactions
+    async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
+}
 
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
@@ -78,7 +88,7 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
 #[cfg(test)]
 mod tests {
     use crate::cardano_transactions_parser::DumbTransactionParser;
-    use crate::store::MockTransactionStore;
+    use crate::signable_builder::MockTransactionStore;
 
     use super::*;
     use slog::Drain;

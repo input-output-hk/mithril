@@ -15,3 +15,7 @@ pub use cardano_transactions::*;
 pub use interface::*;
 pub use mithril_stake_distribution::*;
 pub use signable_builder_service::*;
+
+#[cfg(test)]
+pub use cardano_transactions::MockTransactionStore;
+pub use cardano_transactions::TransactionStore;

@@ -10,9 +10,9 @@ use mithril_common::{
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
-    signable_builder::SignableBuilderService,
+    signable_builder::{SignableBuilderService, TransactionStore},
     sqlite::SqliteConnection,
-    store::{StakeStorer, TransactionStore},
+    store::StakeStorer,
     test_utils::MithrilFixture,
     BeaconProvider,
 };

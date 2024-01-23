@@ -13,7 +13,6 @@ mod message_adapters;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
-mod transaction_store;
 
 #[cfg(test)]
 pub use aggregator_client::dumb::DumbAggregatorClient;
