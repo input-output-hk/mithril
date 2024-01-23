@@ -16,6 +16,6 @@ pub use interface::*;
 pub use mithril_stake_distribution::*;
 pub use signable_builder_service::*;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fs"))]
 pub use cardano_transactions::MockTransactionStore;
 pub use cardano_transactions::TransactionStore;
