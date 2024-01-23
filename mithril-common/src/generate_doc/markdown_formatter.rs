@@ -45,19 +45,33 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
     fn format_parameters(cmd: &Command) -> String {
+        let command_parameters = extract_clap_info::extract_parameters(cmd);
+        let parameters_table = doc_config_to_markdown(&command_parameters);
 
-        if cmd.get_arguments().peekable().filter(|arg| arg.get_id().as_str() != "help").count() > 0 {
-            let command_parameters = extract_clap_info::extract_parameters(cmd);
-            let parameters_table = doc_config_to_markdown(&command_parameters);
+        let parameters_explanation = "\n\
+            The configuration parameters can be set in either of the following ways:\n\
+            \n\
+            1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
+            \n\
+            2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
+            ";
+        format!("{}\n{}", parameters_explanation, parameters_table)
+    }
 
-            let parameters_explanation = "\n\
-                The configuration parameters can be set in either of the following ways:\n\
-                \n\
-                1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
-                \n\
-                2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
-                ";
-            format!("{}\n{}", parameters_explanation, parameters_table)
+    fn format_subcommand(cmd: &Command) -> String {
+        if cmd.get_subcommands().peekable().peek().is_some() {
+            let subcommands_lines = cmd.get_subcommands().map(|command| {
+                vec!(
+                    format!("**{}**", command.get_name()),
+                    command.get_all_aliases().collect::<Vec<&str>>().join(","),
+                    command.get_about().map_or("".into(), StyledStr::to_string)
+                )
+            }).collect::<Vec<Vec<String>>>();
+
+            markdown::format_table(
+                &["Subcommand", "Aliases", "Performed action"],
+                &subcommands_lines,
+            )
         } else {
             String::from("")
         }
@@ -74,38 +88,27 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
         format_command_internal(cmd, parent, help)
     }
 
+    fn command_to_document(cmd: &Command) -> bool {
+        cmd.get_name() != "help"
+    }
+
     fn format_command_internal(cmd: &Command, parent: Option<String>, help: String) -> String {
         let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
         let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
         let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
-        let subcommands_table = if cmd.get_subcommands().peekable().peek().is_some() {
-            let subcommands_lines = cmd.get_subcommands().map(|command| {
-                vec!(
-                    format!("**{}**", command.get_name()),
-                    command.get_all_aliases().collect::<Vec<&str>>().join(","),
-                    command.get_about().map_or("".into(), StyledStr::to_string)
-                )
-            }).collect::<Vec<Vec<String>>>();
-
-            markdown::format_table(
-                &["Subcommand", "Aliases", "Performed action"],
-                &subcommands_lines,
-            )
-        } else {
-            String::from("")
-        };
+        let subcommands_table = format_subcommand(&cmd);
 
         let parameters = format_parameters(cmd);
 
         let subcommands = cmd.get_subcommands()
-            .filter(|sub_command| sub_command.get_name() != "help")
+            .filter(|cmd| command_to_document(&cmd))
             .map(|sub_command: &Command| {
                 format_command(&mut sub_command.clone(), Some(format!("{} {}", parent_ancestors, cmd.get_name())))
             }
-        ).collect::<Vec<String>>();
+        ).collect::<Vec<String>>().join("\n");
             
-        format!("{}\n{}\n{}\n{}\n{}\n{}", title, description, help, subcommands_table, parameters, subcommands.join("\n"))
+        format!("{title}\n{description}\n{help}\n{subcommands_table}\n{parameters}\n{subcommands}")
 
     }
 
@@ -137,12 +140,37 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
 
 #[cfg(test)]
 mod tests {
-    use clap::{Parser, CommandFactory};
+    use clap::{Args, CommandFactory, Parser, Subcommand};
+    use regex::Regex;
     use super::*;
+
+
+    #[derive(Args, Clone, Debug)]
+    struct StructSubCommandB {
+        /// The path of SubCommandB
+        path: String,
+    }
+
+    #[derive(Subcommand, Debug, Clone)]
+    enum MySubCommands {
+        
+        /// Help for Subcommand A.
+        SubCommandA {
+            /// First param.
+            #[clap(long)]
+            param_of_a: bool,
+        },
+        /// Help for Subcommand B.
+        SubCommandB(StructSubCommandB),
+    }
 
     #[derive(Parser, Debug, Clone)]
     #[command(version)]
     pub struct MyCommand {
+        /// Available commands
+        #[clap(subcommand)]
+        command: MySubCommands,
+
         /// Run Mode
         #[clap(short, long, default_value = "dev")]
         run_mode: String,
@@ -151,6 +179,8 @@ mod tests {
         param_without_default: String,
     }
 
+    
+
     #[test]
     fn test_format_arg() {
         let mut command = MyCommand::command();
@@ -158,6 +188,45 @@ mod tests {
         
         assert!(doc.contains("| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |"), "Generated doc: {doc}");
         assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` |  |  | ? | :heavy_check_mark: |"), "Generated doc: {doc}");
+    }
+
+    #[test]
+    fn test_format_subcommand_inlined() {
+        let mut command = MyCommand::command();
+        let doc = doc_markdown(&mut command);
+
+        assert!(doc.contains("###  mithril-common sub-command-a"), "Generated doc: {doc}");
+        // In `Commands:` part.
+        assert!(doc.contains("sub-command-a  Help for Subcommand A"), "Generated doc: {doc}");
+
+        // In `Subcommand` table
+        assert!(doc.contains("| **sub-command-a** |  | Help for Subcommand A |"), "Generated doc: {doc}");
+    }
+
+    #[test]
+    fn test_format_subcommand_on_separate_struct() {
+        let mut command = MyCommand::command();
+        let doc = doc_markdown(&mut command);
+
+        assert!(doc.contains("###  mithril-common sub-command-b"), "Generated doc: {doc}");
+        // In `Commands:` part.
+        assert!(doc.contains("sub-command-b  Help for Subcommand B"), "Generated doc: {doc}");
+
+        // In `Subcommand` table
+        assert!(doc.contains("| **sub-command-b** |  | Help for Subcommand B |"), "Generated doc: {doc}");
+        assert!(doc.contains("| `path` | - | - | `PATH` | The path of SubCommandB"), "Generated doc: {doc}");
+
+        assert!(Regex::new(r"Arguments:\s+<PATH>\s+The path of SubCommandB").unwrap().is_match(&doc), "Generated doc: {doc}");
+    }
+
+
+    #[test]
+    fn test_should_not_display_subcommand_help() {
+        let mut command = MyCommand::command();
+        let doc = doc_markdown(&mut command);
+
+        assert_eq!(true, doc.contains("###  mithril-common sub-command-b"), "Generated doc: {doc}");
+        assert_eq!(false, doc.contains("###  mithril-common help"), "Generated doc: {doc}");
     }
 
 }
