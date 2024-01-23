@@ -3343,6 +3343,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc-derive",
  "mithril-persistence",
  "mockall",
  "openssl",
@@ -3478,6 +3479,7 @@ dependencies = [
  "chrono",
  "ckb-merkle-mountain-range",
  "clap",
+ "config",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
@@ -3487,6 +3489,7 @@ dependencies = [
  "jsonschema",
  "kes-summed-ed25519",
  "minicbor",
+ "mithril-doc-derive",
  "mithril-stm",
  "mockall",
  "nom",
@@ -3496,6 +3499,7 @@ dependencies = [
  "pallas-network",
  "pallas-primitives",
  "pallas-traverse",
+ "quote",
  "rand_chacha",
  "rand_core 0.6.4",
  "rayon",
@@ -3513,11 +3517,20 @@ dependencies = [
  "slog-scope",
  "slog-term",
  "strum",
+ "syn 2.0.48",
  "thiserror",
  "tokio",
  "typetag",
  "walkdir",
  "warp",
+]
+
+[[package]]
+name = "mithril-doc-derive"
+version = "0.2.149"
+dependencies = [
+ "quote",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -3602,6 +3615,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc-derive",
  "mithril-persistence",
  "mockall",
  "openssl",

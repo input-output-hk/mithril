@@ -50,17 +50,13 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `run_mode` | `--run-mode` |  | `RUN_MODE` | Run Mode | `dev` | ? | - |
-| `verbose` | `--verbose` | `-v` |  | Verbosity level (-v=warning, -vv=info, -vvv=debug) | `0` | ? | - |
-| `config_directory` | `--config-directory` |  |  | Directory where configuration file is located | `./config` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-| `version` | `--version` | `-V` |  | Print version |  | ? | - |
-
+| `run_mode` | `--run-mode` | - | `RUN_MODE` | Run Mode | `dev` | ? | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level (-v=warning, -vv=info, -vvv=debug) | `0` | ? | - |
+| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
+| `version` | `--version` | `-V` | `VERSION` | Print version |  | ? | - |
 ###  mithril-relay aggregator
 
 Run a relay for a Mithril aggregator
@@ -98,16 +94,12 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `listen_port` | `--listen-port` |  | `LISTEN_PORT` | Peer listening port | `0` | ? | - |
-| `dial_to` | `--dial-to` |  | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) |  | ? | - |
-| `aggregator_endpoint` | `--aggregator-endpoint` |  | `AGGREGATOR_ENDPOINT` | Aggregator endpoint URL |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `listen_port` | `--listen-port` | - | `LISTEN_PORT` | Peer listening port | `0` | ? | - |
+| `dial_to` | `--dial-to` | - | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) |  | ? | - |
+| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator endpoint URL |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-relay signer
 
@@ -152,17 +144,13 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `server_port` | `--server-port` |  | `SERVER_PORT` | HTTP Server listening port | `3132` | ? | - |
-| `listen_port` | `--listen-port` |  | `LISTEN_PORT` | Peer listening port | `0` | ? | - |
-| `dial_to` | `--dial-to` |  | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) |  | ? | - |
-| `aggregator_endpoint` | `--aggregator-endpoint` |  | `AGGREGATOR_ENDPOINT` | Aggregator endpoint URL |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `server_port` | `--server-port` | - | `SERVER_PORT` | HTTP Server listening port | `3132` | ? | - |
+| `listen_port` | `--listen-port` | - | `LISTEN_PORT` | Peer listening port | `0` | ? | - |
+| `dial_to` | `--dial-to` | - | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) |  | ? | - |
+| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator endpoint URL |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-relay passive
 
@@ -196,15 +184,11 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `listen_port` | `--listen-port` |  | `LISTEN_PORT` | Peer listening port | `0` | ? | - |
-| `dial_to` | `--dial-to` |  | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) |  | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `listen_port` | `--listen-port` | - | `LISTEN_PORT` | Peer listening port | `0` | ? | - |
+| `dial_to` | `--dial-to` | - | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) |  | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-relay generate-doc
 
@@ -232,11 +216,7 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `output` | `--output` |  |  | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `output` | `--output` | - | `OUTPUT` | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |

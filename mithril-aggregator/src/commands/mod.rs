@@ -5,12 +5,12 @@ mod tools_command;
 
 use clap::{Parser, Subcommand, CommandFactory};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::StdResult;
+use mithril_common::{StdResult, generate_doc::DocExtractor, generate_doc::DocExtractorDefault, generate_doc::StructDoc};
 use slog::Level;
 use slog_scope::debug;
 use std::path::PathBuf;
 
-use crate::DefaultConfiguration;
+use crate::{DefaultConfiguration, Configuration};
 use mithril_common::generate_doc::GenerateDocCommands;
 
 
@@ -26,13 +26,16 @@ pub enum MainCommand {
 }
 
 impl MainCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {        
         match self {
             Self::Genesis(cmd) => cmd.execute(config_builder).await,
             Self::Era(cmd) => cmd.execute(config_builder).await,
             Self::Serve(cmd) => cmd.execute(config_builder).await,
             Self::Tools(cmd) => cmd.execute(config_builder).await,
-            Self::GenerateDoc(cmd) => cmd.execute(&mut MainOpts::command()),
+            Self::GenerateDoc(cmd) => {
+                let config_info = DefaultConfiguration::extract();
+                cmd.execute_with_configurations(&mut MainOpts::command(), &vec!(config_info))
+            },
         }
     }
 }

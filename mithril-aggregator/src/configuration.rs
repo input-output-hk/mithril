@@ -3,6 +3,8 @@ use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
+use mithril_common::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc_derive::{DocExtractor, DocExtractorDefault};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -39,7 +41,7 @@ impl FromStr for ExecutionEnvironment {
 }
 
 /// Aggregator configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, DocExtractor)]
 pub struct Configuration {
     /// What kind of runtime environment the configuration is meant to.
     pub environment: ExecutionEnvironment,
@@ -284,9 +286,8 @@ impl Configuration {
         Ok(signed_entity_types)
     }
 }
-
 /// Default configuration with all the default values for configurations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, DocExtractorDefault)]
 pub struct DefaultConfiguration {
     /// Execution environment
     pub environment: ExecutionEnvironment,

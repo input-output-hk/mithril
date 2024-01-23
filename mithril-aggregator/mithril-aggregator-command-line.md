@@ -54,18 +54,14 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `run_mode` | `--run-mode` | `-r` |  | Run Mode | `dev` | ? | - |
-| `verbose` | `--verbose` | `-v` |  | Verbosity level | `0` | ? | - |
-| `db_directory` | `--db-directory` |  |  | Directory of the Cardano node files |  | ? | - |
-| `config_directory` | `--config-directory` |  |  | Directory where configuration file is located | `./config` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-| `version` | `--version` | `-V` |  | Print version |  | ? | - |
-
+| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | ? | - |
+| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files |  | ? | - |
+| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
+| `version` | `--version` | `-V` | `VERSION` | Print version |  | ? | - |
 ###  mithril-aggregator genesis
 
 Genesis tools
@@ -118,14 +114,10 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `target_path` | `--target-path` |  |  | Target Path |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `target_path` | `--target-path` | - | `TARGET_PATH` | Target Path |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-aggregator  genesis import
 
@@ -151,14 +143,10 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `signed_payload_path` | `--signed-payload-path` |  |  | Signed Payload Path |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `signed_payload_path` | `--signed-payload-path` | - | `SIGNED_PAYLOAD_PATH` | Signed Payload Path |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-aggregator  genesis sign
 
@@ -190,16 +178,12 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `to_sign_payload_path` | `--to-sign-payload-path` |  |  | To Sign Payload Path |  | ? | :heavy_check_mark: |
-| `target_signed_payload_path` | `--target-signed-payload-path` |  |  | Target Signed Payload Path |  | ? | :heavy_check_mark: |
-| `genesis_secret_key_path` | `--genesis-secret-key-path` |  |  | Genesis Secret Key Path |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `to_sign_payload_path` | `--to-sign-payload-path` | - | `TO_SIGN_PAYLOAD_PATH` | To Sign Payload Path |  | ? | :heavy_check_mark: |
+| `target_signed_payload_path` | `--target-signed-payload-path` | - | `TARGET_SIGNED_PAYLOAD_PATH` | Target Signed Payload Path |  | ? | :heavy_check_mark: |
+| `genesis_secret_key_path` | `--genesis-secret-key-path` | - | `GENESIS_SECRET_KEY_PATH` | Genesis Secret Key Path |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-aggregator  genesis bootstrap
 
@@ -227,14 +211,10 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `genesis_secret_key` | `--genesis-secret-key` |  | `GENESIS_SECRET_KEY` | Genesis Secret Key (test only) |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `genesis_secret_key` | `--genesis-secret-key` | - | `GENESIS_SECRET_KEY` | Genesis Secret Key (test only) |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-aggregator era
 
@@ -284,14 +264,10 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` |  |  | Enable JSON output | `false` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-aggregator  era generate-tx-datum
 
@@ -329,16 +305,12 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `current_era_epoch` | `--current-era-epoch` |  | `CURRENT_ERA_EPOCH` | Current Era epoch |  | ? | :heavy_check_mark: |
-| `next_era_epoch` | `--next-era-epoch` |  | `NEXT_ERA_EPOCH` | Next Era epoch start, if exists |  | ? | - |
-| `era_markers_secret_key` | `--era-markers-secret-key` |  | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Current Era epoch |  | ? | :heavy_check_mark: |
+| `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Next Era epoch start, if exists |  | ? | - |
+| `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key |  | ? | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 ###  mithril-aggregator serve
 
@@ -378,18 +350,14 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `server_ip` | `--server-ip` |  |  | Server listening IP |  | ? | - |
-| `server_port` | `--server-port` |  |  | Server TCP port |  | ? | - |
-| `snapshot_directory` | `--snapshot-directory` |  |  | Directory to store snapshot Defaults to work folder |  | ? | - |
-| `disable_digests_cache` | `--disable-digests-cache` |  |  | Disable immutables digests cache | `false` | ? | - |
-| `reset_digests_cache` | `--reset-digests-cache` |  |  | If set the existing immutables digests cache will be reset | `false` | ? | - |
-| `help` | `--help` | `-h` |  | Print help (see more with '--help') |  | ? | - |
-
+| `server_ip` | `--server-ip` | - | `SERVER_IP` | Server listening IP |  | ? | - |
+| `server_port` | `--server-port` | - | `SERVER_PORT` | Server TCP port |  | ? | - |
+| `snapshot_directory` | `--snapshot-directory` | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot Defaults to work folder |  | ? | - |
+| `disable_digests_cache` | `--disable-digests-cache` | - | `DISABLE_DIGESTS_CACHE` | Disable immutables digests cache | `false` | ? | - |
+| `reset_digests_cache` | `--reset-digests-cache` | - | `RESET_DIGESTS_CACHE` | If set the existing immutables digests cache will be reset | `false` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') |  | ? | - |
 
 ###  mithril-aggregator tools
 
@@ -457,11 +425,26 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `output` | `--output` | - | `OUTPUT` | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `output` | `--output` |  |  | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` |  | - |
+| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` |  | - |
+| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
+| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` |  | - |
+| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` |  | - |
+| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level |  | ? | - |
+| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` |  | - |
+| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` |  | - |
+| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
+| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` |  | - |
+| `db_directory` | - | - | `DB_DIRECTORY` | Directory of the Cardano node database | `/db` |  | - |
+| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
+| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` |  | - |
+| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` |  | - |
+| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` |  | - |

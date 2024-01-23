@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
+use mithril_common::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc};
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{crit, debug};
 use std::path::PathBuf;
@@ -96,7 +97,11 @@ async fn main() -> StdResult<()> {
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
     
     if let Some(SignerCommands::GenerateDoc(cmd)) = &args.command {
-        return cmd.execute(&mut Args::command());
+        let config_infos = vec!(
+            Configuration::extract(),
+            DefaultConfiguration::extract(),
+        );
+        return cmd.execute_with_configurations(&mut Args::command(), &config_infos);
     }
 
     #[cfg(feature = "bundle_openssl")]

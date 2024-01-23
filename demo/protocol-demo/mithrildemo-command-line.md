@@ -52,18 +52,14 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `m` | `--m` | `-m` |  | Security parameter, upper bound on indices | `200` | ? | - |
-| `k` | `--k` | `-k` |  | Quorum parameter | `5` | ? | - |
-| `phi_f` | `--phi-f` |  |  | f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant | `0.2` | ? | - |
-| `nparties` | `--nparties` |  |  | Number of parties | `5` | ? | - |
-| `nmessages` | `--nmessages` |  |  | Number of messages to sign | `1` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `m` | `--m` | `-m` | `M` | Security parameter, upper bound on indices | `200` | ? | - |
+| `k` | `--k` | `-k` | `K` | Quorum parameter | `5` | ? | - |
+| `phi_f` | `--phi-f` | - | `PHI_F` | f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant | `0.2` | ? | - |
+| `nparties` | `--nparties` | - | `NPARTIES` | Number of parties | `5` | ? | - |
+| `nmessages` | `--nmessages` | - | `NMESSAGES` | Number of messages to sign | `1` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 ###  mithrildemo generate-doc
 
 Generate documentation
@@ -90,11 +86,7 @@ The configuration parameters can be set in either of the following ways:
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
-Here is a list of the available parameters:
-### Configuration parameters
-
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `output` | `--output` |  |  | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
-| `help` | `--help` | `-h` |  | Print help |  | ? | - |
-
+| `output` | `--output` | - | `OUTPUT` | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |

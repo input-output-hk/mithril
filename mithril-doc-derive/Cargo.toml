@@ -1,0 +1,20 @@
+[package]
+name = "mithril-doc-derive"
+version = "0.2.149"
+description = "Macro to generate doc."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore", "openapi.yaml"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.35"
+syn = "2.0.48"
+
+[features]
+default = []

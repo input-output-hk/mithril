@@ -1,69 +1,54 @@
-use std::ffi::OsStr;
+use clap::{Command, builder::StyledStr};
 
-use clap::{Command, Arg, builder::StyledStr};
+use crate::generate_doc::extract_clap_info;
 
+use super::StructDoc;
 
+mod markdown {
+    /// Format a list of label and a list of text list into a markdown table.
+    pub fn format_table(header: &[&str], lines: &[Vec<String>]) -> String {
+        format!("{}\n{}",
+            format_table_header(header),
+            lines.iter().map(|line| format_table_line(line)).collect::<Vec<String>>().join("\n"),
+        )
+    }
 
-/// Format a list of label and a list of text list into a markdown table.
-pub fn format_table(header: &[&str], lines: &[Vec<String>]) -> String {
-    format!("{}\n{}",
-        format_table_header(header),
-        lines.iter().map(|line| format_table_line(line)).collect::<Vec<String>>().join("\n"),
-    )
+    /// Format a list of text as a markdown table line.
+    pub fn format_table_line(data: &[String]) -> String {
+        format!("| {} |", data.join(" | "))
+    }
+
+    /// Format a list of label to a markdown header.
+    /// To align the text to left, right or to center it, you need to ad `:` at left, right or both.
+    /// Example:  :Description: 
+    pub fn format_table_header(data: &[&str]) -> String {
+        let headers = data.iter().map(|header| {
+            let align_left = header.chars().next().map(|c| c == ':').unwrap_or(false);
+            let align_right = header.chars().last().map(|c| c == ':').unwrap_or(false);
+            let label = &header[(if align_left {1} else {0})..(header.len()-(if align_right {1} else {0}))];
+            (label, align_left, align_right)
+        }).collect::<Vec<(&str, bool, bool)>>();
+
+        let sublines = headers.iter().map(|(label, left, right)| {
+            format!("{}{}{}", if *left {":"} else {"-"}, "-".repeat(label.len()), if *right {":"} else {"-"})
+        }).collect::<Vec<String>>();
+
+        let labels = headers.iter().map(|(label, _, _)| {
+            label.to_string()
+        }).collect::<Vec<String>>();
+
+        format!("| {} |\n|{}|", labels.join(" | "), sublines.join("|"))
+    }
 }
 
-/// Format a list of text as a markdown table line.
-pub fn format_table_line(data: &[String]) -> String {
-    format!("| {} |", data.join(" | "))
-}
-
-/// Format a list of label to a markdown header.
-/// To align the text to left, right or to center it, you need to ad `:` at left, right or both.
-/// Example:  :Description: 
-pub fn format_table_header(data: &[&str]) -> String {
-    let headers = data.iter().map(|header| {
-        let align_left = header.chars().next().map(|c| c == ':').unwrap_or(false);
-        let align_right = header.chars().last().map(|c| c == ':').unwrap_or(false);
-        let label = &header[(if align_left {1} else {0})..(header.len()-(if align_right {1} else {0}))];
-        (label, align_left, align_right)
-    }).collect::<Vec<(&str, bool, bool)>>();
-
-    let sublines = headers.iter().map(|(label, left, right)| {
-        format!("{}{}{}", if *left {":"} else {"-"}, "-".repeat(label.len()), if *right {":"} else {"-"})
-    }).collect::<Vec<String>>();
-
-    let labels = headers.iter().map(|(label, _, _)| {
-        label.to_string()
-    }).collect::<Vec<String>>();
-
-    format!("| {} |\n|{}|", labels.join(" | "), sublines.join("|"))
-}
-
-/// Create a documentation of the command and its sub-commands. 
 pub fn doc_markdown(cmd: &mut Command) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
-    fn format_arg(arg: &Arg) -> Vec<String> {
-        let parameter = format!("`{}`", arg.get_id());
-        let short_option = arg.get_short().map_or("".into(), |c| format!("`-{}`", c));
-        let long_option = arg.get_long().map_or("".into(), |c| format!("`--{}`", c));
-        let env_variable = arg.get_env().and_then(OsStr::to_str).map_or("".into(), |s| format!("`{}`", s));
-        let description = arg.get_help().map_or("".into(), StyledStr::to_string);
-        let default_value = arg.get_default_values().iter().map(|s| format!("`{}`", s.to_string_lossy())).collect::<Vec<String>>().join(",");
-        let example = String::from("?");
-        let is_required = String::from(if arg.is_required_set() {":heavy_check_mark:"} else {"-"});
-        
-        vec!(parameter, long_option, short_option, env_variable, description, default_value, example, is_required)
-    }
-
     fn format_parameters(cmd: &Command) -> String {
+
         if cmd.get_arguments().peekable().filter(|arg| arg.get_id().as_str() != "help").count() > 0 {
-            let parameters_table = format!("Here is a list of the available parameters:\n### Configuration parameters\n\n{}\n",
-                format_table(
-                    &["Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"],
-                    &cmd.get_arguments().map(format_arg).collect::<Vec<Vec<String>>>(),
-                ),
-            );
+            let command_parameters = extract_clap_info::extract_parameters(cmd);
+            let parameters_table = doc_config_to_markdown(&command_parameters);
 
             let parameters_explanation = "\n\
                 The configuration parameters can be set in either of the following ways:\n\
@@ -103,7 +88,7 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
                 )
             }).collect::<Vec<Vec<String>>>();
 
-            format_table(
+            markdown::format_table(
                 &["Subcommand", "Aliases", "Performed action"],
                 &subcommands_lines,
             )
@@ -125,5 +110,54 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
     }
 
     format_command(cmd, None)
+
+}
+
+
+
+pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
+    let subcommands_lines = struct_doc.data.iter().map(|config| {
+        let config = config.clone();
+        vec!(
+            format!("`{}`", config.parameter),
+            if config.command_line_long.is_empty() { "-".to_string() } else { format!("`{}`", config.command_line_long) },
+            if config.command_line_short.is_empty() { "-".to_string() } else { format!("`{}`", config.command_line_short) },
+            format!("`{}`", config.parameter.to_uppercase()),
+            config.description.replace("\n","<br>"),
+            config.default_value.map(|value| format!("`{}`", value)).unwrap_or("".to_string()),
+            config.example,
+            String::from(if config.is_mandatory {":heavy_check_mark:"} else {"-"}),
+        )
+    }).collect::<Vec<Vec<String>>>();
+    markdown::format_table(
+        &["Parameter", "Command line (long)", ":Command line (short):", "Environment variable", "Description", "Default value", "Example", ":Mandatory:"],
+        &subcommands_lines,
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use clap::{Parser, CommandFactory};
+    use super::*;
+
+    #[derive(Parser, Debug, Clone)]
+    #[command(version)]
+    pub struct MyCommand {
+        /// Run Mode
+        #[clap(short, long, default_value = "dev")]
+        run_mode: String,
+
+        #[clap()]
+        param_without_default: String,
+    }
+
+    #[test]
+    fn test_format_arg() {
+        let mut command = MyCommand::command();
+        let doc = doc_markdown(&mut command);
+        
+        assert!(doc.contains("| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |"), "Generated doc: {doc}");
+        assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` |  |  | ? | :heavy_check_mark: |"), "Generated doc: {doc}");
+    }
 
 }
