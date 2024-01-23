@@ -53,13 +53,6 @@ The Mithril client library is compatible with the following browsers:
 | **Opera Android** | `41` | 2016-10-25 | - |
 | **Safari on iOS** | `15.4` | 2022-03-14 | - |
 
-
-:::warning
-
-The package is not yet released (it will be published soon on [npm](https://www.npmjs.com/)). In the meantime, you can test the librayr by compiling it from [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/mithril-client-wasm).
-
-:::
-
 In your Javascript project, use `npm` to add [mithril-client]https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm) library as a dependency:
 
 ```bash
