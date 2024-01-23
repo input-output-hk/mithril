@@ -4,7 +4,7 @@ mod extract_clap_info;
 mod markdown_formatter;
 mod test_doc_macro;
 
-use std::fs::File;
+use std::{collections::HashMap, fs::File};
 use std::io::Write;
 use clap::{Parser, Command};
 
@@ -62,7 +62,35 @@ impl StructDoc {
         };
         self.data.push(field_doc);
     }
+
+    /// Merge two StructDoc into a third one.
+    pub fn merge_struct_doc(&self, s2: &StructDoc) -> StructDoc {
+    
+        let mut data_map1 = self.data.iter()
+            .map(|field_doc| (field_doc.parameter.clone(), field_doc.clone()))
+            .collect::<HashMap<_,_>>();
+
+        for field_doc in s2.data.iter() {
+            if !data_map1.contains_key(&field_doc.parameter) {
+                data_map1.insert(field_doc.parameter.clone(), field_doc.clone());
+            } else {
+            
+                let mut d = data_map1.get(&field_doc.parameter).unwrap().clone();
+                if d.default_value.is_none() {
+                    d.default_value = field_doc.default_value.clone();
+                    data_map1.insert(field_doc.parameter.clone(), d);
+                }
+            }
+        }
+        let result = StructDoc {
+            data: data_map1.values().cloned().collect(),
+        };
+        result
+    }
 }
+
+
+
 /// Extractor for struct without Default trait.
 pub trait DocExtractor {
     /// Extract information used to generate documentation.
@@ -84,11 +112,7 @@ pub struct GenerateDocCommands {
 }
 
 impl GenerateDocCommands {
-    /// Generate the command line documentation.
-    pub fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
-        let cmd_name = cmd_to_document.get_name().to_owned();
-        let doc = markdown_formatter::doc_markdown(cmd_to_document);
-        
+    fn save_doc(&self, cmd_name: &str, doc: &str) -> StdResult<()> {
         let output = if self.output.as_str() == DEFAULT_OUTPUT_FILE_TEMPLATE {
             format!("{}-command-line.md", cmd_name)
         } else {
@@ -100,30 +124,79 @@ impl GenerateDocCommands {
         Ok(())
     }
 
+    /// Generate the command line documentation.
+    pub fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
+        let doc = markdown_formatter::doc_markdown(cmd_to_document);
+        let cmd_name = cmd_to_document.get_name();
+
+        self.save_doc(cmd_name, &doc)
+    }
+
     /// Generate the command line documentation with config info.
     pub fn execute_with_configurations(&self, cmd_to_document: &mut Command, configs_info: &Vec<StructDoc>) -> StdResult<()> { 
     
         let mut iter_config = configs_info.iter();
         let mut merged_struct_doc = StructDoc::new();
         while let Some(next_config) = iter_config.next() {
-            merged_struct_doc = extract_clap_info::merge_struct_doc(&merged_struct_doc, &next_config);
+            merged_struct_doc = merged_struct_doc.merge_struct_doc(&next_config);
         };
 
-        merged_struct_doc = extract_clap_info::merge_struct_doc(&merged_struct_doc, &extract_clap_info::extract_parameters(cmd_to_document));
+        merged_struct_doc = merged_struct_doc.merge_struct_doc(&extract_clap_info::extract_parameters(cmd_to_document));
         
         let config_doc =  markdown_formatter::doc_config_to_markdown(&merged_struct_doc);
 
-        let cmd_name = cmd_to_document.get_name().to_owned();
         let doc = markdown_formatter::doc_markdown(cmd_to_document);
-        
-        let output = if self.output.as_str() == DEFAULT_OUTPUT_FILE_TEMPLATE {
-            format!("{}-command-line.md", cmd_name)
-        } else {
-            self.output.clone()
+        let cmd_name = cmd_to_document.get_name();
+ 
+        self.save_doc(cmd_name, format!("\n{}\n{}", doc, config_doc).as_str())
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn test_merge_struct_doc() {
+        let s1 = {
+            let mut s = StructDoc::default();
+            s.add_param("A", "Param first A", Some("default A".to_string()));
+            s.add_param("B", "Param first B", None);
+            s.add_param("C", "Param first C", Some("default C".to_string()));
+            s.add_param("D", "Param first D", None);
+            s
         };
-        let mut buffer: File = File::create(&output)?;
-        write!(buffer, "\n{}\n{}", doc, config_doc)?;
-        println!("Documentation generated in file `{}`", &output);
-        Ok(())
+
+        let s2 = {
+            let mut s = StructDoc::default();
+            s.add_param("A", "Param second A", None);
+            s.add_param("B", "Param second B", Some("default B".to_string()));
+            s.add_param("E", "Param second E", None);
+            s.add_param("F", "Param second F", Some("default F".to_string()));
+            s
+        };
+
+        let result = s1.merge_struct_doc(&s2);
+
+        let data = result.data;
+        let data_map = data.into_iter().map(|field_doc| (field_doc.parameter.clone(), field_doc)).collect::<HashMap<_,_>>();
+
+        assert_eq!(6, data_map.iter().count());
+        assert_eq!("Param first A", data_map.get("A").unwrap().description);
+        assert_eq!("Param first B", data_map.get("B").unwrap().description);
+        assert_eq!("Param first C", data_map.get("C").unwrap().description);
+        assert_eq!("Param first D", data_map.get("D").unwrap().description);
+        assert_eq!("Param second E", data_map.get("E").unwrap().description);
+        assert_eq!("Param second F", data_map.get("F").unwrap().description);
+
+        assert_eq!(Some("default A".to_string()), data_map.get("A").unwrap().default_value);
+        assert_eq!(Some("default B".to_string()), data_map.get("B").unwrap().default_value);
+        assert_eq!(Some("default C".to_string()), data_map.get("C").unwrap().default_value);
+        assert_eq!(None, data_map.get("D").unwrap().default_value);
+        assert_eq!(None, data_map.get("E").unwrap().default_value);
+        assert_eq!(Some("default F".to_string()), data_map.get("F").unwrap().default_value);
+
     }
 }

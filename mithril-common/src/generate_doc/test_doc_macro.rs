@@ -2,9 +2,9 @@
 #[cfg(test)]
 mod tests {
     use crate::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc, FieldDoc};
-    use mithril_doc_derive::{DocExtractor, DocExtractorDefault};
     use config::{Map, Source, Value, ValueKind};
 
+    #[allow(dead_code)]
     #[derive(Debug, Clone, mithril_doc_derive::DocExtractor)]
     struct MyConfiguration {
         /// Execution environment
