@@ -247,7 +247,7 @@ mod tests {
     use mithril_common::sqlite::SourceAlias;
     use sqlite::Connection;
 
-    use crate::{Configuration, ProductionServiceBuilder, SQLITE_FILE_CARDANO_TRANSACTIONS};
+    use crate::{Configuration, ProductionServiceBuilder};
 
     use super::*;
 
@@ -257,7 +257,7 @@ mod tests {
         let production_service_builder = ProductionServiceBuilder::new(&configuration);
         production_service_builder
             .build_sqlite_connection(
-                SQLITE_FILE_CARDANO_TRANSACTIONS,
+                ":memory:",
                 crate::database::cardano_transactions_migration::get_migrations(),
             )
             .await
