@@ -264,7 +264,15 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => {
                 self.configuration.get_sqlite_dir().join(sqlite_file_name)
             }
-            _ => self.configuration.data_stores_directory.clone(),
+            _ => {
+                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" {
+                    self.configuration.data_stores_directory.clone()
+                } else {
+                    self.configuration
+                        .data_stores_directory
+                        .join(sqlite_file_name)
+                }
+            }
         };
 
         let connection = Connection::open_thread_safe(&path)
