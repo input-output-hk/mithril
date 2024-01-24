@@ -23,14 +23,32 @@ set -e
 EOF
 
 cat >> era-mithril.sh <<EOF
+    # Get current Cardano era
+    CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        | jq  -r '.era |= ascii_downcase | .era')
+    echo ">>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
+
+    # Fix: era related command is not (well) supported in Cardano node version '8.1.2'
+    if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
+        CURRENT_CARDANO_ERA=""
+    fi
+
+
+    # Get current Cardano block
+    CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        | jq  -r '.block')
+    echo ">>>> Current Cardano Block: \${CURRENT_CARDANO_BLOCK}"
+
     # Send funds to Mithril era address
     ## Get the UTxO of utxo${N}
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
-        --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file /dev/stdout \\
+        --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/utxo${N}.addr) --out-file /dev/stdout \\
         | jq  -r 'to_entries | [last] | .[0].key')
 
     ## Build the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction build \\
         --tx-in \${TX_IN} \\
         --tx-out \$(cat addresses/${ADDR}.addr)+${AMOUNT_TRANSFERRED} \\
         --change-address \$(cat addresses/utxo${N}.addr) \\
@@ -39,14 +57,14 @@ cat >> era-mithril.sh <<EOF
         --out-file node-pool${N}/tx/tx${N}-era-funds.txbody
 
     ## Sign the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction sign \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction sign \\
         --signing-key-file addresses/utxo${N}.skey \\
         --testnet-magic ${NETWORK_MAGIC} \\
         --tx-body-file  node-pool${N}/tx/tx${N}-era-funds.txbody \\
         --out-file      node-pool${N}/tx/tx${N}-era-funds.tx
 
     ## Submit the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction submit \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction submit \\
         --tx-file node-pool${N}/tx/tx${N}-era-funds.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
@@ -55,11 +73,11 @@ cat >> era-mithril.sh <<EOF
 
     # Write the era datum on chain
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
-        --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
+        --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
         | jq  -r 'to_entries | [last] | .[0].key')
 
     ## Build the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction build \\
         --tx-in \${TX_IN} \\
         --tx-out \$(cat addresses/${ADDR}.addr)+${SCRIPT_TX_VALUE} \\
         --tx-out-inline-datum-file \${DATUM_FILE} \\
@@ -69,14 +87,14 @@ cat >> era-mithril.sh <<EOF
         --out-file node-pool${N}/tx/tx${N}-era-datum.txbody
 
     ## Sign the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction sign \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction sign \\
         --signing-key-file addresses/${ADDR}.skey \\
         --testnet-magic ${NETWORK_MAGIC} \\
         --tx-body-file  node-pool${N}/tx/tx${N}-era-datum.txbody \\
         --out-file      node-pool${N}/tx/tx${N}-era-datum.tx
 
     ## Submit the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction submit \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction submit \\
         --tx-file node-pool${N}/tx/tx${N}-era-datum.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
