@@ -1,4 +1,4 @@
-use clap::{Command, builder::StyledStr};
+use clap::{Arg, Command, builder::StyledStr};
 
 use crate::generate_doc::extract_clap_info;
 
@@ -41,21 +41,33 @@ mod markdown {
     }
 }
 
-pub fn doc_markdown(cmd: &mut Command) -> String {
+pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc>) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
-    fn format_parameters(cmd: &Command) -> String {
-        let command_parameters = extract_clap_info::extract_parameters(cmd);
-        let parameters_table = doc_config_to_markdown(&command_parameters);
+    fn format_parameters(cmd: &Command, struct_doc: Option<&StructDoc>) -> String {
+  
+        if cmd.get_arguments().peekable().filter(|arg| argument_to_document(&arg)).count() == 0 {
+            "".to_string()
+        } else {
+            let mut command_parameters = extract_clap_info::extract_parameters(cmd);
+            if let Some(config_doc) =  struct_doc {
+                if config_doc.data.is_empty() {
+                    return "".to_string();
+                }
+                command_parameters = command_parameters.merge_struct_doc(config_doc);
+            }
 
-        let parameters_explanation = "\n\
-            The configuration parameters can be set in either of the following ways:\n\
-            \n\
-            1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
-            \n\
-            2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
-            ";
-        format!("{}\n{}", parameters_explanation, parameters_table)
+            let parameters_table = doc_config_to_markdown(&command_parameters);
+
+            let parameters_explanation = "\n\
+                The configuration parameters can be set in either of the following ways:\n\
+                \n\
+                1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
+                \n\
+                2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
+                ";
+            format!("{}\n{}", parameters_explanation, parameters_table)
+        }
     }
 
     fn format_subcommand(cmd: &Command) -> String {
@@ -77,7 +89,7 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
         }
     }
 
-    fn format_command(cmd: &mut Command, parent: Option<String>) -> String {
+    fn format_command(cmd: &mut Command, parent: Option<String>, struct_doc: Option<&StructDoc>) -> String {
         // It's important to start by calling `render_help` because that built the command.
         // The initialization add `help` command and default values for parameters.
         // This is why the command parameter is a mutable reference.
@@ -85,26 +97,34 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
         // let usage = format!("```bash\n{}\n```", cmd.render_usage()); // Already in help 
         // let help = format!("```bash\n{}\n```", cmd.render_help());
         let help = format!("```bash\n{}\n```", cmd.render_long_help()); // More readable than help
-        format_command_internal(cmd, parent, help)
+        format_command_internal(cmd, parent, help, struct_doc)
+    }
+    
+    fn name_to_document(name: &str) -> bool {
+        name != "help"
+    }
+    
+    fn argument_to_document(arg: &Arg) -> bool {
+        name_to_document(arg.get_id().as_str())
     }
 
     fn command_to_document(cmd: &Command) -> bool {
-        cmd.get_name() != "help"
+        name_to_document(cmd.get_name())
     }
 
-    fn format_command_internal(cmd: &Command, parent: Option<String>, help: String) -> String {
+    fn format_command_internal(cmd: &Command, parent: Option<String>, help: String, struct_doc: Option<&StructDoc>) -> String {
         let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
         let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
         let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
         let subcommands_table = format_subcommand(&cmd);
 
-        let parameters = format_parameters(cmd);
+        let parameters = format_parameters(cmd, struct_doc);
 
         let subcommands = cmd.get_subcommands()
             .filter(|cmd| command_to_document(&cmd))
             .map(|sub_command: &Command| {
-                format_command(&mut sub_command.clone(), Some(format!("{} {}", parent_ancestors, cmd.get_name())))
+                format_command(&mut sub_command.clone(), Some(format!("{} {}", parent_ancestors, cmd.get_name())), None)
             }
         ).collect::<Vec<String>>().join("\n");
             
@@ -112,11 +132,9 @@ pub fn doc_markdown(cmd: &mut Command) -> String {
 
     }
 
-    format_command(cmd, None)
+    format_command(cmd, None, struct_doc)
 
 }
-
-
 
 pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
     let subcommands_lines = struct_doc.data.iter().map(|config| {
@@ -143,7 +161,6 @@ mod tests {
     use clap::{Args, CommandFactory, Parser, Subcommand};
     use regex::Regex;
     use super::*;
-
 
     #[derive(Args, Clone, Debug)]
     struct StructSubCommandB {
@@ -179,12 +196,14 @@ mod tests {
         param_without_default: String,
     }
 
-    
+    #[derive(Parser, Debug, Clone)]
+    pub struct MyCommandWithOnlySubCommand {
+    }
 
     #[test]
     fn test_format_arg() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown(&mut command);
+        let doc = doc_markdown_with_config(&mut command, None);
         
         assert!(doc.contains("| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |"), "Generated doc: {doc}");
         assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` |  |  | ? | :heavy_check_mark: |"), "Generated doc: {doc}");
@@ -193,7 +212,7 @@ mod tests {
     #[test]
     fn test_format_subcommand_inlined() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown(&mut command);
+        let doc = doc_markdown_with_config(&mut command, None);
 
         assert!(doc.contains("###  mithril-common sub-command-a"), "Generated doc: {doc}");
         // In `Commands:` part.
@@ -206,7 +225,7 @@ mod tests {
     #[test]
     fn test_format_subcommand_on_separate_struct() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown(&mut command);
+        let doc = doc_markdown_with_config(&mut command, None);
 
         assert!(doc.contains("###  mithril-common sub-command-b"), "Generated doc: {doc}");
         // In `Commands:` part.
@@ -219,14 +238,51 @@ mod tests {
         assert!(Regex::new(r"Arguments:\s+<PATH>\s+The path of SubCommandB").unwrap().is_match(&doc), "Generated doc: {doc}");
     }
 
-
     #[test]
-    fn test_should_not_display_subcommand_help() {
+    fn test_should_not_create_chapter_for_subcommand_help() {
         let mut command = MyCommand::command();
-        let doc = doc_markdown(&mut command);
+        let doc = doc_markdown_with_config(&mut command, None);
 
         assert_eq!(true, doc.contains("###  mithril-common sub-command-b"), "Generated doc: {doc}");
         assert_eq!(false, doc.contains("###  mithril-common help"), "Generated doc: {doc}");
+    }
+    #[test]
+    fn test_should_not_display_parameter_table_when_only_help_argument() {
+        {
+            let mut command = MyCommand::command();
+            let doc = doc_markdown_with_config(&mut command, None);
+            assert_eq!(true, doc.contains("| `help` | `--help` | `-h` |"), "Generated doc: {doc}");
+        }
+        {
+            let mut command = MyCommandWithOnlySubCommand::command();
+            let doc = doc_markdown_with_config(&mut command, None);
+            assert_eq!(false, doc.contains("| `help` | `--help` | `-h` |"), "Generated doc: {doc}");
+        }
+    }
+
+    #[test]
+    fn test_doc_markdown_include_config_parameters() {
+        {
+            let mut command = MyCommand::command();
+            let doc = doc_markdown_with_config(&mut command, None);
+            
+            assert_eq!(false, doc.contains("| Param A from config |"), "Generated doc: {doc}");
+            assert_eq!(false, doc.contains("| `ConfigA` | - | - | `CONFIG_A` | Param A from config |  | ? | :heavy_check_mark: |"), "Generated doc: {doc}");
+        }
+        {
+            let struct_doc = {
+                let mut s = StructDoc::default();
+                s.add_param("ConfigA", "Param A from config", Some("default config A".to_string()));
+                s.add_param("ConfigB", "Param B from config", None);
+                s
+            };
+
+            let mut command = MyCommand::command();
+            let doc = doc_markdown_with_config(&mut command, Some(&struct_doc));
+            
+            assert_eq!(true, doc.contains("| Param A from config |"), "Generated doc: {doc}");
+            assert_eq!(true, doc.contains("| `ConfigA` | - | - | `CONFIGA` | Param A from config | `default config A` |"), "Generated doc: {doc}");
+        }
     }
 
 }

@@ -1,4 +1,5 @@
 
+
 ### mithril-client
 
 This program shows, downloads and verifies certified blockchain artifacts.
@@ -53,22 +54,6 @@ Options:
 | **generate-doc** | doc | Generate documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-The configuration parameters can be set in either of the following ways:
-
-1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
-
-2. The value can be overridden by an environment variable with the parameter name in uppercase.
-
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `run_mode` | `--run-mode` | - | `RUN_MODE` | Run Mode | `dev` | ? | - |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level (-v=warning, -vv=info, -vvv=debug) | `0` | ? | - |
-| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
-| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Override configuration Aggregator endpoint URL |  | ? | - |
-| `log_format_json` | `--log-format-json` | - | `LOG_FORMAT_JSON` | Enable JSON output for logs displayed according to verbosity level | `false` | ? | - |
-| `log_output` | `--log-output` | - | `LOG_OUTPUT` | Redirect the logs to a file |  | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
-| `version` | `--version` | `-V` | `VERSION` | Print version |  | ? | - |
 ###  mithril-client snapshot
 
 Snapshot management

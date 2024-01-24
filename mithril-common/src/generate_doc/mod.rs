@@ -1,5 +1,6 @@
 //! Commands to generate a markdown documentation for the command line.
 
+
 mod extract_clap_info;
 mod markdown_formatter;
 mod test_doc_macro;
@@ -126,10 +127,7 @@ impl GenerateDocCommands {
 
     /// Generate the command line documentation.
     pub fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
-        let doc = markdown_formatter::doc_markdown(cmd_to_document);
-        let cmd_name = cmd_to_document.get_name();
-
-        self.save_doc(cmd_name, &doc)
+        self.execute_with_configurations(cmd_to_document, &vec!())
     }
 
     /// Generate the command line documentation with config info.
@@ -141,14 +139,10 @@ impl GenerateDocCommands {
             merged_struct_doc = merged_struct_doc.merge_struct_doc(&next_config);
         };
 
-        merged_struct_doc = merged_struct_doc.merge_struct_doc(&extract_clap_info::extract_parameters(cmd_to_document));
-        
-        let config_doc =  markdown_formatter::doc_config_to_markdown(&merged_struct_doc);
-
-        let doc = markdown_formatter::doc_markdown(cmd_to_document);
+        let doc = markdown_formatter::doc_markdown_with_config(cmd_to_document, Some(&merged_struct_doc));
         let cmd_name = cmd_to_document.get_name();
  
-        self.save_doc(cmd_name, format!("\n{}\n{}", doc, config_doc).as_str())
+        self.save_doc(cmd_name, format!("\n{}", doc).as_str())
     }
 }
 

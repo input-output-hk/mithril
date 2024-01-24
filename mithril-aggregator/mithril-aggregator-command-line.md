@@ -1,4 +1,5 @@
 
+
 ### mithril-aggregator
 
 Mithril Aggregator Node
@@ -56,12 +57,24 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |
+| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` |  | - |
+| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` |  | - |
+| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
+| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` |  | - |
+| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` |  | - |
+| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` |  | - |
+| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | ? | - |
-| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files |  | ? | - |
-| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
+| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` |  | - |
+| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` |  | - |
+| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files | `/db` | ? | - |
+| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` |  | - |
+| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` |  | - |
 | `version` | `--version` | `-V` | `VERSION` | Print version |  | ? | - |
+| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
+| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |
+| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` |  | - |
+| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
 ###  mithril-aggregator genesis
 
 Genesis tools
@@ -429,22 +442,3 @@ The configuration parameters can be set in either of the following ways:
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `output` | `--output` | - | `OUTPUT` | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
 | `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
-
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` |  | - |
-| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` |  | - |
-| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | ? | - |
-| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` |  | - |
-| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` |  | - |
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level |  | ? | - |
-| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` |  | - |
-| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` |  | - |
-| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
-| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` |  | - |
-| `db_directory` | - | - | `DB_DIRECTORY` | Directory of the Cardano node database | `/db` |  | - |
-| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
-| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` |  | - |
-| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` |  | - |
-| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` |  | - |

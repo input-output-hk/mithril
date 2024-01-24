@@ -1,4 +1,5 @@
 
+
 ### mithril-end-to-end
 
 Tests args
@@ -82,28 +83,6 @@ Options:
 | **generate-doc** | doc | Generate documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-The configuration parameters can be set in either of the following ways:
-
-1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
-
-2. The value can be overridden by an environment variable with the parameter name in uppercase.
-
-| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `work_directory` | `--work-directory` | - | `WORK_DIRECTORY` | A directory where all logs, generated devnet artefacts, snapshots and store folder will be located |  | ? | - |
-| `devnet_scripts_directory` | `--devnet-scripts-directory` | - | `DEVNET_SCRIPTS_DIRECTORY` | Directory containing scripts to boostrap a devnet | `./devnet` | ? | - |
-| `bin_directory` | `--bin-directory` | - | `BIN_DIRECTORY` | Directory to the mithril binaries | `.` | ? | - |
-| `number_of_bft_nodes` | `--number-of-bft-nodes` | - | `NUMBER_OF_BFT_NODES` | Number of BFT nodes in the devnet | `1` | ? | - |
-| `number_of_pool_nodes` | `--number-of-pool-nodes` | - | `NUMBER_OF_POOL_NODES` | Number of Pool nodes in the devnet | `2` | ? | - |
-| `cardano_slot_length` | `--cardano-slot-length` | - | `CARDANO_SLOT_LENGTH` | Length of a Cardano slot in the devnet (in s) | `0.08` | ? | - |
-| `cardano_epoch_length` | `--cardano-epoch-length` | - | `CARDANO_EPOCH_LENGTH` | Length of a Cardano epoch in the devnet (in s) | `45` | ? | - |
-| `mithril_era` | `--mithril-era` | - | `MITHRIL_ERA` | Mithril era to run | `thales` | ? | - |
-| `signed_entity_types` | `--signed-entity-types` | - | `SIGNED_ENTITY_TYPES` | Signed entity types parameters (discriminants names in an ordered comma separated list) | `` | ? | - |
-| `run_only` | `--run-only` | - | `RUN_ONLY` | Enable run only mode | `false` | ? | - |
-| `use_p2p_network` | `--use-p2p-network` | - | `USE_P2P_NETWORK` | Enable P2P network mode | `false` | ? | - |
-| `skip_cardano_bin_download` | `--skip-cardano-bin-download` | - | `SKIP_CARDANO_BIN_DOWNLOAD` | Skip cardano binaries download | `false` | ? | - |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level, add more v to increase | `0` | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') |  | ? | - |
 ###  mithril-end-to-end generate-doc
 
 Generate documentation
