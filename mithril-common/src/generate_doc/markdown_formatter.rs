@@ -45,10 +45,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
     fn format_parameters(cmd: &Command, struct_doc: Option<&StructDoc>) -> String {
-  
-        if cmd.get_arguments().peekable().filter(|arg| argument_to_document(&arg)).count() == 0 {
-            "".to_string()
-        } else {
+        if cmd.get_arguments().filter(|arg| argument_to_document(&arg)).peekable().peek().is_some() {  
             let mut command_parameters = extract_clap_info::extract_parameters(cmd);
             if let Some(config_doc) =  struct_doc {
                 if config_doc.data.is_empty() {
@@ -67,12 +64,15 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
                 2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
                 ";
             format!("{}\n{}", parameters_explanation, parameters_table)
+        } else {
+            "".to_string()        
         }
     }
 
     fn format_subcommand(cmd: &Command) -> String {
-        if cmd.get_subcommands().peekable().peek().is_some() {
-            let subcommands_lines = cmd.get_subcommands().map(|command| {
+        let sub_commands = &mut cmd.get_subcommands().peekable();
+        if sub_commands.peek().is_some() {
+            let subcommands_lines = sub_commands.map(|command| {
                 vec!(
                     format!("**{}**", command.get_name()),
                     command.get_all_aliases().collect::<Vec<&str>>().join(","),
