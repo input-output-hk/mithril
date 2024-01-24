@@ -349,19 +349,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type_REFACTO_2(
+    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
     ) {
         let mut mock_container = MockDependencyInjector::new();
 
         let mithril_stake_distribution_expected = create_stake_distribution(Epoch(1), 5);
-
-        let expected_clone = mithril_stake_distribution_expected.clone();
-        mock_container
-            .mock_mithril_stake_distribution_artifact_builder
-            .expect_compute_artifact()
-            .once()
-            .return_once(move |_, _| Ok(expected_clone));
-
+        {
+            let expected_clone = mithril_stake_distribution_expected.clone();
+            mock_container
+                .mock_mithril_stake_distribution_artifact_builder
+                .expect_compute_artifact()
+                .once()
+                .return_once(move |_, _| Ok(expected_clone));
+        }
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
@@ -375,19 +375,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_snapshot_artifact_when_given_cardano_immutable_files_full_entity_type_REFACTO_2()
-    {
+    async fn build_snapshot_artifact_when_given_cardano_immutable_files_full_entity_type() {
         let mut mock_container = MockDependencyInjector::new();
 
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
-
-        let snapshot_expected_clone = snapshot_expected.clone();
-        mock_container
-            .mock_cardano_immutable_files_full_artifact_builder
-            .expect_compute_artifact()
-            .once()
-            .return_once(move |_, _| Ok(snapshot_expected_clone));
-
+        {
+            let snapshot_expected_clone = snapshot_expected.clone();
+            mock_container
+                .mock_cardano_immutable_files_full_artifact_builder
+                .expect_compute_artifact()
+                .once()
+                .return_once(move |_, _| Ok(snapshot_expected_clone));
+        }
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
