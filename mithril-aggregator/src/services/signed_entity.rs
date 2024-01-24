@@ -315,6 +315,17 @@ mod tests {
             &fake_data::protocol_parameters(),
         )
     }
+    
+    fn assert_expected<T>(expected: &T, artifact: &Arc<dyn Artifact>)
+    where
+        T: Serialize + DeserializeOwned,
+    {
+        let current: T = serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_string(&expected).unwrap(),
+            serde_json::to_string(&current).unwrap()
+        );
+    }
 
     /// Struct that create mocks needed in tests and build objects injecting them.
     struct MockDependencyInjector {
@@ -613,4 +624,5 @@ mod tests {
             .await
             .expect("Create artifact should not fail for CardanoTransactions signed entity");
     }
+
 }
