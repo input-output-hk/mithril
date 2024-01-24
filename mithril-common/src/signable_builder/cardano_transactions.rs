@@ -3,11 +3,13 @@ use std::{
     sync::Arc,
 };
 
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use crate::{
     cardano_transaction_parser::TransactionParser,
+    crypto_helper::{MKTree, MKTreeNode, MKTreeStore},
     entities::{Beacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
@@ -47,6 +49,18 @@ impl CardanoTransactionsSignableBuilder {
             dirpath: dirpath.to_owned(),
         }
     }
+
+    fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
+        let store = MKTreeStore::default();
+        let leaves = transactions.iter().map(|tx| tx.into()).collect::<Vec<_>>();
+        let mk_tree = MKTree::new(&leaves, &store)
+            .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree")?;
+        let mk_root = mk_tree
+            .compute_root()
+            .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree root")?;
+
+        Ok(mk_root)
+    }
 }
 
 #[async_trait]
@@ -75,10 +89,12 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
                 .await?;
         }
 
+        let mk_root = self.compute_merkle_root(&transactions)?;
+
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
-            format!("{beacon}-{}", transactions.len()),
+            mk_root.to_hex(),
         );
 
         Ok(protocol_message)
@@ -101,17 +117,94 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_compute_merkle_root() {
+        let transaction_1 = CardanoTransaction::new("tx-hash-123", 1, 1);
+        let transaction_2 = CardanoTransaction::new("tx-hash-456", 2, 1);
+        let transaction_3 = CardanoTransaction::new("tx-hash-789", 3, 1);
+        let transaction_4 = CardanoTransaction::new("tx-hash-abc", 4, 1);
+
+        let transactions_set_reference = vec![
+            transaction_1.clone(),
+            transaction_2.clone(),
+            transaction_3.clone(),
+        ];
+        let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
+            Arc::new(DumbTransactionParser::new(
+                transactions_set_reference.clone(),
+            )),
+            Arc::new(MockTransactionStore::new()),
+            Path::new("/tmp"),
+            create_logger(),
+        );
+
+        let merkle_root_reference = cardano_transaction_signable_builder
+            .compute_merkle_root(&transactions_set_reference)
+            .unwrap();
+        {
+            let transactions_set = vec![transaction_1.clone()];
+            let mk_root = cardano_transaction_signable_builder
+                .compute_merkle_root(&transactions_set)
+                .unwrap();
+            assert_ne!(merkle_root_reference, mk_root);
+        }
+        {
+            let transactions_set = vec![transaction_1.clone(), transaction_2.clone()];
+            let mk_root = cardano_transaction_signable_builder
+                .compute_merkle_root(&transactions_set)
+                .unwrap();
+            assert_ne!(merkle_root_reference, mk_root);
+        }
+        {
+            let transactions_set = vec![
+                transaction_1.clone(),
+                transaction_2.clone(),
+                transaction_3.clone(),
+                transaction_4.clone(),
+            ];
+            let mk_root = cardano_transaction_signable_builder
+                .compute_merkle_root(&transactions_set)
+                .unwrap();
+            assert_ne!(merkle_root_reference, mk_root);
+        }
+
+        {
+            // Transactions in a different order returns a different merkle root.
+            let transactions_set = vec![
+                transaction_1.clone(),
+                transaction_3.clone(),
+                transaction_2.clone(),
+            ];
+            let mk_root = cardano_transaction_signable_builder
+                .compute_merkle_root(&transactions_set)
+                .unwrap();
+            assert_ne!(merkle_root_reference, mk_root);
+        }
+    }
+
+    #[tokio::test]
     async fn test_compute_signable() {
         let beacon = Beacon::default();
-        let transactions_count = 0;
-        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
-        let transaction_store = Arc::new(MockTransactionStore::new());
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-123", 1, 1),
+            CardanoTransaction::new("tx-hash-456", 2, 1),
+            CardanoTransaction::new("tx-hash-789", 3, 1),
+        ];
+        let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
+        let mut mock_transaction_store = MockTransactionStore::new();
+        mock_transaction_store
+            .expect_store_transactions()
+            .times(1)
+            .returning(|_| Ok(()));
+        let transaction_store = Arc::new(mock_transaction_store);
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             transaction_parser,
             transaction_store,
             Path::new("/tmp"),
             create_logger(),
         );
+        let mk_root = cardano_transactions_signable_builder
+            .compute_merkle_root(&transactions)
+            .unwrap();
         let signable = cardano_transactions_signable_builder
             .compute_protocol_message(beacon.clone())
             .await
@@ -119,7 +212,7 @@ mod tests {
         let mut signable_expected = ProtocolMessage::new();
         signable_expected.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
-            format!("{beacon}-{transactions_count}"),
+            mk_root.to_hex(),
         );
         assert_eq!(signable_expected, signable);
     }

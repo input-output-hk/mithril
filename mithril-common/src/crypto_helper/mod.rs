@@ -23,6 +23,7 @@ pub use era::{
     EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
 };
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
+pub use merkle_tree::{MKProof, MKTree, MKTreeNode, MKTreeStore};
 pub use types::*;
 
 /// The current protocol version

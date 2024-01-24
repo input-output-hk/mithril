@@ -23,6 +23,17 @@ impl MKTreeNode {
     pub fn new(hash: Bytes) -> Self {
         Self { hash }
     }
+
+    /// Create a MKTreeNode from a hex representation
+    pub fn from_hex(hex: &str) -> StdResult<Self> {
+        let hash = hex::decode(hex)?;
+        Ok(Self { hash })
+    }
+
+    /// Create a hex representation of the MKTreeNode
+    pub fn to_hex(&self) -> String {
+        hex::encode(&self.hash)
+    }
 }
 
 impl Deref for MKTreeNode {
@@ -36,6 +47,14 @@ impl Deref for MKTreeNode {
 impl From<String> for MKTreeNode {
     fn from(other: String) -> Self {
         Self {
+            hash: other.as_str().into(),
+        }
+    }
+}
+
+impl From<&str> for MKTreeNode {
+    fn from(other: &str) -> Self {
+        Self {
             hash: other.as_bytes().to_vec(),
         }
     }
@@ -45,6 +64,12 @@ impl TryFrom<MKTree<'_>> for MKTreeNode {
     type Error = StdError;
     fn try_from(other: MKTree) -> Result<Self, Self::Error> {
         other.compute_root()
+    }
+}
+
+impl ToString for MKTreeNode {
+    fn to_string(&self) -> String {
+        String::from_utf8_lossy(&self.hash).to_string()
     }
 }
 
@@ -85,17 +110,19 @@ impl MKProof {
     }
 }
 
+/// A Merkle tree store
+pub type MKTreeStore = MemStore<MKTreeNode>;
+
 /// A Merkle tree
 pub struct MKTree<'a> {
     inner_leaves: HashMap<&'a MKTreeNode, MKTreeLeafPosition>,
-    inner_tree: MMR<MKTreeNode, MergeMKTreeNode, &'a MemStore<MKTreeNode>>,
+    inner_tree: MMR<MKTreeNode, MergeMKTreeNode, &'a MKTreeStore>,
 }
 
 impl<'a> MKTree<'a> {
     /// MKTree factory
-    pub fn new(leaves: &'a [MKTreeNode], store: &'a MemStore<MKTreeNode>) -> StdResult<Self> {
-        let mut inner_tree =
-            MMR::<MKTreeNode, MergeMKTreeNode, &MemStore<MKTreeNode>>::new(0, store);
+    pub fn new(leaves: &'a [MKTreeNode], store: &'a MKTreeStore) -> StdResult<Self> {
+        let mut inner_tree = MMR::<MKTreeNode, MergeMKTreeNode, &MKTreeStore>::new(0, store);
         let mut inner_leaves = HashMap::new();
         for leaf in leaves {
             let inner_tree_position = inner_tree.push(leaf.to_owned())?;
@@ -148,9 +175,22 @@ impl<'a> MKTree<'a> {
 
 #[cfg(test)]
 mod tests {
-    use ckb_merkle_mountain_range::util::MemStore;
+    use super::*;
 
-    use super::MKTree;
+    #[test]
+    fn test_golden_merkle_root() {
+        let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
+        let leaves: Vec<MKTreeNode> = leaves.into_iter().map(|l| l.into()).collect();
+        let store = MKTreeStore::default();
+        let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
+        let mkroot = mktree
+            .compute_root()
+            .expect("MKRoot generation should not fail");
+        assert_eq!(
+            "3bbced153528697ecde7345a22e50115306478353619411523e804f2323fd921",
+            mkroot.to_hex()
+        );
+    }
 
     #[test]
     fn test_should_accept_valid_proof_generated_by_merkle_tree() {
@@ -158,7 +198,7 @@ mod tests {
         let leaves = (0..total_leaves)
             .map(|i| format!("test-{i}").into())
             .collect::<Vec<_>>();
-        let store = MemStore::default();
+        let store = MKTreeStore::default();
         let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let proof = mktree
@@ -173,7 +213,7 @@ mod tests {
         let leaves = (0..total_leaves)
             .map(|i| format!("test-{i}").into())
             .collect::<Vec<_>>();
-        let store = MemStore::default();
+        let store = MKTreeStore::default();
         let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let mut proof = mktree
@@ -181,5 +221,16 @@ mod tests {
             .expect("MKProof generation should not fail");
         proof.inner_root = leaves[10].to_owned();
         proof.verify().expect_err("The MKProof should be invalid");
+    }
+
+    #[test]
+    fn tree_node_from_to_string() {
+        let expected_str = "my_string";
+        let expected_string = expected_str.to_string();
+        let node_str: MKTreeNode = expected_str.into();
+        let node_string: MKTreeNode = expected_string.clone().into();
+
+        assert_eq!(node_str.to_string(), expected_str);
+        assert_eq!(node_string.to_string(), expected_string);
     }
 }
