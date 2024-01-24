@@ -5,6 +5,7 @@ mod codec;
 mod conversions;
 mod era;
 mod genesis;
+mod merkle_tree;
 #[cfg(feature = "test_tools")]
 pub mod tests_setup;
 mod types;
