@@ -1,5 +1,5 @@
 //! Signer related database providers
 
-mod cardano_transactions;
+mod cardano_transaction;
 
-pub use cardano_transactions::*;
+pub use cardano_transaction::*;

@@ -21,7 +21,7 @@ use tokio::sync::RwLock;
 /// mod test {
 ///     use anyhow::anyhow;
 ///     use async_trait::async_trait;
-///     use mithril_common::cardano_transactions_parser::TransactionParser;
+///     use mithril_common::cardano_transaction_parser::TransactionParser;
 ///     use mithril_common::entities::{Beacon, CardanoTransaction};
 ///     use mithril_common::StdResult;
 ///     use mockall::mock;

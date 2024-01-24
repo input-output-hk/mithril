@@ -1,5 +1,5 @@
 //! Aggregator related database providers
-mod cardano_transactions;
+mod cardano_transaction;
 mod certificate;
 mod epoch_setting;
 mod open_message;
@@ -11,7 +11,7 @@ mod stake_pool;
 #[cfg(test)]
 mod test_helper;
 
-pub use cardano_transactions::*;
+pub use cardano_transaction::*;
 pub use certificate::*;
 pub use epoch_setting::*;
 pub use open_message::*;

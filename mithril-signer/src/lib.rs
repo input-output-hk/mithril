@@ -30,4 +30,4 @@ const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
 
 /// SQLite file names
 const SQLITE_FILE: &str = "signer.sqlite3";
-const SQLITE_FILE_CARDANO_TRANSACTIONS: &str = "cardano-transactions.sqlite3";
+const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";

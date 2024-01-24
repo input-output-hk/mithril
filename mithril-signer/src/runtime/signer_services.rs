@@ -28,7 +28,7 @@ use crate::{
     aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
     single_signer::SingleSigner, AggregatorHTTPClient, Configuration, MithrilSingleSigner,
     ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
-    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTIONS,
+    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -200,10 +200,10 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let sqlite_connection = self
             .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
             .await?;
-        let cardano_transactions_sqlite_connection = self
+        let transaction_sqlite_connection = self
             .build_sqlite_connection(
-                SQLITE_FILE_CARDANO_TRANSACTIONS,
-                crate::database::cardano_transactions_migration::get_migrations(),
+                SQLITE_FILE_CARDANO_TRANSACTION,
+                crate::database::cardano_transaction_migration::get_migrations(),
             )
             .await?;
 
@@ -266,7 +266,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(CardanoTransactionParser::default());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            cardano_transactions_sqlite_connection,
+            transaction_sqlite_connection,
         ));
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser,

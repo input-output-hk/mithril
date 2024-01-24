@@ -74,10 +74,10 @@ impl StateMachineTester {
         let config = Configuration::new_sample(&selected_signer_party_id);
 
         let production_service_builder = ProductionServiceBuilder::new(&config);
-        let cardano_transactions_sqlite_connection = production_service_builder
+        let transaction_sqlite_connection = production_service_builder
             .build_sqlite_connection(
                 ":memory:",
-                mithril_signer::database::cardano_transactions_migration::get_migrations(),
+                mithril_signer::database::cardano_transaction_migration::get_migrations(),
             )
             .await
             .unwrap();
@@ -141,7 +141,7 @@ impl StateMachineTester {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            cardano_transactions_sqlite_connection,
+            transaction_sqlite_connection,
         ));
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser.clone(),

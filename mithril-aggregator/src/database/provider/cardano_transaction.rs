@@ -247,25 +247,21 @@ mod tests {
     use mithril_common::sqlite::SourceAlias;
     use sqlite::Connection;
 
-    use crate::{Configuration, ProductionServiceBuilder};
+    use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
     use super::*;
 
     async fn get_connection() -> Arc<SqliteConnection> {
-        let party_id = "party-id-123".to_string();
-        let configuration = Configuration::new_sample(&party_id);
-        let production_service_builder = ProductionServiceBuilder::new(&configuration);
-        production_service_builder
-            .build_sqlite_connection(
-                ":memory:",
-                crate::database::cardano_transactions_migration::get_migrations(),
-            )
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        builder
+            .get_sqlite_connection_cardano_transaction()
             .await
             .unwrap()
     }
 
     #[test]
-    fn cardano_transactions_projection() {
+    fn cardano_transaction_projection() {
         let projection = CardanoTransactionRecord::get_projection();
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
 

@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use crate::{
-    cardano_transactions_parser::TransactionParser,
+    cardano_transaction_parser::TransactionParser,
     entities::{Beacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
@@ -87,7 +87,7 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::cardano_transactions_parser::DumbTransactionParser;
+    use crate::cardano_transaction_parser::DumbTransactionParser;
     use crate::signable_builder::MockTransactionStore;
 
     use super::*;

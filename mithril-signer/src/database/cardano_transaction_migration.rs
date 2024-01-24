@@ -19,7 +19,7 @@ create table cardano_tx (
     primary key (transaction_hash)
 );
 
-create unique index cardano_transactions_unique_index on cardano_tx(immutable_file_number);
+create unique index cardano_tx_immutable_file_number_index on cardano_tx(immutable_file_number);
 "#,
         ),
     ]

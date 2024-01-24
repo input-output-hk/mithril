@@ -15,7 +15,7 @@ use warp::Filter;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_transactions_parser::TransactionParser,
+    cardano_transaction_parser::TransactionParser,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     crypto_helper::{
@@ -73,7 +73,7 @@ use crate::{
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
-const SQLITE_FILE_CARDANO_TRANSACTIONS: &str = "cardano-transactions.sqlite3";
+const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 
 /// ## Dependencies container builder
 ///
@@ -94,7 +94,7 @@ pub struct DependenciesBuilder {
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
 
     /// Cardano transactions SQLite database connection
-    pub cardano_transactions_sqlite_connection: Option<Arc<SqliteConnection>>,
+    pub transaction_sqlite_connection: Option<Arc<SqliteConnection>>,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
@@ -215,7 +215,7 @@ impl DependenciesBuilder {
         Self {
             configuration,
             sqlite_connection: None,
-            cardano_transactions_sqlite_connection: None,
+            transaction_sqlite_connection: None,
             stake_store: None,
             snapshot_uploader: None,
             multi_signer: None,
@@ -324,7 +324,7 @@ impl DependenciesBuilder {
             let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
         }
 
-        if let Some(connection) = &self.cardano_transactions_sqlite_connection {
+        if let Some(connection) = &self.transaction_sqlite_connection {
             let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
         }
     }
@@ -345,21 +345,21 @@ impl DependenciesBuilder {
     }
 
     /// Get SQLite connection for the cardano transactions store
-    pub async fn get_sqlite_connection_cardano_transactions(
+    pub async fn get_sqlite_connection_cardano_transaction(
         &mut self,
     ) -> Result<Arc<SqliteConnection>> {
-        if self.cardano_transactions_sqlite_connection.is_none() {
-            self.cardano_transactions_sqlite_connection = Some(
+        if self.transaction_sqlite_connection.is_none() {
+            self.transaction_sqlite_connection = Some(
                 self.build_sqlite_connection(
-                    SQLITE_FILE_CARDANO_TRANSACTIONS,
-                    crate::database::cardano_transactions_migration::get_migrations(),
+                    SQLITE_FILE_CARDANO_TRANSACTION,
+                    crate::database::cardano_transaction_migration::get_migrations(),
                 )
                 .await?,
             );
         }
 
         Ok(self
-            .cardano_transactions_sqlite_connection
+            .transaction_sqlite_connection
             .as_ref()
             .cloned()
             .unwrap())
@@ -679,7 +679,7 @@ impl DependenciesBuilder {
 
     async fn build_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
         let transaction_store = CardanoTransactionRepository::new(
-            self.get_sqlite_connection_cardano_transactions().await?,
+            self.get_sqlite_connection_cardano_transaction().await?,
         );
 
         Ok(Arc::new(transaction_store))
@@ -1137,9 +1137,7 @@ impl DependenciesBuilder {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
-            sqlite_connection_cardano_transactions: self
-                .get_sqlite_connection_cardano_transactions()
-                .await?,
+            sqlite_connection_transaction: self.get_sqlite_connection_cardano_transaction().await?,
             stake_store: self.get_stake_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
@@ -1171,8 +1169,8 @@ impl DependenciesBuilder {
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
-            cardano_transactions_parser: self.get_transaction_parser().await?,
-            cardano_transactions_store: self.get_transaction_store().await?,
+            transaction_parser: self.get_transaction_parser().await?,
+            transaction_store: self.get_transaction_store().await?,
         };
 
         Ok(dependency_manager)

@@ -59,7 +59,7 @@ pub mod protocol;
 pub mod signable_builder;
 
 #[cfg(feature = "fs")]
-pub mod cardano_transactions_parser;
+pub mod cardano_transaction_parser;
 
 #[cfg(feature = "database")]
 pub mod sqlite;
@@ -75,7 +75,7 @@ pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
 
 #[cfg(feature = "fs")]
-pub use cardano_transactions_parser::{
+pub use cardano_transaction_parser::{
     CardanoTransactionParser, DumbTransactionParser, TransactionParser,
 };
 
