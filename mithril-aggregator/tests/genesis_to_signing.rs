@@ -16,7 +16,7 @@ async fn genesis_to_signing() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("genesis_to_signing").join("aggregator.sqlite3"),
+        data_stores_directory: get_test_dir("genesis_to_signing"),
         ..Configuration::new_sample()
     };
     let mut tester =

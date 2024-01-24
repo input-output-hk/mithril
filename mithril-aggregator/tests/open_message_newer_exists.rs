@@ -19,7 +19,7 @@ async fn open_message_newer_exists() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("create_certificate").join("aggregator.sqlite3"),
+        data_stores_directory: get_test_dir("create_certificate"),
         ..Configuration::new_sample()
     };
     let mut tester =

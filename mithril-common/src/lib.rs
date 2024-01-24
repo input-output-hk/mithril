@@ -58,6 +58,9 @@ pub mod messages;
 pub mod protocol;
 pub mod signable_builder;
 
+#[cfg(feature = "fs")]
+pub mod cardano_transaction_parser;
+
 #[cfg(feature = "database")]
 pub mod sqlite;
 #[cfg(feature = "database")]
@@ -70,6 +73,11 @@ pub mod test_utils;
 pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
 
 pub use entities::{CardanoNetwork, MagicId};
+
+#[cfg(feature = "fs")]
+pub use cardano_transaction_parser::{
+    CardanoTransactionParser, DumbTransactionParser, TransactionParser,
+};
 
 /// Generic error type
 pub type StdError = anyhow::Error;

@@ -20,7 +20,7 @@ async fn testing_eras() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("testing_eras").join("aggregator.sqlite3"),
+        data_stores_directory: get_test_dir("testing_eras"),
         ..Configuration::new_sample()
     };
     let mut tester =

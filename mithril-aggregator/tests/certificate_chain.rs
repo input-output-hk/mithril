@@ -19,7 +19,7 @@ async fn certificate_chain() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("certificate_chain").join("aggregator.sqlite3"),
+        data_stores_directory: get_test_dir("certificate_chain"),
         ..Configuration::new_sample()
     };
     let mut tester =
