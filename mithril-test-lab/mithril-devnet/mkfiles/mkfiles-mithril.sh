@@ -20,6 +20,37 @@ cat >> era-mithril.sh <<EOF
 #!/usr/bin/env bash
 set -e
 
+# Wait for a number of blocks has elapsed
+function wait_for_elapsed_blocks {
+    CARDANO_BLOCK_OFFSET=\$1
+    CARDANO_NEXT_BLOCK_WAIT_ROUNDS_MAX=30
+    CARDANO_NEXT_BLOCK_WAIT_ROUNDS=1
+    CARDANO_NEXT_BLOCK_WAIT_ROUND_DELAY=2
+    CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        | jq  -r '.block')
+    while true
+    do
+        CARDANO_BLOCK_TARGET=\$(( \${CURRENT_CARDANO_BLOCK} + \${CARDANO_BLOCK_OFFSET} ))
+        CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        | jq  -r '.block')
+        if [ \$CARDANO_BLOCK -lt \$CARDANO_BLOCK_TARGET ] ; then
+            echo ">>>> Cardano target block not reached yet... [current: \$CARDANO_BLOCK, target: \$CARDANO_BLOCK_TARGET] [attempt \$CARDANO_NEXT_BLOCK_WAIT_ROUNDS]"
+            sleep \$CARDANO_NEXT_BLOCK_WAIT_ROUND_DELAY
+        else
+            echo ">>>> Cardano target block is reached [current: \$CARDANO_BLOCK, target: \$CARDANO_BLOCK_TARGET] [attempt \$CARDANO_NEXT_BLOCK_WAIT_ROUNDS]"
+            sleep \$CARDANO_NEXT_BLOCK_WAIT_ROUND_DELAY
+            break
+        fi
+        CARDANO_NEXT_BLOCK_WAIT_ROUNDS=\$(( \$CARDANO_NEXT_BLOCK_WAIT_ROUNDS + 1 ))
+        if [ "\$CARDANO_NEXT_BLOCK_WAIT_ROUNDS" -gt "\$CARDANO_NEXT_BLOCK_WAIT_ROUNDS_MAX" ] ; then
+            echo ">>>> Timeout: Cardano target block was not reached within \$CARDANO_NEXT_BLOCK_WAIT_ROUNDS_MAX attempts"
+            exit 1
+        fi
+    done
+}
+
 EOF
 
 cat >> era-mithril.sh <<EOF
@@ -33,7 +64,6 @@ cat >> era-mithril.sh <<EOF
     if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
         CURRENT_CARDANO_ERA=""
     fi
-
 
     # Get current Cardano block
     CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
@@ -68,8 +98,8 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-funds.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
-    ## Wait for the transaction to be confirmed
-    sleep 1
+    ## Wait at least for 2 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 2
 
     # Write the era datum on chain
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
@@ -98,8 +128,9 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-datum.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
-    ## Wait for the transaction to be confirmed
-    sleep 2
+    ## Wait at least for 2 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 2
+
     
 EOF
 
