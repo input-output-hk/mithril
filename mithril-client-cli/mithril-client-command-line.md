@@ -106,8 +106,8 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
+| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
 ###  mithril-client  snapshot show
 
@@ -141,9 +141,9 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | ? | - |
-| `digest` | - | - | `DIGEST` | Snapshot digest |  | ? | :heavy_check_mark: |
-| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') |  | ? | - |
+| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
+| `digest` | - | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
+| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
 ###  mithril-client  snapshot download
 
@@ -185,11 +185,11 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | ? | - |
-| `digest` | - | - | `DIGEST` | Digest of the snapshot to download. Use the `list` command to get that information |  | ? | :heavy_check_mark: |
-| `download_dir` | `--download-dir` | - | `DOWNLOAD_DIR` | Directory where the snapshot will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate |  | ? | - |
-| `genesis_verification_key` | `--genesis-verification-key` | - | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain |  | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') |  | ? | - |
+| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
+| `digest` | - | - | `DIGEST` | Digest of the snapshot to download. Use the `list` command to get that information | - | - | :heavy_check_mark: |
+| `download_dir` | `--download-dir` | - | `DOWNLOAD_DIR` | Directory where the snapshot will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - | - | - |
+| `genesis_verification_key` | `--genesis-verification-key` | - | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain | - | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
 ###  mithril-client mithril-stake-distribution
 
@@ -241,8 +241,8 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
+| `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
 ###  mithril-client  mithril-stake-distribution download
 
@@ -281,10 +281,10 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `artifact_hash` | - | - | `ARTIFACT_HASH` | Hash of the Mithril Stake Distribution artifact |  | ? | :heavy_check_mark: |
-| `download_dir` | `--download-dir` | - | `DOWNLOAD_DIR` | Directory where the Mithril Stake Distribution will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate |  | ? | - |
-| `genesis_verification_key` | `--genesis-verification-key` | - | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain |  | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') |  | ? | - |
+| `artifact_hash` | - | - | `ARTIFACT_HASH` | Hash of the Mithril Stake Distribution artifact | - | - | :heavy_check_mark: |
+| `download_dir` | `--download-dir` | - | `DOWNLOAD_DIR` | Directory where the Mithril Stake Distribution will be downloaded. By default, a subdirectory will be created in this directory to extract and verify the certificate | - | - | - |
+| `genesis_verification_key` | `--genesis-verification-key` | - | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain | - | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
 ###  mithril-client generate-doc
 
@@ -314,5 +314,5 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `output` | `--output` | - | `OUTPUT` | Generated documentation file | `[PROGRAM NAME]-command-line.md` | ? | - |
-| `help` | `--help` | `-h` | `HELP` | Print help |  | ? | - |
+| `output` | `--output` | - | `OUTPUT` | Generated documentation file | `[PROGRAM NAME]-command-line.md` | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |

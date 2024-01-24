@@ -145,7 +145,7 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
             if config.command_line_short.is_empty() { "-".to_string() } else { format!("`{}`", config.command_line_short) },
             format!("`{}`", config.parameter.to_uppercase()),
             config.description.replace("\n","<br>"),
-            config.default_value.map(|value| format!("`{}`", value)).unwrap_or("".to_string()),
+            config.default_value.map(|value| format!("`{}`", value)).unwrap_or("-".to_string()),
             config.example,
             String::from(if config.is_mandatory {":heavy_check_mark:"} else {"-"}),
         )
@@ -205,8 +205,8 @@ mod tests {
         let mut command = MyCommand::command();
         let doc = doc_markdown_with_config(&mut command, None);
         
-        assert!(doc.contains("| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | ? | - |"), "Generated doc: {doc}");
-        assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` |  |  | ? | :heavy_check_mark: |"), "Generated doc: {doc}");
+        assert!(doc.contains("| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |"), "Generated doc: {doc}");
+        assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` | - | - | - | :heavy_check_mark: |"), "Generated doc: {doc}");
     }
 
     #[test]
@@ -267,7 +267,7 @@ mod tests {
             let doc = doc_markdown_with_config(&mut command, None);
             
             assert_eq!(false, doc.contains("| Param A from config |"), "Generated doc: {doc}");
-            assert_eq!(false, doc.contains("| `ConfigA` | - | - | `CONFIG_A` | Param A from config |  | ? | :heavy_check_mark: |"), "Generated doc: {doc}");
+            assert_eq!(false, doc.contains("| `ConfigA` | - | - |"), "Generated doc: {doc}");
         }
         {
             let struct_doc = {
