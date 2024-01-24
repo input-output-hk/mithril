@@ -70,7 +70,7 @@ impl SignedEntity<CardanoTransactionsCommitment> {
                 signed_entity_id: "snapshot-id-123".to_string(),
                 signed_entity_type: SignedEntityType::CardanoTransactions(Beacon::default()),
                 certificate_id: "certificate-hash-123".to_string(),
-                artifact: CardanoTransactionsCommitment::new("mkroot123".to_string()),
+                artifact: CardanoTransactionsCommitment::new("mkroot123".to_string(), Beacon::default()),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
