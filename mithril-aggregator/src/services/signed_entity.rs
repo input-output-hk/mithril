@@ -300,12 +300,141 @@ mod tests {
         entities::{CardanoTransactionsCommitment, Epoch},
         test_utils::fake_data,
     };
+    use serde::{de::DeserializeOwned, Serialize};
 
     use super::*;
 
     use crate::{
         artifact_builder::MockArtifactBuilder, database::provider::MockSignedEntityStorer,
     };
+
+    fn create_stake_distribution(epoch: Epoch, signers: usize) -> MithrilStakeDistribution {
+        MithrilStakeDistribution::new(
+            epoch,
+            fake_data::signers_with_stakes(signers),
+            &fake_data::protocol_parameters(),
+        )
+    }
+
+    /// Struct that create mocks needed in tests and build objects injecting them.
+    struct MockDependencyInjector {
+        mock_signed_entity_storer: MockSignedEntityStorer,
+        mock_mithril_stake_distribution_artifact_builder:
+            MockArtifactBuilder<Epoch, MithrilStakeDistribution>,
+        mock_cardano_immutable_files_full_artifact_builder: MockArtifactBuilder<Beacon, Snapshot>,
+    }
+
+    impl MockDependencyInjector {
+        fn new() -> MockDependencyInjector {
+            MockDependencyInjector {
+                mock_signed_entity_storer: MockSignedEntityStorer::new(),
+                mock_mithril_stake_distribution_artifact_builder: MockArtifactBuilder::<
+                    Epoch,
+                    MithrilStakeDistribution,
+                >::new(),
+                mock_cardano_immutable_files_full_artifact_builder: MockArtifactBuilder::<
+                    Beacon,
+                    Snapshot,
+                >::new(),
+            }
+        }
+
+        fn build_artifact_builder_service(self) -> MithrilSignedEntityService {
+            MithrilSignedEntityService::new(
+                Arc::new(self.mock_signed_entity_storer),
+                Arc::new(self.mock_mithril_stake_distribution_artifact_builder),
+                Arc::new(self.mock_cardano_immutable_files_full_artifact_builder),
+            )
+        }
+    }
+
+    #[tokio::test]
+    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type_REFACTO_2(
+    ) {
+        let mut mock_container = MockDependencyInjector::new();
+
+        let mithril_stake_distribution_expected = create_stake_distribution(Epoch(1), 5);
+
+        let expected_clone = mithril_stake_distribution_expected.clone();
+        mock_container
+            .mock_mithril_stake_distribution_artifact_builder
+            .expect_compute_artifact()
+            .once()
+            .return_once(move |_, _| Ok(expected_clone));
+
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
+
+        let certificate = fake_data::certificate("hash".to_string());
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
+        let artifact = artifact_builder_service
+            .compute_artifact(signed_entity_type, &certificate)
+            .await
+            .unwrap();
+
+        assert_expected(&mithril_stake_distribution_expected, &artifact);
+    }
+
+    #[tokio::test]
+    async fn build_snapshot_artifact_when_given_cardano_immutable_files_full_entity_type_REFACTO_2()
+    {
+        let mut mock_container = MockDependencyInjector::new();
+
+        let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
+
+        let snapshot_expected_clone = snapshot_expected.clone();
+        mock_container
+            .mock_cardano_immutable_files_full_artifact_builder
+            .expect_compute_artifact()
+            .once()
+            .return_once(move |_, _| Ok(snapshot_expected_clone));
+
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
+
+        let certificate = fake_data::certificate("hash".to_string());
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(Beacon::default());
+        let artifact = artifact_builder_service
+            .compute_artifact(signed_entity_type, &certificate)
+            .await
+            .unwrap();
+
+        assert_expected(&snapshot_expected, &artifact);
+    }
+
+    #[tokio::test]
+    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type_REFACTO_1(
+    ) {
+        let mithril_stake_distribution_expected = MithrilStakeDistribution::new(
+            Epoch(1),
+            fake_data::signers_with_stakes(5),
+            &fake_data::protocol_parameters(),
+        );
+
+        let artifact_builder_service = {
+            let mut mock_mithril_stake_distribution_artifact_builder =
+                MockArtifactBuilder::<_, _>::new();
+
+            let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
+            mock_mithril_stake_distribution_artifact_builder
+                .expect_compute_artifact()
+                .once()
+                .return_once(move |_, _| Ok(mithril_stake_distribution_clone));
+
+            MithrilSignedEntityService::new(
+                Arc::new(MockSignedEntityStorer::new()),
+                Arc::new(mock_mithril_stake_distribution_artifact_builder),
+                Arc::new(MockArtifactBuilder::<Beacon, Snapshot>::new()),
+            )
+        };
+
+        let certificate = fake_data::certificate("hash".to_string());
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
+        let artifact = artifact_builder_service
+            .compute_artifact(signed_entity_type, &certificate)
+            .await
+            .unwrap();
+
+        assert_expected(&mithril_stake_distribution_expected, &artifact);
+    }
 
     #[tokio::test]
     async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
@@ -366,6 +495,17 @@ mod tests {
             .create_artifact(signed_entity_type, &certificate)
             .await
             .expect("Create artifact should not fail for MithrilStakeDistribution signed entity");
+    }
+
+    fn assert_expected<T>(expected: &T, artifact: &Arc<dyn Artifact>)
+    where
+        T: Serialize + DeserializeOwned,
+    {
+        let current: T = serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_string(&expected).unwrap(),
+            serde_json::to_string(&current).unwrap()
+        );
     }
 
     #[tokio::test]
