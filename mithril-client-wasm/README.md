@@ -1,4 +1,4 @@
-# Mithril-client-wasm ![cnpm](https://img.shields.io/npm/v/mithril-client.svg) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
+# Mithril-client-wasm ![cnpm](https://img.shields.io/npm/v/@mithril-dev/mithril-client-wasm.svg) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
 
 **This is a work in progress** 🛠 
 
