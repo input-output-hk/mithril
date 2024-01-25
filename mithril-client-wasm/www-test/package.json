@@ -1,0 +1,19 @@
+{
+  "name": "www-test",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "webpack --config webpack.config.js",
+    "start": "webpack-dev-server"
+  },
+  "dependencies": {
+    "@mithril-dev/mithril-client-wasm": "file:../pkg"
+  },
+  "devDependencies": {
+    "copy-webpack-plugin": "^5.0.0",
+    "dotenv-webpack": "^8.0.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^4.7.2",
+    "webpack-dev-server": "^4.15.1"
+  }
+}
