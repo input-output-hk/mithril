@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.2.152"
+version = "0.2.154"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,6 +22,7 @@ async-trait = "0.1.73"
 bech32 = "0.9.1"
 blake2 = "0.10.6"
 chrono = { version = "0.4.31", features = ["serde"] }
+ckb-merkle-mountain-range = "0.6.0"
 digest = "0.10.7"
 ed25519-dalek = { version = "2.0.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"
@@ -39,6 +40,7 @@ pallas-addresses = { version = "0.21.0", optional = true }
 pallas-codec = { version = "0.21.0", optional = true }
 pallas-network = { version = "0.21.0", optional = true }
 pallas-primitives = { version = "0.21.0", optional = true }
+pallas-traverse = { version = "0.21.0", optional = true }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 rayon = "1.8.0"
@@ -106,6 +108,7 @@ fs = [
   "pallas-codec",
   "pallas-network",
   "pallas-primitives",
+  "pallas-traverse",
 ]
 
 # Portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it

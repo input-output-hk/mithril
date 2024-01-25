@@ -1,4 +1,4 @@
-# Mithril-client-wasm ![cnpm](https://img.shields.io/npm/v/mithril-client.svg) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
+# Mithril-client-wasm ![cnpm](https://img.shields.io/npm/v/@mithril-dev/mithril-client-wasm.svg) [![License](https://img.shields.io/badge/license-Apache%202.0-blue?style=flat-square)](LICENSE-APACHE) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
 
 **This is a work in progress** 🛠 
 
@@ -14,7 +14,7 @@
 Below is a basic example of how to use most of the functions exposed by the Mithril client WASM library:
 
 ```javascript
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm"
+import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm"
 
 let aggregator_endpoint =
   "https://aggregator.testing-preview.api.mithril.network/aggregator"
@@ -34,6 +34,8 @@ broadcast_channel.onmessage = (e) => {
     console.log(event);
   }
 };
+
+await initMithrilClient();
 
 let client = await new MithrilClient(
   aggregator_endpoint,

@@ -7,7 +7,7 @@ use mithril_common::{
     api_version::APIVersionProvider,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
-    database::{ApplicationNodeType, DatabaseVersionChecker},
+    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         ImmutableFileObserver,
@@ -21,13 +21,14 @@ use mithril_common::{
     },
     sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, StdResult,
+    BeaconProvider, BeaconProviderImpl, CardanoTransactionParser, StdResult,
 };
 
 use crate::{
-    aggregator_client::AggregatorClient, single_signer::SingleSigner, AggregatorHTTPClient,
-    Configuration, MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
-    HTTP_REQUEST_TIMEOUT_DURATION,
+    aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
+    single_signer::SingleSigner, AggregatorHTTPClient, Configuration, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
+    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -156,8 +157,13 @@ impl<'a> ProductionServiceBuilder<'a> {
         Ok(Some(Arc::new(cache_provider)))
     }
 
-    async fn build_sqlite_connection(&self) -> StdResult<Arc<SqliteConnection>> {
-        let sqlite_db_path = self.config.get_sqlite_file()?;
+    /// Build a SQLite connection.
+    pub async fn build_sqlite_connection(
+        &self,
+        sqlite_file_name: &str,
+        migrations: Vec<SqlMigration>,
+    ) -> StdResult<Arc<SqliteConnection>> {
+        let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
         let sqlite_connection = Arc::new(Connection::open_thread_safe(sqlite_db_path)?);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
@@ -165,7 +171,7 @@ impl<'a> ProductionServiceBuilder<'a> {
             &sqlite_connection,
         );
 
-        for migration in crate::database::migration::get_migrations() {
+        for migration in migrations {
             db_checker.add_migration(migration);
         }
 
@@ -191,7 +197,15 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             })?;
         }
 
-        let sqlite_connection = self.build_sqlite_connection().await?;
+        let sqlite_connection = self
+            .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
+            .await?;
+        let transaction_sqlite_connection = self
+            .build_sqlite_connection(
+                SQLITE_FILE_CARDANO_TRANSACTION,
+                crate::database::cardano_transaction_migration::get_migrations(),
+            )
+            .await?;
 
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
@@ -250,7 +264,16 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::default());
+        let transaction_parser = Arc::new(CardanoTransactionParser::default());
+        let transaction_store = Arc::new(CardanoTransactionRepository::new(
+            transaction_sqlite_connection,
+        ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser,
+            transaction_store,
+            &self.config.db_directory,
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,

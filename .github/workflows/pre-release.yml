@@ -9,6 +9,8 @@ on:
 jobs:
   create-pre-release:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3

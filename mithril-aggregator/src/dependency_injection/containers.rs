@@ -3,13 +3,14 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     api_version::APIVersionProvider,
+    cardano_transaction_parser::TransactionParser,
     certificate_chain::CertificateVerifier,
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
-    signable_builder::SignableBuilderService,
+    signable_builder::{SignableBuilderService, TransactionStore},
     sqlite::SqliteConnection,
     store::StakeStorer,
     test_utils::MithrilFixture,
@@ -48,6 +49,9 @@ pub struct DependencyContainer {
     /// services. Shall be private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 
+    /// SQLite database connection for Cardano transactions
+    pub sqlite_connection_transaction: Arc<SqliteConnection>,
+
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
     pub stake_store: Arc<StakePoolStore>,
@@ -78,6 +82,12 @@ pub struct DependencyContainer {
 
     /// Beacon provider service.
     pub beacon_provider: Arc<dyn BeaconProvider>,
+
+    /// Cardano transactions store.
+    pub transaction_store: Arc<dyn TransactionStore>,
+
+    /// Cardano transactions parser.
+    pub transaction_parser: Arc<dyn TransactionParser>,
 
     /// Immutable file observer service.
     pub immutable_file_observer: Arc<dyn ImmutableFileObserver>,
