@@ -5,7 +5,9 @@ use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::{
     facades::NodeClient,
     miniprotocols::localstate::{
-        queries_v16::{self, Addr, Addrs, UTxOByAddress, Values},
+        queries_v16::{
+            self, Addr, Addrs, PostAlonsoTransactionOutput, TransactionOutput, UTxOByAddress,
+        },
         Client,
     },
 };
@@ -88,7 +90,7 @@ impl PallasChainObserver {
     }
 
     /// Returns inline datum tag from the given `Values` instance.
-    fn get_datum_tag(&self, utxo: &Values) -> StdResult<TagWrap<Bytes, 24>> {
+    fn get_datum_tag(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TagWrap<Bytes, 24>> {
         Ok(utxo
             .inline_datum
             .as_ref()
@@ -98,7 +100,7 @@ impl PallasChainObserver {
     }
 
     /// Returns inline datums from the given `Values` instance.
-    fn inspect_datum(&self, utxo: &Values) -> StdResult<Datum> {
+    fn inspect_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<Datum> {
         let datum = self.get_datum_tag(utxo)?;
         let datum = CborWrap(datum).to_vec();
 
@@ -106,7 +108,7 @@ impl PallasChainObserver {
     }
 
     /// Serializes datum to `TxDatum` instance.
-    fn serialize_datum(&self, utxo: &Values) -> StdResult<TxDatum> {
+    fn serialize_datum(&self, utxo: &PostAlonsoTransactionOutput) -> StdResult<TxDatum> {
         let datum = self.inspect_datum(utxo)?;
         let serialized = serde_json::to_string(&datum.to_json())
             .map_err(|err| anyhow!(err))
@@ -120,10 +122,9 @@ impl PallasChainObserver {
         transaction
             .utxo
             .iter()
-            .filter_map(|(_, utxo)| {
-                utxo.inline_datum
-                    .as_ref()
-                    .map(|_| self.serialize_datum(utxo))
+            .filter_map(|(_, utxo)| match utxo {
+                TransactionOutput::Map(output) => Some(self.serialize_datum(output)),
+                _ => None,
             })
             .collect::<StdResult<Datums>>()
     }
@@ -281,12 +282,14 @@ mod tests {
             Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
                 .unwrap();
         let address: Addr = address.to_vec().into();
-        let values = localstate::queries_v16::Values {
-            address,
-            amount: Value::Coin(lovelace),
-            inline_datum,
-        };
-
+        let values = localstate::queries_v16::TransactionOutput::Map(
+            localstate::queries_v16::PostAlonsoTransactionOutput {
+                address,
+                amount: Value::Coin(lovelace),
+                inline_datum,
+                script_ref: None,
+            },
+        );
         let utxo = KeyValuePairs::from(vec![(
             localstate::queries_v16::UTxO {
                 transaction_id,
