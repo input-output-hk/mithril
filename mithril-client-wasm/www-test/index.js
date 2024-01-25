@@ -15,9 +15,16 @@ function display_test_result_in_dom(step_number, step_name, result, error) {
 function handle_error(step_number, step_name, error) {
   display_test_result_in_dom(step_number, step_name, "FAILED", error)
   console.error(`Error at step ${step_number} (${step_name}):`, error)
+  add_finished_div()
   throw new Error(
     `Stopping script due to error at step ${step_number}: ${error}`
   )
+}
+
+function add_finished_div() {
+  let div = document.createElement("div")
+  div.id = "tests_finished"
+  document.body.appendChild(div)
 }
 
 await initMithrilClient()
@@ -148,3 +155,5 @@ try {
 } catch (error) {
   handle_error(test_number, test_name, error)
 }
+
+add_finished_div()
