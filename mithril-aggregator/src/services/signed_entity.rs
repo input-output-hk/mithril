@@ -405,7 +405,8 @@ mod tests {
 
     #[tokio::test]
     async fn build_artifact_for_cardano_transactions_store_nothing_in_db() {
-        let expected = CardanoTransactionsCommitment::new("merkle_root".to_string());
+        let expected =
+            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default());
         let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
         mock_signed_entity_storer
             .expect_store_signed_entity()

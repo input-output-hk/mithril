@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.2.153"
+version = "0.2.154"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,6 +22,7 @@ async-trait = "0.1.73"
 bech32 = "0.9.1"
 blake2 = "0.10.6"
 chrono = { version = "0.4.31", features = ["serde"] }
+ckb-merkle-mountain-range = "0.6.0"
 digest = "0.10.7"
 ed25519-dalek = { version = "2.0.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"

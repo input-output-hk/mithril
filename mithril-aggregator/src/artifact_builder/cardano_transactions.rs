@@ -36,17 +36,23 @@ impl ArtifactBuilder<Beacon, CardanoTransactionsCommitment> for CardanoTransacti
             .with_context(|| {
                 format!(
                     "Can not compute CardanoTransactionsCommitment artifact for signed_entity: {:?}",
-                    SignedEntityType::CardanoTransactions(beacon)
+                    SignedEntityType::CardanoTransactions(beacon.clone())
                 )
             })?;
 
-        Ok(CardanoTransactionsCommitment::new(merkle_root.to_string()))
+        Ok(CardanoTransactionsCommitment::new(
+            merkle_root.to_string(),
+            beacon,
+        ))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::ProtocolMessage, test_utils::fake_data};
+    use mithril_common::{
+        entities::ProtocolMessage,
+        test_utils::fake_data::{self},
+    };
 
     use super::*;
 
@@ -65,10 +71,11 @@ mod tests {
 
         let cardano_transaction_artifact_builder = CardanoTransactionsArtifactBuilder::new();
         let artifact = cardano_transaction_artifact_builder
-            .compute_artifact(Beacon::default(), &certificate)
+            .compute_artifact(certificate.beacon.clone(), &certificate)
             .await
             .unwrap();
-        let artifact_expected = CardanoTransactionsCommitment::new("merkleroot".to_string());
+        let artifact_expected =
+            CardanoTransactionsCommitment::new("merkleroot".to_string(), certificate.beacon);
         assert_eq!(artifact_expected, artifact);
     }
 

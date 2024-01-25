@@ -873,6 +873,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ckb-merkle-mountain-range"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d15193decfa1e0b151ce19e42d118db048459a27720fb3de7d3103c30adccb12"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "clap"
 version = "4.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3279,7 +3288,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.28"
+version = "0.4.29"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3417,13 +3426,14 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.153"
+version = "0.2.154"
 dependencies = [
  "anyhow",
  "async-trait",
  "bech32",
  "blake2 0.10.6",
  "chrono",
+ "ckb-merkle-mountain-range",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
