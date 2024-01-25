@@ -37,8 +37,9 @@
               isCargoFile = base == "Cargo.lock";
               isCargoConfig = parentDir == ".cargo" && base == "config";
               isOpenApiYaml = base == "openapi.yaml";
+              isTestDataAsset = lib.hasInfix "/test_data/" path;
             in
-              type == "directory" || matchesSuffix || isCargoFile || isCargoConfig || isOpenApiYaml;
+              type == "directory" || matchesSuffix || isCargoFile || isCargoConfig || isOpenApiYaml || isTestDataAsset;
           };
 
         buildInputs =
