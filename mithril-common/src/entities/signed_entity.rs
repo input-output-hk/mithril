@@ -1,8 +1,8 @@
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 use super::{Beacon, Epoch};
 use super::{CardanoTransactionsCommitment, MithrilStakeDistribution, SignedEntityType, Snapshot};
 use crate::signable_builder::Artifact;
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 use chrono::{DateTime, Utc};
 

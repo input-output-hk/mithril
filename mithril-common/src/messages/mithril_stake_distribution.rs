@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::Epoch;
 use crate::entities::ProtocolParameters;
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 
 use super::SignerWithStakeMessagePart;

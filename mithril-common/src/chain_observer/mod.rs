@@ -4,25 +4,25 @@
 mod builder;
 #[cfg(all(feature = "fs", feature = "random"))]
 mod cli_observer;
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 mod fake_observer;
 mod interface;
 mod model;
 #[cfg(all(feature = "fs", feature = "random"))]
 mod pallas_observer;
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fs", feature = "random"))]
 mod test_cli_runner;
-
-#[cfg(test)]
-pub use cli_observer::CliRunner;
 
 #[cfg(all(feature = "fs", feature = "random"))]
 pub use builder::{ChainObserverBuilder, ChainObserverType};
 #[cfg(all(feature = "fs", feature = "random"))]
+pub use cli_observer::CliRunner;
+#[cfg(all(feature = "fs", feature = "random"))]
 pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner};
-#[cfg(feature = "test_tools")]
-pub use fake_observer::FakeObserver;
+cfg_test_tools! {
+    pub use fake_observer::FakeObserver;
+}
 #[cfg(test)]
 pub use interface::MockChainObserver;
 pub use interface::{ChainObserver, ChainObserverError};

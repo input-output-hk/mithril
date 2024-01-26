@@ -49,12 +49,12 @@ impl EraMarkersSigner {
         Self::create_test_signer(rng)
     }
 
-    cfg_random! {
-        /// [EraMarkersSigner] non deterministic
-        pub fn create_non_deterministic_signer() -> Self {
-            let rng = rand_core::OsRng;
-            Self::create_test_signer(rng)
-        }
+    #[cfg(any(test, feature = "random"))]
+    #[cfg_attr(docsrs, doc(cfg(feature = "random")))]
+    /// [EraMarkersSigner] non deterministic
+    pub fn create_non_deterministic_signer() -> Self {
+        let rng = rand_core::OsRng;
+        Self::create_test_signer(rng)
     }
 
     /// [EraMarkersSigner] from [EraMarkersVerifierSecretKey]
