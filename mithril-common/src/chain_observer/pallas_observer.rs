@@ -123,7 +123,10 @@ impl PallasChainObserver {
             .utxo
             .iter()
             .filter_map(|(_, utxo)| match utxo {
-                TransactionOutput::Current(output) => Some(self.serialize_datum(output)),
+                TransactionOutput::Current(output) => output
+                    .inline_datum
+                    .as_ref()
+                    .map(|_| self.serialize_datum(output)),
                 _ => None,
             })
             .collect::<StdResult<Datums>>()
