@@ -2481,9 +2481,9 @@ dependencies = [
 
 [[package]]
 name = "inventory"
-version = "0.3.14"
+version = "0.3.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8573b2b1fb643a372c73b23f4da5f888677feef3305146d68a539250a9bccc7"
+checksum = "f958d3d68f4167080a18141e10381e7634563984a537f2a49a30fd8e53ac5767"
 
 [[package]]
 name = "io-lifetimes"
@@ -4057,8 +4057,8 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pallas-addresses"
-version = "0.21.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#1fe4049e4c9cb23525c8117d782ead8989f83b86"
+version = "0.22.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
 dependencies = [
  "base58",
  "bech32",
@@ -4072,8 +4072,8 @@ dependencies = [
 
 [[package]]
 name = "pallas-codec"
-version = "0.21.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#1fe4049e4c9cb23525c8117d782ead8989f83b86"
+version = "0.22.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
 dependencies = [
  "hex",
  "minicbor",
@@ -4083,8 +4083,8 @@ dependencies = [
 
 [[package]]
 name = "pallas-crypto"
-version = "0.21.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#1fe4049e4c9cb23525c8117d782ead8989f83b86"
+version = "0.22.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4096,8 +4096,8 @@ dependencies = [
 
 [[package]]
 name = "pallas-network"
-version = "0.21.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#1fe4049e4c9cb23525c8117d782ead8989f83b86"
+version = "0.22.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
 dependencies = [
  "byteorder",
  "hex",
@@ -4113,8 +4113,8 @@ dependencies = [
 
 [[package]]
 name = "pallas-primitives"
-version = "0.21.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#1fe4049e4c9cb23525c8117d782ead8989f83b86"
+version = "0.22.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
 dependencies = [
  "base58",
  "bech32",
@@ -4128,8 +4128,8 @@ dependencies = [
 
 [[package]]
 name = "pallas-traverse"
-version = "0.21.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#1fe4049e4c9cb23525c8117d782ead8989f83b86"
+version = "0.22.0"
+source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
 dependencies = [
  "hex",
  "pallas-addresses",
@@ -5422,9 +5422,9 @@ checksum = "e6ecd384b10a64542d77071bd64bd7b231f4ed5940fba55e98c3de13824cf3d7"
 
 [[package]]
 name = "snow"
-version = "0.9.5"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2e87c18a6608909007e75a60e04d03eda77b601c94de1c74d9a9dc2c04ab789a"
+checksum = "850948bee068e713b8ab860fe1adc4d109676ab4c3b621fd8147f06b261f2f85"
 dependencies = [
  "aes-gcm",
  "blake2 0.10.6",

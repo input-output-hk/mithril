@@ -123,7 +123,7 @@ impl PallasChainObserver {
             .utxo
             .iter()
             .filter_map(|(_, utxo)| match utxo {
-                TransactionOutput::Map(output) => Some(self.serialize_datum(output)),
+                TransactionOutput::Current(output) => Some(self.serialize_datum(output)),
                 _ => None,
             })
             .collect::<StdResult<Datums>>()
@@ -282,7 +282,7 @@ mod tests {
             Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
                 .unwrap();
         let address: Addr = address.to_vec().into();
-        let values = localstate::queries_v16::TransactionOutput::Map(
+        let values = localstate::queries_v16::TransactionOutput::Current(
             localstate::queries_v16::PostAlonsoTransactionOutput {
                 address,
                 amount: Value::Coin(lovelace),
