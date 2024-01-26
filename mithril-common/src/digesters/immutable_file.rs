@@ -1,9 +1,9 @@
 use crate::entities::{ImmutableFileName, ImmutableFileNumber};
 
+use crate::digesters::ImmutableFileListingError::MissingImmutableFolder;
 use digest::{Digest, Output};
 use std::{
     cmp::Ordering,
-    ffi::OsStr,
     fs::File,
     io,
     num::ParseIntError,
@@ -12,9 +12,23 @@ use std::{
 use thiserror::Error;
 use walkdir::WalkDir;
 
-fn is_immutable(path: &Path) -> bool {
-    let immutable = OsStr::new("immutable");
-    path.iter().any(|component| component == immutable)
+const IMMUTABLE_FILE_EXTENSIONS: [&str; 3] = ["chunk", "primary", "secondary"];
+
+fn is_immutable(entry: &walkdir::DirEntry) -> bool {
+    let is_file = entry.file_type().is_file();
+    let extension = entry.path().extension().map(|e| e.to_string_lossy());
+
+    is_file && extension.is_some_and(|e| IMMUTABLE_FILE_EXTENSIONS.contains(&e.as_ref()))
+}
+
+/// Walk the given path and return the first directory named "immutable" it finds
+fn find_immutables_dir(path_to_walk: &Path) -> Option<PathBuf> {
+    WalkDir::new(path_to_walk)
+        .into_iter()
+        .filter_entry(|e| e.file_type().is_dir())
+        .filter_map(|e| e.ok())
+        .find(|f| f.file_name() == "immutable")
+        .map(|e| e.into_path())
 }
 
 /// Represent an immutable file in a Cardano node database directory
@@ -62,6 +76,10 @@ pub enum ImmutableFileListingError {
     /// Raised when [ImmutableFile::new] fails.
     #[error("immutable file creation error")]
     ImmutableFileCreation(#[from] ImmutableFileCreationError),
+
+    /// Raised when the "immutable" folder could not be found in a file structure.
+    #[error("Couldn't find the 'immutable' folder in '{0:?}'")]
+    MissingImmutableFolder(PathBuf),
 }
 
 impl ImmutableFile {
@@ -116,18 +134,19 @@ impl ImmutableFile {
     pub fn list_completed_in_dir(
         dir: &Path,
     ) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
+        let immutable_dir =
+            find_immutables_dir(dir).ok_or(MissingImmutableFolder(dir.to_path_buf()))?;
         let mut files: Vec<ImmutableFile> = vec![];
 
-        for path in WalkDir::new(dir)
+        for path in WalkDir::new(immutable_dir)
+            .min_depth(1)
+            .max_depth(1)
             .into_iter()
+            .filter_entry(is_immutable)
             .filter_map(|file| file.ok())
-            .map(|f| f.path().to_owned())
         {
-            let metadata = path.metadata()?;
-            if metadata.is_file() && is_immutable(&path) {
-                let immutable_file = ImmutableFile::new(path)?;
-                files.push(immutable_file);
-            }
+            let immutable_file = ImmutableFile::new(path.into_path())?;
+            files.push(immutable_file);
         }
         files.sort();
 
@@ -177,6 +196,23 @@ mod tests {
             let mut source_file = File::create(file).unwrap();
             write!(source_file, "This is a test file named '{filename}'").unwrap();
         }
+    }
+
+    fn extract_filenames(immutables: &[ImmutableFile]) -> Vec<String> {
+        immutables
+            .iter()
+            .map(|i| i.path.file_name().unwrap().to_str().unwrap().to_owned())
+            .collect()
+    }
+
+    #[test]
+    fn list_immutable_file_fail_if_not_in_immutable_dir() {
+        let target_dir = get_test_dir("list_immutable_file_fail_if_not_in_immutable_dir/invalid");
+        let entries = vec![];
+        create_fake_files(&target_dir, &entries);
+
+        ImmutableFile::list_completed_in_dir(target_dir.parent().unwrap())
+            .expect_err("ImmutableFile::list_in_dir should have Failed");
     }
 
     #[test]
@@ -260,12 +296,32 @@ mod tests {
         create_fake_files(&target_dir, &entries);
         let immutables = ImmutableFile::list_completed_in_dir(target_dir.parent().unwrap())
             .expect("ImmutableFile::list_in_dir Failed");
-        let immutables_names: Vec<String> = immutables
-            .into_iter()
-            .map(|i| i.path.file_name().unwrap().to_str().unwrap().to_owned())
-            .collect();
+        let immutables_names: Vec<String> = extract_filenames(&immutables);
 
         let expected: Vec<&str> = entries.into_iter().rev().skip(3).rev().collect();
+        assert_eq!(expected, immutables_names);
+    }
+
+    #[test]
+    fn list_immutable_file_should_work_with_non_immutable_files() {
+        let target_dir =
+            get_test_dir("list_immutable_file_should_work_with_non_immutable_files/immutable");
+        let entries = vec![
+            "123.chunk",
+            "123.primary",
+            "123.secondary",
+            "124.chunk",
+            "124.primary",
+            "124.secondary",
+            "README.md",
+            "124.secondary.back",
+        ];
+        create_fake_files(&target_dir, &entries);
+        let immutables = ImmutableFile::list_completed_in_dir(target_dir.parent().unwrap())
+            .expect("ImmutableFile::list_in_dir Failed");
+        let immutables_names: Vec<String> = extract_filenames(&immutables);
+
+        let expected: Vec<&str> = entries.into_iter().rev().skip(5).rev().collect();
         assert_eq!(expected, immutables_names);
     }
 }
