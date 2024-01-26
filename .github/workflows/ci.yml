@@ -262,22 +262,33 @@ jobs:
           base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
           head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
-  run-test-lab:
+  e2e:
     runs-on: ubuntu-22.04
     needs: [ build-ubuntu-X64 ]
     strategy:
       fail-fast: false
       matrix:
+        mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        run_id: [1,2,3]
-        # Deactivate Conway era which is not currently working with the Pallas Chain Observer yet, value should be 5-10
-        hard_fork_latest_era_at_epoch: [1000] 
+        cardano_node_version: ["8.7.3"]
+        hard_fork_latest_era_at_epoch: [0,10,100]
+        run_id: ["#1","#2"]
         extra_args: [""]
 
         include:
-          - era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            run_id: 3
-            hard_fork_latest_era_at_epoch: 1000
+          # Include a hard fork test for `8.1.2` which is not concerned
+          - mode: "std"
+            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            cardano_node_version: "8.1.2"
+            hard_fork_latest_era_at_epoch: 100
+            run_id: "#1"
+            extra_args: ""
+          # Include a test for the P2P mode
+          - mode: "p2p"
+            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            cardano_node_version: "8.7.3"
+            hard_fork_latest_era_at_epoch: 100
+            run_id: "#1"
             extra_args: "--use-p2p-network"
     steps:
       - name: Checkout sources
@@ -304,7 +315,14 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        run: ./mithril-end-to-end -vvv --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }} ${{ matrix.extra_args }} --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }}
+        run: |
+          ./mithril-end-to-end -vvv \
+            --bin-directory ./bin \
+            --work-directory=./artifacts \
+            --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
+            --mithril-era=${{ matrix.era }} \
+            --cardano-node-version ${{ matrix.cardano_node_version }} \
+            --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
 
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}
@@ -356,7 +374,7 @@ jobs:
       - build
       - check
       - test
-      - run-test-lab
+      - e2e
     strategy:
       fail-fast: false
       matrix:
@@ -422,7 +440,7 @@ jobs:
     needs:
       - build
       - test
-      - run-test-lab
+      - e2e
       - check
     steps:
       - name: Checkout sources
@@ -481,7 +499,7 @@ jobs:
       - build
       - build-test-wasm
       - test
-      - run-test-lab
+      - e2e
       - check
     steps:
       - name: Checkout sources
