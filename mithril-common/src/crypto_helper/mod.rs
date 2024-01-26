@@ -6,11 +6,11 @@ mod conversions;
 mod era;
 mod genesis;
 mod merkle_tree;
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 pub mod tests_setup;
 mod types;
 
-#[cfg(feature = "random")]
+#[cfg(any(test, feature = "random"))]
 pub use cardano::ColdKeyGenerator;
 
 pub use cardano::{

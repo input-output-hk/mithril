@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 //! Shared datatypes and traits used by Mithril rust projects
 //!
@@ -43,7 +44,7 @@ macro_rules! cfg_random {
 macro_rules! cfg_test_tools {
     ($($item:item)*) => {
         $(
-            #[cfg(feature = "test_tools")]
+            #[cfg(any(test, feature = "test_tools"))]
             #[cfg_attr(docsrs, doc(cfg(feature = "test_tools")))]
             $item
         )*
@@ -76,8 +77,9 @@ pub mod sqlite;
 #[cfg(feature = "database")]
 pub mod store;
 
-#[cfg(feature = "test_tools")]
-pub mod test_utils;
+cfg_test_tools! {
+    pub mod test_utils;
+}
 
 #[cfg(feature = "fs")]
 pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};

@@ -1,4 +1,4 @@
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::{
     crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},

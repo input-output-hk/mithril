@@ -2,13 +2,14 @@ use anyhow::Context;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 use crate::entities::ProtocolMessagePartKey;
 use crate::entities::{
     Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
 };
 use crate::messages::CertificateMetadataMessagePart;
-#[cfg(feature = "test_tools")]
+
+#[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::StdError;
 

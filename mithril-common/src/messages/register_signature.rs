@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType};
-#[cfg(feature = "test_tools")]
+#[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 
 era_deprecate!("make signed_entity_type of RegisterSignatureMessage not optional");

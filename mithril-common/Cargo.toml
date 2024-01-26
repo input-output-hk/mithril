@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.2.154"
+version = "0.2.155"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -87,6 +87,7 @@ criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = "0.12.0"
 # pallas-crypto = "0.21.0"
 pallas-crypto = { git = "https://github.com/falcucci/pallas.git", branch = "fix/legacy-transaction-utxo-by-address" }
+rand_core = { version = "0.6.4", features = ["getrandom"] }
 reqwest = { version = "0.11.22", features = ["json"] }
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
@@ -105,16 +106,16 @@ default = []
 # Full feature set
 full = ["random", "database", "fs", "test_tools"]
 random = ["rand_core/getrandom"]
-database = ["sqlite"]
+database = ["dep:sqlite"]
 fs = [
   "tokio/fs",
   "tokio/process",
-  "minicbor",
-  "pallas-addresses",
-  "pallas-codec",
-  "pallas-network",
-  "pallas-primitives",
-  "pallas-traverse",
+  "dep:minicbor",
+  "dep:pallas-addresses",
+  "dep:pallas-codec",
+  "dep:pallas-network",
+  "dep:pallas-primitives",
+  "dep:pallas-traverse",
 ]
 
 # Portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
@@ -123,10 +124,10 @@ portable = ["mithril-stm/portable"]
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 # Enable all tests tools
-test_tools = ["apispec", "test_http_server"]
+test_tools = ["apispec", "test_http_server", "random"]
 # Enable tools to helps validate conformity to an OpenAPI specification
-apispec = ["glob", "http", "jsonschema", "warp"]
-test_http_server = ["warp"]
+apispec = ["dep:glob", "dep:http", "dep:jsonschema", "dep:warp"]
+test_http_server = ["dep:warp"]
 
 [package.metadata.docs.rs]
 all-features = true
