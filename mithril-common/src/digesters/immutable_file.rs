@@ -150,8 +150,18 @@ impl ImmutableFile {
         }
         files.sort();
 
-        // @todo: make the skip of the last 'trio' more robust
-        Ok(files.into_iter().rev().skip(3).rev().collect())
+        match files.last() {
+            // empty list
+            None => Ok(files),
+            // filter out the last immutable file(s)
+            Some(last_file) => {
+                let last_number = last_file.number;
+                Ok(files
+                    .into_iter()
+                    .filter(|f| f.number < last_number)
+                    .collect())
+            }
+        }
     }
 }
 
@@ -322,6 +332,33 @@ mod tests {
         let immutables_names: Vec<String> = extract_filenames(&immutables);
 
         let expected: Vec<&str> = entries.into_iter().rev().skip(5).rev().collect();
+        assert_eq!(expected, immutables_names);
+    }
+
+    #[test]
+    fn list_immutable_file_can_list_incomplete_trio() {
+        let target_dir = get_test_dir("list_immutable_file_can_list_incomplete_trio/immutable");
+        let entries = vec![
+            "21.chunk",
+            "21.primary",
+            "21.secondary",
+            "123.chunk",
+            "123.secondary",
+            "124.chunk",
+            "124.primary",
+            "125.primary",
+            "125.secondary",
+            "223.chunk",
+            "224.primary",
+            "225.secondary",
+            "226.chunk",
+        ];
+        create_fake_files(&target_dir, &entries);
+        let immutables = ImmutableFile::list_completed_in_dir(target_dir.parent().unwrap())
+            .expect("ImmutableFile::list_in_dir Failed");
+        let immutables_names: Vec<String> = extract_filenames(&immutables);
+
+        let expected: Vec<&str> = entries.into_iter().rev().skip(1).rev().collect();
         assert_eq!(expected, immutables_names);
     }
 }
