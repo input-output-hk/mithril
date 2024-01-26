@@ -4,7 +4,7 @@
 //! non-empty adjacent lines, delimited by sequences of blank (whitespace only) lines.
 
 // From https://github1s.com/clap-rs/clap/tree/master clap_derive/src/utils
-// This file was copied without modification. 
+// This file was copied without modification.
 // It's an utilities file and not all function may be used in our project.
 // This is why we allow dead code.
 #![allow(dead_code)]
