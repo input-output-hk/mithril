@@ -89,7 +89,7 @@ impl Merge for MergeMKTreeNode {
 }
 
 /// A Merkle proof
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 pub struct MKProof {
     inner_root: MKTreeNode,
     inner_leaves: Vec<(MKTreeLeafPosition, MKTreeNode)>,
