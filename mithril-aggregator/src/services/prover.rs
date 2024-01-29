@@ -1,8 +1,9 @@
 use async_trait::async_trait;
 
-use mithril_common::{entities::TransactionHash, StdResult};
-
-use crate::entities::TransactionsSetProof;
+use mithril_common::{
+    entities::{CardanoTransactionsSetProof, TransactionHash},
+    StdResult,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -11,11 +12,11 @@ use mockall::automock;
 #[async_trait]
 #[cfg_attr(test, automock)]
 pub trait ProverService: Sync + Send {
-    /// Compute the cryptographic proof for the given transactions
-    async fn compute_transactions_proof(
+    /// Compute the cryptographic proofs for the given transactions
+    async fn compute_transactions_proofs(
         &self,
-        transaction_hashes: Vec<TransactionHash>,
-    ) -> StdResult<Vec<TransactionsSetProof>>;
+        transaction_hashes: &[TransactionHash],
+    ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 }
 /// Mithril prover
 #[derive(Default)]
@@ -23,10 +24,10 @@ pub struct MithrilProverService {}
 
 #[async_trait]
 impl ProverService for MithrilProverService {
-    async fn compute_transactions_proof(
+    async fn compute_transactions_proofs(
         &self,
-        _transaction_hashes: Vec<TransactionHash>,
-    ) -> StdResult<Vec<TransactionsSetProof>> {
+        _transaction_hashes: &[TransactionHash],
+    ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         todo!("Implement Mithril prover")
     }
 }

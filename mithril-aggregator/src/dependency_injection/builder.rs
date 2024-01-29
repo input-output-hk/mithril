@@ -59,8 +59,9 @@ use crate::{
     http_server::routes::router,
     services::{
         CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilMessageService, MithrilSignedEntityService, MithrilStakeDistributionService,
-        MithrilTickerService, SignedEntityService, StakeDistributionService, TickerService,
+        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, MithrilTickerService, ProverService, SignedEntityService,
+        StakeDistributionService, TickerService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -207,6 +208,9 @@ pub struct DependenciesBuilder {
 
     /// HTTP Message service
     pub message_service: Option<Arc<dyn MessageService>>,
+
+    /// Prover service
+    pub prover_service: Option<Arc<dyn ProverService>>,
 }
 
 impl DependenciesBuilder {
@@ -252,6 +256,7 @@ impl DependenciesBuilder {
             epoch_service: None,
             signed_entity_storer: None,
             message_service: None,
+            prover_service: None,
         }
     }
 
@@ -1171,6 +1176,7 @@ impl DependenciesBuilder {
             message_service: self.get_message_service().await?,
             transaction_parser: self.get_transaction_parser().await?,
             transaction_store: self.get_transaction_store().await?,
+            prover_service: self.get_prover_service().await?,
         };
 
         Ok(dependency_manager)
@@ -1372,6 +1378,22 @@ impl DependenciesBuilder {
         }
 
         Ok(self.message_service.as_ref().cloned().unwrap())
+    }
+
+    /// build Prover service
+    pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
+        let service = MithrilProverService::default();
+
+        Ok(Arc::new(service))
+    }
+
+    /// [ProverService] service
+    pub async fn get_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
+        if self.prover_service.is_none() {
+            self.prover_service = Some(self.build_prover_service().await?);
+        }
+
+        Ok(self.prover_service.as_ref().cloned().unwrap())
     }
 
     /// Remove the dependencies builder from memory to release Arc instances.
