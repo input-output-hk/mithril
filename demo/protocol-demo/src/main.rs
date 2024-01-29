@@ -55,7 +55,7 @@ fn main() {
 
     if let Some(DemoCommands::GenerateDoc(cmd)) = &config.command {
         cmd.execute(&mut Config::command()).unwrap();
-        return
+        return;
     }
 
     println!(">> Launch Mithril protocol demonstrator with configuration: \n{config:#?}");

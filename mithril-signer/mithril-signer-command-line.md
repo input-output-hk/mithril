@@ -55,28 +55,29 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator endpoint | - |  | - |
+| `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (Stakes, Protocol initializers, ...) | - | `./mithril-signer/stores` | - |
+| `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number<br>useful for TestNet & DevNet | - | `1097911063` or `42` | - |
+| `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | - |
+| `db_directory` | - | - | `DB_DIRECTORY` | Directory to snapshot | - | - | - |
 | `disable_digests_cache` | `--disable-digests-cache` | - | `DISABLE_DIGESTS_CACHE` | Disable immutables digests cache | `false` | - | - |
-| `party_id` | - | - | `PARTY_ID` | Party Id | - |  | - |
-| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` |  | - |
-| `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (Stakes, Protocol initializers, ...) | - |  | - |
-| `db_directory` | - | - | `DB_DIRECTORY` | Directory to snapshot | - |  | - |
-| `era_reader_adapter_params` | - | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter parameters | - |  | - |
 | `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
-| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Store retention limit. If set to None, no limit will be set. | - |  | - |
 | `reset_digests_cache` | `--reset-digests-cache` | - | `RESET_DIGESTS_CACHE` | If set the existing immutables digests cache will be reset | `false` | - | - |
+| `era_reader_adapter_params` | - | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter parameters | - | - | - |
 | `configuration_dir` | `--configuration-dir` | `-c` | `CONFIGURATION_DIR` | Directory where the configuration file is located | `./config` | - | - |
-| `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number<br>useful for TestNet & DevNet | - |  | - |
-| `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool<br>to communicate with the Cardano node | - |  | - |
-| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
+| `party_id` | - | - | `PARTY_ID` | Party Id | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | - |
+| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` | - | - |
+| `operational_certificate_path` | - | - | `OPERATIONAL_CERTIFICATE_PATH` | File path to the operational certificate of the pool | - | - | - |
+| `command` | - | - | `COMMAND` | Available commands | - | - | - |
+| `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool<br>to communicate with the Cardano node | - | `/tmp/cardano.sock` | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level, add more v to increase | `0` | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | - |
+| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Store retention limit. If set to None, no limit will be set. | - | - | - |
+| `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | - |
+| `kes_secret_key_path` | - | - | `KES_SECRET_KEY_PATH` | File path to the KES secret key of the pool | - | - | - |
+| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | - |
+| `run_interval` | - | - | `RUN_INTERVAL` | Run Interval | - | `60000` | - |
 | `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |
-| `network` | - | - | `NETWORK` | Cardano network | - |  | - |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level, add more v to increase | `0` | - | - |
-| `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - |  | - |
-| `operational_certificate_path` | - | - | `OPERATIONAL_CERTIFICATE_PATH` | File path to the operational certificate of the pool | - |  | - |
-| `relay_endpoint` | - | - | `RELAY_ENDPOINT` | Relay endpoint | - |  | - |
-| `run_interval` | - | - | `RUN_INTERVAL` | Run Interval | - |  | - |
-| `kes_secret_key_path` | - | - | `KES_SECRET_KEY_PATH` | File path to the KES secret key of the pool | - |  | - |
+| `relay_endpoint` | - | - | `RELAY_ENDPOINT` | Relay endpoint | - | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 ###  mithril-signer generate-doc
 
 Generate documentation

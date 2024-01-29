@@ -57,24 +57,25 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` |  | - |
-| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
-| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` |  | - |
-| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` |  | - |
+| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
+| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` | - | - |
 | `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files | `/db` | - | - |
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |
-| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` |  | - |
-| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` |  | - |
-| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | - | - |
-| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` |  | - |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
-| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` |  | - |
+| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |
+| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` | - | - |
+| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` | - | - |
+| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` | - | - |
+| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` | - | - |
+| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` | - | - |
+| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
+| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` | - | - |
+| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` | - | - |
+| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` | - | - |
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | - | - |
 | `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
-| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` |  | - |
-| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` |  | - |
-| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` |  | - |
-| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` |  | - |
+| `chain_observer_type` | - | - | `CHAIN_OBSERVER_TYPE` | Chain observer type | - | - | - |
+| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | - | - |
+| `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` | - | - |
 ###  mithril-aggregator genesis
 
 Genesis tools
@@ -288,7 +289,7 @@ Era tx datum generate command
 ```bash
 Era tx datum generate command
 
-Usage: generate-tx-datum [OPTIONS] --current-era-epoch <CURRENT_ERA_EPOCH> --era-markers-secret-key <ERA_MARKERS_SECRET_KEY>
+Usage: generate-tx-datum [OPTIONS] --current-era-epoch <CURRENT_ERA_EPOCH> --era-markers-secret-key <ERA_MARKERS_SECRET_KEY> --target-path <TARGET_PATH>
 
 Options:
       --current-era-epoch <CURRENT_ERA_EPOCH>
@@ -305,6 +306,9 @@ Options:
           Era Markers Secret Key
           
           [env: ERA_MARKERS_SECRET_KEY=]
+
+      --target-path <TARGET_PATH>
+          Target Path
 
   -h, --help
           Print help
@@ -323,6 +327,7 @@ The configuration parameters can be set in either of the following ways:
 | `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Current Era epoch | - | - | :heavy_check_mark: |
 | `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Next Era epoch start, if exists | - | - | - |
 | `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key | - | - | :heavy_check_mark: |
+| `target_path` | `--target-path` | - | `TARGET_PATH` | Target Path | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
 ###  mithril-aggregator serve

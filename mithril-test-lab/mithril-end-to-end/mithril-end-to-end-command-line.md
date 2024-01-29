@@ -50,17 +50,32 @@ Options:
       --cardano-epoch-length <CARDANO_EPOCH_LENGTH>
           Length of a Cardano epoch in the devnet (in s)
           
-          [default: 45]
+          [default: 30]
+
+      --cardano-node-version <CARDANO_NODE_VERSION>
+          Cardano node version
+          
+          [default: 8.7.3]
+
+      --cardano-hard-fork-latest-era-at-epoch <CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH>
+          Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
+          
+          [default: 0]
 
       --mithril-era <MITHRIL_ERA>
           Mithril era to run
           
           [default: thales]
 
+      --mithril-era-reader-adapter <MITHRIL_ERA_READER_ADAPTER>
+          Mithril era reader adapter
+          
+          [default: cardano-chain]
+
       --signed-entity-types <SIGNED_ENTITY_TYPES>
           Signed entity types parameters (discriminants names in an ordered comma separated list)
           
-          [default: ]
+          [default: CardanoTransactions]
 
       --run-only
           Enable run only mode

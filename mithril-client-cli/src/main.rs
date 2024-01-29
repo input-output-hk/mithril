@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::Context;
-use clap::{Parser, Subcommand, CommandFactory};
+use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
@@ -11,8 +11,7 @@ use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
-
-use mithril_client::{MithrilResult, generate_doc::GenerateDocCommands};
+use mithril_client::{generate_doc::GenerateDocCommands, MithrilResult};
 
 use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,

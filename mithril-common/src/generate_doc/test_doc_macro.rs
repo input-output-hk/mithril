@@ -1,20 +1,20 @@
-
 #[cfg(test)]
 mod tests {
-    use crate::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc, FieldDoc};
+    use crate::generate_doc::{DocExtractor, DocExtractorDefault, FieldDoc, StructDoc};
     use config::{Map, Source, Value, ValueKind};
 
     #[allow(dead_code)]
     #[derive(Debug, Clone, mithril_doc_derive::DocExtractor)]
     struct MyConfiguration {
         /// Execution environment
-        environment: String
+        #[example = "dev"]
+        environment: String,
     }
 
     #[derive(Debug, Clone, mithril_doc_derive::DocExtractorDefault)]
     struct MyDefaultConfiguration {
         /// Execution environment
-        environment: String
+        environment: String,
     }
     impl Default for MyDefaultConfiguration {
         fn default() -> Self {
@@ -40,7 +40,7 @@ mod tests {
             Ok(result)
         }
     }
-    
+
     // TODO May be part of StructDoc.
     pub fn get_field<'a>(struct_doc: &'a StructDoc, name: &str) -> &'a FieldDoc {
         let mut fields = struct_doc.data.iter().filter(|f| f.parameter == name);
@@ -69,4 +69,17 @@ mod tests {
         assert_eq!(None, field.default_value);
     }
 
+    #[test]
+    fn test_extract_example_of_configuration() {
+        {
+            let doc_with_example = MyConfiguration::extract();
+            let field = get_field(&doc_with_example, "environment");
+            assert_eq!(Some("dev".to_string()), field.example);
+        }
+        {
+            let doc_without_example = MyDefaultConfiguration::extract();
+            let field = get_field(&doc_without_example, "environment");
+            assert_eq!(None, field.example);
+        }
+    }
 }

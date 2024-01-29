@@ -1,5 +1,5 @@
 use clap::{CommandFactory, Parser, Subcommand};
-use mithril_common::{StdResult, generate_doc::GenerateDocCommands};
+use mithril_common::{generate_doc::GenerateDocCommands, StdResult};
 use mithril_end_to_end::{
     Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
 };
@@ -20,7 +20,7 @@ pub struct Args {
     /// Available commands
     #[command(subcommand)]
     command: Option<EndToEndCommands>,
-    
+
     /// A directory where all logs, generated devnet artefacts, snapshots and store folder
     /// will be located.
     ///

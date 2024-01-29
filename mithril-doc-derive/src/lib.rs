@@ -27,10 +27,18 @@ fn extract_struct_info(
 
     let fields_info = extract_fields_info(ast).unwrap();
     let data_code_quote = fields_info.iter().map(|field_info| {
-        let name = field_info.name.clone();
-        let doc = field_info.doc.clone();
+        let name = &field_info.name;
+        let doc = &field_info.doc;
+        let example = match &field_info.example {
+            Some(value) => quote! {
+                Some(#value.to_string())
+            },
+            None => quote! {
+                None
+            },
+        }; 
         quote! {
-            struct_data.add_param(#name, #doc, #default_values_variable_ident.get(#name).map(|v| v.to_string()));
+            struct_data.add_param(#name, #doc, #default_values_variable_ident.get(#name).map(|v| v.to_string()), #example);
         }
     }).collect::<Vec<_>>();
 
@@ -76,6 +84,7 @@ fn extract_fields_info(ast: &DeriveInput) -> Result<Vec<FieldInfo>, String> {
 struct FieldInfo {
     name: String,
     doc: String,
+    example: Option<String>,
 }
 
 fn format_field(champ: &syn::Field) -> FieldInfo {
@@ -106,16 +115,38 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
         })
         .unwrap_or("".to_string());
 
+    let example = champ
+        .attrs
+        .iter()
+        .filter(|attr| attr.path().is_ident("example"))
+        .next()
+        .map(|attr| {
+            let value = match &attr.meta {
+                syn::Meta::NameValue(syn::MetaNameValue {
+                    value:
+                        syn::Expr::Lit(syn::ExprLit {
+                            lit: syn::Lit::Str(s),
+                            ..
+                        }),
+                    ..
+                }) => Some(s.value()),
+                _ => None,
+            };
+            value
+        })
+        .flatten();
+
     let field_info = FieldInfo {
         name: champ.ident.as_ref().unwrap().to_string(),
         doc: doc,
+        example: example,
     };
 
     field_info
 }
 
 /// To extract doc from a struct.
-#[proc_macro_derive(DocExtractor)]
+#[proc_macro_derive(DocExtractor, attributes(example))]
 pub fn doc_extractor(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let ast = parse_macro_input!(input as DeriveInput);
@@ -123,7 +154,7 @@ pub fn doc_extractor(input: TokenStream) -> TokenStream {
 }
 
 /// To extract doc from a struct with Default trait.
-#[proc_macro_derive(DocExtractorDefault)]
+#[proc_macro_derive(DocExtractorDefault, attributes(example))]
 pub fn doc_extractor_default(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let ast = parse_macro_input!(input as DeriveInput);

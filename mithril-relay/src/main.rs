@@ -7,7 +7,6 @@ use mithril_common::StdResult;
 use mithril_relay::Args;
 use slog::{Drain, Level, Logger};
 
-
 pub fn build_logger(min_level: Level) -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::CompactFormat::new(decorator).build().fuse();

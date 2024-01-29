@@ -1,7 +1,7 @@
-use clap::{Subcommand, CommandFactory};
+use super::{AggregatorCommand, Args, PassiveCommand, SignerCommand};
+use clap::{CommandFactory, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::{StdResult, generate_doc::GenerateDocCommands};
-use super::{AggregatorCommand, PassiveCommand, SignerCommand, Args};
+use mithril_common::{generate_doc::GenerateDocCommands, StdResult};
 
 /// The available sub-commands of the relay
 #[derive(Subcommand, Debug, Clone)]

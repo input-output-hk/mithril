@@ -1,6 +1,9 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
+use config::{Map, Value};
 use mithril_common::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc_derive::DocExtractor;
+
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{crit, debug};
 use std::path::PathBuf;
@@ -11,14 +14,14 @@ use tokio::{
     task::JoinSet,
 };
 
-use mithril_common::{StdResult, generate_doc::GenerateDocCommands};
+use mithril_common::{generate_doc::GenerateDocCommands, StdResult};
 use mithril_signer::{
     Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
     SignerState, StateMachine,
 };
 
 /// CLI args
-#[derive(Parser)]
+#[derive(DocExtractor, Parser)]
 #[clap(name = "mithril-signer")]
 #[clap(about = "An implementation of a Mithril Signer", long_about = None)]
 #[command(version)]
@@ -26,7 +29,7 @@ pub struct Args {
     /// Available commands
     #[command(subcommand)]
     command: Option<SignerCommands>,
-    
+
     /// Run Mode
     #[clap(short, long, env("RUN_MODE"), default_value = "dev")]
     run_mode: String,
@@ -38,6 +41,7 @@ pub struct Args {
         action = clap::ArgAction::Count,
         help = "Verbosity level, add more v to increase"
     )]
+    #[example = "Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace`"]
     verbose: u8,
 
     /// Configuration file location
@@ -83,7 +87,6 @@ fn build_logger(min_level: Level) -> Logger {
     Logger::root(Arc::new(drain), o!())
 }
 
-
 #[derive(Subcommand, Debug, Clone)]
 enum SignerCommands {
     #[clap(alias("doc"))]
@@ -95,12 +98,13 @@ async fn main() -> StdResult<()> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
-    
+
     if let Some(SignerCommands::GenerateDoc(cmd)) = &args.command {
-        let config_infos = vec!(
+        let config_infos = vec![
+            Args::extract(),
             Configuration::extract(),
             DefaultConfiguration::extract(),
-        );
+        ];
         return cmd.execute_with_configurations(&mut Args::command(), &config_infos);
     }
 

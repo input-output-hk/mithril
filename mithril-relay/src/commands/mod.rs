@@ -8,8 +8,6 @@ pub use passive::PassiveCommand;
 pub use relay::RelayCommands;
 pub use signer::SignerCommand;
 
-
-
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 use mithril_common::StdResult;
@@ -66,7 +64,6 @@ impl Args {
             _ => Level::Trace,
         }
     }
-
 }
 
 impl Source for Args {
