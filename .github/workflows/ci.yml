@@ -328,7 +328,7 @@ jobs:
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-era_${{ matrix.era }}-run_id_${{ matrix.run_id }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-mode_${{ matrix.mode }}-era_${{ matrix.era }}-cardano-${{ matrix.cardano_node_version }}-fork-${{  matrix.hard_fork_latest_era_at_epoch }}-run_id_${{ matrix.run_id }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
