@@ -1382,7 +1382,8 @@ impl DependenciesBuilder {
 
     /// build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
-        let service = MithrilProverService::default();
+        let transaction_retriever = todo!();
+        let service = MithrilProverService::new(transaction_retriever);
 
         Ok(Arc::new(service))
     }

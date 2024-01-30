@@ -41,15 +41,6 @@ impl CardanoTransactionsSetProof {
     }
 }
 
-impl Default for CardanoTransactionsSetProof {
-    fn default() -> Self {
-        Self {
-            transactions_hashes: Vec::new(),
-            transactions_proof: todo!(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
