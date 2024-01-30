@@ -6,13 +6,14 @@ mod test_doc_macro;
 
 use crate::StdResult;
 use clap::{Command, Parser};
+use std::collections::BTreeMap;
+use std::fs::File;
 use std::io::Write;
-use std::{collections::HashMap, fs::File};
 
 const DEFAULT_OUTPUT_FILE_TEMPLATE: &str = "[PROGRAM NAME]-command-line.md";
 
 /// Information to document a field
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct FieldDoc {
     /// Name of the parameter
     pub parameter: String,
@@ -33,7 +34,7 @@ pub struct FieldDoc {
 }
 
 /// Information about the struct.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct StructDoc {
     /// List of fields
     pub data: Vec<FieldDoc>,
@@ -72,7 +73,7 @@ impl StructDoc {
             .data
             .iter()
             .map(|field_doc| (field_doc.parameter.clone(), field_doc.clone()))
-            .collect::<HashMap<_, _>>();
+            .collect::<BTreeMap<_, _>>();
 
         for field_doc in s2.data.iter() {
             if !data_map1.contains_key(&field_doc.parameter) {
@@ -155,6 +156,8 @@ impl GenerateDocCommands {
 
 #[cfg(test)]
 mod tests {
+
+    use std::collections::HashMap;
 
     use super::*;
 
@@ -251,5 +254,29 @@ mod tests {
             Some("example F".to_string()),
             data_map.get("F").unwrap().example
         );
+    }
+
+    #[test]
+    fn test_merge_struct_doc_should_keep_the_order() {
+        let values = vec!["A", "B", "C", "D", "E", "F", "G"];
+        let s1 = {
+            let mut s = StructDoc::default();
+            for value in values.iter() {
+                s.add_param(value, value, None, None);
+            }
+            s
+        };
+
+        let s2 = s1.clone();
+
+        for (index, value) in values.iter().enumerate() {
+            assert_eq!(value, &s1.data[index].parameter);
+            assert_eq!(value, &s2.data[index].parameter);
+        }
+
+        let result = s1.merge_struct_doc(&s2);
+        for (index, value) in values.iter().enumerate() {
+            assert_eq!(value, &result.data[index].parameter);
+        }
     }
 }

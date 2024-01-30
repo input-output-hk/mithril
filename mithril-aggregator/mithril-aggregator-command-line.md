@@ -57,25 +57,25 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
-| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` | - | - |
-| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files | `/db` | - | - |
-| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |
-| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` | - | - |
-| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` | - | - |
-| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` | - | - |
-| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` | - | - |
-| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` | - | - |
-| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
-| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` | - | - |
-| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` | - | - |
-| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` | - | - |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | - | - |
-| `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
 | `chain_observer_type` | - | - | `CHAIN_OBSERVER_TYPE` | Chain observer type | - | - | - |
 | `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | - | - |
+| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files | `/db` | - | - |
+| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
+| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` | - | - |
 | `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
+| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
+| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |
+| `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` | - | - |
+| `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` | - | - |
+| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` | - | - |
+| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` | - | - |
+| `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` | - | - |
+| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` | - | - |
+| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` | - | - |
+| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` | - | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | - | - |
+| `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
 ###  mithril-aggregator genesis
 
 Genesis tools
