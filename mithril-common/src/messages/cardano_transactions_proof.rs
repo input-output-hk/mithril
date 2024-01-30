@@ -10,3 +10,16 @@ pub struct CardanoTransactionsProofsMessage {
     /// Transactions that could not be certified
     non_certified_transactions: Vec<TransactionHash>,
 }
+
+impl CardanoTransactionsProofsMessage {
+    /// Create a new `CardanoTransactionsProofsMessage`
+    pub fn new(
+        certified_transactions: Vec<CardanoTransactionsSetProof>,
+        non_certified_transactions: Vec<TransactionHash>,
+    ) -> Self {
+        Self {
+            certified_transactions,
+            non_certified_transactions,
+        }
+    }
+}
