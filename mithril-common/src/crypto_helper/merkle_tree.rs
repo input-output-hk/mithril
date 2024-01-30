@@ -108,6 +108,15 @@ impl MKProof {
         .then_some(())
         .ok_or(anyhow!("Invalid MKProof"))
     }
+
+    /// Check if the proof contains the given leaves
+    pub fn contains(&self, leaves: &[MKTreeNode]) -> StdResult<()> {
+        leaves
+            .iter()
+            .all(|leaf| self.inner_leaves.iter().any(|(_, l)| l == leaf))
+            .then_some(())
+            .ok_or(anyhow!("Leaves not found in the MKProof"))
+    }
 }
 
 /// A Merkle tree store
@@ -175,7 +184,22 @@ impl<'a> MKTree<'a> {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::Context;
+
     use super::*;
+
+    fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
+        (0..total_leaves)
+            .map(|i| format!("test-{i}").into())
+            .collect()
+    }
+
+    fn build_proof(leaves: &[MKTreeNode]) -> StdResult<MKProof> {
+        let store = MKTreeStore::default();
+        let mktree =
+            MKTree::new(leaves, &store).with_context(|| "MKTree creation should not fail")?;
+        mktree.compute_proof(leaves)
+    }
 
     #[test]
     fn test_golden_merkle_root() {
@@ -194,31 +218,17 @@ mod tests {
 
     #[test]
     fn test_should_accept_valid_proof_generated_by_merkle_tree() {
-        let total_leaves = 100000;
-        let leaves = (0..total_leaves)
-            .map(|i| format!("test-{i}").into())
-            .collect::<Vec<_>>();
-        let store = MKTreeStore::default();
-        let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
+        let leaves = generate_leaves(100000);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
-        let proof = mktree
-            .compute_proof(leaves_to_verify)
-            .expect("MKProof generation should not fail");
+        let proof = build_proof(leaves_to_verify).expect("MKProof generation should not fail");
         proof.verify().expect("The MKProof should be valid");
     }
 
     #[test]
     fn test_should_reject_invalid_proof_generated_by_merkle_tree() {
-        let total_leaves = 100000;
-        let leaves = (0..total_leaves)
-            .map(|i| format!("test-{i}").into())
-            .collect::<Vec<_>>();
-        let store = MKTreeStore::default();
-        let mktree = MKTree::new(&leaves, &store).expect("MKTree creation should not fail");
+        let leaves = generate_leaves(100000);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
-        let mut proof = mktree
-            .compute_proof(leaves_to_verify)
-            .expect("MKProof generation should not fail");
+        let mut proof = build_proof(leaves_to_verify).expect("MKProof generation should not fail");
         proof.inner_root = leaves[10].to_owned();
         proof.verify().expect_err("The MKProof should be invalid");
     }
@@ -232,5 +242,32 @@ mod tests {
 
         assert_eq!(node_str.to_string(), expected_str);
         assert_eq!(node_string.to_string(), expected_string);
+    }
+
+    #[test]
+    fn contains_leaves() {
+        let mut leaves_to_verify = generate_leaves(10);
+        let leaves_not_verified = leaves_to_verify.drain(3..6).collect::<Vec<_>>();
+        let proof = build_proof(&leaves_to_verify).expect("MKProof generation should not fail");
+
+        // contains everything
+        proof.contains(&leaves_to_verify).unwrap();
+
+        // contains subpart
+        proof.contains(&leaves_to_verify[0..2]).unwrap();
+
+        // don't contains all not verified
+        proof.contains(&leaves_not_verified).unwrap_err();
+
+        // don't contains subpart of not verified
+        proof.contains(&leaves_not_verified[1..2]).unwrap_err();
+
+        // fail if part verified and part unverified
+        proof
+            .contains(&[
+                leaves_to_verify[2].to_owned(),
+                leaves_not_verified[0].to_owned(),
+            ])
+            .unwrap_err();
     }
 }
