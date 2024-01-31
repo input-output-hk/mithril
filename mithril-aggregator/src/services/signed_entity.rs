@@ -372,13 +372,13 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
 
         let mithril_stake_distribution_expected = create_stake_distribution(Epoch(1), 5);
-        {
-            mock_container
-                .mock_mithril_stake_distribution_artifact_builder
-                .expect_compute_artifact()
-                .times(1)
-                .returning(|_, _| Ok(create_stake_distribution(Epoch(1), 5)));
-        }
+
+        mock_container
+            .mock_mithril_stake_distribution_artifact_builder
+            .expect_compute_artifact()
+            .times(1)
+            .returning(|_, _| Ok(create_stake_distribution(Epoch(1), 5)));
+        
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
@@ -406,13 +406,13 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
 
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
-        {
-            mock_container
-                .mock_cardano_immutable_files_full_artifact_builder
-                .expect_compute_artifact()
-                .times(1)
-                .returning(|_, _| Ok(fake_data::snapshots(1).first().unwrap().to_owned()));
-        }
+        
+        mock_container
+            .mock_cardano_immutable_files_full_artifact_builder
+            .expect_compute_artifact()
+            .times(1)
+            .returning(|_, _| Ok(fake_data::snapshots(1).first().unwrap().to_owned()));
+        
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
@@ -440,18 +440,17 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
 
         let expected = CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default());
-        {
-            mock_container
-                .mock_cardano_transactions_artifact_builder
-                .expect_compute_artifact()
-                .times(1)
-                .returning(|_, _| {
-                    Ok(CardanoTransactionsCommitment::new(
-                        "merkle_root".to_string(),
-                        Beacon::default(),
-                    ))
-                });
-        }
+        
+        mock_container
+            .mock_cardano_transactions_artifact_builder
+            .expect_compute_artifact()
+            .times(1)
+            .returning(|_, _| {
+                Ok(CardanoTransactionsCommitment::new(
+                    "merkle_root".to_string(),
+                    Beacon::default(),
+                ))
+            });
 
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
