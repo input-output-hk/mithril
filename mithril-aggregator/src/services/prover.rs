@@ -13,8 +13,8 @@ use mithril_common::{
 use mockall::automock;
 
 /// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions
-#[async_trait]
 #[cfg_attr(test, automock)]
+#[async_trait]
 pub trait ProverService: Sync + Send {
     /// Compute the cryptographic proofs for the given transactions
     async fn compute_transactions_proofs(

@@ -85,11 +85,13 @@ mod tests {
 
     use mithril_common::test_utils::apispec::APISpec;
 
+    use anyhow::anyhow;
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};
 
     use crate::{
-        dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH, Configuration,
+        dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH,
+        services::MockProverService, Configuration,
     };
 
     fn setup_router(
@@ -110,6 +112,39 @@ mod tests {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
+
+        let method = Method::GET.as_str();
+        let path = "/proof/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+            ))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn proof_cardano_transaction_ko() {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
+        let mut mock_prover_service = MockProverService::new();
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .returning(|_| Err(anyhow!("Error")))
+            .times(1);
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
