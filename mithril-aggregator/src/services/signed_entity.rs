@@ -378,7 +378,7 @@ mod tests {
             .expect_compute_artifact()
             .times(1)
             .returning(|_, _| Ok(create_stake_distribution(Epoch(1), 5)));
-        
+
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
@@ -406,13 +406,13 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
 
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
-        
+
         mock_container
             .mock_cardano_immutable_files_full_artifact_builder
             .expect_compute_artifact()
             .times(1)
             .returning(|_, _| Ok(fake_data::snapshots(1).first().unwrap().to_owned()));
-        
+
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
@@ -439,8 +439,9 @@ mod tests {
     async fn build_cardano_transactions_commitment_artifact_when_given_cardano_transactions_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        let expected = CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default());
-        
+        let expected =
+            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default());
+
         mock_container
             .mock_cardano_transactions_artifact_builder
             .expect_compute_artifact()
@@ -465,11 +466,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_store_the_artifact_when_creating_artifact_for_cardano_transactions(
-    ) {
+    async fn should_store_the_artifact_when_creating_artifact_for_cardano_transactions() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoTransactions(Beacon::default()),
-            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default(),),
+            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default()),
             &|mock_injector| &mut mock_injector.mock_cardano_transactions_artifact_builder,
         )
         .await;
