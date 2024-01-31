@@ -7,8 +7,11 @@ use std::sync::Arc;
 
 use mithril_common::{
     crypto_helper::ProtocolParameters,
-    entities::{Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
+    entities::{
+        Beacon, Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
+    },
     messages::{
+        CardanoTransactionListItemMessage, CardanoTransactionMessage,
         MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
         SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
     },
@@ -125,6 +128,52 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionListItemMessage {
         let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
         let message = MithrilStakeDistributionListItemMessage {
             epoch: artifact.epoch,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+        };
+
+        Ok(message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoTransactionMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpCardanoTransaction {
+            merkle_root: String,
+            beacon: Beacon,
+            hash: String,
+        }
+        let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
+        let cardano_transaction_message = CardanoTransactionMessage {
+            merkle_root: artifact.merkle_root,
+            beacon: artifact.beacon,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+        };
+
+        Ok(cardano_transaction_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoTransactionListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpCardanoTransaction {
+            merkle_root: String,
+            beacon: Beacon,
+            hash: String,
+        }
+        let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
+        let message = CardanoTransactionListItemMessage {
+            merkle_root: artifact.merkle_root,
+            beacon: artifact.beacon,
             hash: artifact.hash,
             certificate_hash: value.certificate_id,
             created_at: value.created_at,
