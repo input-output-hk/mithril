@@ -13,6 +13,8 @@ use async_trait::async_trait;
 use sqlite::{Row, Value};
 use std::{iter::repeat, sync::Arc};
 
+use crate::services::TransactionsRetriever;
+
 /// Cardano Transaction record is the representation of a cardano transaction.
 #[derive(Debug, PartialEq, Clone)]
 pub struct CardanoTransactionRecord {
@@ -32,6 +34,16 @@ impl From<CardanoTransaction> for CardanoTransactionRecord {
             transaction_hash: transaction.transaction_hash,
             block_number: transaction.block_number,
             immutable_file_number: transaction.immutable_file_number,
+        }
+    }
+}
+
+impl From<CardanoTransactionRecord> for CardanoTransaction {
+    fn from(other: CardanoTransactionRecord) -> CardanoTransaction {
+        CardanoTransaction {
+            transaction_hash: other.transaction_hash,
+            block_number: other.block_number,
+            immutable_file_number: other.immutable_file_number,
         }
     }
 }
@@ -186,6 +198,15 @@ impl CardanoTransactionRepository {
         Self { connection }
     }
 
+    /// Return all the [CardanoTransactionRecord]s in the database.
+    pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let provider = CardanoTransactionProvider::new(&self.connection);
+        let filters = WhereCondition::default();
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions.collect())
+    }
+
     /// Return the [CardanoTransactionRecord] for the given transaction hash.
     pub async fn get_transaction(
         &self,
@@ -239,6 +260,17 @@ impl TransactionStore for CardanoTransactionRepository {
             .with_context(|| "CardanoTransactionRepository can not store transactions")?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl TransactionsRetriever for CardanoTransactionRepository {
+    async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
+        self.get_all_transactions().await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 }
 
@@ -461,6 +493,38 @@ mod tests {
             }),
             transaction_result
         );
+    }
+
+    #[tokio::test]
+    async fn repository_store_transactions_and_get_all_stored_transactions() {
+        let connection = get_connection().await;
+        let repository = CardanoTransactionRepository::new(connection.clone());
+
+        let cardano_transactions = vec![
+            CardanoTransaction {
+                transaction_hash: "tx-hash-123".to_string(),
+                block_number: 10,
+                immutable_file_number: 99,
+            },
+            CardanoTransaction {
+                transaction_hash: "tx-hash-456".to_string(),
+                block_number: 11,
+                immutable_file_number: 100,
+            },
+        ];
+        repository
+            .store_transactions(&cardano_transactions)
+            .await
+            .unwrap();
+
+        let transactions_result = repository.get_all().await.unwrap();
+        let transactions_expected = cardano_transactions
+            .iter()
+            .rev()
+            .cloned()
+            .collect::<Vec<_>>();
+
+        assert_eq!(transactions_expected, transactions_result);
     }
 
     #[tokio::test]

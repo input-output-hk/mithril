@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.13
+  version: 0.1.14
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -260,6 +260,39 @@ paths:
           description: API version mismatch
         default:
           description: Mithril stake distribution retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /proof/cardano-transaction:
+    get:
+      summary: Get the proofs of a Cardano transaction list
+      description: |
+        Returns the transaction hashes and the corresponding proofs
+      parameters:
+        - name: transaction_hashes
+          in: query
+          description: Hashes of the Cardano transactions to retrieve proofs for
+          required: true
+          schema:
+            type: array
+            items:
+              type: string
+            format: bytes
+            example: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
+          explode: false
+      responses:
+        "200":
+          description: Cardano transaction proofs found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoTransactionProofMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano transaction proofs retrieval error
           content:
             application/json:
               schema:
@@ -1386,6 +1419,48 @@ components:
             ],
         "created_at": "2022-06-14T10:52:31Z",
         "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
+        }
+
+    CardanoTransactionProofMessage:
+      description: This message represents proofs for Cardano Transactions.
+      type: object
+      additionalProperties: false
+      required:
+        - certified_transactions
+        - non_certified_transactions
+      properties:
+        certified_transactions:
+          description: Proofs for certified Cardano transactions
+          type: array
+          items:
+            type: object
+            required:
+              - transaction_hashes
+              - proof
+            properties:
+              transaction_hashes:
+                type: array
+                items:
+                  description: Hash of the Cardano transactions
+                  type: string
+                  format: bytes
+              proof:
+                description: Proof for the Cardano transactions
+                type: string
+                format: bytes
+        non_certified_transactions:
+          type: array
+          items:
+            description: Hash of the non certified Cardano transactions
+            type: string
+            format: bytes
+      example:
+        {
+          "certified_transactions": [{
+            "transaction_hashes": ["6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732", "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732"],
+            "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
+          }],
+          "non_certified_transactions": ["732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"],
         }
 
     Error:

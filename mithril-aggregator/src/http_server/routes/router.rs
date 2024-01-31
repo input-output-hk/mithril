@@ -15,7 +15,7 @@ use warp::http::Method;
 use warp::reject::Reject;
 use warp::{Filter, Rejection, Reply};
 
-use super::middlewares;
+use super::{middlewares, proof_routes};
 
 #[derive(Debug)]
 pub struct VersionMismatchError;
@@ -49,6 +49,7 @@ pub fn routes(
                 .or(artifact_routes::mithril_stake_distribution::routes(
                     dependency_manager.clone(),
                 ))
+                .or(proof_routes::routes(dependency_manager.clone()))
                 .or(signer_routes::routes(dependency_manager.clone()))
                 .or(signatures_routes::routes(dependency_manager.clone()))
                 .or(epoch_routes::routes(dependency_manager.clone()))

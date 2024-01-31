@@ -59,8 +59,9 @@ use crate::{
     http_server::routes::router,
     services::{
         CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilMessageService, MithrilSignedEntityService, MithrilStakeDistributionService,
-        MithrilTickerService, SignedEntityService, StakeDistributionService, TickerService,
+        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, MithrilTickerService, ProverService, SignedEntityService,
+        StakeDistributionService, TickerService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -129,6 +130,9 @@ pub struct DependenciesBuilder {
 
     /// Beacon provider service.
     pub beacon_provider: Option<Arc<dyn BeaconProvider>>,
+
+    /// Cardano transactions repository.
+    pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
 
     /// Cardano transactions store.
     pub transaction_store: Option<Arc<dyn TransactionStore>>,
@@ -207,6 +211,9 @@ pub struct DependenciesBuilder {
 
     /// HTTP Message service
     pub message_service: Option<Arc<dyn MessageService>>,
+
+    /// Prover service
+    pub prover_service: Option<Arc<dyn ProverService>>,
 }
 
 impl DependenciesBuilder {
@@ -228,6 +235,7 @@ impl DependenciesBuilder {
             chain_observer: None,
             beacon_provider: None,
             transaction_parser: None,
+            transaction_repository: None,
             transaction_store: None,
             immutable_digester: None,
             immutable_file_observer: None,
@@ -252,6 +260,7 @@ impl DependenciesBuilder {
             epoch_service: None,
             signed_entity_storer: None,
             message_service: None,
+            prover_service: None,
         }
     }
 
@@ -677,12 +686,29 @@ impl DependenciesBuilder {
         self.create_logger().await
     }
 
-    async fn build_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
+    async fn build_transaction_repository(&mut self) -> Result<Arc<CardanoTransactionRepository>> {
         let transaction_store = CardanoTransactionRepository::new(
             self.get_sqlite_connection_cardano_transaction().await?,
         );
 
         Ok(Arc::new(transaction_store))
+    }
+
+    /// Transaction repository.
+    pub async fn get_transaction_repository(
+        &mut self,
+    ) -> Result<Arc<CardanoTransactionRepository>> {
+        if self.transaction_repository.is_none() {
+            self.transaction_repository = Some(self.build_transaction_repository().await?);
+        }
+
+        Ok(self.transaction_repository.as_ref().cloned().unwrap())
+    }
+
+    async fn build_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
+        let transaction_store = self.get_transaction_repository().await?;
+
+        Ok(transaction_store as Arc<dyn TransactionStore>)
     }
 
     /// Transaction store.
@@ -1171,6 +1197,7 @@ impl DependenciesBuilder {
             message_service: self.get_message_service().await?,
             transaction_parser: self.get_transaction_parser().await?,
             transaction_store: self.get_transaction_store().await?,
+            prover_service: self.get_prover_service().await?,
         };
 
         Ok(dependency_manager)
@@ -1372,6 +1399,23 @@ impl DependenciesBuilder {
         }
 
         Ok(self.message_service.as_ref().cloned().unwrap())
+    }
+
+    /// build Prover service
+    pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
+        let transaction_retriever = self.get_transaction_repository().await?;
+        let service = MithrilProverService::new(transaction_retriever);
+
+        Ok(Arc::new(service))
+    }
+
+    /// [ProverService] service
+    pub async fn get_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
+        if self.prover_service.is_none() {
+            self.prover_service = Some(self.build_prover_service().await?);
+        }
+
+        Ok(self.prover_service.as_ref().cloned().unwrap())
     }
 
     /// Remove the dependencies builder from memory to release Arc instances.
