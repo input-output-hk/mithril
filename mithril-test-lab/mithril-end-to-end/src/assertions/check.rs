@@ -6,8 +6,8 @@ use anyhow::anyhow;
 use mithril_common::{
     entities::Epoch,
     messages::{
-        CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
-        SnapshotMessage,
+        CardanoTransactionListMessage, CardanoTransactionMessage, CertificateMessage,
+        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SnapshotMessage,
     },
     StdResult,
 };
@@ -155,6 +155,83 @@ pub async fn assert_signer_is_signing_snapshot(
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_node_producing_cardano_transactions(
+    aggregator_endpoint: &str,
+) -> StdResult<String> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-transactions");
+    info!("Waiting for the aggregator to produce a Cardano transactions artifact");
+
+    match attempt!(45, Duration::from_millis(2000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response
+                    .json::<CardanoTransactionListMessage>()
+                    .await
+                    .as_deref()
+                {
+                    Ok([artifact, ..]) => Ok(Some(artifact.hash.clone())),
+                    Ok(&[]) => Ok(None),
+                    Err(err) => Err(anyhow!(
+                        "Invalid Cardano transactions artifact body : {err}",
+                    )),
+                },
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }) {
+        AttemptResult::Ok(hash) => {
+            info!("Aggregator produced a Cardano transactions artifact"; "hash" => &hash);
+            Ok(hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_node_producing_cardano_transactions, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_signer_is_signing_cardano_transactions(
+    aggregator_endpoint: &str,
+    hash: &str,
+    expected_epoch_min: Epoch,
+) -> StdResult<String> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-transaction/{hash}");
+    info!(
+        "Asserting the aggregator is signing the Cardano transactions artifact `{}` with an expected min epoch of `{}`",
+        hash,
+        expected_epoch_min
+    );
+
+    match attempt!(10, Duration::from_millis(1000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<CardanoTransactionMessage>().await {
+                    Ok(artifact) => match artifact.beacon.epoch {
+                        epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
+                        epoch => Err(anyhow!(
+                            "Minimum expected artifact epoch not reached : {epoch} < {expected_epoch_min}"
+                        )),
+                    },
+                    Err(err) => Err(anyhow!(err).context("Invalid Cardano transactions artifact body")),
+                },
+                StatusCode::NOT_FOUND => Ok(None),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }) {
+        AttemptResult::Ok(artifact) => {
+            info!("Signer signed a Cardano transactions artifact"; "certificate_hash" => &artifact.certificate_hash);
+            Ok(artifact.certificate_hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_signer_is_signing_cardano_transactions, no response from `{url}`"
         )),
     }
 }
