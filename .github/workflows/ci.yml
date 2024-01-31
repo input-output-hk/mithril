@@ -717,14 +717,18 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: docs/website/yarn.lock
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: docs/website/package-lock.json
+
+      - name: Install dependencies
+        working-directory: docs/website
+        run: npm ci
 
       - name: Build Docusaurus site
         working-directory: docs/website
         run: |
-          yarn && yarn build
+          npm run build
 
       - name: Publish Docusaurus build
         uses: actions/upload-artifact@v3
@@ -755,13 +759,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 18
-          cache: 'yarn'
-          cache-dependency-path: mithril-explorer/yarn.lock
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: mithril-explorer/package-lock.json
 
       - name: Install dependencies
         working-directory: mithril-explorer
-        run: yarn install --frozen-lockfile
+        run: npm ci
       
       - name: Test explorer
         working-directory: mithril-explorer
