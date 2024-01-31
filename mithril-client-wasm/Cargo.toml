@@ -13,17 +13,17 @@ categories = ["cryptography"]
 crate-type = ["cdylib"]
 
 [dependencies]
-async-trait = "0.1.73"
-futures = "0.3.28"
+async-trait = "0.1.77"
+futures = "0.3.30"
 mithril-client = { path = "../mithril-client" }
-serde = { version = "1.0.188", features = ["derive"] }
-serde-wasm-bindgen = "0.6.0"
-wasm-bindgen = "0.2"
-wasm-bindgen-futures = "0.4.37"
-web-sys = { version = "0.3.4", features = ["BroadcastChannel"] }
+serde = { version = "1.0.196", features = ["derive"] }
+serde-wasm-bindgen = "0.6.3"
+wasm-bindgen = "0.2.90"
+wasm-bindgen-futures = "0.4.40"
+web-sys = { version = "0.3.67", features = ["BroadcastChannel"] }
 
 [dev-dependencies]
-wasm-bindgen-test = "0.3.20"
+wasm-bindgen-test = "0.3.40"
 
 [features]
 # Include nothing by default
