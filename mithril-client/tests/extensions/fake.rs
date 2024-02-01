@@ -2,10 +2,11 @@ use super::routes;
 use crate::extensions::mock;
 use mithril_client::certificate_client::CertificateVerifier;
 use mithril_client::{
-    MessageBuilder, MithrilCertificateListItem, MithrilStakeDistribution,
-    MithrilStakeDistributionListItem,
+    CardanoTransactionsProofs, CardanoTransactionsSetProof, MessageBuilder, MithrilCertificate,
+    MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
 };
-use mithril_common::messages::CertificateMessage;
+use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
+use mithril_common::entities::ProtocolMessage;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -84,10 +85,10 @@ impl FakeAggregator {
             .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
             .expect("Computing msd message should not fail");
 
-        let certificate_json = serde_json::to_string(&CertificateMessage {
+        let certificate_json = serde_json::to_string(&MithrilCertificate {
             hash: certificate_hash.to_string(),
             signed_message: message.compute_hash(),
-            ..CertificateMessage::dummy()
+            ..MithrilCertificate::dummy()
         })
         .unwrap();
 
@@ -105,10 +106,39 @@ impl FakeAggregator {
         )
     }
 
+    pub fn spawn_with_transactions_proofs(
+        &self,
+        tx_hashes: &[&str],
+        certificate_hash: &str,
+    ) -> TestHttpServer {
+        let proof = MKProof::from_leaves(tx_hashes).unwrap();
+
+        let proofs_json = serde_json::to_string(&CardanoTransactionsProofs {
+            certificate_hash: certificate_hash.to_string(),
+            certified_transactions: vec![CardanoTransactionsSetProof {
+                transactions_hashes: tx_hashes.iter().map(|h| h.to_string()).collect(),
+                proof: ProtocolMkProof::new(proof).to_json_hex().unwrap(),
+            }],
+            non_certified_transactions: vec![],
+        })
+        .unwrap();
+        let message = ProtocolMessage::new();
+        let certificate_json = serde_json::to_string(&MithrilCertificate {
+            hash: certificate_hash.to_string(),
+            signed_message: message.compute_hash(),
+            ..MithrilCertificate::dummy()
+        })
+        .unwrap();
+
+        test_http_server(routes::proof::routes(self.calls.clone(), proofs_json).or(
+            routes::certificate::routes(self.calls.clone(), None, certificate_json),
+        ))
+    }
+
     pub fn spawn_with_certificate(&self, certificate_hash_list: &[String]) -> TestHttpServer {
-        let certificate_json = serde_json::to_string(&CertificateMessage {
+        let certificate_json = serde_json::to_string(&MithrilCertificate {
             hash: certificate_hash_list[0].to_string(),
-            ..CertificateMessage::dummy()
+            ..MithrilCertificate::dummy()
         })
         .unwrap();
         let certificate_list_json = serde_json::to_string(

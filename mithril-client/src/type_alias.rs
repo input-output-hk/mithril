@@ -36,10 +36,14 @@ pub use mithril_common::messages::CertificateListItemMessageMetadata as MithrilC
 ///
 pub use mithril_common::messages::SignerWithStakeMessagePart as MithrilSigner;
 
+pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTransactionsProofs;
+
+pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
+
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
         Beacon, CompressionAlgorithm, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters,
+        ProtocolParameters, TransactionHash,
     };
 }

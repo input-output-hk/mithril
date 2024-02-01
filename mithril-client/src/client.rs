@@ -27,6 +27,11 @@ pub struct Client {
 }
 
 impl Client {
+    /// Get the client that fetches and verifies Mithril Cardano transaction proof.
+    pub fn cardano_transaction_proof(&self) -> Arc<CardanoTransactionProofClient> {
+        self.cardano_transaction_proof_client.clone()
+    }
+
     /// Get the client that fetches and verifies Mithril certificates.
     pub fn certificate(&self) -> Arc<CertificateClient> {
         self.certificate_client.clone()
