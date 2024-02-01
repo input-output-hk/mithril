@@ -87,6 +87,7 @@ pub mod handlers {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::http_server::routes::artifact_routes::test_utils::*;
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
@@ -95,11 +96,9 @@ pub mod tests {
         },
         services::MockMessageService,
     };
-    use chrono::{DateTime, Utc};
     use mithril_common::{
-        entities::{Epoch, SignedEntity, SignedEntityType},
+        entities::{Epoch, SignedEntityType},
         messages::ToMessageAdapter,
-        signable_builder::Artifact,
         sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
     };
@@ -119,28 +118,6 @@ pub mod tests {
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
             .and(routes(dependency_manager).with(cors))
-    }
-
-    pub fn create_signed_entities<T>(
-        signed_entity_type: SignedEntityType,
-        records: Vec<T>,
-    ) -> Vec<SignedEntity<T>>
-    where
-        T: Artifact,
-    {
-        records
-            .into_iter()
-            .enumerate()
-            .map(|(idx, record)| SignedEntity {
-                signed_entity_id: format!("{idx}"),
-                signed_entity_type: signed_entity_type.to_owned(),
-                certificate_id: format!("certificate-{idx}"),
-                artifact: record,
-                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-            })
-            .collect()
     }
 
     #[tokio::test]
