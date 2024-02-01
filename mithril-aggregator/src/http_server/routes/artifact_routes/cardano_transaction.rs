@@ -6,26 +6,25 @@ use warp::Filter;
 pub fn routes(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_mithril_stake_distributions(dependency_manager.clone()).or(
-        artifact_mithril_stake_distribution_by_id(dependency_manager),
-    )
+    artifact_cardano_transactions(dependency_manager.clone())
+        .or(artifact_cardano_transaction_by_id(dependency_manager))
 }
 
-/// GET /artifact/mithril-stake-distributions
-fn artifact_mithril_stake_distributions(
+/// GET /artifact/cardano-transactions
+fn artifact_cardano_transactions(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "mithril-stake-distributions")
+    warp::path!("artifact" / "cardano-transactions")
         .and(warp::get())
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::list_artifacts)
 }
 
-/// GET /artifact/mithril-stake-distribution/:id
-fn artifact_mithril_stake_distribution_by_id(
+/// GET /artifact/cardano-transaction/:id
+fn artifact_cardano_transaction_by_id(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("artifact" / "mithril-stake-distribution" / String)
+    warp::path!("artifact" / "cardano-transaction" / String)
         .and(warp::get())
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
@@ -42,19 +41,19 @@ pub mod handlers {
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
-    /// List MithrilStakeDistribution artifacts
+    /// List Cardano Transactions set artifacts
     pub async fn list_artifacts(
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: artifacts");
 
         match http_message_service
-            .get_mithril_stake_distribution_list_message(LIST_MAX_ITEMS)
+            .get_cardano_transaction_list_message(LIST_MAX_ITEMS)
             .await
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
-                warn!("list_artifacts_mithril_stake_distribution"; "error" => ?err);
+                warn!("list_artifacts_cardano_transactions"; "error" => ?err);
 
                 Ok(reply::internal_server_error(err))
             }
@@ -69,16 +68,16 @@ pub mod handlers {
         debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
 
         match http_message_service
-            .get_mithril_stake_distribution_message(&signed_entity_id)
+            .get_cardano_transaction_message(&signed_entity_id)
             .await
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
-                warn!("get_mithril_stake_distribution_details::not_found");
+                warn!("get_cardano_transaction_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("get_mithril_stake_distribution_details::error"; "error" => ?err);
+                warn!("get_cardano_transaction_details::error"; "error" => ?err);
                 Ok(reply::internal_server_error(err))
             }
         }
@@ -92,12 +91,12 @@ pub mod tests {
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
         message_adapters::{
-            ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+            ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
         },
         services::MockMessageService,
     };
     use mithril_common::{
-        entities::{Epoch, SignedEntityType},
+        entities::{Beacon, SignedEntityType},
         messages::ToMessageAdapter,
         sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
@@ -121,22 +120,22 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distributions_get_ok() {
+    async fn test_cardano_transactions_get_ok() {
         let signed_entity_records = create_signed_entities(
-            SignedEntityType::MithrilStakeDistribution(Epoch::default()),
-            fake_data::mithril_stake_distributions(5),
+            SignedEntityType::CardanoTransactions(Beacon::default()),
+            fake_data::cardano_transactions_commitment(5),
         );
-        let message = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entity_records);
+        let message = ToCardanoTransactionListMessageAdapter::adapt(signed_entity_records);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_mithril_stake_distribution_list_message()
+            .expect_get_cardano_transaction_list_message()
             .return_once(|_| Ok(message))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/mithril-stake-distributions";
+        let path = "/artifact/cardano-transactions";
 
         let response = request()
             .method(method)
@@ -155,17 +154,17 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distributions_get_ko() {
+    async fn test_cardano_transactions_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_mithril_stake_distribution_list_message()
+            .expect_get_cardano_transaction_list_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/mithril-stake-distributions";
+        let path = "/artifact/cardano-transactions";
 
         let response = request()
             .method(method)
@@ -184,25 +183,25 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_get_ok() {
+    async fn test_cardano_transaction_get_ok() {
         let signed_entity = create_signed_entities(
-            SignedEntityType::MithrilStakeDistribution(Epoch::default()),
-            fake_data::mithril_stake_distributions(1),
+            SignedEntityType::CardanoTransactions(Beacon::default()),
+            fake_data::cardano_transactions_commitment(1),
         )
         .first()
         .unwrap()
         .to_owned();
-        let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
+        let message = ToCardanoTransactionMessageAdapter::adapt(signed_entity);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_mithril_stake_distribution_message()
+            .expect_get_cardano_transaction_message()
             .return_once(|_| Ok(Some(message)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/mithril-stake-distribution/{hash}";
+        let path = "/artifact/cardano-transaction/{hash}";
 
         let response = request()
             .method(method)
@@ -221,17 +220,17 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_ok_norecord() {
+    async fn test_cardano_transaction_ok_norecord() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_mithril_stake_distribution_message()
+            .expect_get_cardano_transaction_message()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/mithril-stake-distribution/{hash}";
+        let path = "/artifact/cardano-transaction/{hash}";
 
         let response = request()
             .method(method)
@@ -250,17 +249,17 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_get_ko() {
+    async fn test_cardano_transaction_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
-            .expect_get_mithril_stake_distribution_message()
+            .expect_get_cardano_transaction_message()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/mithril-stake-distribution/{hash}";
+        let path = "/artifact/cardano-transaction/{hash}";
 
         let response = request()
             .method(method)

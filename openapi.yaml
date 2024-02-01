@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.14
+  version: 0.1.15
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -265,6 +265,59 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /artifact/cardano-transactions:
+    get:
+      summary: Get most recent Cardano transactions sets
+      description: |
+        Returns the list of the most recent Cardano transactions sets
+      responses:
+        "200":
+          description: Cardano transactions set found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoTransactionListMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano transactions set retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-transaction/{hash}:
+    get:
+      summary: Get Cardano transactions set information
+      description: |
+        Returns the information of a Cardano transactions set
+      parameters:
+        - name: hash
+          in: path
+          description: Hash of the Cardano transactions set to retrieve
+          required: true
+          schema:
+            type: string
+            format: bytes
+          example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
+      responses:
+        "200":
+          description: Cardano transactions set found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoTransactionMessage"
+        "404":
+          description: Cardano transactions set not found
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano transactions set retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  
   /proof/cardano-transaction:
     get:
       summary: Get the proofs of a Cardano transaction list
@@ -1419,6 +1472,92 @@ components:
             ],
         "created_at": "2022-06-14T10:52:31Z",
         "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
+        }
+
+    CardanoTransactionListMessage:
+      description: CardanoTransactionListMessage represents a list of Cardano transactions set
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - hash
+          - certificate_hash
+          - beacon
+          - created_at
+        properties:
+          hash:
+            description: Hash of the Cardano transactions set
+            type: string
+            format: bytes
+          certificate_hash:
+            description: Hash of the associated certificate
+            type: string
+            format: bytes
+          merkle_root:
+            description: Merkle root of the Cardano transactions set
+            type: string
+            format: bytes
+          beacon:
+            $ref: "#/components/schemas/Beacon"
+          created_at:
+            description: Date and time at which the Cardano transactions set was created
+            type: string
+            format: date-time,
+        example:
+          {
+            "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+            "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+            "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
+            "beacon":
+            {
+              "network": "mainnet",
+              "epoch": 329,
+              "immutable_file_number": 7060000
+            },
+            "created_at": "2022-06-14T10:52:31Z"
+          }
+
+    CardanoTransactionMessage:
+      description: This message represents a Cardano transactions set.
+      type: object
+      additionalProperties: false
+      required:
+        - hash
+        - certificate_hash
+        - beacon
+        - created_at
+      properties:
+        hash:
+          description: Hash of the Cardano transactions set
+          type: string
+          format: bytes
+        certificate_hash:
+          description: Hash of the associated certificate
+          type: string
+          format: bytes
+        merkle_root:
+          description: Merkle root of the Cardano transactions set
+          type: string
+          format: bytes
+        beacon:
+          $ref: "#/components/schemas/Beacon"
+        created_at:
+          description: Date and time at which the Cardano transactions set was created
+          type: string
+          format: date-time,
+      example:
+        {
+          "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+          "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
+          "beacon":
+          {
+            "network": "mainnet",
+            "epoch": 329,
+            "immutable_file_number": 7060000
+          },
+          "created_at": "2022-06-14T10:52:31Z"
         }
 
     CardanoTransactionProofMessage:
