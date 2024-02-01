@@ -284,14 +284,6 @@ impl TransactionStore for CardanoTransactionRepository {
 
 #[async_trait]
 impl TransactionsRetriever for CardanoTransactionRepository {
-    async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_all_transactions().await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
-    }
-
     async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>> {
         self.get_transactions_up_to(beacon).await.map(|v| {
             v.into_iter()
@@ -608,12 +600,12 @@ mod tests {
             .await
             .unwrap();
 
-        let transactions_result = repository.get_all().await.unwrap();
-        let transactions_expected = cardano_transactions
+        let transactions_result = repository.get_all_transactions().await.unwrap();
+        let transactions_expected: Vec<CardanoTransactionRecord> = cardano_transactions
             .iter()
             .rev()
-            .cloned()
-            .collect::<Vec<_>>();
+            .map(|tx| tx.clone().into())
+            .collect();
 
         assert_eq!(transactions_expected, transactions_result);
     }
