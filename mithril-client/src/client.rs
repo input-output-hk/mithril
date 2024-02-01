@@ -1,4 +1,11 @@
+use anyhow::{anyhow, Context};
+use mithril_common::api_version::APIVersionProvider;
+use reqwest::Url;
+use slog::{o, Logger};
+use std::sync::Arc;
+
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
+use crate::cardano_transaction_proof::CardanoTransactionProofClient;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
@@ -8,16 +15,12 @@ use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
 use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
-use anyhow::{anyhow, Context};
-use mithril_common::api_version::APIVersionProvider;
-use reqwest::Url;
-use slog::{o, Logger};
-use std::sync::Arc;
 
 /// Structure that aggregates the available clients for each of the Mithril types of certified data.
 ///
 /// Use the [ClientBuilder] to instantiate it easily.
 pub struct Client {
+    cardano_transaction_proof_client: Arc<CardanoTransactionProofClient>,
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
     snapshot_client: Arc<SnapshotClient>,
@@ -90,10 +93,9 @@ impl ClientBuilder {
     /// The builder will try to create the missing dependencies using default implementations
     /// if possible.
     pub fn build(self) -> MithrilResult<Client> {
-        let logger = match self.logger {
-            Some(logger) => logger,
-            None => Logger::root(slog::Discard, o!()),
-        };
+        let logger = self
+            .logger
+            .unwrap_or_else(|| Logger::root(slog::Discard, o!()));
 
         let feedback_sender = FeedbackSender::new(&self.feedback_receivers);
 
@@ -128,6 +130,10 @@ impl ClientBuilder {
             Some(snapshot_downloader) => snapshot_downloader,
         };
 
+        let cardano_transaction_proof_client = Arc::new(CardanoTransactionProofClient::new(
+            aggregator_client.clone(),
+        ));
+
         let certificate_verifier = match self.certificate_verifier {
             None => Arc::new(
                 MithrilCertificateVerifier::new(
@@ -160,6 +166,7 @@ impl ClientBuilder {
         ));
 
         Ok(Client {
+            cardano_transaction_proof_client,
             certificate_client,
             mithril_stake_distribution_client,
             snapshot_client,
