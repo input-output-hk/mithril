@@ -9,6 +9,7 @@ pub struct ToCardanoTransactionsProofsMessageAdapter;
 impl ToCardanoTransactionsProofsMessageAdapter {
     /// Turn an entity instance into message.
     pub fn adapt(
+        certificate_hash: &str,
         transactions_set_proofs: Vec<CardanoTransactionsSetProof>,
         transaction_hashes_to_certify: Vec<TransactionHash>,
     ) -> CardanoTransactionsProofsMessage {
@@ -21,7 +22,13 @@ impl ToCardanoTransactionsProofsMessageAdapter {
             .filter(|hash| !transactions_hashes_certified.contains(hash))
             .cloned()
             .collect::<Vec<_>>();
+        let transactions_set_proofs = transactions_set_proofs
+            .into_iter()
+            .map(|p| p.into())
+            .collect();
+
         CardanoTransactionsProofsMessage::new(
+            certificate_hash,
             transactions_set_proofs,
             transactions_hashes_not_certified,
         )
@@ -75,11 +82,18 @@ mod tests {
             ))
         }
 
+        let certificate_hash = "certificate_hash";
         let message = ToCardanoTransactionsProofsMessageAdapter::adapt(
+            certificate_hash,
             transactions_set_proofs.clone(),
             transaction_hashes.to_vec(),
         );
+        let transactions_set_proofs = transactions_set_proofs
+            .into_iter()
+            .map(|p| p.into())
+            .collect();
         let expected_message = CardanoTransactionsProofsMessage::new(
+            certificate_hash,
             transactions_set_proofs,
             transactions_hashes_non_certified.to_vec(),
         );

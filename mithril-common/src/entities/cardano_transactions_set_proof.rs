@@ -1,15 +1,16 @@
-use crate::{crypto_helper::MKProof, entities::TransactionHash, StdResult};
-
-use serde::{Deserialize, Serialize};
+use crate::crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStore, ProtocolMkProof};
+use crate::entities::TransactionHash;
+use crate::messages::CardanoTransactionsSetProofMessagePart;
+use crate::StdResult;
 
 /// A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CardanoTransactionsSetProof {
     /// Hashes of the certified transactions
     transactions_hashes: Vec<TransactionHash>,
 
     /// Proof of the transactions
-    transactions_proof: MKProof,
+    transactions_proof: ProtocolMkProof,
 }
 
 impl CardanoTransactionsSetProof {
@@ -17,7 +18,7 @@ impl CardanoTransactionsSetProof {
     pub fn new(transactions_hashes: Vec<TransactionHash>, transactions_proof: MKProof) -> Self {
         Self {
             transactions_hashes,
-            transactions_proof,
+            transactions_proof: ProtocolMkProof::new(transactions_proof),
         }
     }
 
@@ -38,6 +39,36 @@ impl CardanoTransactionsSetProof {
         )?;
 
         Ok(())
+    }
+
+    #[cfg(feature = "test_tools")]
+    /// Retrieve a dummy proof (for test only)
+    pub fn dummy() -> Self {
+        let transactions_hashes = vec![
+            "tx-1".to_string(),
+            "tx-2".to_string(),
+            "tx-3".to_string(),
+            "tx-4".to_string(),
+            "tx-5".to_string(),
+        ];
+        let leaves: Vec<MKTreeNode> = transactions_hashes
+            .iter()
+            .cloned()
+            .map(|h| h.into())
+            .collect();
+        let store = MKTreeStore::default();
+        let mktree = MKTree::new(&leaves, &store).unwrap();
+
+        Self::new(transactions_hashes, mktree.compute_proof(&leaves).unwrap())
+    }
+}
+
+impl From<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessagePart {
+    fn from(proof: CardanoTransactionsSetProof) -> Self {
+        Self {
+            transactions_hashes: proof.transactions_hashes,
+            proof: proof.transactions_proof.to_json_hex().unwrap(),
+        }
     }
 }
 

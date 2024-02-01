@@ -49,6 +49,11 @@ pub trait SignedEntityService: Send + Sync {
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
 
+    /// Return the last signed Cardano Transaction Commitment.
+    async fn get_last_cardano_transaction_commitment(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoTransactionsCommitment>>>;
+
     /// Return a signed snapshot
     async fn get_signed_snapshot_by_id(
         &self,
@@ -132,6 +137,22 @@ impl MithrilSignedEntityService {
             )),
         }
     }
+
+    async fn get_last_signed_entities(
+        &self,
+        total: usize,
+        discriminants: &SignedEntityTypeDiscriminants,
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        self.signed_entity_storer
+            .get_last_signed_entities_by_type(discriminants, total)
+            .await
+            .with_context(|| {
+                format!(
+                    "Signed Entity Service can not get last signed entities with type: '{:?}'",
+                    discriminants
+                )
+            })
+    }
 }
 
 #[async_trait]
@@ -186,18 +207,11 @@ impl SignedEntityService for MithrilSignedEntityService {
         total: usize,
     ) -> StdResult<Vec<SignedEntity<Snapshot>>> {
         let signed_entities_records = self
-            .signed_entity_storer
-            .get_last_signed_entities_by_type(
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            .get_last_signed_entities(
                 total,
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
             )
-            .await
-            .with_context(|| {
-                format!(
-                    "Signed Entity Service can not get last signed entities with type: '{:?}'",
-                    &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
-                )
-            })?;
+            .await?;
         let mut signed_entities: Vec<SignedEntity<Snapshot>> = Vec::new();
 
         for record in signed_entities_records {
@@ -212,18 +226,11 @@ impl SignedEntityService for MithrilSignedEntityService {
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {
         let signed_entities_records = self
-            .signed_entity_storer
-            .get_last_signed_entities_by_type(
-                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            .get_last_signed_entities(
                 total,
+                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             )
-            .await
-            .with_context(|| {
-                format!(
-                    "Signed Entity Service can not get last signed entities with type: '{:?}'",
-                    &SignedEntityTypeDiscriminants::MithrilStakeDistribution
-                )
-            })?;
+            .await?;
         let mut signed_entities: Vec<SignedEntity<MithrilStakeDistribution>> = Vec::new();
 
         for record in signed_entities_records {
@@ -231,6 +238,19 @@ impl SignedEntityService for MithrilSignedEntityService {
         }
 
         Ok(signed_entities)
+    }
+
+    async fn get_last_cardano_transaction_commitment(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoTransactionsCommitment>>> {
+        let mut signed_entities_records = self
+            .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await?;
+
+        match signed_entities_records.pop() {
+            Some(record) => Ok(Some(record.try_into()?)),
+            None => Ok(None),
+        }
     }
 
     async fn get_signed_snapshot_by_id(
