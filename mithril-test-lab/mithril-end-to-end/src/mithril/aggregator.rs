@@ -20,6 +20,7 @@ pub struct AggregatorConfig<'a> {
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub cardano_node_version: &'a str,
+    pub mithril_run_interval: u32,
     pub mithril_era: &'a str,
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
@@ -52,9 +53,10 @@ impl Aggregator {
                 )
             };
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
+        let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "200"),
+            ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
             ("URL_SNAPSHOT_MANIFEST", ""),

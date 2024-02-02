@@ -25,6 +25,7 @@ pub async fn bootstrap_aggregator(
         work_dir: &args.work_dir,
         bin_dir: &args.bin_dir,
         cardano_node_version: "1.2.3",
+        mithril_run_interval: 1000,
         mithril_era: &args.mithril_era,
         mithril_era_marker_address: "",
         mithril_era_reader_adapter: "dummy",

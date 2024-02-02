@@ -68,6 +68,10 @@ pub struct Args {
     #[clap(long, default_value_t = 0)]
     cardano_hard_fork_latest_era_at_epoch: u16,
 
+    /// Mithril run interval for nodes (in ms)
+    #[clap(long, default_value_t = 150)]
+    mithril_run_interval: u32,
+
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
     mithril_era: String,
@@ -168,6 +172,7 @@ async fn main() -> StdResult<()> {
         work_dir,
         bin_dir: args.bin_directory,
         cardano_node_version: args.cardano_node_version,
+        mithril_run_interval: args.mithril_run_interval,
         mithril_era: args.mithril_era,
         mithril_era_reader_adapter: args.mithril_era_reader_adapter,
         signed_entity_types: args.signed_entity_types,
