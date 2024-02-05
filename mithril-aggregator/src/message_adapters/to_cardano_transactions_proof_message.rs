@@ -58,20 +58,9 @@ fn try_adapt_set_proof_message(
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Context;
-    use mithril_common::{
-        crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStore},
-        StdResult,
-    };
+    use mithril_common::crypto_helper::MKProof;
 
     use super::*;
-
-    fn build_proof(leaves: &[MKTreeNode]) -> StdResult<MKProof> {
-        let store = MKTreeStore::default();
-        let mktree =
-            MKTree::new(leaves, &store).with_context(|| "MKTree creation should not fail")?;
-        mktree.compute_proof(leaves)
-    }
 
     #[test]
     fn test_simple_message() {
@@ -89,14 +78,7 @@ mod tests {
 
         let mut transactions_set_proofs = Vec::new();
         for transaction_hashes_in_chunk in transactions_hashes_certified.chunks(2) {
-            let mk_proof = build_proof(
-                transaction_hashes_in_chunk
-                    .iter()
-                    .map(|h| h.to_owned().into())
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )
-            .unwrap();
+            let mk_proof = MKProof::from_leaves(transaction_hashes_in_chunk).unwrap();
             transactions_set_proofs.push(CardanoTransactionsSetProof::new(
                 transaction_hashes_in_chunk.to_vec(),
                 mk_proof,

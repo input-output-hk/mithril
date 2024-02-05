@@ -76,28 +76,7 @@ impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessage
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Context;
-
-    use crate::crypto_helper::{MKTree, MKTreeNode, MKTreeStore};
-
     use super::*;
-
-    fn build_proof<T: Into<MKTreeNode> + Clone>(
-        leaves: &[T],
-        leaves_to_verify: &[T],
-    ) -> StdResult<MKProof> {
-        let leaves = to_mknode(leaves);
-        let leaves_to_verify = to_mknode(leaves_to_verify);
-
-        let store = MKTreeStore::default();
-        let mktree =
-            MKTree::new(&leaves, &store).with_context(|| "MKTree creation should not fail")?;
-        mktree.compute_proof(&leaves_to_verify)
-    }
-
-    fn to_mknode<T: Into<MKTreeNode> + Clone>(hashes: &[T]) -> Vec<MKTreeNode> {
-        hashes.iter().map(|h| h.clone().into()).collect()
-    }
 
     #[test]
     fn should_verify_where_all_hashes_are_contained_in_the_proof() {
@@ -110,7 +89,8 @@ mod tests {
         ];
         let transaction_hashes_to_verify = &transaction_hashes[0..2];
         let transactions_proof =
-            build_proof(&transaction_hashes, transaction_hashes_to_verify).unwrap();
+            MKProof::from_subset_of_leaves(&transaction_hashes, transaction_hashes_to_verify)
+                .unwrap();
 
         let proof = CardanoTransactionsSetProof::new(
             transaction_hashes_to_verify.to_vec(),
@@ -129,7 +109,7 @@ mod tests {
             "tx-5".to_string(),
         ];
         let transactions_proof =
-            build_proof(&transaction_hashes, &transaction_hashes[0..2]).unwrap();
+            MKProof::from_subset_of_leaves(&transaction_hashes, &transaction_hashes[0..2]).unwrap();
         let transaction_hashes_not_verified = &transaction_hashes[1..3];
 
         let proof = CardanoTransactionsSetProof::new(
