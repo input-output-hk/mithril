@@ -1,6 +1,8 @@
+use mithril_common::messages::CardanoTransactionsSetProofMessagePart;
 use mithril_common::{
     entities::{CardanoTransactionsSetProof, TransactionHash},
     messages::CardanoTransactionsProofsMessage,
+    StdResult,
 };
 
 /// Adapter to spawn [CardanoTransactionsProofsMessage] from [CardanoTransactionsProofs] instances.
@@ -8,24 +10,50 @@ pub struct ToCardanoTransactionsProofsMessageAdapter;
 
 impl ToCardanoTransactionsProofsMessageAdapter {
     /// Turn an entity instance into message.
-    pub fn adapt(
+    pub fn try_adapt(
+        certificate_hash: &str,
         transactions_set_proofs: Vec<CardanoTransactionsSetProof>,
         transaction_hashes_to_certify: Vec<TransactionHash>,
-    ) -> CardanoTransactionsProofsMessage {
-        let transactions_hashes_certified = transactions_set_proofs
-            .iter()
-            .flat_map(|proof| proof.transactions_hashes().to_vec())
-            .collect::<Vec<_>>();
-        let transactions_hashes_not_certified = transaction_hashes_to_certify
-            .iter()
-            .filter(|hash| !transactions_hashes_certified.contains(hash))
-            .cloned()
-            .collect::<Vec<_>>();
-        CardanoTransactionsProofsMessage::new(
-            transactions_set_proofs,
+    ) -> StdResult<CardanoTransactionsProofsMessage> {
+        let transactions_hashes_not_certified = compute_not_certified_transactions(
+            &transactions_set_proofs,
+            &transaction_hashes_to_certify,
+        );
+
+        Ok(CardanoTransactionsProofsMessage::new(
+            certificate_hash,
+            try_adapt_set_proof_message(transactions_set_proofs)?,
             transactions_hashes_not_certified,
-        )
+        ))
     }
+}
+
+fn compute_not_certified_transactions(
+    transactions_set_proofs: &[CardanoTransactionsSetProof],
+    transaction_hashes_to_certify: &[TransactionHash],
+) -> Vec<TransactionHash> {
+    let transactions_hashes_certified = transactions_set_proofs
+        .iter()
+        .flat_map(|proof| proof.transactions_hashes().to_vec())
+        .collect::<Vec<_>>();
+
+    transaction_hashes_to_certify
+        .iter()
+        .filter(|hash| !transactions_hashes_certified.contains(hash))
+        .cloned()
+        .collect()
+}
+
+fn try_adapt_set_proof_message(
+    transactions_set_proofs: Vec<CardanoTransactionsSetProof>,
+) -> StdResult<Vec<CardanoTransactionsSetProofMessagePart>> {
+    let mut messages = vec![];
+
+    for set_proof in transactions_set_proofs {
+        messages.push(set_proof.try_into()?);
+    }
+
+    Ok(messages)
 }
 
 #[cfg(test)]
@@ -75,11 +103,19 @@ mod tests {
             ))
         }
 
-        let message = ToCardanoTransactionsProofsMessageAdapter::adapt(
+        let certificate_hash = "certificate_hash";
+        let message = ToCardanoTransactionsProofsMessageAdapter::try_adapt(
+            certificate_hash,
             transactions_set_proofs.clone(),
             transaction_hashes.to_vec(),
-        );
+        )
+        .unwrap();
+        let transactions_set_proofs = transactions_set_proofs
+            .into_iter()
+            .map(|p| p.try_into().unwrap())
+            .collect();
         let expected_message = CardanoTransactionsProofsMessage::new(
+            certificate_hash,
             transactions_set_proofs,
             transactions_hashes_non_certified.to_vec(),
         );

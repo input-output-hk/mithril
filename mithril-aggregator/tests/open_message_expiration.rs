@@ -21,7 +21,7 @@ async fn open_message_expiration() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        data_stores_directory: get_test_dir("create_certificate"),
+        data_stores_directory: get_test_dir("open_message_expiration"),
         ..Configuration::new_sample()
     };
     let mut tester =

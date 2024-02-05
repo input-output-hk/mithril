@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.15
+  version: 0.1.16
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -342,6 +342,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CardanoTransactionProofMessage"
+        "404":
+          description: No Cardano transactions were ever signed
         "412":
           description: API version mismatch
         default:
@@ -1565,19 +1567,24 @@ components:
       type: object
       additionalProperties: false
       required:
+        - certificate_hash
         - certified_transactions
         - non_certified_transactions
       properties:
+        certificate_hash:
+          description: Hash of the certificate that validate the merkle root of this proof
+          type: string
+          format: bytes
         certified_transactions:
           description: Proofs for certified Cardano transactions
           type: array
           items:
             type: object
             required:
-              - transaction_hashes
+              - transactions_hashes
               - proof
             properties:
-              transaction_hashes:
+              transactions_hashes:
                 type: array
                 items:
                   description: Hash of the Cardano transactions
@@ -1595,8 +1602,9 @@ components:
             format: bytes
       example:
         {
+          "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "certified_transactions": [{
-            "transaction_hashes": ["6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732", "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732"],
+            "transactions_hashes": ["6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732", "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732"],
             "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
           }],
           "non_certified_transactions": ["732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"],

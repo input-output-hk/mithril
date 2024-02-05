@@ -5,7 +5,7 @@ use async_trait::async_trait;
 
 use mithril_common::{
     crypto_helper::{MKTree, MKTreeNode, MKTreeStore},
-    entities::{CardanoTransaction, CardanoTransactionsSetProof, TransactionHash},
+    entities::{Beacon, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash},
     StdResult,
 };
 
@@ -19,6 +19,7 @@ pub trait ProverService: Sync + Send {
     /// Compute the cryptographic proofs for the given transactions
     async fn compute_transactions_proofs(
         &self,
+        up_to: &Beacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 }
@@ -27,8 +28,8 @@ pub trait ProverService: Sync + Send {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait TransactionsRetriever: Sync + Send {
-    /// Get all transactions
-    async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>>;
+    /// Get transactions up to given beacon
+    async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
 }
 
 /// Mithril prover
@@ -49,9 +50,10 @@ impl MithrilProverService {
 impl ProverService for MithrilProverService {
     async fn compute_transactions_proofs(
         &self,
+        up_to: &Beacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
-        let transactions = self.transaction_retriever.get_all().await?;
+        let transactions = self.transaction_retriever.get_up_to(up_to).await?;
         let mk_leaves_all: Vec<MKTreeNode> =
             transactions.iter().map(|t| t.to_owned().into()).collect();
         let store = MKTreeStore::default();
@@ -86,6 +88,8 @@ impl ProverService for MithrilProverService {
 mod tests {
     use anyhow::anyhow;
     use mithril_common::entities::CardanoTransaction;
+    use mithril_common::test_utils::fake_data;
+    use mockall::predicate::eq;
 
     use super::*;
 
@@ -109,11 +113,12 @@ mod tests {
         let (transaction_hashes, transactions) = generate_transactions(3);
         let mut transaction_retriever = MockTransactionsRetriever::new();
         transaction_retriever
-            .expect_get_all()
-            .return_once(move || Ok(transactions));
+            .expect_get_up_to()
+            .with(eq(fake_data::beacon()))
+            .return_once(move |_| Ok(transactions));
         let prover = MithrilProverService::new(Arc::new(transaction_retriever));
         let transactions_set_proof = prover
-            .compute_transactions_proofs(&transaction_hashes)
+            .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
             .unwrap();
 
@@ -130,11 +135,12 @@ mod tests {
         let (transaction_hashes, _transactions) = generate_transactions(3);
         let mut transaction_retriever = MockTransactionsRetriever::new();
         transaction_retriever
-            .expect_get_all()
-            .returning(|| Ok(vec![]));
+            .expect_get_up_to()
+            .with(eq(fake_data::beacon()))
+            .returning(|_| Ok(vec![]));
         let prover = MithrilProverService::new(Arc::new(transaction_retriever));
         let transactions_set_proof = prover
-            .compute_transactions_proofs(&transaction_hashes)
+            .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
             .unwrap();
 
@@ -142,17 +148,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compute_proof_for_one_set_of_three_known_transactions_and_two_unkwnows() {
+    async fn compute_proof_for_one_set_of_three_known_transactions_and_two_unknowns() {
         let (transaction_hashes, transactions) = generate_transactions(5);
         // The last two are not in the "store"
         let transactions = transactions[0..=2].to_vec();
         let mut transaction_retriever = MockTransactionsRetriever::new();
         transaction_retriever
-            .expect_get_all()
-            .return_once(move || Ok(transactions));
+            .expect_get_up_to()
+            .with(eq(fake_data::beacon()))
+            .return_once(move |_| Ok(transactions));
         let prover = MithrilProverService::new(Arc::new(transaction_retriever));
         let transactions_set_proof = prover
-            .compute_transactions_proofs(&transaction_hashes)
+            .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
             .unwrap();
 
@@ -172,12 +179,13 @@ mod tests {
         let (transaction_hashes, _transactions) = generate_transactions(3);
         let mut transaction_retriever = MockTransactionsRetriever::new();
         transaction_retriever
-            .expect_get_all()
-            .returning(|| Err(anyhow!("Error")));
+            .expect_get_up_to()
+            .with(eq(fake_data::beacon()))
+            .returning(|_| Err(anyhow!("Error")));
 
         let prover = MithrilProverService::new(Arc::new(transaction_retriever));
         prover
-            .compute_transactions_proofs(&transaction_hashes)
+            .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
             .expect_err("Should have failed because of its retriever");
     }

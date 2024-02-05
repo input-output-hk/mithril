@@ -1,11 +1,15 @@
-use crate::entities::{CardanoTransactionsSetProof, TransactionHash};
+use crate::entities::TransactionHash;
+use crate::messages::CardanoTransactionsSetProofMessagePart;
 use serde::{Deserialize, Serialize};
 
 /// A cryptographic proof for a set of Cardano transactions
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CardanoTransactionsProofsMessage {
+    /// Hash of the certificate that validate this proof merkle root
+    certificate_hash: String,
+
     /// Transactions that have been certified
-    certified_transactions: Vec<CardanoTransactionsSetProof>,
+    certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
 
     /// Transactions that could not be certified
     non_certified_transactions: Vec<TransactionHash>,
@@ -14,10 +18,12 @@ pub struct CardanoTransactionsProofsMessage {
 impl CardanoTransactionsProofsMessage {
     /// Create a new `CardanoTransactionsProofsMessage`
     pub fn new(
-        certified_transactions: Vec<CardanoTransactionsSetProof>,
+        certificate_hash: &str,
+        certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
         non_certified_transactions: Vec<TransactionHash>,
     ) -> Self {
         Self {
+            certificate_hash: certificate_hash.to_string(),
             certified_transactions,
             non_certified_transactions,
         }
