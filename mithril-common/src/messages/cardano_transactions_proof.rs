@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CardanoTransactionsProofsMessage {
     /// Hash of the certificate that validate this proof merkle root
-    certificate_hash: String,
+    pub certificate_hash: String,
 
     /// Transactions that have been certified
-    certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
+    pub certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
 
     /// Transactions that could not be certified
-    non_certified_transactions: Vec<TransactionHash>,
+    pub non_certified_transactions: Vec<TransactionHash>,
 }
 
 impl CardanoTransactionsProofsMessage {
