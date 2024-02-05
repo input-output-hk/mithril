@@ -1,7 +1,7 @@
 use crate::crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStore, ProtocolMkProof};
 use crate::entities::TransactionHash;
 use crate::messages::CardanoTransactionsSetProofMessagePart;
-use crate::StdResult;
+use crate::{StdError, StdResult};
 
 /// A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set
 #[derive(Clone, Debug, PartialEq)]
@@ -63,12 +63,14 @@ impl CardanoTransactionsSetProof {
     }
 }
 
-impl From<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessagePart {
-    fn from(proof: CardanoTransactionsSetProof) -> Self {
-        Self {
+impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessagePart {
+    type Error = StdError;
+
+    fn try_from(proof: CardanoTransactionsSetProof) -> Result<Self, Self::Error> {
+        Ok(Self {
             transactions_hashes: proof.transactions_hashes,
-            proof: proof.transactions_proof.to_json_hex().unwrap(),
-        }
+            proof: proof.transactions_proof.to_json_hex()?,
+        })
     }
 }
 
