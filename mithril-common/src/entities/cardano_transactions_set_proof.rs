@@ -22,6 +22,11 @@ impl CardanoTransactionsSetProof {
         }
     }
 
+    /// Return the hex encoded merkle root of this proof
+    pub fn merkle_root(&self) -> String {
+        self.transactions_proof.root().to_hex()
+    }
+
     /// Get the hashes of the transactions certified by this proof
     pub fn transactions_hashes(&self) -> &[TransactionHash] {
         &self.transactions_hashes
@@ -65,6 +70,17 @@ impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessage
         Ok(Self {
             transactions_hashes: proof.transactions_hashes,
             proof: proof.transactions_proof.to_json_hex()?,
+        })
+    }
+}
+
+impl TryFrom<CardanoTransactionsSetProofMessagePart> for CardanoTransactionsSetProof {
+    type Error = StdError;
+
+    fn try_from(proof: CardanoTransactionsSetProofMessagePart) -> Result<Self, Self::Error> {
+        Ok(Self {
+            transactions_hashes: proof.transactions_hashes,
+            transactions_proof: ProtocolMkProof::from_json_hex(&proof.proof)?,
         })
     }
 }

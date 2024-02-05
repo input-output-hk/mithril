@@ -1,6 +1,5 @@
 use crate::extensions::fake::{FakeAggregator, FakeAggregatorCalls};
 use crate::extensions::routes::middleware::with_calls_middleware;
-use std::collections::HashMap;
 use warp::Filter;
 
 pub fn routes(
@@ -17,10 +16,15 @@ fn proof_cardano_transaction(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
-        .and(warp::query::<HashMap<String, String>>())
         .and(warp::path::full().map(move |p| p))
+        .and(warp::query::raw())
         .and(with_calls_middleware(calls.clone()))
-        .and_then(move |_query, fullpath, calls| {
-            FakeAggregator::store_call_and_return_value(fullpath, calls, returned_value.clone())
+        .and_then(move |fullpath, query, calls| {
+            FakeAggregator::store_call_with_query_and_return_value(
+                fullpath,
+                query,
+                calls,
+                returned_value.clone(),
+            )
         })
 }

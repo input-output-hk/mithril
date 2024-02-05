@@ -1,7 +1,7 @@
 mod extensions;
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
-use mithril_client::{aggregator_client::AggregatorRequest, ClientBuilder};
+use mithril_client::{aggregator_client::AggregatorRequest, ClientBuilder, MessageBuilder};
 
 #[tokio::test]
 async fn cardano_transaction_proof_get_validate() {
@@ -24,17 +24,21 @@ async fn cardano_transaction_proof_get_validate() {
         .get_proofs(&transactions_hashes)
         .await
         .expect("Getting proof for the transactions should not fail");
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}",
+            AggregatorRequest::GetTransactionsProofs {
+                transactions_hashes: transactions_hashes.iter().map(|h| h.to_string()).collect(),
+            }
+            .route()
+        ))
+    );
 
-    // 2 - validate each set proof
-    // 3 - compute mkroot for each proof
-    // 4 - validate all mkroot are the same
-    // returns the message (here: the ProtocolMessage is the MKRoot)
-    let message = cardano_transaction_proof_client
-        .validate_proofs(&proofs)
-        .await
-        .expect("Proofs should be valid");
+    // 2 - verify the proofs - returning the merkle root
+    let merkle_root = proofs.verify().expect("Proofs should be valid");
 
-    // 5 - validate certificate chain
+    // 3 - validate certificate chain
     let certificate = client
         .certificate()
         .verify_chain(&proofs.certificate_hash)
@@ -51,7 +55,10 @@ async fn cardano_transaction_proof_get_validate() {
         ))
     );
 
-    // 6 - validate that the mkroot match the one in the certificate
+    // 4 - validate that the mkroot match the one in the certificate
+    let message = MessageBuilder::new()
+        .compute_cardano_transactions_proofs_message(&certificate, &merkle_root);
+
     assert!(
         certificate.match_message(&message),
         "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",

@@ -4,7 +4,6 @@
 use crate::aggregator_client::{AggregatorClient, AggregatorRequest};
 use crate::{CardanoTransactionsProofs, MithrilResult};
 use anyhow::Context;
-use mithril_common::entities::ProtocolMessage;
 use std::sync::Arc;
 
 /// HTTP client for CardanoTransactionsAPI from the Aggregator
@@ -40,21 +39,6 @@ impl CardanoTransactionProofClient {
             }
             Err(e) => Err(e.into()),
         }
-    }
-
-    /// Verify the given proofs
-    ///
-    /// The following checks will be executed:
-    /// 1 - Check for each merkle proof that its leaves belongs to their merkle root
-    /// 2 - Obtain the merkle root for each proof
-    /// 3 - Check that all merkle root are the same
-    ///
-    /// If every check is okay, a [ProtocolMessage] associated to the
-    pub async fn verify_proofs(
-        &self,
-        _proofs: &CardanoTransactionsProofs,
-    ) -> MithrilResult<String> {
-        todo!()
     }
 }
 

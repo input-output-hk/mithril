@@ -98,6 +98,11 @@ pub struct MKProof {
 }
 
 impl MKProof {
+    /// Return a reference to its merkle root.
+    pub fn root(&self) -> &MKTreeNode {
+        &self.inner_root
+    }
+
     /// Verification of a Merkle proof
     pub fn verify(&self) -> StdResult<()> {
         MerkleProof::<MKTreeNode, MergeMKTreeNode>::new(

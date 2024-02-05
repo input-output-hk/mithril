@@ -2,7 +2,7 @@ use anyhow::Context;
 #[cfg(feature = "fs")]
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
-use mithril_common::messages::SignerWithStakeMessagePart;
+use mithril_common::messages::{CertificateMessage, SignerWithStakeMessagePart};
 use mithril_common::protocol::SignerBuilder;
 use slog::{o, Logger};
 #[cfg(feature = "fs")]
@@ -111,6 +111,20 @@ impl MessageBuilder {
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
+    }
+
+    /// Compute message for a Cardano Transactions Proofs.
+    pub fn compute_cardano_transactions_proofs_message(
+        &self,
+        transactions_proofs_certificate: &CertificateMessage,
+        merkle_root: &str,
+    ) -> ProtocolMessage {
+        let mut message = transactions_proofs_certificate.protocol_message.clone();
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+            merkle_root.to_string(),
+        );
+        message
     }
 }
 
