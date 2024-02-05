@@ -37,17 +37,15 @@ fn proof_cardano_transaction(
 }
 
 mod handlers {
-    use std::{convert::Infallible, sync::Arc};
-
-    use mithril_common::entities::{CardanoTransactionsSetProof, TransactionHash};
-    use mithril_common::StdResult;
     use reqwest::StatusCode;
     use slog_scope::{debug, warn};
+    use std::{convert::Infallible, sync::Arc};
 
     use crate::{
         http_server::routes::reply,
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
+        unwrap_to_internal_server_error,
     };
 
     use super::CardanoTransactionProofQueryParams;
@@ -67,57 +65,36 @@ mod handlers {
             transaction_parameters.transaction_hashes
         );
 
-        match signed_entity_service
-            .get_last_cardano_transaction_commitment()
-            .await
-        {
-            Ok(Some(signed_entity)) => {
-                let prover_service_result = prover_service
-                    .compute_transactions_proofs(
-                        &signed_entity.artifact.beacon,
-                        transaction_hashes.as_slice(),
-                    )
-                    .await;
+        match unwrap_to_internal_server_error!(
+            signed_entity_service
+                .get_last_cardano_transaction_commitment()
+                .await,
+            "proof_cardano_transaction::error"
+        ) {
+            Some(signed_entity) => {
+                let transactions_set_proofs = unwrap_to_internal_server_error!(
+                    prover_service
+                        .compute_transactions_proofs(
+                            &signed_entity.artifact.beacon,
+                            transaction_hashes.as_slice(),
+                        )
+                        .await,
+                    "proof_cardano_transaction::error"
+                );
 
-                Ok(reply_from_prover_service_result(
-                    &signed_entity.certificate_id,
-                    transaction_hashes,
-                    prover_service_result,
-                ))
+                let message = unwrap_to_internal_server_error!(
+                    ToCardanoTransactionsProofsMessageAdapter::try_adapt(
+                        &signed_entity.certificate_id,
+                        transactions_set_proofs,
+                        transaction_hashes,
+                    ),
+                    "proof_cardano_transaction::error"
+                );
+                Ok(reply::json(&message, StatusCode::OK))
             }
-            Ok(None) => {
+            None => {
                 warn!("proof_cardano_transaction::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
-            }
-            Err(err) => {
-                warn!("proof_cardano_transaction::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
-            }
-        }
-    }
-
-    fn reply_from_prover_service_result(
-        certificate_hash: &str,
-        transaction_hashes: Vec<TransactionHash>,
-        service_result: StdResult<Vec<CardanoTransactionsSetProof>>,
-    ) -> Box<dyn warp::Reply> {
-        match service_result {
-            Ok(transactions_set_proofs) => {
-                match ToCardanoTransactionsProofsMessageAdapter::try_adapt(
-                    certificate_hash,
-                    transactions_set_proofs,
-                    transaction_hashes,
-                ) {
-                    Ok(message) => reply::json(&message, StatusCode::OK),
-                    Err(err) => {
-                        warn!("proof_cardano_transaction::error"; "error" => ?err);
-                        reply::internal_server_error(err)
-                    }
-                }
-            }
-            Err(err) => {
-                warn!("proof_cardano_transaction::error"; "error" => ?err);
-                reply::internal_server_error(err)
             }
         }
     }
