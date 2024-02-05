@@ -1,4 +1,4 @@
-use crate::crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStore, ProtocolMkProof};
+use crate::crypto_helper::{MKProof, ProtocolMkProof};
 use crate::entities::TransactionHash;
 use crate::messages::CardanoTransactionsSetProofMessagePart;
 use crate::{StdError, StdResult};
@@ -41,25 +41,20 @@ impl CardanoTransactionsSetProof {
         Ok(())
     }
 
-    #[cfg(feature = "test_tools")]
-    /// Retrieve a dummy proof (for test only)
-    pub fn dummy() -> Self {
-        let transactions_hashes = vec![
-            "tx-1".to_string(),
-            "tx-2".to_string(),
-            "tx-3".to_string(),
-            "tx-4".to_string(),
-            "tx-5".to_string(),
-        ];
-        let leaves: Vec<MKTreeNode> = transactions_hashes
-            .iter()
-            .cloned()
-            .map(|h| h.into())
-            .collect();
-        let store = MKTreeStore::default();
-        let mktree = MKTree::new(&leaves, &store).unwrap();
+    cfg_test_tools! {
+        /// Retrieve a dummy proof (for test only)
+        pub fn dummy() -> Self {
+            let transactions_hashes = vec![
+                "tx-1".to_string(),
+                "tx-2".to_string(),
+                "tx-3".to_string(),
+                "tx-4".to_string(),
+                "tx-5".to_string(),
+            ];
+            let proof = MKProof::from_leaves(&transactions_hashes).unwrap();
 
-        Self::new(transactions_hashes, mktree.compute_proof(&leaves).unwrap())
+            Self::new(transactions_hashes, proof)
+        }
     }
 }
 

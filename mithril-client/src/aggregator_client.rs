@@ -74,6 +74,12 @@ pub enum AggregatorRequest {
         /// Snapshot as HTTP request body
         snapshot: String,
     },
+
+    /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
+    GetTransactionsProofs {
+        /// Hashes of the transactions to get proofs for.
+        transactions_hashes: Vec<String>,
+    },
 }
 
 impl AggregatorRequest {
@@ -97,6 +103,12 @@ impl AggregatorRequest {
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
                 "statistics/snapshot".to_string()
             }
+            AggregatorRequest::GetTransactionsProofs {
+                transactions_hashes,
+            } => format!(
+                "proof/cardano-transaction?transaction_hashes={}",
+                transactions_hashes.join(",")
+            ),
         }
     }
 
@@ -128,7 +140,7 @@ pub trait AggregatorClient: Sync + Send {
     ) -> Result<String, AggregatorClientError>;
 }
 
-/// Responsible of HTTP transport and API version check.
+/// Responsible for HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
     http_client: reqwest::Client,
     aggregator_endpoint: Url,
@@ -366,5 +378,71 @@ mod tests {
 
             assert_eq!(expected, client.aggregator_endpoint.as_str());
         }
+    }
+
+    #[test]
+    fn deduce_routes_from_request() {
+        assert_eq!(
+            "certificate/abc".to_string(),
+            AggregatorRequest::GetCertificate {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distribution/abc".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distribution/abc".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distributions".to_string(),
+            AggregatorRequest::ListMithrilStakeDistributions.route()
+        );
+
+        assert_eq!(
+            "artifact/snapshot/abc".to_string(),
+            AggregatorRequest::GetSnapshot {
+                digest: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/snapshots".to_string(),
+            AggregatorRequest::ListSnapshots.route()
+        );
+
+        assert_eq!(
+            "statistics/snapshot".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic {
+                snapshot: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "proof/cardano-transaction?transaction_hashes=abc,def,ghi,jkl".to_string(),
+            AggregatorRequest::GetTransactionsProofs {
+                transactions_hashes: vec![
+                    "abc".to_string(),
+                    "def".to_string(),
+                    "ghi".to_string(),
+                    "jkl".to_string()
+                ]
+            }
+            .route()
+        );
     }
 }
