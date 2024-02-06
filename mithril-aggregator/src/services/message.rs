@@ -1,4 +1,4 @@
-//! This service is responsible of providing HTTP server with messages as fast as possible.
+//! This service is responsible for providing HTTP server with messages as fast as possible.
 
 use std::sync::Arc;
 
@@ -8,9 +8,9 @@ use thiserror::Error;
 use mithril_common::{
     entities::SignedEntityTypeDiscriminants,
     messages::{
-        CardanoTransactionListMessage, CardanoTransactionMessage, CertificateListMessage,
-        CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
-        SnapshotListMessage, SnapshotMessage,
+        CardanoTransactionCommitmentListMessage, CardanoTransactionCommitmentMessage,
+        CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
+        MithrilStakeDistributionMessage, SnapshotListMessage, SnapshotMessage,
     },
     StdResult,
 };
@@ -67,13 +67,13 @@ pub trait MessageService: Sync + Send {
     async fn get_cardano_transaction_message(
         &self,
         signed_entity_id: &str,
-    ) -> StdResult<Option<CardanoTransactionMessage>>;
+    ) -> StdResult<Option<CardanoTransactionCommitmentMessage>>;
 
     /// Return the list of the last Cardano transactions set message
     async fn get_cardano_transaction_list_message(
         &self,
         limit: usize,
-    ) -> StdResult<CardanoTransactionListMessage>;
+    ) -> StdResult<CardanoTransactionCommitmentListMessage>;
 }
 
 /// Implementation of the [MessageService]
@@ -165,7 +165,7 @@ impl MessageService for MithrilMessageService {
     async fn get_cardano_transaction_message(
         &self,
         signed_entity_id: &str,
-    ) -> StdResult<Option<CardanoTransactionMessage>> {
+    ) -> StdResult<Option<CardanoTransactionCommitmentMessage>> {
         let signed_entity = self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)
@@ -177,7 +177,7 @@ impl MessageService for MithrilMessageService {
     async fn get_cardano_transaction_list_message(
         &self,
         limit: usize,
-    ) -> StdResult<CardanoTransactionListMessage> {
+    ) -> StdResult<CardanoTransactionCommitmentListMessage> {
         let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoTransactions;
         let entities = self
             .signed_entity_storer

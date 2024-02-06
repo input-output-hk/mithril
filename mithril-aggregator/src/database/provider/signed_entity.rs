@@ -11,7 +11,7 @@ use mithril_common::{
         Beacon, Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
     messages::{
-        CardanoTransactionListItemMessage, CardanoTransactionMessage,
+        CardanoTransactionCommitmentListItemMessage, CardanoTransactionCommitmentMessage,
         MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
         SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
     },
@@ -137,7 +137,7 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionListItemMessage {
     }
 }
 
-impl TryFrom<SignedEntityRecord> for CardanoTransactionMessage {
+impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
@@ -148,7 +148,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionMessage {
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
-        let cardano_transaction_message = CardanoTransactionMessage {
+        let cardano_transaction_message = CardanoTransactionCommitmentMessage {
             merkle_root: artifact.merkle_root,
             beacon: artifact.beacon,
             hash: artifact.hash,
@@ -160,7 +160,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionMessage {
     }
 }
 
-impl TryFrom<SignedEntityRecord> for CardanoTransactionListItemMessage {
+impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentListItemMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
@@ -171,7 +171,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionListItemMessage {
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
-        let message = CardanoTransactionListItemMessage {
+        let message = CardanoTransactionCommitmentListItemMessage {
             merkle_root: artifact.merkle_root,
             beacon: artifact.beacon,
             hash: artifact.hash,

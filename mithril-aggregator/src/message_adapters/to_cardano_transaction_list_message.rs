@@ -1,24 +1,25 @@
 use mithril_common::entities::{CardanoTransactionsCommitment, SignedEntity};
 use mithril_common::messages::{
-    CardanoTransactionListItemMessage, CardanoTransactionListMessage, ToMessageAdapter,
+    CardanoTransactionCommitmentListItemMessage, CardanoTransactionCommitmentListMessage,
+    ToMessageAdapter,
 };
 
-/// Adapter to convert a list of [CardanoTransaction] to [CardanoTransactionListMessage] instances
+/// Adapter to convert a list of [CardanoTransaction] to [CardanoTransactionCommitmentListMessage] instances
 pub struct ToCardanoTransactionListMessageAdapter;
 
 impl
     ToMessageAdapter<
         Vec<SignedEntity<CardanoTransactionsCommitment>>,
-        CardanoTransactionListMessage,
+        CardanoTransactionCommitmentListMessage,
     > for ToCardanoTransactionListMessageAdapter
 {
     /// Method to trigger the conversion
     fn adapt(
         snapshots: Vec<SignedEntity<CardanoTransactionsCommitment>>,
-    ) -> CardanoTransactionListMessage {
+    ) -> CardanoTransactionCommitmentListMessage {
         snapshots
             .into_iter()
-            .map(|entity| CardanoTransactionListItemMessage {
+            .map(|entity| CardanoTransactionCommitmentListItemMessage {
                 merkle_root: entity.artifact.merkle_root.clone(),
                 beacon: entity.artifact.beacon.clone(),
                 hash: entity.artifact.hash,
@@ -37,7 +38,7 @@ mod tests {
     fn adapt_ok() {
         let signed_entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
         let mithril_stake_distribution_list_message_expected =
-            vec![CardanoTransactionListItemMessage {
+            vec![CardanoTransactionCommitmentListItemMessage {
                 merkle_root: signed_entity.artifact.merkle_root.clone(),
                 beacon: signed_entity.artifact.beacon.clone(),
                 hash: signed_entity.artifact.hash.clone(),

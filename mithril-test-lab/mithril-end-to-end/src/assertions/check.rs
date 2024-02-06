@@ -6,8 +6,9 @@ use anyhow::anyhow;
 use mithril_common::{
     entities::Epoch,
     messages::{
-        CardanoTransactionListMessage, CardanoTransactionMessage, CertificateMessage,
-        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SnapshotMessage,
+        CardanoTransactionCommitmentListMessage, CardanoTransactionCommitmentMessage,
+        CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
+        SnapshotMessage,
     },
     StdResult,
 };
@@ -169,7 +170,7 @@ pub async fn assert_node_producing_cardano_transactions(
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response
-                    .json::<CardanoTransactionListMessage>()
+                    .json::<CardanoTransactionCommitmentListMessage>()
                     .await
                     .as_deref()
                 {
@@ -210,7 +211,7 @@ pub async fn assert_signer_is_signing_cardano_transactions(
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CardanoTransactionMessage>().await {
+                StatusCode::OK => match response.json::<CardanoTransactionCommitmentMessage>().await {
                     Ok(artifact) => match artifact.beacon.epoch {
                         epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
                         epoch => Err(anyhow!(

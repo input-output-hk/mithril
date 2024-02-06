@@ -267,20 +267,20 @@ paths:
 
   /artifact/cardano-transactions:
     get:
-      summary: Get most recent Cardano transactions sets
+      summary: Get most recent Cardano transactions commitments
       description: |
-        Returns the list of the most recent Cardano transactions sets
+        Returns the list of the most recent Cardano transactions commitments
       responses:
         "200":
-          description: Cardano transactions set found
+          description: Cardano transactions commitments found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CardanoTransactionListMessage"
+                $ref: "#/components/schemas/CardanoTransactionCommitmentListMessage"
         "412":
           description: API version mismatch
         default:
-          description: Cardano transactions set retrieval error
+          description: Cardano transactions commitments retrieval error
           content:
             application/json:
               schema:
@@ -288,13 +288,13 @@ paths:
 
   /artifact/cardano-transaction/{hash}:
     get:
-      summary: Get Cardano transactions set information
+      summary: Get Cardano transactions commitment information
       description: |
-        Returns the information of a Cardano transactions set
+        Returns the information of a Cardano transactions commitment
       parameters:
         - name: hash
           in: path
-          description: Hash of the Cardano transactions set to retrieve
+          description: Hash of the Cardano transactions commitment to retrieve
           required: true
           schema:
             type: string
@@ -302,17 +302,17 @@ paths:
           example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
       responses:
         "200":
-          description: Cardano transactions set found
+          description: Cardano transactions commitment found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CardanoTransactionMessage"
+                $ref: "#/components/schemas/CardanoTransactionCommitmentMessage"
         "404":
-          description: Cardano transactions set not found
+          description: Cardano transactions commitment not found
         "412":
           description: API version mismatch
         default:
-          description: Cardano transactions set retrieval error
+          description: Cardano transactions commitment retrieval error
           content:
             application/json:
               schema:
@@ -1476,7 +1476,7 @@ components:
         "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
         }
 
-    CardanoTransactionListMessage:
+    CardanoTransactionCommitmentListMessage:
       description: CardanoTransactionListMessage represents a list of Cardano transactions set
       type: array
       items:
@@ -1520,7 +1520,7 @@ components:
             "created_at": "2022-06-14T10:52:31Z"
           }
 
-    CardanoTransactionMessage:
+    CardanoTransactionCommitmentMessage:
       description: This message represents a Cardano transactions set.
       type: object
       additionalProperties: false

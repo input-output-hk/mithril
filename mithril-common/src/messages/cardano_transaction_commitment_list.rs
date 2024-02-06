@@ -5,19 +5,19 @@ use crate::entities::Beacon;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 
-/// Message structure of a Cardano Transactions set list
-pub type CardanoTransactionListMessage = Vec<CardanoTransactionListItemMessage>;
+/// Message structure of a Cardano Transactions Commitments list
+pub type CardanoTransactionCommitmentListMessage = Vec<CardanoTransactionCommitmentListItemMessage>;
 
-/// Message structure of a Cardano Transactions set list item
+/// Message structure of a Cardano Transactions Commitment list item
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct CardanoTransactionListItemMessage {
-    /// Merkle root of the Cardano transactions set
+pub struct CardanoTransactionCommitmentListItemMessage {
+    /// Merkle root of the Cardano transactions commitment
     pub merkle_root: String,
 
-    /// Beacon of the Cardano transactions set
+    /// Beacon of the Cardano transactions commitment
     pub beacon: Beacon,
 
-    /// Hash of the Cardano Transactions set
+    /// Hash of the Cardano Transactions commitment
     pub hash: String,
 
     /// Hash of the associated certificate
@@ -27,7 +27,7 @@ pub struct CardanoTransactionListItemMessage {
     pub created_at: DateTime<Utc>,
 }
 
-impl CardanoTransactionListItemMessage {
+impl CardanoTransactionCommitmentListItemMessage {
     cfg_test_tools! {
         /// Return a dummy test entity (test-only).
         pub fn dummy() -> Self {
@@ -50,8 +50,8 @@ mod tests {
 
     use super::*;
 
-    fn golden_message() -> CardanoTransactionListMessage {
-        vec![CardanoTransactionListItemMessage {
+    fn golden_message() -> CardanoTransactionCommitmentListMessage {
+        vec![CardanoTransactionCommitmentListItemMessage {
             merkle_root: "mkroot-123".to_string(),
             beacon: fake_data::beacon(),
             hash: "hash-123".to_string(),
@@ -78,7 +78,7 @@ mod tests {
         }]"#;
         println!("message: {:?}", golden_message());
 
-        let message: CardanoTransactionListMessage = serde_json::from_str(json).expect(
+        let message: CardanoTransactionCommitmentListMessage = serde_json::from_str(json).expect(
                     "This JSON is expected to be succesfully parsed into a CardanoTransactionListMessage instance.",
                 );
         assert_eq!(golden_message(), message);
