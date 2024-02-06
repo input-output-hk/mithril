@@ -567,7 +567,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ testing-preview ]
+        environment: [ testing-preview, testing-sanchonet ]
         include:
         - environment: testing-preview
           environment_prefix: testing
@@ -599,6 +599,30 @@ jobs:
           google_region: europe-west1
           google_zone: europe-west1-b
           google_machine_type: e2-standard-8
+          google_compute_instance_boot_disk_size: 200
+          google_compute_instance_data_disk_size: 250
+        - environment: testing-sanchonet
+          environment_prefix: testing
+          cardano_network: sanchonet
+          mithril_use_p2p_network: false
+          mithril_api_domain: api.mithril.network
+          mithril_protocol_parameters: |
+            {
+              k     = 5
+              m     = 100
+              phi_f = 0.65
+            }
+          mithril_signers: |
+            {
+              "1" = {
+                type    = "verified",
+                pool_id = "",
+              },
+            }
+          terraform_backend_bucket: hydra-terraform-admin
+          google_region: europe-west1
+          google_zone: europe-west1-b
+          google_machine_type: e2-highmem-4
           google_compute_instance_boot_disk_size: 200
           google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
