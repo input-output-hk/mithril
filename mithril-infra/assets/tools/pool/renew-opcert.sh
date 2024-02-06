@@ -7,7 +7,7 @@
 . $(dirname -- "$0")/_prelude.sh
 
 # Compute Operational Certificate new counter on running node
-CARDANO_CLI_CMD query kes-period-info \
+CARDANO_CLI_CMD ${CARDANO_ERA} query kes-period-info \
 --testnet-magic $NETWORK_MAGIC \
 --op-cert-file ${POOL_ARTIFACTS_DIR}/opcert.cert \
 --out-file ${POOL_ARTIFACTS_DIR}/kes_period_info.json
@@ -17,18 +17,18 @@ OPCERT_COUNTER_NEW=$(( $OPCERT_COUNTER + 1 ))
 
 # Issue new Operational Certificate on cold environment
 ## Create new counter
-CARDANO_CLI_CMD node new-counter \
+CARDANO_CLI_CMD ${CARDANO_ERA} node new-counter \
 --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey \
 --counter-value $OPCERT_COUNTER_NEW \
 --operational-certificate-issue-counter-file ${POOL_ARTIFACTS_DIR}/opcert.counter.new
 
 ## Generate new KES keys (required only if MaxKESEvolutions is reached)
-CARDANO_CLI_CMD node key-gen-KES \
+CARDANO_CLI_CMD ${CARDANO_ERA} node key-gen-KES \
 --verification-key-file ${POOL_ARTIFACTS_DIR}/kes.vkey.new \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/kes.skey.new
 
 ## Issue new Operational Certificate
-CARDANO_CLI_CMD node issue-op-cert \
+CARDANO_CLI_CMD ${CARDANO_ERA} node issue-op-cert \
 --kes-verification-key-file ${POOL_ARTIFACTS_DIR}/kes.vkey.new \
 --cold-signing-key-file ${POOL_ARTIFACTS_DIR}/cold.skey \
 --operational-certificate-issue-counter-file ${POOL_ARTIFACTS_DIR}/opcert.counter.new \
