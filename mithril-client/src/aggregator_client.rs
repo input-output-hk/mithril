@@ -80,6 +80,15 @@ pub enum AggregatorRequest {
         /// Hashes of the transactions to get proofs for.
         transactions_hashes: Vec<String>,
     },
+
+    /// Get a specific [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    GetCardanoTransactionCommitment {
+        /// Hash of the Cardano transaction commitment to retrieve
+        hash: String,
+    },
+
+    /// Lists the aggregator [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    ListCardanoTransactionCommitments,
 }
 
 impl AggregatorRequest {
@@ -109,6 +118,12 @@ impl AggregatorRequest {
                 "proof/cardano-transaction?transaction_hashes={}",
                 transactions_hashes.join(",")
             ),
+            AggregatorRequest::GetCardanoTransactionCommitment { hash } => {
+                format!("artifact/cardano-transaction/{hash}")
+            }
+            AggregatorRequest::ListCardanoTransactionCommitments => {
+                "artifact/cardano-transactions".to_string()
+            }
         }
     }
 
@@ -443,6 +458,19 @@ mod tests {
                 ]
             }
             .route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-transaction/abc".to_string(),
+            AggregatorRequest::GetCardanoTransactionCommitment {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/cardano-transactions".to_string(),
+            AggregatorRequest::ListCardanoTransactionCommitments.route()
         );
     }
 }

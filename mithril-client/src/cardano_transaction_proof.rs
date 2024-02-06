@@ -1,8 +1,11 @@
 //! A client to retrieve and verify proof of cardano transactions from an Aggregator.
 //!
 
-use crate::aggregator_client::{AggregatorClient, AggregatorRequest};
-use crate::{CardanoTransactionsProofs, MithrilResult};
+use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
+use crate::{
+    CardanoTransactionCommitment, CardanoTransactionCommitmentListItem, CardanoTransactionsProofs,
+    MithrilResult,
+};
 use anyhow::Context;
 use std::sync::Arc;
 
@@ -40,16 +43,124 @@ impl CardanoTransactionProofClient {
             Err(e) => Err(e.into()),
         }
     }
+
+    /// Fetch a list of signed Cardano transaction commitment
+    pub async fn list(&self) -> MithrilResult<Vec<CardanoTransactionCommitmentListItem>> {
+        let response = self
+            .aggregator_client
+            .get_content(AggregatorRequest::ListCardanoTransactionCommitments)
+            .await
+            .with_context(|| {
+                "CardanoTransactionProofClient Client can not get the artifact list"
+            })?;
+        let items = serde_json::from_str::<Vec<CardanoTransactionCommitmentListItem>>(&response)
+            .with_context(|| {
+                "CardanoTransactionProofClient Client can not deserialize artifact list"
+            })?;
+
+        Ok(items)
+    }
+
+    /// Get the given Cardano transaction commitment data. If it cannot be found, a None is returned.
+    pub async fn get(&self, hash: &str) -> MithrilResult<Option<CardanoTransactionCommitment>> {
+        match self
+            .aggregator_client
+            .get_content(AggregatorRequest::GetCardanoTransactionCommitment {
+                hash: hash.to_string(),
+            })
+            .await
+        {
+            Ok(content) => {
+                let cardano_transaction_commitment: CardanoTransactionCommitment =
+                    serde_json::from_str(&content).with_context(|| {
+                        "CardanoTransactionProofClient Client can not deserialize artifact"
+                    })?;
+
+                Ok(Some(cardano_transaction_commitment))
+            }
+            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
-    use crate::{CardanoTransactionsProofs, CardanoTransactionsSetProof};
+    use crate::common::Beacon;
+    use crate::{
+        CardanoTransactionCommitment, CardanoTransactionCommitmentListItem,
+        CardanoTransactionsProofs, CardanoTransactionsSetProof,
+    };
     use anyhow::anyhow;
+    use chrono::{DateTime, Utc};
     use std::sync::Arc;
 
     use super::*;
+
+    fn fake_messages() -> Vec<CardanoTransactionCommitmentListItem> {
+        vec![
+            CardanoTransactionCommitmentListItem {
+                merkle_root: "mk-123".to_string(),
+                beacon: Beacon::new("network".to_string(), 1, 1),
+                hash: "hash-123".to_string(),
+                certificate_hash: "cert-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            },
+            CardanoTransactionCommitmentListItem {
+                merkle_root: "mk-456".to_string(),
+                beacon: Beacon::new("network".to_string(), 1, 2),
+                hash: "hash-456".to_string(),
+                certificate_hash: "cert-hash-456".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            },
+        ]
+    }
+
+    #[tokio::test]
+    async fn get_cardano_transaction_commitment_list() {
+        let message = fake_messages();
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+        let client = CardanoTransactionProofClient::new(Arc::new(http_client));
+        let items = client.list().await.unwrap();
+
+        assert_eq!(2, items.len());
+        assert_eq!("hash-123".to_string(), items[0].hash);
+        assert_eq!("hash-456".to_string(), items[1].hash);
+    }
+
+    #[tokio::test]
+    async fn get_cardano_transaction_commitment() {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        let message = CardanoTransactionCommitment {
+            merkle_root: "mk-123".to_string(),
+            beacon: Beacon::new("network".to_string(), 1, 1),
+            hash: "hash-123".to_string(),
+            certificate_hash: "cert-hash-123".to_string(),
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        };
+        let expected = message.clone();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+        let client = CardanoTransactionProofClient::new(Arc::new(http_client));
+        let cardano_transaction_commitment = client
+            .get("hash")
+            .await
+            .unwrap()
+            .expect("This test returns a cardano transaction commitment");
+
+        assert_eq!(expected, cardano_transaction_commitment);
+    }
 
     #[tokio::test]
     async fn test_get_proof_ok() {

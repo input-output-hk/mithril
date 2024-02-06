@@ -42,6 +42,10 @@ pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as Card
 
 pub use mithril_common::messages::VerifiedCardanoTransactions;
 
+pub use mithril_common::messages::CardanoTransactionCommitmentMessage as CardanoTransactionCommitment;
+
+pub use mithril_common::messages::CardanoTransactionCommitmentListItemMessage as CardanoTransactionCommitmentListItem;
+
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
