@@ -1,8 +1,6 @@
 use anyhow::Context;
 #[cfg(feature = "fs")]
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
-use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
-use mithril_common::messages::{CertificateMessage, SignerWithStakeMessagePart};
 use mithril_common::protocol::SignerBuilder;
 use slog::{o, Logger};
 #[cfg(feature = "fs")]
@@ -10,9 +8,11 @@ use std::path::Path;
 #[cfg(feature = "fs")]
 use std::sync::Arc;
 
-#[cfg(feature = "fs")]
-use crate::MithrilCertificate;
-use crate::{MithrilResult, MithrilStakeDistribution, VerifiedCardanoTransactions};
+use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
+use crate::{
+    MithrilCertificate, MithrilResult, MithrilSigner, MithrilStakeDistribution,
+    VerifiedCardanoTransactions,
+};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
@@ -89,10 +89,9 @@ impl MessageBuilder {
         &self,
         mithril_stake_distribution: &MithrilStakeDistribution,
     ) -> MithrilResult<ProtocolMessage> {
-        let signers = SignerWithStakeMessagePart::try_into_signers(
-            mithril_stake_distribution.signers_with_stake.clone(),
-        )
-        .with_context(|| "Could not compute message: conversion failure")?;
+        let signers =
+            MithrilSigner::try_into_signers(mithril_stake_distribution.signers_with_stake.clone())
+                .with_context(|| "Could not compute message: conversion failure")?;
 
         let signer_builder =
             SignerBuilder::new(&signers, &mithril_stake_distribution.protocol_parameters)
@@ -116,7 +115,7 @@ impl MessageBuilder {
     /// Compute message for a Cardano Transactions Proofs.
     pub fn compute_cardano_transactions_proofs_message(
         &self,
-        transactions_proofs_certificate: &CertificateMessage,
+        transactions_proofs_certificate: &MithrilCertificate,
         verified_transactions: &VerifiedCardanoTransactions,
     ) -> ProtocolMessage {
         let mut message = transactions_proofs_certificate.protocol_message.clone();

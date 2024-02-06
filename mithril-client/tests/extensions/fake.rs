@@ -1,12 +1,12 @@
 use super::routes;
 use crate::extensions::mock;
 use mithril_client::certificate_client::CertificateVerifier;
+use mithril_client::common::ProtocolMessagePartKey;
 use mithril_client::{
     CardanoTransactionsProofs, CardanoTransactionsSetProof, MessageBuilder, MithrilCertificate,
     MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
 };
 use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
-use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use std::convert::Infallible;
 use std::sync::Arc;
