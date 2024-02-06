@@ -21,7 +21,9 @@ pub use cardano_transaction::CardanoTransactionMessage;
 pub use cardano_transaction_list::{
     CardanoTransactionListItemMessage, CardanoTransactionListMessage,
 };
-pub use cardano_transactions_proof::CardanoTransactionsProofsMessage;
+pub use cardano_transactions_proof::{
+    CardanoTransactionsProofsMessage, VerifiedCardanoTransactions,
+};
 pub use certificate::CertificateMessage;
 pub use certificate_list::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,

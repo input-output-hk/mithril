@@ -35,8 +35,8 @@ async fn cardano_transaction_proof_get_validate() {
         ))
     );
 
-    // 2 - verify the proofs - returning the merkle root
-    let merkle_root = proofs.verify().expect("Proofs should be valid");
+    // 2 - verify the proofs
+    let verified_transactions = proofs.verify().expect("Proofs should be valid");
 
     // 3 - validate certificate chain
     let certificate = client
@@ -55,9 +55,9 @@ async fn cardano_transaction_proof_get_validate() {
         ))
     );
 
-    // 4 - validate that the mkroot match the one in the certificate
+    // 4 - validate that the verified transactions match the signed by the certificate
     let message = MessageBuilder::new()
-        .compute_cardano_transactions_proofs_message(&certificate, &merkle_root);
+        .compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
 
     assert!(
         certificate.match_message(&message),

@@ -6,6 +6,7 @@ use mithril_client::{
     MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
 };
 use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
+use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -134,13 +135,18 @@ impl FakeAggregator {
         })
         .unwrap();
 
-        let mut certificate = MithrilCertificate {
-            hash: certificate_hash.to_string(),
-            ..MithrilCertificate::dummy()
+        let certificate = {
+            let mut cert = MithrilCertificate {
+                hash: certificate_hash.to_string(),
+                ..MithrilCertificate::dummy()
+            };
+            cert.protocol_message.set_message_part(
+                ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+                proof.root().to_hex(),
+            );
+            cert.signed_message = cert.protocol_message.compute_hash();
+            cert
         };
-        certificate.signed_message = MessageBuilder::new()
-            .compute_cardano_transactions_proofs_message(&certificate, &proof.root().to_hex())
-            .compute_hash();
         let certificate_json = serde_json::to_string(&certificate).unwrap();
 
         test_http_server(routes::proof::routes(self.calls.clone(), proofs_json).or(

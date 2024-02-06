@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 #[cfg(feature = "fs")]
 use crate::MithrilCertificate;
-use crate::{MithrilResult, MithrilStakeDistribution};
+use crate::{MithrilResult, MithrilStakeDistribution, VerifiedCardanoTransactions};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
@@ -117,13 +117,10 @@ impl MessageBuilder {
     pub fn compute_cardano_transactions_proofs_message(
         &self,
         transactions_proofs_certificate: &CertificateMessage,
-        merkle_root: &str,
+        verified_transactions: &VerifiedCardanoTransactions,
     ) -> ProtocolMessage {
         let mut message = transactions_proofs_certificate.protocol_message.clone();
-        message.set_message_part(
-            ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
-            merkle_root.to_string(),
-        );
+        verified_transactions.fill_protocol_message(&mut message);
         message
     }
 }

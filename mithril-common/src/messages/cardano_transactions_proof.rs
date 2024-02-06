@@ -1,4 +1,6 @@
-use crate::entities::{CardanoTransactionsSetProof, TransactionHash};
+use crate::entities::{
+    CardanoTransactionsSetProof, ProtocolMessage, ProtocolMessagePartKey, TransactionHash,
+};
 use crate::messages::CardanoTransactionsSetProofMessagePart;
 use crate::StdError;
 use serde::{Deserialize, Serialize};
@@ -15,6 +17,38 @@ pub struct CardanoTransactionsProofsMessage {
 
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
+}
+
+/// Set of transactions verified by [CardanoTransactionsProofsMessage::verify].
+///
+/// Can be used to reconstruct part of a [ProtocolMessage] in order to check that
+/// it is indeed associated to the certificate it claims to.
+#[derive(Debug, Clone, PartialEq)]
+pub struct VerifiedCardanoTransactions {
+    certificate_hash: String,
+    merkle_root: String,
+    certified_transactions: Vec<TransactionHash>,
+}
+
+impl VerifiedCardanoTransactions {
+    /// Hash of the certificate that sign this struct merkle root.
+    pub fn certificate_hash(&self) -> &str {
+        &self.certificate_hash
+    }
+
+    /// Hashes of the certified transactions
+    pub fn certified_transactions(&self) -> &[TransactionHash] {
+        &self.certified_transactions
+    }
+
+    /// Fill the given [ProtocolMessage] with the data associated with this
+    /// verified transactions set.
+    pub fn fill_protocol_message(&self, message: &mut ProtocolMessage) {
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+            self.merkle_root.clone(),
+        );
+    }
 }
 
 #[derive(Error, Debug)]
@@ -65,7 +99,9 @@ impl CardanoTransactionsProofsMessage {
     /// 3 - Assert that there's at least one certified transaction
     ///
     /// If every check is okay, the hex encoded merkle root of the proof will be returned.
-    pub fn verify(&self) -> Result<String, VerifyCardanoTransactionsProofsError> {
+    pub fn verify(
+        &self,
+    ) -> Result<VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError> {
         let mut merkle_root = None;
 
         for certified_transaction in &self.certified_transactions {
@@ -89,7 +125,16 @@ impl CardanoTransactionsProofsMessage {
             }
         }
 
-        merkle_root.ok_or(VerifyCardanoTransactionsProofsError::NoCertifiedTransactions)
+        Ok(VerifiedCardanoTransactions {
+            certificate_hash: self.certificate_hash.clone(),
+            merkle_root: merkle_root
+                .ok_or(VerifyCardanoTransactionsProofsError::NoCertifiedTransactions)?,
+            certified_transactions: self
+                .certified_transactions
+                .iter()
+                .flat_map(|c| c.transactions_hashes.clone())
+                .collect(),
+        })
     }
 }
 
@@ -142,18 +187,22 @@ mod tests {
     #[test]
     fn verify_valid_proofs() {
         let set_proof = CardanoTransactionsSetProof::dummy();
-        let expected_merkle_root = set_proof.merkle_root();
+        let expected = VerifiedCardanoTransactions {
+            certificate_hash: "whatever".to_string(),
+            merkle_root: set_proof.merkle_root(),
+            certified_transactions: set_proof.transactions_hashes().to_vec(),
+        };
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
         );
 
-        let merkle_root = txs_proofs
+        let verified_txs = txs_proofs
             .verify()
             .expect("Valid txs proofs should verify itself");
 
-        assert_eq!(expected_merkle_root, merkle_root);
+        assert_eq!(expected, verified_txs);
     }
 
     #[test]

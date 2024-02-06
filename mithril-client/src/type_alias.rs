@@ -40,6 +40,8 @@ pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTra
 
 pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
 
+pub use mithril_common::messages::VerifiedCardanoTransactions;
+
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
