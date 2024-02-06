@@ -3335,7 +3335,6 @@ dependencies = [
  "clap",
  "clap_derive",
  "futures",
- "http 0.2.11",
  "mithril-common",
  "reqwest",
  "serde_json",
@@ -3345,6 +3344,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "warp",
 ]
 
 [[package]]
@@ -3440,7 +3440,6 @@ dependencies = [
  "fixed",
  "glob",
  "hex",
- "http 0.2.11",
  "jsonschema",
  "kes-summed-ed25519",
  "mithril-stm",

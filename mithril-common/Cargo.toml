@@ -28,7 +28,6 @@ ed25519-dalek = { version = "2.1.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"
 glob = { version = "0.3.1", optional = true }
 hex = "0.4.3"
-http = { version = "0.2.9", optional = true }
 jsonschema = { version = "0.17.1", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
@@ -107,7 +106,7 @@ allow_skip_signer_certification = []
 # Enable all tests tools
 test_tools = ["apispec", "test_http_server", "random"]
 # Enable tools to helps validate conformity to an OpenAPI specification
-apispec = ["dep:glob", "dep:http", "dep:jsonschema", "dep:warp"]
+apispec = ["dep:glob", "dep:jsonschema", "dep:warp"]
 test_http_server = ["dep:warp"]
 
 [package.metadata.docs.rs]
