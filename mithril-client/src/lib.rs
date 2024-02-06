@@ -71,7 +71,7 @@ macro_rules! cfg_fs {
 }
 
 pub mod aggregator_client;
-pub mod cardano_transaction_proof;
+pub mod cardano_transaction_proof_client;
 pub mod certificate_client;
 mod client;
 pub mod feedback;

@@ -5,7 +5,7 @@ use slog::{o, Logger};
 use std::sync::Arc;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
-use crate::cardano_transaction_proof::CardanoTransactionProofClient;
+use crate::cardano_transaction_proof_client::CardanoTransactionProofClient;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
