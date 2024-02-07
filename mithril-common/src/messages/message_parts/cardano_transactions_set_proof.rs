@@ -1,4 +1,4 @@
-use crate::entities::{CardanoTransactionsSetProof, HexEncodedKey, TransactionHash};
+use crate::entities::{HexEncodedKey, TransactionHash};
 use serde::{Deserialize, Serialize};
 
 /// A cryptographic proof of a set of Cardano transactions is included in the global Cardano transactions set
@@ -15,7 +15,7 @@ impl CardanoTransactionsSetProofMessagePart {
     cfg_test_tools! {
         /// Retrieve a dummy proof (for test only)
         pub fn dummy() -> Self {
-            CardanoTransactionsSetProof::dummy().try_into().unwrap()
+            crate::entities::CardanoTransactionsSetProof::dummy().try_into().unwrap()
         }
     }
 }

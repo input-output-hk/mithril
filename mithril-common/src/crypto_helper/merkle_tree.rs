@@ -1,4 +1,6 @@
-use anyhow::{anyhow, Context};
+use anyhow::anyhow;
+#[cfg(any(test, feature = "test_tools"))]
+use anyhow::Context;
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{util::MemStore, Merge, MerkleProof, Result as MMRResult, MMR};
 use serde::{Deserialize, Serialize};
