@@ -83,16 +83,18 @@ macro_rules! cfg_unstable {
 }
 
 pub mod aggregator_client;
-#[cfg(feature = "unstable")]
-pub mod cardano_transaction_proof_client;
+cfg_unstable! {
+    pub mod cardano_transaction_proof_client;
+}
 pub mod certificate_client;
 mod client;
 pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
-#[cfg(feature = "fs")]
-pub mod snapshot_downloader;
+cfg_fs! {
+    pub mod snapshot_downloader;
+}
 
 mod type_alias;
 mod utils;
