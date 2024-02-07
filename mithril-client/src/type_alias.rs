@@ -36,20 +36,25 @@ pub use mithril_common::messages::CertificateListItemMessageMetadata as MithrilC
 ///
 pub use mithril_common::messages::SignerWithStakeMessagePart as MithrilSigner;
 
-pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTransactionsProofs;
+cfg_unstable! {
+    pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTransactionsProofs;
 
-pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
+    pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
 
-pub use mithril_common::messages::VerifiedCardanoTransactions;
+    pub use mithril_common::messages::VerifiedCardanoTransactions;
 
-pub use mithril_common::messages::CardanoTransactionCommitmentMessage as CardanoTransactionCommitment;
+    pub use mithril_common::messages::CardanoTransactionCommitmentMessage as CardanoTransactionCommitment;
 
-pub use mithril_common::messages::CardanoTransactionCommitmentListItemMessage as CardanoTransactionCommitmentListItem;
+    pub use mithril_common::messages::CardanoTransactionCommitmentListItemMessage as CardanoTransactionCommitmentListItem;
+}
 
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
         Beacon, CompressionAlgorithm, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters, TransactionHash,
+        ProtocolParameters,
     };
+    cfg_unstable! {
+        pub use mithril_common::entities::TransactionHash;
+    }
 }

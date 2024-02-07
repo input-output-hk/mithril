@@ -70,7 +70,18 @@ macro_rules! cfg_fs {
     }
 }
 
+macro_rules! cfg_unstable {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "unstable")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
+            $item
+        )*
+    }
+}
+
 pub mod aggregator_client;
+#[cfg(feature = "unstable")]
 pub mod cardano_transaction_proof_client;
 pub mod certificate_client;
 mod client;

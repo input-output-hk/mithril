@@ -76,18 +76,21 @@ pub enum AggregatorRequest {
     },
 
     /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
+    #[cfg(feature = "unstable")]
     GetTransactionsProofs {
         /// Hashes of the transactions to get proofs for.
         transactions_hashes: Vec<String>,
     },
 
     /// Get a specific [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    #[cfg(feature = "unstable")]
     GetCardanoTransactionCommitment {
         /// Hash of the Cardano transaction commitment to retrieve
         hash: String,
     },
 
     /// Lists the aggregator [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    #[cfg(feature = "unstable")]
     ListCardanoTransactionCommitments,
 }
 
@@ -112,15 +115,18 @@ impl AggregatorRequest {
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
                 "statistics/snapshot".to_string()
             }
+            #[cfg(feature = "unstable")]
             AggregatorRequest::GetTransactionsProofs {
                 transactions_hashes,
             } => format!(
                 "proof/cardano-transaction?transaction_hashes={}",
                 transactions_hashes.join(",")
             ),
+            #[cfg(feature = "unstable")]
             AggregatorRequest::GetCardanoTransactionCommitment { hash } => {
                 format!("artifact/cardano-transaction/{hash}")
             }
+            #[cfg(feature = "unstable")]
             AggregatorRequest::ListCardanoTransactionCommitments => {
                 "artifact/cardano-transactions".to_string()
             }
@@ -447,30 +453,33 @@ mod tests {
             .route()
         );
 
-        assert_eq!(
-            "proof/cardano-transaction?transaction_hashes=abc,def,ghi,jkl".to_string(),
-            AggregatorRequest::GetTransactionsProofs {
-                transactions_hashes: vec![
-                    "abc".to_string(),
-                    "def".to_string(),
-                    "ghi".to_string(),
-                    "jkl".to_string()
-                ]
-            }
-            .route()
-        );
+        #[cfg(feature = "unstable")]
+        {
+            assert_eq!(
+                "proof/cardano-transaction?transaction_hashes=abc,def,ghi,jkl".to_string(),
+                AggregatorRequest::GetTransactionsProofs {
+                    transactions_hashes: vec![
+                        "abc".to_string(),
+                        "def".to_string(),
+                        "ghi".to_string(),
+                        "jkl".to_string()
+                    ]
+                }
+                .route()
+            );
 
-        assert_eq!(
-            "artifact/cardano-transaction/abc".to_string(),
-            AggregatorRequest::GetCardanoTransactionCommitment {
-                hash: "abc".to_string()
-            }
-            .route()
-        );
+            assert_eq!(
+                "artifact/cardano-transaction/abc".to_string(),
+                AggregatorRequest::GetCardanoTransactionCommitment {
+                    hash: "abc".to_string()
+                }
+                .route()
+            );
 
-        assert_eq!(
-            "artifact/cardano-transactions".to_string(),
-            AggregatorRequest::ListCardanoTransactionCommitments.route()
-        );
+            assert_eq!(
+                "artifact/cardano-transactions".to_string(),
+                AggregatorRequest::ListCardanoTransactionCommitments.route()
+            );
+        }
     }
 }
