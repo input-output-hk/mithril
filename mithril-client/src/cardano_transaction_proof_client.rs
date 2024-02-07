@@ -1,5 +1,78 @@
-//! A client to retrieve and verify proof of cardano transactions from an Aggregator.
+//! A client to retrieve verifiable proofs of cardano transactions from an Aggregator.
 //!
+//! In order to do so it defines a [CardanoTransactionProofClient] which exposes the following features:
+//!  - [get_proofs][CardanoTransactionProofClient::get_proofs]: get a [verifiable proof][CardanoTransactionsProofs]
+//! that the transactions with given hash are included in the global Cardano transactions set.
+//!  - [get][CardanoTransactionProofClient::get]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
+//! data from its hash.
+//!  - [list][CardanoTransactionProofClient::list]: get the list of the latest available Cardano transaction
+//! commitments.
+//!
+//!  **Important:** Verifying a proof only means that its data are coherent, to certify that a proof is part of
+//! a Mithril chain, you need to validate its attached certificate chain (see the example below).
+//!
+//! # Get and verify Cardano transaction proof
+//!
+//! To get and verify a Cardano transaction proof using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::{ClientBuilder, MessageBuilder};
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//!
+//! // 1 - Get a proof from the aggregator and verify it
+//! let cardano_transaction_proof = client.cardano_transaction_proof().get_proofs(&["tx-1", "tx-2"]).await?;
+//! println!("Mithril could not certify the following transactions : {:?}", &cardano_transaction_proof.non_certified_transactions);
+//!
+//! let verified_transactions = cardano_transaction_proof.verify()?;
+//!
+//! // 2 - Verify its associated certificate chain
+//! let certificate = client.certificate().verify_chain(&cardano_transaction_proof.certificate_hash).await?;
+//!
+//! // 3 - Ensure that the proof is indeed associated with its certificate
+//! let message = MessageBuilder::new().compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
+//! if certificate.match_message(&message) {
+//!     // All green, Mithril certify that those transactions are part of the global Cardano transactions set.
+//!     println!("Certified transactions : {:?}", verified_transactions.certified_transactions());
+//! }
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # Get a Cardano transaction commitment
+//!
+//! To get a Cardano transaction commitment using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let cardano_transaction_commitment = client.cardano_transaction_proof().get("CARDANO_TRANSACTION_COMMITMENT_HASH").await?.unwrap();
+//!
+//! println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # List available Cardano transaction commitments
+//!
+//! To list latest available Cardano transaction commitments using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let cardano_transaction_commitments = client.cardano_transaction_proof().list().await?;
+//!
+//! for cardano_transaction_commitment in cardano_transaction_commitments {
+//!     println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
+//! }
+//! #    Ok(())
+//! # }
+//! ```
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::{

@@ -43,8 +43,12 @@ cfg_unstable! {
 
     pub use mithril_common::messages::VerifiedCardanoTransactions;
 
+    /// A commitment that Mithril have certified Cardano transactions up to a given [point of time][common::Beacon].
+    ///
     pub use mithril_common::messages::CardanoTransactionCommitmentMessage as CardanoTransactionCommitment;
 
+    /// List item of a Cardano transaction commitment.
+    ///
     pub use mithril_common::messages::CardanoTransactionCommitmentListItemMessage as CardanoTransactionCommitmentListItem;
 }
 
