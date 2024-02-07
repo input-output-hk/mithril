@@ -15,7 +15,7 @@ use warp::Filter;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_transaction_parser::TransactionParser,
+    cardano_transaction_parser::{CardanoTransactionParser, TransactionParser},
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     crypto_helper::{
@@ -41,7 +41,7 @@ use mithril_common::{
     },
     sqlite::SqliteConnection,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
-    BeaconProvider, BeaconProviderImpl, CardanoTransactionParser,
+    BeaconProvider, BeaconProviderImpl,
 };
 
 use crate::{

@@ -5,6 +5,7 @@ use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
     api_version::APIVersionProvider,
+    cardano_transaction_parser::CardanoTransactionParser,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
@@ -21,7 +22,7 @@ use mithril_common::{
     },
     sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, CardanoTransactionParser, StdResult,
+    BeaconProvider, BeaconProviderImpl, StdResult,
 };
 
 use crate::{

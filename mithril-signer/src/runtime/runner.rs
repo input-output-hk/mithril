@@ -451,6 +451,7 @@ impl Runner for SignerRunner {
 mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
+        cardano_transaction_parser::DumbTransactionParser,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -469,7 +470,7 @@ mod tests {
             StakeStore, StakeStorer,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
-        BeaconProvider, BeaconProviderImpl, CardanoNetwork, DumbTransactionParser,
+        BeaconProvider, BeaconProviderImpl, CardanoNetwork,
     };
     use mockall::mock;
     use std::{

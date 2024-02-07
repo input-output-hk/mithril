@@ -8,7 +8,7 @@
 //! - [Digester][digesters] to compute mithril digest from a Cardano database
 //! - Helpers for the [Mithril STM](https://mithril.network/rust-doc/mithril_stm/index.html)
 //! lib with the [crypto_helper].
-//! - A [certificate chain] used to validate the Certificate Chain created by an aggregator
+//! - [certificate chain][certificate_chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
 
 macro_rules! cfg_database {
@@ -52,7 +52,6 @@ macro_rules! cfg_test_tools {
 }
 
 pub mod api_version;
-
 pub mod certificate_chain;
 pub mod chain_observer;
 pub mod crypto_helper;
@@ -73,9 +72,6 @@ cfg_fs! {
     pub mod cardano_transaction_parser;
 
     pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
-    pub use cardano_transaction_parser::{
-        CardanoTransactionParser, DumbTransactionParser, TransactionParser,
-    };
 }
 
 cfg_database! {
