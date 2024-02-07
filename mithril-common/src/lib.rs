@@ -21,10 +21,20 @@ macro_rules! cfg_database {
     }
 }
 
+macro_rules! cfg_fs {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "fs")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "fs")))]
+            $item
+        )*
+    }
+}
+
 macro_rules! cfg_random {
     ($($item:item)*) => {
         $(
-            #[cfg(feature = "random")]
+            #[cfg(any(test, feature = "random"))]
             #[cfg_attr(docsrs, doc(cfg(feature = "random")))]
             $item
         )*
@@ -42,16 +52,10 @@ macro_rules! cfg_test_tools {
 }
 
 pub mod api_version;
-#[cfg(feature = "fs")]
-mod beacon_provider;
 
 pub mod certificate_chain;
 pub mod chain_observer;
 pub mod crypto_helper;
-#[cfg(feature = "database")]
-pub mod database;
-#[cfg(feature = "fs")]
-pub mod digesters;
 pub mod entities;
 #[macro_use]
 pub mod era;
@@ -59,27 +63,28 @@ pub mod messages;
 pub mod protocol;
 pub mod signable_builder;
 
-#[cfg(feature = "fs")]
-pub mod cardano_transaction_parser;
-
-#[cfg(feature = "database")]
-pub mod sqlite;
-#[cfg(feature = "database")]
-pub mod store;
-
 cfg_test_tools! {
     pub mod test_utils;
 }
 
-#[cfg(feature = "fs")]
-pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
+cfg_fs! {
+    mod beacon_provider;
+    pub mod digesters;
+    pub mod cardano_transaction_parser;
+
+    pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
+    pub use cardano_transaction_parser::{
+        CardanoTransactionParser, DumbTransactionParser, TransactionParser,
+    };
+}
+
+cfg_database! {
+    pub mod database;
+    pub mod sqlite;
+    pub mod store;
+}
 
 pub use entities::{CardanoNetwork, MagicId};
-
-#[cfg(feature = "fs")]
-pub use cardano_transaction_parser::{
-    CardanoTransactionParser, DumbTransactionParser, TransactionParser,
-};
 
 /// Generic error type
 pub type StdError = anyhow::Error;

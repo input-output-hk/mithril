@@ -6,12 +6,15 @@ mod conversions;
 mod era;
 mod genesis;
 mod merkle_tree;
-#[cfg(any(test, feature = "test_tools"))]
-pub mod tests_setup;
 mod types;
 
-#[cfg(any(test, feature = "random"))]
-pub use cardano::ColdKeyGenerator;
+cfg_test_tools! {
+    pub mod tests_setup;
+}
+
+cfg_random! {
+    pub use cardano::ColdKeyGenerator;
+}
 
 pub use cardano::{
     KESPeriod, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
