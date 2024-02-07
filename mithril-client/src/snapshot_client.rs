@@ -45,6 +45,7 @@
 //! To download and simultaneously unpack the tarball of a snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //! use std::path::Path;
@@ -69,6 +70,7 @@
 //! Increments the aggregator snapshot download statistics using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
+//! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //! use std::path::Path;

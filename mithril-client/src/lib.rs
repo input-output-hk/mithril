@@ -23,6 +23,7 @@
 //! **Note:** _Snapshot download and the compute snapshot message functions are available using crate feature_ **fs**.
 //!
 //! ```no_run
+//! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{ClientBuilder, MessageBuilder};
 //! use std::path::Path;
@@ -49,7 +50,6 @@
 //! if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
 //!     println!("Could not increment snapshot download statistics: {:?}", e);
 //! }
-//!
 //!
 //! let message = MessageBuilder::new()
 //!     .compute_snapshot_message(&certificate, &target_directory)
