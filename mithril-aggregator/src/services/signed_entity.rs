@@ -505,15 +505,15 @@ mod tests {
         let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
-        artifact_builder_service
+        let error_message = format!(
+            "Create artifact should not fail for {} signed entity",
+            std::any::type_name::<T>()
+        );
+        let error_message_str = error_message.as_str();
+        
+         artifact_builder_service
             .create_artifact(signed_entity_type, &certificate)
             .await
-            .expect(
-                format!(
-                    "Create artifact should not fail for {} signed entity",
-                    std::any::type_name::<T>()
-                )
-                .as_str(),
-            );
+            .expect(error_message_str);
     }
 }
