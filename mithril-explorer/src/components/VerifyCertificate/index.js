@@ -1,6 +1,6 @@
 import { Modal, Spinner } from "react-bootstrap";
 import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import LocalDateTime from "../LocalDateTime";
 import { formatProcessDuration, computeAggregatorNetworkFromUrl } from "../../utils";
@@ -12,15 +12,50 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
   const [verificationDuration, setVerificationDuration] = useState(null);
   const [showWarning, setShowWarning] = useState(false);
 
+  // const controller = new AbortController();
+  // const signal = controller.signal;
+  const controller = useRef(new AbortController());
+
   useEffect(() => {
     async function buildClientAndVerifyChain() {
+      controller.current = new AbortController();
+      const signal = controller.current.signal;
       try {
         const client = await initializeClient();
         if (certificateHash !== null && certificateHash !== undefined) {
           let startTime = performance.now();
           const certificate = await client.get_mithril_certificate(certificateHash);
           setCertificateData(certificate);
-          await client.verify_certificate_chain(certificateHash);
+
+          let verify_certificate_chain_promise = new Promise((resolve, reject) => {
+            const abortHandler = () => {
+              console.log("Abort handler called");
+              reject(new DOMException("Aborted", "AbortError"));
+            };
+            signal.addEventListener("abort", abortHandler);
+
+            client
+              .verify_certificate_chain(certificateHash)
+              .then(resolve)
+              .catch(reject)
+              .finally(() => {
+                signal.removeEventListener("abort", abortHandler);
+              });
+          });
+
+          // Execute promise with abort capability
+          verify_certificate_chain_promise
+            .then((result) => {
+              console.log("'verify_certificate_chain_promise' completed:", result);
+            })
+            .catch((error) => {
+              if (error.name === "AbortError") {
+                console.log("'verify_certificate_chain_promise' was aborted.");
+              } else {
+                console.error("An error occurred in 'verify_certificate_chain_promise':", error);
+              }
+            });
+
           setVerificationDuration(formatProcessDuration(startTime));
         }
       } catch (error) {
@@ -102,12 +137,9 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
   }
 
   const handleModalClose = () => {
-    // Only allow closing if not loading
-    if (loading) {
-      setShowWarning(true);
-    } else {
-      onClose();
-    }
+    console.log("handleModalClose called");
+    controller.current.abort();
+    onClose();
   };
 
   return (
