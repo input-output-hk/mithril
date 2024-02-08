@@ -3375,6 +3375,7 @@ dependencies = [
  "tar",
  "thiserror",
  "tokio",
+ "tokio-util",
  "uuid",
  "warp",
  "zstd",

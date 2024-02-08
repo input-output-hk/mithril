@@ -55,7 +55,12 @@
 //! # }
 //! ```
 
+use futures::future;
 use std::sync::Arc;
+use thiserror::Error;
+use tokio::select;
+use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -78,6 +83,12 @@ use mithril_common::{
 #[cfg(test)]
 use mockall::automock;
 
+#[derive(Error, Debug)]
+enum MithrilCertificateVerifierError {
+    #[error("Verification aborted")]
+    Abort,
+}
+
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
     aggregator_client: Arc<dyn AggregatorClient>,
@@ -92,6 +103,11 @@ pub struct CertificateClient {
 pub trait CertificateVerifier: Sync + Send {
     /// Validate the chain starting with the given certificate.
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
+
+    /// Cancel request
+    async fn cancel_request(&self) -> MithrilResult<()> {
+        Ok(())
+    }
 }
 
 impl CertificateClient {
@@ -194,6 +210,7 @@ pub struct MithrilCertificateVerifier {
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
     genesis_verification_key: ProtocolGenesisVerificationKey,
     feedback_sender: FeedbackSender,
+    cancellation_token: Arc<Mutex<CancellationToken>>,
 }
 
 impl MithrilCertificateVerifier {
@@ -203,6 +220,7 @@ impl MithrilCertificateVerifier {
         genesis_verification_key: &str,
         feedback_sender: FeedbackSender,
         logger: Logger,
+        cancellation_token: Arc<Mutex<CancellationToken>>,
     ) -> MithrilResult<MithrilCertificateVerifier> {
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
@@ -220,6 +238,7 @@ impl MithrilCertificateVerifier {
             internal_verifier,
             genesis_verification_key,
             feedback_sender,
+            cancellation_token,
         })
     }
 }
@@ -227,44 +246,67 @@ impl MithrilCertificateVerifier {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateVerifier for MithrilCertificateVerifier {
+    async fn cancel_request(&self) -> MithrilResult<()> {
+        self.cancellation_token.lock().await.cancel();
+        Ok(())
+    }
+
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()> {
-        // Todo: move most of this code in the `mithril_common` verifier by defining
-        // a new `verify_chain` method that take a callback called when a certificate is
-        // validated.
-        let certificate_chain_validation_id = MithrilEvent::new_certificate_chain_validation_id();
-        self.feedback_sender
-            .send_event(MithrilEvent::CertificateChainValidationStarted {
-                certificate_chain_validation_id: certificate_chain_validation_id.clone(),
-            })
-            .await;
-
-        let mut current_certificate = certificate.clone().try_into()?;
-        loop {
-            let previous_or_none = self
-                .internal_verifier
-                .verify_certificate(&current_certificate, &self.genesis_verification_key)
-                .await?;
-
+        let future = {
+            // Todo: move most of this code in the `mithril_common` verifier by defining
+            // a new `verify_chain` method that take a callback called when a certificate is
+            // validated.
+            let certificate_chain_validation_id =
+                MithrilEvent::new_certificate_chain_validation_id();
             self.feedback_sender
-                .send_event(MithrilEvent::CertificateValidated {
-                    certificate_hash: current_certificate.hash.clone(),
+                .send_event(MithrilEvent::CertificateChainValidationStarted {
                     certificate_chain_validation_id: certificate_chain_validation_id.clone(),
                 })
                 .await;
 
-            match previous_or_none {
-                Some(previous_certificate) => current_certificate = previous_certificate,
-                None => break,
+            let mut current_certificate = certificate.clone().try_into()?;
+            loop {
+                let previous_or_none = self
+                    .internal_verifier
+                    .verify_certificate(&current_certificate, &self.genesis_verification_key)
+                    .await?;
+
+                self.feedback_sender
+                    .send_event(MithrilEvent::CertificateValidated {
+                        certificate_hash: current_certificate.hash.clone(),
+                        certificate_chain_validation_id: certificate_chain_validation_id.clone(),
+                    })
+                    .await;
+
+                match previous_or_none {
+                    Some(previous_certificate) => current_certificate = previous_certificate,
+                    None => break,
+                }
             }
-        }
 
-        self.feedback_sender
-            .send_event(MithrilEvent::CertificateChainValidated {
-                certificate_chain_validation_id,
-            })
-            .await;
+            self.feedback_sender
+                .send_event(MithrilEvent::CertificateChainValidated {
+                    certificate_chain_validation_id,
+                })
+                .await;
 
-        Ok(())
+            Ok(())
+        };
+
+        let cloned_token = self.cancellation_token.lock().await.clone();
+
+        let join_handle = tokio::spawn(async move {
+            select! {
+                _ = cloned_token.cancelled() => {
+                    Err(anyhow!(MithrilCertificateVerifierError::Abort))
+                }
+                _ = future::ready(()) => {
+                    future
+                }
+            }
+        });
+
+        join_handle.await?
     }
 }
 
@@ -442,6 +484,7 @@ mod tests {
                     &verification_key,
                     FeedbackSender::new(&[feedback_receiver.clone()]),
                     test_utils::test_logger(),
+                    Arc::new(Mutex::new(CancellationToken::new())),
                 )
                 .unwrap(),
             )),
@@ -504,6 +547,7 @@ mod tests {
                     &verification_key,
                     FeedbackSender::new(&[]),
                     test_utils::test_logger(),
+                    Arc::new(Mutex::new(CancellationToken::new())),
                 )
                 .unwrap(),
             )),
@@ -515,5 +559,50 @@ mod tests {
             .expect("Chain validation should succeed");
 
         assert_eq!(certificate.hash, last_certificate_hash);
+    }
+
+    #[tokio::test]
+    async fn verify_chain_return_error_if_aborted() {
+        let (chain, verifier) = setup_certificate_chain(3, 1);
+        let verification_key: String = verifier.to_verification_key().try_into().unwrap();
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        let last_certificate_hash = chain.first().unwrap().hash.clone();
+
+        for certificate in chain.clone() {
+            let hash = certificate.hash.clone();
+            let message = serde_json::to_string(
+                &TryInto::<CertificateMessage>::try_into(certificate).unwrap(),
+            )
+            .unwrap();
+            aggregator_client
+                .expect_get_content()
+                .with(eq(AggregatorRequest::GetCertificate { hash }))
+                .returning(move |_| Ok(message.to_owned()));
+        }
+
+        let aggregator_client = Arc::new(aggregator_client);
+        let certificate_client = build_client(
+            aggregator_client.clone(),
+            Some(Arc::new(
+                MithrilCertificateVerifier::new(
+                    aggregator_client,
+                    &verification_key,
+                    FeedbackSender::new(&[]),
+                    test_utils::test_logger(),
+                    Arc::new(Mutex::new(CancellationToken::new())),
+                )
+                .unwrap(),
+            )),
+        );
+
+        let join_handle = tokio::spawn(async move {
+            certificate_client
+                .verify_chain(&last_certificate_hash)
+                .await
+        });
+
+        //TODO:
+        // 1. Cancel the request after a short delay
+        // 2. Check the error type
     }
 }

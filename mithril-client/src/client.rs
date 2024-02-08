@@ -3,6 +3,8 @@ use mithril_common::api_version::APIVersionProvider;
 use reqwest::Url;
 use slog::{o, Logger};
 use std::sync::Arc;
+use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -150,6 +152,7 @@ impl ClientBuilder {
                     &self.genesis_verification_key,
                     feedback_sender.clone(),
                     logger.clone(),
+                    Arc::new(Mutex::new(CancellationToken::new())),
                 )
                 .with_context(|| "Building certificate verifier failed")?,
             ),
