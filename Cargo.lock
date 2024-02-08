@@ -3499,6 +3499,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-persistence"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "mockall",
+ "semver",
+ "serde",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-term",
+ "sqlite",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-relay"
 version = "0.1.9"
 dependencies = [
