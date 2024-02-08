@@ -510,8 +510,8 @@ mod tests {
             std::any::type_name::<T>()
         );
         let error_message_str = error_message.as_str();
-        
-         artifact_builder_service
+
+        artifact_builder_service
             .create_artifact(signed_entity_type, &certificate)
             .await
             .expect(error_message_str);
