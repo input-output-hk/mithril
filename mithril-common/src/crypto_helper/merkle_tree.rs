@@ -1,4 +1,6 @@
 use anyhow::anyhow;
+#[cfg(any(test, feature = "test_tools"))]
+use anyhow::Context;
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{util::MemStore, Merge, MerkleProof, Result as MMRResult, MMR};
 use serde::{Deserialize, Serialize};
@@ -98,6 +100,11 @@ pub struct MKProof {
 }
 
 impl MKProof {
+    /// Return a reference to its merkle root.
+    pub fn root(&self) -> &MKTreeNode {
+        &self.inner_root
+    }
+
     /// Verification of a Merkle proof
     pub fn verify(&self) -> StdResult<()> {
         MerkleProof::<MKTreeNode, MergeMKTreeNode>::new(
@@ -116,6 +123,34 @@ impl MKProof {
             .all(|leaf| self.inner_leaves.iter().any(|(_, l)| l == leaf))
             .then_some(())
             .ok_or(anyhow!("Leaves not found in the MKProof"))
+    }
+
+    cfg_test_tools! {
+        /// Build a [MKProof] based on the given leaves (*Test only*).
+        pub fn from_leaves<T: Into<MKTreeNode> + Clone>(
+            leaves: &[T],
+        ) -> StdResult<MKProof> {
+            Self::from_subset_of_leaves(leaves, leaves)
+        }
+
+        /// Build a [MKProof] based on the given leaves (*Test only*).
+        pub fn from_subset_of_leaves<T: Into<MKTreeNode> + Clone>(
+            leaves: &[T],
+            leaves_to_verify: &[T],
+        ) -> StdResult<MKProof> {
+            let leaves = Self::list_to_mknode(leaves);
+            let leaves_to_verify =
+                Self::list_to_mknode(leaves_to_verify);
+
+            let store = MKTreeStore::default();
+            let mktree =
+                MKTree::new(&leaves, &store).with_context(|| "MKTree creation should not fail")?;
+            mktree.compute_proof(&leaves_to_verify)
+        }
+
+        fn list_to_mknode<T: Into<MKTreeNode> + Clone>(hashes: &[T]) -> Vec<MKTreeNode> {
+            hashes.iter().map(|h| h.clone().into()).collect()
+        }
     }
 }
 
@@ -184,21 +219,12 @@ impl<'a> MKTree<'a> {
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Context;
-
     use super::*;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
         (0..total_leaves)
             .map(|i| format!("test-{i}").into())
             .collect()
-    }
-
-    fn build_proof(leaves: &[MKTreeNode]) -> StdResult<MKProof> {
-        let store = MKTreeStore::default();
-        let mktree =
-            MKTree::new(leaves, &store).with_context(|| "MKTree creation should not fail")?;
-        mktree.compute_proof(leaves)
     }
 
     #[test]
@@ -220,7 +246,8 @@ mod tests {
     fn test_should_accept_valid_proof_generated_by_merkle_tree() {
         let leaves = generate_leaves(100000);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
-        let proof = build_proof(leaves_to_verify).expect("MKProof generation should not fail");
+        let proof =
+            MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
         proof.verify().expect("The MKProof should be valid");
     }
 
@@ -228,7 +255,8 @@ mod tests {
     fn test_should_reject_invalid_proof_generated_by_merkle_tree() {
         let leaves = generate_leaves(100000);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
-        let mut proof = build_proof(leaves_to_verify).expect("MKProof generation should not fail");
+        let mut proof =
+            MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
         proof.inner_root = leaves[10].to_owned();
         proof.verify().expect_err("The MKProof should be invalid");
     }
@@ -248,7 +276,8 @@ mod tests {
     fn contains_leaves() {
         let mut leaves_to_verify = generate_leaves(10);
         let leaves_not_verified = leaves_to_verify.drain(3..6).collect::<Vec<_>>();
-        let proof = build_proof(&leaves_to_verify).expect("MKProof generation should not fail");
+        let proof =
+            MKProof::from_leaves(&leaves_to_verify).expect("MKProof generation should not fail");
 
         // contains everything
         proof.contains(&leaves_to_verify).unwrap();

@@ -1,4 +1,4 @@
-use crate::crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStore, ProtocolMkProof};
+use crate::crypto_helper::{MKProof, ProtocolMkProof};
 use crate::entities::TransactionHash;
 use crate::messages::CardanoTransactionsSetProofMessagePart;
 use crate::{StdError, StdResult};
@@ -22,6 +22,11 @@ impl CardanoTransactionsSetProof {
         }
     }
 
+    /// Return the hex encoded merkle root of this proof
+    pub fn merkle_root(&self) -> String {
+        self.transactions_proof.root().to_hex()
+    }
+
     /// Get the hashes of the transactions certified by this proof
     pub fn transactions_hashes(&self) -> &[TransactionHash] {
         &self.transactions_hashes
@@ -41,25 +46,20 @@ impl CardanoTransactionsSetProof {
         Ok(())
     }
 
-    #[cfg(feature = "test_tools")]
-    /// Retrieve a dummy proof (for test only)
-    pub fn dummy() -> Self {
-        let transactions_hashes = vec![
-            "tx-1".to_string(),
-            "tx-2".to_string(),
-            "tx-3".to_string(),
-            "tx-4".to_string(),
-            "tx-5".to_string(),
-        ];
-        let leaves: Vec<MKTreeNode> = transactions_hashes
-            .iter()
-            .cloned()
-            .map(|h| h.into())
-            .collect();
-        let store = MKTreeStore::default();
-        let mktree = MKTree::new(&leaves, &store).unwrap();
+    cfg_test_tools! {
+        /// Retrieve a dummy proof (for test only)
+        pub fn dummy() -> Self {
+            let transactions_hashes = vec![
+                "tx-1".to_string(),
+                "tx-2".to_string(),
+                "tx-3".to_string(),
+                "tx-4".to_string(),
+                "tx-5".to_string(),
+            ];
+            let proof = MKProof::from_leaves(&transactions_hashes).unwrap();
 
-        Self::new(transactions_hashes, mktree.compute_proof(&leaves).unwrap())
+            Self::new(transactions_hashes, proof)
+        }
     }
 }
 
@@ -74,30 +74,20 @@ impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessage
     }
 }
 
+impl TryFrom<CardanoTransactionsSetProofMessagePart> for CardanoTransactionsSetProof {
+    type Error = StdError;
+
+    fn try_from(proof: CardanoTransactionsSetProofMessagePart) -> Result<Self, Self::Error> {
+        Ok(Self {
+            transactions_hashes: proof.transactions_hashes,
+            transactions_proof: ProtocolMkProof::from_json_hex(&proof.proof)?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use anyhow::Context;
-
-    use crate::crypto_helper::{MKTree, MKTreeNode, MKTreeStore};
-
     use super::*;
-
-    fn build_proof<T: Into<MKTreeNode> + Clone>(
-        leaves: &[T],
-        leaves_to_verify: &[T],
-    ) -> StdResult<MKProof> {
-        let leaves = to_mknode(leaves);
-        let leaves_to_verify = to_mknode(leaves_to_verify);
-
-        let store = MKTreeStore::default();
-        let mktree =
-            MKTree::new(&leaves, &store).with_context(|| "MKTree creation should not fail")?;
-        mktree.compute_proof(&leaves_to_verify)
-    }
-
-    fn to_mknode<T: Into<MKTreeNode> + Clone>(hashes: &[T]) -> Vec<MKTreeNode> {
-        hashes.iter().map(|h| h.clone().into()).collect()
-    }
 
     #[test]
     fn should_verify_where_all_hashes_are_contained_in_the_proof() {
@@ -110,7 +100,8 @@ mod tests {
         ];
         let transaction_hashes_to_verify = &transaction_hashes[0..2];
         let transactions_proof =
-            build_proof(&transaction_hashes, transaction_hashes_to_verify).unwrap();
+            MKProof::from_subset_of_leaves(&transaction_hashes, transaction_hashes_to_verify)
+                .unwrap();
 
         let proof = CardanoTransactionsSetProof::new(
             transaction_hashes_to_verify.to_vec(),
@@ -129,7 +120,7 @@ mod tests {
             "tx-5".to_string(),
         ];
         let transactions_proof =
-            build_proof(&transaction_hashes, &transaction_hashes[0..2]).unwrap();
+            MKProof::from_subset_of_leaves(&transaction_hashes, &transaction_hashes[0..2]).unwrap();
         let transaction_hashes_not_verified = &transaction_hashes[1..3];
 
         let proof = CardanoTransactionsSetProof::new(

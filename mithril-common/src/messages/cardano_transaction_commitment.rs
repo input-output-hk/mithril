@@ -6,16 +6,16 @@ use crate::entities::Beacon;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 
-/// Message structure of a Cardano Transactions set
+/// Message structure of a Cardano Transactions commitment
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct CardanoTransactionMessage {
-    /// Merkle root of the Cardano transactions set
+pub struct CardanoTransactionCommitmentMessage {
+    /// Merkle root of the Cardano transactions commitment
     pub merkle_root: String,
 
-    /// Beacon of the Cardano transactions set
+    /// Beacon of the Cardano transactions commitment
     pub beacon: Beacon,
 
-    /// Hash of the Cardano Transactions set
+    /// Hash of the Cardano Transactions commitment
     pub hash: String,
 
     /// Hash of the associated certificate
@@ -25,7 +25,7 @@ pub struct CardanoTransactionMessage {
     pub created_at: DateTime<Utc>,
 }
 
-impl CardanoTransactionMessage {
+impl CardanoTransactionCommitmentMessage {
     cfg_test_tools! {
         /// Return a dummy test entity (test-only).
         pub fn dummy() -> Self {
@@ -46,8 +46,8 @@ impl CardanoTransactionMessage {
 mod tests {
     use super::*;
 
-    fn golden_message() -> CardanoTransactionMessage {
-        CardanoTransactionMessage {
+    fn golden_message() -> CardanoTransactionCommitmentMessage {
+        CardanoTransactionCommitmentMessage {
             merkle_root: "mkroot-123".to_string(),
             beacon: fake_data::beacon(),
             hash: "hash-123".to_string(),
@@ -72,8 +72,8 @@ mod tests {
             "certificate_hash": "certificate-hash-123",
             "created_at": "2023-01-19T13:43:05.618857482Z"
         }"#;
-        let message: CardanoTransactionMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a CardanoTransactionMessage instance.",
+        let message: CardanoTransactionCommitmentMessage = serde_json::from_str(json).expect(
+            "This JSON is expected to be succesfully parsed into a CardanoTransactionCommitmentMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

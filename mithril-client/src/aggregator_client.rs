@@ -74,6 +74,24 @@ pub enum AggregatorRequest {
         /// Snapshot as HTTP request body
         snapshot: String,
     },
+
+    /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
+    #[cfg(feature = "unstable")]
+    GetTransactionsProofs {
+        /// Hashes of the transactions to get proofs for.
+        transactions_hashes: Vec<String>,
+    },
+
+    /// Get a specific [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    #[cfg(feature = "unstable")]
+    GetCardanoTransactionCommitment {
+        /// Hash of the Cardano transaction commitment to retrieve
+        hash: String,
+    },
+
+    /// Lists the aggregator [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    #[cfg(feature = "unstable")]
+    ListCardanoTransactionCommitments,
 }
 
 impl AggregatorRequest {
@@ -96,6 +114,21 @@ impl AggregatorRequest {
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
                 "statistics/snapshot".to_string()
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetTransactionsProofs {
+                transactions_hashes,
+            } => format!(
+                "proof/cardano-transaction?transaction_hashes={}",
+                transactions_hashes.join(",")
+            ),
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetCardanoTransactionCommitment { hash } => {
+                format!("artifact/cardano-transaction/{hash}")
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::ListCardanoTransactionCommitments => {
+                "artifact/cardano-transactions".to_string()
             }
         }
     }
@@ -128,7 +161,7 @@ pub trait AggregatorClient: Sync + Send {
     ) -> Result<String, AggregatorClientError>;
 }
 
-/// Responsible of HTTP transport and API version check.
+/// Responsible for HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
     http_client: reqwest::Client,
     aggregator_endpoint: Url,
@@ -365,6 +398,88 @@ mod tests {
                 .expect("building aggregator http client should not fail");
 
             assert_eq!(expected, client.aggregator_endpoint.as_str());
+        }
+    }
+
+    #[test]
+    fn deduce_routes_from_request() {
+        assert_eq!(
+            "certificate/abc".to_string(),
+            AggregatorRequest::GetCertificate {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distribution/abc".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distribution/abc".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distributions".to_string(),
+            AggregatorRequest::ListMithrilStakeDistributions.route()
+        );
+
+        assert_eq!(
+            "artifact/snapshot/abc".to_string(),
+            AggregatorRequest::GetSnapshot {
+                digest: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/snapshots".to_string(),
+            AggregatorRequest::ListSnapshots.route()
+        );
+
+        assert_eq!(
+            "statistics/snapshot".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic {
+                snapshot: "abc".to_string()
+            }
+            .route()
+        );
+
+        #[cfg(feature = "unstable")]
+        {
+            assert_eq!(
+                "proof/cardano-transaction?transaction_hashes=abc,def,ghi,jkl".to_string(),
+                AggregatorRequest::GetTransactionsProofs {
+                    transactions_hashes: vec![
+                        "abc".to_string(),
+                        "def".to_string(),
+                        "ghi".to_string(),
+                        "jkl".to_string()
+                    ]
+                }
+                .route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-transaction/abc".to_string(),
+                AggregatorRequest::GetCardanoTransactionCommitment {
+                    hash: "abc".to_string()
+                }
+                .route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-transactions".to_string(),
+                AggregatorRequest::ListCardanoTransactionCommitments.route()
+            );
         }
     }
 }

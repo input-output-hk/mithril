@@ -1,8 +1,6 @@
 use anyhow::Context;
 #[cfg(feature = "fs")]
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
-use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey};
-use mithril_common::messages::SignerWithStakeMessagePart;
 use mithril_common::protocol::SignerBuilder;
 use slog::{o, Logger};
 #[cfg(feature = "fs")]
@@ -10,9 +8,12 @@ use std::path::Path;
 #[cfg(feature = "fs")]
 use std::sync::Arc;
 
-#[cfg(feature = "fs")]
+use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
+#[cfg(any(feature = "fs", feature = "unstable"))]
 use crate::MithrilCertificate;
-use crate::{MithrilResult, MithrilStakeDistribution};
+#[cfg(feature = "unstable")]
+use crate::VerifiedCardanoTransactions;
+use crate::{MithrilResult, MithrilSigner, MithrilStakeDistribution};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
@@ -39,49 +40,49 @@ impl MessageBuilder {
     }
 
     cfg_fs! {
-    fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
-        match self.immutable_digester.as_ref() {
-            None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
-            Some(digester) => digester.clone(),
+        fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
+            match self.immutable_digester.as_ref() {
+                None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
+                Some(digester) => digester.clone(),
+            }
         }
-    }
 
-    /// Set the [ImmutableDigester] to be used for the message computation for snapshot.
-    ///
-    /// If not set a default implementation will be used.
-    pub fn with_immutable_digester(
-        mut self,
-        immutable_digester: Arc<dyn ImmutableDigester>,
-    ) -> Self {
-        self.immutable_digester = Some(immutable_digester);
-        self
-    }
+        /// Set the [ImmutableDigester] to be used for the message computation for snapshot.
+        ///
+        /// If not set a default implementation will be used.
+        pub fn with_immutable_digester(
+            mut self,
+            immutable_digester: Arc<dyn ImmutableDigester>,
+        ) -> Self {
+            self.immutable_digester = Some(immutable_digester);
+            self
+        }
 
-    /// Compute message for a snapshot (based on the directory where it was unpacked).
-    ///
-    /// Warning: this operation can be quite long depending on the snapshot size.
-    pub async fn compute_snapshot_message(
-        &self,
-        snapshot_certificate: &MithrilCertificate,
-        unpacked_snapshot_directory: &Path,
-    ) -> MithrilResult<ProtocolMessage> {
-        let digester = self.get_immutable_digester();
+        /// Compute message for a snapshot (based on the directory where it was unpacked).
+        ///
+        /// Warning: this operation can be quite long depending on the snapshot size.
+        pub async fn compute_snapshot_message(
+            &self,
+            snapshot_certificate: &MithrilCertificate,
+            unpacked_snapshot_directory: &Path,
+        ) -> MithrilResult<ProtocolMessage> {
+            let digester = self.get_immutable_digester();
 
-        let mut message = snapshot_certificate.protocol_message.clone();
+            let mut message = snapshot_certificate.protocol_message.clone();
 
-        let digest = digester
-            .compute_digest(unpacked_snapshot_directory, &snapshot_certificate.beacon)
-            .await
-            .with_context(|| {
-                format!(
-                    "Snapshot digest computation failed: unpacked_dir: '{}'",
-                    unpacked_snapshot_directory.display()
-                )
-            })?;
-        message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+            let digest = digester
+                .compute_digest(unpacked_snapshot_directory, &snapshot_certificate.beacon)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Snapshot digest computation failed: unpacked_dir: '{}'",
+                        unpacked_snapshot_directory.display()
+                    )
+                })?;
+            message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
-        Ok(message)
-    }
+            Ok(message)
+        }
     }
 
     /// Compute message for a Mithril stake distribution.
@@ -89,10 +90,9 @@ impl MessageBuilder {
         &self,
         mithril_stake_distribution: &MithrilStakeDistribution,
     ) -> MithrilResult<ProtocolMessage> {
-        let signers = SignerWithStakeMessagePart::try_into_signers(
-            mithril_stake_distribution.signers_with_stake.clone(),
-        )
-        .with_context(|| "Could not compute message: conversion failure")?;
+        let signers =
+            MithrilSigner::try_into_signers(mithril_stake_distribution.signers_with_stake.clone())
+                .with_context(|| "Could not compute message: conversion failure")?;
 
         let signer_builder =
             SignerBuilder::new(&signers, &mithril_stake_distribution.protocol_parameters)
@@ -111,6 +111,19 @@ impl MessageBuilder {
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
+    }
+
+    cfg_unstable! {
+        /// Compute message for a Cardano Transactions Proofs.
+        pub fn compute_cardano_transactions_proofs_message(
+            &self,
+            transactions_proofs_certificate: &MithrilCertificate,
+            verified_transactions: &VerifiedCardanoTransactions,
+        ) -> ProtocolMessage {
+            let mut message = transactions_proofs_certificate.protocol_message.clone();
+            verified_transactions.fill_protocol_message(&mut message);
+            message
+        }
     }
 }
 

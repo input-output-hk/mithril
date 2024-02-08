@@ -2,10 +2,9 @@ use super::routes;
 use crate::extensions::mock;
 use mithril_client::certificate_client::CertificateVerifier;
 use mithril_client::{
-    MessageBuilder, MithrilCertificateListItem, MithrilStakeDistribution,
+    MessageBuilder, MithrilCertificate, MithrilCertificateListItem, MithrilStakeDistribution,
     MithrilStakeDistributionListItem,
 };
-use mithril_common::messages::CertificateMessage;
 use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -58,6 +57,18 @@ impl FakeAggregator {
         Ok(returned_value)
     }
 
+    pub async fn store_call_with_query_and_return_value(
+        full_path: FullPath,
+        query: String,
+        calls: FakeAggregatorCalls,
+        returned_value: String,
+    ) -> Result<impl warp::Reply, Infallible> {
+        let mut call_list = calls.lock().await;
+        call_list.push(format!("{}?{}", full_path.as_str(), query));
+
+        Ok(returned_value)
+    }
+
     pub fn spawn_with_mithril_stake_distribution(
         &self,
         msd_hash: &str,
@@ -84,10 +95,10 @@ impl FakeAggregator {
             .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
             .expect("Computing msd message should not fail");
 
-        let certificate_json = serde_json::to_string(&CertificateMessage {
+        let certificate_json = serde_json::to_string(&MithrilCertificate {
             hash: certificate_hash.to_string(),
             signed_message: message.compute_hash(),
-            ..CertificateMessage::dummy()
+            ..MithrilCertificate::dummy()
         })
         .unwrap();
 
@@ -106,9 +117,9 @@ impl FakeAggregator {
     }
 
     pub fn spawn_with_certificate(&self, certificate_hash_list: &[String]) -> TestHttpServer {
-        let certificate_json = serde_json::to_string(&CertificateMessage {
+        let certificate_json = serde_json::to_string(&MithrilCertificate {
             hash: certificate_hash_list[0].to_string(),
-            ..CertificateMessage::dummy()
+            ..MithrilCertificate::dummy()
         })
         .unwrap();
         let certificate_list_json = serde_json::to_string(
@@ -130,13 +141,58 @@ impl FakeAggregator {
     }
 }
 
+#[cfg(feature = "unstable")]
+mod proof {
+    use super::*;
+    use mithril_client::common::ProtocolMessagePartKey;
+    use mithril_client::{CardanoTransactionsProofs, CardanoTransactionsSetProof};
+    use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
+
+    impl FakeAggregator {
+        pub fn spawn_with_transactions_proofs(
+            &self,
+            tx_hashes: &[&str],
+            certificate_hash: &str,
+        ) -> TestHttpServer {
+            let proof = MKProof::from_leaves(tx_hashes).unwrap();
+
+            let proofs_json = serde_json::to_string(&CardanoTransactionsProofs {
+                certificate_hash: certificate_hash.to_string(),
+                certified_transactions: vec![CardanoTransactionsSetProof {
+                    transactions_hashes: tx_hashes.iter().map(|h| h.to_string()).collect(),
+                    proof: ProtocolMkProof::new(proof.clone()).to_json_hex().unwrap(),
+                }],
+                non_certified_transactions: vec![],
+            })
+            .unwrap();
+
+            let certificate = {
+                let mut cert = MithrilCertificate {
+                    hash: certificate_hash.to_string(),
+                    ..MithrilCertificate::dummy()
+                };
+                cert.protocol_message.set_message_part(
+                    ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+                    proof.root().to_hex(),
+                );
+                cert.signed_message = cert.protocol_message.compute_hash();
+                cert
+            };
+            let certificate_json = serde_json::to_string(&certificate).unwrap();
+
+            test_http_server(routes::proof::routes(self.calls.clone(), proofs_json).or(
+                routes::certificate::routes(self.calls.clone(), None, certificate_json),
+            ))
+        }
+    }
+}
+
 #[cfg(feature = "fs")]
 mod file {
     use super::*;
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
     use mithril_common::digesters::DummyImmutableDb;
     use mithril_common::entities::{Beacon, CompressionAlgorithm};
-    use mithril_common::messages::CertificateMessage;
     use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
     use std::path::{Path, PathBuf};
@@ -182,10 +238,10 @@ mod file {
             ])
             .unwrap();
 
-            let mut certificate = CertificateMessage {
+            let mut certificate = MithrilCertificate {
                 hash: certificate_hash.to_string(),
                 beacon,
-                ..CertificateMessage::dummy()
+                ..MithrilCertificate::dummy()
             };
             certificate.signed_message = MessageBuilder::new()
                 .compute_snapshot_message(&certificate, &immutable_db.dir)

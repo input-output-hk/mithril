@@ -10,3 +10,12 @@ pub struct CardanoTransactionsSetProofMessagePart {
     /// Proof of the transactions
     pub proof: HexEncodedKey,
 }
+
+impl CardanoTransactionsSetProofMessagePart {
+    cfg_test_tools! {
+        /// Retrieve a dummy proof (for test only)
+        pub fn dummy() -> Self {
+            crate::entities::CardanoTransactionsSetProof::dummy().try_into().unwrap()
+        }
+    }
+}

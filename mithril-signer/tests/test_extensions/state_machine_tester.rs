@@ -6,6 +6,7 @@ use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
+    cardano_transaction_parser::DumbTransactionParser,
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{Beacon, Epoch, SignerWithStake},
@@ -15,7 +16,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
     store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
-    BeaconProvider, BeaconProviderImpl, DumbTransactionParser, StdError,
+    BeaconProvider, BeaconProviderImpl, StdError,
 };
 
 use mithril_signer::{
