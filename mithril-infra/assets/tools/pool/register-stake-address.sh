@@ -16,8 +16,7 @@ fi
 SLOT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
 
 ## Build transaction
-CARDANO_CLI_CMD transaction build \
---babbage-era \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction build \
 --tx-in $TX_IN \
 --tx-out $(cat ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/payment.addr)+${AMOUNT_STAKED} \
 --change-address $(cat ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/payment.addr) \
@@ -28,7 +27,7 @@ CARDANO_CLI_CMD transaction build \
 --witness-override 2
 
 ## Sign transaction
-CARDANO_CLI_CMD transaction sign \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction sign \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/payment.skey \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/stake.skey \
 --testnet-magic $NETWORK_MAGIC \
@@ -36,6 +35,6 @@ CARDANO_CLI_CMD transaction sign \
 --out-file      ${POOL_ARTIFACTS_DIR}/stake-registration.tx
 
 ## Submit transaction
-CARDANO_CLI_CMD transaction submit \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction submit \
 --tx-file ${POOL_ARTIFACTS_DIR}/stake-registration.tx \
 --testnet-magic $NETWORK_MAGIC

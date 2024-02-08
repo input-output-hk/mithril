@@ -20,6 +20,10 @@ inputs:
   cardano_node_version:
     description: Cardano node version.
     required: true
+  cardano_node_docker_registry:
+    description: Cardano node Docker image registry.
+    required: false
+    default: "ghcr.io/intersectmbo/cardano-node"
   google_region:
     description: Google Cloud region name.
     required: true
@@ -60,6 +64,10 @@ inputs:
   mithril_genesis_verification_key_url: 
     description: Mithril genesis verification key location.
     required: true
+  mithril_era_reader_adapter_type:
+    description: Mithril era reader adapter type.
+    required: false
+    default: "cardano-chain"
   mithril_era_reader_address_url: 
     description: Mithril era reader address location.
     required: true
@@ -145,6 +153,7 @@ runs:
         environment_prefix                                = "${{ inputs.environment_prefix }}"
         cardano_network                                   = "${{ inputs.cardano_network }}"
         cardano_image_id                                  = "${{ inputs.cardano_node_version }}"
+        cardano_image_registry                          = "${{ inputs.cardano_node_docker_registry }}"
         google_region                                     = "${{ inputs.google_region }}"
         google_zone                                       = "${{ inputs.google_zone }}"
         google_machine_type                               = "${{ inputs.google_machine_type }}"
@@ -158,7 +167,7 @@ runs:
         mithril_genesis_secret_key                        = "${{ inputs.mithril_genesis_secret_key }}"
         mithril_protocol_parameters                       = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
         mithril_signers                                   = ${{ fromJSON(inputs.mithril_signers) }}
-        mithril_era_reader_adapter_type                   = "cardano-chain"
+        mithril_era_reader_adapter_type                   = "${{ inputs.mithril_era_reader_adapter_type }}"
         mithril_era_reader_address_url                    = "${{ inputs.mithril_era_reader_address_url }}"
         mithril_era_reader_verification_key_url           = "${{ inputs.mithril_era_reader_verification_key_url }}"
         mithril_era_reader_secret_key                     = "${{ inputs.mithril_era_reader_secret_key }}"

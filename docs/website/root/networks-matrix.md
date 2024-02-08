@@ -88,6 +88,25 @@ Here is an updated list of all **Mithril networks**, including their configurati
 | **Build from** |  **Main branch** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main) 
 
   </TabItem>
+  <TabItem value="sanchonet" label="Sanchonet">
+## `testing-sanchonet`
+> :warning: For devs only
+
+| Information | -
+|------------|------------
+| **Mithril network** | `testing-sanchonet` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.testing-sanchonet.api.mithril.network%2Faggregator)
+| **Cardano network** | `sanchonet` 
+| **Cardano magic Id** |   `4`
+| **Supported** | Yes :heavy_check_mark:
+| **Status** | Unstable 🔴
+| **Aggregator endpoint** | `https://aggregator.testing-sanchonet.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.testing-sanchonet.api.mithril.network/aggregator)  
+| **Genesis verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey)  
+| **Era reader adapter type** | `cardano-chain`
+| **Era reader address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.addr)
+| **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.vkey)
+| **Build from** |  **Main branch** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main) 
+
+  </TabItem>
 </Tabs>
 
 :::caution

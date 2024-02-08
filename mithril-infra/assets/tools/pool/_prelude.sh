@@ -1,4 +1,7 @@
 
+# Exit on error
+set -e
+
 # Debug mode
 if [ -v DEBUG ]; then
     set -x
@@ -30,15 +33,21 @@ CARDANO_CLI_CMD() {
     docker exec ${CARDANO_NODE} cardano-cli ${@}
 }
 
+# Compute current Cardano era if needed
+if [ -z "${CARDANO_ERA}" ]; then
+    CARDANO_ERA=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq  -r '.era |= ascii_downcase | .era')
+fi
+
 # Compute auxiliary env vars
 POOL_ARTIFACTS_DIR=/pool
 POOL_ARTIFACTS_DIR_PREFIX=./data/${NETWORK}/${SIGNER_NODE}/cardano
 POOL_WWW_DIR=/www
-GENESIS_FILE=/home/curry/docker/cardano-configurations/network/preview/genesis/shelley.json
+GENESIS_FILE=/home/curry/docker/cardano-configurations/network/${NETWORK}/genesis/shelley.json
 if [ -z "${AMOUNT_STAKED}" ]; then
     AMOUNT_STAKED=1000000000
 fi
 
+# Compute transaction input if needed
 #if [ -z "${TX_IN}" ]; then 
 #  TX_IN=$(CARDANO_CLI_CMD query utxo  \
 #            --testnet-magic $NETWORK_MAGIC \
