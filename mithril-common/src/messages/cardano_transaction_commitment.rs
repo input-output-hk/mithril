@@ -73,7 +73,7 @@ mod tests {
             "created_at": "2023-01-19T13:43:05.618857482Z"
         }"#;
         let message: CardanoTransactionCommitmentMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a CardanoTransactionMessage instance.",
+            "This JSON is expected to be succesfully parsed into a CardanoTransactionCommitmentMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

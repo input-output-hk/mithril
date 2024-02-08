@@ -79,7 +79,7 @@ mod tests {
         println!("message: {:?}", golden_message());
 
         let message: CardanoTransactionCommitmentListMessage = serde_json::from_str(json).expect(
-                    "This JSON is expected to be succesfully parsed into a CardanoTransactionListMessage instance.",
+                    "This JSON is expected to be succesfully parsed into a CardanoTransactionCommitmentListMessage instance.",
                 );
         assert_eq!(golden_message(), message);
     }

@@ -55,7 +55,7 @@ async fn cardano_transaction_proof_get_validate() {
         ))
     );
 
-    // 4 - validate that the verified transactions match the signed by the certificate
+    // 4 - validate that the verified transactions proof is signed by the certificate
     let message = MessageBuilder::new()
         .compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
 

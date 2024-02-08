@@ -1,15 +1,15 @@
-//! A client to retrieve verifiable proofs of cardano transactions from an Aggregator.
+//! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano transactions.
 //!
 //! In order to do so it defines a [CardanoTransactionProofClient] which exposes the following features:
-//!  - [get_proofs][CardanoTransactionProofClient::get_proofs]: get a [verifiable proof][CardanoTransactionsProofs]
+//!  - [get_proofs][CardanoTransactionProofClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
 //! that the transactions with given hash are included in the global Cardano transactions set.
 //!  - [get][CardanoTransactionProofClient::get]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
 //! data from its hash.
 //!  - [list][CardanoTransactionProofClient::list]: get the list of the latest available Cardano transaction
 //! commitments.
 //!
-//!  **Important:** Verifying a proof only means that its data are coherent, to certify that a proof is part of
-//! a Mithril chain, you need to validate its attached certificate chain (see the example below).
+//!  **Important:** Verifying a proof **only** means that its cryptography is valid, in order to certify that a Cardano
+//! transactions subset is valid, the associated proof must be tied to a valid Mithril certificate (see the example below).
 //!
 //! # Get and verify Cardano transaction proof
 //!
@@ -30,10 +30,10 @@
 //! // 2 - Verify its associated certificate chain
 //! let certificate = client.certificate().verify_chain(&cardano_transaction_proof.certificate_hash).await?;
 //!
-//! // 3 - Ensure that the proof is indeed associated with its certificate
+//! // 3 - Ensure that the proof is indeed signed in the associated certificate
 //! let message = MessageBuilder::new().compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
 //! if certificate.match_message(&message) {
-//!     // All green, Mithril certify that those transactions are part of the global Cardano transactions set.
+//!     // All green, Mithril certifies that those transactions are part of the Cardano transactions set.
 //!     println!("Certified transactions : {:?}", verified_transactions.certified_transactions());
 //! }
 //! #    Ok(())
@@ -93,7 +93,7 @@ impl CardanoTransactionProofClient {
         Self { aggregator_client }
     }
 
-    /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
+    /// Get proofs that the given subset of transactions is included in the Cardano transactions set.
     pub async fn get_proofs(
         &self,
         transactions_hashes: &[&str],
@@ -117,7 +117,7 @@ impl CardanoTransactionProofClient {
         }
     }
 
-    /// Fetch a list of signed Cardano transaction commitment
+    /// Fetch a list of signed Cardano transaction commitments.
     pub async fn list(&self) -> MithrilResult<Vec<CardanoTransactionCommitmentListItem>> {
         let response = self
             .aggregator_client

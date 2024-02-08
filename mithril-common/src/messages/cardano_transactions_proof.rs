@@ -22,7 +22,7 @@ pub struct CardanoTransactionsProofsMessage {
 /// Set of transactions verified by [CardanoTransactionsProofsMessage::verify].
 ///
 /// Can be used to reconstruct part of a [ProtocolMessage] in order to check that
-/// it is indeed associated to the certificate it claims to.
+/// it is indeed signed by a certificate.
 #[derive(Debug, Clone, PartialEq)]
 pub struct VerifiedCardanoTransactions {
     certificate_hash: String,
@@ -31,7 +31,7 @@ pub struct VerifiedCardanoTransactions {
 }
 
 impl VerifiedCardanoTransactions {
-    /// Hash of the certificate that sign this struct merkle root.
+    /// Hash of the certificate that signs this struct Merkle root.
     pub fn certificate_hash(&self) -> &str {
         &self.certificate_hash
     }
@@ -61,14 +61,14 @@ pub enum VerifyCardanoTransactionsProofsError {
     },
 
     /// No certified transactions set proof to verify
-    #[error("There's no certified transactions set proof to verify")]
-    NoCertifiedTransactions,
+    #[error("There's no certified transaction to verify")]
+    NoCertifiedTransaction,
 
     /// Not all certified transactions set proof have the same merkle root.
     ///
     /// This is problematic because all the set proof should be generated from the same
-    /// merkle tree whose root is signed in the [crate::entities::Certificate][certificate].
-    #[error("All certified transactions set proof must share the same merkle root")]
+    /// merkle tree which root is signed in the [crate::entities::Certificate][certificate].
+    #[error("All certified transactions set proofs must share the same Merkle root")]
     NonMatchingMerkleRoot,
 
     /// An individual [CardanoTransactionsSetProofMessagePart] could not be converted to a
@@ -94,11 +94,11 @@ impl CardanoTransactionsProofsMessage {
     /// Verify that all the certified transactions proofs are valid
     ///
     /// The following checks will be executed:
-    /// 1 - Check for each merkle proof that its leaves belongs to their merkle root
-    /// 2 - Check that all proofs merkle roots are the same
+    /// 1 - Check that each Merkle proof is valid
+    /// 2 - Check that all proofs share the same Merkle root
     /// 3 - Assert that there's at least one certified transaction
     ///
-    /// If every check is okay, the hex encoded merkle root of the proof will be returned.
+    /// If every check is okay, the hex encoded Merkle root of the proof will be returned.
     pub fn verify(
         &self,
     ) -> Result<VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError> {
@@ -128,7 +128,7 @@ impl CardanoTransactionsProofsMessage {
         Ok(VerifiedCardanoTransactions {
             certificate_hash: self.certificate_hash.clone(),
             merkle_root: merkle_root
-                .ok_or(VerifyCardanoTransactionsProofsError::NoCertifiedTransactions)?,
+                .ok_or(VerifyCardanoTransactionsProofsError::NoCertifiedTransaction)?,
             certified_transactions: self
                 .certified_transactions
                 .iter()
@@ -177,7 +177,7 @@ mod tests {
         assert!(
             matches!(
                 error,
-                VerifyCardanoTransactionsProofsError::NoCertifiedTransactions
+                VerifyCardanoTransactionsProofsError::NoCertifiedTransaction
             ),
             "Expected 'NoCertifiedTransactions' error but got '{:?}'",
             error
