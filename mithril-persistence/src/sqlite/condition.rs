@@ -1,6 +1,5 @@
-use std::iter::repeat;
-
 use sqlite::Value;
+use std::iter::repeat;
 
 /// Internal Boolean representation
 enum BooleanCondition {

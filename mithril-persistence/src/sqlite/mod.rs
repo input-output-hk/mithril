@@ -16,9 +16,8 @@ pub use projection::{Projection, ProjectionField};
 pub use provider::Provider;
 pub use source_alias::SourceAlias;
 
+use mithril_common::StdResult;
 use sqlite::ConnectionThreadSafe;
-
-use crate::StdResult;
 
 /// Type of the connection used in Mithril
 pub type SqliteConnection = ConnectionThreadSafe;
