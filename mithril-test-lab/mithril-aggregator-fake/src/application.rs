@@ -89,13 +89,13 @@ impl Application {
 
 #[cfg(test)]
 mod tests {
-    use http::StatusCode;
     use serde_json::Value::Null;
     use std::time::Duration;
     use tokio::{
         task::{yield_now, JoinHandle},
         time::sleep,
     };
+    use warp::http::{Response, StatusCode};
 
     use mithril_common::test_utils::apispec::APISpec;
 
@@ -144,7 +144,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())
@@ -173,7 +173,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())
@@ -202,7 +202,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())
@@ -238,7 +238,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())
@@ -290,7 +290,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())
@@ -345,7 +345,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())
@@ -394,7 +394,7 @@ mod tests {
                 path,
                 "application/json",
                 &Null,
-                &http::Response::new(response.bytes().await.unwrap()),
+                &Response::new(response.bytes().await.unwrap()),
             );
 
             Ok(())

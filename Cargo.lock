@@ -3328,14 +3328,13 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
  "clap_derive",
  "futures",
- "http 0.2.11",
  "mithril-common",
  "reqwest",
  "serde_json",
@@ -3345,6 +3344,7 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+ "warp",
 ]
 
 [[package]]
@@ -3426,7 +3426,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.160"
+version = "0.2.161"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3440,7 +3440,6 @@ dependencies = [
  "fixed",
  "glob",
  "hex",
- "http 0.2.11",
  "jsonschema",
  "kes-summed-ed25519",
  "mithril-stm",

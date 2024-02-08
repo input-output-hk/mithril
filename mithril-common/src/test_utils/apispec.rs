@@ -1,10 +1,10 @@
 //! Tools to helps validate conformity to an OpenAPI specification
 
 use glob::glob;
-use http::response::Response;
 use jsonschema::JSONSchema;
 use serde::Serialize;
 use serde_json::{json, Value, Value::Null};
+use warp::http::Response;
 use warp::hyper::body::Bytes;
 
 use crate::era::SupportedEra;
@@ -190,8 +190,8 @@ impl<'a> APISpec<'a> {
 
 #[cfg(test)]
 mod tests {
-    use http::StatusCode;
     use warp::http::Method;
+    use warp::http::StatusCode;
 
     use super::*;
     use crate::entities;
