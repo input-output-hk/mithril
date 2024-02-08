@@ -16,5 +16,5 @@ cfg_fs! {
     pub use cardano_transactions::*;
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "fs"))]
 pub use cardano_transactions::MockTransactionStore;
