@@ -295,7 +295,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
     pub fn check(
         &self,
-        batch_val: &Vec<MTLeaf>,
+        batch_val: &[MTLeaf],
         proof: &BatchPath<D>,
     ) -> Result<(), MerkleTreeError<D>>
     where
