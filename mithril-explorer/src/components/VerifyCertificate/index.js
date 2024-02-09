@@ -27,34 +27,40 @@ export default function VerifyCertificate({ show, onClose, certificateHash }) {
           const certificate = await client.get_mithril_certificate(certificateHash);
           setCertificateData(certificate);
 
-          let verify_certificate_chain_promise = new Promise((resolve, reject) => {
-            const abortHandler = () => {
-              console.log("Abort handler called");
-              reject(new DOMException("Aborted", "AbortError"));
-            };
-            signal.addEventListener("abort", abortHandler);
+          client
+            .verify_certificate_chain(certificateHash, { signal })
+            .catch((err) =>
+              console.error("An error occurred in 'verify_certificate_chain_promise':", err),
+            );
 
-            client
-              .verify_certificate_chain(certificateHash)
-              .then(resolve)
-              .catch(reject)
-              .finally(() => {
-                signal.removeEventListener("abort", abortHandler);
-              });
-          });
+          // let verify_certificate_chain_promise = new Promise((resolve, reject) => {
+          //   const abortHandler = () => {
+          //     console.log("Abort handler called");
+          //     reject(new DOMException("Aborted", "AbortError"));
+          //   };
+          //   signal.addEventListener("abort", abortHandler);
 
-          // Execute promise with abort capability
-          verify_certificate_chain_promise
-            .then((result) => {
-              console.log("'verify_certificate_chain_promise' completed:", result);
-            })
-            .catch((error) => {
-              if (error.name === "AbortError") {
-                console.log("'verify_certificate_chain_promise' was aborted.");
-              } else {
-                console.error("An error occurred in 'verify_certificate_chain_promise':", error);
-              }
-            });
+          //   client
+          //     .verify_certificate_chain(certificateHash)
+          //     .then(resolve)
+          //     .catch(reject)
+          //     .finally(() => {
+          //       signal.removeEventListener("abort", abortHandler);
+          //     });
+          // });
+
+          // // Execute promise with abort capability
+          // verify_certificate_chain_promise
+          //   .then((result) => {
+          //     console.log("'verify_certificate_chain_promise' completed:", result);
+          //   })
+          //   .catch((error) => {
+          //     if (error.name === "AbortError") {
+          //       console.log("'verify_certificate_chain_promise' was aborted.");
+          //     } else {
+          //       console.error("An error occurred in 'verify_certificate_chain_promise':", error);
+          //     }
+          //   });
 
           setVerificationDuration(formatProcessDuration(startTime));
         }

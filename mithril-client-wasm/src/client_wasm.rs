@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use futures::stream::{AbortHandle, Abortable};
 use mithril_client::{
     feedback::{FeedbackReceiver, MithrilEvent},
     Client, ClientBuilder, MessageBuilder, MithrilCertificate,
@@ -6,6 +7,7 @@ use mithril_client::{
 use serde::Serialize;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
+use web_sys::AbortSignal;
 
 type WasmResult = Result<JsValue, JsValue>;
 
@@ -188,15 +190,35 @@ impl MithrilClient {
 
     /// Call the client to verify the certificate chain from a certificate hash
     #[wasm_bindgen]
-    pub async fn verify_certificate_chain(&self, hash: &str) -> WasmResult {
-        let result = self
-            .client
-            .certificate()
-            .verify_chain(hash)
-            .await
-            .map_err(|err| format!("{err:?}"))?;
+    pub async fn verify_certificate_chain(&self, hash: &str, signal: AbortSignal) -> WasmResult {
+        let (abort_handle, abort_registration) = AbortHandle::new_pair();
 
-        Ok(serde_wasm_bindgen::to_value(&result)?)
+        // Signal may have already been aborted
+        if signal.aborted() {
+            abort_handle.abort()
+        }
+
+        let abort_closuse = Closure::<dyn Fn()>::new(move || abort_handle.abort());
+        signal.add_event_listener_with_callback("abort", abort_closuse.as_ref().unchecked_ref())?;
+
+        match Abortable::new(
+            async {
+                let result = self
+                    .client
+                    .certificate()
+                    .verify_chain(hash)
+                    .await
+                    .map_err(|err| format!("{err:?}"))?;
+
+                Ok(serde_wasm_bindgen::to_value(&result)?)
+            },
+            abort_registration,
+        )
+        .await
+        {
+            Ok(val) => val,
+            Err(err) => Err(format!("Aborted, error: {err}").into()),
+        }
     }
 }
 
@@ -208,6 +230,7 @@ mod tests {
         MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
     };
     use wasm_bindgen_test::*;
+    use web_sys::AbortController;
 
     const GENESIS_VERIFICATION_KEY: &str = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
@@ -358,8 +381,9 @@ mod tests {
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value).unwrap();
 
+        let controller = AbortController::new().unwrap();
         let certificate_js_value = client
-            .verify_certificate_chain(&msd.certificate_hash)
+            .verify_certificate_chain(&msd.certificate_hash, controller.signal())
             .await
             .expect("verify_certificate_chain should not fail");
         serde_wasm_bindgen::from_value::<MithrilCertificate>(certificate_js_value)
@@ -375,8 +399,9 @@ mod tests {
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
             .unwrap();
+        let controller = AbortController::new().unwrap();
         let last_certificate_js_value = client
-            .verify_certificate_chain(&msd.certificate_hash)
+            .verify_certificate_chain(&msd.certificate_hash, controller.signal())
             .await
             .unwrap();
         let message_js_value = client
@@ -388,5 +413,29 @@ mod tests {
             .verify_message_match_certificate(message_js_value, last_certificate_js_value)
             .await
             .expect("verify_message_match_certificate should not fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn verify_certificate_chain_should_be_aborted() {
+        let client = get_mithril_client();
+        let msd_js_value = client
+            .get_mithril_stake_distribution(FAKE_AGGREGATOR_MSD_HASH)
+            .await
+            .unwrap();
+        let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value).unwrap();
+
+        let controller = AbortController::new().unwrap();
+
+        futures::join!(
+            async {
+                client
+                    .verify_certificate_chain(&msd.certificate_hash, controller.signal())
+                    .await
+                    .expect_err("verify_certificate_chain should have an 'abort' error");
+            },
+            async {
+                controller.abort();
+            }
+        );
     }
 }
