@@ -3465,7 +3465,6 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
- "sqlite",
  "strum",
  "thiserror",
  "tokio",
