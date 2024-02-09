@@ -16,6 +16,7 @@ clap = { version = "4.4.18", features = ["derive", "env"] }
 config = "0.13.4"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
+mithril-persistence = { path = "../mithril-persistence" }
 openssl = { version = "0.10.63", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 rand_chacha = "0.3.1"

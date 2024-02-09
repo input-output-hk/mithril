@@ -3556,6 +3556,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-persistence",
  "mockall",
  "openssl",
  "openssl-probe",
