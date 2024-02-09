@@ -14,10 +14,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 async-trait = "0.1.77"
-futures = "0.3.30"
 mithril-client = { path = "../mithril-client" }
 serde = { version = "1.0.196", features = ["derive"] }
 serde-wasm-bindgen = "0.6.3"
+tokio = { version = "1.35.1", features = ["macros", "rt"] }
+tokio-util = "0.7.10"
 wasm-bindgen = "0.2.90"
 wasm-bindgen-futures = "0.4.40"
 web-sys = { version = "0.3.67", features = ["AbortController", "AbortSignal", "BroadcastChannel"] }

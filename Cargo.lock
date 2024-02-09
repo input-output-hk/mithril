@@ -3415,10 +3415,11 @@ name = "mithril-client-wasm"
 version = "0.1.9"
 dependencies = [
  "async-trait",
- "futures",
  "mithril-client",
  "serde",
  "serde-wasm-bindgen",
+ "tokio",
+ "tokio-util",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",

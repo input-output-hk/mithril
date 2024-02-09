@@ -1,11 +1,11 @@
 use async_trait::async_trait;
-use futures::stream::{AbortHandle, Abortable};
 use mithril_client::{
     feedback::{FeedbackReceiver, MithrilEvent},
     Client, ClientBuilder, MessageBuilder, MithrilCertificate,
 };
 use serde::Serialize;
 use std::sync::Arc;
+use tokio_util::sync::CancellationToken;
 use wasm_bindgen::prelude::*;
 use web_sys::AbortSignal;
 
@@ -191,31 +191,35 @@ impl MithrilClient {
     /// Call the client to verify the certificate chain from a certificate hash
     #[wasm_bindgen]
     pub async fn verify_certificate_chain(&self, hash: &str, signal: AbortSignal) -> WasmResult {
-        let (abort_handle, abort_registration) = AbortHandle::new_pair();
+        let certificate_client = self.client.certificate().clone();
+        let hash = hash.to_string();
+        let token = CancellationToken::new();
+        let cloned_token = token.clone();
+
+        let join_handle = tokio::task::spawn_local(async move {
+            tokio::select! {
+                err = cloned_token.cancelled() => {
+                    Err(format!("Aborted, error: {err:?}").into())
+                }
+                res = tokio::spawn(async move { certificate_client.verify_chain(&hash).await }) => {
+                    let result = res
+                        .map_err(|err| format!("{err:?}"))?
+                        .map_err(|err| format!("{err:?}"))?;
+
+                    Ok(serde_wasm_bindgen::to_value(&result)?)
+                }
+            }
+        });
 
         // Signal may have already been aborted
         if signal.aborted() {
-            abort_handle.abort()
+            token.cancel();
         }
 
-        let abort_closuse = Closure::<dyn Fn()>::new(move || abort_handle.abort());
+        let abort_closuse = Closure::<dyn Fn()>::new(move || token.cancel());
         signal.add_event_listener_with_callback("abort", abort_closuse.as_ref().unchecked_ref())?;
 
-        match Abortable::new(
-            async {
-                let result = self
-                    .client
-                    .certificate()
-                    .verify_chain(hash)
-                    .await
-                    .map_err(|err| format!("{err:?}"))?;
-
-                Ok(serde_wasm_bindgen::to_value(&result)?)
-            },
-            abort_registration,
-        )
-        .await
-        {
+        match join_handle.await {
             Ok(val) => val,
             Err(err) => Err(format!("Aborted, error: {err}").into()),
         }
@@ -426,7 +430,7 @@ mod tests {
 
         let controller = AbortController::new().unwrap();
 
-        futures::join!(
+        tokio::join!(
             async {
                 client
                     .verify_certificate_chain(&msd.certificate_hash, controller.signal())
