@@ -60,6 +60,8 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::{crit, debug, Logger};
+use thiserror::Error;
+use tokio::sync::Mutex;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::feedback::{FeedbackSender, MithrilEvent};
@@ -78,11 +80,11 @@ use mithril_common::{
 #[cfg(test)]
 use mockall::automock;
 
-// #[derive(Error, Debug)]
-// enum MithrilCertificateVerifierError {
-//     #[error("Verification aborted")]
-//     Abort,
-// }
+#[derive(Error, Debug)]
+enum MithrilCertificateVerifierError {
+    #[error("Verification aborted")]
+    Abort,
+}
 
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
@@ -99,10 +101,10 @@ pub trait CertificateVerifier: Sync + Send {
     /// Validate the chain starting with the given certificate.
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
 
-    // /// Cancel request
-    // async fn cancel_request(&self) -> MithrilResult<()> {
-    //     Ok(())
-    // }
+    /// Cancel request
+    async fn cancel_request(&self) -> MithrilResult<()> {
+        Ok(())
+    }
 }
 
 impl CertificateClient {
@@ -205,6 +207,7 @@ pub struct MithrilCertificateVerifier {
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
     genesis_verification_key: ProtocolGenesisVerificationKey,
     feedback_sender: FeedbackSender,
+    cancel_request_sent: Arc<Mutex<bool>>,
     // cancellation_token: Arc<Mutex<CancellationToken>>,
 }
 
@@ -233,6 +236,7 @@ impl MithrilCertificateVerifier {
             internal_verifier,
             genesis_verification_key,
             feedback_sender,
+            cancel_request_sent: Arc::new(Mutex::new(false)),
             // cancellation_token,
         })
     }
@@ -241,10 +245,12 @@ impl MithrilCertificateVerifier {
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateVerifier for MithrilCertificateVerifier {
-    // async fn cancel_request(&self) -> MithrilResult<()> {
-    //     self.cancellation_token.lock().await.cancel();
-    //     Ok(())
-    // }
+    async fn cancel_request(&self) -> MithrilResult<()> {
+        let mut cancel_request_sent = self.cancel_request_sent.lock().await;
+        *cancel_request_sent = true;
+
+        Ok(())
+    }
 
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()> {
         // Todo: move most of this code in the `mithril_common` verifier by defining
@@ -259,6 +265,15 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
         let mut current_certificate = certificate.clone().try_into()?;
         loop {
+            println!(
+                "cancel_request_sent: {:?}",
+                *self.cancel_request_sent.lock().await
+            );
+            // Check the cancellation flag
+            if *self.cancel_request_sent.lock().await {
+                return Err(anyhow!(MithrilCertificateVerifierError::Abort));
+            }
+
             let previous_or_none = self
                 .internal_verifier
                 .verify_certificate(&current_certificate, &self.genesis_verification_key)
@@ -284,21 +299,6 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             .await;
 
         Ok(())
-
-        // let cloned_token = self.cancellation_token.lock().await.clone();
-
-        // let join_handle = tokio::spawn(async move {
-        //     select! {
-        //         _ = cloned_token.cancelled() => {
-        //             Err(anyhow!(MithrilCertificateVerifierError::Abort))
-        //         }
-        //         _ = future::ready(()) => {
-        //             future
-        //         }
-        //     }
-        // });
-
-        // join_handle.await?
     }
 }
 
@@ -551,48 +551,60 @@ mod tests {
         assert_eq!(certificate.hash, last_certificate_hash);
     }
 
-    // #[tokio::test]
-    // async fn verify_chain_return_error_if_aborted() {
-    //     let (chain, verifier) = setup_certificate_chain(3, 1);
-    //     let verification_key: String = verifier.to_verification_key().try_into().unwrap();
-    //     let mut aggregator_client = MockAggregatorHTTPClient::new();
-    //     let last_certificate_hash = chain.first().unwrap().hash.clone();
+    #[tokio::test]
+    async fn verify_chain_return_error_if_aborted() {
+        let (chain, verifier) = setup_certificate_chain(3, 1);
+        let verification_key: String = verifier.to_verification_key().try_into().unwrap();
+        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        let last_certificate_hash = chain.first().unwrap().hash.clone();
 
-    //     for certificate in chain.clone() {
-    //         let hash = certificate.hash.clone();
-    //         let message = serde_json::to_string(
-    //             &TryInto::<CertificateMessage>::try_into(certificate).unwrap(),
-    //         )
-    //         .unwrap();
-    //         aggregator_client
-    //             .expect_get_content()
-    //             .with(eq(AggregatorRequest::GetCertificate { hash }))
-    //             .returning(move |_| Ok(message.to_owned()));
-    //     }
+        for certificate in chain.clone() {
+            let hash = certificate.hash.clone();
+            let message = serde_json::to_string(
+                &TryInto::<CertificateMessage>::try_into(certificate).unwrap(),
+            )
+            .unwrap();
+            aggregator_client
+                .expect_get_content()
+                .with(eq(AggregatorRequest::GetCertificate { hash }))
+                .returning(move |_| Ok(message.to_owned()));
+        }
+        let aggregator_client = Arc::new(aggregator_client);
+        let certificate_client = build_client(
+            aggregator_client.clone(),
+            Some(Arc::new(
+                MithrilCertificateVerifier::new(
+                    aggregator_client,
+                    &verification_key,
+                    FeedbackSender::new(&[]),
+                    // Logger::root(slog::Discard, o!()),
+                    test_utils::test_logger(),
+                )
+                .unwrap(),
+            )),
+        );
 
-    //     let aggregator_client = Arc::new(aggregator_client);
-    //     let certificate_client = build_client(
-    //         aggregator_client.clone(),
-    //         Some(Arc::new(
-    //             MithrilCertificateVerifier::new(
-    //                 aggregator_client,
-    //                 &verification_key,
-    //                 FeedbackSender::new(&[]),
-    //                 test_utils::test_logger(),
-    //                 Arc::new(Mutex::new(CancellationToken::new())),
-    //             )
-    //             .unwrap(),
-    //         )),
-    //     );
+        let verifier = certificate_client.verifier.clone();
 
-    //     let join_handle = tokio::spawn(async move {
-    //         certificate_client
-    //             .verify_chain(&last_certificate_hash)
-    //             .await
-    //     });
+        let task = tokio::spawn(async move {
+            certificate_client
+                .verify_chain(&last_certificate_hash)
+                .await
+        });
 
-    //     //TODO:
-    //     // 1. Cancel the request after a short delay
-    //     // 2. Check the error type
-    // }
+        let _ = verifier.cancel_request().await;
+
+        let res = task.await.unwrap();
+        let err = res.expect_err(
+            "The Validation of the certificate chain was expected to fail because it was aborted.",
+        );
+
+        assert!(
+            matches!(
+                err.downcast_ref::<MithrilCertificateVerifierError>(),
+                Some(MithrilCertificateVerifierError::Abort),
+            ),
+            "Unexpected error: '{err:?}'"
+        );
+    }
 }
