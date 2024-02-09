@@ -198,7 +198,6 @@ impl SignedEntityService for MithrilSignedEntityService {
                     "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
                 )
             })?;
-
         Ok(())
     }
 
@@ -298,8 +297,10 @@ impl SignedEntityService for MithrilSignedEntityService {
 mod tests {
     use mithril_common::{
         entities::{CardanoTransactionsCommitment, Epoch},
+        signable_builder,
         test_utils::fake_data,
     };
+    use serde::{de::DeserializeOwned, Serialize};
 
     use super::*;
 
@@ -307,171 +308,212 @@ mod tests {
         artifact_builder::MockArtifactBuilder, database::provider::MockSignedEntityStorer,
     };
 
+    fn create_stake_distribution(epoch: Epoch, signers: usize) -> MithrilStakeDistribution {
+        MithrilStakeDistribution::new(
+            epoch,
+            fake_data::signers_with_stakes(signers),
+            &fake_data::protocol_parameters(),
+        )
+    }
+
+    fn assert_expected<T>(expected: &T, artifact: &Arc<dyn Artifact>)
+    where
+        T: Serialize + DeserializeOwned,
+    {
+        let current: T = serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_string(&expected).unwrap(),
+            serde_json::to_string(&current).unwrap()
+        );
+    }
+
+    /// Struct that create mocks needed in tests and build objects injecting them.
+    struct MockDependencyInjector {
+        mock_signed_entity_storer: MockSignedEntityStorer,
+        mock_mithril_stake_distribution_artifact_builder:
+            MockArtifactBuilder<Epoch, MithrilStakeDistribution>,
+        mock_cardano_immutable_files_full_artifact_builder: MockArtifactBuilder<Beacon, Snapshot>,
+        mock_cardano_transactions_artifact_builder:
+            MockArtifactBuilder<Beacon, CardanoTransactionsCommitment>,
+    }
+
+    impl MockDependencyInjector {
+        fn new() -> MockDependencyInjector {
+            MockDependencyInjector {
+                mock_signed_entity_storer: MockSignedEntityStorer::new(),
+                mock_mithril_stake_distribution_artifact_builder: MockArtifactBuilder::<
+                    Epoch,
+                    MithrilStakeDistribution,
+                >::new(),
+                mock_cardano_immutable_files_full_artifact_builder: MockArtifactBuilder::<
+                    Beacon,
+                    Snapshot,
+                >::new(),
+                mock_cardano_transactions_artifact_builder: MockArtifactBuilder::<
+                    Beacon,
+                    CardanoTransactionsCommitment,
+                >::new(),
+            }
+        }
+
+        fn build_artifact_builder_service(self) -> MithrilSignedEntityService {
+            MithrilSignedEntityService::new(
+                Arc::new(self.mock_signed_entity_storer),
+                Arc::new(self.mock_mithril_stake_distribution_artifact_builder),
+                Arc::new(self.mock_cardano_immutable_files_full_artifact_builder),
+                Arc::new(self.mock_cardano_transactions_artifact_builder),
+            )
+        }
+    }
+
     #[tokio::test]
     async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
     ) {
-        let signers_with_stake = fake_data::signers_with_stakes(5);
-        let mithril_stake_distribution_expected = MithrilStakeDistribution::new(
-            Epoch(1),
-            signers_with_stake,
-            &fake_data::protocol_parameters(),
-        );
+        let mut mock_container = MockDependencyInjector::new();
 
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_store_signed_entity()
-            .once()
-            .return_once(|_| Ok(()));
+        let mithril_stake_distribution_expected = create_stake_distribution(Epoch(1), 5);
 
-        let mut mock_mithril_stake_distribution_artifact_builder =
-            MockArtifactBuilder::<Epoch, MithrilStakeDistribution>::new();
-        let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
-        mock_mithril_stake_distribution_artifact_builder
+        mock_container
+            .mock_mithril_stake_distribution_artifact_builder
             .expect_compute_artifact()
-            .once()
-            .return_once(move |_, _| Ok(mithril_stake_distribution_clone));
+            .times(1)
+            .returning(|_, _| Ok(create_stake_distribution(Epoch(1), 5)));
 
-        let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
-        mock_mithril_stake_distribution_artifact_builder
-            .expect_compute_artifact()
-            .once()
-            .return_once(move |_, _| Ok(mithril_stake_distribution_clone));
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
 
-        let mock_cardano_immutable_files_full_artifact_builder =
-            MockArtifactBuilder::<Beacon, Snapshot>::new();
-        let mock_cardano_transactions_artifact_builder =
-            MockArtifactBuilder::<Beacon, CardanoTransactionsCommitment>::new();
-
-        let artifact_builder_service = MithrilSignedEntityService::new(
-            Arc::new(mock_signed_entity_storer),
-            Arc::new(mock_mithril_stake_distribution_artifact_builder),
-            Arc::new(mock_cardano_immutable_files_full_artifact_builder),
-            Arc::new(mock_cardano_transactions_artifact_builder),
-        );
         let certificate = fake_data::certificate("hash".to_string());
-
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
         let artifact = artifact_builder_service
             .compute_artifact(signed_entity_type.clone(), &certificate)
             .await
             .unwrap();
-        let mithril_stake_distribution_computed: MithrilStakeDistribution =
-            serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
-        assert_eq!(
-            serde_json::to_string(&mithril_stake_distribution_expected).unwrap(),
-            serde_json::to_string(&mithril_stake_distribution_computed).unwrap()
-        );
 
-        artifact_builder_service
-            .create_artifact(signed_entity_type, &certificate)
-            .await
-            .expect("Create artifact should not fail for MithrilStakeDistribution signed entity");
+        assert_expected(&mithril_stake_distribution_expected, &artifact);
+    }
+
+    #[tokio::test]
+    async fn should_store_the_artifact_when_creating_artifact_for_a_mithril_stake_distribution() {
+        generic_test_that_the_artifact_is_stored(
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            create_stake_distribution(Epoch(1), 5),
+            &|mock_injector| &mut mock_injector.mock_mithril_stake_distribution_artifact_builder,
+        )
+        .await;
     }
 
     #[tokio::test]
     async fn build_snapshot_artifact_when_given_cardano_immutable_files_full_entity_type() {
+        let mut mock_container = MockDependencyInjector::new();
+
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
 
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_store_signed_entity()
-            .once()
-            .return_once(|_| Ok(()));
-
-        let mock_mithril_stake_distribution_artifact_builder =
-            MockArtifactBuilder::<Epoch, MithrilStakeDistribution>::new();
-        let mut mock_cardano_immutable_files_full_artifact_builder =
-            MockArtifactBuilder::<Beacon, Snapshot>::new();
-        let mock_cardano_transactions_artifact_builder =
-            MockArtifactBuilder::<Beacon, CardanoTransactionsCommitment>::new();
-
-        let snapshot_expected_clone = snapshot_expected.clone();
-        mock_cardano_immutable_files_full_artifact_builder
+        mock_container
+            .mock_cardano_immutable_files_full_artifact_builder
             .expect_compute_artifact()
             .times(1)
-            .return_once(move |_, _| Ok(snapshot_expected_clone));
+            .returning(|_, _| Ok(fake_data::snapshots(1).first().unwrap().to_owned()));
 
-        let snapshot_expected_clone = snapshot_expected.clone();
-        mock_cardano_immutable_files_full_artifact_builder
-            .expect_compute_artifact()
-            .times(1)
-            .return_once(move |_, _| Ok(snapshot_expected_clone));
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
 
-        let artifact_builder_service = MithrilSignedEntityService::new(
-            Arc::new(mock_signed_entity_storer),
-            Arc::new(mock_mithril_stake_distribution_artifact_builder),
-            Arc::new(mock_cardano_immutable_files_full_artifact_builder),
-            Arc::new(mock_cardano_transactions_artifact_builder),
-        );
         let certificate = fake_data::certificate("hash".to_string());
-
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(Beacon::default());
         let artifact = artifact_builder_service
             .compute_artifact(signed_entity_type.clone(), &certificate)
             .await
             .unwrap();
-        let snapshot_computed: Snapshot =
-            serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
-        assert_eq!(
-            serde_json::to_string(&snapshot_expected).unwrap(),
-            serde_json::to_string(&snapshot_computed).unwrap()
-        );
 
-        artifact_builder_service
-            .create_artifact(signed_entity_type, &certificate)
-            .await
-            .expect("Create artifact should not fail for CardanoImmutableFilesFull signed entity");
+        assert_expected(&snapshot_expected, &artifact);
     }
 
     #[tokio::test]
-    async fn build_artifact_for_cardano_transactions_store_nothing_in_db() {
+    async fn should_store_the_artifact_when_creating_artifact_for_a_cardano_immutable_files() {
+        generic_test_that_the_artifact_is_stored(
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            fake_data::snapshots(1).first().unwrap().to_owned(),
+            &|mock_injector| &mut mock_injector.mock_cardano_immutable_files_full_artifact_builder,
+        )
+        .await;
+    }
+
+    #[tokio::test]
+    async fn build_cardano_transactions_commitment_artifact_when_given_cardano_transactions_type() {
+        let mut mock_container = MockDependencyInjector::new();
+
         let expected =
             CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default());
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_store_signed_entity()
-            .return_once(|_| Ok(()));
 
-        let mut mock_cardano_transactions_artifact_builder =
-            MockArtifactBuilder::<Beacon, CardanoTransactionsCommitment>::new();
-
-        let commitment_expected_clone = expected.clone();
-        mock_cardano_transactions_artifact_builder
+        mock_container
+            .mock_cardano_transactions_artifact_builder
             .expect_compute_artifact()
             .times(1)
-            .return_once(move |_, _| Ok(commitment_expected_clone));
+            .returning(|_, _| {
+                Ok(CardanoTransactionsCommitment::new(
+                    "merkle_root".to_string(),
+                    Beacon::default(),
+                ))
+            });
 
-        let commitment_expected_clone = expected.clone();
-        mock_cardano_transactions_artifact_builder
-            .expect_compute_artifact()
-            .times(1)
-            .return_once(move |_, _| Ok(commitment_expected_clone));
-
-        let artifact_builder_service = MithrilSignedEntityService::new(
-            Arc::new(mock_signed_entity_storer),
-            Arc::new(MockArtifactBuilder::<Epoch, MithrilStakeDistribution>::new()),
-            Arc::new(MockArtifactBuilder::<Beacon, Snapshot>::new()),
-            Arc::new(mock_cardano_transactions_artifact_builder),
-        );
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
 
         let certificate = fake_data::certificate("hash".to_string());
-
         let signed_entity_type = SignedEntityType::CardanoTransactions(Beacon::default());
         let artifact = artifact_builder_service
             .compute_artifact(signed_entity_type.clone(), &certificate)
             .await
             .unwrap();
-        let commitment_computed: CardanoTransactionsCommitment =
-            serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
 
-        assert_eq!(
-            serde_json::to_string(&expected).unwrap(),
-            serde_json::to_string(&commitment_computed).unwrap()
+        assert_expected(&expected, &artifact);
+    }
+
+    #[tokio::test]
+    async fn should_store_the_artifact_when_creating_artifact_for_cardano_transactions() {
+        generic_test_that_the_artifact_is_stored(
+            SignedEntityType::CardanoTransactions(Beacon::default()),
+            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default()),
+            &|mock_injector| &mut mock_injector.mock_cardano_transactions_artifact_builder,
+        )
+        .await;
+    }
+
+    async fn generic_test_that_the_artifact_is_stored<
+        T: Artifact + Clone + Serialize + 'static,
+        U: signable_builder::Beacon,
+    >(
+        signed_entity_type: SignedEntityType,
+        artifact: T,
+        mock_that_provide_artifact: &dyn Fn(
+            &mut MockDependencyInjector,
+        ) -> &mut MockArtifactBuilder<U, T>,
+    ) {
+        let mut mock_container = MockDependencyInjector::new();
+        {
+            let artifact_clone: Arc<dyn Artifact> = Arc::new(artifact.clone());
+            let signed_entity_artifact = serde_json::to_string(&artifact_clone).unwrap();
+            mock_container
+                .mock_signed_entity_storer
+                .expect_store_signed_entity()
+                .withf(move |signed_entity| signed_entity.artifact == signed_entity_artifact)
+                .return_once(|_| Ok(()));
+        }
+        {
+            let artifact_cloned = artifact.clone();
+            mock_that_provide_artifact(&mut mock_container)
+                .expect_compute_artifact()
+                .times(1)
+                .return_once(|_, _| Ok(artifact_cloned));
+        }
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
+
+        let certificate = fake_data::certificate("hash".to_string());
+        let error_message = format!(
+            "Create artifact should not fail for {} signed entity",
+            std::any::type_name::<T>()
         );
+        let error_message_str = error_message.as_str();
 
         artifact_builder_service
             .create_artifact(signed_entity_type, &certificate)
             .await
-            .expect("Create artifact should not fail for CardanoTransactions signed entity");
+            .expect(error_message_str);
     }
 }
