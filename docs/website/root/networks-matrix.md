@@ -20,7 +20,7 @@ Here is an updated list of all **Mithril networks**, including their configurati
 |------------|------------
 | **Mithril network** | `release-mainnet`
 | **Cardano network** | `mainnet` 
-| **Cardano magic id** |   `-`
+| **Cardano magic Id** |   `-`
 | **Supported** | Yes :heavy_check_mark:
 | **Status** | Beta 🟢
 | **Aggregator endpoint** | `https://aggregator.release-mainnet.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.release-mainnet.api.mithril.network/aggregator)  
@@ -71,7 +71,7 @@ Here is an updated list of all **Mithril networks**, including their configurati
 <br/>
 
 ## `testing-preview`
-> :warning: For devs only
+> :warning: For developers only
 
 | Information | -
 |------------|------------
@@ -90,7 +90,7 @@ Here is an updated list of all **Mithril networks**, including their configurati
   </TabItem>
   <TabItem value="sanchonet" label="Sanchonet">
 ## `testing-sanchonet`
-> :warning: For devs only
+> :warning: For developers only
 
 | Information | -
 |------------|------------
