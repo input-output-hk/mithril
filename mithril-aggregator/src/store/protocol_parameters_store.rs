@@ -4,7 +4,7 @@ use mithril_common::StdResult;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::store::{adapter::StoreAdapter, StorePruner};
+use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
@@ -91,7 +91,8 @@ impl ProtocolParametersStorer for ProtocolParametersStore {
 mod tests {
     use super::*;
 
-    use mithril_common::{store::adapter::MemoryAdapter, test_utils::fake_data};
+    use mithril_common::test_utils::fake_data;
+    use mithril_persistence::store::adapter::MemoryAdapter;
 
     fn setup_protocol_parameters(nb_epoch: u64) -> Vec<(Epoch, ProtocolParameters)> {
         let mut values: Vec<(Epoch, ProtocolParameters)> = Vec::new();

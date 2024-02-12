@@ -462,8 +462,8 @@ impl EpochService for FakeEpochService {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::PartyId;
-    use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
+    use mithril_persistence::store::adapter::MemoryAdapter;
     use std::collections::{BTreeSet, HashMap};
 
     use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;

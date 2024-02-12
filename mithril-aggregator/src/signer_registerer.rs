@@ -287,13 +287,12 @@ impl SignerRegisterer for MithrilSignerRegisterer {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
-    use mithril_common::test_utils::fake_data;
     use mithril_common::{
         chain_observer::FakeObserver,
         entities::{Epoch, PartyId, Signer, SignerWithStake},
-        store::adapter::MemoryAdapter,
-        test_utils::MithrilFixtureBuilder,
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
+    use mithril_persistence::store::adapter::MemoryAdapter;
 
     use crate::{
         MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationRoundOpener,

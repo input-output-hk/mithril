@@ -201,9 +201,9 @@ mod test {
             },
             SignedEntityTypeDiscriminants,
         },
-        sqlite::SqliteConnection,
         StdResult,
     };
+    use mithril_persistence::sqlite::SqliteConnection;
     use sqlite::Connection;
     use std::{collections::HashMap, sync::Arc};
 

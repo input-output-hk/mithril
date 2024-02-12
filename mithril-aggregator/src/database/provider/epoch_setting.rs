@@ -5,13 +5,13 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{Epoch, ProtocolParameters},
-    sqlite::{
-        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        SqliteConnection, WhereCondition,
-    },
-    store::adapter::AdapterError,
     StdResult,
 };
+use mithril_persistence::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
+    SqliteConnection, WhereCondition,
+};
+use mithril_persistence::store::adapter::AdapterError;
 
 use crate::ProtocolParametersStorer;
 

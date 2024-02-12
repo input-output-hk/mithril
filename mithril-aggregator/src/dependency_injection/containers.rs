@@ -11,11 +11,10 @@ use mithril_common::{
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     signable_builder::{SignableBuilderService, TransactionStore},
-    sqlite::SqliteConnection,
-    store::StakeStorer,
     test_utils::MithrilFixture,
     BeaconProvider,
 };
+use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
 
 use crate::{
     configuration::*,

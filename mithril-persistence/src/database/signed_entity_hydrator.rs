@@ -8,7 +8,7 @@ use crate::sqlite::HydrationError;
 pub struct SignedEntityTypeHydrator {}
 
 impl SignedEntityTypeHydrator {
-    /// Create an [SignedEntityType] from data coming from the database
+    /// Create a [SignedEntityType] from data coming from the database
     pub fn hydrate(
         signed_entity_type_id: usize,
         beacon_str: &str,

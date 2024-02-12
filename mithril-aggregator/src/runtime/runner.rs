@@ -8,8 +8,8 @@ use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
     SignedEntityType, SignedEntityTypeDiscriminants, Signer,
 };
-use mithril_common::store::StakeStorer;
 use mithril_common::{CardanoNetwork, StdResult};
+use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
 use crate::DependencyContainer;
@@ -534,10 +534,10 @@ pub mod tests {
             StakeDistribution,
         },
         signable_builder::SignableBuilderService,
-        store::StakeStorer,
         test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProviderImpl, CardanoNetwork, StdResult,
     };
+    use mithril_persistence::store::StakeStorer;
     use mockall::{mock, predicate::eq};
     use std::sync::Arc;
     use tokio::sync::RwLock;

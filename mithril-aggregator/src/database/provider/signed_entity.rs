@@ -16,12 +16,15 @@ use mithril_common::{
         SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
     },
     signable_builder::Artifact,
+    StdError, StdResult,
+};
+use mithril_persistence::{
+    database::SignedEntityTypeHydrator,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         SqliteConnection, WhereCondition,
     },
     store::adapter::AdapterError,
-    StdError, StdResult,
 };
 
 #[cfg(test)]
@@ -224,7 +227,7 @@ impl SqLiteEntity for SignedEntityRecord {
 
         let signed_entity_record = Self {
             signed_entity_id,
-            signed_entity_type: SignedEntityType::hydrate(
+            signed_entity_type: SignedEntityTypeHydrator::hydrate(
                 signed_entity_type_id_int.try_into().map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not cast i64 ({signed_entity_type_id_int}) to u64. Error: '{e}'"

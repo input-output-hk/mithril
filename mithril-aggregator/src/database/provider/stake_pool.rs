@@ -8,13 +8,13 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{Epoch, PartyId, Stake, StakeDistribution},
-    sqlite::{
-        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        SqliteConnection, WhereCondition,
-    },
-    store::{adapter::AdapterError, StakeStorer},
     StdResult,
 };
+use mithril_persistence::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
+    SqliteConnection, WhereCondition,
+};
+use mithril_persistence::store::{adapter::AdapterError, StakeStorer};
 
 /// Stake pool as read from Chain.
 #[derive(Debug, PartialEq)]

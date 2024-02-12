@@ -3,11 +3,11 @@ use chrono::{DateTime, Utc};
 
 use std::{collections::HashMap, sync::Arc};
 
-use mithril_common::sqlite::{
+use mithril_common::StdResult;
+use mithril_persistence::sqlite::{
     HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
     WhereCondition,
 };
-use mithril_common::StdResult;
 
 /// Event that is sent from a thread to be persisted.
 #[derive(Debug, Clone)]
