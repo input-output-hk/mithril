@@ -74,12 +74,6 @@ cfg_fs! {
     pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
 }
 
-cfg_database! {
-    pub mod database;
-    pub mod sqlite;
-    pub mod store;
-}
-
 pub use entities::{CardanoNetwork, MagicId};
 
 /// Generic error type
