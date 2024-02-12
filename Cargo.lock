@@ -945,6 +945,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "client-cardano-transaction"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "mithril-client",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
 name = "client-mithril-stake-distribution"
 version = "0.1.6"
 dependencies = [

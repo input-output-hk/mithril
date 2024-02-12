@@ -1,0 +1,19 @@
+[package]
+name = "client-cardano-transaction"
+description = "Mithril client cardano-transaction example"
+version = "0.1.0"
+authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
+documentation = "https://mithril.network/doc"
+edition = "2021"
+homepage = "https://mithril.network"
+license = "Apache-2.0"
+repository = "https://github.com/input-output-hk/mithril/"
+
+[dependencies]
+anyhow = "1.0.79"
+clap = { version = "4.4.18", features = ["derive", "env"] }
+mithril-client = { path = "../../mithril-client", features = ["unstable"] }
+slog = "2.7.0"
+slog-async = "2.8.0"
+slog-term = "2.9.0"
+tokio = { version = "1.35.1", features = ["full"] }
