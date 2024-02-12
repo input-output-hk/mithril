@@ -159,3 +159,77 @@ jobs:
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
         run:  ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
+
+  test-mithril-client-wasm:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Download built artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-wasm
+          path: ./mithril-client-wasm
+          commit: ${{ steps.prepare.outputs.sha }} 
+          branch: ${{ steps.prepare.outputs.branch }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Unpack 'mithril-client-wasm' package
+        working-directory: mithril-client-wasm
+        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+
+      - name: Install dependencies
+        working-directory: mithril-client-wasm
+        run: make www-test-install
+
+      - name: Create .env file
+        working-directory: mithril-client-wasm
+        run: |
+          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./www-test/.env
+          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./www-test/.env
+
+      - name: Start the server
+        working-directory: mithril-client-wasm
+        shell: bash
+        run: make www-test-serve &
+
+      - name: Wait for the server to be ready
+        shell: bash
+        run: |
+          MAX_ATTEMPTS=30
+          CURRENT_ATTEMPT=0
+          while true
+          do
+            sleep 1
+            CURRENT_ATTEMPT=$(( ${CURRENT_ATTEMPT} + 1 ))
+            if nc -z localhost 8080; then
+              echo "Server is ready."
+              break
+            fi
+            if [ "$CURRENT_ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+              echo "Error: Server not ready after $MAX_ATTEMPTS attempts."
+              exit 1
+            fi
+          done
+
+      - name: Install selenium
+        shell: bash
+        run: pip install selenium
+
+      - name: Run Chrome headless
+        shell: bash
+        run: |
+          python3 ./.github/workflows/scripts/run-wasm-tests-browser-headless.py chrome
+          ./.github/workflows/scripts/parse-wasm-headless-tests-results.sh chrome-results.html
+
+      - name: Run Firefox headless
+        shell: bash
+        run: |
+          python3 ./.github/workflows/scripts/run-wasm-tests-browser-headless.py firefox
+          ./.github/workflows/scripts/parse-wasm-headless-tests-results.sh firefox-results.html

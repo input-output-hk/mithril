@@ -38,3 +38,9 @@ www-install:
 
 www-serve:
 	npm --prefix www run start
+
+www-test-install:
+	npm --prefix www-test install
+
+www-test-serve:
+	npm --prefix www-test run start

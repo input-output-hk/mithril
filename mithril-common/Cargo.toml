@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.2.155"
+version = "0.2.163"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -17,18 +17,17 @@ name = "digester"
 harness = false
 
 [dependencies]
-anyhow = "1.0.75"
-async-trait = "0.1.73"
+anyhow = "1.0.79"
+async-trait = "0.1.77"
 bech32 = "0.9.1"
 blake2 = "0.10.6"
-chrono = { version = "0.4.31", features = ["serde"] }
+chrono = { version = "0.4.33", features = ["serde"] }
 ckb-merkle-mountain-range = "0.6.0"
 digest = "0.10.7"
-ed25519-dalek = { version = "2.0.0", features = ["rand_core", "serde"] }
+ed25519-dalek = { version = "2.1.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"
 glob = { version = "0.3.1", optional = true }
 hex = "0.4.3"
-http = { version = "0.2.9", optional = true }
 jsonschema = { version = "0.17.1", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
@@ -48,21 +47,21 @@ pallas-primitives = { git = "https://github.com/falcucci/pallas.git", branch = "
 pallas-traverse = { git = "https://github.com/falcucci/pallas.git", branch = "fix/legacy-transaction-utxo-by-address", optional = true }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
-rayon = "1.8.0"
-semver = "1.0.19"
-serde = { version = "1.0.188", features = ["derive"] }
-serde_bytes = "0.11.12"
+rayon = "1.8.1"
+semver = "1.0.21"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_bytes = "0.11.14"
 serde_cbor = "0.11.2"
-serde_json = "1.0.107"
-serde_with = "3.3.0"
-serde_yaml = "0.9.25"
+serde_json = "1.0.113"
+serde_with = "3.6.0"
+serde_yaml = "0.9.31"
 sha2 = "0.10.8"
 slog = "2.7.0"
-sqlite = { version = "0.32.0", features = ["bundled"], optional = true }
-strum = { version = "0.25.0", features = ["derive"] }
-thiserror = "1.0.49"
-tokio = { version = "1.32.0", features = ["io-util", "rt", "sync"] }
-typetag = "0.2.13"
+sqlite = { version = "0.33.0", features = ["bundled"], optional = true }
+strum = { version = "0.26.1", features = ["derive"] }
+thiserror = "1.0.56"
+tokio = { version = "1.35.1", features = ["io-util", "rt", "sync"] }
+typetag = "0.2.15"
 walkdir = "2.4.0"
 warp = { version = "0.3.6", optional = true }
 
@@ -84,21 +83,21 @@ mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = fal
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
-mockall = "0.12.0"
+mockall = "0.12.1"
 # pallas-crypto = "0.21.0"
 pallas-crypto = { git = "https://github.com/falcucci/pallas.git", branch = "fix/legacy-transaction-utxo-by-address" }
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-reqwest = { version = "0.11.22", features = ["json"] }
+reqwest = { version = "0.11.23", features = ["json"] }
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-tokio = { version = "1.32.0", features = ["macros", "time"] }
+tokio = { version = "1.35.1", features = ["macros", "time"] }
 
 [build-dependencies]
 glob = "0.3.1"
-semver = "1.0.19"
-serde_json = "1.0.107"
-serde_yaml = "0.9.25"
+semver = "1.0.21"
+serde_json = "1.0.113"
+serde_yaml = "0.9.31"
 
 [features]
 default = []
@@ -126,7 +125,7 @@ allow_skip_signer_certification = []
 # Enable all tests tools
 test_tools = ["apispec", "test_http_server", "random"]
 # Enable tools to helps validate conformity to an OpenAPI specification
-apispec = ["dep:glob", "dep:http", "dep:jsonschema", "dep:warp"]
+apispec = ["dep:glob", "dep:jsonschema", "dep:warp"]
 test_http_server = ["dep:warp"]
 
 [package.metadata.docs.rs]

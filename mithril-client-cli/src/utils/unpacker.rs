@@ -36,7 +36,7 @@ pub enum SnapshotUnpackerError {
     UnpackDirectoryAlreadyExists(PathBuf),
 
     /// Cannot write in the given directory.
-    #[error("Unpack directory '{0}' is not writable.")]
+    #[error("Unpack directory '{0}' is not writable, please check own or parents' permissions and ownership.")]
     UnpackDirectoryIsNotWritable(PathBuf, #[source] StdError),
 }
 
@@ -114,7 +114,7 @@ mod test {
         );
     }
 
-    // This test is not runned on Windows because `set_readonly` is not working on Windows 7+
+    // This test is not run on Windows because `set_readonly` is not working on Windows 7+
     // https://doc.rust-lang.org/std/fs/struct.Permissions.html#method.set_readonly
     #[cfg(not(target_os = "windows"))]
     #[test]

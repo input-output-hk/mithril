@@ -22,7 +22,10 @@ use crate::{
     database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
-    services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
+    services::{
+        CertifierService, ProverService, SignedEntityService, StakeDistributionService,
+        TickerService,
+    },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
@@ -151,6 +154,9 @@ pub struct DependencyContainer {
 
     /// HTTP message service
     pub message_service: Arc<dyn MessageService>,
+
+    /// Prover service
+    pub prover_service: Arc<dyn ProverService>,
 }
 
 #[doc(hidden)]

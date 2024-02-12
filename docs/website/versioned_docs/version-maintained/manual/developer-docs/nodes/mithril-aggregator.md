@@ -30,7 +30,7 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 ## Resources
 
 | Node | Source repository | Rust documentation | Docker packages | REST API
-|:-:|:-----------------:|:------------------:|:---------------:|
+|:----:|:-----------------:|:------------------:|:---------------:|:--------:|
 **Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/doc/aggregator-api)
 
 ## Pre-requisites

@@ -25,6 +25,11 @@ $ export ERA_ACTIVATION_SECRET_KEY=**YOUR_ERA_ACTIVATION_SECRET_KEY**
 $ export ASSETS_PATH=**YOUR_ASSETS_PATH**
 ```
 
+Compute the current Cardano era:
+```bash
+CARDANO_ERA=$(cardano-cli query tip --testnet-magic $CARDANO_TESTNET_MAGIC | jq  -r '.era |= ascii_downcase | .era')
+```
+
 Set the transaction amount used when a script transaction is made:
 ```bash
 $ export SCRIPT_TX_VALUE=2000000
@@ -54,7 +59,7 @@ $ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers
 
 Now create the bootstrap transaction with datum:
 ```bash
-$ cardano-cli transaction build --babbage-era --testnet-magic $CARDANO_TESTNET_MAGIC \
+$ cardano-cli $CARDANO_ERA transaction build --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-in $TX_IN \
     --tx-out $(cat $CARDANO_WALLET_PATH/payment.addr)+$SCRIPT_TX_VALUE \
     --tx-out-inline-datum-file $ASSETS_PATH/mithril-era-datum-1.json \
@@ -65,7 +70,7 @@ Estimated transaction fee: Lovelace 168669
 
 Then sign the transaction:
 ```bash
-$ cardano-cli transaction sign \
+$ cardano-cli $CARDANO_ERA transaction sign \
     --tx-body-file $ASSETS_PATH/tx.raw \
     --signing-key-file $CARDANO_WALLET_PATH/payment.skey \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
@@ -74,7 +79,7 @@ $ cardano-cli transaction sign \
 
 And submit it:
 ```bash
-$ cardano-cli transaction submit \
+$ cardano-cli $CARDANO_ERA transaction submit \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-file $ASSETS_PATH/tx.signed
 Transaction successfully submitted.
@@ -155,7 +160,7 @@ $ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers
 
 Now create the update transaction with datum:
 ```bash
-$ cardano-cli transaction build --babbage-era --testnet-magic $CARDANO_TESTNET_MAGIC \
+$ cardano-cli $CARDANO_ERA transaction build --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-in $TX_IN_DATUM \
     --tx-in $TX_IN_NO_DATUM \
     --tx-out $(cat $CARDANO_WALLET_PATH/payment.addr)+$SCRIPT_TX_VALUE \
@@ -167,7 +172,7 @@ Estimated transaction fee: Lovelace 179889
 
 Then sign the transaction:
 ```bash
-$ cardano-cli transaction sign \
+$ cardano-cli $CARDANO_ERA transaction sign \
     --tx-body-file $ASSETS_PATH/tx.raw \
     --signing-key-file $CARDANO_WALLET_PATH/payment.skey \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
@@ -176,7 +181,7 @@ $ cardano-cli transaction sign \
 
 And submit it:
 ```bash
-$ cardano-cli transaction submit \
+$ cardano-cli $CARDANO_ERA transaction submit \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-file $ASSETS_PATH/tx.signed
 Transaction successfully submitted.

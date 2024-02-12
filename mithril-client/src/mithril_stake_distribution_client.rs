@@ -95,11 +95,11 @@ impl MithrilStakeDistributionClient {
 #[cfg(test)]
 mod tests {
     use chrono::{DateTime, Utc};
-    use mithril_common::{
-        entities::Epoch, messages::SignerWithStakeMessagePart, test_utils::fake_data,
-    };
+    use mithril_common::test_utils::fake_data;
 
     use crate::aggregator_client::MockAggregatorHTTPClient;
+    use crate::common::Epoch;
+    use crate::MithrilSigner;
 
     use super::*;
 
@@ -145,9 +145,7 @@ mod tests {
         let message = MithrilStakeDistribution {
             certificate_hash: "certificate-hash-123".to_string(),
             epoch: Epoch(1),
-            signers_with_stake: SignerWithStakeMessagePart::from_signers(
-                fake_data::signers_with_stakes(2),
-            ),
+            signers_with_stake: MithrilSigner::from_signers(fake_data::signers_with_stakes(2)),
             hash: "hash".to_string(),
             created_at: DateTime::<Utc>::default(),
             protocol_parameters: fake_data::protocol_parameters(),

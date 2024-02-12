@@ -48,6 +48,7 @@ EOT
     inline = [
       "export NETWORK=${var.cardano_network}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
+      "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
       "export AGGREGATOR_HOST=${local.mithril_aggregator_host}",
       "export GOOGLE_APPLICATION_CREDENTIALS_JSON='${local.google_cloud_storage_credentials_json}'",

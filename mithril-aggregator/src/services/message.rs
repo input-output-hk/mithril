@@ -1,4 +1,4 @@
-//! This service is responsible of providing HTTP server with messages as fast as possible.
+//! This service is responsible for providing HTTP server with messages as fast as possible.
 
 use std::sync::Arc;
 
@@ -8,6 +8,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::SignedEntityTypeDiscriminants,
     messages::{
+        CardanoTransactionCommitmentListMessage, CardanoTransactionCommitmentMessage,
         CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
         MithrilStakeDistributionMessage, SnapshotListMessage, SnapshotMessage,
     },
@@ -61,6 +62,18 @@ pub trait MessageService: Sync + Send {
         &self,
         limit: usize,
     ) -> StdResult<MithrilStakeDistributionListMessage>;
+
+    /// Return the information regarding the Cardano transactions set for the given identifier.
+    async fn get_cardano_transaction_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<CardanoTransactionCommitmentMessage>>;
+
+    /// Return the list of the last Cardano transactions set message
+    async fn get_cardano_transaction_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoTransactionCommitmentListMessage>;
 }
 
 /// Implementation of the [MessageService]
@@ -148,6 +161,31 @@ impl MessageService for MithrilMessageService {
 
         entities.into_iter().map(|i| i.try_into()).collect()
     }
+
+    async fn get_cardano_transaction_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<CardanoTransactionCommitmentMessage>> {
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await?;
+
+        signed_entity.map(|v| v.try_into()).transpose()
+    }
+
+    async fn get_cardano_transaction_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoTransactionCommitmentListMessage> {
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoTransactions;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
+    }
 }
 
 #[cfg(test)]
@@ -155,7 +193,10 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_common::{
-        entities::{Beacon, MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot},
+        entities::{
+            Beacon, CardanoTransactionsCommitment, MithrilStakeDistribution, SignedEntity,
+            SignedEntityType, Snapshot,
+        },
         messages::ToMessageAdapter,
         test_utils::MithrilFixtureBuilder,
     };
@@ -164,6 +205,7 @@ mod tests {
         database::provider::{MockSignedEntityStorer, SignedEntityRecord},
         dependency_injection::DependenciesBuilder,
         message_adapters::{
+            ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
             ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
             ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter,
         },
@@ -252,7 +294,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_no_snapshot() {
+    async fn get_snapshot_not_exist() {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
         let service = dep_builder.get_message_service().await.unwrap();
@@ -350,7 +392,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_mithril_no_stake_distribution() {
+    async fn get_mithril_stake_distribution_not_exist() {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
         let mut storer = MockSignedEntityStorer::new();
@@ -390,6 +432,86 @@ mod tests {
         let service = dep_builder.get_message_service().await.unwrap();
         let response = service
             .get_mithril_stake_distribution_list_message(10)
+            .await
+            .unwrap();
+
+        assert_eq!(message, response);
+    }
+
+    #[tokio::test]
+    async fn get_cardano_transaction() {
+        let entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
+        let record = SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::CardanoTransactions(
+                entity.artifact.beacon.clone(),
+            ),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        };
+        let message = ToCardanoTransactionMessageAdapter::adapt(entity);
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(Some(record)))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_message_service().await.unwrap();
+        let response = service
+            .get_cardano_transaction_message("whatever")
+            .await
+            .unwrap()
+            .expect("A CardanoTransactionMessage was expected.");
+
+        assert_eq!(message, response);
+    }
+
+    #[tokio::test]
+    async fn get_cardano_transaction_not_exist() {
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(None))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_message_service().await.unwrap();
+        let response = service
+            .get_cardano_transaction_message("whatever")
+            .await
+            .unwrap();
+
+        assert!(response.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_cardano_transaction_list_message() {
+        let entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
+        let records = vec![SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::CardanoTransactions(
+                entity.artifact.beacon.clone(),
+            ),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        }];
+        let message = ToCardanoTransactionListMessageAdapter::adapt(vec![entity]);
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_last_signed_entities_by_type()
+            .return_once(|_, _| Ok(records))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_message_service().await.unwrap();
+        let response = service
+            .get_cardano_transaction_list_message(10)
             .await
             .unwrap();
 

@@ -23,15 +23,14 @@ EPOCH_CURRENT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .e
 EPOCH_RETIREMENT=$(( EPOCH_CURRENT + 1 ))
 
 # Build deregistration certificate
-CARDANO_CLI_CMD stake-pool deregistration-certificate \
+CARDANO_CLI_CMD ${CARDANO_ERA} stake-pool deregistration-certificate \
 --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey \
 --epoch $EPOCH_RETIREMENT \
 --out-file ${POOL_ARTIFACTS_DIR}/pool-deregistration.cert
 
 # Submit the pool certificate and delegation certificate to the blockchain
 ## Build transaction
-CARDANO_CLI_CMD transaction build \
---babbage-era \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction build \
 --tx-in $TX_IN \
 --tx-out $(cat ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/payment.addr)+${VALUE_OUT} \
 --change-address $(cat ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/payment.addr) \
@@ -42,7 +41,7 @@ CARDANO_CLI_CMD transaction build \
 --testnet-magic $NETWORK_MAGIC
 
 # Sign transaction
-CARDANO_CLI_CMD transaction sign \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction sign \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/payment.skey \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/cold.skey \
 --testnet-magic $NETWORK_MAGIC \
@@ -50,6 +49,6 @@ CARDANO_CLI_CMD transaction sign \
 --out-file      ${POOL_ARTIFACTS_DIR}/pool-deregistration.tx
 
 # Submit transaction
-CARDANO_NODE_SOCKET_PATH=$CARDANO_NODE_SOCKET_PATH CARDANO_CLI_CMD transaction submit \
+CARDANO_NODE_SOCKET_PATH=$CARDANO_NODE_SOCKET_PATH CARDANO_CLI_CMD ${CARDANO_ERA} transaction submit \
 --tx-file ${POOL_ARTIFACTS_DIR}/pool-deregistration.tx \
 --testnet-magic $NETWORK_MAGIC
