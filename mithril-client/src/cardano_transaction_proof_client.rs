@@ -94,9 +94,9 @@ impl CardanoTransactionProofClient {
     }
 
     /// Get proofs that the given subset of transactions is included in the Cardano transactions set.
-    pub async fn get_proofs(
+    pub async fn get_proofs<T: ToString>(
         &self,
-        transactions_hashes: &[&str],
+        transactions_hashes: &[T],
     ) -> MithrilResult<CardanoTransactionsProofs> {
         match self
             .aggregator_client
