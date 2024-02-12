@@ -71,7 +71,7 @@ Here is an updated list of all **Mithril networks**, including their configurati
 <br/>
 
 ## `testing-preview`
-> :warning: For devs only
+> :warning: For developers only
 
 | Information | -
 |------------|------------
@@ -90,7 +90,7 @@ Here is an updated list of all **Mithril networks**, including their configurati
   </TabItem>
   <TabItem value="sanchonet" label="Sanchonet">
 ## `testing-sanchonet`
-> :warning: For devs only
+> :warning: For developers only
 
 | Information | -
 |------------|------------
