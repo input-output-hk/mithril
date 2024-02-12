@@ -14,6 +14,7 @@ use std::{fs::File, path::PathBuf};
 use mithril_common::StdResult;
 
 use mithril_client_cli::commands::{
+    cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
 
@@ -71,6 +72,10 @@ pub struct Args {
     /// Redirect the logs to a file
     #[clap(long, alias("o"))]
     log_output: Option<String>,
+
+    /// Enable unstable commands (Such as Cardano Transactions)
+    #[clap(long)]
+    unstable: bool,
 }
 
 impl Args {
@@ -83,7 +88,7 @@ impl Args {
             .add_source(self.clone())
             .set_default("download_dir", "")?;
 
-        self.command.execute(config).await
+        self.command.execute(self.unstable, config).await
     }
 
     fn log_level(&self) -> Level {
@@ -158,13 +163,32 @@ enum ArtifactCommands {
 
     #[clap(subcommand, alias("msd"))]
     MithrilStakeDistribution(MithrilStakeDistributionCommands),
+
+    #[clap(subcommand, alias("ctx"))]
+    CardanoTransaction(CardanoTransactionCommands),
 }
 
 impl ArtifactCommands {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        unstable_enabled: bool,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
+            Self::CardanoTransaction(ctx) => {
+                if !unstable_enabled {
+                    Err(anyhow::anyhow!(
+                        "The \"cardano-transaction\" subcommand is only accepted using the \
+                        --unstable flag.\n \
+                    \n \
+                    ie: \"mithril-client --unstable cardano-transaction list\""
+                    ))
+                } else {
+                    ctx.execute(config_builder).await
+                }
+            }
         }
     }
 }
@@ -179,4 +203,18 @@ async fn main() -> StdResult<()> {
     openssl_probe::init_ssl_cert_env_vars();
 
     args.execute().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
+        let args = Args::try_parse_from(["mithril-client", "cardano-transaction", "list"]).unwrap();
+
+        args.execute()
+            .await
+            .expect_err("Should fail if unstable flag missing");
+    }
 }
