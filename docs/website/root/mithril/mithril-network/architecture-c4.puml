@@ -1,0 +1,58 @@
+@startuml architecture
+title "Mithril network architecture"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+AddElementTag("external", $bgColor="#c1c1c1")
+
+Person(end_user, "End user", "Retrieves and verifies artifacts certified by the Mithril network")
+
+Container_Boundary(mithril_aggregator, "Mithril aggregator", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator") {
+    Component(mithril_aggregator_runtime, "Aggregator Runtime", "FSM", "Maintains and transitions internal states of aggregator")
+    Component(mithril_aggregator_cryptographic_engine, "Cryptographic Engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_aggregator_http_server, "HTTP server", "REST API", "Serves HTTP requests to signers and clients")
+    ComponentDb(mithril_aggregator_persistence, "Persistence", "SQLite/FS", "Stores aggregator data (verification keys, certificates, artifacts)")
+    
+    Rel(mithril_aggregator_runtime, mithril_aggregator_cryptographic_engine, "Computes protocol cryptography")
+    BiRel(mithril_aggregator_runtime, mithril_aggregator_persistence, "Access aggregator state")
+    BiRel(mithril_aggregator_http_server, mithril_aggregator_persistence, "Access aggregator state")
+}
+
+Container_Boundary(mithril_signer, "Mithril signer", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-signer") {
+    Component(mithril_signer_runtime, "Signer Runtime", "FSM", "Maintains and transitions internal states of signer")
+    Component(mithril_signer_cryptographic_engine, "Cryptographic Engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_signer_http_client, "HTTP client", "REST API", "Sends HTTP requests to aggregator via relay")
+    ComponentDb(mithril_signer_persistence, "Persistence", "SQLite/FS", "Stores signer data (signing keys)")
+
+    BiRel(mithril_signer_runtime, mithril_signer_http_client, "Retrieves aggregator data")
+    Rel(mithril_signer_runtime, mithril_signer_cryptographic_engine, "Computes protocol cryptography")
+    BiRel(mithril_signer_runtime, mithril_signer_persistence, "Access signer state")
+}
+
+Container_Boundary(mithril_relay, "Mithril relay") {
+    Component(mithril_relay_forward_proxy, "Forward proxy", "Squid", "Proxies HTTPS calls to aggregator")
+}
+
+Container_Boundary(mithril_client, "Mithril client", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-client") {
+    Component(mithril_client_runtime, "Client Runtime", "Client commands", "Retrieves artifacts and verifies their authenticity")
+    Component(mithril_client_cryptographic_engine, "Cryptographic Engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_client_http_client, "HTTP client", "REST API", "Sends HTTP requests to aggregator")
+
+    BiRel(end_user, mithril_client_runtime, "CLI or browser", "User interaction")
+    BiRel(mithril_client_runtime, mithril_client_http_client, "Retrieves aggregator data and artifacts")
+    Rel(mithril_client_runtime, mithril_client_cryptographic_engine, "Computes protocol cryptography")
+}
+
+Rel(mithril_signer_http_client, mithril_relay_forward_proxy, "", "JSON/TCP")
+Rel(mithril_relay_forward_proxy, mithril_aggregator_http_server, "", "JSON/HTTPS")
+Rel(mithril_client_http_client, mithril_aggregator_http_server, "", "JSON/HTTPS")
+
+Component(mithril_aggregator_cardano_node, "Cardano Node", "N2C/FS", "Cardano full node", $tags="external")
+Rel_L(mithril_aggregator_runtime, mithril_aggregator_cardano_node, "Retrieve Cardano chain state")
+Component(mithril_signer_cardano_node, "Cardano Node", "N2C/FS", "Cardano block producer node", $tags="external")
+Rel(mithril_signer_runtime, mithril_signer_cardano_node, "Retrieve Cardano chain state")
+BiRel(mithril_aggregator_cardano_node, mithril_signer_cardano_node, "N2N protocol")
+
+Component(mithril_artifact_storage, "Artifact storage", "Cloud", "Cloud file storage", $tags="external")
+Rel(mithril_aggregator_runtime, mithril_artifact_storage, "HTTPS", "Stores artifacts")
+Rel(mithril_client_http_client, mithril_artifact_storage, "HTTPS", "Downloads artifacts")
+@enduml
