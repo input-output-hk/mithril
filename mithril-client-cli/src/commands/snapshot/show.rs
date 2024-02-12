@@ -2,12 +2,13 @@ use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
-use slog_scope::logger;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use crate::{configuration::ConfigParameters, utils::ExpanderUtils};
-use mithril_client::ClientBuilder;
-use mithril_common::{test_utils::fake_keys, StdResult};
+use crate::{
+    commands::client_builder_with_fallback_genesis_key, configuration::ConfigParameters,
+    utils::ExpanderUtils,
+};
+use mithril_common::StdResult;
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]
@@ -26,22 +27,8 @@ impl SnapshotShowCommand {
     /// Snapshot Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder.build()?;
-        let params = Arc::new(ConfigParameters::new(
-            config.try_deserialize::<HashMap<String, String>>()?,
-        ));
-        // TODO: This should not be done this way.
-        // Now that mithril-client-cli uses the mithril-client library, the genesis verification key is required for all commands
-        let fallback_genesis_verification_key =
-            fake_keys::genesis_verification_key()[0].to_string();
-        let client = ClientBuilder::aggregator(
-            &params.require("aggregator_endpoint")?,
-            &params.get_or(
-                "genesis_verification_key",
-                &fallback_genesis_verification_key,
-            ),
-        )
-        .with_logger(logger())
-        .build()?;
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
+        let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
 
         let get_list_of_artifact_ids = || async {
             let snapshots = client.snapshot().list().await.with_context(|| {

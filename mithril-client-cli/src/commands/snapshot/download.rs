@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context};
 use chrono::Utc;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use slog_scope::{debug, logger, warn};
+use slog_scope::{debug, warn};
 use std::{
     collections::HashMap,
     fs::File,
@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::{
+    commands::client_builder,
     configuration::ConfigParameters,
     utils::{
         ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
@@ -18,7 +19,7 @@ use crate::{
     },
 };
 use mithril_client::{
-    common::ProtocolMessage, Client, ClientBuilder, MessageBuilder, MithrilCertificate, Snapshot,
+    common::ProtocolMessage, Client, MessageBuilder, MithrilCertificate, Snapshot,
 };
 use mithril_common::StdResult;
 
@@ -40,7 +41,7 @@ pub struct SnapshotDownloadCommand {
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certifiate chain.
+    /// Genesis Verification Key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 }
@@ -50,9 +51,7 @@ impl SnapshotDownloadCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         debug!("Snapshot service: download.");
         let config = config_builder.add_source(self.clone()).build()?;
-        let params = Arc::new(ConfigParameters::new(
-            config.try_deserialize::<HashMap<String, String>>()?,
-        ));
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
 
@@ -62,15 +61,11 @@ impl SnapshotDownloadCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
-        let client = ClientBuilder::aggregator(
-            &params.require("aggregator_endpoint")?,
-            &params.require("genesis_verification_key")?,
-        )
-        .with_logger(logger())
-        .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
-            progress_output_type,
-        )))
-        .build()?;
+        let client = client_builder(&params)?
+            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
+                progress_output_type,
+            )))
+            .build()?;
 
         let get_list_of_artifact_ids = || async {
             let snapshots = client.snapshot().list().await.with_context(|| {
