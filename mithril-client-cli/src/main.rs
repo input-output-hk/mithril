@@ -211,7 +211,8 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
-        let args = Args::try_parse_from(["mithril-client", "cardano-transaction", "list"]).unwrap();
+        let args = Args::try_parse_from(["mithril-client", "cardano-transaction", "sets", "list"])
+            .unwrap();
 
         args.execute()
             .await
