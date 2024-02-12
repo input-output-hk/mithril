@@ -61,7 +61,7 @@ impl StructDoc {
             environment_variable: "".to_string(),
             description: description.to_string(),
             default_value: default,
-            example: example,
+            example,
             is_mandatory: false,
         };
         self.data.push(field_doc);
@@ -131,19 +131,19 @@ impl GenerateDocCommands {
 
     /// Generate the command line documentation.
     pub fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
-        self.execute_with_configurations(cmd_to_document, &vec![])
+        self.execute_with_configurations(cmd_to_document, &[])
     }
 
     /// Generate the command line documentation with config info.
     pub fn execute_with_configurations(
         &self,
         cmd_to_document: &mut Command,
-        configs_info: &Vec<StructDoc>,
+        configs_info: &[StructDoc],
     ) -> StdResult<()> {
         let mut iter_config = configs_info.iter();
         let mut merged_struct_doc = StructDoc::new();
-        while let Some(next_config) = iter_config.next() {
-            merged_struct_doc = merged_struct_doc.merge_struct_doc(&next_config);
+        for next_config in &mut iter_config {
+            merged_struct_doc = merged_struct_doc.merge_struct_doc(next_config);
         }
 
         let doc =
@@ -209,7 +209,7 @@ mod tests {
             .map(|field_doc| (field_doc.parameter.clone(), field_doc))
             .collect::<HashMap<_, _>>();
 
-        assert_eq!(6, data_map.iter().count());
+        assert_eq!(6, data_map.len());
         assert_eq!("Param first A", data_map.get("A").unwrap().description);
         assert_eq!("Param first B", data_map.get("B").unwrap().description);
         assert_eq!("Param first C", data_map.get("C").unwrap().description);
@@ -258,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_merge_struct_doc_should_keep_the_order() {
-        let values = vec!["A", "B", "C", "D", "E", "F", "G"];
+        let values = ["A", "B", "C", "D", "E", "F", "G"];
         let s1 = {
             let mut s = StructDoc::default();
             for value in values.iter() {

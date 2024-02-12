@@ -5,15 +5,12 @@ mod tools_command;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::{
-    generate_doc::DocExtractor, generate_doc::DocExtractorDefault, generate_doc::StructDoc,
-    StdResult,
-};
+use mithril_common::{generate_doc::DocExtractorDefault, StdResult};
 use slog::Level;
 use slog_scope::debug;
 use std::path::PathBuf;
 
-use crate::{Configuration, DefaultConfiguration};
+use crate::DefaultConfiguration;
 use mithril_common::generate_doc::GenerateDocCommands;
 
 /// Main command selector
@@ -36,7 +33,7 @@ impl MainCommand {
             Self::Tools(cmd) => cmd.execute(config_builder).await,
             Self::GenerateDoc(cmd) => {
                 let config_info = DefaultConfiguration::extract();
-                cmd.execute_with_configurations(&mut MainOpts::command(), &vec![config_info])
+                cmd.execute_with_configurations(&mut MainOpts::command(), &[config_info])
             }
         }
     }

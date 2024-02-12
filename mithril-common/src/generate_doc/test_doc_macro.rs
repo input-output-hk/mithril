@@ -46,7 +46,7 @@ mod tests {
         let mut fields = struct_doc.data.iter().filter(|f| f.parameter == name);
 
         assert_eq!(1, fields.clone().count());
-        &fields.next().unwrap()
+        fields.next().unwrap()
     }
 
     #[test]

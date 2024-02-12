@@ -24,13 +24,13 @@ fn extract_arg(arg: &Arg) -> FieldDoc {
     let example = None;
 
     FieldDoc {
-        parameter: parameter,
+        parameter,
         command_line_long: long_option,
         command_line_short: short_option,
         environment_variable: env_variable,
-        description: description,
-        default_value: default_value,
-        example: example,
+        description,
+        default_value,
+        example,
         is_mandatory: arg.is_required_set(),
     }
 }
@@ -65,7 +65,7 @@ mod tests {
     fn test_extract_arg_info() {
         let command = MyCommand::command();
         let arg = command.get_arguments().next().unwrap();
-        let parameter: FieldDoc = extract_arg(&arg);
+        let parameter: FieldDoc = extract_arg(arg);
 
         assert_eq!("run_mode", parameter.parameter);
         assert_eq!("-r".to_string(), parameter.command_line_short);
@@ -74,7 +74,7 @@ mod tests {
         assert_eq!("Run Mode".to_string(), parameter.description);
         //assert_eq!("???".to_string(), parameter.example);
         //assert_eq!(false, parameter.is_required);
-        assert_eq!(false, parameter.is_mandatory);
+        assert!(!parameter.is_mandatory);
     }
 
     #[test]
@@ -82,12 +82,11 @@ mod tests {
         let command = MyCommand::command();
         let arg = command
             .get_arguments()
-            .filter(|arg| arg.get_id().to_string() == "param_without_default")
-            .next()
+            .find(|arg| arg.get_id() == "param_without_default")
             .unwrap();
-        let parameter: FieldDoc = extract_arg(&arg);
+        let parameter: FieldDoc = extract_arg(arg);
 
-        assert_eq!(true, parameter.is_mandatory);
+        assert!(parameter.is_mandatory);
     }
 
     #[test]

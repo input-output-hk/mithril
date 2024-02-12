@@ -98,8 +98,7 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
 
     let doc = champ
         .attrs
-        .iter()
-        .next()
+        .first()
         .map(|_| {
             // let m = &a.meta;
             // format!("{} {} => {}",
@@ -118,10 +117,9 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
     let example = champ
         .attrs
         .iter()
-        .filter(|attr| attr.path().is_ident("example"))
-        .next()
-        .map(|attr| {
-            let value = match &attr.meta {
+        .find(|attr| attr.path().is_ident("example"))
+        .and_then(|attr| {
+            match &attr.meta {
                 syn::Meta::NameValue(syn::MetaNameValue {
                     value:
                         syn::Expr::Lit(syn::ExprLit {
@@ -131,15 +129,13 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
                     ..
                 }) => Some(s.value()),
                 _ => None,
-            };
-            value
-        })
-        .flatten();
+            }
+        });
 
     let field_info = FieldInfo {
         name: champ.ident.as_ref().unwrap().to_string(),
-        doc: doc,
-        example: example,
+        doc,
+        example,
     };
 
     field_info

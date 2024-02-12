@@ -65,7 +65,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
     fn format_parameters(cmd: &Command, struct_doc: Option<&StructDoc>) -> String {
         if cmd
             .get_arguments()
-            .filter(|arg| argument_to_document(&arg))
+            .filter(|arg| argument_to_document(arg))
             .peekable()
             .peek()
             .is_some()
@@ -152,13 +152,13 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
         let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
-        let subcommands_table = format_subcommand(&cmd);
+        let subcommands_table = format_subcommand(cmd);
 
         let parameters = format_parameters(cmd, struct_doc);
 
         let subcommands = cmd
             .get_subcommands()
-            .filter(|cmd| command_to_document(&cmd))
+            .filter(|cmd| command_to_document(cmd))
             .map(|sub_command: &Command| {
                 format_command(
                     &mut sub_command.clone(),
@@ -194,14 +194,14 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
                     format!("`{}`", config.command_line_short)
                 },
                 format!("`{}`", config.parameter.to_uppercase()),
-                config.description.replace("\n", "<br>"),
+                config.description.replace('\n', "<br>"),
                 config
                     .default_value
                     .map(|value| format!("`{}`", value))
                     .unwrap_or("-".to_string()),
                 config
                     .example
-                    .map(|value| format!("{}", value))
+                    .map(|value| value.to_owned())
                     .unwrap_or("-".to_string()),
                 String::from(if config.is_mandatory {
                     ":heavy_check_mark:"
@@ -342,14 +342,12 @@ mod tests {
         let mut command = MyCommand::command();
         let doc = doc_markdown_with_config(&mut command, None);
 
-        assert_eq!(
-            true,
+        assert!(
             doc.contains("###  mithril-common sub-command-b"),
             "Generated doc: {doc}"
         );
-        assert_eq!(
-            false,
-            doc.contains("###  mithril-common help"),
+        assert!(
+            !doc.contains("###  mithril-common help"),
             "Generated doc: {doc}"
         );
     }
@@ -358,8 +356,7 @@ mod tests {
         {
             let mut command = MyCommand::command();
             let doc = doc_markdown_with_config(&mut command, None);
-            assert_eq!(
-                true,
+            assert!(
                 doc.contains("| `help` | `--help` | `-h` |"),
                 "Generated doc: {doc}"
             );
@@ -367,9 +364,8 @@ mod tests {
         {
             let mut command = MyCommandWithOnlySubCommand::command();
             let doc = doc_markdown_with_config(&mut command, None);
-            assert_eq!(
-                false,
-                doc.contains("| `help` | `--help` | `-h` |"),
+            assert!(
+                !doc.contains("| `help` | `--help` | `-h` |"),
                 "Generated doc: {doc}"
             );
         }
@@ -381,14 +377,12 @@ mod tests {
             let mut command = MyCommand::command();
             let doc = doc_markdown_with_config(&mut command, None);
 
-            assert_eq!(
-                false,
-                doc.contains("| Param A from config |"),
+            assert!(
+                !doc.contains("| Param A from config |"),
                 "Generated doc: {doc}"
             );
-            assert_eq!(
-                false,
-                doc.contains("| `ConfigA` | - | - |"),
+            assert!(
+                !doc.contains("| `ConfigA` | - | - |"),
                 "Generated doc: {doc}"
             );
         }
@@ -408,13 +402,11 @@ mod tests {
             let mut command = MyCommand::command();
             let doc = doc_markdown_with_config(&mut command, Some(&struct_doc));
 
-            assert_eq!(
-                true,
+            assert!(
                 doc.contains("| Param A from config |"),
                 "Generated doc: {doc}"
             );
-            assert_eq!(
-                true,
+            assert!(
                 doc.contains(
                     "| `ConfigA` | - | - | `CONFIGA` | Param A from config | `default config A` |"
                 ),
