@@ -1125,7 +1125,7 @@ dependencies = [
  "criterion-plot",
  "futures",
  "is-terminal",
- "itertools",
+ "itertools 0.10.5",
  "num-traits",
  "once_cell",
  "oorandom",
@@ -1147,7 +1147,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
 dependencies = [
  "cast",
- "itertools",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -2563,6 +2563,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba291022dbbd398a455acf126c1e341954079855bc60dfdda641363bd6922569"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2684,7 +2693,7 @@ dependencies = [
  "diff",
  "ena",
  "is-terminal",
- "itertools",
+ "itertools 0.10.5",
  "lalrpop-util",
  "petgraph",
  "pico-args",
@@ -4080,8 +4089,9 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pallas-addresses"
-version = "0.22.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7015bf4b1770b7e2ce8c9742d7c798db540914562e67e22953eff4b6d53aab90"
 dependencies = [
  "base58",
  "bech32",
@@ -4095,8 +4105,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-codec"
-version = "0.22.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9f8d41f17000f9a6bab7c26c99b19038a12de5cf004e901e1d0f5fa993e3d7d"
 dependencies = [
  "hex",
  "minicbor",
@@ -4106,8 +4117,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-crypto"
-version = "0.22.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6610d24e42fe2d8408022bda788ba4bf6d125debe3da404e2499848e108788a1"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4119,12 +4131,13 @@ dependencies = [
 
 [[package]]
 name = "pallas-network"
-version = "0.22.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e581074044a45f6d65445b3796dd283fa513f13cf95412784a884da7bab4524e"
 dependencies = [
  "byteorder",
  "hex",
- "itertools",
+ "itertools 0.12.1",
  "pallas-codec",
  "pallas-crypto",
  "rand",
@@ -4136,8 +4149,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-primitives"
-version = "0.22.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73c1d8c016d49522e0de0b6839abeb0dbd2eb7de5353931d785ddc2cfe189d8a"
 dependencies = [
  "base58",
  "bech32",
@@ -4151,8 +4165,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-traverse"
-version = "0.22.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=fix/legacy-transaction-utxo-by-address#9bf3d8424e02d38cf1c392b6f7d5103a881ee092"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2a92e50d84b029e069c9d6e36b38b1da2b5fe427c75a066697c8636e30dc9163"
 dependencies = [
  "hex",
  "pallas-addresses",
