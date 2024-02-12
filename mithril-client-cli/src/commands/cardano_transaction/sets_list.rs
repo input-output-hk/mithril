@@ -13,13 +13,13 @@ use mithril_common::StdResult;
 
 /// Cardano transaction commitment LIST command
 #[derive(Parser, Debug, Clone)]
-pub struct CardanoTransactionCommitmentListCommand {
+pub struct CardanoTransactionSetsListCommand {
     /// Enable JSON output.
     #[clap(long)]
     json: bool,
 }
 
-impl CardanoTransactionCommitmentListCommand {
+impl CardanoTransactionSetsListCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder.build()?;
