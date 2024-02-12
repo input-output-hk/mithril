@@ -1,7 +1,9 @@
 //! Commands for the Cardano Transaction Commitment artifact & Cardano Transactions Proof
 mod sets_list;
+mod sets_show;
 
 pub use sets_list::*;
+pub use sets_show::*;
 
 use clap::Subcommand;
 use config::builder::DefaultState;
@@ -19,9 +21,13 @@ pub enum CardanoTransactionCommands {
 /// Cardano transactions set
 #[derive(Subcommand, Debug, Clone)]
 pub enum CardanoTransactionSetsCommands {
-    /// List Cardano transaction commitments
+    /// List Cardano transaction sets
     #[clap(arg_required_else_help = false)]
     List(CardanoTransactionSetsListCommand),
+
+    /// Show Cardano transaction sets
+    #[clap(arg_required_else_help = false)]
+    Show(CardanoTransactionsSetsShowCommand),
 }
 
 impl CardanoTransactionCommands {
@@ -38,6 +44,7 @@ impl CardanoTransactionSetsCommands {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
+            Self::Show(cmd) => cmd.execute(config_builder).await,
         }
     }
 }
