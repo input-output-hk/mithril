@@ -1,20 +1,20 @@
 ---
-title: Mithril Sanchonet network is released!
+title: Mithril SanchoNet network released
 authors:
   - name: Mithril Team
 tags: [cardano, sanchonet, spo, testing]
 ---
 
-### Mithril Sanchonet testing network is released!
+### The release of the Mithril SanchoNet testing network 
 
-The Mithril team has released the new [`testing-sanchonet`](https://mithril.network/explorer/?aggregator=https%3A%2F%2Faggregator.testing-sanchonet.api.mithril.network%2Faggregator) test Mithril network.
+The Mithril team has released the new [`testing-sanchonet`](https://mithril.network/explorer/?aggregator=https%3A%2F%2Faggregator.testing-sanchonet.api.mithril.network%2Faggregator)  Mithril network.
 
-The Mithril pioneer SPOs are welcome to run a [Mithril signer](https://mithril.network/doc/next/manual/getting-started/run-signer-node) on this network for which the configuration parameters are available [here](https://mithril.network/doc/manual/developer-docs/references/#mithril-networks).
+Mithril pioneer stake pool operators (SPOs) are welcome to run a [Mithril signer](https://mithril.network/doc/next/manual/getting-started/run-signer-node) on this network, with configuration parameters available [here](https://mithril.network/doc/manual/developer-docs/references/#mithril-networks).
 
-We'd like to stress the fact that this network will be the place where we will lead experimentations of unstable features of the Mithril networks in the future (e.g. signature of the Cardano transactions set or P2P networking). 
+It's important to note that this network will serve as the primary platform for experimenting with unstable features of the Mithril networks in the future, such as the Cardano transactions set signatures or peer-to-peer (P2P) networking.
 
-These unstable features are continuously built and delivered to this network from the `main` branch of the Mithril repository. This means that the Mithril nodes running on this network should be built from the `main` branch, or the pre built binaries of the [`unstable release`](https://github.com/input-output-hk/mithril/releases/tag/unstable). As a consequence, the Mithril nodes might stop working properly if they are not updated to the latest unstable version or in case of a bug being part of the development process. 
+The unstable features are consistently developed and deployed to the SanchoNet testing network directly from the `main` branch of the Mithril repository. Therefore, Mithril nodes operating on this network must be either built from the `main` branch or use pre-built binaries from the [`unstable release`](https://github.com/input-output-hk/mithril/releases/tag/unstable). Failure to update Mithril nodes to the latest unstable version or encountering a bug during development could result in operational disruptions. 
 
-However, the `testing-sanchonet` network is constantly monitored and its availability is reported on our [status page](https://mithril.cronitorstatus.com/).
+Note that the `testing-sanchonet` network undergoes continuous monitoring, and its availability status is reported on this [status page](https://mithril.cronitorstatus.com/).
 
-Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
+For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq). 
