@@ -1,0 +1,1442 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentStyleType="text/css" height="1299px" preserveAspectRatio="none" style="width:1581px;height:1299px;background:#FFFFFF;" version="1.1" viewBox="0 0 1581 1299" width="1581px" zoomAndPan="magnify"><defs/><g><rect fill="none" height="26.2969" id="_title" style="stroke:none;stroke-width:1.0;" width="231" x="668" y="5"/><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthAdjust="spacing" textLength="221" x="673" y="22.9951">Mithril network architecture</text><!--MD5=[f96b5582d210cfa34e315536a65a883d]
+cluster mithril_aggregator--><g id="cluster_mithril_aggregator"><a href="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator" target="_top" title="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator" xlink:actuate="onRequest" xlink:href="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator" xlink:show="new" xlink:title="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator" xlink:type="simple"><rect fill="none" height="432" rx="2.5" ry="2.5" style="stroke:#444444;stroke-width:1.0;stroke-dasharray:7.0,7.0;" width="565" x="744" y="861.2969"/><text fill="#444444" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="160" x="946.5" y="898.1484">Mithril aggregator</text><text fill="#444444" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="80" x="986.5" y="913.0605">[Container]</text></a></g><!--MD5=[be1718d03a59845337dd9423c077a8e4]
+cluster mithril_signer--><g id="cluster_mithril_signer"><a href="https://github.com/input-output-hk/mithril/tree/main/mithril-signer" target="_top" title="https://github.com/input-output-hk/mithril/tree/main/mithril-signer" xlink:actuate="onRequest" xlink:href="https://github.com/input-output-hk/mithril/tree/main/mithril-signer" xlink:show="new" xlink:title="https://github.com/input-output-hk/mithril/tree/main/mithril-signer" xlink:type="simple"><rect fill="none" height="493" rx="2.5" ry="2.5" style="stroke:#444444;stroke-width:1.0;stroke-dasharray:7.0,7.0;" width="714" x="501" y="44.2969"/><text fill="#444444" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="116" x="800" y="81.1484">Mithril signer</text><text fill="#444444" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="80" x="818" y="96.0605">[Container]</text></a></g><!--MD5=[5fe074ff76d4a150d1aec6b6785b509b]
+cluster mithril_relay--><g id="cluster_mithril_relay"><rect fill="none" height="202" rx="2.5" ry="2.5" style="stroke:#444444;stroke-width:1.0;stroke-dasharray:7.0,7.0;" width="208" x="846" y="612.2969"/><text fill="#444444" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="104" x="898" y="649.1484">Mithril relay</text><text fill="#444444" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="80" x="910" y="664.0605">[Container]</text></g><!--MD5=[d664668f2471d04b04ab5834d743a65c]
+cluster mithril_client--><g id="cluster_mithril_client"><a href="https://github.com/input-output-hk/mithril/tree/main/mithril-client" target="_top" title="https://github.com/input-output-hk/mithril/tree/main/mithril-client" xlink:actuate="onRequest" xlink:href="https://github.com/input-output-hk/mithril/tree/main/mithril-client" xlink:show="new" xlink:title="https://github.com/input-output-hk/mithril/tree/main/mithril-client" xlink:type="simple"><rect fill="none" height="483.5" rx="2.5" ry="2.5" style="stroke:#444444;stroke-width:1.0;stroke-dasharray:7.0,7.0;" width="470" x="7" y="330.7969"/><text fill="#444444" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="109" x="187.5" y="367.6484">Mithril client</text><text fill="#444444" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="80" x="202" y="382.5605">[Container]</text></a></g><!--MD5=[8a97234134d4edc9097454a8b17d7297]
+entity mithril_aggregator_runtime--><g id="elem_mithril_aggregator_runtime"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="215" x="1018.5" y="932.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="1083.5" y="953.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="180" x="1036" y="971.1172">Aggregator Runtime</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="35" x="1108.5" y="986.0293">[FSM]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="1124" y="1001.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="171" x="1038.5" y="1018.1514">Maintains and transitions</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="195" x="1028.5" y="1034.4482">internal states of aggregator</text></g><!--MD5=[79f9b848bdb82ee18b8890ffd7e5752d]
+entity mithril_aggregator_cryptographic_engine--><g id="elem_mithril_aggregator_cryptographic_engine"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="209" x="1048.5" y="1149.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="1110.5" y="1170.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="189" x="1058.5" y="1188.1172">Cryptographic Engine</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="71" x="1117.5" y="1203.0293">[STM/Asym]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="1151" y="1218.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="162" x="1070" y="1235.1514">Operates cryptographic</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="65" x="1120.5" y="1251.4482">primitives</text></g><!--MD5=[16ff0b9a26acfa92f88e8dd07a9679a0]
+entity mithril_aggregator_http_server--><g id="elem_mithril_aggregator_http_server"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="196" x="760" y="932.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="815.5" y="953.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="110" x="803" y="971.1172">HTTP server</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="64" x="826" y="986.0293">[REST API]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="856" y="1001.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="172" x="770" y="1018.1514">Serves HTTP requests to</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="130" x="793" y="1034.4482">signers and clients</text></g><!--MD5=[e09cadb66052750e8f0bdcd77072e2d1]
+entity mithril_aggregator_persistence--><g id="elem_mithril_aggregator_persistence"><path d="M795.5,1146.2969 C795.5,1136.2969 887,1136.2969 887,1136.2969 C887,1136.2969 978.5,1136.2969 978.5,1146.2969 L978.5,1267.0469 C978.5,1277.0469 887,1277.0469 887,1277.0469 C887,1277.0469 795.5,1277.0469 795.5,1267.0469 L795.5,1146.2969 " fill="#85BBF0" style="stroke:#78A8D8;stroke-width:0.5;"/><path d="M795.5,1146.2969 C795.5,1156.2969 887,1156.2969 887,1156.2969 C887,1156.2969 978.5,1156.2969 978.5,1146.2969 " fill="none" style="stroke:#78A8D8;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="844.5" y="1171.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="106" x="834" y="1189.1172">Persistence</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="68" x="853" y="1204.0293">[SQLite/FS]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="885" y="1219.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="159" x="805.5" y="1236.1514">Stores aggregator data</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="118" x="826" y="1252.4482">(verification keys,</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="142" x="816" y="1268.7451">certificates, artifacts)</text></g><!--MD5=[69f0a21ed3677580575b39aa6af4d3ec]
+entity mithril_signer_runtime--><g id="elem_mithril_signer_runtime"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="195" x="854.5" y="115.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="909.5" y="136.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="135" x="884.5" y="154.1172">Signer Runtime</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="35" x="934.5" y="169.0293">[FSM]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="950" y="184.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="171" x="864.5" y="201.1514">Maintains and transitions</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="162" x="871" y="217.4482">internal states of signer</text></g><!--MD5=[0e743bdd2dbaefad3f9a02336a08a7d8]
+entity mithril_signer_cryptographic_engine--><g id="elem_mithril_signer_cryptographic_engine"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="209" x="761.5" y="401.7969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="823.5" y="422.9355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="189" x="771.5" y="440.6172">Cryptographic Engine</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="71" x="830.5" y="455.5293">[STM/Asym]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="864" y="471.3545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="162" x="783" y="487.6514">Operates cryptographic</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="65" x="833.5" y="503.9482">primitives</text></g><!--MD5=[698227f6a691f406c4b2a9f7244ef94b]
+entity mithril_signer_http_client--><g id="elem_mithril_signer_http_client"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="193" x="1005.5" y="401.7969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="1059.5" y="422.9355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="100" x="1052" y="440.6172">HTTP client</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="64" x="1070" y="455.5293">[REST API]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="1100" y="471.3545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="169" x="1015.5" y="487.6514">Sends HTTP requests to</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="134" x="1035" y="503.9482">aggregator via relay</text></g><!--MD5=[e151bcc7c69d2fbd24008285e9a349ef]
+entity mithril_signer_persistence--><g id="elem_mithril_signer_persistence"><path d="M517.5,407.2969 C517.5,397.2969 622,397.2969 622,397.2969 C622,397.2969 726.5,397.2969 726.5,407.2969 L726.5,511.75 C726.5,521.75 622,521.75 622,521.75 C622,521.75 517.5,521.75 517.5,511.75 L517.5,407.2969 " fill="#85BBF0" style="stroke:#78A8D8;stroke-width:0.5;"/><path d="M517.5,407.2969 C517.5,417.2969 622,417.2969 622,417.2969 C622,417.2969 726.5,417.2969 726.5,407.2969 " fill="none" style="stroke:#78A8D8;stroke-width:0.5;"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="579.5" y="432.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="106" x="569" y="450.1172">Persistence</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="68" x="588" y="465.0293">[SQLite/FS]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="620" y="480.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="185" x="527.5" y="497.1514">Stores signer data (signing</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="37" x="603.5" y="513.4482">keys)</text></g><!--MD5=[d01671267c4844c27ea0eb535cbfe4e7]
+entity mithril_relay_forward_proxy--><g id="elem_mithril_relay_forward_proxy"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="176" x="862" y="683.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="907.5" y="704.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="129" x="885.5" y="722.1172">Forward proxy</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="45" x="927.5" y="737.0293">[Squid]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="948" y="752.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="152" x="872" y="769.1514">Proxies HTTPS calls to</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="76" x="912" y="785.4482">aggregator</text></g><!--MD5=[fe9d8c038734b84c6bafb27c349ac463]
+entity mithril_client_runtime--><g id="elem_mithril_client_runtime"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="187" x="124.5" y="401.7969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="175.5" y="422.9355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="129" x="153.5" y="440.6172">Client Runtime</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="116" x="160" y="455.5293">[Client commands]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="216" y="471.3545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="153" x="139.5" y="487.6514">Retrieves artifacts and</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="167" x="134.5" y="503.9482">verifies their authenticity</text></g><!--MD5=[6a0c6cc35783c7c5c9d38d4d36a1c58c]
+entity mithril_client_cryptographic_engine--><g id="elem_mithril_client_cryptographic_engine"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="209" x="23.5" y="683.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="85.5" y="704.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="189" x="33.5" y="722.1172">Cryptographic Engine</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="71" x="92.5" y="737.0293">[STM/Asym]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="126" y="752.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="162" x="45" y="769.1514">Operates cryptographic</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="65" x="95.5" y="785.4482">primitives</text></g><!--MD5=[3323c51f3021ea6ffb3495a6a5b77267]
+entity mithril_client_http_client--><g id="elem_mithril_client_http_client"><rect fill="#85BBF0" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="193" x="267.5" y="683.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="85" x="321.5" y="704.4355">«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="100" x="314" y="722.1172">HTTP client</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="64" x="332" y="737.0293">[REST API]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="362" y="752.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="169" x="277.5" y="769.1514">Sends HTTP requests to</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="76" x="326" y="785.4482">aggregator</text></g><!--MD5=[82385c5ad7cc1e9eb3b5183e64025bf5]
+entity end_user--><g id="elem_end_user"><rect fill="#08427B" height="165.7813" rx="2.5" ry="2.5" style="stroke:#073B6F;stroke-width:0.5;" width="184" x="126" y="89.7969"/><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="57" x="189.5" y="110.9355">«person»</text><image height="48" width="48" x="194" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAIAAADYYG7QAAACD0lEQVR4Xu2YoU4EMRCGT+4j8Ai8AhaH4QHgAUjQuFMECUgMIUgwJAgMhgQsAYUiJCiQIBBY+EITsjfTdme6V24v4c8vyGbb+ZjOtN0bNcvjQXmkH83WvYBWto6PLm6v7p7uH1/w2fXD+PBycX1Pv2l3IdDm/vn7x+dXQiAubRzoURa7gRZWd0iGRIiJbOnhnfYBQZNJjNbuyY2eJG8fkDE3bbG4ep6MHUAsgYxmE3nVs6VsBWJSGccsOlFPmLIViMzLOB7pCVO2AtHJMohH7Fh6zqitQK7m0rJvAVYgGcEpe//PLdDz65sM4pF9N7ICcXDKIB5Nv6j7tD0NoSdM2QrU9Gg0ewE1LqBhHR3BBdvj2vapnidjHxD/q6vd7Pvhr31AwcY8eXMTXAKECZZJFXuEq27aLgQK5uLMohCenGGuGewOxSjBvYBqeG6B+Nqiblggdjnc+ZXDy+FNFpFzw76O3UBAROuXh6FoiAcf5g9eTvUgzy0nWg6I8cXHRUpg5bOVBCo+KDpFajOf23GgPme7RSQ+lacIENUgJ6gg1k6HjgOlqnLqip4tEuhv0hNEMXUD0clyXE3p6pZA0S2nnvTlXwLJEZWlb7cTQH1+USgTN4VhAenm/wea1OCAOmqo6fE1WCb9WSKBah+rbUWPWAmE2Rvk0ApiB45eOyNAzU8xcTvj8KvkKEoOaIYeHNA3ZuygAvFMUO0AAAAASUVORK5CYII=" y="113.7656"/><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="78" x="179" y="176.6172">End user</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="216" y="193.3857"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="147" x="142.5" y="209.6826">Retrieves and verifies</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="160" x="136" y="225.9795">artifacts certified by the</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="100" x="168" y="242.2764">Mithril network</text></g><!--MD5=[68daabef1ab7f00df335c1bb0afefc5e]
+entity mithril_aggregator_cardano_node--><g id="elem_mithril_aggregator_cardano_node"><rect fill="#C1C1C1" height="99.1563" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="171" x="1343.5" y="123.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="151" x="1353.5" y="144.4355">«external»«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="125" x="1366.5" y="162.1172">Cardano Node</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="54" x="1402" y="177.0293">[N2C/FS]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="1427" y="192.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="121" x="1368.5" y="209.1514">Cardano full node</text></g><!--MD5=[c7e89439849a960bea377eb384f842ea]
+entity mithril_signer_cardano_node--><g id="elem_mithril_signer_cardano_node"><rect fill="#C1C1C1" height="115.4531" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="190" x="1241" y="401.7969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="151" x="1260.5" y="422.9355">«external»«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="125" x="1273.5" y="440.6172">Cardano Node</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="54" x="1309" y="455.5293">[N2C/FS]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="1334" y="471.3545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="166" x="1251" y="487.6514">Cardano block producer</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="36" x="1318" y="503.9482">node</text></g><!--MD5=[04ed5c449b99832ae07faafb301a42fd]
+entity mithril_artifact_storage--><g id="elem_mithril_artifact_storage"><rect fill="#C1C1C1" height="99.1563" rx="2.5" ry="2.5" style="stroke:#78A8D8;stroke-width:0.5;" width="171" x="427.5" y="1157.2969"/><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="151" x="437.5" y="1178.4355">«external»«component»</text><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthAdjust="spacing" textLength="142" x="442" y="1196.1172">Artifact storage</text><text fill="#000000" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="45" x="490.5" y="1211.0293">[Cloud]</text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="4" x="511" y="1226.8545"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthAdjust="spacing" textLength="120" x="453" y="1243.1514">Cloud file storage</text></g><!--MD5=[8df8c520e3ef4cfb1b8e3d10adf1d230]
+link mithril_aggregator_runtime to mithril_aggregator_cryptographic_engine--><g id="link_mithril_aggregator_runtime_mithril_aggregator_cryptographic_engine"><path d="M1133.13,1047.5669 C1136.73,1076.2269 1141.11,1111.1269 1144.84,1140.8469 " fill="none" id="mithril_aggregator_runtime-to-mithril_aggregator_cryptographic_engine" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1145.88,1149.0869,1147.8572,1140.7748,1141.9042,1141.5243,1145.88,1149.0869" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="134" x="1141" y="1089.4355">Computes protocol</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="95" x="1162.5" y="1103.4043">cryptography</text></g><!--MD5=[75bb6dcd8aa055099c565303c5b14c77]
+link mithril_aggregator_runtime to mithril_aggregator_persistence--><g id="link_mithril_aggregator_runtime_mithril_aggregator_persistence"><path d="M1021.21,1052.3869 C1010.29,1060.2769 999.66,1068.6369 990,1077.2969 C972.74,1092.7669 956.09,1111.3169 941.39,1129.4469 " fill="none" id="mithril_aggregator_runtime-mithril_aggregator_persistence" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="936.06,1136.1069,943.4026,1131.7381,938.7195,1127.9873,936.06,1136.1069" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1028.04,1047.5369,1019.7809,1049.725,1023.2562,1054.6161,1028.04,1047.5369" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="133" x="991" y="1089.4355">Access aggregator</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="38" x="1040.5" y="1103.4043">state</text></g><!--MD5=[73c9d0f80a7aa6ad5c2573c36f6b082b]
+link mithril_aggregator_http_server to mithril_aggregator_persistence--><g id="link_mithril_aggregator_http_server_mithril_aggregator_persistence"><path d="M798.01,1054.3569 C789.13,1070.8269 785.01,1088.8469 792,1106.2969 C795.23,1114.3569 799.46,1122.1369 804.34,1129.5569 " fill="none" id="mithril_aggregator_http_server-mithril_aggregator_persistence" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="809,1136.2569,806.8942,1127.9764,801.9688,1131.4028,809,1136.2569" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="802.09,1047.3969,795.4573,1052.7827,800.6341,1055.8159,802.09,1047.3969" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="133" x="793" y="1089.4355">Access aggregator</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="38" x="842.5" y="1103.4043">state</text></g><!--MD5=[eb463098447f228278c1e0b2ba76a677]
+link mithril_signer_runtime to mithril_signer_http_client--><g id="link_mithril_signer_runtime_mithril_signer_http_client"><path d="M985.57,237.4569 C1010.21,284.2069 1043.56,347.4569 1068.25,394.2869 " fill="none" id="mithril_signer_runtime-mithril_signer_http_client" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1071.99,401.3669,1070.9124,392.8911,1065.605,395.6895,1071.99,401.3669" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="981.81,230.3469,982.8876,238.8227,988.195,236.0242,981.81,230.3469" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="67" x="1046.5" y="297.9355">Retrieves</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="118" x="1023" y="311.9043">aggregator data</text></g><!--MD5=[8842909495dfad10ea4be3cacf18d194]
+link mithril_signer_runtime to mithril_signer_cryptographic_engine--><g id="link_mithril_signer_runtime_mithril_signer_cryptographic_engine"><path d="M892.23,230.4969 C878.7,246.9069 866.21,265.8269 859,285.7969 C846.71,319.8469 847.57,360.1569 851.91,393.2469 " fill="none" id="mithril_signer_runtime-to-mithril_signer_cryptographic_engine" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="853.09,401.4969,854.9306,393.1535,848.9907,394.0005,853.09,401.4969" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="134" x="860" y="297.9355">Computes protocol</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="95" x="881.5" y="311.9043">cryptography</text></g><!--MD5=[0547c13d60c159a7f1ac26e4891b469b]
+link mithril_signer_runtime to mithril_signer_persistence--><g id="link_mithril_signer_runtime_mithril_signer_persistence"><path d="M846.74,202.4969 C798.16,220.0569 742.61,246.8269 703,285.7969 C674.17,314.1669 654.4,354.7769 641.62,389.4669 " fill="none" id="mithril_signer_runtime-mithril_signer_persistence" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="638.83,397.2369,644.3545,390.7192,638.7068,388.6938,638.83,397.2369" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="854.47,199.7569,845.9274,199.5998,847.9305,205.2555,854.47,199.7569" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="139" x="704" y="304.9355">Access signer state</text></g><!--MD5=[6a89659b04c88764c8473a9cf71fc920]
+link end_user to mithril_client_runtime--><g id="link_end_user_mithril_client_runtime"><path d="M218,264.1069 C218,305.9469 218,354.7469 218,392.9569 " fill="none" id="end_user-mithril_client_runtime" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="218,401.4369,221,393.4369,215,393.4369,218,401.4369" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="218,256.0869,215,264.0869,221,264.0869,218,256.0869" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="103" x="222.5" y="297.9355">CLI or browser</text><text fill="#666666" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="110" x="219" y="311.9043">[User interaction]</text></g><!--MD5=[6b1cd03f92c9e9ffa1ead68a3990aec1]
+link mithril_client_runtime to mithril_client_http_client--><g id="link_mithril_client_runtime_mithril_client_http_client"><path d="M254.19,524.1669 C259.56,533.8869 264.97,543.8369 270,553.2969 C291.44,593.6569 314.55,639.4769 332.5,675.6069 " fill="none" id="mithril_client_runtime-mithril_client_http_client" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="336.24,683.1569,335.3727,674.657,329.9976,677.3231,336.24,683.1569" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="250.29,517.1369,251.5365,525.5895,256.787,522.6856,250.29,517.1369" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="67" x="331" y="565.4355">Retrieves</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="149" x="292" y="579.4043">aggregator data and</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="60" x="336.5" y="593.373">artifacts</text></g><!--MD5=[cbbaa55f49141cfdfe97373f4b0a7d32]
+link mithril_client_runtime to mithril_client_cryptographic_engine--><g id="link_mithril_client_runtime_mithril_client_cryptographic_engine"><path d="M149.02,516.8669 C139.64,527.9069 131.4,540.1669 126,553.2969 C110.32,591.4469 110.74,637.7969 115.12,674.7469 " fill="none" id="mithril_client_runtime-to-mithril_client_cryptographic_engine" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="116.17,682.9669,118.1159,674.6474,112.1657,675.4193,116.17,682.9669" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="134" x="127" y="572.4355">Computes protocol</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="95" x="148.5" y="586.4043">cryptography</text></g><!--MD5=[e10c69078c572a4d4a8d670760727713]
+link mithril_signer_http_client to mithril_relay_forward_proxy--><g id="link_mithril_signer_http_client_mithril_relay_forward_proxy"><path d="M1071.24,516.8569 C1046.24,562.8269 1010.97,627.6869 984.91,675.5969 " fill="none" id="mithril_signer_http_client-to-mithril_relay_forward_proxy" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="980.97,682.8369,987.4225,677.2365,982.149,674.3746,980.97,682.8369" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="65" x="1049" y="579.4355">[JSON/TCP]</text></g><!--MD5=[e27dc5244cba60fdd6b09a0de790ff3f]
+link mithril_relay_forward_proxy to mithril_aggregator_http_server--><g id="link_mithril_relay_forward_proxy_mithril_aggregator_http_server"><path d="M928.89,798.4669 C914.92,835.9869 896.56,885.2869 882.02,924.3069 " fill="none" id="mithril_relay_forward_proxy-to-mithril_aggregator_http_server" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="879.17,931.9669,884.7718,925.5155,879.1485,923.4229,879.17,931.9669" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="81" x="915" y="842.4355">[JSON/HTTPS]</text></g><!--MD5=[b84754f59d2edb1a396bbef32889bea0]
+link mithril_client_http_client to mithril_aggregator_http_server--><g id="link_mithril_client_http_client_mithril_aggregator_http_server"><path d="M460.71,790.1569 C544.73,832.1569 666.16,892.8769 752.62,936.1069 " fill="none" id="mithril_client_http_client-to-mithril_aggregator_http_server" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="759.83,939.7069,754.0212,933.4412,751.3337,938.8057,759.83,939.7069" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="81" x="567" y="842.4355">[JSON/HTTPS]</text></g><!--MD5=[24faad43344d4a02894baf9daf3f9da1]
+reverse link mithril_aggregator_cardano_node to mithril_aggregator_runtime--><g id="link_mithril_aggregator_cardano_node_mithril_aggregator_runtime"><path d="M1450.91,230.2369 C1456.68,247.7669 1462.11,267.3369 1465,285.7969 C1476.93,361.8869 1521.81,345.4569 1449,545.2969 C1391.61,702.8169 1260.46,853.3669 1184.1,932.0769 " fill="none" id="mithril_aggregator_cardano_node-backto-mithril_aggregator_runtime" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1448.24,222.3369,1447.972,230.8767,1453.6533,228.9472,1448.24,222.3369" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="123" x="1446" y="572.4355">Retrieve Cardano</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="80" x="1469.5" y="586.4043">chain state</text></g><!--MD5=[88963ea82ae7d975ce2958da7ae761a1]
+link mithril_signer_runtime to mithril_signer_cardano_node--><g id="link_mithril_signer_runtime_mithril_signer_cardano_node"><path d="M1049.61,219.3269 C1101.36,245.8069 1164.49,281.9769 1215,322.7969 C1241.23,343.9969 1266.66,371.1269 1287.38,395.5369 " fill="none" id="mithril_signer_runtime-to-mithril_signer_cardano_node" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1292.55,401.6769,1289.6963,393.6235,1285.1046,397.4857,1292.55,401.6769" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="123" x="1203" y="297.9355">Retrieve Cardano</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="80" x="1226.5" y="311.9043">chain state</text></g><!--MD5=[00e99adfc3e18196a79131a280f1da8d]
+link mithril_aggregator_cardano_node to mithril_signer_cardano_node--><g id="link_mithril_aggregator_cardano_node_mithril_signer_cardano_node"><path d="M1394.04,229.7369 C1384.4,247.1669 1374.74,266.8069 1368,285.7969 C1355.74,320.3269 1347.94,360.4969 1343.11,393.3869 " fill="none" id="mithril_aggregator_cardano_node-mithril_signer_cardano_node" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1341.95,401.5769,1346.0493,394.0805,1340.1094,393.2335,1341.95,401.5769" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="1398.17,222.4069,1391.6289,227.9036,1396.8561,230.8492,1398.17,222.4069" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="91" x="1369" y="304.9355">N2N protocol</text></g><!--MD5=[e25e15e9bdd5b526437d3c7a5ff70b8c]
+link mithril_aggregator_runtime to mithril_artifact_storage--><g id="link_mithril_aggregator_runtime_mithril_artifact_storage"><path d="M1018.27,1034.6869 C1003.57,1039.5369 988.54,1043.9269 974,1047.2969 C843.03,1077.6369 797.45,1026.4369 673,1077.2969 C632.36,1093.9069 593.77,1124.3069 564.67,1151.3669 " fill="none" id="mithril_aggregator_runtime-to-mithril_artifact_storage" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="558.61,1157.0769,566.4876,1153.7689,562.3701,1149.4047,558.61,1157.0769" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="44" x="704.5" y="1089.4355">HTTPS</text><text fill="#666666" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="105" x="674" y="1103.4043">[Stores artifacts]</text></g><!--MD5=[feb30d357881e9dd7384f8ee42e0db87]
+link mithril_client_http_client to mithril_artifact_storage--><g id="link_mithril_client_http_client_mithril_artifact_storage"><path d="M382.27,798.6969 C410.97,888.0769 466.3,1060.3569 494.9,1149.4169 " fill="none" id="mithril_client_http_client-to-mithril_artifact_storage" style="stroke:#666666;stroke-width:1.0;"/><polygon fill="#666666" points="497.41,1157.2469,497.8227,1148.7128,492.1095,1150.5458,497.41,1157.2469" style="stroke:#666666;stroke-width:1.0;"/><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthAdjust="spacing" textLength="44" x="505.5" y="987.4355">HTTPS</text><text fill="#666666" font-family="sans-serif" font-size="12" font-style="italic" lengthAdjust="spacing" textLength="133" x="461" y="1001.4043">[Downloads artifacts]</text></g><!--MD5=[3fbaebbdc1f6416eee535c31ebc1bcea]
+@startuml architecture
+title "Mithril network architecture"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+AddElementTag("external", $bgColor="#c1c1c1")
+
+Person(end_user, "End user", "Retrieves and verifies artifacts certified by the Mithril network")
+
+Container_Boundary(mithril_aggregator, "Mithril aggregator", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator") {
+    Component(mithril_aggregator_runtime, "Aggregator Runtime", "FSM", "Maintains and transitions internal states of aggregator")
+    Component(mithril_aggregator_cryptographic_engine, "Cryptographic Engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_aggregator_http_server, "HTTP server", "REST API", "Serves HTTP requests to signers and clients")
+    ComponentDb(mithril_aggregator_persistence, "Persistence", "SQLite/FS", "Stores aggregator data (verification keys, certificates, artifacts)")
+    
+    Rel(mithril_aggregator_runtime, mithril_aggregator_cryptographic_engine, "Computes protocol cryptography")
+    BiRel(mithril_aggregator_runtime, mithril_aggregator_persistence, "Access aggregator state")
+    BiRel(mithril_aggregator_http_server, mithril_aggregator_persistence, "Access aggregator state")
+}
+
+Container_Boundary(mithril_signer, "Mithril signer", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-signer") {
+    Component(mithril_signer_runtime, "Signer Runtime", "FSM", "Maintains and transitions internal states of signer")
+    Component(mithril_signer_cryptographic_engine, "Cryptographic Engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_signer_http_client, "HTTP client", "REST API", "Sends HTTP requests to aggregator via relay")
+    ComponentDb(mithril_signer_persistence, "Persistence", "SQLite/FS", "Stores signer data (signing keys)")
+
+    BiRel(mithril_signer_runtime, mithril_signer_http_client, "Retrieves aggregator data")
+    Rel(mithril_signer_runtime, mithril_signer_cryptographic_engine, "Computes protocol cryptography")
+    BiRel(mithril_signer_runtime, mithril_signer_persistence, "Access signer state")
+}
+
+Container_Boundary(mithril_relay, "Mithril relay") {
+    Component(mithril_relay_forward_proxy, "Forward proxy", "Squid", "Proxies HTTPS calls to aggregator")
+}
+
+Container_Boundary(mithril_client, "Mithril client", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-client") {
+    Component(mithril_client_runtime, "Client Runtime", "Client commands", "Retrieves artifacts and verifies their authenticity")
+    Component(mithril_client_cryptographic_engine, "Cryptographic Engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_client_http_client, "HTTP client", "REST API", "Sends HTTP requests to aggregator")
+
+    BiRel(end_user, mithril_client_runtime, "CLI or browser", "User interaction")
+    BiRel(mithril_client_runtime, mithril_client_http_client, "Retrieves aggregator data and artifacts")
+    Rel(mithril_client_runtime, mithril_client_cryptographic_engine, "Computes protocol cryptography")
+}
+
+Rel(mithril_signer_http_client, mithril_relay_forward_proxy, "", "JSON/TCP")
+Rel(mithril_relay_forward_proxy, mithril_aggregator_http_server, "", "JSON/HTTPS")
+Rel(mithril_client_http_client, mithril_aggregator_http_server, "", "JSON/HTTPS")
+
+Component(mithril_aggregator_cardano_node, "Cardano Node", "N2C/FS", "Cardano full node", $tags="external")
+Rel_L(mithril_aggregator_runtime, mithril_aggregator_cardano_node, "Retrieve Cardano chain state")
+Component(mithril_signer_cardano_node, "Cardano Node", "N2C/FS", "Cardano block producer node", $tags="external")
+Rel(mithril_signer_runtime, mithril_signer_cardano_node, "Retrieve Cardano chain state")
+BiRel(mithril_aggregator_cardano_node, mithril_signer_cardano_node, "N2N protocol")
+
+Component(mithril_artifact_storage, "Artifact storage", "Cloud", "Cloud file storage", $tags="external")
+Rel(mithril_aggregator_runtime, mithril_artifact_storage, "HTTPS", "Stores artifacts")
+Rel(mithril_client_http_client, mithril_artifact_storage, "HTTPS", "Downloads artifacts")
+@enduml
+
+@startuml architecture
+title "Mithril network architecture"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+skinparam defaultTextAlignment center
+
+skinparam wrapWidth 200
+skinparam maxMessageSize 150
+
+skinparam LegendFontColor #FFFFFF
+skinparam LegendBackgroundColor transparent
+skinparam LegendBorderColor transparent
+
+skinparam rectangle<<legendArea>> {
+    backgroundcolor transparent
+    bordercolor transparent
+}
+
+skinparam rectangle {
+    StereotypeFontSize 12
+}
+
+skinparam database {
+    StereotypeFontSize 12
+}
+
+skinparam queue {
+    StereotypeFontSize 12
+}
+
+skinparam participant {
+    StereotypeFontSize 12
+}
+
+skinparam arrow {
+    Color #666666
+    FontColor #666666
+    FontSize 12
+}
+
+skinparam person {
+    StereotypeFontSize 12
+}
+
+skinparam actor {
+    StereotypeFontSize 12
+    style awesome
+}
+
+
+skinparam rectangle<<boundary>> {
+    StereotypeFontSize 6
+    StereotypeFontColor transparent
+    BorderStyle dashed
+}
+
+skinparam package {
+    StereotypeFontSize 6
+    StereotypeFontColor transparent
+    FontStyle plain
+    BackgroundColor transparent
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+skinparam rectangle<<boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<boundary>>StereotypeFontColor transparent
+skinparam rectangle<<boundary>>StereotypeFontColor transparent
+
+    
+skinparam rectangle<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<enterprise_boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<enterprise_boundary>>StereotypeFontColor transparent
+skinparam rectangle<<enterprise_boundary>>StereotypeFontColor transparent
+
+
+    
+skinparam rectangle<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<system_boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<system_boundary>>StereotypeFontColor transparent
+skinparam rectangle<<system_boundary>>StereotypeFontColor transparent
+
+
+    
+skinparam rectangle<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<container_boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<container_boundary>>StereotypeFontColor transparent
+skinparam rectangle<<container_boundary>>StereotypeFontColor transparent
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+skinparam rectangle<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam database<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam queue<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam person<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam actor<<person>> {
+    StereotypeFontColor #08427B
+    FontColor #08427B
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam participant<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam sequencebox<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+
+
+skinparam rectangle<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam database<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam queue<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam person<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam actor<<external_person>> {
+    StereotypeFontColor #686868
+    FontColor #686868
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam participant<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam sequencebox<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+
+
+skinparam rectangle<<system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+skinparam database<<system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+skinparam queue<<system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+skinparam person<<system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+skinparam actor<<system>> {
+    StereotypeFontColor #1168BD
+    FontColor #1168BD
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+skinparam participant<<system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+skinparam sequencebox<<system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #1168BD
+    BorderColor #3C7FC0
+}
+
+
+skinparam rectangle<<external_system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+skinparam database<<external_system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+skinparam queue<<external_system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+skinparam person<<external_system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+skinparam actor<<external_system>> {
+    StereotypeFontColor #999999
+    FontColor #999999
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+skinparam participant<<external_system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+skinparam sequencebox<<external_system>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #999999
+    BorderColor #8A8A8A
+}
+
+
+    
+skinparam rectangle<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<system_boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<system_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<system_boundary>>StereotypeFontColor transparent
+skinparam rectangle<<system_boundary>>StereotypeFontColor transparent
+
+
+    
+skinparam rectangle<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<enterprise_boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<enterprise_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<enterprise_boundary>>StereotypeFontColor transparent
+skinparam rectangle<<enterprise_boundary>>StereotypeFontColor transparent
+
+
+
+
+
+
+sprite $person [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+0000000000000000000049BCCA7200000000000000000000
+0000000000000000006EFFFFFFFFB3000000000000000000
+00000000000000001CFFFFFFFFFFFF700000000000000000
+0000000000000001EFFFFFFFFFFFFFF80000000000000000
+000000000000000CFFFFFFFFFFFFFFFF6000000000000000
+000000000000007FFFFFFFFFFFFFFFFFF100000000000000
+00000000000001FFFFFFFFFFFFFFFFFFF900000000000000
+00000000000006FFFFFFFFFFFFFFFFFFFF00000000000000
+0000000000000BFFFFFFFFFFFFFFFFFFFF40000000000000
+0000000000000EFFFFFFFFFFFFFFFFFFFF70000000000000
+0000000000000FFFFFFFFFFFFFFFFFFFFF80000000000000
+0000000000000FFFFFFFFFFFFFFFFFFFFF80000000000000
+0000000000000DFFFFFFFFFFFFFFFFFFFF60000000000000
+0000000000000AFFFFFFFFFFFFFFFFFFFF40000000000000
+00000000000006FFFFFFFFFFFFFFFFFFFE00000000000000
+00000000000000EFFFFFFFFFFFFFFFFFF800000000000000
+000000000000007FFFFFFFFFFFFFFFFFF100000000000000
+000000000000000BFFFFFFFFFFFFFFFF5000000000000000
+0000000000000001DFFFFFFFFFFFFFF70000000000000000
+00000000000000000BFFFFFFFFFFFF500000000000000000
+0000000000000000005DFFFFFFFFA1000000000000000000
+0000000000000000000037ABB96100000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000025788300000000005886410000000000000
+000000000007DFFFFFFD9643347BFFFFFFFB400000000000
+0000000004EFFFFFFFFFFFFFFFFFFFFFFFFFFB1000000000
+000000007FFFFFFFFFFFFFFFFFFFFFFFFFFFFFD200000000
+00000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE10000000
+0000003FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB0000000
+000000BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF5000000
+000003FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD000000
+000009FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF200000
+00000DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF600000
+00000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF800000
+00001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA00000
+00001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB00000
+00001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB00000
+00001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB00000
+00001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA00000
+00000EFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF700000
+000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE100000
+0000008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD3000000
+000000014555555555555555555555555555555300000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+sprite $person2 [48x48/16] {
+0000000000000000000049BCCA7200000000000000000000
+0000000000000000006EFFFFFFFFB3000000000000000000
+00000000000000001CFFFFFFFFFFFF700000000000000000
+0000000000000001EFFFFFFFFFFFFFF80000000000000000
+000000000000000CFFFFFFFFFFFFFFFF6000000000000000
+000000000000007FFFFFFFFFFFFFFFFFF100000000000000
+00000000000001FFFFFFFFFFFFFFFFFFF900000000000000
+00000000000006FFFFFFFFFFFFFFFFFFFF00000000000000
+0000000000000BFFFFFFFFFFFFFFFFFFFF40000000000000
+0000000000000EFFFFFFFFFFFFFFFFFFFF70000000000000
+0000000000000FFFFFFFFFFFFFFFFFFFFF80000000000000
+0000000000000FFFFFFFFFFFFFFFFFFFFF80000000000000
+0000000000000DFFFFFFFFFFFFFFFFFFFF60000000000000
+0000000000000AFFFFFFFFFFFFFFFFFFFF40000000000000
+00000000000006FFFFFFFFFFFFFFFFFFFE00000000000000
+00000000000000EFFFFFFFFFFFFFFFFFF800000000000000
+000000000000007FFFFFFFFFFFFFFFFFF100000000000000
+000000000000000BFFFFFFFFFFFFFFFF5000000000000000
+0000000000000001DFFFFFFFFFFFFFF70000000000000000
+00000000000000000BFFFFFFFFFFFF500000000000000000
+0000000000000000005DFFFFFFFFA1000000000000000000
+0000000000000000000037ABB96100000000000000000000
+000000000002578888300000000005888864100000000000
+0000000007DFFFFFFFFD9643347BFFFFFFFFFB4000000000
+00000004EFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB10000000
+0000007FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD2000000
+000006FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFE100000
+00003FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB00000
+0000BFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF50000
+0003FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFD0000
+0009FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF2000
+000DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6000
+000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB000
+001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB000
+001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFB000
+001FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFA000
+000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+000DFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF6000
+0009FFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFF2000
+0003FFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFD0000
+0000BFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFF50000
+00003FFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFB00000
+000006FFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFE100000
+0000007FFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFD2000000
+00000004EFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFB10000000
+0000000007DF8FFFFFFFFFFFFFFFFFFFFFF8FB4000000000
+000000000002578888888888888888888864100000000000
+}
+
+sprite $robot [48x48/16] {
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000005BFFFFFFFFFFFFFFFFFFFFFE9100000000000
+0000000000AFFFFFFFFFFFFFFFFFFFFFFFFFE30000000000
+0000000007FFFFFFFFFFFFFFFFFFFFFFFFFFFE1000000000
+000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000000000
+000000004FFFFFFFFFFFFFFFFFFFFFFFFFFFFFC000000000
+000000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFD000000000
+000000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE000000000
+000000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE000000000
+000699405FFFFFFC427FFFFFFFFFC427FFFFFFE009982000
+008FFF705FFFFFE10006FFFFFFFE00007FFFFFE00FFFF100
+00CFFF705FFFFFA00001FFFFFFF900002FFFFFE00FFFF500
+00DFFF705FFFFFB00002FFFFFFFA00003FFFFFE00FFFF500
+00DFFF705FFFFFF4000AFFFFFFFF3000BFFFFFE00FFFF500
+00DFFF705FFFFFFFA8DFFFFFFFFFFA8DFFFFFFE00FFFF500
+00DFFF705FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE00FFFF500
+00DFFF705FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE00FFFF500
+00DFFF705FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE00FFFF500
+00DFFF705FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE00FFFF500
+00DFFF705FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE00FFFF500
+00CFFF705FFFFFF87777777777777777CFFFFFE00FFFF500
+008FFF705FFFFFF100000000000000009FFFFFE00FFFF100
+000699405FFFFFF76666666666666666CFFFFFE009982000
+000000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE000000000
+000000005FFFFFFFFFFFFFFFFFFFFFFFFFFFFFE000000000
+000000004FFFFFFFFFFFFFFFFFFFFFFFFFFFFFC000000000
+000000000EFFFFFFFFFFFFFFFFFFFFFFFFFFFF7000000000
+0000000005FFFFFFFFFFFFFFFFFFFFFFFFFFFD0000000000
+00000000004CFFFFFFFFFFFFFFFFFFFFFFFF910000000000
+000000000000011111111111111111111110000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000000000
+}
+
+sprite $robot2 [48x48/16] {
+000000000000000088888888888888880000000000000000
+000000000000000AFFFFFFFFFFFFFFFFA000000000000000
+00000000000000CFFFFFFFFFFFFFFFFFFC00000000000000
+00000000000004EFFFFFFFFFFFFFFFFFFE40000000000000
+0000000000000AFFFFFFFFFFFFFFFFFFFFA0000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000888FFFFFFFFFFFFFFFFFFFF88800000000000
+00000000008FF8FFFFFFFFFFFFFFFFFFFF8FF80000000000
+00000000008FF8FFFFFFFFFFFFFFFFFFFF8FF80000000000
+00000000008FF8FFFFFFFFFFFFFFFFFFFF8FF80000000000
+00000000008FF8FFFFFFFFFFFFFFFFFFFF8FF80000000000
+00000000008FF8FFFFFFFFFFFFFFFFFFFF8FF80000000000
+00000000008FF8FFFFFFFFFFFFFFFFFFFF8FF80000000000
+00000000000888FFFFFFFFFFFFFFFFFFFF88800000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000008FFFFFFFFFFFFFFFFFFFF80000000000000
+00000000000004CFFFFFFFFFFFFFFFFFFC40000000000000
+000000488888848CFFFFFFFFFFFFFFFFC848888884000000
+00000CFFFFFFFFC888888888888888888CFFFFFFFFC00000
+00008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF80000
+0000CFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFC0000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF8000
+0008FFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFF8000
+0008FFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFF8000
+0008FFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFF8000
+0008FFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFF8000
+0000CFFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFFC0000
+00008FFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFF80000
+00000CFFFFFF8FFFFFFFFFFFFFFFFFFFFFF8FFFFFFC00000
+000000488887578888888888888888888864688884000000
+000000000000000000000000000000000000000000000000
+}
+
+
+
+
+
+skinparam rectangle<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam database<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam queue<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam person<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam actor<<person>> {
+    StereotypeFontColor #08427B
+    FontColor #08427B
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam participant<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+skinparam sequencebox<<person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #08427B
+    BorderColor #073B6F
+}
+
+
+
+skinparam rectangle<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam database<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam queue<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam person<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam actor<<external_person>> {
+    StereotypeFontColor #686868
+    FontColor #686868
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam participant<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+skinparam sequencebox<<external_person>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #686868
+    BorderColor #8A8A8A
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+skinparam rectangle<<container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+skinparam database<<container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+skinparam queue<<container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+skinparam person<<container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+skinparam actor<<container>> {
+    StereotypeFontColor #438DD5
+    FontColor #438DD5
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+skinparam participant<<container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+skinparam sequencebox<<container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #438DD5
+    BorderColor #3C7FC0
+}
+
+
+skinparam rectangle<<external_container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+skinparam database<<external_container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+skinparam queue<<external_container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+skinparam person<<external_container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+skinparam actor<<external_container>> {
+    StereotypeFontColor #B3B3B3
+    FontColor #B3B3B3
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+skinparam participant<<external_container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+skinparam sequencebox<<external_container>> {
+    StereotypeFontColor #FFFFFF
+    FontColor #FFFFFF
+    BackgroundColor #B3B3B3
+    BorderColor #A6A6A6
+}
+
+
+    
+skinparam rectangle<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam database<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam queue<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam person<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam actor<<container_boundary>> {
+    FontColor transparent
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam participant<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam sequencebox<<container_boundary>> {
+    FontColor #444444
+    BackgroundColor transparent
+    BorderColor #444444
+    BorderStyle dashed
+}
+skinparam package<<container_boundary>>StereotypeFontColor transparent
+skinparam rectangle<<container_boundary>>StereotypeFontColor transparent
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+skinparam rectangle<<component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+skinparam database<<component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+skinparam queue<<component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+skinparam person<<component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+skinparam actor<<component>> {
+    StereotypeFontColor #85BBF0
+    FontColor #85BBF0
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+skinparam participant<<component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+skinparam sequencebox<<component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #85BBF0
+    BorderColor #78A8D8
+}
+
+
+skinparam rectangle<<external_component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+skinparam database<<external_component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+skinparam queue<<external_component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+skinparam person<<external_component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+skinparam actor<<external_component>> {
+    StereotypeFontColor #CCCCCC
+    FontColor #CCCCCC
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+skinparam participant<<external_component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+skinparam sequencebox<<external_component>> {
+    StereotypeFontColor #000000
+    FontColor #000000
+    BackgroundColor #CCCCCC
+    BorderColor #BFBFBF
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+skinparam rectangle<<external>> {
+    BackgroundColor #c1c1c1
+}
+skinparam database<<external>> {
+    BackgroundColor #c1c1c1
+}
+skinparam queue<<external>> {
+    BackgroundColor #c1c1c1
+}
+skinparam person<<external>> {
+    BackgroundColor #c1c1c1
+}
+skinparam actor<<external>> {
+    StereotypeFontColor #c1c1c1
+    FontColor #c1c1c1
+    BackgroundColor #c1c1c1
+}
+skinparam participant<<external>> {
+    BackgroundColor #c1c1c1
+}
+skinparam sequencebox<<external>> {
+    BackgroundColor #c1c1c1
+}
+
+
+rectangle "<$person>\n== End user\n\nRetrieves and verifies artifacts certified by the Mithril network" <<person>> as end_user 
+
+  rectangle "== Mithril aggregator\n<size:12>[Container]</size>" <<container_boundary>><<boundary>> as mithril_aggregator [[https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator]] {
+      rectangle "== Aggregator Runtime\n//<size:12>[FSM]</size>//\n\nMaintains and transitions internal states of aggregator" <<component>> as mithril_aggregator_runtime
+      rectangle "== Cryptographic Engine\n//<size:12>[STM/Asym]</size>//\n\nOperates cryptographic primitives" <<component>> as mithril_aggregator_cryptographic_engine
+      rectangle "== HTTP server\n//<size:12>[REST API]</size>//\n\nServes HTTP requests to signers and clients" <<component>> as mithril_aggregator_http_server
+      database "== Persistence\n//<size:12>[SQLite/FS]</size>//\n\nStores aggregator data (verification keys, certificates, artifacts)" <<component>> as mithril_aggregator_persistence
+    
+    mithril_aggregator_runtime - ->> mithril_aggregator_cryptographic_engine : **Computes protocol cryptography**
+    mithril_aggregator_runtime <<- ->> mithril_aggregator_persistence : **Access aggregator state**
+    mithril_aggregator_http_server <<- ->> mithril_aggregator_persistence : **Access aggregator state**
+}
+
+  rectangle "== Mithril signer\n<size:12>[Container]</size>" <<container_boundary>><<boundary>> as mithril_signer [[https://github.com/input-output-hk/mithril/tree/main/mithril-signer]] {
+      rectangle "== Signer Runtime\n//<size:12>[FSM]</size>//\n\nMaintains and transitions internal states of signer" <<component>> as mithril_signer_runtime
+      rectangle "== Cryptographic Engine\n//<size:12>[STM/Asym]</size>//\n\nOperates cryptographic primitives" <<component>> as mithril_signer_cryptographic_engine
+      rectangle "== HTTP client\n//<size:12>[REST API]</size>//\n\nSends HTTP requests to aggregator via relay" <<component>> as mithril_signer_http_client
+      database "== Persistence\n//<size:12>[SQLite/FS]</size>//\n\nStores signer data (signing keys)" <<component>> as mithril_signer_persistence
+
+    mithril_signer_runtime <<- ->> mithril_signer_http_client : **Retrieves aggregator data**
+    mithril_signer_runtime - ->> mithril_signer_cryptographic_engine : **Computes protocol cryptography**
+    mithril_signer_runtime <<- ->> mithril_signer_persistence : **Access signer state**
+}
+
+  rectangle "== Mithril relay\n<size:12>[Container]</size>" <<container_boundary>><<boundary>> as mithril_relay  {
+      rectangle "== Forward proxy\n//<size:12>[Squid]</size>//\n\nProxies HTTPS calls to aggregator" <<component>> as mithril_relay_forward_proxy
+}
+
+  rectangle "== Mithril client\n<size:12>[Container]</size>" <<container_boundary>><<boundary>> as mithril_client [[https://github.com/input-output-hk/mithril/tree/main/mithril-client]] {
+      rectangle "== Client Runtime\n//<size:12>[Client commands]</size>//\n\nRetrieves artifacts and verifies their authenticity" <<component>> as mithril_client_runtime
+      rectangle "== Cryptographic Engine\n//<size:12>[STM/Asym]</size>//\n\nOperates cryptographic primitives" <<component>> as mithril_client_cryptographic_engine
+      rectangle "== HTTP client\n//<size:12>[REST API]</size>//\n\nSends HTTP requests to aggregator" <<component>> as mithril_client_http_client
+
+    end_user <<- ->> mithril_client_runtime : **CLI or browser**\n//<size:12>[User interaction]</size>//
+    mithril_client_runtime <<- ->> mithril_client_http_client : **Retrieves aggregator data and artifacts**
+    mithril_client_runtime - ->> mithril_client_cryptographic_engine : **Computes protocol cryptography**
+}
+
+mithril_signer_http_client - ->> mithril_relay_forward_proxy : <size:0>.</size>\n//<size:12>[JSON/TCP]</size>//
+mithril_relay_forward_proxy - ->> mithril_aggregator_http_server : <size:0>.</size>\n//<size:12>[JSON/HTTPS]</size>//
+mithril_client_http_client - ->> mithril_aggregator_http_server : <size:0>.</size>\n//<size:12>[JSON/HTTPS]</size>//
+
+  rectangle "== Cardano Node\n//<size:12>[N2C/FS]</size>//\n\nCardano full node" <<external>><<component>> as mithril_aggregator_cardano_node
+mithril_aggregator_runtime -LEFT->> mithril_aggregator_cardano_node : **Retrieve Cardano chain state**
+  rectangle "== Cardano Node\n//<size:12>[N2C/FS]</size>//\n\nCardano block producer node" <<external>><<component>> as mithril_signer_cardano_node
+mithril_signer_runtime - ->> mithril_signer_cardano_node : **Retrieve Cardano chain state**
+mithril_aggregator_cardano_node <<- ->> mithril_signer_cardano_node : **N2N protocol**
+
+  rectangle "== Artifact storage\n//<size:12>[Cloud]</size>//\n\nCloud file storage" <<external>><<component>> as mithril_artifact_storage
+mithril_aggregator_runtime - ->> mithril_artifact_storage : **HTTPS**\n//<size:12>[Stores artifacts]</size>//
+mithril_client_http_client - ->> mithril_artifact_storage : **HTTPS**\n//<size:12>[Downloads artifacts]</size>//
+@enduml
+
+PlantUML version 1.2022.7(Mon Aug 22 19:01:30 CEST 2022)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>
