@@ -589,10 +589,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        println!(
-            "computed_stake_distribution: {:?}",
-            computed_stake_distribution
-        );
         let mut expected_stake_distribution = StakeDistribution::new();
         expected_stake_distribution.insert(
             "pool1qqqqqdk4zhsjuxxd8jyvwncf5eucfskz0xjjj64fdmlgj735lr9".to_string(),
