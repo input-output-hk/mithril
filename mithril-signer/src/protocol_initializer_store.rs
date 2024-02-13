@@ -1,12 +1,8 @@
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use mithril_common::{
-    crypto_helper::ProtocolInitializer,
-    entities::Epoch,
-    store::{adapter::StoreAdapter, StorePruner},
-    StdResult,
-};
+use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch, StdResult};
+use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
 
@@ -107,7 +103,8 @@ mod tests {
 
     use super::*;
 
-    use mithril_common::{store::adapter::MemoryAdapter, test_utils::fake_data};
+    use mithril_common::test_utils::fake_data;
+    use mithril_persistence::store::adapter::MemoryAdapter;
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;

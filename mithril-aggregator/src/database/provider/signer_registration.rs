@@ -10,13 +10,13 @@ use mithril_common::{
         Epoch, HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature,
         PartyId, Signer, SignerWithStake, Stake,
     },
-    sqlite::{
-        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        SqliteConnection, WhereCondition,
-    },
-    store::adapter::AdapterError,
     StdResult,
 };
+use mithril_persistence::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
+    SqliteConnection, WhereCondition,
+};
+use mithril_persistence::store::adapter::AdapterError;
 
 use crate::VerificationKeyStorer;
 

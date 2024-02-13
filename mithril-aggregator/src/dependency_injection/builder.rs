@@ -21,7 +21,6 @@ use mithril_common::{
     crypto_helper::{
         ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
     },
-    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
@@ -39,9 +38,12 @@ use mithril_common::{
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService, SignableBuilderService,
         TransactionStore,
     },
+    BeaconProvider, BeaconProviderImpl,
+};
+use mithril_persistence::{
+    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     sqlite::SqliteConnection,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
-    BeaconProvider, BeaconProviderImpl,
 };
 
 use crate::{

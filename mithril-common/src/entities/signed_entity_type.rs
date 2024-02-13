@@ -1,11 +1,8 @@
 use crate::StdResult;
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use strum::{Display, EnumDiscriminants, EnumString};
-
-cfg_database! {
-    use crate::{sqlite::HydrationError};
-}
 
 use super::{Beacon, Epoch};
 
@@ -55,49 +52,6 @@ impl SignedEntityType {
         match self {
             Self::CardanoImmutableFilesFull(b) | Self::CardanoTransactions(b) => b.epoch,
             Self::CardanoStakeDistribution(e) | Self::MithrilStakeDistribution(e) => *e,
-        }
-    }
-
-    cfg_database! {
-        /// Create an instance from data coming from the database
-        pub fn hydrate(signed_entity_type_id: usize, beacon_str: &str) -> Result<Self, HydrationError> {
-            let myself = match signed_entity_type_id {
-                ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => {
-                    let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
-                        HydrationError::InvalidData(format!(
-                            "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
-                        ))
-                    })?;
-                    Self::MithrilStakeDistribution(epoch)
-                }
-                ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => {
-                    let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
-                        HydrationError::InvalidData(format!(
-                            "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
-                        ))
-                    })?;
-                    Self::CardanoStakeDistribution(epoch)
-                }
-                ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL => {
-                    let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
-                        HydrationError::InvalidData(format!(
-                            "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
-                        ))
-                    })?;
-                    Self::CardanoImmutableFilesFull(beacon)
-                }
-                ENTITY_TYPE_CARDANO_TRANSACTIONS => {
-                    let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
-                        HydrationError::InvalidData(format!(
-                            "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
-                        ))
-                    })?;
-                    Self::CardanoTransactions(beacon)
-                }
-                index => panic!("Invalid entity_type_id {index}."),
-            };
-
-            Ok(myself)
         }
     }
 
@@ -162,6 +116,17 @@ impl SignedEntityTypeDiscriminants {
             Self::CardanoStakeDistribution => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
             Self::CardanoImmutableFilesFull => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
             Self::CardanoTransactions => ENTITY_TYPE_CARDANO_TRANSACTIONS,
+        }
+    }
+
+    /// Get the discriminant associated with the given id
+    pub fn from_id(signed_entity_type_id: usize) -> StdResult<SignedEntityTypeDiscriminants> {
+        match signed_entity_type_id {
+            ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => Ok(Self::MithrilStakeDistribution),
+            ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => Ok(Self::CardanoStakeDistribution),
+            ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL => Ok(Self::CardanoImmutableFilesFull),
+            ENTITY_TYPE_CARDANO_TRANSACTIONS => Ok(Self::CardanoTransactions),
+            index => Err(anyhow!("Invalid entity_type_id {index}.")),
         }
     }
 }

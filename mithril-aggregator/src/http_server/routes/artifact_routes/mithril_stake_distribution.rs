@@ -99,9 +99,9 @@ pub mod tests {
     use mithril_common::{
         entities::{Epoch, SignedEntityType},
         messages::ToMessageAdapter,
-        sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
     };
+    use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};
 

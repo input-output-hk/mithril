@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
+use mithril_common::StdResult;
 use slog::{debug, error, info, Logger};
 use std::{cmp::Ordering, collections::BTreeSet};
 
@@ -8,7 +9,7 @@ use super::{
     DbVersion,
 };
 
-use crate::{sqlite::SqliteConnection, StdResult};
+use crate::sqlite::SqliteConnection;
 
 /// Struct to perform application version check in the database.
 pub struct DatabaseVersionChecker<'conn> {
@@ -171,10 +172,9 @@ impl Eq for SqlMigration {}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
+    use mithril_common::StdResult;
     use sqlite::Connection;
     use std::path::PathBuf;
-
-    use crate::StdResult;
 
     use super::*;
 

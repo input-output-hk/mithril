@@ -180,9 +180,9 @@ impl SPOItem {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::sqlite::SqliteConnection;
     use mithril_common::test_utils::test_http_server::test_http_server;
     use mithril_common::StdResult;
+    use mithril_persistence::sqlite::SqliteConnection;
     use sqlite::Connection;
     use std::collections::{BTreeMap, BTreeSet};
     use std::convert::Infallible;

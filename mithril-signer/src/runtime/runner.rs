@@ -7,15 +7,13 @@ use thiserror::Error;
 use mockall::automock;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
-use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityType};
-use mithril_common::{
-    entities::{
-        Beacon, CertificatePending, Epoch, EpochSettings, ProtocolMessage, ProtocolMessagePartKey,
-        Signer, SignerWithStake, SingleSignatures,
-    },
-    store::StakeStorer,
-    StdResult,
+use mithril_common::entities::{
+    Beacon, CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage,
+    ProtocolMessagePartKey, ProtocolParameters, SignedEntityType, Signer, SignerWithStake,
+    SingleSignatures,
 };
+use mithril_common::StdResult;
+use mithril_persistence::store::StakeStorer;
 
 use crate::{Configuration, MithrilProtocolInitializerBuilder};
 
@@ -465,13 +463,11 @@ mod tests {
             MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
             TransactionStore,
         },
-        store::{
-            adapter::{DumbStoreAdapter, MemoryAdapter},
-            StakeStore, StakeStorer,
-        },
         test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,
     };
+    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
+    use mithril_persistence::store::{StakeStore, StakeStorer};
     use mockall::mock;
     use std::{
         path::{Path, PathBuf},

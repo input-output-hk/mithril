@@ -6,11 +6,11 @@ use uuid::Uuid;
 
 use mithril_common::{
     entities::{Epoch, HexEncodedSingleSignature, LotteryIndex, SingleSignatures},
-    sqlite::{
-        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        SqliteConnection, WhereCondition,
-    },
     StdError, StdResult,
+};
+use mithril_persistence::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
+    SqliteConnection, WhereCondition,
 };
 
 use super::OpenMessageRecord;

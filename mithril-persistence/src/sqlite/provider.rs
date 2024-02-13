@@ -1,9 +1,7 @@
 use anyhow::Context;
+use mithril_common::StdResult;
 
-use super::SqliteConnection;
-use crate::StdResult;
-
-use super::{EntityCursor, SqLiteEntity, WhereCondition};
+use super::{EntityCursor, SqLiteEntity, SqliteConnection, WhereCondition};
 
 /// A Provider is able to performe queries on a database and return iterator of a defined entity.
 /// It aims at being easily testable and adaptable.
