@@ -25,8 +25,11 @@ SCRIPT_DIRECTORY=$(dirname $0)
 # Generate the pools scripts
 . ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-pools.sh
 
+# Generate the Mithril delegation scripts
+. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-mithril-delegation.sh
+
 # Generate the Mithril era scripts
-. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-mithril.sh
+. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-mithril-era.sh
 
 # Generate the query scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-query.sh
