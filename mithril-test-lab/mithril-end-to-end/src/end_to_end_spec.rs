@@ -112,7 +112,7 @@ impl<'a> Spec<'a> {
         }
 
         // Verify that Cardano transactions artifacts are produced and signed correctly
-        {
+        if self.infrastructure.is_signing_cardano_transactions() {
             let hash = assertions::assert_node_producing_cardano_transactions(&aggregator_endpoint)
                 .await?;
             let certificate_hash = assertions::assert_signer_is_signing_cardano_transactions(
