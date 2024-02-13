@@ -12,8 +12,9 @@ use config::builder::DefaultState;
 use config::ConfigBuilder;
 use mithril_common::StdResult;
 
-/// Cardano transactions management (alias: ctx)
+/// Cardano transactions management
 #[derive(Subcommand, Debug, Clone)]
+#[command(about = "[unstable] Cardano transactions management (alias: ctx)")]
 pub enum CardanoTransactionCommands {
     /// Cardano transaction sets commands
     #[clap(subcommand)]
