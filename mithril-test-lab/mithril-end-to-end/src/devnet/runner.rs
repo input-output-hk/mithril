@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Context};
-use mithril_common::entities::PartyId;
+use mithril_common::entities::{PartyId, TransactionHash};
 use mithril_common::StdResult;
 use slog_scope::info;
-use std::fs::{self, File};
+use std::fs::{self, read_to_string, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
@@ -170,6 +170,19 @@ impl Devnet {
             .with_context(|| "Failed to read mithril era marker address file")
     }
 
+    pub fn mithril_payments_transaction_hashes_path(&self) -> PathBuf {
+        self.artifacts_dir.join("transaction-hashes.txt")
+    }
+
+    pub fn mithril_payments_transaction_hashes(&self) -> StdResult<Vec<TransactionHash>> {
+        let transaction_hashes = read_to_string(self.mithril_payments_transaction_hashes_path())?
+            .lines()
+            .map(String::from)
+            .collect();
+
+        Ok(transaction_hashes)
+    }
+
     pub fn cardano_cli_path(&self) -> PathBuf {
         self.artifacts_dir.join("cardano-cli")
     }
@@ -299,6 +312,32 @@ impl Devnet {
                 "Write era marker on chain exited with status code: {code}"
             )),
             None => Err(anyhow!("Write era marker on chain terminated by signal")),
+        }
+    }
+
+    pub async fn transfer_funds(&self) -> StdResult<()> {
+        let run_script = "payment-mithril.sh";
+        let run_script_path = self.artifacts_dir.join(run_script);
+        let mut run_command = Command::new(&run_script_path);
+        run_command
+            .current_dir(&self.artifacts_dir)
+            .kill_on_drop(true);
+        run_command.env("PAYMENT_ITERATIONS", "5");
+
+        info!("Transferring some funds on chain"; "script" => &run_script_path.display());
+
+        let status = run_command
+            .spawn()
+            .with_context(|| "Failed to transfer funds on chain")?
+            .wait()
+            .await
+            .with_context(|| "Error while to transferring funds on chain")?;
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(anyhow!(
+                "Transfer funds on chain exited with status code: {code}"
+            )),
+            None => Err(anyhow!("Transfer funds on chain terminated by signal")),
         }
     }
 }
