@@ -31,6 +31,9 @@ SCRIPT_DIRECTORY=$(dirname $0)
 # Generate the Mithril era scripts
 . ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-mithril-era.sh
 
+# Generate the Mithril payment scripts
+. ${SCRIPT_DIRECTORY}/mkfiles/mkfiles-mithril-payment.sh
+
 # Generate the query scripts
 . $SCRIPT_DIRECTORY/mkfiles/mkfiles-query.sh
 
