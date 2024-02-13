@@ -122,9 +122,7 @@ impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!(
-            "select {projection} from cardano_tx where {condition} order by transaction_hash desc"
-        )
+        format!("select {projection} from cardano_tx where {condition} order by rowid")
     }
 }
 
@@ -205,7 +203,7 @@ impl CardanoTransactionRepository {
         Self { connection }
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database.
+    /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
     pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = CardanoTransactionProvider::new(&self.connection);
         let filters = WhereCondition::default();
@@ -214,7 +212,8 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon.
+    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
+    /// chronological order.
     pub async fn get_transactions_up_to(
         &self,
         beacon: &Beacon,
@@ -551,14 +550,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
-            cardano_transactions[0..=14]
-                .iter()
-                .cloned()
-                .rev()
-                .collect::<Vec<_>>(),
-            transaction_result
-        );
+        assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
 
         let transaction_result = repository
             .get_up_to(&Beacon::new("".to_string(), 1, 300))
@@ -566,7 +558,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cardano_transactions.into_iter().rev().collect::<Vec<_>>(),
+            cardano_transactions.into_iter().collect::<Vec<_>>(),
             transaction_result
         );
 
@@ -603,7 +595,6 @@ mod tests {
         let transactions_result = repository.get_all_transactions().await.unwrap();
         let transactions_expected: Vec<CardanoTransactionRecord> = cardano_transactions
             .iter()
-            .rev()
             .map(|tx| tx.clone().into())
             .collect();
 
