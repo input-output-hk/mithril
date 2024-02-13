@@ -15,11 +15,10 @@ use mithril_common::{
         CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateMessage,
         CertificateMetadataMessagePart,
     },
-    sqlite::{
-        EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-        WhereCondition,
-    },
     StdResult,
+};
+use mithril_persistence::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
 
 #[cfg(test)]

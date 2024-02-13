@@ -1,11 +1,12 @@
 use anyhow::Context;
 use mithril_common::{
     entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures},
-    sqlite::{
-        HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
-        WhereCondition,
-    },
     StdResult,
+};
+use mithril_persistence::database::SignedEntityTypeHydrator;
+use mithril_persistence::sqlite::{
+    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
+    WhereCondition,
 };
 
 use chrono::{DateTime, Utc};
@@ -117,7 +118,8 @@ impl SqLiteEntity for OpenMessageRecord {
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"
             )
         })?;
-        let signed_entity_type = SignedEntityType::hydrate(signed_entity_type_id, &beacon_str)?;
+        let signed_entity_type =
+            SignedEntityTypeHydrator::hydrate(signed_entity_type_id, &beacon_str)?;
         let is_certified = row.read::<i64, _>(5) != 0;
         let datetime = &row.read::<&str, _>(7);
         let created_at =
@@ -624,7 +626,8 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::Beacon, sqlite::SourceAlias};
+    use mithril_common::entities::Beacon;
+    use mithril_persistence::sqlite::SourceAlias;
     use sqlite::Connection;
 
     use crate::database::provider::{

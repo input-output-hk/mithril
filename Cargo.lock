@@ -3316,7 +3316,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.35"
+version = "0.4.36"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3328,6 +3328,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-persistence",
  "mockall",
  "openssl",
  "openssl-probe",
@@ -3377,7 +3378,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3454,7 +3455,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.163"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3496,7 +3497,6 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
- "sqlite",
  "strum",
  "thiserror",
  "tokio",
@@ -3531,6 +3531,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-persistence"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "hex",
+ "mithril-common",
+ "mockall",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-term",
+ "sqlite",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-relay"
 version = "0.1.9"
 dependencies = [
@@ -3555,7 +3578,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.106"
+version = "0.2.107"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3564,6 +3587,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-persistence",
  "mockall",
  "openssl",
  "openssl-probe",

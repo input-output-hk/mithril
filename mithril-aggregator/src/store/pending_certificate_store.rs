@@ -3,7 +3,7 @@ use mithril_common::StdResult;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::CertificatePending;
-use mithril_common::store::adapter::StoreAdapter;
+use mithril_persistence::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = CertificatePending>>;
 
@@ -65,8 +65,8 @@ mod test {
     use super::*;
 
     use mithril_common::entities::{Beacon, SignedEntityType};
-    use mithril_common::store::adapter::DumbStoreAdapter;
     use mithril_common::test_utils::fake_data;
+    use mithril_persistence::store::adapter::DumbStoreAdapter;
 
     async fn get_certificate_pending_store(is_populated: bool) -> CertificatePendingStore {
         let mut adapter: DumbStoreAdapter<String, CertificatePending> = DumbStoreAdapter::new();

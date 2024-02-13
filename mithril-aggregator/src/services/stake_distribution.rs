@@ -11,9 +11,9 @@ use tokio::sync::{Mutex, MutexGuard};
 use mithril_common::{
     chain_observer::ChainObserver,
     entities::{Epoch, StakeDistribution},
-    store::StakeStorer,
     StdError, StdResult,
 };
+use mithril_persistence::store::StakeStorer;
 
 use crate::database::provider::StakePoolStore;
 

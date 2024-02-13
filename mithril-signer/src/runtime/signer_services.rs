@@ -8,7 +8,6 @@ use mithril_common::{
     cardano_transaction_parser::CardanoTransactionParser,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
-    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         ImmutableFileObserver,
@@ -20,9 +19,12 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
+    BeaconProvider, BeaconProviderImpl, StdResult,
+};
+use mithril_persistence::{
+    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, StdResult,
 };
 
 use crate::{

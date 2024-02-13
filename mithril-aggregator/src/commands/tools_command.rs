@@ -1,8 +1,8 @@
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::sqlite::vacuum_database;
 use mithril_common::StdResult;
+use mithril_persistence::sqlite::vacuum_database;
 use slog_scope::debug;
 use std::sync::Arc;
 

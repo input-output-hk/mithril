@@ -4,22 +4,11 @@
 //! Shared datatypes and traits used by Mithril rust projects
 //!
 //! Provide:
-//! - A way to store data with the [store] types
 //! - [Digester][digesters] to compute mithril digest from a Cardano database
 //! - Helpers for the [Mithril STM](https://mithril.network/rust-doc/mithril_stm/index.html)
 //! lib with the [crypto_helper].
 //! - [certificate chain][certificate_chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
-
-macro_rules! cfg_database {
-    ($($item:item)*) => {
-        $(
-            #[cfg(feature = "database")]
-            #[cfg_attr(docsrs, doc(cfg(feature = "database")))]
-            $item
-        )*
-    }
-}
 
 macro_rules! cfg_fs {
     ($($item:item)*) => {
@@ -72,12 +61,6 @@ cfg_fs! {
     pub mod cardano_transaction_parser;
 
     pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
-}
-
-cfg_database! {
-    pub mod database;
-    pub mod sqlite;
-    pub mod store;
 }
 
 pub use entities::{CardanoNetwork, MagicId};

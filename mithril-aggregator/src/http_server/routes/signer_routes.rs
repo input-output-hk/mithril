@@ -249,9 +249,9 @@ mod tests {
     use mithril_common::{
         crypto_helper::ProtocolRegistrationError,
         messages::RegisterSignerMessage,
-        store::adapter::AdapterError,
         test_utils::{apispec::APISpec, fake_data},
     };
+    use mithril_persistence::store::adapter::AdapterError;
     use mockall::predicate::eq;
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};

@@ -1,11 +1,11 @@
 use mithril_common::{
     entities::{Beacon, BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
     signable_builder::TransactionStore,
-    sqlite::{
-        HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
-        WhereCondition,
-    },
     StdResult,
+};
+use mithril_persistence::sqlite::{
+    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
+    WhereCondition,
 };
 
 use anyhow::Context;
@@ -295,7 +295,7 @@ impl TransactionsRetriever for CardanoTransactionRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::sqlite::SourceAlias;
+    use mithril_persistence::sqlite::SourceAlias;
     use sqlite::Connection;
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration};

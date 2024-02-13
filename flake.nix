@@ -108,6 +108,7 @@
           mithril-client-cli = buildPackage ./mithril-client-cli/Cargo.toml mithril.cargoArtifacts {};
           mithril-aggregator = buildPackage ./mithril-aggregator/Cargo.toml mithril.cargoArtifacts {};
           mithril-signer = buildPackage ./mithril-signer/Cargo.toml mithril.cargoArtifacts {};
+          mithril-persistence = buildPackage ./mithril-persistence/Cargo.toml mithril.cargoArtifacts {};
           mithrildemo = buildPackage ./demo/protocol-demo/Cargo.toml mithril.cargoArtifacts {};
           mithril-end-to-end = buildPackage ./mithril-test-lab/mithril-end-to-end/Cargo.toml null {};
         };

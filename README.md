@@ -63,6 +63,8 @@ This repository consists of the following parts:
 * [**Mithril client WASM**](./mithril-client-wasm): the WASM compatible library used for retrieving the certified artifacts produced by the **Mithril network**.
 
 * [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
+ 
+* [**Mithril persistence**](./mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
 
 * [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
 

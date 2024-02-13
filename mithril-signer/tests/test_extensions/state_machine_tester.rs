@@ -15,9 +15,9 @@ use mithril_common::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
-    store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
+use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
     database::provider::CardanoTransactionRepository, AggregatorClient, Configuration,

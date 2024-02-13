@@ -1,5 +1,5 @@
-use crate::StdError;
 use async_trait::async_trait;
+use mithril_common::StdError;
 use thiserror::Error;
 
 /// [StoreAdapter] related errors
