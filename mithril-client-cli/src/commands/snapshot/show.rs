@@ -8,7 +8,7 @@ use crate::{
     commands::client_builder_with_fallback_genesis_key, configuration::ConfigParameters,
     utils::ExpanderUtils,
 };
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 /// Clap command to show a given snapshot
 #[derive(Parser, Debug, Clone)]
@@ -25,7 +25,7 @@ pub struct SnapshotShowCommand {
 
 impl SnapshotShowCommand {
     /// Snapshot Show command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;

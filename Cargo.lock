@@ -3424,7 +3424,6 @@ dependencies = [
  "human_bytes",
  "indicatif",
  "mithril-client",
- "mithril-common",
  "openssl",
  "openssl-probe",
  "serde",

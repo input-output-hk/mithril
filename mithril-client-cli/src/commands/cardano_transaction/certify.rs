@@ -4,8 +4,10 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind
 use slog_scope::debug;
 use std::{collections::HashMap, sync::Arc};
 
-use mithril_client::{MessageBuilder, MithrilCertificate};
-use mithril_common::{entities::TransactionHash, messages::VerifiedCardanoTransactions, StdResult};
+use mithril_client::{
+    common::TransactionHash, MessageBuilder, MithrilCertificate, MithrilResult,
+    VerifiedCardanoTransactions,
+};
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{commands::client_builder, configuration::ConfigParameters};
@@ -28,7 +30,7 @@ pub struct CardanoTransactionsCertifyCommand {
 
 impl CardanoTransactionsCertifyCommand {
     /// Cardano transaction certify command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.add_source(self.clone()).build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
 
@@ -100,7 +102,7 @@ impl CardanoTransactionsCertifyCommand {
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
         verified_transactions: &VerifiedCardanoTransactions,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         progress_printer.report_step(
             step_number,
             "Verify that the proof is signed in the associated certificate",
@@ -121,7 +123,7 @@ impl CardanoTransactionsCertifyCommand {
         verified_transactions: &VerifiedCardanoTransactions,
         non_certified_transactions: &[TransactionHash],
         json_output: bool,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         if json_output {
             println!(
                 r#"{{"certified_transactions": {}, "non_certified_transactions": {}}}"#,

@@ -8,7 +8,7 @@ use std::{
 
 use crate::{commands::client_builder, configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_client::MessageBuilder;
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
@@ -32,7 +32,7 @@ pub struct MithrilStakeDistributionDownloadCommand {
 
 impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder
             .set_default("download_dir", ".")?
             .add_source(self.clone())
