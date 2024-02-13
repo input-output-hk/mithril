@@ -36,7 +36,7 @@ fn extract_struct_info(
             None => quote! {
                 None
             },
-        }; 
+        };
         quote! {
             struct_data.add_param(#name, #doc, #default_values_variable_ident.get(#name).map(|v| v.to_string()), #example);
         }
@@ -118,18 +118,16 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("example"))
-        .and_then(|attr| {
-            match &attr.meta {
-                syn::Meta::NameValue(syn::MetaNameValue {
-                    value:
-                        syn::Expr::Lit(syn::ExprLit {
-                            lit: syn::Lit::Str(s),
-                            ..
-                        }),
-                    ..
-                }) => Some(s.value()),
-                _ => None,
-            }
+        .and_then(|attr| match &attr.meta {
+            syn::Meta::NameValue(syn::MetaNameValue {
+                value:
+                    syn::Expr::Lit(syn::ExprLit {
+                        lit: syn::Lit::Str(s),
+                        ..
+                    }),
+                ..
+            }) => Some(s.value()),
+            _ => None,
         });
 
     let field_info = FieldInfo {
