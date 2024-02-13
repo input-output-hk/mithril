@@ -56,6 +56,9 @@ impl<'a> Spec<'a> {
         .await?;
         assertions::update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
 
+        // Transfer some funds on the devnet to have some Cardano transactions to sign
+        assertions::transfer_funds(self.infrastructure.devnet()).await?;
+
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;
         assertions::wait_for_target_epoch(
@@ -126,7 +129,13 @@ impl<'a> Spec<'a> {
             )
             .await?;
 
-            // TODO: verify a transaction list with the client when it is available
+            let transaction_hashes = self
+                .infrastructure
+                .devnet()
+                .mithril_payments_transaction_hashes()?;
+            let mut client = self.infrastructure.build_client()?;
+            assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
+                .await?;
         }
 
         Ok(())
