@@ -7,6 +7,45 @@ use thiserror::Error;
 
 use crate::{StdError, StdResult};
 
+cfg_fs! {
+    use serde::Deserialize;
+    use anyhow::Context;
+    use minicbor::{Decode, Decoder, decode};
+    use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
+    /// [Datum] represents an inline datum from UTxO.
+    #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+    #[serde(rename_all = "lowercase")]
+    pub struct Datum(pub PlutusData);
+
+    impl ToCanonicalJson for Datum {
+        fn to_json(&self) -> serde_json::Value {
+            self.0.to_json()
+        }
+    }
+
+    impl<'a, C> Decode<'a, C> for Datum {
+        fn decode(d: &mut Decoder<'a>, ctx: &mut C) -> Result<Self, decode::Error> {
+            PlutusData::decode(d, ctx).map(Datum)
+        }
+    }
+
+    /// Inspects the given bytes and returns a decoded `R` instance.
+    pub fn try_inspect<R>(inner: Vec<u8>) -> StdResult<R>
+    where
+        for<'b> R: Decode<'b, ()>,
+    {
+        decode(&inner).map_err(|e| anyhow!(e)).with_context(|| {
+            format!(
+                "failed to decode datum: {}",
+                hex::encode(&inner)
+            )
+        })
+    }
+
+    /// [Datums] represents a list of [TxDatum].
+    pub type Datums = Vec<TxDatum>;
+}
+
 /// [ChainAddress] represents an on chain address.
 pub type ChainAddress = String;
 
