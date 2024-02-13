@@ -3440,6 +3440,7 @@ dependencies = [
  "human_bytes",
  "indicatif",
  "mithril-client",
+ "mithril-doc-derive",
  "openssl",
  "openssl-probe",
  "serde",

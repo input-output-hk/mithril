@@ -57,25 +57,40 @@ The configuration parameters can be set in either of the following ways:
 
 | Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `chain_observer_type` | - | - | `CHAIN_OBSERVER_TYPE` | Chain observer type | - | - | - |
+| `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | - |
+| `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool<br>to communicate with the Cardano node | - | `/tmp/cardano.sock` | - |
+| `cardano_node_version` | - | - | `CARDANO_NODE_VERSION` | Cardano node version.<br><br>**NOTE**: This cannot be verified for now (see [this<br>issue](https://github.com/input-output-hk/cardano-cli/issues/224)). This<br>is why it has to be manually given to the Aggregator | - | - | - |
+| `cexplorer_pools_url` | - | - | `CEXPLORER_POOLS_URL` | Url to CExplorer list of pools to import as signer in the database. | - | - | - |
+| `chain_observer_type` | - | - | `CHAIN_OBSERVER_TYPE` | Cardano chain observer type | - | - | - |
 | `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | - | - |
+| `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | - |
 | `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the Cardano node files | `/db` | - | - |
-| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
-| `environment` | - | - | `ENVIRONMENT` | Execution environment | `Production` | - | - |
+| `disable_digests_cache` | - | - | `DISABLE_DIGESTS_CACHE` | Use the digest caching strategy | `false` | - | - |
+| `environment` | - | - | `ENVIRONMENT` | What kind of runtime environment the configuration is meant to. | `Production` | - | - |
+| `era_reader_adapter_params` | - | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter parameters | - | - | - |
 | `era_reader_adapter_type` | - | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type | `bootstrap` | - | - |
+| `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
-| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | ImmutableDigesterCacheProvider default setting | `false` | - | - |
+| `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | - |
+| `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number<br><br>useful for TestNet & DevNet | - | `1097911063` or `42` | - |
+| `protocol_parameters` | - | - | `PROTOCOL_PARAMETERS` | Protocol parameters | - | `{ k: 5, m: 100, phi_f: 0.65 }` | - |
+| `reset_digests_cache` | - | - | `RESET_DIGESTS_CACHE` | Should the immutable cache be reset or not | `false` | - | - |
+| `run_interval` | - | - | `RUN_INTERVAL` | Run Interval is the interval between two runtime cycles in ms | - | `60000` | - |
 | `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |
 | `server_ip` | - | - | `SERVER_IP` | Server listening IP | `0.0.0.0` | - | - |
 | `server_port` | - | - | `SERVER_PORT` | Server listening port | `8080` | - | - |
-| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Signer importer run interval default setting | `720` | - | - |
-| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Snapshot compression algorithm default setting | `zstandard` | - | - |
+| `signed_entity_types` | - | - | `SIGNED_ENTITY_TYPES` | Signed entity types parameters (discriminants names in an ordered comma separated list).     | - | `MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution` | - |
+| `signer_importer_run_interval` | - | - | `SIGNER_IMPORTER_RUN_INTERVAL` | Time interval at which the signers in [Self::cexplorer_pools_url] will be imported (in minutes). | `720` | - | - |
+| `snapshot_bucket_name` | - | - | `SNAPSHOT_BUCKET_NAME` | Bucket name where the snapshots are stored if snapshot_uploader_type is Gcp | - | - | - |
+| `snapshot_compression_algorithm` | - | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Compression algorithm used for the snapshot archive artifacts. | `zstandard` | `gzip` or `zstandard` | - |
 | `snapshot_directory` | - | - | `SNAPSHOT_DIRECTORY` | Directory to store snapshot | `.` | - | - |
-| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` | - | - |
-| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` | - | - |
-| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` | - | - |
+| `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | `local` | `gcp` or `local` | - |
+| `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | `gcp` | `gcp` or `local` | - |
+| `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls if snapshot_uploader_type is Gcp | `false` | - | - |
+| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Max number of records in stores.<br>When new records are added, oldest records are automatically deleted so<br>there can always be at max the number of records specified by this<br>setting. | - | - | - |
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | - | - |
 | `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
+| `zstandard_parameters` | - | - | `ZSTANDARD_PARAMETERS` | Specific parameters when [snapshot_compression_algorithm][Self::snapshot_compression_algorithm]<br>is set to [zstandard][CompressionAlgorithm::Zstandard]. | - | `{ level: 9, number_of_workers: 4 }` | - |
 ####  mithril-aggregator genesis
 
 Genesis tools

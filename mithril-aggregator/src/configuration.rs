@@ -47,10 +47,12 @@ pub struct Configuration {
     pub environment: ExecutionEnvironment,
 
     /// Cardano CLI tool path
+    #[example = "`cardano-cli`"]
     pub cardano_cli_path: PathBuf,
 
     /// Path of the socket used by the Cardano CLI tool
     /// to communicate with the Cardano node
+    #[example = "`/tmp/cardano.sock`"]
     pub cardano_node_socket_path: PathBuf,
 
     /// Cardano node version.
@@ -63,18 +65,22 @@ pub struct Configuration {
     /// Cardano Network Magic number
     ///
     /// useful for TestNet & DevNet
+    #[example = "`1097911063` or `42`"]
     pub network_magic: Option<u64>,
 
     /// Cardano network
+    #[example = "`testnet` or `mainnet` or `devnet`"]
     pub network: String,
 
     /// Cardano chain observer type
     pub chain_observer_type: ChainObserverType,
 
     /// Protocol parameters
+    #[example = "`{ k: 5, m: 100, phi_f: 0.65 }`"]
     pub protocol_parameters: ProtocolParameters,
 
     /// Type of snapshot uploader to use
+    #[example = "`gcp` or `local`"]
     pub snapshot_uploader_type: SnapshotUploaderType,
 
     /// Bucket name where the snapshots are stored if snapshot_uploader_type is Gcp
@@ -90,6 +96,7 @@ pub struct Configuration {
     pub server_port: u16,
 
     /// Run Interval is the interval between two runtime cycles in ms
+    #[example = "`60000`"]
     pub run_interval: u64,
 
     /// Directory of the Cardano node store.
@@ -99,6 +106,7 @@ pub struct Configuration {
     pub snapshot_directory: PathBuf,
 
     /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    #[example = "`./mithril-aggregator/stores`"]
     pub data_stores_directory: PathBuf,
 
     /// Genesis verification key
@@ -122,14 +130,17 @@ pub struct Configuration {
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
 
-    /// Signed entity types parameters (discriminants names in an ordered comma separated list).
+    /// Signed entity types parameters (discriminants names in an ordered comma separated list).    
+    #[example = "`MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution`"]
     pub signed_entity_types: Option<String>,
 
     /// Compression algorithm used for the snapshot archive artifacts.
+    #[example = "`gzip` or `zstandard`"]
     pub snapshot_compression_algorithm: CompressionAlgorithm,
 
     /// Specific parameters when [snapshot_compression_algorithm][Self::snapshot_compression_algorithm]
     /// is set to [zstandard][CompressionAlgorithm::Zstandard].
+    #[example = "`{ level: 9, number_of_workers: 4 }`"]
     pub zstandard_parameters: Option<ZstandardCompressionParameters>,
 
     /// Url to CExplorer list of pools to import as signer in the database.
@@ -305,6 +316,7 @@ pub struct DefaultConfiguration {
     pub snapshot_directory: String,
 
     /// Type of snapshot store to use
+    #[example = "`gcp` or `local`"]
     pub snapshot_store_type: String,
 
     /// Type of snapshot uploader to use

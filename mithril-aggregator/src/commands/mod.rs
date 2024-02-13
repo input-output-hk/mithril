@@ -5,13 +5,17 @@ mod tools_command;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::{generate_doc::DocExtractorDefault, StdResult};
+use mithril_common::{
+    generate_doc::{DocExtractor, DocExtractorDefault, StructDoc},
+    StdResult,
+};
 use slog::Level;
 use slog_scope::debug;
 use std::path::PathBuf;
 
-use crate::DefaultConfiguration;
+use crate::{Configuration, DefaultConfiguration};
 use mithril_common::generate_doc::GenerateDocCommands;
+use mithril_doc_derive::DocExtractor;
 
 /// Main command selector
 #[derive(Debug, Clone, Subcommand)]
@@ -32,15 +36,15 @@ impl MainCommand {
             Self::Serve(cmd) => cmd.execute(config_builder).await,
             Self::Tools(cmd) => cmd.execute(config_builder).await,
             Self::GenerateDoc(cmd) => {
-                let config_info = DefaultConfiguration::extract();
-                cmd.execute_with_configurations(&mut MainOpts::command(), &[config_info])
+                let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
+                cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
             }
         }
     }
 }
 
 /// Mithril Aggregator Node
-#[derive(Parser, Debug, Clone)]
+#[derive(DocExtractor, Parser, Debug, Clone)]
 #[command(version)]
 pub struct MainOpts {
     /// application main command
@@ -53,6 +57,7 @@ pub struct MainOpts {
 
     /// Verbosity level
     #[clap(short, long, action = clap::ArgAction::Count)]
+    #[example = "Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace`"]
     pub verbose: u8,
 
     /// Directory of the Cardano node files
