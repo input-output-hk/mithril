@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.16
+  version: 0.1.17
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1485,6 +1485,7 @@ components:
         required:
           - hash
           - certificate_hash
+          - merkle_root
           - beacon
           - created_at
         properties:
@@ -1527,6 +1528,7 @@ components:
       required:
         - hash
         - certificate_hash
+        - merkle_root
         - beacon
         - created_at
       properties:

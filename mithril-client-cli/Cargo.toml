@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.5.19"
+version = "0.6.0"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -32,8 +32,7 @@ fs2 = "0.4.3"
 futures = "0.3.28"
 human_bytes = { version = "0.4.3", features = ["fast"] }
 indicatif = { version = "0.17.7", features = ["tokio"] }
-mithril-client = { path = "../mithril-client", features = ["fs"] }
-mithril-common = { path = "../mithril-common", features = ["full"] }
+mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 openssl = { version = "0.10.63", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 serde = { version = "1.0.196", features = ["derive"] }
@@ -49,9 +48,6 @@ slog-term = "2.9.0"
 thiserror = "1.0.56"
 tokio = { version = "1.35.1", features = ["full"] }
 
-[dev-dependencies]
-mithril-common = { path = "../mithril-common", features = ["test_http_server"] }
-
 [features]
-portable = ["mithril-common/portable"]
+portable = ["mithril-client/portable"]
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]

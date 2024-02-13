@@ -47,6 +47,14 @@ pub async fn delegate_stakes_to_pools(devnet: &Devnet, delegation_round: u16) ->
     Ok(())
 }
 
+pub async fn transfer_funds(devnet: &Devnet) -> StdResult<()> {
+    info!("Transfer funds on the devnet");
+
+    devnet.transfer_funds().await?;
+
+    Ok(())
+}
+
 pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResult<()> {
     info!("Update protocol parameters");
 

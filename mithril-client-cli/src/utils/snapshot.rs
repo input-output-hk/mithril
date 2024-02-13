@@ -4,15 +4,14 @@ use indicatif::{MultiProgress, ProgressBar};
 use std::time::Duration;
 
 use super::SnapshotUnpackerError;
-use mithril_client::MithrilResult;
-use mithril_common::{StdError, StdResult};
+use mithril_client::{MithrilError, MithrilResult};
 
 /// Utility functions for to the Snapshot commands
 pub struct SnapshotUtils;
 
 impl SnapshotUtils {
     /// Handle the error return by `check_prerequisites`
-    pub fn check_disk_space_error(error: StdError) -> StdResult<String> {
+    pub fn check_disk_space_error(error: MithrilError) -> MithrilResult<String> {
         if let Some(SnapshotUnpackerError::NotEnoughSpace {
             left_space: _,
             pathdir: _,

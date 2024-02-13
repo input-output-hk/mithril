@@ -1,10 +1,10 @@
 use crate::{
-    attempt, utils::AttemptResult, Client, ClientCommand, MithrilStakeDistributionCommand,
-    SnapshotCommand,
+    attempt, utils::AttemptResult, CardanoTransactionCommand, Client, ClientCommand,
+    MithrilStakeDistributionCommand, SnapshotCommand,
 };
 use anyhow::anyhow;
 use mithril_common::{
-    entities::Epoch,
+    entities::{Epoch, TransactionHash},
     messages::{
         CardanoTransactionCommitmentListMessage, CardanoTransactionCommitmentMessage,
         CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
@@ -304,6 +304,22 @@ pub async fn assert_client_can_verify_mithril_stake_distribution(
         ))
         .await?;
     info!("Client downloaded the Mithril stake distribution"; "hash" => &hash);
+
+    Ok(())
+}
+
+pub async fn assert_client_can_verify_transactions(
+    client: &mut Client,
+    tx_hashes: Vec<TransactionHash>,
+) -> StdResult<()> {
+    client
+        .run(ClientCommand::CardanoTransaction(
+            CardanoTransactionCommand::Certify {
+                tx_hashes: tx_hashes.clone(),
+            },
+        ))
+        .await?;
+    info!("Client verified the Cardano transactions"; "tx_hashes" => ?tx_hashes);
 
     Ok(())
 }

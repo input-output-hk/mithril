@@ -2,7 +2,7 @@ use crate::StdResult;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use strum::{Display, EnumDiscriminants, EnumString};
+use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
 use super::{Beacon, Epoch};
 
@@ -26,7 +26,7 @@ const ENTITY_TYPE_CARDANO_TRANSACTIONS: usize = 3;
 /// variants.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
-#[strum_discriminants(derive(EnumString))]
+#[strum_discriminants(derive(EnumString, AsRefStr))]
 pub enum SignedEntityType {
     /// Mithril stake distribution
     MithrilStakeDistribution(Epoch),

@@ -9,7 +9,7 @@ pub use show::*;
 
 use clap::Subcommand;
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 /// Snapshot management
 #[derive(Subcommand, Debug, Clone)]
@@ -29,7 +29,7 @@ pub enum SnapshotCommands {
 
 impl SnapshotCommands {
     /// Execute snapshot command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,

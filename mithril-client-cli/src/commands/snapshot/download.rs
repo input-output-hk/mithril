@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context};
 use chrono::Utc;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use slog_scope::{debug, logger, warn};
+use slog_scope::{debug, warn};
 use std::{
     collections::HashMap,
     fs::File,
@@ -11,6 +11,7 @@ use std::{
 };
 
 use crate::{
+    commands::client_builder,
     configuration::ConfigParameters,
     utils::{
         ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
@@ -18,9 +19,8 @@ use crate::{
     },
 };
 use mithril_client::{
-    common::ProtocolMessage, Client, ClientBuilder, MessageBuilder, MithrilCertificate, Snapshot,
+    common::ProtocolMessage, Client, MessageBuilder, MithrilCertificate, MithrilResult, Snapshot,
 };
-use mithril_common::StdResult;
 
 /// Clap command to download the snapshot and verify the certificate.
 #[derive(Parser, Debug, Clone)]
@@ -40,19 +40,17 @@ pub struct SnapshotDownloadCommand {
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certifiate chain.
+    /// Genesis Verification Key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 }
 
 impl SnapshotDownloadCommand {
     /// Command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         debug!("Snapshot service: download.");
         let config = config_builder.add_source(self.clone()).build()?;
-        let params = Arc::new(ConfigParameters::new(
-            config.try_deserialize::<HashMap<String, String>>()?,
-        ));
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
 
@@ -62,15 +60,11 @@ impl SnapshotDownloadCommand {
             ProgressOutputType::Tty
         };
         let progress_printer = ProgressPrinter::new(progress_output_type, 5);
-        let client = ClientBuilder::aggregator(
-            &params.require("aggregator_endpoint")?,
-            &params.require("genesis_verification_key")?,
-        )
-        .with_logger(logger())
-        .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
-            progress_output_type,
-        )))
-        .build()?;
+        let client = client_builder(&params)?
+            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
+                progress_output_type,
+            )))
+            .build()?;
 
         let get_list_of_artifact_ids = || async {
             let snapshots = client.snapshot().list().await.with_context(|| {
@@ -139,7 +133,7 @@ impl SnapshotDownloadCommand {
         progress_printer: &ProgressPrinter,
         db_dir: &PathBuf,
         snapshot: &Snapshot,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
         if let Err(e) = SnapshotUnpacker::check_prerequisites(
             db_dir,
@@ -165,7 +159,7 @@ impl SnapshotDownloadCommand {
         progress_printer: &ProgressPrinter,
         client: &Client,
         certificate_hash: &str,
-    ) -> StdResult<MithrilCertificate> {
+    ) -> MithrilResult<MithrilCertificate> {
         progress_printer.report_step(
             step_number,
             "Fetching the certificate and verifying the certificate chain…",
@@ -190,7 +184,7 @@ impl SnapshotDownloadCommand {
         client: &Client,
         snapshot: &Snapshot,
         db_dir: &Path,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Downloading and unpacking the snapshot…")?;
         client.snapshot().download_unpack(snapshot, db_dir).await?;
 
@@ -216,7 +210,7 @@ impl SnapshotDownloadCommand {
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
         db_dir: &Path,
-    ) -> StdResult<ProtocolMessage> {
+    ) -> MithrilResult<ProtocolMessage> {
         progress_printer.report_step(step_number, "Computing the snapshot message")?;
         let message = SnapshotUtils::wait_spinner(
             progress_printer,
@@ -239,7 +233,7 @@ impl SnapshotDownloadCommand {
         certificate: &MithrilCertificate,
         message: &ProtocolMessage,
         snapshot: &Snapshot,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Verifying the snapshot signature…")?;
         if !certificate.match_message(message) {
             debug!("Digest verification failed, removing unpacked files & directory.");
@@ -257,7 +251,7 @@ impl SnapshotDownloadCommand {
         db_dir: &Path,
         snapshot: &Snapshot,
         json_output: bool,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
             format!(
                 "Could not get canonicalized filepath of '{}'",

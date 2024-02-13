@@ -1,16 +1,14 @@
 use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use slog_scope::logger;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
 };
 
-use crate::{configuration::ConfigParameters, utils::ExpanderUtils};
-use mithril_client::{ClientBuilder, MessageBuilder};
-use mithril_common::StdResult;
+use crate::{commands::client_builder, configuration::ConfigParameters, utils::ExpanderUtils};
+use mithril_client::MessageBuilder;
+use mithril_client::MithrilResult;
 
 /// Download and verify a Mithril Stake Distribution information. If the
 /// verification fails, the file is not persisted.
@@ -27,29 +25,22 @@ pub struct MithrilStakeDistributionDownloadCommand {
     #[clap(long)]
     download_dir: Option<PathBuf>,
 
-    /// Genesis Verification Key to check the certifiate chain.
+    /// Genesis Verification Key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
 }
 
 impl MithrilStakeDistributionDownloadCommand {
     /// Main command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder
             .set_default("download_dir", ".")?
             .add_source(self.clone())
             .build()?;
-        let params = Arc::new(ConfigParameters::new(
-            config.try_deserialize::<HashMap<String, String>>()?,
-        ));
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let download_dir = &params.require("download_dir")?;
         let download_dir = Path::new(download_dir);
-        let client = ClientBuilder::aggregator(
-            &params.require("aggregator_endpoint")?,
-            &params.require("genesis_verification_key")?,
-        )
-        .with_logger(logger())
-        .build()?;
+        let client = client_builder(&params)?.build()?;
 
         let get_list_of_artifact_ids = || async {
             let mithril_stake_distributions = client.mithril_stake_distribution().list().await.with_context(|| {
