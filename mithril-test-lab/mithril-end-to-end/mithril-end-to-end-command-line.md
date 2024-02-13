@@ -98,7 +98,7 @@ Options:
 | **generate-doc** | doc | Generate documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-end-to-end generate-doc
+####  mithril-end-to-end generate-doc
 
 Generate documentation
 ```bash

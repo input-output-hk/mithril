@@ -47,7 +47,7 @@ Options:
 | **generate-doc** | doc | Generate documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithrildemo generate-doc
+####  mithrildemo generate-doc
 
 Generate documentation
 ```bash

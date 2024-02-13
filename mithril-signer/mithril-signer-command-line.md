@@ -78,7 +78,7 @@ The configuration parameters can be set in either of the following ways:
 | `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Store retention limit. If set to None, no limit will be set. | - | - | - |
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level, add more v to increase | `0` | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | - |
 | `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
-###  mithril-signer generate-doc
+####  mithril-signer generate-doc
 
 Generate documentation
 ```bash

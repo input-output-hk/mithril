@@ -45,7 +45,7 @@ Options:
 | **generate-doc** | doc | Generate command line documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-relay aggregator
+####  mithril-relay aggregator
 
 Run a relay for a Mithril aggregator
 ```bash
@@ -89,7 +89,7 @@ The configuration parameters can be set in either of the following ways:
 | `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator endpoint URL | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-relay signer
+####  mithril-relay signer
 
 Run a relay for a Mithril signer
 ```bash
@@ -140,7 +140,7 @@ The configuration parameters can be set in either of the following ways:
 | `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator endpoint URL | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-relay passive
+####  mithril-relay passive
 
 Run a passive relay (just a peer in the P2P network)
 ```bash
@@ -178,7 +178,7 @@ The configuration parameters can be set in either of the following ways:
 | `dial_to` | `--dial-to` | - | `DIAL_TO` | Dial to peer multi-address (e.g. /ip4/0.0.0.0/tcp/1234) | - | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-relay generate-doc
+####  mithril-relay generate-doc
 
 Generate command line documentation
 ```bash

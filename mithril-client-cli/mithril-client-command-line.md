@@ -54,7 +54,7 @@ Options:
 | **generate-doc** | doc | Generate documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-client snapshot
+####  mithril-client snapshot
 
 Snapshot management
 ```bash
@@ -80,7 +80,7 @@ Options:
 | **download** |  | Download the snapshot and verify the certificate |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-client  snapshot list
+#####  mithril-client  snapshot list
 
 List available snapshots
 ```bash
@@ -109,7 +109,7 @@ The configuration parameters can be set in either of the following ways:
 | `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-client  snapshot show
+#####  mithril-client  snapshot show
 
 Show detailed informations about a snapshot
 ```bash
@@ -145,7 +145,7 @@ The configuration parameters can be set in either of the following ways:
 | `digest` | - | - | `DIGEST` | Snapshot digest | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
-###  mithril-client  snapshot download
+#####  mithril-client  snapshot download
 
 Download the snapshot and verify the certificate
 ```bash
@@ -191,7 +191,7 @@ The configuration parameters can be set in either of the following ways:
 | `genesis_verification_key` | `--genesis-verification-key` | - | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain | - | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
-###  mithril-client mithril-stake-distribution
+####  mithril-client mithril-stake-distribution
 
 Mithril Stake Distribution management (alias: msd)
 ```bash
@@ -215,7 +215,7 @@ Options:
 | **download** |  | Download and verify the given Mithril Stake Distribution |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-client  mithril-stake-distribution list
+#####  mithril-client  mithril-stake-distribution list
 
 List certified stake distributions
 ```bash
@@ -244,7 +244,7 @@ The configuration parameters can be set in either of the following ways:
 | `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-client  mithril-stake-distribution download
+#####  mithril-client  mithril-stake-distribution download
 
 Download and verify the given Mithril Stake Distribution
 ```bash
@@ -286,7 +286,7 @@ The configuration parameters can be set in either of the following ways:
 | `genesis_verification_key` | `--genesis-verification-key` | - | `GENESIS_VERIFICATION_KEY` | Genesis Verification Key to check the certifiate chain | - | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
-###  mithril-client generate-doc
+####  mithril-client generate-doc
 
 Generate documentation
 ```bash

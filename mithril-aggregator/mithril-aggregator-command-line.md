@@ -76,7 +76,7 @@ The configuration parameters can be set in either of the following ways:
 | `snapshot_use_cdn_domain` | - | - | `SNAPSHOT_USE_CDN_DOMAIN` | Use CDN domain to construct snapshot urls default setting (if snapshot_uploader_type is Gcp) | `false` | - | - |
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | `0` | - | - |
 | `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
-###  mithril-aggregator genesis
+####  mithril-aggregator genesis
 
 Genesis tools
 ```bash
@@ -104,7 +104,7 @@ Options:
 | **bootstrap** |  | Genesis certificate bootstrap command |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-aggregator  genesis export
+#####  mithril-aggregator  genesis export
 
 Genesis certificate export command
 ```bash
@@ -133,7 +133,7 @@ The configuration parameters can be set in either of the following ways:
 | `target_path` | `--target-path` | - | `TARGET_PATH` | Target Path | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-aggregator  genesis import
+#####  mithril-aggregator  genesis import
 
 Genesis certificate import command
 ```bash
@@ -162,7 +162,7 @@ The configuration parameters can be set in either of the following ways:
 | `signed_payload_path` | `--signed-payload-path` | - | `SIGNED_PAYLOAD_PATH` | Signed Payload Path | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-aggregator  genesis sign
+#####  mithril-aggregator  genesis sign
 
 Genesis certificate sign command
 ```bash
@@ -199,7 +199,7 @@ The configuration parameters can be set in either of the following ways:
 | `genesis_secret_key_path` | `--genesis-secret-key-path` | - | `GENESIS_SECRET_KEY_PATH` | Genesis Secret Key Path | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-aggregator  genesis bootstrap
+#####  mithril-aggregator  genesis bootstrap
 
 Genesis certificate bootstrap command
 ```bash
@@ -230,7 +230,7 @@ The configuration parameters can be set in either of the following ways:
 | `genesis_secret_key` | `--genesis-secret-key` | - | `GENESIS_SECRET_KEY` | Genesis Secret Key (test only) | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-aggregator era
+####  mithril-aggregator era
 
 Era tools
 ```bash
@@ -254,7 +254,7 @@ Options:
 | **generate-tx-datum** |  | Era tx datum generate command |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-aggregator  era list
+#####  mithril-aggregator  era list
 
 Era list command
 ```bash
@@ -283,7 +283,7 @@ The configuration parameters can be set in either of the following ways:
 | `json` | `--json` | - | `JSON` | Enable JSON output | `false` | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-aggregator  era generate-tx-datum
+#####  mithril-aggregator  era generate-tx-datum
 
 Era tx datum generate command
 ```bash
@@ -330,7 +330,7 @@ The configuration parameters can be set in either of the following ways:
 | `target_path` | `--target-path` | - | `TARGET_PATH` | Target Path | - | - | :heavy_check_mark: |
 | `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 
-###  mithril-aggregator serve
+####  mithril-aggregator serve
 
 Server runtime mode
 ```bash
@@ -377,7 +377,7 @@ The configuration parameters can be set in either of the following ways:
 | `reset_digests_cache` | `--reset-digests-cache` | - | `RESET_DIGESTS_CACHE` | If set the existing immutables digests cache will be reset | `false` | - | - |
 | `help` | `--help` | `-h` | `HELP` | Print help (see more with '--help') | - | - | - |
 
-###  mithril-aggregator tools
+####  mithril-aggregator tools
 
 List of tools to upkeep the aggregator
 ```bash
@@ -399,7 +399,7 @@ Options:
 | **recompute-certificates-hash** |  | Load all certificates in the database to recompute their hash and update all related entities |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
-###  mithril-aggregator  tools recompute-certificates-hash
+#####  mithril-aggregator  tools recompute-certificates-hash
 
 Load all certificates in the database to recompute their hash and update all related entities
 ```bash
@@ -417,7 +417,7 @@ Options:
 
 
 
-###  mithril-aggregator generate-doc
+####  mithril-aggregator generate-doc
 
 Generate documentation
 ```bash

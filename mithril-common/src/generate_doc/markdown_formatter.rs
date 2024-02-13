@@ -119,6 +119,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         cmd: &mut Command,
         parent: Option<String>,
         struct_doc: Option<&StructDoc>,
+        level: usize,
     ) -> String {
         // It's important to start by calling `render_help` because that built the command.
         // The initialization add `help` command and default values for parameters.
@@ -127,7 +128,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         // let usage = format!("```bash\n{}\n```", cmd.render_usage()); // Already in help
         // let help = format!("```bash\n{}\n```", cmd.render_help());
         let help = format!("```bash\n{}\n```", cmd.render_long_help()); // More readable than help
-        format_command_internal(cmd, parent, help, struct_doc)
+        format_command_internal(cmd, parent, help, struct_doc, level)
     }
 
     fn name_to_document(name: &str) -> bool {
@@ -147,9 +148,15 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         parent: Option<String>,
         help: String,
         struct_doc: Option<&StructDoc>,
+        level: usize,
     ) -> String {
         let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
-        let title = format!("### {}{}\n", parent_ancestors, cmd.get_name());
+        let title = format!(
+            "{} {}{}\n",
+            "#".repeat(level),
+            parent_ancestors,
+            cmd.get_name()
+        );
         let description = cmd.get_about().map_or("".into(), StyledStr::to_string);
 
         let subcommands_table = format_subcommand(cmd);
@@ -164,6 +171,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
                     &mut sub_command.clone(),
                     Some(format!("{} {}", parent_ancestors, cmd.get_name())),
                     None,
+                    level + 1,
                 )
             })
             .collect::<Vec<String>>()
@@ -172,7 +180,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         format!("{title}\n{description}\n{help}\n{subcommands_table}\n{parameters}\n{subcommands}")
     }
 
-    format_command(cmd, None, struct_doc)
+    format_command(cmd, None, struct_doc, 3)
 }
 
 pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
