@@ -42,7 +42,9 @@ impl<'a> Spec<'a> {
             "epoch after which the stake distribution will change".to_string(),
         )
         .await?;
-        assertions::delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
+        let delegation_round = 1;
+        assertions::delegate_stakes_to_pools(self.infrastructure.devnet(), delegation_round)
+            .await?;
 
         // Wait 2 epochs before changing protocol parameters
         target_epoch += 2;
@@ -104,6 +106,27 @@ impl<'a> Spec<'a> {
 
             let mut client = self.infrastructure.build_client()?;
             assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
+        }
+
+        // Verify that Cardano transactions artifacts are produced and signed correctly
+        {
+            let hash = assertions::assert_node_producing_cardano_transactions(&aggregator_endpoint)
+                .await?;
+            let certificate_hash = assertions::assert_signer_is_signing_cardano_transactions(
+                &aggregator_endpoint,
+                &hash,
+                target_epoch - 3,
+            )
+            .await?;
+
+            assertions::assert_is_creating_certificate_with_enough_signers(
+                &aggregator_endpoint,
+                &certificate_hash,
+                self.infrastructure.signers().len(),
+            )
+            .await?;
+
+            // TODO: verify a transaction list with the client when it is available
         }
 
         Ok(())

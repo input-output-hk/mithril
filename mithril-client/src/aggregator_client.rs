@@ -68,6 +68,30 @@ pub enum AggregatorRequest {
     },
     /// Lists the aggregator [snapshots][crate::Snapshot]
     ListSnapshots,
+
+    /// Increments the aggregator snapshot download statistics
+    IncrementSnapshotStatistic {
+        /// Snapshot as HTTP request body
+        snapshot: String,
+    },
+
+    /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
+    #[cfg(feature = "unstable")]
+    GetTransactionsProofs {
+        /// Hashes of the transactions to get proofs for.
+        transactions_hashes: Vec<String>,
+    },
+
+    /// Get a specific [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    #[cfg(feature = "unstable")]
+    GetCardanoTransactionCommitment {
+        /// Hash of the Cardano transaction commitment to retrieve
+        hash: String,
+    },
+
+    /// Lists the aggregator [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    #[cfg(feature = "unstable")]
+    ListCardanoTransactionCommitments,
 }
 
 impl AggregatorRequest {
@@ -88,22 +112,56 @@ impl AggregatorRequest {
                 format!("artifact/snapshot/{}", digest)
             }
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
+                "statistics/snapshot".to_string()
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetTransactionsProofs {
+                transactions_hashes,
+            } => format!(
+                "proof/cardano-transaction?transaction_hashes={}",
+                transactions_hashes.join(",")
+            ),
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetCardanoTransactionCommitment { hash } => {
+                format!("artifact/cardano-transaction/{hash}")
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::ListCardanoTransactionCommitments => {
+                "artifact/cardano-transactions".to_string()
+            }
+        }
+    }
+
+    /// Get the request body to send to the aggregator
+    pub fn get_body(&self) -> Option<String> {
+        match self {
+            AggregatorRequest::IncrementSnapshotStatistic { snapshot } => {
+                Some(snapshot.to_string())
+            }
+            _ => None,
         }
     }
 }
 
 /// API that defines a client for the Aggregator
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait AggregatorClient: Sync + Send {
     /// Get the content back from the Aggregator
     async fn get_content(
         &self,
         request: AggregatorRequest,
     ) -> Result<String, AggregatorClientError>;
+
+    /// Post information to the Aggregator
+    async fn post_content(
+        &self,
+        request: AggregatorRequest,
+    ) -> Result<String, AggregatorClientError>;
 }
 
-/// Responsible of HTTP transport and API version check.
+/// Responsible for HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
     http_client: reqwest::Client,
     aggregator_endpoint: Url,
@@ -166,8 +224,8 @@ impl AggregatorHTTPClient {
     }
 
     /// Perform a HTTP GET request on the Aggregator and return the given JSON
-    #[cfg_attr(target_arch = "wasm32", async_recursion(?Send))]
-    #[cfg_attr(not(target_arch = "wasm32"), async_recursion)]
+    #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_recursion)]
     async fn get(&self, url: Url) -> Result<Response, AggregatorClientError> {
         debug!(self.logger, "GET url='{url}'.");
         let request_builder = self.http_client.get(url.clone());
@@ -195,6 +253,49 @@ impl AggregatorHTTPClient {
                     && !self.api_versions.read().await.is_empty()
                 {
                     return self.get(url).await;
+                }
+
+                Err(self.handle_api_error(&response).await)
+            }
+            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                "Url='{url} not found"
+            ))),
+            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                "Unhandled error {status_code}"
+            ))),
+        }
+    }
+
+    #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_recursion)]
+    async fn post(&self, url: Url, json: &str) -> Result<Response, AggregatorClientError> {
+        debug!(self.logger, "POST url='{url}' json='{json}'.");
+        let request_builder = self.http_client.post(url.to_owned()).body(json.to_owned());
+        let current_api_version = self
+            .compute_current_api_version()
+            .await
+            .unwrap()
+            .to_string();
+        debug!(
+            self.logger,
+            "Prepare request with version: {current_api_version}"
+        );
+        let request_builder =
+            request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        let response = request_builder.send().await.map_err(|e| {
+            AggregatorClientError::SubsystemError(
+                anyhow!(e).context("Error while POSTing data '{json}' to URL='{url}'."),
+            )
+        })?;
+
+        match response.status() {
+            StatusCode::OK | StatusCode::CREATED => Ok(response),
+            StatusCode::PRECONDITION_FAILED => {
+                if self.discard_current_api_version().await.is_some()
+                    && !self.api_versions.read().await.is_empty()
+                {
+                    return self.post(url, json).await;
                 }
 
                 Err(self.handle_api_error(&response).await)
@@ -238,8 +339,8 @@ impl AggregatorHTTPClient {
 }
 
 #[cfg_attr(test, automock)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorClient for AggregatorHTTPClient {
     async fn get_content(
         &self,
@@ -252,6 +353,24 @@ impl AggregatorClient for AggregatorHTTPClient {
             AggregatorClientError::SubsystemError(anyhow!(e).context(format!(
                 "Could not find a JSON body in the response '{content}'."
             )))
+        })
+    }
+
+    async fn post_content(
+        &self,
+        request: AggregatorRequest,
+    ) -> Result<String, AggregatorClientError> {
+        let response = self
+            .post(
+                self.get_url_for_route(&request.route())?,
+                &request.get_body().unwrap_or_default(),
+            )
+            .await?;
+
+        response.text().await.map_err(|e| {
+            AggregatorClientError::SubsystemError(
+                anyhow!(e).context("Could not find a text body in the response."),
+            )
         })
     }
 }
@@ -279,6 +398,88 @@ mod tests {
                 .expect("building aggregator http client should not fail");
 
             assert_eq!(expected, client.aggregator_endpoint.as_str());
+        }
+    }
+
+    #[test]
+    fn deduce_routes_from_request() {
+        assert_eq!(
+            "certificate/abc".to_string(),
+            AggregatorRequest::GetCertificate {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distribution/abc".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distribution/abc".to_string(),
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/mithril-stake-distributions".to_string(),
+            AggregatorRequest::ListMithrilStakeDistributions.route()
+        );
+
+        assert_eq!(
+            "artifact/snapshot/abc".to_string(),
+            AggregatorRequest::GetSnapshot {
+                digest: "abc".to_string()
+            }
+            .route()
+        );
+
+        assert_eq!(
+            "artifact/snapshots".to_string(),
+            AggregatorRequest::ListSnapshots.route()
+        );
+
+        assert_eq!(
+            "statistics/snapshot".to_string(),
+            AggregatorRequest::IncrementSnapshotStatistic {
+                snapshot: "abc".to_string()
+            }
+            .route()
+        );
+
+        #[cfg(feature = "unstable")]
+        {
+            assert_eq!(
+                "proof/cardano-transaction?transaction_hashes=abc,def,ghi,jkl".to_string(),
+                AggregatorRequest::GetTransactionsProofs {
+                    transactions_hashes: vec![
+                        "abc".to_string(),
+                        "def".to_string(),
+                        "ghi".to_string(),
+                        "jkl".to_string()
+                    ]
+                }
+                .route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-transaction/abc".to_string(),
+                AggregatorRequest::GetCardanoTransactionCommitment {
+                    hash: "abc".to_string()
+                }
+                .route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-transactions".to_string(),
+                AggregatorRequest::ListCardanoTransactionCommitments.route()
+            );
         }
     }
 }

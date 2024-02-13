@@ -2,43 +2,34 @@
 set -e
 
 # Default values
-if [ -z "${ROOT}" ]; then 
-  ROOT="artifacts"
-fi
-if [ -z "${NUM_BFT_NODES}" ]; then 
-  NUM_BFT_NODES="1"
-fi
-if [ -z "${NUM_POOL_NODES}" ]; then 
-  NUM_POOL_NODES="2"
-fi
 if [ -z "${NODES}" ]; then 
   NODES="*"
 fi
-if [ -z "${SLOT_LENGTH}" ]; then 
-  SLOT_LENGTH="0.75"
+if [ -z "${ARTIFACTS_DIR}" ]; then 
+  ARTIFACTS_DIR="artifacts"
 fi
-if [ -z "${EPOCH_LENGTH}" ]; then 
-  EPOCH_LENGTH="100"
+if [ -z "${FORCE_DELETE_ARTIFACTS_DIR}" ]; then 
+  FORCE_DELETE_ARTIFACTS_DIR="true"
 fi
 if [ -z "${DELEGATE_PERIOD}" ]; then 
   DELEGATE_PERIOD="180"
 fi
+
 
 # Bootstrap devnet
 echo "====================================================================="
 echo " Bootstrap Mithril/Cardano devnet"
 echo "====================================================================="
 echo
-echo ">> Directory: ${ROOT}"
-echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
-echo ">> Cardano SPO nodes: ${NUM_POOL_NODES}"
-echo ">> Cardano Slot Length: ${SLOT_LENGTH}s"
-echo ">> Cardano Epoch Length: ${EPOCH_LENGTH}s"
-rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES} ${SLOT_LENGTH} ${EPOCH_LENGTH}> /dev/null
+if [[ "$FORCE_DELETE_ARTIFACTS_DIR" == "true" ]]; then
+  echo ">> The ${ARTIFACTS_DIR} directory was force deleted"
+  rm -rf ${ARTIFACTS_DIR} > /dev/null
+fi
+ARTIFACTS_DIR=${ARTIFACTS_DIR} $(pwd)/devnet-mkfiles.sh
 echo
 
 # Change directory
-cd ${ROOT}
+pushd ${ARTIFACTS_DIR} > /dev/null
 
 # Start devnet Cardano nodes
 if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
@@ -78,3 +69,5 @@ do
     DELEGATION_ROUND=${DELEGATION_ROUND} ./delegate.sh
 done
 echo
+
+popd

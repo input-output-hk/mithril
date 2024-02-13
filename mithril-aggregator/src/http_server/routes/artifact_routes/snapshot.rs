@@ -220,20 +220,19 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use crate::http_server::routes::artifact_routes::test_utils::*;
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
         message_adapters::{ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter},
         services::{MockMessageService, MockSignedEntityService},
     };
-    use chrono::{DateTime, Utc};
     use mithril_common::{
-        entities::{Beacon, SignedEntity, SignedEntityType},
+        entities::{Beacon, SignedEntityType},
         messages::ToMessageAdapter,
-        signable_builder::Artifact,
-        sqlite::HydrationError,
         test_utils::{apispec::APISpec, fake_data},
     };
+    use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};
 
@@ -250,28 +249,6 @@ mod tests {
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
             .and(routes(dependency_manager).with(cors))
-    }
-
-    pub fn create_signed_entities<T>(
-        signed_entity_type: SignedEntityType,
-        records: Vec<T>,
-    ) -> Vec<SignedEntity<T>>
-    where
-        T: Artifact,
-    {
-        records
-            .into_iter()
-            .enumerate()
-            .map(|(idx, record)| SignedEntity {
-                signed_entity_id: format!("{idx}"),
-                signed_entity_type: signed_entity_type.to_owned(),
-                certificate_id: format!("certificate-{idx}"),
-                artifact: record,
-                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-            })
-            .collect()
     }
 
     #[tokio::test]

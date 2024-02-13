@@ -1,12 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
-
-use anyhow::Context;
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::StdResult;
+use slog_scope::logger;
+use std::{collections::HashMap, sync::Arc};
 
-use mithril_client_cli::dependencies::{ConfigParameters, DependenciesBuilder};
+use crate::configuration::ConfigParameters;
+use mithril_client::ClientBuilder;
+use mithril_common::{test_utils::fake_keys, StdResult};
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]
@@ -20,19 +20,23 @@ impl MithrilStakeDistributionListCommand {
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
         let config = config_builder.build()?;
-        let params: Arc<ConfigParameters> = Arc::new(ConfigParameters::new(
+        let params = Arc::new(ConfigParameters::new(
             config.try_deserialize::<HashMap<String, String>>()?,
         ));
-        let mut dependencies_builder = DependenciesBuilder::new(params);
-        let service = dependencies_builder
-            .get_mithril_stake_distribution_service()
-            .await
-            .with_context(|| {
-                "Dependencies Builder can not get Mithril Stake Distribution Service"
-            })?;
-        let lines = service.list().await.with_context(|| {
-            "Mithril Stake Distribution Service can not get the list of artifacts"
-        })?;
+        // TODO: This should not be done this way.
+        // Now that mithril-client-cli uses the mithril-client library, the genesis verification key is required for all commands
+        let fallback_genesis_verification_key =
+            fake_keys::genesis_verification_key()[0].to_string();
+        let client = ClientBuilder::aggregator(
+            &params.require("aggregator_endpoint")?,
+            &params.get_or(
+                "genesis_verification_key",
+                &fallback_genesis_verification_key,
+            ),
+        )
+        .with_logger(logger())
+        .build()?;
+        let lines = client.mithril_stake_distribution().list().await?;
 
         if self.json {
             println!("{}", serde_json::to_string(&lines)?);

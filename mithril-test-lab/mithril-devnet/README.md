@@ -25,7 +25,7 @@ This cli is inspired by this [script](https://github.com/input-output-hk/cardano
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd mithril-test-lab/mithril-devnet
+cd mithril/mithril-test-lab/mithril-devnet
 
 # Chmod scripts
 chmod u+x *.sh
@@ -90,39 +90,39 @@ NODES=mithril ./devnet-query.sh
 
 ```bash
 # Run devnet with 2 BFT nodes and 5 SPO nodes
-ROOT=artifacts NUM_BFT_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
+ARTIFACTS_DIR=artifacts NUM_BFT_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
 
 # Run devnet custom slot length (0.5s) and custom epoch length (120s)
 # Slot length: the duration of a Cardano Eslot (can help modulate the immutables creation rate)
 # Epoch Length: the duration of a Cardano Epoch
-ROOT=artifacts SLOT_LENGTH=0.5 EPOCH_LENGTH=120 ./devnet-run.sh
+ARTIFACTS_DIR=artifacts SLOT_LENGTH=0.5 EPOCH_LENGTH=120 ./devnet-run.sh
 
 # Logs devnet
-ROOT=artifacts LINES=10 ./devnet-log.sh
+ARTIFACTS_DIR=artifacts LINES=10 ./devnet-log.sh
 
 # Query devnet
-ROOT=artifacts ./devnet-query.sh
+ARTIFACTS_DIR=artifacts ./devnet-query.sh
 
 # Stop devnet
-ROOT=artifacts ./devnet-stop.sh
+ARTIFACTS_DIR=artifacts ./devnet-stop.sh
 
 # Visualize devnet
-ROOT=artifacts ./devnet-visualize.sh
+ARTIFACTS_DIR=artifacts ./devnet-visualize.sh
 ```
 
 ## Step by step run with custom configuration
 
 ```bash
 # Parameters
-ROOT=artifacts # Directory where artifacts are produced
+ARTIFACTS_DIR=artifacts # Directory where artifacts are produced
 NUM_BFT_NODES=1 # Number of Cardano BFT nodes
 NUM_POOL_NODES=3 # Number of Cardano SPO nodes
 
 # Bootstrap devnet with 1 BFT nodes and 3 SPO nodes
-rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES}
+rm -rf ${ARTIFACTS_DIR} && ./devnet-mkfiles.sh ${ARTIFACTS_DIR} ${NUM_BFT_NODES} ${NUM_POOL_NODES}
 
 # Change directory
-cd ${ROOT}
+cd ${ARTIFACTS_DIR}
 
 # Start devnet Cardano nodes
 ./start-cardano.sh

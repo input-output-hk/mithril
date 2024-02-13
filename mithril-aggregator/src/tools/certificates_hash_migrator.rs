@@ -196,13 +196,14 @@ mod test {
         entities::{
             Beacon, Certificate, Epoch, ImmutableFileNumber,
             SignedEntityType::{
-                CardanoImmutableFilesFull, CardanoStakeDistribution, MithrilStakeDistribution,
+                CardanoImmutableFilesFull, CardanoStakeDistribution, CardanoTransactions,
+                MithrilStakeDistribution,
             },
             SignedEntityTypeDiscriminants,
         },
-        sqlite::SqliteConnection,
         StdResult,
     };
+    use mithril_persistence::sqlite::SqliteConnection;
     use sqlite::Connection;
     use std::{collections::HashMap, sync::Arc};
 
@@ -282,6 +283,9 @@ mod test {
                         }
                         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                             CardanoImmutableFilesFull(certificate.beacon.clone())
+                        }
+                        SignedEntityTypeDiscriminants::CardanoTransactions => {
+                            CardanoTransactions(certificate.beacon.clone())
                         }
                     };
                     // Note: we don't need to have real artifacts for those tests

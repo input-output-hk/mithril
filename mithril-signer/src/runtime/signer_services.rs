@@ -5,11 +5,9 @@ use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    chain_observer::{
-        CardanoCliChainObserver, CardanoCliRunner, ChainObserver, PallasChainObserver,
-    },
+    cardano_transaction_parser::CardanoTransactionParser,
+    chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
-    database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         ImmutableFileObserver,
@@ -17,18 +15,23 @@ use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
+        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        SignableBuilderService,
     },
+    BeaconProvider, BeaconProviderImpl, StdResult,
+};
+use mithril_persistence::{
+    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
     sqlite::SqliteConnection,
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl, StdResult,
 };
 
 use crate::{
-    aggregator_client::AggregatorClient, single_signer::SingleSigner, AggregatorHTTPClient,
-    Configuration, MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
-    HTTP_REQUEST_TIMEOUT_DURATION,
+    aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
+    single_signer::SingleSigner, AggregatorHTTPClient, Configuration, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
+    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -60,19 +63,28 @@ impl<'a> ProductionServiceBuilder<'a> {
     pub fn new(config: &'a Configuration) -> Self {
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |config: &Configuration| {
-                let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
-                    config.cardano_cli_path.clone(),
-                    config.cardano_node_socket_path.clone(),
-                    config.get_network()?,
-                )));
-
-                let observer = PallasChainObserver::new(
-                    &config.cardano_node_socket_path,
-                    config.get_network()?,
-                    fallback,
+                let chain_observer_type = ChainObserverType::Pallas;
+                let cardano_cli_path = &config.cardano_cli_path;
+                let cardano_node_socket_path = &config.cardano_node_socket_path;
+                let cardano_network = &config.get_network().with_context(|| {
+                    "Production Service Builder can not get Cardano network while building the chain observer"
+                })?;
+                let cardano_cli_runner = &CardanoCliRunner::new(
+                    cardano_cli_path.to_owned(),
+                    cardano_node_socket_path.to_owned(),
+                    cardano_network.to_owned(),
                 );
 
-                Ok(Arc::new(observer))
+                let chain_observer_builder = ChainObserverBuilder::new(
+                    &chain_observer_type,
+                    cardano_node_socket_path,
+                    cardano_network,
+                    Some(cardano_cli_runner),
+                );
+
+                chain_observer_builder
+                    .build()
+                    .with_context(|| "Dependencies Builder can not build chain observer")
             };
 
         let immutable_file_observer_builder: fn(
@@ -148,8 +160,13 @@ impl<'a> ProductionServiceBuilder<'a> {
         Ok(Some(Arc::new(cache_provider)))
     }
 
-    async fn build_sqlite_connection(&self) -> StdResult<Arc<SqliteConnection>> {
-        let sqlite_db_path = self.config.get_sqlite_file()?;
+    /// Build a SQLite connection.
+    pub async fn build_sqlite_connection(
+        &self,
+        sqlite_file_name: &str,
+        migrations: Vec<SqlMigration>,
+    ) -> StdResult<Arc<SqliteConnection>> {
+        let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
         let sqlite_connection = Arc::new(Connection::open_thread_safe(sqlite_db_path)?);
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
@@ -157,7 +174,7 @@ impl<'a> ProductionServiceBuilder<'a> {
             &sqlite_connection,
         );
 
-        for migration in crate::database::migration::get_migrations() {
+        for migration in migrations {
             db_checker.add_migration(migration);
         }
 
@@ -183,7 +200,15 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             })?;
         }
 
-        let sqlite_connection = self.build_sqlite_connection().await?;
+        let sqlite_connection = self
+            .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
+            .await?;
+        let transaction_sqlite_connection = self
+            .build_sqlite_connection(
+                SQLITE_FILE_CARDANO_TRANSACTION,
+                crate::database::cardano_transaction_migration::get_migrations(),
+            )
+            .await?;
 
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
@@ -242,9 +267,20 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let transaction_parser = Arc::new(CardanoTransactionParser::default());
+        let transaction_store = Arc::new(CardanoTransactionRepository::new(
+            transaction_sqlite_connection,
+        ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser,
+            transaction_store,
+            &self.config.db_directory,
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
+            cardano_transactions_builder,
         ));
 
         let services = SignerServices {

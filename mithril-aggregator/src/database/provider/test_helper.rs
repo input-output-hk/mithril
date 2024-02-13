@@ -3,7 +3,8 @@ use chrono::Utc;
 use sqlite::Value;
 use uuid::Uuid;
 
-use mithril_common::{entities::Epoch, sqlite::SqliteConnection, test_utils::fake_keys, StdResult};
+use mithril_common::{entities::Epoch, test_utils::fake_keys, StdResult};
+use mithril_persistence::sqlite::SqliteConnection;
 
 use crate::database::{migration::get_migrations, provider::UpdateSingleSignatureRecordProvider};
 

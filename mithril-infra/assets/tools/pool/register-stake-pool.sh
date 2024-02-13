@@ -43,7 +43,7 @@ POOL_RELAY_PORT=$(cat ${POOL_ARTIFACTS_DIR_PREFIX}/pool/port)
 SLOT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
 
 # Build registration certificate
-CARDANO_CLI_CMD stake-pool registration-certificate \
+CARDANO_CLI_CMD ${CARDANO_ERA} stake-pool registration-certificate \
 --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey \
 --vrf-verification-key-file ${POOL_ARTIFACTS_DIR}/vrf.vkey \
 --pool-pledge $POOL_PLEDGE \
@@ -59,7 +59,7 @@ CARDANO_CLI_CMD stake-pool registration-certificate \
 --out-file ${POOL_ARTIFACTS_DIR}/pool-registration.cert
 
 # Generate delegation certificate pledge
-CARDANO_CLI_CMD stake-address delegation-certificate \
+CARDANO_CLI_CMD ${CARDANO_ERA} stake-address stake-delegation-certificate \
 --stake-verification-key-file ${POOL_ARTIFACTS_DIR}/stake.vkey \
 --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey \
 --out-file ${POOL_ARTIFACTS_DIR}/delegation.cert
@@ -67,8 +67,7 @@ CARDANO_CLI_CMD stake-address delegation-certificate \
 # Submit the pool certificate and delegation certificate to the blockchain
 ## Build transaction
 STAKE_ADDRESS_DEPOSIT=$(cat $GENESIS_FILE | jq .protocolParams.poolDeposit)
-CARDANO_CLI_CMD transaction build \
---babbage-era \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction build \
 --tx-in $TX_IN \
 --tx-out $(cat ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/payment.addr)+$STAKE_ADDRESS_DEPOSIT \
 --change-address $(cat ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/payment.addr) \
@@ -80,7 +79,7 @@ CARDANO_CLI_CMD transaction build \
 --testnet-magic $NETWORK_MAGIC
 
 # Sign transaction
-CARDANO_CLI_CMD transaction sign \
+CARDANO_CLI_CMD ${CARDANO_ERA} transaction sign \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/payment.skey \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/stake.skey \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/cold.skey \
@@ -89,12 +88,12 @@ CARDANO_CLI_CMD transaction sign \
 --out-file      ${POOL_ARTIFACTS_DIR}/pool-registration.tx
 
 # Submit transaction
-CARDANO_NODE_SOCKET_PATH=$CARDANO_NODE_SOCKET_PATH CARDANO_CLI_CMD transaction submit \
+CARDANO_NODE_SOCKET_PATH=$CARDANO_NODE_SOCKET_PATH CARDANO_CLI_CMD ${CARDANO_ERA} transaction submit \
 --tx-file ${POOL_ARTIFACTS_DIR}/pool-registration.tx \
 --testnet-magic $NETWORK_MAGIC
 
 ### Compute Pool Id
-POOL_ID=$(CARDANO_CLI_CMD stake-pool id --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey)
+POOL_ID=$(CARDANO_CLI_CMD ${CARDANO_ERA} stake-pool id --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey)
 echo $POOL_ID > ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_ARTIFACTS_DIR}/pool-id.txt
 echo POOL_ID=$POOL_ID
 

@@ -25,6 +25,11 @@ $ export ERA_ACTIVATION_SECRET_KEY=**YOUR_ERA_ACTIVATION_SECRET_KEY**
 $ export ASSETS_PATH=**YOUR_ASSETS_PATH**
 ```
 
+Compute the current Cardano era:
+```bash
+CARDANO_ERA=$(cardano-cli query tip --testnet-magic $CARDANO_TESTNET_MAGIC | jq  -r '.era |= ascii_downcase | .era')
+```
+
 Set the transaction amount used when a script transaction is made:
 ```bash
 $ export SCRIPT_TX_VALUE=2000000
@@ -49,12 +54,12 @@ $ TX_IN=f0c0345f151f9365fbbb4e7afa217e56b987d9e91fd754ca609d9dfec97275c7#0
 
 Create the initial datum file:
 ```bash
-$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY > $ASSETS_PATH/mithril-era-datum-1.json
+$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY --target-path $ASSETS_PATH/mithril-era-datum-1.json
 ```
 
 Now create the bootstrap transaction with datum:
 ```bash
-$ cardano-cli transaction build --babbage-era --testnet-magic $CARDANO_TESTNET_MAGIC \
+$ cardano-cli $CARDANO_ERA transaction build --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-in $TX_IN \
     --tx-out $(cat $CARDANO_WALLET_PATH/payment.addr)+$SCRIPT_TX_VALUE \
     --tx-out-inline-datum-file $ASSETS_PATH/mithril-era-datum-1.json \
@@ -65,7 +70,7 @@ Estimated transaction fee: Lovelace 168669
 
 Then sign the transaction:
 ```bash
-$ cardano-cli transaction sign \
+$ cardano-cli $CARDANO_ERA transaction sign \
     --tx-body-file $ASSETS_PATH/tx.raw \
     --signing-key-file $CARDANO_WALLET_PATH/payment.skey \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
@@ -74,7 +79,7 @@ $ cardano-cli transaction sign \
 
 And submit it:
 ```bash
-$ cardano-cli transaction submit \
+$ cardano-cli $CARDANO_ERA transaction submit \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-file $ASSETS_PATH/tx.signed
 Transaction successfully submitted.
@@ -150,12 +155,12 @@ Create the updated datum file:
 :warning: The options provided in the following command are for example only, you need to use adequately the options of the `era generate-tx-datum` command, which will depend on the operation you want to execute: announce an upcoming era or activate an upcoming era. This operation should be done very cautiously as a misconfiguration can lead to disturbed service of the network.
 
 ```bash
-$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY > $ASSETS_PATH/mithril-era-datum-2.json
+$ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY --target-path $ASSETS_PATH/mithril-era-datum-2.json
 ```
 
 Now create the update transaction with datum:
 ```bash
-$ cardano-cli transaction build --babbage-era --testnet-magic $CARDANO_TESTNET_MAGIC \
+$ cardano-cli $CARDANO_ERA transaction build --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-in $TX_IN_DATUM \
     --tx-in $TX_IN_NO_DATUM \
     --tx-out $(cat $CARDANO_WALLET_PATH/payment.addr)+$SCRIPT_TX_VALUE \
@@ -167,7 +172,7 @@ Estimated transaction fee: Lovelace 179889
 
 Then sign the transaction:
 ```bash
-$ cardano-cli transaction sign \
+$ cardano-cli $CARDANO_ERA transaction sign \
     --tx-body-file $ASSETS_PATH/tx.raw \
     --signing-key-file $CARDANO_WALLET_PATH/payment.skey \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
@@ -176,7 +181,7 @@ $ cardano-cli transaction sign \
 
 And submit it:
 ```bash
-$ cardano-cli transaction submit \
+$ cardano-cli $CARDANO_ERA transaction submit \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-file $ASSETS_PATH/tx.signed
 Transaction successfully submitted.

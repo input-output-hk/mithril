@@ -7,15 +7,13 @@ use thiserror::Error;
 use mockall::automock;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
-use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityType};
-use mithril_common::{
-    entities::{
-        Beacon, CertificatePending, Epoch, EpochSettings, ProtocolMessage, ProtocolMessagePartKey,
-        Signer, SignerWithStake, SingleSignatures,
-    },
-    store::StakeStorer,
-    StdResult,
+use mithril_common::entities::{
+    Beacon, CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage,
+    ProtocolMessagePartKey, ProtocolParameters, SignedEntityType, Signer, SignerWithStake,
+    SingleSignatures,
 };
+use mithril_common::StdResult;
+use mithril_persistence::store::StakeStorer;
 
 use crate::{Configuration, MithrilProtocolInitializerBuilder};
 
@@ -451,25 +449,25 @@ impl Runner for SignerRunner {
 mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
+        cardano_transaction_parser::DumbTransactionParser,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{Epoch, StakeDistribution},
+        entities::{CardanoTransaction, Epoch, StakeDistribution},
         era::{
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
         },
         signable_builder::{
-            CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
-            MithrilStakeDistributionSignableBuilder,
-        },
-        store::{
-            adapter::{DumbStoreAdapter, MemoryAdapter},
-            StakeStore, StakeStorer,
+            CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
+            MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+            TransactionStore,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,
     };
+    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
+    use mithril_persistence::store::{StakeStore, StakeStorer};
     use mockall::mock;
     use std::{
         path::{Path, PathBuf},
@@ -482,6 +480,17 @@ mod tests {
     };
 
     use super::*;
+
+    mock! {
+        TransactionStoreImpl { }
+
+        #[async_trait]
+        impl TransactionStore for TransactionStoreImpl
+        {
+            async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
+
+        }
+    }
 
     const DIGESTER_RESULT: &str = "a digest";
 
@@ -526,9 +535,18 @@ mod tests {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let transaction_store = Arc::new(MockTransactionStoreImpl::new());
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser.clone(),
+            transaction_store.clone(),
+            Path::new(""),
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
+            cardano_transactions_builder,
         ));
 
         SignerServices {

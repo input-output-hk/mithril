@@ -3,30 +3,36 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     api_version::APIVersionProvider,
+    cardano_transaction_parser::TransactionParser,
     certificate_chain::CertificateVerifier,
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
-    signable_builder::SignableBuilderService,
-    sqlite::SqliteConnection,
-    store::StakeStorer,
+    signable_builder::{SignableBuilderService, TransactionStore},
     test_utils::MithrilFixture,
     BeaconProvider,
 };
+use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
 
-use crate::services::{EpochService, MessageService};
 use crate::{
     configuration::*,
     database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
-    services::{CertifierService, SignedEntityService, StakeDistributionService, TickerService},
+    services::{
+        CertifierService, ProverService, SignedEntityService, StakeDistributionService,
+        TickerService,
+    },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
+};
+use crate::{
+    database::provider::OpenMessageRepository,
+    services::{EpochService, MessageService},
 };
 
 /// MultiSignerWrapper wraps a [MultiSigner]
@@ -45,6 +51,9 @@ pub struct DependencyContainer {
     /// services. Shall be private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 
+    /// SQLite database connection for Cardano transactions
+    pub sqlite_connection_transaction: Arc<SqliteConnection>,
+
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
     pub stake_store: Arc<StakePoolStore>,
@@ -61,6 +70,9 @@ pub struct DependencyContainer {
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,
 
+    /// Open message store.
+    pub open_message_repository: Arc<OpenMessageRepository>,
+
     /// Verification key store.
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
@@ -72,6 +84,12 @@ pub struct DependencyContainer {
 
     /// Beacon provider service.
     pub beacon_provider: Arc<dyn BeaconProvider>,
+
+    /// Cardano transactions store.
+    pub transaction_store: Arc<dyn TransactionStore>,
+
+    /// Cardano transactions parser.
+    pub transaction_parser: Arc<dyn TransactionParser>,
 
     /// Immutable file observer service.
     pub immutable_file_observer: Arc<dyn ImmutableFileObserver>,
@@ -135,6 +153,9 @@ pub struct DependencyContainer {
 
     /// HTTP message service
     pub message_service: Arc<dyn MessageService>,
+
+    /// Prover service
+    pub prover_service: Arc<dyn ProverService>,
 }
 
 #[doc(hidden)]

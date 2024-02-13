@@ -1,20 +1,40 @@
 #![doc = include_str!("../README.md")]
 
-mod commands;
-
-use std::path::PathBuf;
-use std::sync::Arc;
-
+use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use slog::{Drain, Level, Logger};
+use slog::{Drain, Fuse, Level, Logger};
+use slog_async::Async;
 use slog_scope::debug;
+use slog_term::Decorator;
+use std::io::Write;
+use std::sync::Arc;
+use std::{fs::File, path::PathBuf};
 
-use mithril_client_cli::common::StdResult;
+use mithril_common::StdResult;
 
-use commands::{
+use mithril_client_cli::commands::{
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
+
+enum LogOutputType {
+    Stdout,
+    File(String),
+}
+
+impl LogOutputType {
+    fn get_writer(&self) -> StdResult<Box<dyn Write + Send>> {
+        let writer: Box<dyn Write + Send> = match self {
+            LogOutputType::Stdout => Box::new(std::io::stdout()),
+            LogOutputType::File(filepath) => Box::new(
+                File::create(filepath)
+                    .with_context(|| format!("Can not create output log file: {}", filepath))?,
+            ),
+        };
+
+        Ok(writer)
+    }
+}
 
 #[derive(Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
@@ -43,6 +63,14 @@ pub struct Args {
     /// Override configuration Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
     aggregator_endpoint: Option<String>,
+
+    /// Enable JSON output for logs displayed according to verbosity level
+    #[clap(long)]
+    log_format_json: bool,
+
+    /// Redirect the logs to a file
+    #[clap(long, alias("o"))]
+    log_output: Option<String>,
 }
 
 impl Args {
@@ -68,13 +96,38 @@ impl Args {
         }
     }
 
-    fn build_logger(&self) -> Logger {
-        let decorator = slog_term::TermDecorator::new().build();
+    fn get_log_output_type(&self) -> LogOutputType {
+        if let Some(output_filepath) = &self.log_output {
+            LogOutputType::File(output_filepath.to_string())
+        } else {
+            LogOutputType::Stdout
+        }
+    }
+
+    fn wrap_drain<D: Decorator + Send + 'static>(&self, decorator: D) -> Fuse<Async> {
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
         let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
 
-        Logger::root(Arc::new(drain), slog::o!())
+        slog_async::Async::new(drain).build().fuse()
+    }
+
+    fn build_logger(&self) -> StdResult<Logger> {
+        let log_output_type = self.get_log_output_type();
+        let writer = log_output_type.get_writer()?;
+
+        let drain = if self.log_format_json {
+            let drain = slog_bunyan::new(writer).set_pretty(false).build().fuse();
+            let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+
+            slog_async::Async::new(drain).build().fuse()
+        } else {
+            match log_output_type {
+                LogOutputType::Stdout => self.wrap_drain(slog_term::TermDecorator::new().build()),
+                LogOutputType::File(_) => self.wrap_drain(slog_term::PlainDecorator::new(writer)),
+            }
+        };
+
+        Ok(Logger::root(Arc::new(drain), slog::o!()))
     }
 }
 
@@ -120,7 +173,7 @@ impl ArtifactCommands {
 async fn main() -> StdResult<()> {
     // Load args
     let args = Args::parse();
-    let _guard = slog_scope::set_global_logger(args.build_logger());
+    let _guard = slog_scope::set_global_logger(args.build_logger()?);
 
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();

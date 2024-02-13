@@ -1,4 +1,4 @@
-Manually publish Rust crates to crates.io.
+# Manually publish Rust crates to crates.io.
 
 ## Introduction
 

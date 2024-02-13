@@ -1,29 +1,27 @@
 #![allow(dead_code)]
 use slog::Drain;
 use slog_scope::debug;
-use std::{fmt::Debug, path::Path, path::PathBuf, sync::Arc, time::Duration};
+use std::{fmt::Debug, path::Path, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
+    cardano_transaction_parser::DumbTransactionParser,
     chain_observer::FakeObserver,
-    crypto_helper::tests_setup,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{Beacon, Epoch, SignerWithStake},
-    era::{
-        adapters::{EraReaderAdapterType, EraReaderDummyAdapter},
-        EraChecker, EraMarker, EraReader, SupportedEra,
-    },
+    era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder,
+        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
+        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
-    store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
+use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
-    AggregatorClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
+    database::provider::CardanoTransactionRepository, AggregatorClient, Configuration,
+    MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     StateMachine,
 };
@@ -74,31 +72,16 @@ impl StateMachineTester {
             TestError::AssertFailed("there should be at least one signer with stakes".to_string())
         })?;
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
-        let selected_signer_temp_dir =
-            tests_setup::setup_temp_directory_for_signer(&selected_signer_party_id, false);
-        let config = Configuration {
-            aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
-            relay_endpoint: None,
-            cardano_cli_path: PathBuf::new(),
-            cardano_node_socket_path: PathBuf::new(),
-            db_directory: PathBuf::new(),
-            network: "devnet".to_string(),
-            network_magic: Some(42),
-            party_id: Some(selected_signer_party_id),
-            run_interval: 5000,
-            data_stores_directory: PathBuf::new(),
-            store_retention_limit: None,
-            kes_secret_key_path: selected_signer_temp_dir
-                .as_ref()
-                .map(|dir| dir.join("kes.sk")),
-            operational_certificate_path: selected_signer_temp_dir
-                .as_ref()
-                .map(|dir| dir.join("opcert.cert")),
-            disable_digests_cache: false,
-            reset_digests_cache: false,
-            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
-            era_reader_adapter_params: None,
-        };
+        let config = Configuration::new_sample(&selected_signer_party_id);
+
+        let production_service_builder = ProductionServiceBuilder::new(&config);
+        let transaction_sqlite_connection = production_service_builder
+            .build_sqlite_connection(
+                ":memory:",
+                mithril_signer::database::cardano_transaction_migration::get_migrations(),
+            )
+            .await
+            .unwrap();
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
@@ -157,9 +140,20 @@ impl StateMachineTester {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let transaction_store = Arc::new(CardanoTransactionRepository::new(
+            transaction_sqlite_connection,
+        ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_parser.clone(),
+            transaction_store.clone(),
+            Path::new(""),
+            slog_scope::logger(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
+            cardano_transactions_builder,
         ));
 
         let services = SignerServices {

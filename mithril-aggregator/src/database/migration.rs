@@ -1,6 +1,6 @@
 //! Migration module
 //!
-use mithril_common::database::SqlMigration;
+use mithril_persistence::database::SqlMigration;
 
 /// Get all the migrations required by this version of the software.
 /// There shall be one migration per database version. There could be several
@@ -600,6 +600,24 @@ where signed_entity.signed_entity_type_id = 2;
 alter table signer add column last_registered_at text null;
 update signer set last_registered_at = created_at; 
         "#,
+        ),
+        // Migration 20
+        // Alter `open_message` table to add `expires_at` and 'is_expired' fields
+        SqlMigration::new(
+            20,
+            r#"
+alter table open_message add column is_expired bool not null default false;
+alter table open_message add column expires_at text null;
+        "#,
+        ),
+        // Migration 21
+        // Add the `signed_entity_type` record for 'CardanoTransactions'
+        SqlMigration::new(
+            21,
+            r#"
+insert into signed_entity_type (signed_entity_type_id, name) 
+    values  (3, 'Cardano Transactions');
+"#,
         ),
     ]
 }

@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{Aggregator, Devnet};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::StdResult;
@@ -16,10 +18,31 @@ pub async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> StdRe
     Ok(())
 }
 
-pub async fn delegate_stakes_to_pools(devnet: &Devnet) -> StdResult<()> {
+pub async fn register_era_marker(
+    aggregator: &mut Aggregator,
+    devnet: &Devnet,
+    mithril_era: &str,
+) -> StdResult<()> {
+    info!("Register era marker");
+
+    info!("> generating era marker tx datum...");
+    let tx_datum_file_path = devnet
+        .artifacts_dir()
+        .join(PathBuf::from("era-tx-datum.txt".to_string()));
+    aggregator
+        .era_generate_tx_datum(&tx_datum_file_path, mithril_era)
+        .await?;
+
+    info!("> writing era marker on the Cardano chain...");
+    devnet.write_era_marker(&tx_datum_file_path).await?;
+
+    Ok(())
+}
+
+pub async fn delegate_stakes_to_pools(devnet: &Devnet, delegation_round: u16) -> StdResult<()> {
     info!("Delegate stakes to the cardano pools");
 
-    devnet.delegate_stakes().await?;
+    devnet.delegate_stakes(delegation_round).await?;
 
     Ok(())
 }

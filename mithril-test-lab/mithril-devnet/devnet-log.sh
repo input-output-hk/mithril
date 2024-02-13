@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # Default values
-if [ -z "${ROOT}" ]; then 
-  ROOT="artifacts"
+if [ -z "${ARTIFACTS_DIR}" ]; then 
+  ARTIFACTS_DIR="artifacts"
 fi
 if [ -z "${LINES}" ]; then 
   LINES="10"
@@ -12,7 +12,7 @@ if [ -z "${NODES}" ]; then
 fi
 
 # Change directory
-cd ${ROOT}
+cd ${ARTIFACTS_DIR}
 
 # Logs devnet
 echo "====================================================================="

@@ -492,8 +492,8 @@ mod tests {
     #[tokio::test]
     async fn test_cli_testnet_runner() {
         let runner = CardanoCliRunner::new(
-            PathBuf::new().join("cardano-cli"),
-            PathBuf::new().join("/tmp/whatever.sock"),
+            PathBuf::from("cardano-cli"),
+            PathBuf::from("/tmp/whatever.sock"),
             CardanoNetwork::TestNet(10),
         );
 
@@ -504,8 +504,8 @@ mod tests {
     #[tokio::test]
     async fn test_cli_devnet_runner() {
         let runner = CardanoCliRunner::new(
-            PathBuf::new().join("cardano-cli"),
-            PathBuf::new().join("/tmp/whatever.sock"),
+            PathBuf::from("cardano-cli"),
+            PathBuf::from("/tmp/whatever.sock"),
             CardanoNetwork::DevNet(25),
         );
 
@@ -516,8 +516,8 @@ mod tests {
     #[tokio::test]
     async fn test_cli_mainnet_runner() {
         let runner = CardanoCliRunner::new(
-            PathBuf::new().join("cardano-cli"),
-            PathBuf::new().join("/tmp/whatever.sock"),
+            PathBuf::from("cardano-cli"),
+            PathBuf::from("/tmp/whatever.sock"),
             CardanoNetwork::MainNet,
         );
 
@@ -589,6 +589,10 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+        println!(
+            "computed_stake_distribution: {:?}",
+            computed_stake_distribution
+        );
         let mut expected_stake_distribution = StakeDistribution::new();
         expected_stake_distribution.insert(
             "pool1qqqqqdk4zhsjuxxd8jyvwncf5eucfskz0xjjj64fdmlgj735lr9".to_string(),

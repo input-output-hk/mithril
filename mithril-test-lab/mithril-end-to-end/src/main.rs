@@ -1,6 +1,8 @@
 use clap::Parser;
 use mithril_common::StdResult;
-use mithril_end_to_end::{Devnet, MithrilInfrastructure, RunOnly, Spec};
+use mithril_end_to_end::{
+    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 use std::{
@@ -49,12 +51,28 @@ pub struct Args {
     cardano_slot_length: f64,
 
     /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 45.0)]
+    #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
+
+    /// Cardano node version
+    #[clap(long, default_value = "8.7.3")]
+    cardano_node_version: String,
+
+    /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
+    #[clap(long, default_value_t = 0)]
+    cardano_hard_fork_latest_era_at_epoch: u16,
 
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
     mithril_era: String,
+
+    /// Mithril era reader adapter
+    #[clap(long, default_value = "cardano-chain")]
+    mithril_era_reader_adapter: String,
+
+    /// Signed entity types parameters (discriminants names in an ordered comma separated list).
+    #[clap(long, value_delimiter = ',', default_value = "CardanoTransactions")]
+    signed_entity_types: Vec<String>,
 
     /// Enable run only mode
     #[clap(long)]
@@ -112,26 +130,31 @@ async fn main() -> StdResult<()> {
     let run_only_mode = args.run_only;
     let use_p2p_network_mode = args.use_p2p_network;
 
-    let devnet = Devnet::bootstrap(
-        args.devnet_scripts_directory,
-        work_dir.join("devnet"),
-        args.number_of_bft_nodes,
-        args.number_of_pool_nodes,
-        args.cardano_slot_length,
-        args.cardano_epoch_length,
-        args.skip_cardano_bin_download,
-    )
+    let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
+        devnet_scripts_dir: args.devnet_scripts_directory,
+        artifacts_target_dir: work_dir.join("devnet"),
+        number_of_bft_nodes: args.number_of_bft_nodes,
+        number_of_pool_nodes: args.number_of_pool_nodes,
+        cardano_slot_length: args.cardano_slot_length,
+        cardano_epoch_length: args.cardano_epoch_length,
+        cardano_node_version: args.cardano_node_version.to_owned(),
+        cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
+        skip_cardano_bin_download: args.skip_cardano_bin_download,
+    })
     .await?;
 
-    let mut infrastructure = MithrilInfrastructure::start(
+    let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
         server_port,
-        devnet.clone(),
-        &work_dir,
-        &args.bin_directory,
-        &args.mithril_era,
+        devnet: devnet.clone(),
+        work_dir,
+        bin_dir: args.bin_directory,
+        cardano_node_version: args.cardano_node_version,
+        mithril_era: args.mithril_era,
+        mithril_era_reader_adapter: args.mithril_era_reader_adapter,
+        signed_entity_types: args.signed_entity_types,
         run_only_mode,
         use_p2p_network_mode,
-    )
+    })
     .await?;
 
     let runner: StdResult<()> = match run_only_mode {

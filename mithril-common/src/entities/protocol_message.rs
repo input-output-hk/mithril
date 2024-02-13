@@ -9,6 +9,10 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "snapshot_digest")]
     SnapshotDigest,
 
+    /// The ProtocolMessage part key associated to the Cardano Transactions Merkle Root
+    #[serde(rename = "cardano_transactions_merkle_root")]
+    CardanoTransactionsMerkleRoot,
+
     /// The ProtocolMessage part key associated to the Next epoch aggregate verification key
     /// The AVK that will be allowed to be used to sign during the next epoch
     /// aka AVK(n-1)
@@ -21,6 +25,7 @@ impl Display for ProtocolMessagePartKey {
         match *self {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
+            Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
         }
     }
 }

@@ -87,8 +87,8 @@ pub struct CertificateClient {
 
 /// API that defines how to validate certificates.
 #[cfg_attr(test, automock)]
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait CertificateVerifier: Sync + Send {
     /// Validate the chain starting with the given certificate.
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
@@ -224,8 +224,8 @@ impl MithrilCertificateVerifier {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateVerifier for MithrilCertificateVerifier {
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()> {
         // Todo: move most of this code in the `mithril_common` verifier by defining
@@ -268,8 +268,8 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     }
 }
 
-#[cfg_attr(target_arch = "wasm32", async_trait(?Send))]
-#[cfg_attr(not(target_arch = "wasm32"), async_trait)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateRetriever for InternalCertificateRetriever {
     async fn get_certificate_details(
         &self,

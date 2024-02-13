@@ -5,10 +5,11 @@ use std::collections::HashMap;
 use std::iter::repeat;
 use std::sync::Arc;
 
-use mithril_common::sqlite::{
-    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+use mithril_common::StdResult;
+use mithril_persistence::sqlite::{
+    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
+    SqliteConnection, WhereCondition,
 };
-use mithril_common::{sqlite::SqliteConnection, StdResult};
 
 use crate::signer_registerer::SignerRecorder;
 

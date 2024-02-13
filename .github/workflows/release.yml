@@ -135,6 +135,7 @@ jobs:
           environment: ${{ matrix.environment }}
           cardano_network: ${{ matrix.cardano_network }}
           cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
+          cardano_node_docker_registry: ${{ vars.CARDANO_NODE_DOCKER_REGISTRY }}
           google_region: ${{ matrix.google_region }}
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
@@ -148,6 +149,7 @@ jobs:
           mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
           mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
           mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
+          mithril_aggregator_signed_entity_types: ${{ vars.AGGREGATOR_SIGNED_ENTITY_TYPES }}
           mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
           mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
           mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
@@ -194,4 +196,38 @@ jobs:
         with:
           dry_run: "false"
           package: ${{ matrix.package }}
+          api_token: ${{ secrets[matrix.api_token_secret_name] }}
+
+  publish-wasm:
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        package: [ mithril-client-wasm ]
+        include:
+          - package: mithril-client-wasm
+            scope: mithril-dev
+            tag: latest
+            access: public
+            api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
+          
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cargo-tools: wasm-pack
+        
+      - name: Publish package to npm
+        uses: ./.github/workflows/actions/publish-npm-package
+        with:
+          dry_run: "false"
+          package: ${{ matrix.package }}
+          scope: ${{ matrix.scope }}
+          tag: latest
+          access: ${{ matrix.access }}
           api_token: ${{ secrets[matrix.api_token_secret_name] }}

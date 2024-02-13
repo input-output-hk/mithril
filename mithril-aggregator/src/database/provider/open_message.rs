@@ -1,11 +1,12 @@
 use anyhow::Context;
 use mithril_common::{
     entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures},
-    sqlite::{
-        HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
-        WhereCondition,
-    },
     StdResult,
+};
+use mithril_persistence::database::SignedEntityTypeHydrator;
+use mithril_persistence::sqlite::{
+    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
+    WhereCondition,
 };
 
 use chrono::{DateTime, Utc};
@@ -36,8 +37,14 @@ pub struct OpenMessageRecord {
     /// Has this open message been converted into a certificate?
     pub is_certified: bool,
 
+    /// Has this open message expired
+    pub is_expired: bool,
+
     /// Message creation datetime, it is set by the database.
     pub created_at: DateTime<Utc>,
+
+    /// Message expiration datetime, if it exists.
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 impl OpenMessageRecord {
@@ -54,7 +61,9 @@ impl OpenMessageRecord {
             signed_entity_type,
             protocol_message: ProtocolMessage::new(),
             is_certified: false,
+            is_expired: false,
             created_at: Utc::now(),
+            expires_at: None,
         }
     }
 }
@@ -67,7 +76,9 @@ impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessageRecord {
             signed_entity_type: value.signed_entity_type,
             protocol_message: value.protocol_message,
             is_certified: value.is_certified,
+            is_expired: value.is_expired,
             created_at: value.created_at,
+            expires_at: value.expires_at,
         }
     }
 }
@@ -107,23 +118,32 @@ impl SqLiteEntity for OpenMessageRecord {
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"
             )
         })?;
-        let signed_entity_type = SignedEntityType::hydrate(signed_entity_type_id, &beacon_str)?;
+        let signed_entity_type =
+            SignedEntityTypeHydrator::hydrate(signed_entity_type_id, &beacon_str)?;
         let is_certified = row.read::<i64, _>(5) != 0;
-        let datetime = &row.read::<&str, _>(6);
+        let datetime = &row.read::<&str, _>(7);
         let created_at =
             DateTime::parse_from_rfc3339(datetime).map_err(|e| {
                 HydrationError::InvalidData(format!(
                     "Could not turn open_message.created_at field value '{datetime}' to rfc3339 Datetime. Error: {e}"
                 ))
             })?.with_timezone(&Utc);
-
+        let is_expired = row.read::<i64, _>(6) != 0;
+        let datetime = &row.read::<Option<&str>, _>(8);
+        let expires_at = datetime.map(|datetime| DateTime::parse_from_rfc3339(datetime).map_err(|e| {
+                HydrationError::InvalidData(format!(
+                    "Could not turn open_message.expires_at field value '{datetime}' to rfc3339 Datetime. Error: {e}"
+                ))
+            })).transpose()?.map(|datetime| datetime.with_timezone(&Utc));
         let open_message = Self {
             open_message_id,
             epoch: Epoch(epoch_val),
             signed_entity_type,
             protocol_message,
             is_certified,
+            is_expired,
             created_at,
+            expires_at,
         };
 
         Ok(open_message)
@@ -153,7 +173,9 @@ impl SqLiteEntity for OpenMessageRecord {
                 "text",
             ),
             ("is_certified", "{:open_message:}.is_certified", "bool"),
+            ("is_expired", "{:open_message:}.is_expired", "bool"),
             ("created_at", "{:open_message:}.created_at", "text"),
+            ("expires_at", "{:open_message:}.expires_at", "text"),
         ])
     }
 }
@@ -182,6 +204,10 @@ impl<'client> OpenMessageProvider<'client> {
                 Value::String(signed_entity_type.get_json_beacon()?),
             ],
         ))
+    }
+
+    fn get_expired_entity_type_condition(&self, now: &str) -> WhereCondition {
+        WhereCondition::new("expires_at < ?*", vec![Value::String(now.to_string())])
     }
 
     // Useful in test and probably in the future.
@@ -227,7 +253,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<WhereCondition> {
-        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)";
+        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, expires_at, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*)";
         let beacon_str = signed_entity_type.get_json_beacon()?;
         let parameters = vec![
             Value::String(Uuid::new_v4().to_string()),
@@ -235,6 +261,10 @@ impl<'client> InsertOpenMessageProvider<'client> {
             Value::String(beacon_str),
             Value::Integer(signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(protocol_message)?),
+            signed_entity_type
+                .get_open_message_timeout()
+                .map(|t| Value::String((Utc::now() + t).to_rfc3339()))
+                .unwrap_or(Value::Null),
             Value::String(Utc::now().to_rfc3339()),
         ];
 
@@ -267,8 +297,8 @@ impl<'client> UpdateOpenMessageProvider<'client> {
 
     fn get_update_condition(&self, open_message: &OpenMessageRecord) -> StdResult<WhereCondition> {
         let expression = "epoch_setting_id = ?*, beacon = ?*, \
-signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?* \
-where open_message_id = ?*";
+signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?*, \
+is_expired = ?*, expires_at = ?* where open_message_id = ?*";
         let beacon_str = open_message.signed_entity_type.get_json_beacon()?;
         let parameters = vec![
             Value::Integer(
@@ -281,6 +311,11 @@ where open_message_id = ?*";
             Value::Integer(open_message.signed_entity_type.index() as i64),
             Value::String(serde_json::to_string(&open_message.protocol_message)?),
             Value::Integer(open_message.is_certified as i64),
+            Value::Integer(open_message.is_expired as i64),
+            open_message
+                .expires_at
+                .map(|d| Value::String(d.to_rfc3339()))
+                .unwrap_or(Value::Null),
             Value::String(open_message.open_message_id.to_string()),
         ];
 
@@ -350,11 +385,17 @@ pub struct OpenMessageWithSingleSignaturesRecord {
     /// Has this message been converted into a Certificate?
     pub is_certified: bool,
 
+    /// Has this open message expired
+    pub is_expired: bool,
+
     /// associated single signatures
     pub single_signatures: Vec<SingleSignatures>,
 
     /// Message creation datetime, it is set by the database.
     pub created_at: DateTime<Utc>,
+
+    /// Message expiration datetime, if it exists.
+    pub expires_at: Option<DateTime<Utc>>,
 }
 
 impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
@@ -362,7 +403,7 @@ impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
     where
         Self: Sized,
     {
-        let single_signatures = &row.read::<&str, _>(7);
+        let single_signatures = &row.read::<&str, _>(9);
         let single_signatures: Vec<SingleSignatures> = serde_json::from_str(single_signatures)
             .map_err(|e| {
                 HydrationError::InvalidData(format!(
@@ -378,8 +419,10 @@ impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
             signed_entity_type: open_message.signed_entity_type,
             protocol_message: open_message.protocol_message,
             is_certified: open_message.is_certified,
+            is_expired: open_message.is_expired,
             single_signatures,
             created_at: open_message.created_at,
+            expires_at: open_message.expires_at,
         };
 
         Ok(open_message)
@@ -409,7 +452,9 @@ impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
                 "text",
             ),
             ("is_certified", "{:open_message:}.is_certified", "bool"),
+            ("is_expired", "{:open_message:}.is_expired", "bool"),
             ("created_at", "{:open_message:}.created_at", "text"),
+            ("expires_at", "{:open_message:}.expires_at", "text"),
             (
                 "single_signatures",
                 "case when {:single_signature:}.signer_id is null then json('[]') \
@@ -523,6 +568,21 @@ impl OpenMessageRepository {
         Ok(messages.next())
     }
 
+    /// Return the expired [OpenMessageRecord] for the given Epoch and [SignedEntityType] if it exists
+    pub async fn get_expired_open_message(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessageRecord>> {
+        let provider = OpenMessageProvider::new(&self.connection);
+        let now = Utc::now().to_rfc3339();
+        let filters = provider
+            .get_expired_entity_type_condition(&now)
+            .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
+        let mut messages = provider.find(filters)?;
+
+        Ok(messages.next())
+    }
+
     /// Create a new [OpenMessageRecord] in the database.
     pub async fn create_open_message(
         &self,
@@ -566,7 +626,8 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::Beacon, sqlite::SourceAlias};
+    use mithril_common::entities::Beacon;
+    use mithril_persistence::sqlite::SourceAlias;
     use sqlite::Connection;
 
     use crate::database::provider::{
@@ -609,7 +670,9 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
                     '{ "message_parts": {
                         "next_aggregate_verification_key":"7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3131312c3230352c3133392c3131322c32382c392c3233382c3134382c3133342c302c3230372c3233302c3234312c3130352c3135372c3131302c3232362c3131342c32362c35332c3136362c3235342c3230382c3132372c3231362c3230362c3230302c34382c35352c32312c3231372c31335d2c226e725f6c6561766573223a332c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a32383439323639303636317d"
                     }}',
-                    1
+                    1,
+                    0,
+                    '2021-07-27T01:02:44.505640275+00:00'
                 );
 
                 insert into single_signature values(
@@ -638,7 +701,7 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
             .get_open_message(&SignedEntityType::MithrilStakeDistribution(Epoch(275)))
             .await
             .expect("Getting Golden open message should not fail")
-            .expect("A open message should exist for this signed entity type");
+            .expect("An open message should exist for this signed entity type");
 
         repository
             .get_open_message_with_single_signatures(&SignedEntityType::MithrilStakeDistribution(
@@ -647,7 +710,7 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
             .await
             .expect("Getting Golden open message should not fail")
             .expect(
-                "A open message with single signatures should exist for this signed entity type",
+                "An open message with single signatures should exist for this signed entity type",
             );
     }
 
@@ -663,8 +726,11 @@ values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0
             "open_message.open_message_id as open_message_id, \
 open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, \
 open_message.signed_entity_type_id as signed_entity_type_id, \
-open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, \
+open_message.protocol_message as protocol_message, \
+open_message.is_certified as is_certified, \
+open_message.is_expired as is_expired, \
 open_message.created_at as created_at, \
+open_message.expires_at as expires_at, \
 case when single_signature.signer_id is null then json('[]') \
 else json_group_array( \
     json_object( \
@@ -684,7 +750,7 @@ else json_group_array( \
         let aliases = SourceAlias::new(&[("{:open_message:}", "open_message")]);
 
         assert_eq!(
-            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, open_message.created_at as created_at".to_string(),
+            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, open_message.is_expired as is_expired, open_message.created_at as created_at, open_message.expires_at as expires_at".to_string(),
             projection.expand(aliases)
         )
     }
@@ -746,6 +812,17 @@ else json_group_array( \
     }
 
     #[test]
+    fn provider_expired_entity_type_condition() {
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
+        let provider = OpenMessageProvider::new(&connection);
+        let now = Utc::now().to_rfc3339();
+        let (expr, params) = provider.get_expired_entity_type_condition(&now).expand();
+
+        assert_eq!("expires_at < ?1".to_string(), expr);
+        assert_eq!(vec![Value::String(now)], params);
+    }
+
+    #[test]
     fn insert_provider_condition() {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = InsertOpenMessageProvider::new(&connection);
@@ -763,7 +840,7 @@ else json_group_array( \
             .unwrap()
             .expand();
 
-        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(), expr);
+        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, expires_at, created_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7)".to_string(), expr);
         assert_eq!(Value::Integer(12), params[1]);
         assert_eq!(
             Value::String(
@@ -788,7 +865,9 @@ else json_group_array( \
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::new(),
             is_certified: true,
+            is_expired: false,
             created_at: DateTime::<Utc>::default(),
+            expires_at: None,
         };
         let (expr, params) = provider
             .get_update_condition(&open_message)
@@ -796,7 +875,7 @@ else json_group_array( \
             .expand();
 
         assert_eq!(
-            "epoch_setting_id = ?1, beacon = ?2, signed_entity_type_id = ?3, protocol_message = ?4, is_certified = ?5 where open_message_id = ?6"
+            "epoch_setting_id = ?1, beacon = ?2, signed_entity_type_id = ?3, protocol_message = ?4, is_certified = ?5, is_expired = ?6, expires_at = ?7 where open_message_id = ?8"
                 .to_string(),
             expr
         );
@@ -807,6 +886,11 @@ else json_group_array( \
                 Value::Integer(open_message.signed_entity_type.index() as i64),
                 Value::String(serde_json::to_string(&open_message.protocol_message).unwrap()),
                 Value::Integer(open_message.is_certified as i64),
+                Value::Integer(open_message.is_expired as i64),
+                open_message
+                    .expires_at
+                    .map(|d| Value::String(d.to_rfc3339()))
+                    .unwrap_or(Value::Null),
                 Value::String(open_message.open_message_id.to_string()),
             ],
             params
@@ -829,27 +913,21 @@ else json_group_array( \
         let repository = OpenMessageRepository::new(connection.clone());
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
-        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(beacon.epoch);
-        repository
-            .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
-            .await
-            .unwrap();
-        let open_message_result = repository
-            .get_open_message(&signed_entity_type)
-            .await
-            .unwrap();
-        assert!(open_message_result.is_some());
-
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
-        repository
-            .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
-            .await
-            .unwrap();
-        let open_message_result = repository
-            .get_open_message(&signed_entity_type)
-            .await
-            .unwrap();
-        assert!(open_message_result.is_some());
+        for signed_entity_type in [
+            SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+            SignedEntityType::CardanoTransactions(beacon.clone()),
+        ] {
+            repository
+                .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
+                .await
+                .unwrap();
+            let open_message_result = repository
+                .get_open_message(&signed_entity_type)
+                .await
+                .unwrap();
+            assert!(open_message_result.is_some());
+        }
     }
 
     #[tokio::test]

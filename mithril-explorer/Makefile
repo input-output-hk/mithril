@@ -1,12 +1,12 @@
 .PHONY: clean install build dev test watch-test lint upgrade
 
-yarn.lock:
-	yarn install
+package-lock.json:
+	npm install
 
-install: yarn.lock
+install: package-lock.json
 
-build: yarn.lock
-	yarn && yarn run build
+build: package-lock.json
+	npm run build
 	# Fix to allow refresh & direct linking to the navigation page on static hosting such as Github Pages
 	# this is because the nextJs router is only active for the home page at start.
 	# A 'cleaner' way to do that must exist.
@@ -15,32 +15,31 @@ build: yarn.lock
 	cp out/registrations.txt out/registrations/index.txt
 
 serve: build
-	yarn run start
+	npm run start
 
-dev:
+dev: build
 	@echo "Serving dev build at: http://localhost:3000/explorer"
-	yarn run dev
+	npm run dev
 
-test: yarn.lock
-	yarn run test:ci
+test: package-lock.json
+	npm run test:ci
 
-watch-test: yarn.lock
-	yarn run test
+watch-test: package-lock.json
+	npm run test
 
 lint:
-	yarn run lint
-	yarn run pretty:check
+	npm run lint
+	npm run pretty:check
 
 format:
-	yarn run pretty:write
+	npm run pretty:write
 
 clean:
 	rm -rf build
 	rm package-lock.json || true
-	rm yarn.lock || true
 
 upgrade: clean install
-	yarn upgrade \
+	npm install \
 		@popperjs/core@latest \
 		@reduxjs/toolkit@latest \
 		bootstrap@latest \

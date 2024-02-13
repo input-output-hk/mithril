@@ -2,8 +2,9 @@ use anyhow::{anyhow, Context};
 use mithril_common::entities::PartyId;
 use mithril_common::StdResult;
 use slog_scope::info;
-use std::fs;
-use std::path::PathBuf;
+use std::fs::{self, File};
+use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::process::Command;
 
@@ -52,52 +53,78 @@ pub struct DevnetTopology {
     pub pool_nodes: Vec<PoolNode>,
 }
 
+#[derive(Debug, Clone)]
+pub struct DevnetBootstrapArgs {
+    pub devnet_scripts_dir: PathBuf,
+    pub artifacts_target_dir: PathBuf,
+    pub number_of_bft_nodes: u8,
+    pub number_of_pool_nodes: u8,
+    pub cardano_slot_length: f64,
+    pub cardano_epoch_length: f64,
+    pub cardano_node_version: String,
+    pub cardano_hard_fork_latest_era_at_epoch: u16,
+    pub skip_cardano_bin_download: bool,
+}
+
 impl Devnet {
-    pub async fn bootstrap(
-        devnet_scripts_dir: PathBuf,
-        artifacts_target_dir: PathBuf,
-        number_of_bft_nodes: u8,
-        number_of_pool_nodes: u8,
-        cardano_slot_length: f64,
-        cardano_epoch_length: f64,
-        skip_cardano_bin_download: bool,
-    ) -> StdResult<Devnet> {
+    pub async fn bootstrap(bootstrap_args: &DevnetBootstrapArgs) -> StdResult<Devnet> {
         let bootstrap_script = "devnet-mkfiles.sh";
-        let bootstrap_script_path = devnet_scripts_dir
+        let bootstrap_script_path = bootstrap_args
+            .devnet_scripts_dir
             .canonicalize()
             .with_context(|| {
                 format!(
                     "Can't find bootstrap script '{}' in {}",
                     bootstrap_script,
-                    devnet_scripts_dir.display(),
+                    bootstrap_args.devnet_scripts_dir.display(),
                 )
             })?
             .join(bootstrap_script);
 
-        if artifacts_target_dir.exists() {
-            fs::remove_dir_all(&artifacts_target_dir)
+        if bootstrap_args.artifacts_target_dir.exists() {
+            fs::remove_dir_all(&bootstrap_args.artifacts_target_dir)
                 .with_context(|| "Previous artifacts dir removal failed")?;
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
         bootstrap_command.env(
             "SKIP_CARDANO_BIN_DOWNLOAD",
-            skip_cardano_bin_download.to_string(),
+            bootstrap_args.skip_cardano_bin_download.to_string(),
         );
-        let command_args = &[
-            artifacts_target_dir.to_str().unwrap(),
-            &number_of_bft_nodes.to_string(),
-            &number_of_pool_nodes.to_string(),
-            &cardano_slot_length.to_string(),
-            &cardano_epoch_length.to_string(),
-        ];
+        bootstrap_command.env(
+            "ARTIFACTS_DIR",
+            bootstrap_args.artifacts_target_dir.to_str().unwrap(),
+        );
+        bootstrap_command.env(
+            "NUM_BFT_NODES",
+            bootstrap_args.number_of_bft_nodes.to_string(),
+        );
+        bootstrap_command.env(
+            "NUM_POOL_NODES",
+            bootstrap_args.number_of_pool_nodes.to_string(),
+        );
+        bootstrap_command.env(
+            "SLOT_LENGTH",
+            bootstrap_args.cardano_slot_length.to_string(),
+        );
+        bootstrap_command.env(
+            "EPOCH_LENGTH",
+            bootstrap_args.cardano_epoch_length.to_string(),
+        );
+        bootstrap_command.env("CARDANO_NODE_VERSION", &bootstrap_args.cardano_node_version);
+        bootstrap_command.env(
+            "CARDANO_HARD_FORK_LATEST_ERA_AT_EPOCH",
+            bootstrap_args
+                .cardano_hard_fork_latest_era_at_epoch
+                .to_string(),
+        );
+
         bootstrap_command
-            .current_dir(devnet_scripts_dir)
-            .args(command_args)
+            .current_dir(&bootstrap_args.devnet_scripts_dir)
             .stdout(Stdio::null())
             .kill_on_drop(true);
 
-        info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display(), "args" => #?&command_args);
+        info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display());
 
         bootstrap_command
             .spawn()
@@ -107,9 +134,9 @@ impl Devnet {
             .with_context(|| format!("{bootstrap_script} failed to run"))?;
 
         Ok(Devnet {
-            artifacts_dir: artifacts_target_dir,
-            number_of_bft_nodes,
-            number_of_pool_nodes,
+            artifacts_dir: bootstrap_args.artifacts_target_dir.to_owned(),
+            number_of_bft_nodes: bootstrap_args.number_of_bft_nodes,
+            number_of_pool_nodes: bootstrap_args.number_of_pool_nodes,
         })
     }
 
@@ -121,6 +148,26 @@ impl Devnet {
             number_of_bft_nodes,
             number_of_pool_nodes,
         }
+    }
+
+    pub fn artifacts_dir(&self) -> PathBuf {
+        self.artifacts_dir.clone()
+    }
+
+    pub fn mithril_era_marker_address_path(&self) -> PathBuf {
+        self.artifacts_dir
+            .join("addresses")
+            .join("mithril-era.addr")
+    }
+
+    pub fn mithril_era_marker_address(&self) -> StdResult<String> {
+        let mut mithril_era_marker_address_file =
+            File::open(self.mithril_era_marker_address_path())?;
+        let mut mithril_era_marker_address_buffer = Vec::new();
+        mithril_era_marker_address_file.read_to_end(&mut mithril_era_marker_address_buffer)?;
+
+        String::from_utf8(mithril_era_marker_address_buffer)
+            .with_context(|| "Failed to read mithril era marker address file")
     }
 
     pub fn cardano_cli_path(&self) -> PathBuf {
@@ -149,7 +196,7 @@ impl Devnet {
                     .join(format!("node-pool{n}/shelley/kes.skey")),
                 operational_certificate_path: self
                     .artifacts_dir
-                    .join(format!("node-pool{n}/shelley/node.cert")),
+                    .join(format!("node-pool{n}/shelley/opcert.cert")),
             })
             .collect::<Vec<_>>();
 
@@ -205,13 +252,14 @@ impl Devnet {
         }
     }
 
-    pub async fn delegate_stakes(&self) -> StdResult<()> {
+    pub async fn delegate_stakes(&self, delegation_round: u16) -> StdResult<()> {
         let run_script = "delegate.sh";
         let run_script_path = self.artifacts_dir.join(run_script);
         let mut run_command = Command::new(&run_script_path);
         run_command
             .current_dir(&self.artifacts_dir)
             .kill_on_drop(true);
+        run_command.env("DELEGATION_ROUND", delegation_round.to_string());
 
         info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
 
@@ -225,6 +273,32 @@ impl Devnet {
             Some(0) => Ok(()),
             Some(code) => Err(anyhow!("Delegating stakes exited with status code: {code}")),
             None => Err(anyhow!("Delegating stakes terminated by signal")),
+        }
+    }
+
+    pub async fn write_era_marker(&self, target_path: &Path) -> StdResult<()> {
+        let run_script = "era-mithril.sh";
+        let run_script_path = self.artifacts_dir.join(run_script);
+        let mut run_command = Command::new(&run_script_path);
+        run_command
+            .current_dir(&self.artifacts_dir)
+            .kill_on_drop(true);
+        run_command.env("DATUM_FILE", target_path.to_str().unwrap());
+
+        info!("Writing era marker on chain"; "script" => &run_script_path.display());
+
+        let status = run_command
+            .spawn()
+            .with_context(|| "Failed to write era marker on chain")?
+            .wait()
+            .await
+            .with_context(|| "Error while writing era marker on chain")?;
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(anyhow!(
+                "Write era marker on chain exited with status code: {code}"
+            )),
+            None => Err(anyhow!("Write era marker on chain terminated by signal")),
         }
     }
 }
@@ -273,7 +347,7 @@ mod tests {
                     pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
                     kes_secret_key_path: PathBuf::from(r"test/path/node-pool1/shelley/kes.skey"),
                     operational_certificate_path: PathBuf::from(
-                        r"test/path/node-pool1/shelley/node.cert"
+                        r"test/path/node-pool1/shelley/opcert.cert"
                     ),
                 },],
             },

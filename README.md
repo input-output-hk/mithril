@@ -60,7 +60,11 @@ This repository consists of the following parts:
 
 * [**Mithril client CLI**](./mithril-client-cli): the CLI used for retrieving the certified artifacts produced by the **Mithril network**, eg the **Cardano** chain certified snapshots used to securely restore a **Cardano node**.
 
+* [**Mithril client WASM**](./mithril-client-wasm): the WASM compatible library used for retrieving the certified artifacts produced by the **Mithril network**.
+
 * [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
+ 
+* [**Mithril persistence**](./mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
 
 * [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
 
@@ -77,6 +81,8 @@ This repository consists of the following parts:
   * [**Mithril end to end**](./mithril-test-lab/mithril-end-to-end): the tool used to run tests scenarios against a **Mithril devnet**.
 
 * [**Protocol demonstration**](./demo/protocol-demo): a simple CLI that helps understand how the **Mithril** protocol works and the role of its **protocol parameters**.
+
+* [**Examples**](./examples): out of the box working examples to get familiar with **Mithril**.
 
 ## :bridge_at_night: Contributing
 

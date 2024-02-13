@@ -15,7 +15,7 @@ use crate::{
     StdError,
 };
 
-/// Type of era reader adapaters available
+/// Type of era reader adapters available
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum AdapterType {

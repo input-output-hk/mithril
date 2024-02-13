@@ -6,8 +6,10 @@
 //!
 //! It handles the different types that can be queried to a Mithril aggregator:
 //!
-//! - [Snapshot][snapshot_client] list, get and download tarball.
+//! - [Snapshot][snapshot_client] list, get, download tarball and record statistics.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
+//! - [Cardano transactions proofs][cardano_transaction_proof_client] list & get commitment, get proofs
+//! _(available using crate feature_ **unstable**_)_.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!
 //! The [Client] aggregates the queries of all of those types.
@@ -23,6 +25,7 @@
 //! **Note:** _Snapshot download and the compute snapshot message functions are available using crate feature_ **fs**.
 //!
 //! ```no_run
+//! # #[cfg(feature = "fs")]
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::{ClientBuilder, MessageBuilder};
 //! use std::path::Path;
@@ -46,6 +49,10 @@
 //!     .download_unpack(&snapshot, &target_directory)
 //!     .await?;
 //!
+//! if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+//!     println!("Could not increment snapshot download statistics: {:?}", e);
+//! }
+//!
 //! let message = MessageBuilder::new()
 //!     .compute_snapshot_message(&certificate, &target_directory)
 //!     .await?;
@@ -65,15 +72,29 @@ macro_rules! cfg_fs {
     }
 }
 
+macro_rules! cfg_unstable {
+    ($($item:item)*) => {
+        $(
+            #[cfg(feature = "unstable")]
+            #[cfg_attr(docsrs, doc(cfg(feature = "unstable")))]
+            $item
+        )*
+    }
+}
+
 pub mod aggregator_client;
+cfg_unstable! {
+    pub mod cardano_transaction_proof_client;
+}
 pub mod certificate_client;
 mod client;
 pub mod feedback;
 mod message;
 pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
-#[cfg(feature = "fs")]
-pub mod snapshot_downloader;
+cfg_fs! {
+    pub mod snapshot_downloader;
+}
 
 mod type_alias;
 mod utils;

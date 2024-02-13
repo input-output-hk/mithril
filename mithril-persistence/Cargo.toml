@@ -1,0 +1,35 @@
+[package]
+name = "mithril-persistence"
+version = "0.1.0"
+description = "Common types, interfaces, and utilities to persist data for Mithril nodes."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+anyhow = "1.0.79"
+async-trait = "0.1.77"
+chrono = { version = "0.4.33", features = ["serde"] }
+hex = "0.4.3"
+mithril-common = { path = "../mithril-common" }
+semver = "1.0.21"
+serde = { version = "1.0.196", features = ["derive"] }
+serde_json = "1.0.113"
+sha2 = "0.10.8"
+slog = "2.7.0"
+sqlite = { version = "0.33.0", features = ["bundled"] }
+thiserror = "1.0.56"
+tokio = { version = "1.35.1", features = ["sync"] }
+
+[dev-dependencies]
+mithril-common = { path = "../mithril-common", features = ["test_tools"] }
+mockall = "0.12.1"
+slog-async = "2.8.0"
+slog-scope = "4.4.0"
+slog-term = "2.9.0"
+tokio = { version = "1.35.1", features = ["macros", "time"] }

@@ -34,7 +34,9 @@ resource "null_resource" "mithril_aggregator" {
 set -e
 # Setup cardano node configuration
 AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/config
-cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network} $AGGREGATOR_CONFIG_DIRECTORY
+cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network}_p2p $AGGREGATOR_CONFIG_DIRECTORY
+rm -rf $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}
+mv $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}_p2p $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}
 cat $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-aggregator\"" > $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
 rm -f $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
 mv $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
@@ -46,9 +48,11 @@ EOT
     inline = [
       "export NETWORK=${var.cardano_network}",
       "export CARDANO_IMAGE_ID=${var.cardano_image_id}",
+      "export CARDANO_IMAGE_REGISTRY=${var.cardano_image_registry}",
       "export MITHRIL_IMAGE_ID=${var.mithril_image_id}",
       "export AGGREGATOR_HOST=${local.mithril_aggregator_host}",
       "export GOOGLE_APPLICATION_CREDENTIALS_JSON='${local.google_cloud_storage_credentials_json}'",
+      "export SIGNED_ENTITY_TYPES='${var.mithril_aggregator_signed_entity_types}'",
       "export SNAPSHOT_BUCKET_NAME='${google_storage_bucket.cloud_storage.name}'",
       "export SNAPSHOT_USE_CDN_DOMAIN='${var.mithril_aggregator_snapshot_use_cdn_domain}'",
       "export SNAPSHOT_COMPRESSION_ALGORITHM=${var.mithril_aggregator_snapshot_compression_algorithm}",
@@ -59,6 +63,7 @@ EOT
       "export PROTOCOL_PARAMETERS__K='${var.mithril_protocol_parameters.k}'",
       "export PROTOCOL_PARAMETERS__M='${var.mithril_protocol_parameters.m}'",
       "export PROTOCOL_PARAMETERS__PHI_F='${var.mithril_protocol_parameters.phi_f}'",
+      "export CHAIN_OBSERVER_TYPE='${var.mithril_aggregator_chain_observer_type}'",
       "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
       "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",

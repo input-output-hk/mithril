@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
-use mithril_common::store::adapter::StoreAdapter;
+use mithril_persistence::store::adapter::StoreAdapter;
 
 #[cfg(test)]
 use mockall::automock;
@@ -350,10 +350,8 @@ pub mod test_suite {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        entities::{Epoch, PartyId, SignerWithStake},
-        store::adapter::MemoryAdapter,
-    };
+    use mithril_common::entities::{Epoch, PartyId, SignerWithStake};
+    use mithril_persistence::store::adapter::MemoryAdapter;
     use std::{collections::HashMap, sync::Arc};
 
     use crate::{VerificationKeyStore, VerificationKeyStorer};

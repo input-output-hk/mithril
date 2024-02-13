@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Providers } from "../store/provider";
-import React from "react";
+import React, { Suspense } from "react";
 import styles from "./explorer.module.css";
 
 // These styles apply to every route in the application
@@ -20,19 +20,21 @@ export default function RootLayout({ children }) {
       <body>
         <link rel="icon" href="/explorer/logo.svg?v=1" type="image/svg+xml" />
 
-        <Providers>
-          <div className={styles.container}>
-            <main className={styles.main}>
-              <h1 className={styles.title}>
-                <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
-                  <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} />{" "}
-                  Mithril Explorer
-                </Link>
-              </h1>
-              {children}
-            </main>
-          </div>
-        </Providers>
+        <Suspense>
+          <Providers>
+            <div className={styles.container}>
+              <main className={styles.main}>
+                <h1 className={styles.title}>
+                  <Link href="/" className="link-underline-opacity-0 link-body-emphasis ">
+                    <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} />{" "}
+                    Mithril Explorer
+                  </Link>
+                </h1>
+                {children}
+              </main>
+            </div>
+          </Providers>
+        </Suspense>
 
         <footer className={styles.footer}>
           <span className={styles.logo}>

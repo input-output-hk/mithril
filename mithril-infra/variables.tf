@@ -141,13 +141,19 @@ locals {
 variable "cardano_image_id" {
   type        = string
   description = "The Cardano image tag of service to deploy"
-  default     = "8.1.2"
+  default     = "8.7.3"
+}
+
+variable "cardano_image_registry" {
+  type        = string
+  description = "The Cardano image repository of service to deploy"
+  default     = "ghcr.io/intersectmbo/cardano-node"
 }
 
 variable "cardano_configurations_repository_commit" {
   type        = string
   description = "The Cardano configurations commit to use"
-  default     = "7b1a4833e36f78202f67f6638d005c796f4626a9"
+  default     = "21249e0d5c68b4e8f3661b250aa8272a8785d678"
 }
 
 variable "mithril_api_domain" {
@@ -176,6 +182,18 @@ locals {
   mithril_network_type_suffix = var.mithril_use_p2p_network ? "-p2p" : ""
 }
 
+
+variable "mithril_aggregator_signed_entity_types" {
+  type        = string
+  description = "The custom signed list of entity types used by the mithril aggregator (discriminants names in an ordered comma separated list)."
+  default     = ""
+}
+
+variable "mithril_aggregator_chain_observer_type" {
+  type        = string
+  description = "The chain observer type used by the mithril aggregator."
+  default     = "pallas"
+}
 
 variable "mithril_aggregator_snapshot_compression_algorithm" {
   type        = string

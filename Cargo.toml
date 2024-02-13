@@ -9,15 +9,18 @@ members = [
   "mithril-aggregator",
   "mithril-client",
   "mithril-client-cli",
+  "mithril-client-wasm",
   "mithril-common",
+  "mithril-persistence",
   "mithril-relay",
   "mithril-signer",
   "mithril-stm",
+  "mithril-test-lab/mithril-aggregator-fake",
   "mithril-test-lab/mithril-end-to-end",
 ]
 
 [workspace.package]
-authors = ["dev@iohk.io"]
+authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
 homepage = "https://mithril.network"

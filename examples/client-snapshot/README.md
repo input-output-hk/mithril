@@ -11,6 +11,7 @@ In this example, the client interacts with a real aggregator on the network `tes
 - verify a certificate chain
 - compute a message for a Snapshot
 - verify that the certificate signs the computed message
+- increments snapshot download statistics
 
 The crate [indicatif](https://docs.rs/indicatif/latest/indicatif/) is used to nicely report the progress to the console.
 

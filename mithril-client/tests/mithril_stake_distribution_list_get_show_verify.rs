@@ -1,7 +1,7 @@
 mod extensions;
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
-use mithril_client::{ClientBuilder, MessageBuilder};
+use mithril_client::{aggregator_client::AggregatorRequest, ClientBuilder, MessageBuilder};
 
 #[tokio::test]
 async fn mithril_stake_distribution_list_get_show_verify() {
@@ -9,9 +9,10 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
     let msd_hash = "msd_hash";
     let certificate_hash = "certificate_hash";
-    let fake_aggregator =
-        FakeAggregator::spawn_with_mithril_stake_distribution(msd_hash, certificate_hash);
-    let client = ClientBuilder::aggregator(&fake_aggregator.url(), genesis_verification_key)
+    let fake_aggregator = FakeAggregator::new();
+    let test_http_server =
+        fake_aggregator.spawn_with_mithril_stake_distribution(msd_hash, certificate_hash);
+    let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
         .build()
         .expect("Should be able to create a Client");
@@ -21,6 +22,13 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         .list()
         .await
         .expect("List MithrilStakeDistribution should not fail");
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}",
+            AggregatorRequest::ListMithrilStakeDistributions.route()
+        ))
+    );
 
     let last_hash = mithril_stake_distributions.first().unwrap().hash.as_ref();
 
@@ -31,12 +39,32 @@ async fn mithril_stake_distribution_list_get_show_verify() {
         .unwrap_or_else(|| {
             panic!("A MithrilStakeDistribution should exist for hash '{last_hash}'")
         });
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}",
+            AggregatorRequest::GetMithrilStakeDistribution {
+                hash: (last_hash).to_string()
+            }
+            .route()
+        ))
+    );
 
     let certificate = client
         .certificate()
         .verify_chain(&mithril_stake_distribution.certificate_hash)
         .await
         .expect("Validating the chain should not fail");
+    assert_eq!(
+        fake_aggregator.get_last_call().await,
+        Some(format!(
+            "/{}",
+            AggregatorRequest::GetCertificate {
+                hash: mithril_stake_distribution.certificate_hash.clone()
+            }
+            .route()
+        ))
+    );
 
     let message = MessageBuilder::new()
         .compute_mithril_stake_distribution_message(&mithril_stake_distribution)

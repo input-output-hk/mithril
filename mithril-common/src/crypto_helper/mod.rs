@@ -5,12 +5,16 @@ mod codec;
 mod conversions;
 mod era;
 mod genesis;
-#[cfg(feature = "test_tools")]
-pub mod tests_setup;
+mod merkle_tree;
 mod types;
 
-#[cfg(feature = "random")]
-pub use cardano::ColdKeyGenerator;
+cfg_test_tools! {
+    pub mod tests_setup;
+}
+
+cfg_random! {
+    pub use cardano::ColdKeyGenerator;
+}
 
 pub use cardano::{
     KESPeriod, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
@@ -22,6 +26,7 @@ pub use era::{
     EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
 };
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
+pub use merkle_tree::{MKProof, MKTree, MKTreeNode, MKTreeStore};
 pub use types::*;
 
 /// The current protocol version

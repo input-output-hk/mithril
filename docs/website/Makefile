@@ -1,30 +1,36 @@
 .PHONY: clean install build serve dev upgrade
 
-yarn.lock:
-	yarn install
+package-lock.json:
+	npm install
 
-install: yarn.lock
+install: package-lock.json
 
-build: yarn.lock
-	yarn && yarn run build
+build: package-lock.json
+	npm run build
 
 serve: build
-	yarn run serve
+	npm run serve
 
 dev:
-	yarn run start
+	npm run start
 
 clean:
 	rm -rf build
 	rm package-lock.json || true
-	rm yarn.lock || true
 
 upgrade: clean install
-	yarn upgrade @docusaurus/core@latest @docusaurus/preset-classic@latest redocusaurus@latest @docusaurus/theme-mermaid@latest react@latest react-dom@latest
+	npm install \
+	@docusaurus/core@latest \
+	@docusaurus/preset-classic@latest \
+	@docusaurus/theme-mermaid@latest \
+	clsx@latest \
+	react@latest \
+	react-dom@latest \
+	redocusaurus@latest
 
 update-current:
 	# Use docusaurus command to create a new version using a temporary name
-	yarn run docusaurus docs:version updated
+	npm run docusaurus docs:version updated
 	# cleanup previous file & replace it with the updated ones
 	rm -rf versioned_docs/version-maintained versioned_sidebars/version-maintained-sidebars.json
 	mv versioned_docs/version-updated versioned_docs/version-maintained

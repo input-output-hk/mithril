@@ -12,6 +12,7 @@
 mod certifier;
 mod epoch_service;
 mod message;
+mod prover;
 mod signed_entity;
 mod stake_distribution;
 mod ticker;
@@ -19,6 +20,7 @@ mod ticker;
 pub use certifier::*;
 pub use epoch_service::*;
 pub use message::*;
+pub use prover::*;
 pub use signed_entity::*;
 pub use stake_distribution::*;
 pub use ticker::*;

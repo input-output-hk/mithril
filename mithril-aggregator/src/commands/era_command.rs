@@ -1,3 +1,5 @@
+use std::{fs::File, io::Write, path::PathBuf};
+
 use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
@@ -82,6 +84,10 @@ pub struct GenerateTxDatumEraSubCommand {
     /// Era Markers Secret Key
     #[clap(long, env = "ERA_MARKERS_SECRET_KEY")]
     era_markers_secret_key: HexEncodedEraMarkersSecretKey,
+
+    /// Target Path
+    #[clap(long)]
+    target_path: PathBuf,
 }
 
 impl GenerateTxDatumEraSubCommand {
@@ -93,14 +99,14 @@ impl GenerateTxDatumEraSubCommand {
             EraMarkersVerifierSecretKey::from_json_hex(&self.era_markers_secret_key)
                 .with_context(|| "json hex decode of era markers secret key failure")?;
         let era_markers_signer = EraMarkersSigner::from_secret_key(era_markers_secret_key);
-        print!(
-            "{}",
-            era_tools.generate_tx_datum(
-                Epoch(self.current_era_epoch),
-                self.next_era_epoch.map(Epoch),
-                &era_markers_signer
-            )?
-        );
+        let tx_datum = era_tools.generate_tx_datum(
+            Epoch(self.current_era_epoch),
+            self.next_era_epoch.map(Epoch),
+            &era_markers_signer,
+        )?;
+
+        let mut target_file = File::create(&self.target_path)?;
+        target_file.write_all(tx_datum.as_bytes())?;
 
         Ok(())
     }

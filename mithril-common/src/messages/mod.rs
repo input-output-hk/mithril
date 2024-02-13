@@ -1,5 +1,8 @@
 //! Messages module
 //! This module aims at providing shared structures for API communications.
+mod cardano_transaction_commitment;
+mod cardano_transaction_commitment_list;
+mod cardano_transactions_proof;
 mod certificate;
 mod certificate_list;
 mod certificate_pending;
@@ -14,6 +17,13 @@ mod snapshot;
 mod snapshot_download;
 mod snapshot_list;
 
+pub use cardano_transaction_commitment::CardanoTransactionCommitmentMessage;
+pub use cardano_transaction_commitment_list::{
+    CardanoTransactionCommitmentListItemMessage, CardanoTransactionCommitmentListMessage,
+};
+pub use cardano_transactions_proof::{
+    CardanoTransactionsProofsMessage, VerifiedCardanoTransactions,
+};
 pub use certificate::CertificateMessage;
 pub use certificate_list::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
