@@ -28,7 +28,7 @@ pub trait ProverService: Sync + Send {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait TransactionsRetriever: Sync + Send {
-    /// Get transactions up to given beacon
+    /// Get transactions up to given beacon using chronological order
     async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
 }
 
