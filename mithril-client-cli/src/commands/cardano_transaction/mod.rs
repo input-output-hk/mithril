@@ -10,7 +10,7 @@ pub use sets_show::*;
 use clap::Subcommand;
 use config::builder::DefaultState;
 use config::ConfigBuilder;
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 /// Cardano transactions management
 #[derive(Subcommand, Debug, Clone)]
@@ -39,7 +39,7 @@ pub enum CardanoTransactionSetsCommands {
 
 impl CardanoTransactionCommands {
     /// Execute Cardano transaction command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         match self {
             Self::Sets(cmd) => cmd.execute(config_builder).await,
             Self::Certify(cmd) => cmd.execute(config_builder).await,
@@ -49,7 +49,7 @@ impl CardanoTransactionCommands {
 
 impl CardanoTransactionSetsCommands {
     /// Execute Cardano transaction sets command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,

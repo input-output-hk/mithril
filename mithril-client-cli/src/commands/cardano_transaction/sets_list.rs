@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::commands::client_builder_with_fallback_genesis_key;
 use crate::configuration::ConfigParameters;
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 /// Cardano transaction commitment LIST command
 #[derive(Parser, Debug, Clone)]
@@ -18,7 +18,7 @@ pub struct CardanoTransactionSetsListCommand {
 
 impl CardanoTransactionSetsListCommand {
     /// Main command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;

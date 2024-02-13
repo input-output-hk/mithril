@@ -5,7 +5,7 @@ use std::{
 };
 use thiserror::Error;
 
-use mithril_common::{entities::CompressionAlgorithm, StdError, StdResult};
+use mithril_client::{common::CompressionAlgorithm, MithrilError, MithrilResult};
 
 /// Check and unpack a downloaded archive in a given directory.
 #[derive(Default)]
@@ -37,7 +37,7 @@ pub enum SnapshotUnpackerError {
 
     /// Cannot write in the given directory.
     #[error("Unpack directory '{0}' is not writable, please check own or parents' permissions and ownership.")]
-    UnpackDirectoryIsNotWritable(PathBuf, #[source] StdError),
+    UnpackDirectoryIsNotWritable(PathBuf, #[source] MithrilError),
 }
 
 impl SnapshotUnpacker {
@@ -47,7 +47,7 @@ impl SnapshotUnpacker {
         pathdir: &Path,
         size: u64,
         compression_algorithm: CompressionAlgorithm,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         if pathdir.exists() {
             return Err(
                 SnapshotUnpackerError::UnpackDirectoryAlreadyExists(pathdir.to_owned()).into(),
@@ -76,7 +76,6 @@ impl SnapshotUnpacker {
 #[cfg(test)]
 mod test {
     use super::*;
-    use mithril_common::entities::CompressionAlgorithm;
     use std::fs::remove_dir_all;
 
     fn create_temporary_empty_directory(name: &str) -> PathBuf {

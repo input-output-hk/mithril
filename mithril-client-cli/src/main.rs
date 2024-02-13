@@ -11,7 +11,7 @@ use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
@@ -24,7 +24,7 @@ enum LogOutputType {
 }
 
 impl LogOutputType {
-    fn get_writer(&self) -> StdResult<Box<dyn Write + Send>> {
+    fn get_writer(&self) -> MithrilResult<Box<dyn Write + Send>> {
         let writer: Box<dyn Write + Send> = match self {
             LogOutputType::Stdout => Box::new(std::io::stdout()),
             LogOutputType::File(filepath) => Box::new(
@@ -79,7 +79,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn execute(&self) -> StdResult<()> {
+    pub async fn execute(&self) -> MithrilResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
         debug!("Reading configuration file '{}'.", filename);
@@ -116,7 +116,7 @@ impl Args {
         slog_async::Async::new(drain).build().fuse()
     }
 
-    fn build_logger(&self) -> StdResult<Logger> {
+    fn build_logger(&self) -> MithrilResult<Logger> {
         let log_output_type = self.get_log_output_type();
         let writer = log_output_type.get_writer()?;
 
@@ -173,7 +173,7 @@ impl ArtifactCommands {
         &self,
         unstable_enabled: bool,
         config_builder: ConfigBuilder<DefaultState>,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
@@ -194,7 +194,7 @@ impl ArtifactCommands {
 }
 
 #[tokio::main]
-async fn main() -> StdResult<()> {
+async fn main() -> MithrilResult<()> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
