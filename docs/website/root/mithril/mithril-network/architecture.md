@@ -7,7 +7,7 @@ sidebar_label: Architecture
 
 :::info
 
-* The current Mithril network is based on a single aggregator. However, the team is currently working on a more decentralized version where multiple aggregators will be operating on the same Mithril network.
+* The current Mithril network relies on a single aggregator. However, the team is working on a more decentralized version, where multiple aggregators will operate within the same Mithril network.
 
 :::
 
@@ -33,7 +33,7 @@ The network is composed of the following nodes:
 
 * **Mithril relay**:
 
-> A forward proxy which is used to secure communications between the Mithril signer and the Mithril aggregator. More information are available at the [Mithril signer deployment model](../../manual/getting-started/run-signer-node#mithril-signer-deployment-model) section
+> A forward proxy that is used to secure communications between the Mithril signer and the Mithril aggregator. More information is available in the [Mithril signer deployment model](../../manual/getting-started/run-signer-node#mithril-signer-deployment-model) section.
 
 :::tip
 
