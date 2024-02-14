@@ -30,6 +30,16 @@ macro_rules! cfg_random {
     }
 }
 
+macro_rules! cfg_fs_random {
+    ($($item:item)*) => {
+        $(
+            #[cfg(all(feature = "fs", feature = "random"))]
+            #[cfg_attr(docsrs, doc(all(feature = "fs", feature = "random")))]
+            $item
+        )*
+    }
+}
+
 macro_rules! cfg_test_tools {
     ($($item:item)*) => {
         $(

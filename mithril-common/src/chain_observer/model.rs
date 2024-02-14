@@ -7,11 +7,12 @@ use thiserror::Error;
 
 use crate::{StdError, StdResult};
 
-cfg_fs! {
+cfg_fs_random! {
     use serde::Deserialize;
     use anyhow::Context;
     use minicbor::{Decode, Decoder, decode};
     use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
+
     /// [Datum] represents an inline datum from UTxO.
     #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
     #[serde(rename_all = "lowercase")]
