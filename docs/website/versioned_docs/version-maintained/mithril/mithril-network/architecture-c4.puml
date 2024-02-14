@@ -1,0 +1,62 @@
+@startuml architecture
+title "Mithril network architecture"
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+AddElementTag("external", $bgColor="#c1ffc1")
+
+Person(end_user, "End user", "Retrieves and verifies artifacts certified by the Mithril network")
+
+Container_Boundary(mithril_aggregator, "Mithril aggregator", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator") {
+    Component(mithril_aggregator_logic, "Aggregator logic", "FSM", "Maintains and transitions aggregator's internal states")
+    Component(mithril_aggregator_cryptographic_engine, "Cryptographic engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_aggregator_chain_observer, "Chain observer", "", "Observes the Cardano chain")
+    Component(mithril_aggregator_http_server, "HTTP server", "REST API", "Serves HTTP requests to signers and clients")
+    ComponentDb(mithril_aggregator_persistence, "Persistence", "SQLite/FS", "Stores aggregator's data (verification keys, certificates, artifacts)")
+    
+    Rel(mithril_aggregator_logic, mithril_aggregator_cryptographic_engine, "Computes protocol cryptography")
+    Rel_U(mithril_aggregator_chain_observer, mithril_aggregator_logic, "Notifies aggregator's logic about chain state changes")
+    BiRel(mithril_aggregator_logic, mithril_aggregator_persistence, "Accesses aggregator's state")
+    BiRel(mithril_aggregator_http_server, mithril_aggregator_persistence, "Accesses aggregator's state")
+}
+
+Container_Boundary(mithril_signer, "Mithril signer", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-signer") {
+    Component(mithril_signer_logic, "Signer logic", "FSM", "Maintains and transitions signer's internal states ")
+    Component(mithril_signer_cryptographic_engine, "Cryptographic engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_signer_chain_observer, "Chain observer", "", "Observes the Cardano chain")
+    Component(mithril_signer_http_client, "HTTP client", "REST API", "Sends HTTP requests to the aggregator via the relay")
+    ComponentDb(mithril_signer_persistence, "Persistence", "SQLite/FS", "Stores signer's data (signing keys)")
+
+    BiRel(mithril_signer_logic, mithril_signer_http_client, "Retrieves aggregator's data")
+    Rel(mithril_signer_logic, mithril_signer_cryptographic_engine, "Computes protocol cryptography")
+    Rel_U(mithril_signer_chain_observer, mithril_signer_logic, "Notifies signer's logic about chain state changes")
+    BiRel(mithril_signer_logic, mithril_signer_persistence, "Accesses signer's state")
+}
+
+Container_Boundary(mithril_relay, "Mithril relay") {
+    Component(mithril_relay_forward_proxy, "Forward proxy", "Squid", "Proxies HTTPS calls to the aggregator")
+}
+
+Container_Boundary(mithril_client, "Mithril client", $link="https://github.com/input-output-hk/mithril/tree/main/mithril-client") {
+    Component(mithril_client_logic, "Client logic", "Client commands", "Retrieves artifacts and verifies their authenticity")
+    Component(mithril_client_cryptographic_engine, "Cryptographic engine", "STM/Asym", "Operates cryptographic primitives")
+    Component(mithril_client_http_client, "HTTP client", "REST API", "Sends HTTP requests to the aggregator")
+
+    BiRel(end_user, mithril_client_logic, "CLI or browser", "User interaction")
+    BiRel(mithril_client_logic, mithril_client_http_client, "Retrieves aggregator's data and artifacts")
+    Rel(mithril_client_logic, mithril_client_cryptographic_engine, "Computes protocol cryptography")
+}
+
+Rel(mithril_signer_http_client, mithril_relay_forward_proxy, "", "JSON/TCP")
+Rel(mithril_relay_forward_proxy, mithril_aggregator_http_server, "", "JSON/HTTPS")
+Rel(mithril_client_http_client, mithril_aggregator_http_server, "", "JSON/HTTPS")
+
+Component(mithril_aggregator_cardano_node, "Cardano node", "N2C/FS", "Cardano full node", $tags="external")
+Rel_L(mithril_aggregator_chain_observer, mithril_aggregator_cardano_node, "Retrieves Cardano chain state")
+Component(mithril_signer_cardano_node, "Cardano node", "N2C/FS", "Cardano block-producing node", $tags="external")
+Rel_D(mithril_signer_chain_observer, mithril_signer_cardano_node, "Retrieves Cardano chain state and KES signing keys")
+BiRel(mithril_signer_cardano_node, mithril_aggregator_cardano_node, "N2N protocol")
+
+Component(mithril_artifact_storage, "Artifact storage", "Cloud", "Cloud file storage", $tags="external")
+Rel(mithril_aggregator_logic, mithril_artifact_storage, "HTTPS", "Stores artifacts")
+Rel(mithril_client_http_client, mithril_artifact_storage, "HTTPS", "Downloads artifacts")
+@enduml

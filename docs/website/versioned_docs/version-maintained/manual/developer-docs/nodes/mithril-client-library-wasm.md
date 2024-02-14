@@ -53,7 +53,7 @@ The Mithril client library is compatible with the following browsers:
 | **Opera Android** | `41` | 2016-10-25 | - |
 | **Safari on iOS** | `15.4` | 2022-03-14 | - |
 
-In your Javascript project, use `npm` to add [mithril-client]https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm) library as a dependency:
+In your Javascript project, use `npm` to add [mithril-client-wasm](https://www.npmjs.com/package/@mithril-dev/mithril-client-wasm) library as a dependency:
 
 ```bash
 npm i @mithril-dev/mithril-client-wasm
@@ -64,7 +64,7 @@ npm i @mithril-dev/mithril-client-wasm
 Below is a basic example of how to use most of the functions exposed by the Mithril client library:
 
 ```js
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm"
+import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm"
 
 let aggregator_endpoint =
   "https://aggregator.testing-preview.api.mithril.network/aggregator"
@@ -84,6 +84,8 @@ broadcast_channel.onmessage = (e) => {
     console.log(event);
   }
 };
+
+await initMithrilClient();
 
 let client = await new MithrilClient(
   aggregator_endpoint,
