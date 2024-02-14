@@ -1,5 +1,9 @@
 //! Commands to generate a markdown documentation for the command line.
 
+// TODO: Some Configuration could not be generated properly because there is a lack of information.
+// - We don't know which parameter is required or not.
+// - In aggregator, Configuration struct contains all parameters but it's not possible to know which sub command use one parameter.
+
 mod extract_clap_info;
 mod markdown_formatter;
 mod test_doc_macro;
