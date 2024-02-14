@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
+    Beacon, CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
+    SignedEntityType, SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -239,6 +240,49 @@ impl Configuration {
         self.store_retention_limit
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
+
+    /// Create the deduplicated list of allowed signed entity types discriminants.
+    ///
+    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
+    /// The list can be extended with the configuration parameter `signed_entity_types`.
+    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
+    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
+    pub fn list_allowed_signed_entity_types_discriminants(
+        &self,
+    ) -> StdResult<Vec<SignedEntityTypeDiscriminants>> {
+        let mut signed_entity_types = Vec::new();
+        signed_entity_types.push(SignedEntityTypeDiscriminants::MithrilStakeDistribution);
+        signed_entity_types.push(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull);
+
+        let discriminant_names = self.signed_entity_types.clone().unwrap_or_default();
+        let mut signed_entity_types_appended = discriminant_names
+            .split(',')
+            .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
+            .filter(|signed_entity_type| !signed_entity_types.contains(signed_entity_type))
+            .collect::<Vec<_>>();
+        signed_entity_types.append(&mut signed_entity_types_appended);
+
+        Ok(signed_entity_types)
+    }
+
+    /// Create the deduplicated list of allowed signed entity types.
+    ///
+    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
+    /// The list can be extended with the configuration parameter `signed_entity_types`.
+    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
+    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
+    pub fn list_allowed_signed_entity_types(
+        &self,
+        beacon: &Beacon,
+    ) -> StdResult<Vec<SignedEntityType>> {
+        let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
+        let signed_entity_types = allowed_discriminants
+            .into_iter()
+            .map(|discriminant| SignedEntityType::from_beacon(&discriminant, beacon))
+            .collect();
+
+        Ok(signed_entity_types)
+    }
 }
 
 /// Default configuration with all the default values for configurations.
@@ -409,6 +453,8 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
+    use mithril_common::test_utils::fake_data;
+
     use super::*;
 
     #[test]
@@ -440,5 +486,67 @@ mod test {
             };
             assert_eq!(configuration.safe_epoch_retention_limit(), Some(3));
         }
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_without_specific_configuration() {
+        let config = Configuration {
+            signed_entity_types: None,
+            ..Configuration::new_sample()
+        };
+        let beacon = fake_data::beacon();
+
+        let discriminants = config
+            .list_allowed_signed_entity_types_discriminants()
+            .unwrap();
+        let signed_entity_types = config.list_allowed_signed_entity_types(&beacon).unwrap();
+
+        assert_eq!(
+            vec![
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ],
+            discriminants
+        );
+        assert_eq!(
+            vec![
+                SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+            ],
+            signed_entity_types
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_with_specific_configuration() {
+        let config = Configuration {
+            signed_entity_types: Some(
+                "MithrilStakeDistribution,Unknown, CardanoStakeDistribution".to_string(),
+            ),
+            ..Configuration::new_sample()
+        };
+        let beacon = fake_data::beacon();
+
+        let discriminants = config
+            .list_allowed_signed_entity_types_discriminants()
+            .unwrap();
+        let signed_entity_types = config.list_allowed_signed_entity_types(&beacon).unwrap();
+
+        assert_eq!(
+            vec![
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            ],
+            discriminants
+        );
+        assert_eq!(
+            vec![
+                SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+                SignedEntityType::CardanoStakeDistribution(beacon.epoch),
+            ],
+            signed_entity_types
+        );
     }
 }
