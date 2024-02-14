@@ -14,6 +14,8 @@ use tracing::{debug, trace};
 
 use crate::StdResult;
 
+use self::default_values::cardano_transactions_commitments;
+
 pub struct AppState {
     epoch_settings: String,
     certificate_list: String,
@@ -22,6 +24,7 @@ pub struct AppState {
     snapshots: BTreeMap<String, String>,
     msd_list: String,
     msds: BTreeMap<String, String>,
+    cardano_transactions_commitments: BTreeMap<String, String>,
 }
 
 /// Wrapper to access the application state in shared execution.
@@ -44,6 +47,7 @@ impl Default for AppState {
             snapshots: default_values::snapshots(),
             msd_list: default_values::msd_list().to_owned(),
             msds: default_values::msds(),
+            cardano_transactions_commitments: default_values::cardano_transactions_commitments(),
         }
     }
 }
@@ -67,6 +71,7 @@ impl AppState {
             snapshots,
             msd_list,
             msds,
+            cardano_transactions_commitments,
         };
 
         Ok(instance)
@@ -80,6 +85,11 @@ impl AppState {
     /// return the list of Mithril stake distributions in the same order as they were read
     pub async fn get_msds(&self) -> StdResult<String> {
         Ok(self.msd_list.clone())
+    }
+
+    /// return the list of cardano transactions commitments in the same order as they were read
+    pub async fn get_cardano_transactions_commitments(&self) -> StdResult<String> {
+        Ok(self.cardano_transactions_commitments.clone())
     }
 
     /// return the list of certificates in the same order as they were read

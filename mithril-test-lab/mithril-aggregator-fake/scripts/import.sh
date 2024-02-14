@@ -104,3 +104,5 @@ download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest"
 download_list "$BASE_URL/artifact/mithril-stake-distributions"  "mithril-stake-distributions"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash"
 
+download_list "$BASE_URL/artifact/cardano-transactions"  "cardano-transactions"
+download_artifacts "$BASE_URL/artifact/cardano-transaction" "cardano-transaction" "hash"

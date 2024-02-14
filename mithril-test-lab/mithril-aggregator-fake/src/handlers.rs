@@ -27,6 +27,7 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/artifact/mithril-stake-distributions", get(msds))
         .route("/artifact/mithril-stake-distribution/:digest", get(msd))
         .route("/artifact/snapshot/:digest", get(snapshot))
+        .route("/artifact/cardano-transactions", get(cardano_transactions))
         .route("/certificates", get(certificates))
         .route("/certificate/:hash", get(certificate))
         .route("/statistics/snapshot", post(statistics))
