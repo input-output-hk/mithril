@@ -26,7 +26,7 @@ const ENTITY_TYPE_CARDANO_TRANSACTIONS: usize = 3;
 /// variants.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
-#[strum_discriminants(derive(EnumString, AsRefStr))]
+#[strum_discriminants(derive(EnumString, AsRefStr, Serialize, Deserialize, PartialOrd, Ord))]
 pub enum SignedEntityType {
     /// Mithril stake distribution
     MithrilStakeDistribution(Epoch),
