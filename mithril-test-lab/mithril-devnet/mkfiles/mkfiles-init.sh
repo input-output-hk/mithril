@@ -11,8 +11,11 @@ esac
 if [ -z "${CARDANO_NODE_VERSION}" ]; then 
   CARDANO_NODE_VERSION="8.7.3"
 fi
+if [ -z "${CARDANO_NODE_VERSION_RELEASE}" ]; then 
+  CARDANO_NODE_VERSION_RELEASE=$(echo ${CARDANO_NODE_VERSION} | cut -d'-' -f1)
+fi
 if [ -z "${CARDANO_BINARY_URL}" ]; then 
-  CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-${OPERATING_SYSTEM}.tar.gz"
+  CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}.tar.gz"
 fi
 if [ -z "${NETWORK_MAGIC}" ]; then 
   NETWORK_MAGIC=42
