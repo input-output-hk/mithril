@@ -72,10 +72,9 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         {
             let mut command_parameters = extract_clap_info::extract_parameters(cmd);
             if let Some(config_doc) = struct_doc {
-                if config_doc.data.is_empty() {
-                    return "".to_string();
+                if !config_doc.data.is_empty() {
+                    command_parameters = command_parameters.merge_struct_doc(config_doc);
                 }
-                command_parameters = command_parameters.merge_struct_doc(config_doc);
             }
 
             let parameters_table = doc_config_to_markdown(&command_parameters);
@@ -277,9 +276,24 @@ mod tests {
     pub struct MyCommandWithOnlySubCommand {}
 
     #[test]
-    fn test_format_arg() {
+    fn test_format_arg_without_struct_doc() {
         let mut command = MyCommand::command();
         let doc = doc_markdown_with_config(&mut command, None);
+
+        assert!(
+            doc.contains(
+                "| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |"
+            ),
+            "Generated doc: {doc}"
+        );
+        assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` | - | - | - | :heavy_check_mark: |"), "Generated doc: {doc}");
+    }
+
+    #[test]
+    fn test_format_arg_with_empty_struct_doc() {
+        let mut command = MyCommand::command();
+        let merged_struct_doc = StructDoc::new();
+        let doc = doc_markdown_with_config(&mut command, Some(&merged_struct_doc));
 
         assert!(
             doc.contains(

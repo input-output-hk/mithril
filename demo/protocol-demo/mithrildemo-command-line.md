@@ -47,6 +47,20 @@ Options:
 | **generate-doc** | doc | Generate documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `m` | `--m` | `-m` | `M` | Security parameter, upper bound on indices | `200` | - | - |
+| `k` | `--k` | `-k` | `K` | Quorum parameter | `5` | - | - |
+| `phi_f` | `--phi-f` | - | `PHI_F` | f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant | `0.2` | - | - |
+| `nparties` | `--nparties` | - | `NPARTIES` | Number of parties | `5` | - | - |
+| `nmessages` | `--nmessages` | - | `NMESSAGES` | Number of messages to sign | `1` | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
 ####  mithrildemo generate-doc
 
 Generate documentation

@@ -45,6 +45,19 @@ Options:
 | **generate-doc** | doc | Generate command line documentation |
 | **help** |  | Print this message or the help of the given subcommand(s) |
 
+The configuration parameters can be set in either of the following ways:
+
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+
+2. The value can be overridden by an environment variable with the parameter name in uppercase.
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:--------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `run_mode` | `--run-mode` | - | `RUN_MODE` | Run Mode | `dev` | - | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level (-v=warning, -vv=info, -vvv=debug) | `0` | - | - |
+| `config_directory` | `--config-directory` | - | `CONFIG_DIRECTORY` | Directory where configuration file is located | `./config` | - | - |
+| `help` | `--help` | `-h` | `HELP` | Print help | - | - | - |
+| `version` | `--version` | `-V` | `VERSION` | Print version | - | - | - |
 ####  mithril-relay aggregator
 
 Run a relay for a Mithril aggregator
