@@ -20,6 +20,7 @@ use crate::MithrilResult;
 /// Structure that aggregates the available clients for each of the Mithril types of certified data.
 ///
 /// Use the [ClientBuilder] to instantiate it easily.
+#[derive(Clone)]
 pub struct Client {
     #[cfg(feature = "unstable")]
     cardano_transaction_proof_client: Arc<CardanoTransactionProofClient>,

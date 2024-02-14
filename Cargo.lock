@@ -3466,6 +3466,7 @@ version = "0.1.9"
 dependencies = [
  "async-trait",
  "futures",
+ "mithril-build-script",
  "mithril-client",
  "serde",
  "serde-wasm-bindgen",

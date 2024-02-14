@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 [dependencies]
 async-trait = "0.1.77"
 futures = "0.3.30"
-mithril-client = { path = "../mithril-client" }
+mithril-client = { path = "../mithril-client", features = ["unstable"] }
 serde = { version = "1.0.196", features = ["derive"] }
 serde-wasm-bindgen = "0.6.3"
 wasm-bindgen = "0.2.90"
@@ -24,6 +24,9 @@ web-sys = { version = "0.3.67", features = ["BroadcastChannel"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3.40"
+
+[build-dependencies]
+mithril-build-script = { path = "../mithril-build-script" }
 
 [features]
 # Include nothing by default
