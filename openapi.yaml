@@ -23,6 +23,29 @@ servers:
   - url: https://aggregator.testing-preview.api.mithril.network/aggregator
   - url: http://localhost:8080/aggregator
 paths:
+  /:
+    get:
+      summary: Get public specifications about the aggregator
+      description: |
+        Returns the specifications related to the aggregator:
+          * Open API version
+          * URL of Mithril documentation
+      responses:
+        "200":
+          description: root found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RootMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: root error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /epoch-settings:
     get:
       summary: Get current epoch settings
@@ -506,6 +529,28 @@ paths:
 
 components:
   schemas:
+    RootMessage:
+      description: Aggregator public information
+      type: object
+      additionalProperties: false
+      required:
+        - open_api_version
+        - documentation_url
+      properties:
+        open_api_version:
+          description: Open API version
+          type: string
+          format: byte
+        documentation_url:
+          description: Mithril documentation
+          type: string
+          format: byte
+      example: 
+        {
+          "open_api_version": "0.1.17",
+          "documentation_url": "https://mithril.network"
+        }
+
     Epoch:
       description: Cardano chain epoch number
       type: integer
@@ -532,6 +577,7 @@ components:
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
           "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 }
         }
+
     ProtocolParameters:
       description: Protocol cryptographic parameters
       type: object

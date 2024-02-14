@@ -63,7 +63,9 @@ mod handlers {
 mod tests {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::{initialize_dependencies, DependencyContainer};
+    use mithril_common::test_utils::apispec::APISpec;
     use reqwest::StatusCode;
+    use serde_json::Value::Null;
     use std::sync::Arc;
     use warp::http::Method;
     use warp::test::request;
@@ -112,6 +114,15 @@ mod tests {
                 open_api_version: expected_open_api_version,
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
             }
+        );
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
         );
     }
 }
