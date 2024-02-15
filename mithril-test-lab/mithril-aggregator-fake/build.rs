@@ -1,7 +1,9 @@
 // build.rs
 
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::env;
+use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
@@ -14,7 +16,9 @@ fn main() {
 
     let data_folder_path: &Path = Path::new("./default_data");
     let data_folder = DataFolder::load_from_folder(data_folder_path);
-    fs::write(dest_path, data_folder.generate_code()).unwrap();
+    let generated_code = data_folder.generate_code();
+    fs::write(Path::new("./tmp_default_values.rs"), &generated_code).unwrap();
+    fs::write(dest_path, &generated_code).unwrap();
 
     println!("cargo:rerun-if-changed=default_data/");
 }
@@ -59,7 +63,7 @@ impl DataFolder {
             });
 
             match filename.as_str() {
-                "epoch-settings" => {
+                "epoch-settings.json" => {
                     data_folder.epoch_settings = file_content;
                 }
                 "mithril-stake-distributions.json" => {
@@ -109,32 +113,39 @@ impl DataFolder {
             "use std::collections::BTreeMap;
 
 {}
-
-{}
-
-{}
-
-{}
-
-{}
-
-{}
-
-{}
-
-{}
-
-{}
 ",
-            generate_list_getter("epoch_settings", self.epoch_settings),
-            generate_artifact_getter("snapshots", self.individual_snapshots),
-            generate_list_getter("snapshot_list", self.snapshots_list),
-            generate_artifact_getter("msds", self.individual_msds),
-            generate_list_getter("msd_list", self.msds_list),
-            generate_artifact_getter("certificates", self.individual_certificates),
-            generate_list_getter("certificate_list", self.certificates_list),
-            generate_artifact_getter("ctx_commitments", self.individual_ctx_commitments),
-            generate_list_getter("ctx_commitments_list", self.ctx_commitments_list),
+            [
+                generate_list_getter("epoch_settings", self.epoch_settings),
+                generate_ids_array(
+                    "snapshot_digests",
+                    BTreeSet::from_iter(self.individual_snapshots.keys().cloned())
+                ),
+                generate_artifact_getter("snapshots", self.individual_snapshots),
+                generate_list_getter("snapshot_list", self.snapshots_list),
+                generate_ids_array(
+                    "msd_hashes",
+                    BTreeSet::from_iter(self.individual_msds.keys().cloned())
+                ),
+                generate_artifact_getter("msds", self.individual_msds),
+                generate_list_getter("msd_list", self.msds_list),
+                generate_ids_array(
+                    "certificate_hashes",
+                    BTreeSet::from_iter(self.individual_certificates.keys().cloned())
+                ),
+                generate_artifact_getter("certificates", self.individual_certificates),
+                generate_list_getter("certificate_list", self.certificates_list),
+                generate_ids_array(
+                    "ctx_commitment_hashes",
+                    BTreeSet::from_iter(self.individual_ctx_commitments.keys().cloned())
+                ),
+                generate_artifact_getter("ctx_commitments", self.individual_ctx_commitments),
+                generate_list_getter("ctx_commitments_list", self.ctx_commitments_list),
+            ]
+            .join(
+                "
+
+"
+            )
         )
     }
 }
@@ -159,9 +170,7 @@ fn generate_artifact_getter(
     fun_name: &str,
     source_jsons: BTreeMap<ArtifactId, FileContent>,
 ) -> String {
-    use std::fmt::Write as _;
-
-    let mut artifacts_list = "    [".to_string();
+    let mut artifacts_list = String::new();
 
     for (artifact_id, file_content) in source_jsons {
         write!(
@@ -176,16 +185,10 @@ fn generate_artifact_getter(
         .unwrap();
     }
 
-    write!(
-        artifacts_list,
-        "
-    ]"
-    )
-    .unwrap();
-
     format!(
         r###"pub(crate) fn {}() -> BTreeMap<String, String> {{
-{}
+    [{}
+    ]
     .into_iter()
     .map(|(k, v)| (k.to_owned(), v.to_owned()))
     .collect()
@@ -201,5 +204,30 @@ fn generate_list_getter(fun_name: &str, source_json: FileContent) -> String {
     r#"{}"#
 }}"###,
         fun_name, source_json
+    )
+}
+
+/// pub(crate) fn $fun_name() -> &'static str
+fn generate_ids_array(array_name: &str, ids: BTreeSet<ArtifactId>) -> String {
+    let mut ids_list = String::new();
+
+    for id in &ids {
+        write!(
+            ids_list,
+            r#"
+        "{}","#,
+            id
+        )
+        .unwrap();
+    }
+
+    format!(
+        r###"pub(crate) const fn {}<'a>() -> [&'a str; {}] {{
+    [{}
+    ]
+}}"###,
+        array_name,
+        ids.len(),
+        ids_list,
     )
 }
