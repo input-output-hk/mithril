@@ -91,7 +91,7 @@ download_ctx_proof() {
     for cardano_transaction_hash in $ctx_hashes;
     do
         tput rc;
-        wget -O $DATA_DIR/cardano-transaction-proof-${cardano_transaction_hash}.json --quiet "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}";
+        wget -O $DATA_DIR/ctx-proof-${cardano_transaction_hash}.json --quiet "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}";
         let "nb=nb+1"
         echo -n "$nb   "
     done
@@ -135,8 +135,8 @@ download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest"
 download_data "$BASE_URL/artifact/mithril-stake-distributions"  "mithril-stake-distributions"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash"
 
-download_data "$BASE_URL/artifact/cardano-transactions"  "cardano-transactions"
-download_artifacts "$BASE_URL/artifact/cardano-transaction" "cardano-transaction" "hash"
+download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-commitments"
+download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-commitment" "hash"
 
 if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
     download_ctx_proof $CARDANO_TRANSACTIONS_HASHES

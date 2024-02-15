@@ -42,6 +42,7 @@ struct DataFolder {
 
     ctx_commitments_list: FileContent,
     individual_ctx_commitments: BTreeMap<ArtifactId, FileContent>,
+    ctx_proofs: BTreeMap<ArtifactId, FileContent>,
 }
 
 impl DataFolder {
@@ -75,7 +76,7 @@ impl DataFolder {
                 "certificates.json" => {
                     data_folder.certificates_list = file_content;
                 }
-                "cardano-transactions.json" => {
+                "ctx-commitments.json" => {
                     data_folder.ctx_commitments_list = file_content;
                 }
                 _ if filename.starts_with("mithril-stake-distribution") => {
@@ -94,11 +95,16 @@ impl DataFolder {
                         .individual_certificates
                         .insert(extract_artifact_id(&filename, "certificate-"), file_content);
                 }
-                _ if filename.starts_with("cardano-transaction") => {
+                _ if filename.starts_with("ctx-commitment") => {
                     data_folder.individual_ctx_commitments.insert(
-                        extract_artifact_id(&filename, "cardano-transaction-"),
+                        extract_artifact_id(&filename, "ctx-commitment-"),
                         file_content,
                     );
+                }
+                _ if filename.starts_with("ctx-proof") => {
+                    data_folder
+                        .ctx_proofs
+                        .insert(extract_artifact_id(&filename, "ctx-proof-"), file_content);
                 }
                 // unknown file
                 _ => {}
@@ -140,6 +146,11 @@ impl DataFolder {
                 ),
                 generate_artifact_getter("ctx_commitments", self.individual_ctx_commitments),
                 generate_list_getter("ctx_commitments_list", self.ctx_commitments_list),
+                generate_ids_array(
+                    "proof_transaction_hashes",
+                    BTreeSet::from_iter(self.ctx_proofs.keys().cloned())
+                ),
+                generate_artifact_getter("ctx_proofs", self.ctx_proofs),
             ]
             .join(
                 "
