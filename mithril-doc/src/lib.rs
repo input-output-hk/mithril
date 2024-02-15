@@ -13,6 +13,8 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::Write;
 
+pub use mithril_doc_derive::{self, *};
+
 const DEFAULT_OUTPUT_FILE_TEMPLATE: &str = "[PROGRAM NAME]-command-line.md";
 
 /// Information to document a field

@@ -14,7 +14,6 @@ use std::path::PathBuf;
 
 use crate::{Configuration, DefaultConfiguration};
 use mithril_doc::GenerateDocCommands;
-use mithril_doc_derive::DocExtractor;
 
 /// Main command selector
 #[derive(Debug, Clone, Subcommand)]

@@ -18,7 +18,6 @@ use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
-use mithril_doc_derive::DocExtractor;
 
 enum LogOutputType {
     Stdout,

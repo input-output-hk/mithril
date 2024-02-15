@@ -2,7 +2,6 @@ use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
 use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
-use mithril_doc_derive::DocExtractor;
 
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{crit, debug};
