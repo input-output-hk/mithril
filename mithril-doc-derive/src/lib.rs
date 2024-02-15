@@ -94,25 +94,7 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
         syn::Visibility::Inherited => "inherited",
     };
 
-    let _nb_attr = champ.attrs.len();
-
-    let doc = champ
-        .attrs
-        .first()
-        .map(|_| {
-            // let m = &a.meta;
-            // format!("{} {} => {}",
-            // m.path().get_ident().as_ref().unwrap(),
-            // match a.style {
-            // syn::AttrStyle::Outer => "Outer".to_string(),
-            // syn::AttrStyle::Inner(_) => "Inner".to_string(),
-            // },
-            // comment.join("\n")
-            // )
-
-            doc::extract_doc_comment(&champ.attrs[..]).join("\n")
-        })
-        .unwrap_or("".to_string());
+    let doc = doc::extract_doc_comment(&champ.attrs[..]).join("\n");
 
     let example = champ
         .attrs

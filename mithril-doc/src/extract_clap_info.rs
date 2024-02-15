@@ -72,8 +72,7 @@ mod tests {
         assert_eq!("--run-mode".to_string(), parameter.command_line_long);
         assert_eq!(Some("dev".to_string()), parameter.default_value);
         assert_eq!("Run Mode".to_string(), parameter.description);
-        //assert_eq!("???".to_string(), parameter.example);
-        //assert_eq!(false, parameter.is_required);
+        assert!(parameter.example.is_none());
         assert!(!parameter.is_mandatory);
     }
 
