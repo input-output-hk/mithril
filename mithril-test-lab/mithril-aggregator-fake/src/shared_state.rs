@@ -113,15 +113,12 @@ impl AppState {
     }
 
     /// return the list of Cardano transactions commitments in the same order as they were read
-    pub async fn get_cardano_transactions_commitments(&self) -> StdResult<String> {
+    pub async fn get_ctx_commitments(&self) -> StdResult<String> {
         Ok(self.ctx_commitment_list.clone())
     }
 
     /// return the Cardano transactions commitment identified by the given key if any.
-    pub async fn get_cardano_transactions_commitment(
-        &self,
-        key: &str,
-    ) -> StdResult<Option<String>> {
+    pub async fn get_ctx_commitment(&self, key: &str) -> StdResult<Option<String>> {
         Ok(self.ctx_commitments.get(key).cloned())
     }
 }

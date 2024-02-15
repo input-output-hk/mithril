@@ -401,4 +401,59 @@ mod tests {
 
         test(task, PORT).await;
     }
+
+    #[tokio::test]
+    async fn get_ctx() {
+        const PORT: u16 = 3011;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going
+            // on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-transaction/{hash}";
+            let hash = default_values::ctx_commitment_hashes()[0];
+            let url = BASE_URL.replace("PORT", &PORT.to_string());
+            let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
+                .await
+                .unwrap();
+
+            assert_eq!(StatusCode::OK, response.status());
+
+            APISpec::verify_conformity(
+                APISpec::get_all_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &Response::new(response.bytes().await.unwrap()),
+            );
+
+            Ok(())
+        });
+
+        test(task, PORT).await;
+    }
+
+    #[tokio::test]
+    async fn get_no_ctx() {
+        const PORT: u16 = 3012;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going
+            // on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-transaction/{hash}";
+            let hash = "whatever";
+            let url = BASE_URL.replace("PORT", &PORT.to_string());
+            let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
+                .await
+                .unwrap();
+
+            assert_eq!(StatusCode::NOT_FOUND, response.status());
+
+            Ok(())
+        });
+
+        test(task, PORT).await;
+    }
 }
