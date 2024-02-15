@@ -5,7 +5,7 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
-type FileName = String;
+type ArtifactId = String;
 type FileContent = String;
 
 fn main() {
@@ -24,26 +24,31 @@ fn main() {
 ///
 /// List items are just their corresponding file content loaded in memory.
 /// Individual items are btreemap with the source filename as key and the file content as value.
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DataFolder {
     certificates_list: FileContent,
-    individual_certificates: BTreeMap<FileName, FileContent>,
+    individual_certificates: BTreeMap<ArtifactId, FileContent>,
 
     snapshots_list: FileContent,
-    individual_snapshots: BTreeMap<FileName, FileContent>,
+    individual_snapshots: BTreeMap<ArtifactId, FileContent>,
 
     msds_list: FileContent,
-    individual_msds: BTreeMap<FileName, FileContent>,
+    individual_msds: BTreeMap<ArtifactId, FileContent>,
 
     ctx_commitments_list: FileContent,
-    individual_ctx_commitments: BTreeMap<FileName, FileContent>,
+    individual_ctx_commitments: BTreeMap<ArtifactId, FileContent>,
 }
 
 impl DataFolder {
-    fn load_from_folder(folder: &'static Path) -> Self {
+    fn load_from_folder(folder: &Path) -> Self {
+        fn extract_artifact_id(filename: &str, prefix: &str) -> String {
+            let id_with_extension = filename.strip_prefix(prefix).unwrap();
+            id_with_extension.strip_suffix(".json").unwrap().to_string()
+        }
+
         let mut data_folder = DataFolder::default();
 
-        for entry in list_files_in_folder(folder) {
+        for entry in list_json_files_in_folder(folder) {
             let filename = entry.file_name().to_string_lossy().to_string();
             let file_content = fs::read_to_string(&entry.path()).unwrap_or_else(|_| {
                 panic!(
@@ -66,22 +71,26 @@ impl DataFolder {
                     data_folder.ctx_commitments_list = file_content;
                 }
                 _ if filename.starts_with("mithril-stake-distribution") => {
-                    data_folder.individual_msds.insert(filename, file_content);
+                    data_folder.individual_msds.insert(
+                        extract_artifact_id(&filename, "mithril-stake-distribution-"),
+                        file_content,
+                    );
                 }
                 _ if filename.starts_with("snapshot") => {
                     data_folder
                         .individual_snapshots
-                        .insert(filename, file_content);
+                        .insert(extract_artifact_id(&filename, "snapshot-"), file_content);
                 }
                 _ if filename.starts_with("certificate") => {
                     data_folder
                         .individual_certificates
-                        .insert(filename, file_content);
+                        .insert(extract_artifact_id(&filename, "certificate-"), file_content);
                 }
                 _ if filename.starts_with("cardano-transaction") => {
-                    data_folder
-                        .individual_ctx_commitments
-                        .insert(filename, file_content);
+                    data_folder.individual_ctx_commitments.insert(
+                        extract_artifact_id(&filename, "cardano-transaction-"),
+                        file_content,
+                    );
                 }
                 // unknown file
                 _ => {}
@@ -111,10 +120,10 @@ impl DataFolder {
     }
 }
 
-fn list_files_in_folder(folder: &'static Path) -> impl Iterator<Item = std::fs::DirEntry> {
+fn list_json_files_in_folder(folder: &Path) -> impl Iterator<Item = std::fs::DirEntry> + '_ {
     fs::read_dir(folder)
         .unwrap_or_else(|_| panic!("Could not read `{}` dir", folder.display()))
-        .filter_map(|e| {
+        .filter_map(move |e| {
             let entry = e.unwrap_or_else(|_| {
                 panic!("Failed to read a file in the `{}` dir", folder.display())
             });
@@ -123,17 +132,17 @@ fn list_files_in_folder(folder: &'static Path) -> impl Iterator<Item = std::fs::
                 _ => None,
             }
         })
+        .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
 }
 
-/// pub fn $fun_name() -> BTreeMap<String, String>
 fn generate_artifact_getter(
     fun_name: &str,
-    source_jsons: BTreeMap<FileName, FileContent>,
+    source_jsons: BTreeMap<ArtifactId, FileContent>,
 ) -> String {
     todo!()
     //     format!(
     //         r###"
-    // pub(super) fn {}() -> BTreeMap<String, String> {{
+    // pub(crate) fn {}() -> BTreeMap<String, String> {{
     //     r#"{}"#
     // }}
     //     "###,
@@ -144,7 +153,7 @@ fn generate_artifact_getter(
 /// pub fn $fun_name() -> &'static str
 fn generate_list_getter(fun_name: &str, source_json: FileContent) -> String {
     format!(
-        r###"pub(super) fn {}() -> &'static str {{
+        r###"pub(crate) fn {}() -> &'static str {{
     r#"{}"#
 }}"###,
         fun_name, source_json
