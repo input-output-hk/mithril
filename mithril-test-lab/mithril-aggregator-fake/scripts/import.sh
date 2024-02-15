@@ -30,18 +30,18 @@ clean_directory() {
 }
 
 # $1=URL $2=artifact_name
-download_list() {
-    local -r url=${1:?"No URL given to download_list function."};
-    local -r artifact=${2:?"No artifact type given to download_list function."};
+download_data() {
+    local -r url=${1:?"No URL given to download_data function."};
+    local -r artifact=${2:?"No artifact type given to download_data function."};
 
-    echo "Downloading ${artifact} list."
+    echo "Downloading ${artifact} data."
     wget -O $DATA_DIR/${artifact}.json --quiet "${url}"
 }
 
 # $1=URL $2=artifact_name $3=JSON field
 download_artifacts() {
-    local -r url=${1:?"No URL given to download_list function."};
-    local -r artifact=${2:?"No artifact type given to download_list function."};
+    local -r url=${1:?"No URL given to download_data function."};
+    local -r artifact=${2:?"No artifact type given to download_data function."};
     local -r json_field=${3:?"No JSON field given to read from artifact list."};
     local -i nb=0
 
@@ -94,15 +94,17 @@ export DATA_DIR URL;
 check_requirements;
 clean_directory;
 
-download_list "$BASE_URL/certificates" "certificates"
+download_data "$BASE_URL/epoch-settings" "epoch-settings"
+
+download_data "$BASE_URL/certificates" "certificates"
 download_artifacts "$BASE_URL/certificate" "certificate" "hash"
 download_certificate_chain
 
-download_list "$BASE_URL/artifact/snapshots" "snapshots"
+download_data "$BASE_URL/artifact/snapshots" "snapshots"
 download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest"
 
-download_list "$BASE_URL/artifact/mithril-stake-distributions"  "mithril-stake-distributions"
+download_data "$BASE_URL/artifact/mithril-stake-distributions"  "mithril-stake-distributions"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash"
 
-download_list "$BASE_URL/artifact/cardano-transactions"  "cardano-transactions"
+download_data "$BASE_URL/artifact/cardano-transactions"  "cardano-transactions"
 download_artifacts "$BASE_URL/artifact/cardano-transaction" "cardano-transaction" "hash"

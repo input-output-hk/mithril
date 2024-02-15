@@ -10,8 +10,7 @@ type FileContent = String;
 
 fn main() {
     let out_dir = env::var_os("OUT_DIR").unwrap();
-    let dest_path = Path::new(&out_dir).join("hello.rs");
-    let dest_path = Path::new("./tmp_default_values.rs");
+    let dest_path = Path::new(&out_dir).join("imported_data.rs");
 
     let data_folder_path: &Path = Path::new("./default_data");
     let data_folder = DataFolder::load_from_folder(data_folder_path);
@@ -26,6 +25,8 @@ fn main() {
 /// Individual items are btreemap with the source filename as key and the file content as value.
 #[derive(Debug, Default)]
 struct DataFolder {
+    epoch_settings: FileContent,
+
     certificates_list: FileContent,
     individual_certificates: BTreeMap<ArtifactId, FileContent>,
 
@@ -58,6 +59,9 @@ impl DataFolder {
             });
 
             match filename.as_str() {
+                "epoch-settings" => {
+                    data_folder.epoch_settings = file_content;
+                }
                 "mithril-stake-distributions.json" => {
                     data_folder.msds_list = file_content;
                 }
@@ -119,7 +123,10 @@ impl DataFolder {
 {}
 
 {}
+
+{}
 ",
+            generate_list_getter("epoch_settings", self.epoch_settings),
             generate_artifact_getter("snapshots", self.individual_snapshots),
             generate_list_getter("snapshot_list", self.snapshots_list),
             generate_artifact_getter("msds", self.individual_msds),
