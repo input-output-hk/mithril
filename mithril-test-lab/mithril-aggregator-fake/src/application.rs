@@ -99,7 +99,7 @@ mod tests {
 
     use mithril_common::test_utils::apispec::APISpec;
 
-    use crate::CliArguments;
+    use crate::{default_values, CliArguments};
 
     use super::*;
 
@@ -221,8 +221,7 @@ mod tests {
 
             let path = "/certificate/{certificate_hash}";
             let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let certificate_hash =
-                "8f4e859b16774da9a57926d7af226bfe0a655a8e309ae4be234d0e776eb4a59f";
+            let certificate_hash = default_values::certificate_hashes()[0];
             let response = reqwest::get(&format!(
                 "{url}{}",
                 path.replace("{certificate_hash}", certificate_hash)
@@ -276,7 +275,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/snapshot/{digest}";
-            let digest = "000ee4c84c7b64a62dc30ec78a765a1f3bb81cd9dd4bd1eccf9f2da785e70877";
+            let digest = default_values::snapshot_digests()[0];
             let url = BASE_URL.replace("PORT", &PORT.to_string());
             let response = reqwest::get(&format!("{url}{}", path.replace("{digest}", digest)))
                 .await
@@ -331,7 +330,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/mithril-stake-distribution/{hash}";
-            let hash = "03ebb00e6626037f2e58eb7cc50d308fd57c253baa1fe2b04eb5945ced16b5bd";
+            let hash = default_values::msd_hashes()[0];
             let url = BASE_URL.replace("PORT", &PORT.to_string());
             let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
                 .await

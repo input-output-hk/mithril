@@ -27,7 +27,7 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/artifact/mithril-stake-distributions", get(msds))
         .route("/artifact/mithril-stake-distribution/:digest", get(msd))
         .route("/artifact/snapshot/:digest", get(snapshot))
-        .route("/artifact/cardano-transactions", get(cardano_transactions))
+        // .route("/artifact/cardano-transactions", get(cardano_transactions))
         .route("/certificates", get(certificates))
         .route("/certificate/:hash", get(certificate))
         .route("/statistics/snapshot", post(statistics))
@@ -151,7 +151,7 @@ pub async fn set_json_app_header(
 
 #[cfg(test)]
 mod tests {
-    use crate::shared_state::AppState;
+    use crate::{default_values, shared_state::AppState};
 
     pub use super::*;
 
@@ -170,8 +170,7 @@ mod tests {
     #[tokio::test]
     async fn existing_snapshot_digest() {
         let state: State<SharedState> = State(AppState::default().into());
-        let digest =
-            Path("000ee4c84c7b64a62dc30ec78a765a1f3bb81cd9dd4bd1eccf9f2da785e70877".to_string());
+        let digest = Path(default_values::snapshot_digests()[0].to_string());
 
         let response = snapshot(digest, state)
             .await
@@ -195,8 +194,7 @@ mod tests {
     #[tokio::test]
     async fn existing_certificate_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash =
-            Path("8f4e859b16774da9a57926d7af226bfe0a655a8e309ae4be234d0e776eb4a59f".to_string());
+        let hash = Path(default_values::certificate_hashes()[0].to_string());
 
         let response = certificate(hash, state)
             .await
@@ -220,8 +218,7 @@ mod tests {
     #[tokio::test]
     async fn existing_msd_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash =
-            Path("03ebb00e6626037f2e58eb7cc50d308fd57c253baa1fe2b04eb5945ced16b5bd".to_string());
+        let hash = Path(default_values::msd_hashes()[0].to_string());
 
         let response = msd(hash, state)
             .await

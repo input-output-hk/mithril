@@ -1,6 +1,3 @@
-#[path = "default_values.rs"]
-mod default_values;
-
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -12,7 +9,7 @@ use serde_json::Value;
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
 
-use crate::StdResult;
+use crate::{default_values, StdResult};
 
 pub struct AppState {
     epoch_settings: String,
