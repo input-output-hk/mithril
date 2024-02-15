@@ -17,8 +17,7 @@ fn main() {
     let data_folder_path: &Path = Path::new("./default_data");
     let data_folder = DataFolder::load_from_folder(data_folder_path);
     let generated_code = data_folder.generate_code();
-    fs::write(Path::new("./tmp_default_values.rs"), &generated_code).unwrap();
-    fs::write(dest_path, &generated_code).unwrap();
+    fs::write(dest_path, generated_code).unwrap();
 
     println!("cargo:rerun-if-changed=default_data/");
 }
@@ -79,29 +78,29 @@ impl DataFolder {
                 "ctx-commitments.json" => {
                     data_folder.ctx_commitments_list = file_content;
                 }
-                _ if filename.starts_with("mithril-stake-distribution") => {
+                _ if filename.starts_with("mithril-stake-distribution-") => {
                     data_folder.individual_msds.insert(
                         extract_artifact_id(&filename, "mithril-stake-distribution-"),
                         file_content,
                     );
                 }
-                _ if filename.starts_with("snapshot") => {
+                _ if filename.starts_with("snapshot-") => {
                     data_folder
                         .individual_snapshots
                         .insert(extract_artifact_id(&filename, "snapshot-"), file_content);
                 }
-                _ if filename.starts_with("certificate") => {
+                _ if filename.starts_with("certificate-") => {
                     data_folder
                         .individual_certificates
                         .insert(extract_artifact_id(&filename, "certificate-"), file_content);
                 }
-                _ if filename.starts_with("ctx-commitment") => {
+                _ if filename.starts_with("ctx-commitment-") => {
                     data_folder.individual_ctx_commitments.insert(
                         extract_artifact_id(&filename, "ctx-commitment-"),
                         file_content,
                     );
                 }
-                _ if filename.starts_with("ctx-proof") => {
+                _ if filename.starts_with("ctx-proof-") => {
                     data_folder
                         .ctx_proofs
                         .insert(extract_artifact_id(&filename, "ctx-proof-"), file_content);
