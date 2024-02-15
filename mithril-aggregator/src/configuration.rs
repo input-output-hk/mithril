@@ -3,7 +3,7 @@ use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
-use mithril_common::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
 use mithril_doc_derive::{DocExtractor, DocExtractorDefault};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

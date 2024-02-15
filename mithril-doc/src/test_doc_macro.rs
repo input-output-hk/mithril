@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::generate_doc::{DocExtractor, DocExtractorDefault, FieldDoc, StructDoc};
+    use crate::{DocExtractor, DocExtractorDefault, FieldDoc, StructDoc};
     use config::{Map, Source, Value, ValueKind};
 
     #[allow(dead_code)]

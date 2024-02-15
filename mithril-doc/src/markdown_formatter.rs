@@ -1,6 +1,6 @@
 use clap::{builder::StyledStr, Arg, Command};
 
-use crate::generate_doc::extract_clap_info;
+use crate::extract_clap_info;
 
 use super::StructDoc;
 
@@ -310,7 +310,7 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, None);
 
         assert!(
-            doc.contains("###  mithril-common sub-command-a"),
+            doc.contains("###  mithril-doc sub-command-a"),
             "Generated doc: {doc}"
         );
         // In `Commands:` part.
@@ -332,7 +332,7 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, None);
 
         assert!(
-            doc.contains("###  mithril-common sub-command-b"),
+            doc.contains("###  mithril-doc sub-command-b"),
             "Generated doc: {doc}"
         );
         // In `Commands:` part.
@@ -365,11 +365,11 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, None);
 
         assert!(
-            doc.contains("###  mithril-common sub-command-b"),
+            doc.contains("###  mithril-doc sub-command-b"),
             "Generated doc: {doc}"
         );
         assert!(
-            !doc.contains("###  mithril-common help"),
+            !doc.contains("###  mithril-doc help"),
             "Generated doc: {doc}"
         );
     }

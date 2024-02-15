@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
-use mithril_common::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
 use mithril_doc_derive::DocExtractor;
 
 use slog::{o, Drain, Level, Logger};
@@ -14,7 +14,8 @@ use tokio::{
     task::JoinSet,
 };
 
-use mithril_common::{generate_doc::GenerateDocCommands, StdResult};
+use mithril_common::StdResult;
+use mithril_doc::GenerateDocCommands;
 use mithril_signer::{
     Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
     SignerState, StateMachine,
@@ -105,7 +106,10 @@ async fn main() -> StdResult<()> {
             Configuration::extract(),
             DefaultConfiguration::extract(),
         ];
-        return cmd.execute_with_configurations(&mut Args::command(), &config_infos);
+        return match cmd.execute_with_configurations(&mut Args::command(), &config_infos) {
+            Ok(()) => StdResult::Ok(()),
+            Err(message) => StdResult::Err(anyhow!(message)),
+        };
     }
 
     #[cfg(feature = "bundle_openssl")]

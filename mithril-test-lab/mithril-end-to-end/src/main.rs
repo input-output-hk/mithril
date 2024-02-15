@@ -1,5 +1,7 @@
+use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
-use mithril_common::{generate_doc::GenerateDocCommands, StdResult};
+use mithril_common::StdResult;
+use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
     Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
 };
@@ -124,7 +126,10 @@ async fn main() -> StdResult<()> {
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
     if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
-        return cmd.execute(&mut Args::command());
+        return match cmd.execute(&mut Args::command()) {
+            Ok(()) => StdResult::Ok(()),
+            Err(message) => StdResult::Err(anyhow!(message)),
+        };
     }
 
     let server_port = 8080;

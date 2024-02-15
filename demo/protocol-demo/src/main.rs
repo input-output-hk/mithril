@@ -3,7 +3,7 @@ mod types;
 
 use crate::demonstrator::{Demonstrator, ProtocolDemonstrator};
 use clap::{CommandFactory, Parser, Subcommand};
-use mithril_common::generate_doc::GenerateDocCommands;
+use mithril_doc::GenerateDocCommands;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 

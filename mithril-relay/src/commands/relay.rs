@@ -1,7 +1,9 @@
 use super::{AggregatorCommand, Args, PassiveCommand, SignerCommand};
+use anyhow::anyhow;
 use clap::{CommandFactory, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::{generate_doc::GenerateDocCommands, StdResult};
+use mithril_common::StdResult;
+use mithril_doc::GenerateDocCommands;
 
 /// The available sub-commands of the relay
 #[derive(Subcommand, Debug, Clone)]
@@ -30,7 +32,10 @@ impl RelayCommands {
             Self::Aggregator(cmd) => cmd.execute(config_builder).await,
             Self::Signer(cmd) => cmd.execute(config_builder).await,
             Self::Passive(cmd) => cmd.execute(config_builder).await,
-            Self::GenerateDoc(cmd) => cmd.execute(&mut Args::command()),
+            Self::GenerateDoc(cmd) => match cmd.execute(&mut Args::command()) {
+                Ok(()) => StdResult::Ok(()),
+                Err(message) => StdResult::Err(anyhow!(message)),
+            },
         }
     }
 }

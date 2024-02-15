@@ -3,18 +3,17 @@ mod genesis_command;
 mod serve_command;
 mod tools_command;
 
+use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::{
-    generate_doc::{DocExtractor, DocExtractorDefault, StructDoc},
-    StdResult,
-};
+use mithril_common::StdResult;
+use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
 use slog::Level;
 use slog_scope::debug;
 use std::path::PathBuf;
 
 use crate::{Configuration, DefaultConfiguration};
-use mithril_common::generate_doc::GenerateDocCommands;
+use mithril_doc::GenerateDocCommands;
 use mithril_doc_derive::DocExtractor;
 
 /// Main command selector
@@ -37,7 +36,10 @@ impl MainCommand {
             Self::Tools(cmd) => cmd.execute(config_builder).await,
             Self::GenerateDoc(cmd) => {
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
-                cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
+                match cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos) {
+                    Ok(()) => StdResult::Ok(()),
+                    Err(message) => StdResult::Err(anyhow!(message)),
+                }
             }
         }
     }

@@ -8,7 +8,6 @@ mod extract_clap_info;
 mod markdown_formatter;
 mod test_doc_macro;
 
-use crate::StdResult;
 use clap::{Command, Parser};
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -121,20 +120,27 @@ pub struct GenerateDocCommands {
 }
 
 impl GenerateDocCommands {
-    fn save_doc(&self, cmd_name: &str, doc: &str) -> StdResult<()> {
+    fn save_doc(&self, cmd_name: &str, doc: &str) -> Result<(), String> {
         let output = if self.output.as_str() == DEFAULT_OUTPUT_FILE_TEMPLATE {
             format!("{}-command-line.md", cmd_name)
         } else {
             self.output.clone()
         };
-        let mut buffer: File = File::create(&output)?;
-        write!(buffer, "\n{}", doc)?;
-        println!("Documentation generated in file `{}`", &output);
+
+        match File::create(&output) {
+            Ok(mut buffer) => {
+                if write!(buffer, "\n{}", doc).is_err() {
+                    return Err(format!("Error writing in {}", output));
+                }
+                println!("Documentation generated in file `{}`", &output);
+            }
+            _ => return Err(format!("Could not create {}", output)),
+        };
         Ok(())
     }
 
     /// Generate the command line documentation.
-    pub fn execute(&self, cmd_to_document: &mut Command) -> StdResult<()> {
+    pub fn execute(&self, cmd_to_document: &mut Command) -> Result<(), String> {
         self.execute_with_configurations(cmd_to_document, &[])
     }
 
@@ -143,7 +149,7 @@ impl GenerateDocCommands {
         &self,
         cmd_to_document: &mut Command,
         configs_info: &[StructDoc],
-    ) -> StdResult<()> {
+    ) -> Result<(), String> {
         let mut iter_config = configs_info.iter();
         let mut merged_struct_doc = StructDoc::new();
         for next_config in &mut iter_config {

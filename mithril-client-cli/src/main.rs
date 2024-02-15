@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
@@ -11,10 +11,8 @@ use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
-use mithril_client::{
-    generate_doc::{DocExtractor, GenerateDocCommands, StructDoc},
-    MithrilResult,
-};
+use mithril_client::MithrilResult;
+use mithril_doc::{DocExtractor, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
@@ -200,7 +198,10 @@ impl ArtifactCommands {
                     ctx.execute(config_builder).await
                 }
             },
-            Self::GenerateDoc(cmd) => cmd.execute(&mut Args::command()),
+            Self::GenerateDoc(cmd) => match cmd.execute(&mut Args::command()) {
+                Ok(()) => MithrilResult::Ok(()),
+                Err(message) => MithrilResult::Err(anyhow!(message)),
+            },
         }
     }
 }

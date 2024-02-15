@@ -3343,6 +3343,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc",
  "mithril-doc-derive",
  "mithril-persistence",
  "mockall",
@@ -3440,6 +3441,7 @@ dependencies = [
  "human_bytes",
  "indicatif",
  "mithril-client",
+ "mithril-doc",
  "mithril-doc-derive",
  "openssl",
  "openssl-probe",
@@ -3479,8 +3481,6 @@ dependencies = [
  "blake2 0.10.6",
  "chrono",
  "ckb-merkle-mountain-range",
- "clap",
- "config",
  "criterion",
  "digest 0.10.7",
  "ed25519-dalek",
@@ -3504,7 +3504,6 @@ dependencies = [
  "rand_chacha",
  "rand_core 0.6.4",
  "rayon",
- "regex",
  "reqwest",
  "semver",
  "serde",
@@ -3519,12 +3518,21 @@ dependencies = [
  "slog-scope",
  "slog-term",
  "strum",
- "syn 2.0.48",
  "thiserror",
  "tokio",
  "typetag",
  "walkdir",
  "warp",
+]
+
+[[package]]
+name = "mithril-doc"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "config",
+ "mithril-doc-derive",
+ "regex",
 ]
 
 [[package]]
@@ -3547,6 +3555,7 @@ dependencies = [
  "hex",
  "indicatif",
  "mithril-common",
+ "mithril-doc",
  "reqwest",
  "serde",
  "serde_json",
@@ -3592,6 +3601,7 @@ dependencies = [
  "config",
  "libp2p",
  "mithril-common",
+ "mithril-doc",
  "reqwest",
  "serde",
  "serde_json",
@@ -3617,6 +3627,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc",
  "mithril-doc-derive",
  "mithril-persistence",
  "mockall",
@@ -3670,6 +3681,7 @@ dependencies = [
  "hex",
  "log",
  "mithril-common",
+ "mithril-doc",
  "mithril-stm",
  "rand_chacha",
  "rand_core 0.6.4",

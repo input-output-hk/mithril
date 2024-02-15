@@ -1,6 +1,6 @@
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_common::generate_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
 use mithril_doc_derive::{DocExtractor, DocExtractorDefault};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};

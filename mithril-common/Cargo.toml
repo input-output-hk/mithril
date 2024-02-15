@@ -23,8 +23,6 @@ bech32 = "0.9.1"
 blake2 = "0.10.6"
 chrono = { version = "0.4.33", features = ["serde"] }
 ckb-merkle-mountain-range = "0.6.0"
-clap = { version = "4.4.6", features = ["derive"] }
-config = "0.13.3"
 digest = "0.10.7"
 ed25519-dalek = { version = "2.1.0", features = ["rand_core", "serde"] }
 fixed = "1.24.0"
@@ -57,7 +55,6 @@ serde_yaml = "0.9.31"
 sha2 = "0.10.8"
 slog = "2.7.0"
 strum = { version = "0.26.1", features = ["derive"] }
-syn = "2.0.48"
 thiserror = "1.0.56"
 tokio = { version = "1.35.1", features = ["io-util", "rt", "sync"] }
 typetag = "0.2.15"
@@ -81,12 +78,10 @@ mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = fal
 ] }
 
 [dev-dependencies]
-config = "0.13.3"
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = "0.12.1"
 pallas-crypto = "0.23.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-regex = "1.10.3"
 reqwest = { version = "0.11.23", features = ["json"] }
 slog-async = "2.8.0"
 slog-scope = "4.4.0"

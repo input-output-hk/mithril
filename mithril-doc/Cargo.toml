@@ -1,0 +1,22 @@
+[package]
+name = "mithril-doc"
+version = "0.1.0"
+description = "Crate to generate doc."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
+
+[dependencies]
+clap = { version = "4.4.6", features = ["derive"] }
+config = "0.13.3"
+mithril-doc-derive = { path = "../mithril-doc-derive" }
+
+[dev-dependencies]
+regex = "1.10.3"
+
+
+[features]
+default = []
