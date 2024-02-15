@@ -14,7 +14,10 @@ display_help() {
     echo
     echo "Import and save data from a given Mithril Aggregator."
     echo
-    echo "Usage: $0 DATA_DIRECTORY URL"
+    echo "Usage: $0 DATA_DIRECTORY URL [CARDANO_TRANSACTIONS_HASHES...]"
+    echo
+    echo "CARDANO_TRANSACTIONS_HASHES: optional list of cardano transactions hashes"
+    echo "  for which proof will be fetched."
     echo
     exit 1;
 }
@@ -78,13 +81,39 @@ download_certificate_chain() {
     echo " ✅";
 }
 
+download_ctx_proof() {
+    local -r ctx_hashes=${@:?"No cardano transaction hashes given to download_ctx_proof function."};
+    local -i nb=0
+
+    echo -n "Downloading cardano transaction proof: "
+    tput sc;
+
+    for cardano_transaction_hash in $ctx_hashes;
+    do
+        tput rc;
+        wget -O $DATA_DIR/cardano-transaction-proof-${cardano_transaction_hash}.json --quiet "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}";
+        let "nb=nb+1"
+        echo -n "$nb   "
+    done
+    echo " ✅";
+}
+
 # MAIN execution
 
 if [ -z "${1-""}" ]; then display_help "No data directory given to download JSON files."; fi;
 if [ -z "${2-""}" ]; then display_help "No Mithril Aggregator URL given."; fi;
 
 declare -r DATA_DIR=$1;
-declare -r BASE_URL=$2;
+shift
+declare -r BASE_URL=$1;
+shift
+declare -r CARDANO_TRANSACTIONS_HASHES=$@;
+
+echo "-- MITHRIL AGGREGATOR FAKE - DATA IMPORTER --"
+echo "data_dir:" $DATA_DIR
+echo "base_url:" $BASE_URL
+echo "tx_hashes:" $CARDANO_TRANSACTIONS_HASHES
+echo
 
 if [ ! -d "$DATA_DIR" ]; then error "Specified directory '${DATA_DIR}' is not a directory."; fi
 wget --quiet --server-response --spider $BASE_URL 2>/dev/null || error "Could not reach URL '${BASE_URL}'.";
@@ -108,3 +137,7 @@ download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stak
 
 download_data "$BASE_URL/artifact/cardano-transactions"  "cardano-transactions"
 download_artifacts "$BASE_URL/artifact/cardano-transaction" "cardano-transaction" "hash"
+
+if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
+    download_ctx_proof $CARDANO_TRANSACTIONS_HASHES
+fi
