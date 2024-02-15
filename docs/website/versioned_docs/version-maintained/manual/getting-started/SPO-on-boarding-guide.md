@@ -68,7 +68,7 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 :::warning
 
-This step is **mandatory**. It is **strongly recommended** to complete **Step 2** before.
+This step is **mandatory**. It is **strongly recommended** to complete **Step 2** beforehand.
 
 :::
 
