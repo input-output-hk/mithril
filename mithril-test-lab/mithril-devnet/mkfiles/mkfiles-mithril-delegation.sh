@@ -21,11 +21,23 @@ CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 
+# Is semver on the first argument strictly lower than equal to the second argument?
+version_lt() {
+  VERSION_LHS=\$1
+  VERSION_RHS=\$2
+  if [ "\${VERSION_LHS}" != "\${VERSION_RHS}" ] && [ "\${VERSION_LHS}" = "`echo -e "\${VERSION_LHS}\n\${VERSION_RHS}" | sort -V | head -n1`" ]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
 # Stake addresses registration certs
 for ADDR in ${USER_ADDRS}; do
-  if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
-    KEY_REGISTRATION_DEPOSIT_ANOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq -r .enactState.curPParams.keyDeposit)
-    if [ "\${KEY_REGISTRATION_DEPOSIT_ANOUNT}" != "null" ]; then
+  if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
+    #KEY_REGISTRATION_DEPOSIT_ANOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq -r .enactState.curPParams.keyDeposit)
+    KEY_REGISTRATION_DEPOSIT_ANOUNT=0
+    if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
       # Conway specific creation of registration certificate
       ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
       --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
@@ -50,7 +62,7 @@ EOF
 # User N will delegate to pool N
 for N in ${POOL_NODES_N}; do
   cat >> delegate.sh <<EOF
-    if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
+    if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
       # Stake address delegation certs
       ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
           --stake-verification-key-file addresses/user${N}-stake.vkey \
