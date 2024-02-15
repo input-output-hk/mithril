@@ -111,10 +111,22 @@ impl DataFolder {
 {}
 
 {}
+
+{}
+
+{}
+
+{}
+
+{}
 ",
+            generate_artifact_getter("snapshots", self.individual_snapshots),
             generate_list_getter("snapshot_list", self.snapshots_list),
+            generate_artifact_getter("msds", self.individual_msds),
             generate_list_getter("msd_list", self.msds_list),
+            generate_artifact_getter("certificates", self.individual_certificates),
             generate_list_getter("certificate_list", self.certificates_list),
+            generate_artifact_getter("ctx_commitments", self.individual_ctx_commitments),
             generate_list_getter("ctx_commitments_list", self.ctx_commitments_list),
         )
     }
@@ -135,22 +147,47 @@ fn list_json_files_in_folder(folder: &Path) -> impl Iterator<Item = std::fs::Dir
         .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
 }
 
+// pub(crate) fn $fun_name()() -> BTreeMap<String, String>
 fn generate_artifact_getter(
     fun_name: &str,
     source_jsons: BTreeMap<ArtifactId, FileContent>,
 ) -> String {
-    todo!()
-    //     format!(
-    //         r###"
-    // pub(crate) fn {}() -> BTreeMap<String, String> {{
-    //     r#"{}"#
-    // }}
-    //     "###,
-    //         fun_name, source_json
-    //     )
+    use std::fmt::Write as _;
+
+    let mut artifacts_list = "    [".to_string();
+
+    for (artifact_id, file_content) in source_jsons {
+        write!(
+            artifacts_list,
+            r###"
+        (
+            "{}",
+            r#"{}"#
+        ),"###,
+            artifact_id, file_content
+        )
+        .unwrap();
+    }
+
+    write!(
+        artifacts_list,
+        "
+    ]"
+    )
+    .unwrap();
+
+    format!(
+        r###"pub(crate) fn {}() -> BTreeMap<String, String> {{
+{}
+    .into_iter()
+    .map(|(k, v)| (k.to_owned(), v.to_owned()))
+    .collect()
+}}"###,
+        fun_name, artifacts_list
+    )
 }
 
-/// pub fn $fun_name() -> &'static str
+/// pub(crate) fn $fun_name() -> &'static str
 fn generate_list_getter(fun_name: &str, source_json: FileContent) -> String {
     format!(
         r###"pub(crate) fn {}() -> &'static str {{
