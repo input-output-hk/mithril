@@ -962,6 +962,7 @@ name = "client-mithril-stake-distribution"
 version = "0.1.6"
 dependencies = [
  "anyhow",
+ "clap",
  "mithril-client",
  "slog",
  "slog-async",
@@ -975,6 +976,7 @@ version = "0.1.6"
 dependencies = [
  "anyhow",
  "async-trait",
+ "clap",
  "futures",
  "indicatif",
  "mithril-client",

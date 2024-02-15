@@ -1,37 +1,60 @@
 //! This example shows how to implement a Mithril client and use its features.
 //!
-//! In this example, the client interacts with a real aggregator (`testing-preview`) to get the data.
+//! In this example, the client interacts by default with a real aggregator (`testing-preview`) to get the data.
 //!
 //! A [FeedbackReceiver] using [indicatif] is used to nicely report the progress to the console.
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use clap::Parser;
 use futures::Future;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
-use mithril_client::feedback::{FeedbackReceiver, MithrilEvent};
-use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
 use std::fmt::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
+use mithril_client::feedback::{FeedbackReceiver, MithrilEvent};
+use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
+
+#[derive(Parser, Debug)]
+#[command(version)]
+pub struct Args {
+    /// Genesis verification key.
+    #[clap(
+        long,
+        env = "GENESIS_VERIFICATION_KEY",
+        default_value = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
+    )]
+    genesis_verification_key: String,
+
+    /// Aggregator endpoint URL.
+    #[clap(
+        long,
+        env = "AGGREGATOR_ENDPOINT",
+        default_value = "https://aggregator.testing-preview.api.mithril.network/aggregator"
+    )]
+    aggregator_endpoint: String,
+}
+
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
-    let aggregator_endpoint = "https://aggregator.testing-preview.api.mithril.network/aggregator";
-    let genesis_verification_key = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
+    let args = Args::parse();
     let work_dir = get_temp_dir()?;
     let progress_bar = indicatif::MultiProgress::new();
-    let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-        .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
-        .build()?;
+    let client =
+        ClientBuilder::aggregator(&args.aggregator_endpoint, &args.genesis_verification_key)
+            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
+            .build()?;
 
     let snapshots = client.snapshot().list().await?;
 
     let last_digest = snapshots
         .first()
         .ok_or(anyhow!(
-            "No snapshots could be listed from aggregator: '{aggregator_endpoint}'"
+            "No snapshots could be listed from aggregator: '{}'",
+            args.aggregator_endpoint
         ))?
         .digest
         .as_ref();
