@@ -21,6 +21,7 @@ pub struct AppState {
     msds: BTreeMap<String, String>,
     ctx_commitment_list: String,
     ctx_commitments: BTreeMap<String, String>,
+    ctx_proofs: BTreeMap<String, String>,
 }
 
 /// Wrapper to access the application state in shared execution.
@@ -45,6 +46,7 @@ impl Default for AppState {
             msds: default_values::msds(),
             ctx_commitment_list: default_values::ctx_commitments_list().to_owned(),
             ctx_commitments: default_values::ctx_commitments(),
+            ctx_proofs: default_values::ctx_proofs(),
         }
     }
 }
@@ -59,8 +61,8 @@ impl AppState {
         reader.read_certificate_chain(&certificate_list, &mut certificates)?;
         let (snapshot_list, snapshots) = reader.read_files("snapshot", "digest")?;
         let (msd_list, msds) = reader.read_files("mithril-stake-distribution", "hash")?;
-        let (ctx_commitment_list, ctx_commitments) =
-            reader.read_files("cardano-transaction", "hash")?;
+        let (ctx_commitment_list, ctx_commitments) = reader.read_files("ctx-commitment", "hash")?;
+        let (_, ctx_proofs) = reader.read_files("ctx-proof", "transaction_hash")?;
 
         let instance = Self {
             epoch_settings,
@@ -72,6 +74,7 @@ impl AppState {
             msds,
             ctx_commitment_list,
             ctx_commitments,
+            ctx_proofs,
         };
 
         Ok(instance)
@@ -120,6 +123,11 @@ impl AppState {
     /// return the Cardano transactions commitment identified by the given key if any.
     pub async fn get_ctx_commitment(&self, key: &str) -> StdResult<Option<String>> {
         Ok(self.ctx_commitments.get(key).cloned())
+    }
+
+    /// return the Cardano transactions proofs from Cardano transaction hashes.
+    pub async fn get_ctx_proofs(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.ctx_proofs.get(key).cloned())
     }
 }
 

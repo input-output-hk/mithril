@@ -98,6 +98,34 @@ download_ctx_proof() {
     echo " ✅";
 }
 
+write_ctx_proof_hashes_list() {
+    local -r ctx_hashes=${@:?"No cardano transaction hashes given to write_ctx_proof_hashes_list function."};
+    local -i nb=0
+
+    echo -n "Downloading cardano transaction proof: "
+    tput sc;
+
+    echo "[" > $DATA_DIR/ctx-proofs.json
+
+    local separator=" "
+    for cardano_transaction_hash in $ctx_hashes;
+    do
+        tput rc;
+        cat >> $DATA_DIR/ctx-proofs.json  <<EOF
+$separator { "transaction_hash": "$cardano_transaction_hash" }
+EOF
+
+    separator=","
+
+        let "nb=nb+1"
+        echo -n "$nb   "
+    done
+    echo "]" >> $DATA_DIR/ctx-proofs.json
+
+    echo " ✅";
+
+}
+
 # MAIN execution
 
 if [ -z "${1-""}" ]; then display_help "No data directory given to download JSON files."; fi;
@@ -132,7 +160,7 @@ download_certificate_chain
 download_data "$BASE_URL/artifact/snapshots" "snapshots"
 download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest"
 
-download_data "$BASE_URL/artifact/mithril-stake-distributions"  "mithril-stake-distributions"
+download_data "$BASE_URL/artifact/mithril-stake-distributions" "mithril-stake-distributions"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash"
 
 download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-commitments"
@@ -140,4 +168,5 @@ download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-commitment" "ha
 
 if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
     download_ctx_proof $CARDANO_TRANSACTIONS_HASHES
+    write_ctx_proof_hashes_list $CARDANO_TRANSACTIONS_HASHES
 fi

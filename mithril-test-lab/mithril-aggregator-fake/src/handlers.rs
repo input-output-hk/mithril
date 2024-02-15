@@ -3,7 +3,7 @@
 
 use axum::{
     body::Body,
-    extract::{Path, Request, State},
+    extract::{Path, Query, Request, State},
     http::{HeaderValue, Response, StatusCode},
     middleware::{from_fn, Next},
     response::IntoResponse,
@@ -29,6 +29,7 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/artifact/snapshot/:digest", get(snapshot))
         .route("/artifact/cardano-transactions", get(ctx_commitments))
         .route("/artifact/cardano-transaction/:hash", get(ctx_commitment))
+        .route("/proof/cardano-transaction", get(ctx_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/:hash", get(certificate))
         .route("/statistics/snapshot", post(statistics))
@@ -133,7 +134,7 @@ pub async fn ctx_commitments(State(state): State<SharedState>) -> Result<String,
     Ok(certificates)
 }
 
-/// HTTP: return a certificate identified by its hash.
+/// HTTP: return a cardano transaction commitment identified by its hash.
 pub async fn ctx_commitment(
     Path(key): Path<String>,
     State(state): State<SharedState>,
@@ -145,6 +146,28 @@ pub async fn ctx_commitment(
         .await?
         .map(|s| s.into_response())
         .ok_or_else(|| AppError::NotFound(format!("ctx commitment hash={key}")))
+}
+
+#[derive(serde::Deserialize, Default)]
+pub struct CardanoTransactionProofQueryParams {
+    transaction_hashes: String,
+}
+
+/// HTTP: return a cardano transaction proof identified by a transaction hash.
+pub async fn ctx_proof(
+    params: Option<Query<CardanoTransactionProofQueryParams>>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+    let Query(params) = params.unwrap_or_default();
+
+    app_state
+        .get_ctx_proofs(&params.transaction_hashes)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            AppError::NotFound(format!("ctx proof tx_hash={}", params.transaction_hashes))
+        })
 }
 
 /// HTTP: return OK when the client registers download statistics
@@ -215,18 +238,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_ctx_commitment_hash() {
-        let state: State<SharedState> = State(AppState::default().into());
-        let hash = Path("whatever".to_string());
-
-        let error = ctx_commitment(hash, state).await.expect_err(
-            "The handler was expected to fail since the ctx commitment's hash does not exist.",
-        );
-
-        assert!(matches!(error, AppError::NotFound(_)));
-    }
-
-    #[tokio::test]
     async fn existing_certificate_hash() {
         let state: State<SharedState> = State(AppState::default().into());
         let hash = Path(default_values::certificate_hashes()[0].to_string());
@@ -263,6 +274,18 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn invalid_ctx_commitment_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = ctx_commitment(hash, state).await.expect_err(
+            "The handler was expected to fail since the ctx commitment's hash does not exist.",
+        );
+
+        assert!(matches!(error, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
     async fn existing_ctx_commitment_hash() {
         let state: State<SharedState> = State(AppState::default().into());
         let hash = Path(default_values::ctx_commitment_hashes()[0].to_string());
@@ -270,6 +293,51 @@ mod tests {
         let response = ctx_commitment(hash, state).await.expect(
             "The handler was expected to succeed since the ctx commitment's hash does exist.",
         );
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn no_hash_ctx_proof() {
+        let state: State<SharedState> = State(AppState::default().into());
+
+        let error = ctx_proof(None, state)
+            .await
+            .expect_err("The handler was expected to fail since no transaction hash was provided.");
+
+        assert!(matches!(error, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn invalid_ctx_proof_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let transaction_hashes = "whatever".to_string();
+
+        let error = ctx_proof(
+            Some(Query(CardanoTransactionProofQueryParams {
+                transaction_hashes,
+            })),
+            state,
+        )
+        .await
+        .expect_err("The handler was expected to fail since the ctx proof's hash does not exist.");
+
+        assert!(matches!(error, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn existing_ctx_proof_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let transaction_hashes = default_values::proof_transaction_hashes()[0].to_string();
+
+        let response = ctx_proof(
+            Some(Query(CardanoTransactionProofQueryParams {
+                transaction_hashes,
+            })),
+            state,
+        )
+        .await
+        .expect("The handler was expected to succeed since the ctx proof's hash does exist.");
 
         assert_eq!(StatusCode::OK, response.status());
     }
