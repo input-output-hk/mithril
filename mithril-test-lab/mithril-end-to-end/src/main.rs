@@ -199,7 +199,7 @@ async fn main() -> StdResult<()> {
             Ok(())
         }
         Err(error) => {
-            let has_written_logs = infrastructure.tail_logs(20).await;
+            let has_written_logs = infrastructure.tail_logs(40).await;
             error!("Mithril End to End test in failed: {}", error);
             devnet.stop().await?;
             has_written_logs?;
