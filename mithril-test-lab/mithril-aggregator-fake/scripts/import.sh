@@ -46,6 +46,7 @@ download_artifacts() {
     local -r url=${1:?"No URL given to download_data function."};
     local -r artifact=${2:?"No artifact type given to download_data function."};
     local -r json_field=${3:?"No JSON field given to read from artifact list."};
+    local -r download_missing_certificate=${4:-false};
     local -i nb=0
 
     echo -n "Downloading ${artifact} data: "
@@ -55,10 +56,24 @@ download_artifacts() {
     do
         tput rc;
         wget -O $DATA_DIR/${artifact}-${field}.json --quiet "${url}/${field}"
+
+        if [ true = "$download_missing_certificate" ]; then
+            download_missing_certificate $(jq -r .certificate_hash $DATA_DIR/${artifact}-${field}.json);
+        fi
+
         let "nb=nb+1"
         echo -n "$nb   "
     done
     echo " ✅";
+}
+
+# Download certificate if a file with the hash does not already exist
+download_missing_certificate() {
+    local -r certificate_hash=${@:?"No certificate hashesgiven to download_missing_certificate function."};
+
+    if [ ! -e "$DATA_DIR/certificate-${certificate_hash}.json" ]; then
+        wget -O $DATA_DIR/certificate-${certificate_hash}.json --quiet "${BASE_URL}/certificate/${certificate_hash}";
+    fi
 }
 
 download_certificate_chain() {
@@ -92,6 +107,8 @@ download_ctx_proof() {
     do
         tput rc;
         wget -O $DATA_DIR/ctx-proof-${cardano_transaction_hash}.json --quiet "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}";
+        download_missing_certificate $(jq -r .certificate_hash $DATA_DIR/ctx-proof-${cardano_transaction_hash}.json);
+
         let "nb=nb+1"
         echo -n "$nb   "
     done
@@ -102,7 +119,7 @@ write_ctx_proof_hashes_list() {
     local -r ctx_hashes=${@:?"No cardano transaction hashes given to write_ctx_proof_hashes_list function."};
     local -i nb=0
 
-    echo -n "Downloading cardano transaction proof: "
+    echo -n "Writting cardano transaction proof ids to a file: "
     tput sc;
 
     echo "[" > $DATA_DIR/ctx-proofs.json
@@ -158,10 +175,10 @@ download_artifacts "$BASE_URL/certificate" "certificate" "hash"
 download_certificate_chain
 
 download_data "$BASE_URL/artifact/snapshots" "snapshots"
-download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest"
+download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest" true
 
 download_data "$BASE_URL/artifact/mithril-stake-distributions" "mithril-stake-distributions"
-download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash"
+download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash" true
 
 download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-commitments"
 download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-commitment" "hash"
