@@ -3380,6 +3380,7 @@ dependencies = [
  "clap",
  "clap_derive",
  "futures",
+ "mithril-build-script",
  "mithril-common",
  "reqwest",
  "serde",
@@ -3392,6 +3393,10 @@ dependencies = [
  "tracing-subscriber",
  "warp",
 ]
+
+[[package]]
+name = "mithril-build-script"
+version = "0.1.0"
 
 [[package]]
 name = "mithril-client"
