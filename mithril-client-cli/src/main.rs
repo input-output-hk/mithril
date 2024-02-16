@@ -83,7 +83,6 @@ pub struct Args {
 }
 
 impl Args {
-
     pub async fn execute(&self) -> MithrilResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
@@ -171,7 +170,7 @@ enum ArtifactCommands {
 
     #[clap(subcommand, alias("ctx"))]
     CardanoTransaction(CardanoTransactionCommands),
-    
+
     #[clap(alias("doc"))]
     GenerateDoc(GenerateDocCommands),
 }
@@ -196,7 +195,7 @@ impl ArtifactCommands {
                 } else {
                     ctx.execute(config_builder).await
                 }
-            },
+            }
             Self::GenerateDoc(cmd) => match cmd.execute(&mut Args::command()) {
                 Ok(()) => MithrilResult::Ok(()),
                 Err(message) => MithrilResult::Err(anyhow!(message)),
