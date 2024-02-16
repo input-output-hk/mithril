@@ -13,7 +13,7 @@ pub type FileContent = String;
 /// List items are just their corresponding file content loaded in memory.
 /// Individual items are btreemap with the source filename as key and the file content as value.
 #[derive(Debug, Default)]
-pub struct DataFolder {
+pub struct FakeAggregatorData {
     epoch_settings: FileContent,
 
     certificates_list: FileContent,
@@ -30,14 +30,14 @@ pub struct DataFolder {
     ctx_proofs: BTreeMap<ArtifactId, FileContent>,
 }
 
-impl DataFolder {
+impl FakeAggregatorData {
     pub fn load_from_folder(folder: &Path) -> Self {
         fn extract_artifact_id(filename: &str, prefix: &str) -> String {
             let id_with_extension = filename.strip_prefix(prefix).unwrap();
             id_with_extension.strip_suffix(".json").unwrap().to_string()
         }
 
-        let mut data_folder = DataFolder::default();
+        let mut data = FakeAggregatorData::default();
 
         for entry in list_json_files_in_folder(folder) {
             let filename = entry.file_name().to_string_lossy().to_string();
@@ -50,45 +50,42 @@ impl DataFolder {
 
             match filename.as_str() {
                 "epoch-settings.json" => {
-                    data_folder.epoch_settings = file_content;
+                    data.epoch_settings = file_content;
                 }
                 "mithril-stake-distributions.json" => {
-                    data_folder.msds_list = file_content;
+                    data.msds_list = file_content;
                 }
                 "snapshots.json" => {
-                    data_folder.snapshots_list = file_content;
+                    data.snapshots_list = file_content;
                 }
                 "certificates.json" => {
-                    data_folder.certificates_list = file_content;
+                    data.certificates_list = file_content;
                 }
                 "ctx-commitments.json" => {
-                    data_folder.ctx_commitments_list = file_content;
+                    data.ctx_commitments_list = file_content;
                 }
                 _ if filename.starts_with("mithril-stake-distribution-") => {
-                    data_folder.individual_msds.insert(
+                    data.individual_msds.insert(
                         extract_artifact_id(&filename, "mithril-stake-distribution-"),
                         file_content,
                     );
                 }
                 _ if filename.starts_with("snapshot-") => {
-                    data_folder
-                        .individual_snapshots
+                    data.individual_snapshots
                         .insert(extract_artifact_id(&filename, "snapshot-"), file_content);
                 }
                 _ if filename.starts_with("certificate-") => {
-                    data_folder
-                        .individual_certificates
+                    data.individual_certificates
                         .insert(extract_artifact_id(&filename, "certificate-"), file_content);
                 }
                 _ if filename.starts_with("ctx-commitment-") => {
-                    data_folder.individual_ctx_commitments.insert(
+                    data.individual_ctx_commitments.insert(
                         extract_artifact_id(&filename, "ctx-commitment-"),
                         file_content,
                     );
                 }
                 _ if filename.starts_with("ctx-proof-") => {
-                    data_folder
-                        .ctx_proofs
+                    data.ctx_proofs
                         .insert(extract_artifact_id(&filename, "ctx-proof-"), file_content);
                 }
                 // unknown file
@@ -96,48 +93,87 @@ impl DataFolder {
             }
         }
 
-        data_folder
+        data
+    }
+
+    pub fn generate_code_for_ids(self) -> String {
+        Self::assemble_code(
+            &[
+                generate_ids_array(
+                    "snapshot_digests",
+                    BTreeSet::from_iter(self.individual_snapshots.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "msd_hashes",
+                    BTreeSet::from_iter(self.individual_msds.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "certificate_hashes",
+                    BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "ctx_commitment_hashes",
+                    BTreeSet::from_iter(self.individual_ctx_commitments.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "proof_transaction_hashes",
+                    BTreeSet::from_iter(self.ctx_proofs.keys().cloned()),
+                ),
+            ],
+            false,
+        )
     }
 
     pub fn generate_code_for_all_data(self) -> String {
-        format!(
-            "use std::collections::BTreeMap;
-
-{}
-",
-            [
+        Self::assemble_code(
+            &[
                 generate_list_getter("epoch_settings", self.epoch_settings),
                 generate_ids_array(
                     "snapshot_digests",
-                    BTreeSet::from_iter(self.individual_snapshots.keys().cloned())
+                    BTreeSet::from_iter(self.individual_snapshots.keys().cloned()),
                 ),
                 generate_artifact_getter("snapshots", self.individual_snapshots),
                 generate_list_getter("snapshot_list", self.snapshots_list),
                 generate_ids_array(
                     "msd_hashes",
-                    BTreeSet::from_iter(self.individual_msds.keys().cloned())
+                    BTreeSet::from_iter(self.individual_msds.keys().cloned()),
                 ),
                 generate_artifact_getter("msds", self.individual_msds),
                 generate_list_getter("msd_list", self.msds_list),
                 generate_ids_array(
                     "certificate_hashes",
-                    BTreeSet::from_iter(self.individual_certificates.keys().cloned())
+                    BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
                 ),
                 generate_artifact_getter("certificates", self.individual_certificates),
                 generate_list_getter("certificate_list", self.certificates_list),
                 generate_ids_array(
                     "ctx_commitment_hashes",
-                    BTreeSet::from_iter(self.individual_ctx_commitments.keys().cloned())
+                    BTreeSet::from_iter(self.individual_ctx_commitments.keys().cloned()),
                 ),
                 generate_artifact_getter("ctx_commitments", self.individual_ctx_commitments),
                 generate_list_getter("ctx_commitments_list", self.ctx_commitments_list),
                 generate_ids_array(
                     "proof_transaction_hashes",
-                    BTreeSet::from_iter(self.ctx_proofs.keys().cloned())
+                    BTreeSet::from_iter(self.ctx_proofs.keys().cloned()),
                 ),
                 generate_artifact_getter("ctx_proofs", self.ctx_proofs),
-            ]
-            .join(
+            ],
+            true,
+        )
+    }
+
+    fn assemble_code(functions_code: &[String], include_use_btree_map: bool) -> String {
+        format!(
+            "{}{}
+",
+            if include_use_btree_map {
+                "use std::collections::BTreeMap;
+
+"
+            } else {
+                ""
+            },
+            functions_code.join(
                 "
 
 "
@@ -231,4 +267,62 @@ pub fn generate_ids_array(array_name: &str, ids: BTreeSet<ArtifactId>) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn generate_ids_array_with_empty_data() {
+        assert_eq!(
+            generate_ids_array("snapshots_digests", BTreeSet::new()),
+            "pub(crate) const fn snapshots_digests<'a>() -> [&'a str; 0] {
+    [
+    ]
+}"
+        );
+    }
+
+    #[test]
+    fn generate_ids_array_with_non_empty_data() {
+        assert_eq!(
+            generate_ids_array(
+                "snapshots_digests",
+                BTreeSet::from_iter(["abc".to_string(), "def".to_string(), "hij".to_string()])
+            ),
+            r#"pub(crate) const fn snapshots_digests<'a>() -> [&'a str; 3] {
+    [
+        "abc",
+        "def",
+        "hij",
+    ]
+}"#
+        );
+    }
+
+    #[test]
+    fn assemble_code_with_btree_use() {
+        assert_eq!(
+            "use std::collections::BTreeMap;
+
+fn a() {}
+
+fn b() {}
+",
+            FakeAggregatorData::assemble_code(
+                &["fn a() {}".to_string(), "fn b() {}".to_string()],
+                true
+            )
+        )
+    }
+
+    #[test]
+    fn assemble_code_without_btree_use() {
+        assert_eq!(
+            "fn a() {}
+
+fn b() {}
+",
+            FakeAggregatorData::assemble_code(
+                &["fn a() {}".to_string(), "fn b() {}".to_string()],
+                false
+            )
+        )
+    }
 }
