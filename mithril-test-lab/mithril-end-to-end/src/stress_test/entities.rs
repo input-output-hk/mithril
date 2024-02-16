@@ -8,7 +8,7 @@ use std::{
 };
 use tokio::time::Instant;
 
-use crate::BftNode;
+use crate::PoolNode;
 
 #[derive(Debug, Parser)]
 #[command(author, version, about, long_about = None)]
@@ -62,7 +62,7 @@ impl MainOpts {
 #[derive(Debug)]
 pub struct AggregatorParameters {
     pub server_port: u32,
-    pub bft_node: BftNode,
+    pub pool_node: PoolNode,
     pub cardano_cli_path: PathBuf,
     pub work_dir: PathBuf,
     pub bin_dir: PathBuf,
@@ -71,9 +71,12 @@ pub struct AggregatorParameters {
 
 impl AggregatorParameters {
     pub fn new(opts: &MainOpts, immutable_db_path: &Path) -> StdResult<Self> {
-        let bft_node = BftNode {
+        let pool_node = PoolNode {
             db_path: immutable_db_path.to_path_buf(),
             socket_path: PathBuf::new(),
+            pool_env_path: PathBuf::new(),
+            kes_secret_key_path: PathBuf::new(),
+            operational_certificate_path: PathBuf::new(),
         };
         let tmp_dir = opts
             .temporary_path
@@ -109,7 +112,7 @@ impl AggregatorParameters {
         };
 
         let aggregator_parameters = AggregatorParameters {
-            bft_node,
+            pool_node,
             bin_dir: opts.aggregator_dir.clone(),
             cardano_cli_path,
             server_port: opts.server_port,

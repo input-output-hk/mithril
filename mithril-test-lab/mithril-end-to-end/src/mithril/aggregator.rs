@@ -1,8 +1,7 @@
-use crate::devnet::BftNode;
 use crate::utils::MithrilCommand;
 use crate::{
-    DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY, GENESIS_SECRET_KEY,
-    GENESIS_VERIFICATION_KEY,
+    PoolNode, DEVNET_MAGIC_ID, ERA_MARKERS_SECRET_KEY, ERA_MARKERS_VERIFICATION_KEY,
+    GENESIS_SECRET_KEY, GENESIS_VERIFICATION_KEY,
 };
 use anyhow::{anyhow, Context};
 use mithril_common::era::SupportedEra;
@@ -15,7 +14,7 @@ use tokio::process::Child;
 #[derive(Debug)]
 pub struct AggregatorConfig<'a> {
     pub server_port: u64,
-    pub bft_node: &'a BftNode,
+    pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
@@ -66,7 +65,7 @@ impl Aggregator {
             ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
             (
                 "CARDANO_NODE_SOCKET_PATH",
-                aggregator_config.bft_node.socket_path.to_str().unwrap(),
+                aggregator_config.pool_node.socket_path.to_str().unwrap(),
             ),
             ("STORE_RETENTION_LIMIT", "10"),
             (
@@ -89,7 +88,7 @@ impl Aggregator {
         ]);
         let args = vec![
             "--db-directory",
-            aggregator_config.bft_node.db_path.to_str().unwrap(),
+            aggregator_config.pool_node.db_path.to_str().unwrap(),
             "-vvv",
         ];
 
@@ -103,7 +102,7 @@ impl Aggregator {
 
         Ok(Self {
             server_port: aggregator_config.server_port,
-            db_directory: aggregator_config.bft_node.db_path.clone(),
+            db_directory: aggregator_config.pool_node.db_path.clone(),
             command,
             process: None,
         })

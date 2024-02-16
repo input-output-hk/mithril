@@ -45,11 +45,11 @@ pub struct Args {
     bin_directory: PathBuf,
 
     /// Number of BFT nodes in the devnet
-    #[clap(long, default_value_t = 1)]
+    #[clap(long, default_value_t = 0)]
     number_of_bft_nodes: u8,
 
     /// Number of Pool nodes in the devnet
-    #[clap(long, default_value_t = 2)]
+    #[clap(long, default_value_t = 3)]
     number_of_pool_nodes: u8,
 
     /// Length of a Cardano slot in the devnet (in s)

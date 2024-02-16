@@ -25,7 +25,7 @@ pub struct BftNode {
 pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
-    pool_env_path: PathBuf,
+    pub pool_env_path: PathBuf,
     pub kes_secret_key_path: PathBuf,
     pub operational_certificate_path: PathBuf,
 }

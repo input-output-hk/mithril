@@ -45,17 +45,22 @@ pub struct MithrilInfrastructure {
 }
 impl MithrilInfrastructure {
     pub async fn start(config: &MithrilInfrastructureConfig) -> StdResult<Self> {
+        let chain_observer_type = "pallas";
         config.devnet.run().await?;
         let devnet_topology = config.devnet.topology();
-        let bft_node = devnet_topology
-            .bft_nodes
+        let aggregator_cardano_node = devnet_topology
+            .pool_nodes
             .first()
-            .ok_or_else(|| anyhow!("No BFT node available for the aggregator"))?;
-        let chain_observer_type = "pallas";
+            .ok_or_else(|| anyhow!("No pool node available for the aggregator"))?;
+        let signer_cardano_nodes = devnet_topology
+            .pool_nodes
+            .iter()
+            .skip(1)
+            .collect::<Vec<_>>();
 
         let mut aggregator = Aggregator::new(&AggregatorConfig {
             server_port: config.server_port,
-            bft_node,
+            pool_node: aggregator_cardano_node,
             cardano_cli_path: &config.devnet.cardano_cli_path(),
             work_dir: &config.work_dir,
             bin_dir: &config.bin_dir,
@@ -92,7 +97,7 @@ impl MithrilInfrastructure {
             )?;
             relay_aggregator.start()?;
 
-            for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
+            for (index, pool_node) in signer_cardano_nodes.iter().enumerate() {
                 let mut relay_signer = RelaySigner::new(
                     config.server_port + index as u64 + 200,
                     relay_aggregator.peer_addr().to_owned(),
@@ -110,7 +115,7 @@ impl MithrilInfrastructure {
         }
 
         let mut signers: Vec<Signer> = vec![];
-        for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
+        for (index, pool_node) in signer_cardano_nodes.iter().enumerate() {
             // 50% of signers with key certification if allow unverified signer registration
             // Or 100% of signers otherwise
             // TODO: Should be removed once the signer certification is fully deployed
@@ -140,12 +145,12 @@ impl MithrilInfrastructure {
 
         let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
             config.devnet.cardano_cli_path(),
-            bft_node.socket_path.clone(),
+            aggregator_cardano_node.socket_path.clone(),
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
         )));
 
         let cardano_chain_observer = Arc::new(PallasChainObserver::new(
-            &bft_node.socket_path,
+            &aggregator_cardano_node.socket_path,
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
             fallback,
         ));
