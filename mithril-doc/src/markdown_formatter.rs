@@ -62,7 +62,11 @@ mod markdown {
 pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc>) -> String {
     // See: https://github1s.com/clap-rs/clap/blob/HEAD/clap_builder/src/builder/command.rs#L1989
 
-    fn format_parameters(cmd: &Command, struct_doc: Option<&StructDoc>) -> String {
+    fn format_parameters(
+        cmd: &Command,
+        struct_doc: Option<&StructDoc>,
+        parameters_explanation: &str,
+    ) -> String {
         if cmd
             .get_arguments()
             .filter(|arg| argument_to_document(arg))
@@ -79,13 +83,13 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
 
             let parameters_table = doc_config_to_markdown(&command_parameters);
 
-            let parameters_explanation = "\n\
-                The configuration parameters can be set in either of the following ways:\n\
-                \n\
-                1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
-                \n\
-                2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
-                ";
+            // let parameters_explanation = "\n\
+            //     The configuration parameters can be set in either of the following ways:\n\
+            //     \n\
+            //     1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
+            //     \n\
+            //     2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
+            //     ";
             format!("{}\n{}", parameters_explanation, parameters_table)
         } else {
             "".to_string()
@@ -115,12 +119,13 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         parent: Option<String>,
         struct_doc: Option<&StructDoc>,
         level: usize,
+        parameters_explanation: &str,
     ) -> String {
         // The Command object need to be completed calling `render_help` function.
         // Otherwise there is no parameter default values and the `help` command is absent.
 
         let help = format!("```bash\n{}\n```", cmd.render_long_help()); // More readable than help
-        format_command_internal(cmd, parent, help, struct_doc, level)
+        format_command_internal(cmd, parent, help, struct_doc, level, parameters_explanation)
     }
 
     fn name_to_document(name: &str) -> bool {
@@ -141,6 +146,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         help: String,
         struct_doc: Option<&StructDoc>,
         level: usize,
+        parameters_explanation: &str,
     ) -> String {
         let parent_ancestors = parent.clone().map_or("".into(), |s| format!("{} ", s));
         let title = format!(
@@ -153,7 +159,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
 
         let subcommands_table = format_subcommand(cmd);
 
-        let parameters = format_parameters(cmd, struct_doc);
+        let parameters = format_parameters(cmd, struct_doc, parameters_explanation);
 
         let subcommands = cmd
             .get_subcommands()
@@ -164,6 +170,7 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
                     Some(format!("{} {}", parent_ancestors, cmd.get_name())),
                     None,
                     level + 1,
+                    "",
                 )
             })
             .collect::<Vec<String>>()
@@ -172,7 +179,14 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         format!("{title}\n{description}\n{help}\n{subcommands_table}\n{parameters}\n{subcommands}")
     }
 
-    format_command(cmd, None, struct_doc, 3)
+    let parameters_explanation = "\n\
+                The configuration parameters can be set in either of the following ways:\n\
+                \n\
+                1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
+                \n\
+                2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
+                ";
+    format_command(cmd, None, struct_doc, 3, parameters_explanation)
 }
 
 pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
