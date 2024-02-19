@@ -1,12 +1,10 @@
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
-use slog_scope::logger;
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
-use crate::configuration::ConfigParameters;
-use mithril_client::ClientBuilder;
-use mithril_common::{test_utils::fake_keys, StdResult};
+use crate::{commands::client_builder_with_fallback_genesis_key, configuration::ConfigParameters};
+use mithril_client::MithrilResult;
 
 /// Mithril stake distribution LIST command
 #[derive(Parser, Debug, Clone)]
@@ -18,24 +16,10 @@ pub struct MithrilStakeDistributionListCommand {
 
 impl MithrilStakeDistributionListCommand {
     /// Main command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.build()?;
-        let params = Arc::new(ConfigParameters::new(
-            config.try_deserialize::<HashMap<String, String>>()?,
-        ));
-        // TODO: This should not be done this way.
-        // Now that mithril-client-cli uses the mithril-client library, the genesis verification key is required for all commands
-        let fallback_genesis_verification_key =
-            fake_keys::genesis_verification_key()[0].to_string();
-        let client = ClientBuilder::aggregator(
-            &params.require("aggregator_endpoint")?,
-            &params.get_or(
-                "genesis_verification_key",
-                &fallback_genesis_verification_key,
-            ),
-        )
-        .with_logger(logger())
-        .build()?;
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
+        let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
         let lines = client.mithril_stake_distribution().list().await?;
 
         if self.json {

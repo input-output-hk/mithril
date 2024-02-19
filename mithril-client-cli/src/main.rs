@@ -11,9 +11,10 @@ use std::io::Write;
 use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 use mithril_client_cli::commands::{
+    cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
 };
 
@@ -23,7 +24,7 @@ enum LogOutputType {
 }
 
 impl LogOutputType {
-    fn get_writer(&self) -> StdResult<Box<dyn Write + Send>> {
+    fn get_writer(&self) -> MithrilResult<Box<dyn Write + Send>> {
         let writer: Box<dyn Write + Send> = match self {
             LogOutputType::Stdout => Box::new(std::io::stdout()),
             LogOutputType::File(filepath) => Box::new(
@@ -71,10 +72,14 @@ pub struct Args {
     /// Redirect the logs to a file
     #[clap(long, alias("o"))]
     log_output: Option<String>,
+
+    /// Enable unstable commands (Such as Cardano Transactions)
+    #[clap(long)]
+    unstable: bool,
 }
 
 impl Args {
-    pub async fn execute(&self) -> StdResult<()> {
+    pub async fn execute(&self) -> MithrilResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
         debug!("Reading configuration file '{}'.", filename);
@@ -83,7 +88,7 @@ impl Args {
             .add_source(self.clone())
             .set_default("download_dir", "")?;
 
-        self.command.execute(config).await
+        self.command.execute(self.unstable, config).await
     }
 
     fn log_level(&self) -> Level {
@@ -111,7 +116,7 @@ impl Args {
         slog_async::Async::new(drain).build().fuse()
     }
 
-    fn build_logger(&self) -> StdResult<Logger> {
+    fn build_logger(&self) -> MithrilResult<Logger> {
         let log_output_type = self.get_log_output_type();
         let writer = log_output_type.get_writer()?;
 
@@ -158,19 +163,38 @@ enum ArtifactCommands {
 
     #[clap(subcommand, alias("msd"))]
     MithrilStakeDistribution(MithrilStakeDistributionCommands),
+
+    #[clap(subcommand, alias("ctx"))]
+    CardanoTransaction(CardanoTransactionCommands),
 }
 
 impl ArtifactCommands {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        unstable_enabled: bool,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> MithrilResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
+            Self::CardanoTransaction(ctx) => {
+                if !unstable_enabled {
+                    Err(anyhow::anyhow!(
+                        "The \"cardano-transaction\" subcommand is only accepted using the \
+                        --unstable flag.\n \
+                    \n \
+                    ie: \"mithril-client --unstable cardano-transaction list\""
+                    ))
+                } else {
+                    ctx.execute(config_builder).await
+                }
+            }
         }
     }
 }
 
 #[tokio::main]
-async fn main() -> StdResult<()> {
+async fn main() -> MithrilResult<()> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
@@ -179,4 +203,19 @@ async fn main() -> StdResult<()> {
     openssl_probe::init_ssl_cert_env_vars();
 
     args.execute().await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
+        let args = Args::try_parse_from(["mithril-client", "cardano-transaction", "sets", "list"])
+            .unwrap();
+
+        args.execute()
+            .await
+            .expect_err("Should fail if unstable flag missing");
+    }
 }

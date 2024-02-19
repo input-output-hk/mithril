@@ -1,6 +1,6 @@
 use crate::utils::MithrilCommand;
 use anyhow::{anyhow, Context};
-use mithril_common::StdResult;
+use mithril_common::{entities::TransactionHash, StdResult};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -23,9 +23,17 @@ pub enum MithrilStakeDistributionCommand {
 }
 
 #[derive(Debug)]
+pub enum CardanoTransactionCommand {
+    ListSets,
+    ShowSets { hash: String },
+    Certify { tx_hashes: Vec<TransactionHash> },
+}
+
+#[derive(Debug)]
 pub enum ClientCommand {
     Snapshot(SnapshotCommand),
     MithrilStakeDistribution(MithrilStakeDistributionCommand),
+    CardanoTransaction(CardanoTransactionCommand),
 }
 
 impl Client {
@@ -61,6 +69,33 @@ impl Client {
                     "download".to_string(),
                     hash,
                 ],
+            },
+            ClientCommand::CardanoTransaction(subcommand) => match subcommand {
+                CardanoTransactionCommand::ListSets => {
+                    vec![
+                        "--unstable".to_string(),
+                        "cardano-transaction".to_string(),
+                        "sets".to_string(),
+                        "list".to_string(),
+                    ]
+                }
+                CardanoTransactionCommand::ShowSets { hash } => {
+                    vec![
+                        "--unstable".to_string(),
+                        "cardano-transaction".to_string(),
+                        "sets".to_string(),
+                        "show".to_string(),
+                        hash,
+                    ]
+                }
+                CardanoTransactionCommand::Certify { tx_hashes } => {
+                    vec![
+                        "--unstable".to_string(),
+                        "cardano-transaction".to_string(),
+                        "certify".to_string(),
+                        tx_hashes.join(","),
+                    ]
+                }
             },
         };
 

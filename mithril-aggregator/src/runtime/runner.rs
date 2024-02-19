@@ -1,12 +1,11 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog_scope::{debug, warn};
-use std::str::FromStr;
 use std::{path::Path, path::PathBuf, sync::Arc};
 
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityType, SignedEntityTypeDiscriminants, Signer,
+    SignedEntityType, Signer,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
@@ -144,42 +143,6 @@ impl AggregatorRunner {
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
         Self { dependencies }
     }
-
-    /// Create the deduplicated list of allowed signed entity types.
-    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
-    /// The list can be extended with the configuration parameter `signed_entity_types`.
-    /// The configuration parameter is a comma separated list of signed entity types.
-    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
-    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
-    fn list_allowed_signed_entity_types(
-        &self,
-        beacon: &Beacon,
-    ) -> StdResult<Vec<SignedEntityType>> {
-        let mut signed_entity_types = Vec::new();
-        signed_entity_types.push(SignedEntityType::MithrilStakeDistribution(beacon.epoch));
-        signed_entity_types.push(SignedEntityType::CardanoImmutableFilesFull(
-            beacon.to_owned(),
-        ));
-
-        let discriminant_names = self
-            .dependencies
-            .config
-            .signed_entity_types
-            .clone()
-            .unwrap_or_default();
-        let mut signed_entity_types_appended = discriminant_names
-            .split(',')
-            .filter_map(|name| {
-                SignedEntityTypeDiscriminants::from_str(name.trim())
-                    .ok()
-                    .map(|discriminant| SignedEntityType::from_beacon(&discriminant, beacon))
-            })
-            .filter(|signed_entity_type| !signed_entity_types.contains(signed_entity_type))
-            .collect::<Vec<_>>();
-        signed_entity_types.append(&mut signed_entity_types_appended);
-
-        Ok(signed_entity_types)
-    }
 }
 
 #[cfg_attr(test, automock)]
@@ -219,6 +182,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> StdResult<Option<OpenMessage>> {
         debug!("RUNNER: get_current_non_certified_open_message"; "beacon" => #?current_beacon);
         let signed_entity_types = self
+            .dependencies
+            .config
             .list_allowed_signed_entity_types(current_beacon)
             .with_context(|| {
                 "AggregatorRunner can not create the list of allowed signed entity types"
@@ -575,44 +540,6 @@ pub mod tests {
         .await;
 
         AggregatorRunner::new(Arc::new(deps))
-    }
-
-    #[tokio::test]
-    async fn test_list_allowed_signed_entity_types_without_specific_configuration() {
-        let mut deps = initialize_dependencies().await;
-        deps.config.signed_entity_types = None;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let beacon = fake_data::beacon();
-
-        let signed_entity_types = runner.list_allowed_signed_entity_types(&beacon).unwrap();
-
-        let expected = vec![
-            SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-            SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-        ];
-
-        assert_eq!(expected, signed_entity_types);
-    }
-
-    #[tokio::test]
-    async fn test_list_allowed_signed_entity_types_with_specific_configuration() {
-        let mut deps = initialize_dependencies().await;
-        deps.config.signed_entity_types =
-            Some("MithrilStakeDistribution,Unknown, CardanoStakeDistribution".to_string());
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let beacon = fake_data::beacon();
-
-        let signed_entity_types = runner.list_allowed_signed_entity_types(&beacon).unwrap();
-
-        let expected = vec![
-            SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-            SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-            SignedEntityType::CardanoStakeDistribution(beacon.epoch),
-        ];
-
-        assert_eq!(expected, signed_entity_types);
     }
 
     #[tokio::test]

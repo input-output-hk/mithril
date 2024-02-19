@@ -22,5 +22,20 @@ create table cardano_tx (
 create unique index cardano_tx_immutable_file_number_index on cardano_tx(immutable_file_number);
 "#,
         ),
+        // Migration 2
+        // Fix the `cardano_tx` table index on immutable_file number, incorrectly marked as unique.
+        SqlMigration::new(
+            2,
+            r#"
+-- remove all data from the cardano tx table since a lot of transactions where missing for each
+-- block and we rely on their insert order.
+delete from cardano_tx;
+
+drop index cardano_tx_immutable_file_number_index;
+create index cardano_tx_immutable_file_number_index on cardano_tx(immutable_file_number);
+
+vacuum;
+"#,
+        ),
     ]
 }

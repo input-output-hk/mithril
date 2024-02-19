@@ -6,7 +6,7 @@ use anyhow::anyhow;
 use mithril_common::chain_observer::{
     CardanoCliChainObserver, CardanoCliRunner, ChainObserver, PallasChainObserver,
 };
-use mithril_common::entities::ProtocolParameters;
+use mithril_common::entities::{ProtocolParameters, SignedEntityTypeDiscriminants};
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::borrow::BorrowMut;
@@ -40,6 +40,7 @@ pub struct MithrilInfrastructure {
     relay_signers: Vec<RelaySigner>,
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
+    is_signing_cardano_transactions: bool,
 }
 impl MithrilInfrastructure {
     pub async fn start(config: &MithrilInfrastructureConfig) -> StdResult<Self> {
@@ -156,6 +157,11 @@ impl MithrilInfrastructure {
             relay_signers,
             cardano_chain_observer,
             run_only_mode: config.run_only_mode,
+            is_signing_cardano_transactions: config.signed_entity_types.contains(
+                &SignedEntityTypeDiscriminants::CardanoTransactions
+                    .as_ref()
+                    .to_string(),
+            ),
         })
     }
 
@@ -197,6 +203,10 @@ impl MithrilInfrastructure {
 
     pub fn run_only_mode(&self) -> bool {
         self.run_only_mode
+    }
+
+    pub fn is_signing_cardano_transactions(&self) -> bool {
+        self.is_signing_cardano_transactions
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {

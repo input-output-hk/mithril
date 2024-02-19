@@ -1,6 +1,6 @@
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 use slog_scope::warn;
 use std::{
     ops::Deref,
@@ -47,7 +47,7 @@ impl ProgressPrinter {
     }
 
     /// Report the current step
-    pub fn report_step(&self, step_number: u16, text: &str) -> StdResult<()> {
+    pub fn report_step(&self, step_number: u16, text: &str) -> MithrilResult<()> {
         match self.output_type {
             ProgressOutputType::JsonReporter => println!(
                 r#"{{"timestamp": "{timestamp}", "step_num": {step_number}, "total_steps": {number_of_steps}, "message": "{text}"}}"#,

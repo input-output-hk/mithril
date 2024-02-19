@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use futures::Future;
-use mithril_common::StdResult;
+use mithril_client::MithrilResult;
 
 /// Utilities to expand aliases into their associated ids.
 pub struct ExpanderUtils;
@@ -11,8 +11,8 @@ impl ExpanderUtils {
     /// Otherwise, returns the provided id as is.
     pub async fn expand_eventual_id_alias(
         id: &str,
-        get_list_of_ids: impl Future<Output = StdResult<Vec<String>>>,
-    ) -> StdResult<String> {
+        get_list_of_ids: impl Future<Output = MithrilResult<Vec<String>>>,
+    ) -> MithrilResult<String> {
         if id.to_lowercase() == "latest" {
             let list = get_list_of_ids.await?;
             let last_element = list.first().ok_or_else(|| anyhow!("Entity not found"))?;
@@ -27,7 +27,7 @@ impl ExpanderUtils {
 mod tests {
     use super::*;
 
-    async fn get_list_of_ids(ids: Vec<&str>) -> StdResult<Vec<String>> {
+    async fn get_list_of_ids(ids: Vec<&str>) -> MithrilResult<Vec<String>> {
         Ok(ids.iter().map(|h| h.to_string()).collect::<Vec<_>>())
     }
 

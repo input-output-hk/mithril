@@ -7,8 +7,8 @@ use pallas_network::{
     facades::NodeClient,
     miniprotocols::localstate::{
         queries_v16::{
-            self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
-            TransactionOutput, UTxOByAddress,
+            self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, TransactionOutput,
+            UTxOByAddress,
         },
         Client,
     },
@@ -20,12 +20,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::chain_observer::interface::*;
-use crate::chain_observer::{ChainAddress, TxDatum};
-use crate::crypto_helper::{KESPeriod, OpCert};
-use crate::entities::StakeDistribution;
-use crate::CardanoNetwork;
-use crate::{entities::Epoch, StdResult};
+use crate::{
+    chain_observer::{interface::*, ChainAddress, TxDatum},
+    crypto_helper::{KESPeriod, OpCert},
+    entities::{Epoch, StakeDistribution},
+    CardanoNetwork, StdResult,
+};
 
 use super::model::{try_inspect, Datum, Datums};
 use super::CardanoCliChainObserver;
@@ -34,7 +34,7 @@ use super::CardanoCliChainObserver;
 pub struct PallasChainObserver {
     socket: PathBuf,
     network: CardanoNetwork,
-    fallback: super::cli_observer::CardanoCliChainObserver,
+    fallback: CardanoCliChainObserver,
 }
 
 impl From<anyhow::Error> for ChainObserverError {
@@ -337,8 +337,8 @@ mod tests {
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
-        let txbytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
-        let transaction_id = Hash::from(txbytes);
+        let tx_bytes: [u8; 32] = hex::decode(tx_hex).unwrap().try_into().unwrap();
+        let transaction_id = Hash::from(tx_bytes);
         let index = AnyUInt::MajorByte(2);
         let lovelace = AnyUInt::MajorByte(2);
         let hex_datum = "D8799F58407B226D61726B657273223A5B7B226E616D65223A227468616C6573222C2265706F6368223A307D5D2C227369676E6174757265223A22383566323265626261645840333335376338656132646630363230393766396131383064643335643966336261316432363832633732633864313232383866616438636238643063656565625838366134643665383465653865353631376164323037313836366363313930373466326137366538373864663166393733346438343061227DFF";
@@ -350,23 +350,21 @@ mod tests {
             Address::from_bech32("addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0")
                 .unwrap();
         let address: Addr = address.to_vec().into();
-        let values = localstate::queries_v16::TransactionOutput::Current(
-            localstate::queries_v16::PostAlonsoTransactionOutput {
-                address,
-                amount: Value::Coin(lovelace),
-                inline_datum,
-                script_ref: None,
-            },
-        );
+        let values = TransactionOutput::Current(PostAlonsoTransactionOutput {
+            address,
+            amount: Value::Coin(lovelace),
+            inline_datum,
+            script_ref: None,
+        });
         let utxo = KeyValuePairs::from(vec![(
-            localstate::queries_v16::UTxO {
+            queries_v16::UTxO {
                 transaction_id,
                 index,
             },
             values,
         )]);
 
-        localstate::queries_v16::UTxOByAddress { utxo }
+        UTxOByAddress { utxo }
     }
 
     fn get_fake_stake_snapshot() -> StakeSnapshot {
@@ -429,7 +427,7 @@ mod tests {
 
     /// pallas responses mock server.
     async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
-        let query: localstate::queries_v16::Request =
+        let query: queries_v16::Request =
             match server.statequery().recv_while_acquired().await.unwrap() {
                 ClientQueryRequest::Query(q) => q.into_decode().unwrap(),
                 x => panic!("unexpected message from client: {x:?}"),
@@ -465,7 +463,16 @@ mod tests {
 
     /// Creates a new work directory in the system's temporary folder.
     fn create_temp_dir(folder_name: &str) -> PathBuf {
-        let temp_dir = std::env::temp_dir().join(folder_name);
+        #[cfg(not(target_os = "macos"))]
+        let temp_dir = std::env::temp_dir()
+            .join("mithril_test")
+            .join("pallas_chain_observer_test")
+            .join(folder_name);
+
+        // macOS-domain addresses are variable-length filesystem pathnames of at most 104 characters.
+        #[cfg(target_os = "macos")]
+        let temp_dir: PathBuf = std::env::temp_dir().join(folder_name);
+
         if temp_dir.exists() {
             fs::remove_dir_all(&temp_dir).expect("Previous work dir removal failed");
         }
@@ -474,11 +481,9 @@ mod tests {
     }
 
     /// Sets up a mock server.
-    async fn setup_server() -> tokio::task::JoinHandle<()> {
+    async fn setup_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> {
         tokio::spawn({
             async move {
-                let temp_dir = create_temp_dir("pallas_chain_observer_test");
-                let socket_path = temp_dir.join("node.socket").as_path().to_owned();
                 if socket_path.exists() {
                     fs::remove_file(&socket_path).expect("Previous socket removal failed");
                 }
@@ -502,11 +507,11 @@ mod tests {
 
     #[tokio::test]
     async fn get_current_epoch_with_fallback() {
-        let server = setup_server().await;
+        let socket_path = create_temp_dir("get_current_epoch_with_fallback").join("node.socket");
+        let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
             let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = super::PallasChainObserver::new(
+            let observer = PallasChainObserver::new(
                 socket_path.as_path(),
                 CardanoNetwork::TestNet(10),
                 fallback,
@@ -521,11 +526,11 @@ mod tests {
 
     #[tokio::test]
     async fn get_current_datums_with_fallback() {
-        let server = setup_server().await;
+        let socket_path = create_temp_dir("get_current_datums_with_fallback").join("node.socket");
+        let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
             let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = super::PallasChainObserver::new(
+            let observer = PallasChainObserver::new(
                 socket_path.as_path(),
                 CardanoNetwork::TestNet(10),
                 fallback,
@@ -542,10 +547,10 @@ mod tests {
 
     #[tokio::test]
     async fn get_current_stake_distribution_fallback() {
-        let server = setup_server().await;
-
+        let socket_path =
+            create_temp_dir("get_current_stake_distribution_fallback").join("node.socket");
+        let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let socket_path = std::env::temp_dir().join("pallas_chain_observer_test/node.socket");
             let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
             let observer = super::PallasChainObserver::new(
                 socket_path.as_path(),

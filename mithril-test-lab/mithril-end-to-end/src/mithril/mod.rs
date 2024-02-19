@@ -6,7 +6,10 @@ mod relay_signer;
 mod signer;
 
 pub use aggregator::{Aggregator, AggregatorConfig};
-pub use client::{Client, ClientCommand, MithrilStakeDistributionCommand, SnapshotCommand};
+pub use client::{
+    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand,
+    SnapshotCommand,
+};
 pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;
 pub use relay_signer::RelaySigner;
