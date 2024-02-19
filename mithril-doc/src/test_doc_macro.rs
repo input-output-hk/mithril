@@ -55,6 +55,7 @@ mod tests {
         let field = get_field(&doc, "environment");
 
         assert_eq!("environment", field.parameter);
+        assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
         assert_eq!("Execution environment", field.description);
         assert_eq!("prod", field.default_value.as_ref().unwrap());
     }
@@ -65,6 +66,7 @@ mod tests {
         let field = get_field(&doc, "environment");
 
         assert_eq!("environment", field.parameter);
+        assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
         assert_eq!("Execution environment", field.description);
         assert_eq!(None, field.default_value);
     }

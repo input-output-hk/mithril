@@ -38,7 +38,7 @@ fn extract_struct_info(
             },
         };
         quote! {
-            struct_data.add_param(#name, #doc, #default_values_variable_ident.get(#name).map(|v| v.to_string()), #example);
+            struct_data.add_param(#name, #doc, Some(#name.to_uppercase().to_string()), #default_values_variable_ident.get(#name).map(|v| v.to_string()), #example);
         }
     }).collect::<Vec<_>>();
 

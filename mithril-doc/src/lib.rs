@@ -27,7 +27,7 @@ pub struct FieldDoc {
     /// Short option for the command line
     pub command_line_short: String,
     /// Environment variable
-    pub environment_variable: String,
+    pub environment_variable: Option<String>,
     /// Description of the parameter
     pub description: String,
     /// Default value
@@ -56,6 +56,7 @@ impl StructDoc {
         &mut self,
         name: &str,
         description: &str,
+        environment_variable: Option<String>,
         default: Option<String>,
         example: Option<String>,
     ) {
@@ -63,7 +64,7 @@ impl StructDoc {
             parameter: name.to_string(),
             command_line_long: "".to_string(),
             command_line_short: "".to_string(),
-            environment_variable: "".to_string(),
+            environment_variable: environment_variable,
             description: description.to_string(),
             default_value: default,
             example,
@@ -90,6 +91,9 @@ impl StructDoc {
                 }
                 if d.example.is_none() {
                     d.example = field_doc.example.clone();
+                }
+                if d.environment_variable.is_none() {
+                    d.environment_variable = field_doc.environment_variable.clone();
                 }
                 data_map1.insert(field_doc.parameter.clone(), d);
             }
@@ -180,33 +184,37 @@ mod tests {
             s.add_param(
                 "A",
                 "Param first A",
+                Some("env A".to_string()),
                 Some("default A".to_string()),
                 Some("example A".to_string()),
             );
-            s.add_param("B", "Param first B", None, None);
+            s.add_param("B", "Param first B", None, None, None);
             s.add_param(
                 "C",
                 "Param first C",
+                Some("env C".to_string()),
                 Some("default C".to_string()),
                 Some("example C".to_string()),
             );
-            s.add_param("D", "Param first D", None, None);
+            s.add_param("D", "Param first D", None, None, None);
             s
         };
 
         let s2 = {
             let mut s = StructDoc::default();
-            s.add_param("A", "Param second A", None, None);
+            s.add_param("A", "Param second A", None, None, None);
             s.add_param(
                 "B",
                 "Param second B",
+                Some("env B".to_string()),
                 Some("default B".to_string()),
                 Some("example B".to_string()),
             );
-            s.add_param("E", "Param second E", None, None);
+            s.add_param("E", "Param second E", None, None, None);
             s.add_param(
                 "F",
                 "Param second F",
+                Some("env F".to_string()),
                 Some("default F".to_string()),
                 Some("example F".to_string()),
             );
@@ -266,6 +274,25 @@ mod tests {
             Some("example F".to_string()),
             data_map.get("F").unwrap().example
         );
+
+        assert_eq!(
+            Some("env A".to_string()),
+            data_map.get("A").unwrap().environment_variable
+        );
+        assert_eq!(
+            Some("env B".to_string()),
+            data_map.get("B").unwrap().environment_variable
+        );
+        assert_eq!(
+            Some("env C".to_string()),
+            data_map.get("C").unwrap().environment_variable
+        );
+        assert_eq!(None, data_map.get("D").unwrap().environment_variable);
+        assert_eq!(None, data_map.get("E").unwrap().environment_variable);
+        assert_eq!(
+            Some("env F".to_string()),
+            data_map.get("F").unwrap().environment_variable
+        );
     }
 
     #[test]
@@ -274,7 +301,7 @@ mod tests {
         let s1 = {
             let mut s = StructDoc::default();
             for value in values.iter() {
-                s.add_param(value, value, None, None);
+                s.add_param(value, value, None, None, None);
             }
             s
         };

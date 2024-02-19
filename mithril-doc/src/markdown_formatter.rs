@@ -83,13 +83,6 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
 
             let parameters_table = doc_config_to_markdown(&command_parameters);
 
-            // let parameters_explanation = "\n\
-            //     The configuration parameters can be set in either of the following ways:\n\
-            //     \n\
-            //     1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.\n\
-            //     \n\
-            //     2. The value can be overridden by an environment variable with the parameter name in uppercase.\n\
-            //     ";
             format!("{}\n{}", parameters_explanation, parameters_table)
         } else {
             "".to_string()
@@ -207,7 +200,9 @@ pub fn doc_config_to_markdown(struct_doc: &StructDoc) -> String {
                 } else {
                     format!("`{}`", config.command_line_short)
                 },
-                format!("`{}`", config.parameter.to_uppercase()),
+                config
+                    .environment_variable
+                    .map_or_else(|| "-".to_string(), |x| format!("`{}`", x)),
                 config.description.replace('\n', "<br>"),
                 config
                     .default_value
@@ -277,6 +272,9 @@ mod tests {
 
         #[clap()]
         param_without_default: String,
+
+        #[clap(long, env = "ENV_VARIABLE")]
+        from_env: String,
     }
 
     #[derive(Parser, Debug, Clone)]
@@ -288,12 +286,26 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, None);
 
         assert!(
+            doc.contains("| `run_mode` | `--run-mode` | `-r` | - | Run Mode | `dev` | - | - |"),
+            "Generated doc: {doc}"
+        );
+        assert!(
             doc.contains(
-                "| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |"
+                "| `param_without_default` | - | - | - | - | - | - | :heavy_check_mark: |"
             ),
             "Generated doc: {doc}"
         );
-        assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` | - | - | - | :heavy_check_mark: |"), "Generated doc: {doc}");
+    }
+
+    #[test]
+    fn test_format_parameter_with_env_variable() {
+        let mut command = MyCommand::command();
+        let doc = doc_markdown_with_config(&mut command, None);
+
+        assert!(
+            doc.contains("| `from_env` | `--from-env` | - | `ENV_VARIABLE` | - | - | - | :heavy_check_mark: |"),
+            "Generated doc: {doc}"
+        );
     }
 
     #[test]
@@ -303,12 +315,15 @@ mod tests {
         let doc = doc_markdown_with_config(&mut command, Some(&merged_struct_doc));
 
         assert!(
+            doc.contains("| `run_mode` | `--run-mode` | `-r` | - | Run Mode | `dev` | - | - |"),
+            "Generated doc: {doc}"
+        );
+        assert!(
             doc.contains(
-                "| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Run Mode | `dev` | - | - |"
+                "| `param_without_default` | - | - | - | - | - | - | :heavy_check_mark: |"
             ),
             "Generated doc: {doc}"
         );
-        assert!(doc.contains("| `param_without_default` | - | - | `PARAM_WITHOUT_DEFAULT` | - | - | - | :heavy_check_mark: |"), "Generated doc: {doc}");
     }
 
     #[test]
@@ -354,7 +369,7 @@ mod tests {
             "Generated doc: {doc}"
         );
         assert!(
-            doc.contains("| `path` | - | - | `PATH` | The path of SubCommandB"),
+            doc.contains("| `path` | - | - | - | The path of SubCommandB"),
             "Generated doc: {doc}"
         );
 
@@ -421,10 +436,11 @@ mod tests {
                 s.add_param(
                     "ConfigA",
                     "Param A from config",
+                    Some("CONFIGA".to_string()),
                     Some("default config A".to_string()),
                     None,
                 );
-                s.add_param("ConfigB", "Param B from config", None, None);
+                s.add_param("ConfigB", "Param B from config", None, None, None);
                 s
             };
 
