@@ -1,7 +1,7 @@
 [package]
 name = "mithril-doc"
 version = "0.1.0"
-description = "Crate to generate doc."
+description = "An internal crate to generate documentation."
 authors = { workspace = true }
 edition = { workspace = true }
 homepage = { workspace = true }
