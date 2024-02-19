@@ -205,16 +205,12 @@ impl PallasChainObserver {
         Ok(state_snapshot)
     }
 
-    fn get_stake_pool_hash(
-        &self,
-        key: &Bytes,
-        stakes: &Stakes,
-    ) -> Result<(String, u64), ChainObserverError> {
+    fn get_stake_pool_hash(&self, key: &Bytes) -> Result<String, ChainObserverError> {
         let pool_hash = bech32::encode("pool", key.to_base32(), Variant::Bech32)
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to encode stake pool hash")?;
 
-        Ok((pool_hash, stakes.snapshot_mark_pool))
+        Ok(pool_hash)
     }
 
     async fn get_stake_distribution_snapshot(
@@ -229,8 +225,8 @@ impl PallasChainObserver {
 
         for (key, stakes) in stake_snapshot.snapshots.stake_snapshots.iter() {
             if stakes.snapshot_mark_pool > 0 {
-                let (pool_hash, stake) = self.get_stake_pool_hash(key, stakes)?;
-                stake_distribution.insert(pool_hash, stake);
+                let pool_hash = self.get_stake_pool_hash(key)?;
+                stake_distribution.insert(pool_hash, stakes.snapshot_mark_pool);
             }
         }
 
