@@ -64,7 +64,7 @@ impl StructDoc {
             parameter: name.to_string(),
             command_line_long: "".to_string(),
             command_line_short: "".to_string(),
-            environment_variable: environment_variable,
+            environment_variable,
             description: description.to_string(),
             default_value: default,
             example,

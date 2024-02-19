@@ -17,6 +17,5 @@ mithril-doc-derive = { path = "../mithril-doc-derive" }
 [dev-dependencies]
 regex = "1.10.3"
 
-
 [features]
 default = []
