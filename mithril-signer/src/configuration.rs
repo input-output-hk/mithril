@@ -1,6 +1,6 @@
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
@@ -16,7 +16,7 @@ use mithril_common::{
 };
 
 /// Client configuration
-#[derive(Debug, Clone, Serialize, Deserialize, DocExtractor)]
+#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
 pub struct Configuration {
     /// Cardano CLI tool path
     #[example = "`cardano-cli`"]
@@ -158,7 +158,7 @@ impl Configuration {
 }
 
 /// Default configuration with all the default values for configurations.
-#[derive(Debug, Clone, DocExtractorDefault)]
+#[derive(Debug, Clone, DocumenterDefault)]
 pub struct DefaultConfiguration {
     /// Era reader adapter type
     pub era_reader_adapter_type: String,

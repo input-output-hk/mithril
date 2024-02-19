@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
 use mithril_client::MithrilResult;
-use mithril_doc::{DocExtractor, GenerateDocCommands, StructDoc};
+use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
@@ -38,7 +38,7 @@ impl LogOutputType {
     }
 }
 
-#[derive(DocExtractor, Parser, Debug, Clone)]
+#[derive(Documenter, Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
     about = "This program shows, downloads and verifies certified blockchain artifacts.",

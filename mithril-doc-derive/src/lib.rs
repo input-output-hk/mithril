@@ -122,17 +122,17 @@ fn format_field(champ: &syn::Field) -> FieldInfo {
 }
 
 /// To extract doc from a struct.
-#[proc_macro_derive(DocExtractor, attributes(example))]
+#[proc_macro_derive(Documenter, attributes(example))]
 pub fn doc_extractor(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let ast = parse_macro_input!(input as DeriveInput);
-    extract_struct_info(&ast, "DocExtractor", false)
+    extract_struct_info(&ast, "Documenter", false)
 }
 
 /// To extract doc from a struct with Default trait.
-#[proc_macro_derive(DocExtractorDefault, attributes(example))]
+#[proc_macro_derive(DocumenterDefault, attributes(example))]
 pub fn doc_extractor_default(input: TokenStream) -> TokenStream {
     // Parse the input tokens into a syntax tree
     let ast = parse_macro_input!(input as DeriveInput);
-    extract_struct_info(&ast, "DocExtractorDefault", true)
+    extract_struct_info(&ast, "DocumenterDefault", true)
 }

@@ -102,13 +102,13 @@ impl StructDoc {
 }
 
 /// Extractor for struct without Default trait.
-pub trait DocExtractor {
+pub trait Documenter {
     /// Extract information used to generate documentation.
     fn extract() -> StructDoc;
 }
 
 /// Extractor for struct with Default trait.
-pub trait DocExtractorDefault {
+pub trait DocumenterDefault {
     /// Extract information used to generate documentation.
     fn extract() -> StructDoc;
 }

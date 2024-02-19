@@ -1,17 +1,17 @@
 #[cfg(test)]
 mod tests {
-    use crate::{DocExtractor, DocExtractorDefault, FieldDoc, StructDoc};
+    use crate::{Documenter, DocumenterDefault, FieldDoc, StructDoc};
     use config::{Map, Source, Value, ValueKind};
 
     #[allow(dead_code)]
-    #[derive(Debug, Clone, mithril_doc_derive::DocExtractor)]
+    #[derive(Debug, Clone, mithril_doc_derive::Documenter)]
     struct MyConfiguration {
         /// Execution environment
         #[example = "dev"]
         environment: String,
     }
 
-    #[derive(Debug, Clone, mithril_doc_derive::DocExtractorDefault)]
+    #[derive(Debug, Clone, mithril_doc_derive::DocumenterDefault)]
     struct MyDefaultConfiguration {
         /// Execution environment
         environment: String,

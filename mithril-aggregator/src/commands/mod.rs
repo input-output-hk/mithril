@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
-use mithril_doc::{DocExtractor, DocExtractorDefault, StructDoc};
+use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::Level;
 use slog_scope::debug;
 use std::path::PathBuf;
@@ -46,7 +46,7 @@ impl MainCommand {
 }
 
 /// Mithril Aggregator Node
-#[derive(DocExtractor, Parser, Debug, Clone)]
+#[derive(Documenter, Parser, Debug, Clone)]
 #[command(version)]
 pub struct MainOpts {
     /// application main command
