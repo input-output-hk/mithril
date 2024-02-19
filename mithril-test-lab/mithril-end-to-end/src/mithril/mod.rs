@@ -2,6 +2,7 @@ mod aggregator;
 mod client;
 mod infrastructure;
 mod relay_aggregator;
+mod relay_passive;
 mod relay_signer;
 mod signer;
 
@@ -12,6 +13,7 @@ pub use client::{
 };
 pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;
+pub use relay_passive::RelayPassive;
 pub use relay_signer::RelaySigner;
 pub use signer::Signer;
 

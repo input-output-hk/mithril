@@ -1,6 +1,6 @@
 use crate::{
-    assertions, Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelaySigner, Signer,
-    DEVNET_MAGIC_ID,
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, RelayAggregator, RelayPassive,
+    RelaySigner, Signer, DEVNET_MAGIC_ID,
 };
 use anyhow::anyhow;
 use mithril_common::chain_observer::{
@@ -39,6 +39,7 @@ pub struct MithrilInfrastructure {
     signers: Vec<Signer>,
     relay_aggregators: Vec<RelayAggregator>,
     relay_signers: Vec<RelaySigner>,
+    relay_passives: Vec<RelayPassive>,
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
     is_signing_cardano_transactions: bool,
@@ -86,6 +87,7 @@ impl MithrilInfrastructure {
 
         let mut relay_aggregators: Vec<RelayAggregator> = vec![];
         let mut relay_signers: Vec<RelaySigner> = vec![];
+        let mut relay_passives: Vec<RelayPassive> = vec![];
         if config.use_p2p_network_mode {
             info!("Starting the Mithril infrastructure in P2P mode (experimental)");
 
@@ -97,9 +99,21 @@ impl MithrilInfrastructure {
             )?;
             relay_aggregator.start()?;
 
+            let mut relay_passive_id = 1;
+            let mut relay_passive_aggregator = RelayPassive::new(
+                config.server_port + 200,
+                relay_aggregator.peer_addr().to_owned(),
+                format!("{relay_passive_id}"),
+                &config.work_dir,
+                &config.bin_dir,
+            )?;
+            relay_passive_aggregator.start()?;
+            relay_passives.push(relay_passive_aggregator);
+
             for (index, pool_node) in signer_cardano_nodes.iter().enumerate() {
                 let mut relay_signer = RelaySigner::new(
-                    config.server_port + index as u64 + 200,
+                    config.server_port + index as u64 + 300,
+                    config.server_port + index as u64 + 400,
                     relay_aggregator.peer_addr().to_owned(),
                     aggregator.endpoint(),
                     pool_node,
@@ -108,7 +122,18 @@ impl MithrilInfrastructure {
                 )?;
                 relay_signer.start()?;
 
+                relay_passive_id += 1;
+                let mut relay_passive_signer = RelayPassive::new(
+                    config.server_port + index as u64 + 500,
+                    relay_signer.peer_addr().to_owned(),
+                    format!("{relay_passive_id}"),
+                    &config.work_dir,
+                    &config.bin_dir,
+                )?;
+                relay_passive_signer.start()?;
+
                 relay_signers.push(relay_signer);
+                relay_passives.push(relay_passive_signer);
             }
 
             relay_aggregators.push(relay_aggregator);
@@ -163,6 +188,7 @@ impl MithrilInfrastructure {
             signers,
             relay_aggregators,
             relay_signers,
+            relay_passives,
             cardano_chain_observer,
             run_only_mode: config.run_only_mode,
             is_signing_cardano_transactions: config.signed_entity_types.contains(
@@ -201,6 +227,10 @@ impl MithrilInfrastructure {
         &self.relay_signers
     }
 
+    pub fn relay_passives(&self) -> &[RelayPassive] {
+        &self.relay_passives
+    }
+
     pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
         self.cardano_chain_observer.clone()
     }
@@ -227,6 +257,9 @@ impl MithrilInfrastructure {
         }
         for relay_signer in self.relay_signers() {
             relay_signer.tail_logs(number_of_line).await?;
+        }
+        for relay_passive in self.relay_passives() {
+            relay_passive.tail_logs(number_of_line).await?;
         }
 
         Ok(())
