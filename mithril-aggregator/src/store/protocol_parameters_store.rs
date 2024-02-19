@@ -18,11 +18,9 @@ pub trait ProtocolParametersStorer: Sync + Send {
 
     /// Get the saved `ProtocolParameter` for the given [Epoch] if any.
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
-}
-/// `ProtocolParameter` store.
-pub struct ProtocolParametersStore {
-    adapter: RwLock<Adapter>,
-    retention_len: Option<usize>,
+
+    /// Checks if the store is empty
+    async fn is_store_empty(&self) -> StdResult<bool>;
 }
 
 pub struct FakeProtocolParametersStorer {
@@ -117,5 +115,22 @@ mod tests {
 
         assert!(protocol_parameters_stored.is_none());
     }
+
+    #[tokio::test]
+    async fn test_is_store_empty_no_records() {
+        let store = FakeProtocolParametersStorer::new(vec![]);
+        let is_empty_store = store.is_store_empty().await.unwrap();
+
+        assert!(is_empty_store);
+    }
+
+    #[tokio::test]
+    async fn test_is_store_empty_with_records() {
+        let protocol_parameters = fake_data::protocol_parameters();
+        let epoch = Epoch(1);
+        let store = FakeProtocolParametersStorer::new(vec![(epoch, protocol_parameters.clone())]);
+        let is_empty_store = store.is_store_empty().await.unwrap();
+
+        assert!(!is_empty_store);
     }
 }

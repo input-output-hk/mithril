@@ -291,6 +291,16 @@ impl ProtocolParametersStorer for EpochSettingStore {
         }
         Ok(None)
     }
+
+    async fn is_store_empty(&self) -> StdResult<bool> {
+        let provider = EpochSettingProvider::new(&self.connection);
+        let mut cursor = provider.get_all().map_err(|e| {
+            AdapterError::GeneralError(e.context("Could not get all epoch settings"))
+        })?;
+        let empty_store = cursor.next().is_none();
+
+        Ok(empty_store)
+    }
 }
 
 #[cfg(test)]

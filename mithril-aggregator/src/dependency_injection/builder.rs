@@ -1232,20 +1232,19 @@ impl DependenciesBuilder {
                 })?;
             let protocol_parameters_store = self.get_protocol_parameters_store().await?;
 
-            let work_epoch = current_epoch
-                .offset_to_signer_retrieval_epoch()
-                .unwrap_or(Epoch(0));
-            for epoch_offset in 0..=3 {
-                let epoch = work_epoch + epoch_offset;
-                if protocol_parameters_store
-                    .get_protocol_parameters(epoch)
-                    .await
-                    .map_err(|e| DependenciesBuilderError::Initialization {
-                        message: "can not create aggregator runner".to_string(),
-                        error: Some(e),
-                    })?
-                    .is_none()
-                {
+            if protocol_parameters_store
+                .is_store_empty()
+                .await
+                .map_err(|e| DependenciesBuilderError::Initialization {
+                    message: "can not create aggregator runner".to_string(),
+                    error: Some(e),
+                })?
+            {
+                let work_epoch = current_epoch
+                    .offset_to_signer_retrieval_epoch()
+                    .unwrap_or(Epoch(0));
+                for epoch_offset in 0..=3 {
+                    let epoch = work_epoch + epoch_offset;
                     debug!("First launch, will record protocol parameters for epoch: {epoch}");
 
                     protocol_parameters_store
