@@ -24,6 +24,12 @@ A Cardano node is a node that runs in a [Cardano network](#cardano-network). The
 
 A Cardano key pair is an asymmetric key pair used to identify a [stake pool operator](#stake-pool-operator-spo) on the [Cardano network](#cardano-network).
 
+## Cardano transaction
+
+A Cardano transaction proof is a cryptographic proof that a set of Cardano transactions is included in the global Cardano transactions set. It is generated unpon request using a [Mithril client](#mithril-client) and is tied to a [certificate](#certificate).
+
+A Cardano transaction commitment is stamp that state how much of the global Cardano transactions sets a [Mithril aggregator](#mithril-aggregator) is aware of, only for those transactions a Cardano transaction proof can be generated.
+
 ## Certificate
 
 The Mithril aggregator combines the produced [multi-signature](#multi-signature) and some metadata into a Mithril certificate that will be later used by the [Mithril client](#mithril-client) to verify the authenticity of a [snapshot](#snapshot). The certificates are chained so that the [stake distribution](#stake-distribution) used to create the signatures is verifiably genuine.

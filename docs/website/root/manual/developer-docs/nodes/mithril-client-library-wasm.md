@@ -14,6 +14,7 @@ Mithril client library WASM can be used by Javascript developers to use the Mith
 It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
 - [**Snapshot**](../../../glossary.md#snapshot): list and get.
 - [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
+- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list & get commitment, get proofs
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
 :::
@@ -111,6 +112,20 @@ console.log("mithril_stake_distributions_message:", mithril_stake_distributions_
 
 let valid_stake_distribution_message = await client.verify_message_match_certificate(mithril_stake_distributions_message, last_certificate_from_chain);
 console.log("valid_stake_distribution_message:", valid_stake_distribution_message);
+```
+
+If the aggregator signs **CardanoTransactions** _(as of 2023-02-19 only the sanchonet aggregator signs them)_, you can add the code below to the previous example:
+
+```js
+const proof = await client.unstable.get_cardano_transaction_proofs(["CARDANO_TRANSACTION_HASH_1", "CARDANO_TRANSACTION_HASH_2"]);
+console.log("Proof tx hash", proof.transactions_hashes);
+console.log("Proof certificate hash", proof.certificate_hash);
+
+let proof_certificate = await client.verify_certificate_chain(proof.certificate_hash);
+console.log("verify_certificate_chain OK, last_certificate_from_chain:", proof_certificate);
+
+let valid_cardano_transaction_proof = await client.unstable.compute_cardano_transaction_proof_message(proof, proof_certificate);
+console.log("valid_cardano_transaction_proof:", valid_cardano_transaction_proof);
 ```
 
 :::tip
