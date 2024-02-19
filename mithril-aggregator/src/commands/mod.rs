@@ -39,6 +39,7 @@ impl MainCommand {
                     Ok(()) => StdResult::Ok(()),
                     Err(message) => StdResult::Err(anyhow!(message)),
                 }
+                // Ok(cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)?)
             }
         }
     }

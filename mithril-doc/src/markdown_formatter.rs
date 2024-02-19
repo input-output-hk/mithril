@@ -24,7 +24,7 @@ mod markdown {
     }
 
     /// Format a list of label to a markdown header.
-    /// To align the text to left, right or to center it, you need to ad `:` at left, right or both.
+    /// To align the text to left, right or to center it, you need to add `:` at left, right or both.
     /// Example:  :Description:
     pub fn format_table_header(data: &[&str]) -> String {
         let headers = data
@@ -99,16 +99,12 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
                 .map(|command| {
                     vec![
                         format!("**{}**", command.get_name()),
-                        command.get_all_aliases().collect::<Vec<&str>>().join(","),
                         command.get_about().map_or("".into(), StyledStr::to_string),
                     ]
                 })
                 .collect::<Vec<Vec<String>>>();
 
-            markdown::format_table(
-                &["Subcommand", "Aliases", "Performed action"],
-                &subcommands_lines,
-            )
+            markdown::format_table(&["Subcommand", "Performed action"], &subcommands_lines)
         } else {
             String::from("")
         }
@@ -120,12 +116,9 @@ pub fn doc_markdown_with_config(cmd: &mut Command, struct_doc: Option<&StructDoc
         struct_doc: Option<&StructDoc>,
         level: usize,
     ) -> String {
-        // It's important to start by calling `render_help` because that built the command.
-        // The initialization add `help` command and default values for parameters.
-        // This is why the command parameter is a mutable reference.
+        // The Command object need to be completed calling `render_help` function.
+        // Otherwise there is no parameter default values and the `help` command is absent.
 
-        // let usage = format!("```bash\n{}\n```", cmd.render_usage()); // Already in help
-        // let help = format!("```bash\n{}\n```", cmd.render_help());
         let help = format!("```bash\n{}\n```", cmd.render_long_help()); // More readable than help
         format_command_internal(cmd, parent, help, struct_doc, level)
     }
@@ -321,7 +314,7 @@ mod tests {
 
         // In `Subcommand` table
         assert!(
-            doc.contains("| **sub-command-a** |  | Help for Subcommand A |"),
+            doc.contains("| **sub-command-a** | Help for Subcommand A |"),
             "Generated doc: {doc}"
         );
     }
@@ -343,7 +336,7 @@ mod tests {
 
         // In `Subcommand` table
         assert!(
-            doc.contains("| **sub-command-b** |  | Help for Subcommand B |"),
+            doc.contains("| **sub-command-b** | Help for Subcommand B |"),
             "Generated doc: {doc}"
         );
         assert!(

@@ -1,7 +1,7 @@
 [package]
 name = "mithril-doc-derive"
 version = "0.2.149"
-description = "Macro to generate doc."
+description = "An internal macro to support documentation generation."
 authors = { workspace = true }
 edition = { workspace = true }
 homepage = { workspace = true }
