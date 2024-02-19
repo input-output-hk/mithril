@@ -136,14 +136,14 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
 
   let ctx_sets;
   test_number++;
-  await run_test("list_cardano_transactions_sets", test_number, async () => {
-    ctx_sets = await client.unstable.list_cardano_transaction_sets();
+  await run_test("list_cardano_transactions_commitments", test_number, async () => {
+    ctx_sets = await client.unstable.list_cardano_transactions_commitments();
     console.log("cardano_transactions_sets", ctx_sets);
   });
 
   test_number++;
-  await run_test("get_cardano_transaction_set", test_number, async () => {
-    const ctx_set = await client.unstable.get_cardano_transaction_set(ctx_sets[0].hash);
+  await run_test("get_cardano_transactions_commitment", test_number, async () => {
+    const ctx_set = await client.unstable.get_cardano_transactions_commitment(ctx_sets[0].hash);
     console.log("cardano_transaction_set", ctx_set);
   });
 
@@ -155,7 +155,7 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
     await run_test("get_cardano_transaction_proof", test_number, async () => {
       ctx_proof = await client.unstable.get_cardano_transaction_proofs(transactions_hashes_to_certify);
       console.log(
-        "got proof for txs: ", ctx_proof.transactions_hashes,
+        "got proof for transactions: ", ctx_proof.transactions_hashes,
         "\nnon_certified_transactions: ", ctx_proof.non_certified_transactions
       );
     });

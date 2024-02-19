@@ -195,7 +195,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_transaction_commitment_list() {
+    async fn get_cardano_transactions_commitment_list() {
         let message = fake_messages();
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
@@ -210,7 +210,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_transaction_commitment() {
+    async fn get_cardano_transactions_commitment() {
         let mut http_client = MockAggregatorHTTPClient::new();
         let message = CardanoTransactionCommitment {
             merkle_root: "mk-123".to_string(),
