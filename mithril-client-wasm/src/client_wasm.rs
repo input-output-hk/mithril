@@ -251,7 +251,10 @@ impl MithrilUnstableClient {
 
     /// Call the client to get a Cardano transactions proofs
     #[wasm_bindgen]
-    pub async fn get_cardano_transaction_proofs(&self, ctx_hashes: Box<[JsValue]>) -> WasmResult {
+    pub async fn get_cardano_transaction_proofs(
+        &self,
+        ctx_hashes: Box<[JsValue]>,
+    ) -> Result<CardanoTransactionsProofs, JsValue> {
         let hashes = ctx_hashes
             .iter()
             .map(|h| {
@@ -269,21 +272,18 @@ impl MithrilUnstableClient {
             .await
             .map_err(|err| format!("{err:?}"))?;
 
-        Ok(serde_wasm_bindgen::to_value(&result)?)
+        Ok(result)
     }
 
     /// Call the client to compute a cardano transaction proof message
     #[wasm_bindgen]
     pub async fn compute_cardano_transaction_proof_message(
         &self,
-        cardano_transaction_proof: JsValue,
+        cardano_transaction_proof: CardanoTransactionsProofs,
         certificate: JsValue,
     ) -> WasmResult {
         let certificate: MithrilCertificate =
             serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
-        let cardano_transaction_proof: CardanoTransactionsProofs =
-            serde_wasm_bindgen::from_value(cardano_transaction_proof)
-                .map_err(|err| format!("{err:?}"))?;
         let verified_proof = cardano_transaction_proof
             .verify()
             .map_err(|err| format!("{err:?}"))?;
@@ -545,12 +545,8 @@ mod tests {
             .get_cardano_transaction_proofs(ctx_hashes)
             .await
             .expect("get_verified_cardano_transaction_proofs should not fail");
-        let cardano_tx_proof =
-            serde_wasm_bindgen::from_value::<CardanoTransactionsProofs>(tx_proof.clone())
-                .expect("conversion should not fail");
-
         let certificate = client
-            .get_mithril_certificate(&cardano_tx_proof.certificate_hash)
+            .get_mithril_certificate(&tx_proof.certificate_hash)
             .await
             .unwrap();
 

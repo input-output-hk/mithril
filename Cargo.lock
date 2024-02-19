@@ -3526,6 +3526,7 @@ dependencies = [
  "typetag",
  "walkdir",
  "warp",
+ "wasm-bindgen",
 ]
 
 [[package]]
