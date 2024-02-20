@@ -49,7 +49,7 @@ impl ProgressPrinter {
     /// Report the current step
     pub fn report_step(&self, step_number: u16, text: &str) -> MithrilResult<()> {
         match self.output_type {
-            ProgressOutputType::JsonReporter => println!(
+            ProgressOutputType::JsonReporter => eprintln!(
                 r#"{{"timestamp": "{timestamp}", "step_num": {step_number}, "total_steps": {number_of_steps}, "message": "{text}"}}"#,
                 timestamp = Utc::now().to_rfc3339(),
                 number_of_steps = self.number_of_steps,
@@ -119,7 +119,7 @@ impl DownloadProgressReporter {
             };
 
             if should_report {
-                println!("{}", ProgressBarJsonFormatter::format(&self.progress_bar));
+                eprintln!("{}", ProgressBarJsonFormatter::format(&self.progress_bar));
 
                 match self.last_json_report_instant.write() {
                     Ok(mut instant) => *instant = Some(Instant::now()),
