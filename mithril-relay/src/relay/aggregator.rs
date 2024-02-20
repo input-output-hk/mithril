@@ -55,8 +55,18 @@ impl AggregatorRelay {
                 .peer
                 .convert_peer_event_to_signature_message(peer_event)
             {
-                self.notify_signature_to_aggregator(&signature_message_received)
-                    .await?;
+                let retry_max = 3;
+                let mut retry_count = 0;
+                while let Err(e) = self
+                    .notify_signature_to_aggregator(&signature_message_received)
+                    .await
+                {
+                    retry_count += 1;
+                    if retry_count >= retry_max {
+                        error!("Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
+                        return Err(e);
+                    }
+                }
             }
         }
 
