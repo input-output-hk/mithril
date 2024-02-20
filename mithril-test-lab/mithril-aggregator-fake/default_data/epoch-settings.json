@@ -1,1 +1,13 @@
-{"epoch":21,"protocol":{"k":75,"m":100,"phi_f":0.95},"next_protocol":{"k":75,"m":100,"phi_f":0.95}}
+{
+  "epoch": 45,
+  "protocol": {
+    "k": 75,
+    "m": 100,
+    "phi_f": 0.95
+  },
+  "next_protocol": {
+    "k": 75,
+    "m": 100,
+    "phi_f": 0.95
+  }
+}
