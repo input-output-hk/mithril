@@ -40,7 +40,6 @@ pallas-codec = { version = "0.23.0", optional = true }
 pallas-network = { version = "0.23.0", optional = true }
 pallas-primitives = { version = "0.23.0", optional = true }
 pallas-traverse = { version = "0.23.0", optional = true }
-quote = "1.0.35"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 rayon = "1.8.1"
