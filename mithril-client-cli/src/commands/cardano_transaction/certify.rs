@@ -6,8 +6,8 @@ use slog_scope::debug;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::{
-    common::TransactionHash, MessageBuilder, MithrilCertificate, MithrilResult,
-    VerifiedCardanoTransactions,
+    common::TransactionHash, CardanoTransactionsProofs, MessageBuilder, MithrilCertificate,
+    MithrilResult, VerifiedCardanoTransactions, VerifyCardanoTransactionsProofsError,
 };
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
@@ -63,11 +63,8 @@ impl CardanoTransactionsCertifyCommand {
             cardano_transaction_proof
         );
 
-        progress_printer.report_step(2, "Verifying the proof…")?;
-        let verified_transactions = cardano_transaction_proof
-            .verify()
-            .with_context(|| "Proof verification failed")?;
-        debug!("Verified Transactions: {:?}", verified_transactions);
+        let verified_transactions =
+            Self::verify_proof_validity(2, &progress_printer, &cardano_transaction_proof)?;
 
         progress_printer.report_step(
             3,
@@ -96,6 +93,23 @@ impl CardanoTransactionsCertifyCommand {
             &cardano_transaction_proof.non_certified_transactions,
             self.json,
         )
+    }
+
+    fn verify_proof_validity(
+        step_number: u16,
+        progress_printer: &ProgressPrinter,
+        cardano_transaction_proof: &CardanoTransactionsProofs,
+    ) -> MithrilResult<VerifiedCardanoTransactions> {
+        progress_printer.report_step(step_number, "Verifying the proof…")?;
+        match cardano_transaction_proof.verify() {
+            Ok(verified_transactions) => Ok(verified_transactions),
+            Err(VerifyCardanoTransactionsProofsError::NoCertifiedTransaction) => Err(anyhow!(
+                "Mithril could not certify any of the given transactions.
+
+Mithril may not have signed those transactions yet, please try again later."
+            )),
+            err => err.with_context(|| "Proof verification failed"),
+        }
     }
 
     fn verify_proof_match_certificate(
