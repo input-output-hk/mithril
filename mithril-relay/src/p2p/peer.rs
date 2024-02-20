@@ -14,6 +14,9 @@ use std::{collections::HashMap, time::Duration};
 
 use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
 
+/// The idle connection timeout for a P2P connection
+const P2P_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
+
 /// [Peer] custom network behaviour
 #[derive(NetworkBehaviour)]
 pub struct PeerBehaviour {
@@ -112,6 +115,7 @@ impl Peer {
                     ping: ping::Behaviour::new(ping::Config::new()),
                 })
             })?
+            .with_swarm_config(|c| c.with_idle_connection_timeout(P2P_IDLE_CONNECTION_TIMEOUT))
             .build();
 
         for topic in self.topics.values() {
