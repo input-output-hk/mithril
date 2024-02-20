@@ -24,8 +24,8 @@ pub enum MithrilStakeDistributionCommand {
 
 #[derive(Debug)]
 pub enum CardanoTransactionCommand {
-    ListSets,
-    ShowSets { hash: String },
+    ListCommitment,
+    ShowCommitment { hash: String },
     Certify { tx_hashes: Vec<TransactionHash> },
 }
 
@@ -71,19 +71,19 @@ impl Client {
                 ],
             },
             ClientCommand::CardanoTransaction(subcommand) => match subcommand {
-                CardanoTransactionCommand::ListSets => {
+                CardanoTransactionCommand::ListCommitment => {
                     vec![
                         "--unstable".to_string(),
                         "cardano-transaction".to_string(),
-                        "sets".to_string(),
+                        "commitment".to_string(),
                         "list".to_string(),
                     ]
                 }
-                CardanoTransactionCommand::ShowSets { hash } => {
+                CardanoTransactionCommand::ShowCommitment { hash } => {
                     vec![
                         "--unstable".to_string(),
                         "cardano-transaction".to_string(),
-                        "sets".to_string(),
+                        "commitment".to_string(),
                         "show".to_string(),
                         hash,
                     ]

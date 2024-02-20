@@ -41,8 +41,8 @@ impl LogOutputType {
 #[derive(Documenter, Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
-    about = "This program shows, downloads and verifies certified blockchain artifacts.",
-    long_about = None
+about = "This program shows, downloads and verifies certified blockchain artifacts.",
+long_about = None
 )]
 #[command(version)]
 pub struct Args {
@@ -221,8 +221,13 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
-        let args = Args::try_parse_from(["mithril-client", "cardano-transaction", "sets", "list"])
-            .unwrap();
+        let args = Args::try_parse_from([
+            "mithril-client",
+            "cardano-transaction",
+            "commitment",
+            "list",
+        ])
+        .unwrap();
 
         args.execute()
             .await
