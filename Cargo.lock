@@ -945,10 +945,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "client-mithril-stake-distribution"
-version = "0.1.6"
+name = "client-cardano-transaction"
+version = "0.1.0"
 dependencies = [
  "anyhow",
+ "clap",
+ "mithril-client",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
+name = "client-mithril-stake-distribution"
+version = "0.1.7"
+dependencies = [
+ "anyhow",
+ "clap",
  "mithril-client",
  "slog",
  "slog-async",
@@ -958,10 +972,11 @@ dependencies = [
 
 [[package]]
 name = "client-snapshot"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "async-trait",
+ "clap",
  "futures",
  "indicatif",
  "mithril-client",

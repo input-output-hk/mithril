@@ -4,6 +4,7 @@ resolver = "2"
 
 members = [
   "demo/protocol-demo",
+  "examples/client-cardano-transaction",
   "examples/client-mithril-stake-distribution",
   "examples/client-snapshot",
   "mithril-aggregator",
