@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
+use cli_table::{print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog_scope::debug;
 use std::{collections::HashMap, sync::Arc};
@@ -132,18 +133,35 @@ impl CardanoTransactionsCertifyCommand {
             );
         } else {
             println!(
-                r###"Cardano transactions with hashes "'{}'" have been successfully checked against Mithril multi-signature contained in the certificate."###,
-                verified_transactions.certified_transactions().join(","),
+                r###"Cardano transactions proof has been successfully signed in the associated Mithril certificate."###,
             );
 
             if !non_certified_transactions.is_empty() {
                 println!(
-                    r###"No proof could be computed for Cardano transactions with hashes "'{}'".
-                    
-                    Mithril may not have signed those transactions yet, please try again later."###,
-                    non_certified_transactions.join(","),
+                    r###"
+No proof could be computed for some Cardano transactions. Mithril may not have signed those transactions yet, please try again later."###,
                 );
             }
+
+            let result_table = verified_transactions
+                .certified_transactions()
+                .iter()
+                .map(|tx| {
+                    vec![
+                        tx.cell(),
+                        "✅".cell().justify(cli_table::format::Justify::Center),
+                    ]
+                })
+                .chain(non_certified_transactions.iter().map(|tx| {
+                    vec![
+                        tx.cell(),
+                        "❌".cell().justify(cli_table::format::Justify::Center),
+                    ]
+                }))
+                .table()
+                .title(vec!["Transaction Hash", "Certified"]);
+
+            print_stdout(result_table)?
         }
 
         Ok(())
