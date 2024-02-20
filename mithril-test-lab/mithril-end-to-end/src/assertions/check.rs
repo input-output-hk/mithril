@@ -2,7 +2,7 @@ use crate::{
     attempt, utils::AttemptResult, CardanoTransactionCommand, Client, ClientCommand,
     MithrilStakeDistributionCommand, SnapshotCommand,
 };
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use mithril_common::{
     entities::{Epoch, TransactionHash},
     messages::{
@@ -312,7 +312,14 @@ pub async fn assert_client_can_verify_transactions(
     client: &mut Client,
     tx_hashes: Vec<TransactionHash>,
 ) -> StdResult<()> {
-    client
+    #[allow(dead_code)]
+    #[derive(Debug, serde::Deserialize)]
+    struct ClientCtxCertifyResult {
+        certified_transactions: Vec<TransactionHash>,
+        non_certified_transactions: Vec<TransactionHash>,
+    }
+
+    let result_file = client
         .run(ClientCommand::CardanoTransaction(
             CardanoTransactionCommand::Certify {
                 tx_hashes: tx_hashes.clone(),
@@ -321,5 +328,29 @@ pub async fn assert_client_can_verify_transactions(
         .await?;
     info!("Client verified the Cardano transactions"; "tx_hashes" => ?tx_hashes);
 
-    Ok(())
+    let file = std::fs::read_to_string(&result_file).with_context(|| {
+        format!(
+            "Failed to read client output from file `{}`",
+            result_file.display()
+        )
+    })?;
+    let result: ClientCtxCertifyResult = serde_json::from_str(&file).with_context(|| {
+        format!(
+            "Failed to parse client output as json from file `{}`",
+            result_file.display()
+        )
+    })?;
+
+    info!("Asserting that all Cardano transactions where verified by the Client...");
+    if tx_hashes
+        .iter()
+        .all(|tx| result.certified_transactions.contains(tx))
+    {
+        Ok(())
+    } else {
+        Err(anyhow!(
+            "Not all transactions where certified:\n'{:#?}'",
+            result,
+        ))
+    }
 }
