@@ -137,6 +137,19 @@ impl Peer {
         Ok(self)
     }
 
+    /// Convert a peer event to a signature message
+    pub fn convert_peer_event_to_signature_message(
+        &mut self,
+        event: PeerEvent,
+    ) -> StdResult<Option<RegisterSignatureMessage>> {
+        match event {
+            PeerEvent::Behaviour {
+                event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
+            } => Ok(Some(serde_json::from_slice(&message.data)?)),
+            _ => Ok(None),
+        }
+    }
+
     /// Tick the peer swarm to receive the next event
     pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
         debug!("Peer: reading next event"; "local_peer_id" => format!("{:?}", self.local_peer_id()));
