@@ -99,8 +99,8 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-funds.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
-    ## Wait at least for 2 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 2
+    ## Wait at least for 10 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 10
 
     # Write the era datum on chain
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
@@ -129,8 +129,8 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-datum.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
-    ## Wait at least for 2 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 2
+    ## Wait at least for 10 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 10
 
     
 EOF

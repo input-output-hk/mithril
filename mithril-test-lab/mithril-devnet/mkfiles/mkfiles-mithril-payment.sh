@@ -125,8 +125,8 @@ cat >> payment-mithril.sh <<EOF
 EOF
 done
 cat >> payment-mithril.sh <<EOF
-    ## Wait at least for 2 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 2
+    ## Wait at least for 10 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 10
 }
 EOF
 
