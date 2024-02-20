@@ -5,6 +5,8 @@ set +a -eu -o pipefail
 check_requirements() {
     which wget >/dev/null ||
         error "It seems 'wget' is not installed or not in the path.";
+    which jq >/dev/null ||
+        error "It seems 'jq' is not installed or not in the path.";
 }
 
 display_help() {
@@ -29,7 +31,7 @@ error() {
 
 clean_directory() {
     echo "Cleaning data directory…"
-    rm $DATA_DIR/*.json || true
+    rm "$DATA_DIR/*.json" || true
 }
 
 # $1=URL $2=artifact_name
@@ -38,13 +40,13 @@ download_data() {
     local -r artifact=${2:?"No artifact type given to download_data function."};
 
     echo "Downloading ${artifact} data."
-    wget -O $DATA_DIR/${artifact}.json --quiet "${url}"
+    wget -O - --quiet "${url}" | jq > "$DATA_DIR/${artifact}.json";
 }
 
 # $1=URL $2=artifact_name $3=JSON field
 download_artifacts() {
-    local -r url=${1:?"No URL given to download_data function."};
-    local -r artifact=${2:?"No artifact type given to download_data function."};
+    local -r url=${1:?"No URL given to download_artifacts function."};
+    local -r artifact=${2:?"No artifact type given to download_artifacts function."};
     local -r json_field=${3:?"No JSON field given to read from artifact list."};
     local -r download_missing_certificate=${4:-false};
     local -i nb=0
@@ -55,7 +57,7 @@ download_artifacts() {
     for field in $(jq -r .[].${json_field} < $DATA_DIR/${artifact}s.json);
     do
         tput rc;
-        wget -O $DATA_DIR/${artifact}-${field}.json --quiet "${url}/${field}"
+        download_data "${url}/${field}" "${artifact}-${field}"
 
         if [ true = "$download_missing_certificate" ]; then
             download_missing_certificate $(jq -r .certificate_hash $DATA_DIR/${artifact}-${field}.json);
@@ -68,11 +70,12 @@ download_artifacts() {
 }
 
 # Download certificate if a file with the hash does not already exist
+# $1=certificate_hash
 download_missing_certificate() {
-    local -r certificate_hash=${@:?"No certificate hashesgiven to download_missing_certificate function."};
+    local -r certificate_hash=${1:?"No certificate hashes given to download_missing_certificate function."};
 
     if [ ! -e "$DATA_DIR/certificate-${certificate_hash}.json" ]; then
-        wget -O $DATA_DIR/certificate-${certificate_hash}.json --quiet "${BASE_URL}/certificate/${certificate_hash}";
+        download_data "${BASE_URL}/certificate/${certificate_hash}" "certificate-${certificate_hash}"
     fi
 }
 
@@ -88,7 +91,7 @@ download_certificate_chain() {
     do
         tput rc;
         certificate_hash=$parent_hash;
-        wget -O $DATA_DIR/certificate-${certificate_hash}.json --quiet "${BASE_URL}/certificate/${certificate_hash}";
+        download_data "${BASE_URL}/certificate/${certificate_hash}" "certificate-${certificate_hash}"
         parent_hash=$(jq -r .previous_hash $DATA_DIR/certificate-${certificate_hash}.json);
         let "nb=nb+1"
         echo -n "$nb   "
@@ -96,6 +99,7 @@ download_certificate_chain() {
     echo " ✅";
 }
 
+# $@=list of transactions_hashes
 download_ctx_proof() {
     local -r ctx_hashes=${@:?"No cardano transaction hashes given to download_ctx_proof function."};
     local -i nb=0
@@ -106,7 +110,7 @@ download_ctx_proof() {
     for cardano_transaction_hash in $ctx_hashes;
     do
         tput rc;
-        wget -O $DATA_DIR/ctx-proof-${cardano_transaction_hash}.json --quiet "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}";
+        download_data "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}" "ctx-proof-${cardano_transaction_hash}"
         download_missing_certificate $(jq -r .certificate_hash $DATA_DIR/ctx-proof-${cardano_transaction_hash}.json);
 
         let "nb=nb+1"
@@ -115,6 +119,7 @@ download_ctx_proof() {
     echo " ✅";
 }
 
+# $@=list of transactions_hashes
 write_ctx_proof_hashes_list() {
     local -r ctx_hashes=${@:?"No cardano transaction hashes given to write_ctx_proof_hashes_list function."};
     local -i nb=0
@@ -140,7 +145,6 @@ EOF
     echo "]" >> $DATA_DIR/ctx-proofs.json
 
     echo " ✅";
-
 }
 
 # MAIN execution
