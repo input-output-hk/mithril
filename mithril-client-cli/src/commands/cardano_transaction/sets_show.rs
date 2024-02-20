@@ -31,7 +31,7 @@ impl CardanoTransactionsSetsShowCommand {
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
 
         let get_list_of_artifact_ids = || async {
-            let transactions_sets = client.cardano_transaction_proof().list().await.with_context(|| {
+            let transactions_sets = client.cardano_transaction().list().await.with_context(|| {
                 "Can not get the list of artifacts while retrieving the latest Cardano transaction sets hash"
             })?;
 
@@ -42,7 +42,7 @@ impl CardanoTransactionsSetsShowCommand {
         };
 
         let tx_sets = client
-            .cardano_transaction_proof()
+            .cardano_transaction()
             .get(
                 &ExpanderUtils::expand_eventual_id_alias(&self.hash, get_list_of_artifact_ids())
                     .await?,

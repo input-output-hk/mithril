@@ -17,10 +17,10 @@ async fn cardano_transaction_proof_get_validate() {
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())
         .build()
         .expect("Should be able to create a Client");
-    let cardano_transaction_proof_client = client.cardano_transaction_proof();
+    let cardano_transaction_client = client.cardano_transaction();
 
     // 1 - get list of set proofs for wanted tx & associated certificate hash
-    let proofs = cardano_transaction_proof_client
+    let proofs = cardano_transaction_client
         .get_proofs(&transactions_hashes)
         .await
         .expect("Getting proof for the transactions should not fail");

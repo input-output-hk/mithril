@@ -8,7 +8,7 @@
 //!
 //! - [Snapshot][snapshot_client] list, get, download tarball and record statistics.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
-//! - [Cardano transactions proofs][cardano_transaction_proof_client] list & get commitment, get proofs
+//! - [Cardano transactions proofs][cardano_transaction_client] list & get commitment, get proofs
 //! _(available using crate feature_ **unstable**_)_.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!
@@ -84,7 +84,7 @@ macro_rules! cfg_unstable {
 
 pub mod aggregator_client;
 cfg_unstable! {
-    pub mod cardano_transaction_proof_client;
+    pub mod cardano_transaction_client;
 }
 pub mod certificate_client;
 mod client;

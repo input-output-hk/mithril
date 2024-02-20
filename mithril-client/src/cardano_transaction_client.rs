@@ -1,11 +1,11 @@
 //! A client to retrieve from an aggregator cryptographic proofs of membership for a subset of Cardano transactions.
 //!
-//! In order to do so it defines a [CardanoTransactionProofClient] which exposes the following features:
-//!  - [get_proofs][CardanoTransactionProofClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
+//! In order to do so it defines a [CardanoTransactionClient] which exposes the following features:
+//!  - [get_proofs][CardanoTransactionClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
 //! that the transactions with given hash are included in the global Cardano transactions set.
-//!  - [get][CardanoTransactionProofClient::get]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
+//!  - [get][CardanoTransactionClient::get]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
 //! data from its hash.
-//!  - [list][CardanoTransactionProofClient::list]: get the list of the latest available Cardano transaction
+//!  - [list][CardanoTransactionClient::list]: get the list of the latest available Cardano transaction
 //! commitments.
 //!
 //!  **Important:** Verifying a proof **only** means that its cryptography is valid, in order to certify that a Cardano
@@ -22,7 +22,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //!
 //! // 1 - Get a proof from the aggregator and verify it
-//! let cardano_transaction_proof = client.cardano_transaction_proof().get_proofs(&["tx-1", "tx-2"]).await?;
+//! let cardano_transaction_proof = client.cardano_transaction().get_proofs(&["tx-1", "tx-2"]).await?;
 //! println!("Mithril could not certify the following transactions : {:?}", &cardano_transaction_proof.non_certified_transactions);
 //!
 //! let verified_transactions = cardano_transaction_proof.verify()?;
@@ -49,7 +49,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_commitment = client.cardano_transaction_proof().get("CARDANO_TRANSACTION_COMMITMENT_HASH").await?.unwrap();
+//! let cardano_transaction_commitment = client.cardano_transaction().get("CARDANO_TRANSACTION_COMMITMENT_HASH").await?.unwrap();
 //!
 //! println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
 //! #    Ok(())
@@ -65,7 +65,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_commitments = client.cardano_transaction_proof().list().await?;
+//! let cardano_transaction_commitments = client.cardano_transaction().list().await?;
 //!
 //! for cardano_transaction_commitment in cardano_transaction_commitments {
 //!     println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
@@ -83,12 +83,12 @@ use anyhow::Context;
 use std::sync::Arc;
 
 /// HTTP client for CardanoTransactionsAPI from the Aggregator
-pub struct CardanoTransactionProofClient {
+pub struct CardanoTransactionClient {
     aggregator_client: Arc<dyn AggregatorClient>,
 }
 
-impl CardanoTransactionProofClient {
-    /// Constructs a new `CardanoTransactionProofClient`.
+impl CardanoTransactionClient {
+    /// Constructs a new `CardanoTransactionClient`.
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
         Self { aggregator_client }
     }
@@ -123,13 +123,9 @@ impl CardanoTransactionProofClient {
             .aggregator_client
             .get_content(AggregatorRequest::ListCardanoTransactionCommitments)
             .await
-            .with_context(|| {
-                "CardanoTransactionProofClient Client can not get the artifact list"
-            })?;
+            .with_context(|| "CardanoTransactionClient Client can not get the artifact list")?;
         let items = serde_json::from_str::<Vec<CardanoTransactionCommitmentListItem>>(&response)
-            .with_context(|| {
-                "CardanoTransactionProofClient Client can not deserialize artifact list"
-            })?;
+            .with_context(|| "CardanoTransactionClient Client can not deserialize artifact list")?;
 
         Ok(items)
     }
@@ -146,7 +142,7 @@ impl CardanoTransactionProofClient {
             Ok(content) => {
                 let cardano_transaction_commitment: CardanoTransactionCommitment =
                     serde_json::from_str(&content).with_context(|| {
-                        "CardanoTransactionProofClient Client can not deserialize artifact"
+                        "CardanoTransactionClient Client can not deserialize artifact"
                     })?;
 
                 Ok(Some(cardano_transaction_commitment))
@@ -201,7 +197,7 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-        let client = CardanoTransactionProofClient::new(Arc::new(http_client));
+        let client = CardanoTransactionClient::new(Arc::new(http_client));
         let items = client.list().await.unwrap();
 
         assert_eq!(2, items.len());
@@ -225,7 +221,7 @@ mod tests {
         http_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-        let client = CardanoTransactionProofClient::new(Arc::new(http_client));
+        let client = CardanoTransactionClient::new(Arc::new(http_client));
         let cardano_transaction_commitment = client
             .get("hash")
             .await
@@ -248,7 +244,7 @@ mod tests {
             .return_once(move |_| Ok(serde_json::to_string(&transactions_proofs).unwrap()))
             .times(1);
 
-        let cardano_tx_client = CardanoTransactionProofClient::new(Arc::new(aggregator_client));
+        let cardano_tx_client = CardanoTransactionClient::new(Arc::new(aggregator_client));
         let transactions_proofs = cardano_tx_client
             .get_proofs(
                 &set_proof
@@ -275,7 +271,7 @@ mod tests {
             })
             .times(1);
 
-        let cardano_tx_client = CardanoTransactionProofClient::new(Arc::new(aggregator_client));
+        let cardano_tx_client = CardanoTransactionClient::new(Arc::new(aggregator_client));
         cardano_tx_client
             .get_proofs(&["tx-123"])
             .await

@@ -49,7 +49,7 @@ impl CardanoTransactionsCertifyCommand {
 
         progress_printer.report_step(1, "Fetching a proof for the given transactions…")?;
         let cardano_transaction_proof = client
-            .cardano_transaction_proof()
+            .cardano_transaction()
             .get_proofs(&self.transactions_hashes)
             .await
             .with_context(|| {
