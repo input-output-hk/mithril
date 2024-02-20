@@ -46,7 +46,7 @@ impl Clone for Config {
 
 #[derive(Subcommand, Debug, PartialEq)]
 enum DemoCommands {
-    #[clap(alias("doc"))]
+    #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
 

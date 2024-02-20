@@ -89,7 +89,7 @@ fn build_logger(min_level: Level) -> Logger {
 
 #[derive(Subcommand, Debug, Clone)]
 enum SignerCommands {
-    #[clap(alias("doc"))]
+    #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
 

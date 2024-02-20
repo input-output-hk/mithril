@@ -116,7 +116,7 @@ impl Args {
 
 #[derive(Subcommand, Debug, Clone)]
 enum EndToEndCommands {
-    #[clap(alias("doc"))]
+    #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
 

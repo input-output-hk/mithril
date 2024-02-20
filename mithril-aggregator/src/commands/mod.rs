@@ -22,7 +22,7 @@ pub enum MainCommand {
     Era(era_command::EraCommand),
     Serve(serve_command::ServeCommand),
     Tools(tools_command::ToolsCommand),
-    #[clap(alias("doc"))]
+    #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
 

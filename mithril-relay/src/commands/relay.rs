@@ -21,7 +21,7 @@ pub enum RelayCommands {
     Passive(PassiveCommand),
 
     /// Generate command line documentation
-    #[clap(alias("doc"))]
+    #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
 

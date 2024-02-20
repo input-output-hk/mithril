@@ -171,7 +171,7 @@ enum ArtifactCommands {
     #[clap(subcommand, alias("ctx"))]
     CardanoTransaction(CardanoTransactionCommands),
 
-    #[clap(alias("doc"))]
+    #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
 
