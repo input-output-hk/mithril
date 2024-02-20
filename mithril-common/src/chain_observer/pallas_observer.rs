@@ -213,7 +213,7 @@ impl PallasChainObserver {
         Ok(pool_hash)
     }
 
-    async fn get_stake_distribution_snapshot(
+    async fn get_stake_distribution(
         &self,
         client: &mut NodeClient,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
@@ -305,13 +305,13 @@ impl ChainObserver for PallasChainObserver {
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
         let mut client = self.get_client().await?;
 
-        let stake_pools = self.get_stake_distribution_snapshot(&mut client).await?;
+        let stake_distribution = self.get_stake_distribution(&mut client).await?;
 
         self.post_process_statequery(&mut client).await?;
 
         client.abort().await;
 
-        Ok(stake_pools)
+        Ok(stake_distribution)
     }
 
     async fn get_current_kes_period(
@@ -546,9 +546,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_stake_distribution_fallback() {
+    async fn get_current_stake_distribution_with_fallback() {
         let socket_path =
-            create_temp_dir("get_current_stake_distribution_fallback").join("node.socket");
+            create_temp_dir("get_current_stake_distribution_with_fallback").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
             let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
