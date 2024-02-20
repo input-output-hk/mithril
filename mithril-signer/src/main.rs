@@ -105,10 +105,9 @@ async fn main() -> StdResult<()> {
             Configuration::extract(),
             DefaultConfiguration::extract(),
         ];
-        return match cmd.execute_with_configurations(&mut Args::command(), &config_infos) {
-            Ok(()) => StdResult::Ok(()),
-            Err(message) => StdResult::Err(anyhow!(message)),
-        };
+        return cmd
+            .execute_with_configurations(&mut Args::command(), &config_infos)
+            .map_err(|message| anyhow!(message));
     }
 
     #[cfg(feature = "bundle_openssl")]

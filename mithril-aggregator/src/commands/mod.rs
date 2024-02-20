@@ -35,11 +35,8 @@ impl MainCommand {
             Self::Tools(cmd) => cmd.execute(config_builder).await,
             Self::GenerateDoc(cmd) => {
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
-                match cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos) {
-                    Ok(()) => StdResult::Ok(()),
-                    Err(message) => StdResult::Err(anyhow!(message)),
-                }
-                // Ok(cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)?)
+                cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
+                    .map_err(|message| anyhow!(message))
             }
         }
     }

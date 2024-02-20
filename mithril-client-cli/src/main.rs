@@ -196,10 +196,9 @@ impl ArtifactCommands {
                     ctx.execute(config_builder).await
                 }
             }
-            Self::GenerateDoc(cmd) => match cmd.execute(&mut Args::command()) {
-                Ok(()) => MithrilResult::Ok(()),
-                Err(message) => MithrilResult::Err(anyhow!(message)),
-            },
+            Self::GenerateDoc(cmd) => cmd
+                .execute(&mut Args::command())
+                .map_err(|message| anyhow!(message)),
         }
     }
 }

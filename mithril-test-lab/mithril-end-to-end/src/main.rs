@@ -126,10 +126,9 @@ async fn main() -> StdResult<()> {
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
     if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
-        return match cmd.execute(&mut Args::command()) {
-            Ok(()) => StdResult::Ok(()),
-            Err(message) => StdResult::Err(anyhow!(message)),
-        };
+        return cmd
+            .execute(&mut Args::command())
+            .map_err(|message| anyhow!(message));
     }
 
     let server_port = 8080;
