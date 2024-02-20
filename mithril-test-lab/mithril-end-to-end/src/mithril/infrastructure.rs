@@ -76,7 +76,7 @@ impl MithrilInfrastructure {
         })?;
         aggregator.set_protocol_parameters(&ProtocolParameters {
             k: 75,
-            m: 100,
+            m: 105,
             phi_f: 0.95,
         });
         if config.mithril_era_reader_adapter == "cardano-chain" {
