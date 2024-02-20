@@ -1,11 +1,13 @@
 use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     path::{Path, PathBuf},
 };
 
+use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{commands::client_builder, configuration::ConfigParameters, utils::ExpanderUtils};
 use mithril_client::MessageBuilder;
 use mithril_client::MithrilResult;
@@ -14,6 +16,10 @@ use mithril_client::MithrilResult;
 /// verification fails, the file is not persisted.
 #[derive(Parser, Debug, Clone)]
 pub struct MithrilStakeDistributionDownloadCommand {
+    /// Enable JSON output.
+    #[clap(long)]
+    json: bool,
+
     /// Hash of the Mithril Stake Distribution artifact.
     ///
     /// If `latest` is specified as artifact_hash, the command will return the latest stake distribution.
@@ -40,7 +46,18 @@ impl MithrilStakeDistributionDownloadCommand {
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let download_dir = &params.require("download_dir")?;
         let download_dir = Path::new(download_dir);
-        let client = client_builder(&params)?.build()?;
+
+        let progress_output_type = if self.json {
+            ProgressOutputType::JsonReporter
+        } else {
+            ProgressOutputType::Tty
+        };
+        let progress_printer = ProgressPrinter::new(progress_output_type, 4);
+        let client = client_builder(&params)?
+            .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
+                progress_output_type,
+            )))
+            .build()?;
 
         let get_list_of_artifact_ids = || async {
             let mithril_stake_distributions = client.mithril_stake_distribution().list().await.with_context(|| {
@@ -52,6 +69,13 @@ impl MithrilStakeDistributionDownloadCommand {
                 .map(|msd| msd.hash.to_owned())
                 .collect::<Vec<String>>())
         };
+        progress_printer.report_step(
+            1,
+            &format!(
+                "Fetching Mithril stake distribution '{}' …",
+                self.artifact_hash
+            ),
+        )?;
         let mithril_stake_distribution = client
             .mithril_stake_distribution()
             .get(
@@ -69,6 +93,10 @@ impl MithrilStakeDistributionDownloadCommand {
                 )
             })?;
 
+        progress_printer.report_step(
+            2,
+            "Fetching the certificate and verifying the certificate chain…",
+        )?;
         let certificate = client
             .certificate()
             .verify_chain(&mithril_stake_distribution.certificate_hash)
@@ -80,6 +108,10 @@ impl MithrilStakeDistributionDownloadCommand {
                 )
             })?;
 
+        progress_printer.report_step(
+            3,
+            "Verify that the Mithril stake distribution is signed in the associated certificate",
+        )?;
         let message = MessageBuilder::new()
             .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
             .with_context(|| {
@@ -94,6 +126,7 @@ impl MithrilStakeDistributionDownloadCommand {
                 ));
         }
 
+        progress_printer.report_step(4, "Writing fetched Mithril stake distribution to a file")?;
         if !download_dir.is_dir() {
             std::fs::create_dir_all(download_dir)?;
         }
@@ -111,11 +144,19 @@ impl MithrilStakeDistributionDownloadCommand {
             })?,
         )?;
 
-        println!(
-            "Mithril Stake Distribution '{}' has been verified and saved as '{}'.",
-            self.artifact_hash,
-            filepath.display()
-        );
+        if self.json {
+            println!(
+                r#"{{"mithril_stake_distribution_hash": "{}", "filepath": "{}"}}"#,
+                mithril_stake_distribution.hash,
+                filepath.display()
+            );
+        } else {
+            println!(
+                "Mithril Stake Distribution '{}' has been verified and saved as '{}'.",
+                mithril_stake_distribution.hash,
+                filepath.display()
+            );
+        }
 
         Ok(())
     }
