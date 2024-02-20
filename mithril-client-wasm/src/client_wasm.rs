@@ -225,8 +225,8 @@ impl MithrilUnstableClient {
     pub async fn list_cardano_transactions_commitments(&self) -> WasmResult {
         let result = self
             .client
-            .cardano_transaction_proof()
-            .list()
+            .cardano_transaction()
+            .list_commitments()
             .await
             .map_err(|err| format!("{err:?}"))?;
 
@@ -238,8 +238,8 @@ impl MithrilUnstableClient {
     pub async fn get_cardano_transactions_commitment(&self, hash: &str) -> WasmResult {
         let result = self
             .client
-            .cardano_transaction_proof()
-            .get(hash)
+            .cardano_transaction()
+            .get_commitment(hash)
             .await
             .map_err(|err| format!("{err:?}"))?
             .ok_or(JsValue::from_str(&format!(
@@ -267,7 +267,7 @@ impl MithrilUnstableClient {
 
         let result = self
             .client
-            .cardano_transaction_proof()
+            .cardano_transaction()
             .get_proofs(&hashes)
             .await
             .map_err(|err| format!("{err:?}"))?;

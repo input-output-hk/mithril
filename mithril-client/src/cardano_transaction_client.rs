@@ -3,9 +3,9 @@
 //! In order to do so it defines a [CardanoTransactionClient] which exposes the following features:
 //!  - [get_proofs][CardanoTransactionClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
 //! that the transactions with given hash are included in the global Cardano transactions set.
-//!  - [get][CardanoTransactionClient::get]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
+//!  - [get][CardanoTransactionClient::get_commitment]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
 //! data from its hash.
-//!  - [list][CardanoTransactionClient::list]: get the list of the latest available Cardano transaction
+//!  - [list][CardanoTransactionClient::list_commitments]: get the list of the latest available Cardano transaction
 //! commitments.
 //!
 //!  **Important:** Verifying a proof **only** means that its cryptography is valid, in order to certify that a Cardano
@@ -49,7 +49,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_commitment = client.cardano_transaction().get("CARDANO_TRANSACTION_COMMITMENT_HASH").await?.unwrap();
+//! let cardano_transaction_commitment = client.cardano_transaction().get_commitment("CARDANO_TRANSACTION_COMMITMENT_HASH").await?.unwrap();
 //!
 //! println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
 //! #    Ok(())
@@ -65,7 +65,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_commitments = client.cardano_transaction().list().await?;
+//! let cardano_transaction_commitments = client.cardano_transaction().list_commitments().await?;
 //!
 //! for cardano_transaction_commitment in cardano_transaction_commitments {
 //!     println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
@@ -118,7 +118,9 @@ impl CardanoTransactionClient {
     }
 
     /// Fetch a list of signed Cardano transaction commitments.
-    pub async fn list(&self) -> MithrilResult<Vec<CardanoTransactionCommitmentListItem>> {
+    pub async fn list_commitments(
+        &self,
+    ) -> MithrilResult<Vec<CardanoTransactionCommitmentListItem>> {
         let response = self
             .aggregator_client
             .get_content(AggregatorRequest::ListCardanoTransactionCommitments)
@@ -131,7 +133,10 @@ impl CardanoTransactionClient {
     }
 
     /// Get the given Cardano transaction commitment data. If it cannot be found, a None is returned.
-    pub async fn get(&self, hash: &str) -> MithrilResult<Option<CardanoTransactionCommitment>> {
+    pub async fn get_commitment(
+        &self,
+        hash: &str,
+    ) -> MithrilResult<Option<CardanoTransactionCommitment>> {
         match self
             .aggregator_client
             .get_content(AggregatorRequest::GetCardanoTransactionCommitment {
@@ -198,7 +203,7 @@ mod tests {
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = CardanoTransactionClient::new(Arc::new(http_client));
-        let items = client.list().await.unwrap();
+        let items = client.list_commitments().await.unwrap();
 
         assert_eq!(2, items.len());
         assert_eq!("hash-123".to_string(), items[0].hash);
@@ -223,7 +228,7 @@ mod tests {
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = CardanoTransactionClient::new(Arc::new(http_client));
         let cardano_transaction_commitment = client
-            .get("hash")
+            .get_commitment("hash")
             .await
             .unwrap()
             .expect("This test returns a cardano transaction commitment");
