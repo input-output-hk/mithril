@@ -9,9 +9,6 @@ pub type FileContent = String;
 
 /// In memory representation of a folder containing data imported using the `scripts/import.sh` script
 /// of the fake aggregator.
-///
-/// List items are just their corresponding file content loaded in memory.
-/// Individual items are btreemap with the source filename as key and the file content as value.
 #[derive(Debug, Default)]
 pub struct FakeAggregatorData {
     epoch_settings: FileContent,
@@ -239,7 +236,7 @@ pub fn generate_list_getter(fun_name: &str, source_json: FileContent) -> String 
     )
 }
 
-/// pub(crate) fn $fun_name() -> &'static str
+/// pub(crate) fn $array_name() -> [&'a str; $ids.len]
 pub fn generate_ids_array(array_name: &str, ids: BTreeSet<ArtifactId>) -> String {
     let mut ids_list = String::new();
 
