@@ -84,6 +84,6 @@ displayMessageInDOM("Result", "certificate chain verified &#x2713;");
 console.log("verify_certificate_chain OK, last_certificate_from_chain:", proof_certificate);
 
 displayStepInDOM(10, "Validating Cardano transaction proof message...");
-let valid_cardano_transaction_proof = await client.unstable.compute_cardano_transaction_proof_message(proof, proof_certificate);
+let valid_cardano_transaction_proof = await client.unstable.verify_cardano_transaction_proof_then_compute_message(proof, proof_certificate);
 displayMessageInDOM("Result", "Cardano transaction proof message validated &#x2713;");
 console.log("valid_cardano_transaction_proof:", valid_cardano_transaction_proof);

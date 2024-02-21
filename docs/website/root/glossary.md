@@ -26,9 +26,9 @@ A Cardano key pair is an asymmetric key pair used to identify a [stake pool oper
 
 ## Cardano transaction
 
-A Cardano transaction proof is a cryptographic proof that a set of Cardano transactions is included in the global Cardano transactions set. It is generated unpon request using a [Mithril client](#mithril-client) and is tied to a [certificate](#certificate).
+A Cardano transaction proof is a cryptographic proof that a sub-set of Cardano transactions is included in the Cardano transactions set. It is generated upon request from a [Mithril client](#mithril-client) and is signed by a [certificate](#certificate).
 
-A Cardano transaction commitment is stamp that state how much of the global Cardano transactions sets a [Mithril aggregator](#mithril-aggregator) is aware of, only for those transactions a Cardano transaction proof can be generated.
+A Cardano transactions set commitment represents, in a succinct way, the Cardano transactions set that was signed by Mithril at a given [Beacon](#beacon).
 
 ## Certificate
 

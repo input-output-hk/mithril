@@ -172,13 +172,13 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
     let ctx_proof_message;
     test_number++;
     await run_test(
-      "compute_cardano_transaction_proof_message",
+      "verify_cardano_transaction_proof_then_compute_message",
       test_number,
       async () => {
         ctx_proof_message =
-          await client.unstable.compute_cardano_transaction_proof_message(ctx_proof, proof_certificate);
+          await client.unstable.verify_cardano_transaction_proof_then_compute_message(ctx_proof, proof_certificate);
         console.log(
-          "compute_cardano_transaction_proof_message",
+          "verify_cardano_transaction_proof_then_compute_message",
           ctx_proof_message
         );
       }

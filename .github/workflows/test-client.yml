@@ -197,7 +197,7 @@ jobs:
         run: |
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./www-test/.env
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./www-test/.env
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=$(curl -s ${{ inputs.transactions_hashes_to_certify }})" >> ./www-test/.env
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./www-test/.env
 
       - name: Start the server
         working-directory: mithril-client-wasm

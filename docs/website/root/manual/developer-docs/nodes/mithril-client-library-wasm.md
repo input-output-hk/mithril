@@ -14,7 +14,7 @@ Mithril client library WASM can be used by Javascript developers to use the Mith
 It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
 - [**Snapshot**](../../../glossary.md#snapshot): list and get.
 - [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
-- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list & get commitment, get proofs
+- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list & get commitments, get proofs
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
 :::
@@ -124,7 +124,7 @@ console.log("Proof certificate hash", proof.certificate_hash);
 let proof_certificate = await client.verify_certificate_chain(proof.certificate_hash);
 console.log("verify_certificate_chain OK, last_certificate_from_chain:", proof_certificate);
 
-let valid_cardano_transaction_proof = await client.unstable.compute_cardano_transaction_proof_message(proof, proof_certificate);
+let valid_cardano_transaction_proof = await client.unstable.verify_cardano_transaction_proof_then_compute_message(proof, proof_certificate);
 console.log("valid_cardano_transaction_proof:", valid_cardano_transaction_proof);
 ```
 
