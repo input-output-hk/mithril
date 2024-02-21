@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use mithril_common::StdResult;
+use slog_scope::debug;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
@@ -19,8 +20,26 @@ pub trait ProtocolParametersStorer: Sync + Send {
     /// Get the saved `ProtocolParameter` for the given [Epoch] if any.
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
 
-    /// Checks if the store is empty
-    async fn is_store_empty(&self) -> StdResult<bool>;
+    /// Handle discrepancies at startup in the protocol parameters store.
+    /// In case an aggregator has been launched after some epochs of not being up or at initial startup,
+    /// the discrepancies in the protocol parameters store needs to be fixed.
+    /// The protocol parameters needs to be recorded for the working epoch and the next 2 epochs.
+    async fn handle_discrepancies_at_startup(
+        &self,
+        current_epoch: Epoch,
+        configuration_protocol_parameters: &ProtocolParameters,
+    ) -> StdResult<()> {
+        for epoch_offset in 0..=2 {
+            let epoch = current_epoch + epoch_offset;
+            if self.get_protocol_parameters(epoch).await?.is_none() {
+                debug!("Handle discrepancies at startup of protocol parameters store, will record protocol parameters from the configuration for epoch {epoch}: {configuration_protocol_parameters:?}");
+                self.save_protocol_parameters(epoch, configuration_protocol_parameters.clone())
+                    .await?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 pub struct FakeProtocolParametersStorer {
@@ -51,11 +70,6 @@ impl ProtocolParametersStorer for FakeProtocolParametersStorer {
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let protocol_paremeters = self.protocol_parameters.read().await;
         Ok(protocol_paremeters.get(&epoch).cloned())
-    }
-
-    async fn is_store_empty(&self) -> StdResult<bool> {
-        let protocol_paremeters = self.protocol_parameters.read().await;
-        Ok(protocol_paremeters.is_empty())
     }
 }
 
@@ -117,20 +131,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_is_store_empty_no_records() {
-        let store = FakeProtocolParametersStorer::new(vec![]);
-        let is_empty_store = store.is_store_empty().await.unwrap();
-
-        assert!(is_empty_store);
-    }
-
-    #[tokio::test]
-    async fn test_is_store_empty_with_records() {
+    async fn test_handle_discrepandies_at_startup_should_complete_at_least_two_epochs() {
         let protocol_parameters = fake_data::protocol_parameters();
+        let protocol_parameters_new = ProtocolParameters {
+            k: protocol_parameters.k + 1,
+            ..protocol_parameters
+        };
         let epoch = Epoch(1);
-        let store = FakeProtocolParametersStorer::new(vec![(epoch, protocol_parameters.clone())]);
-        let is_empty_store = store.is_store_empty().await.unwrap();
+        let store = FakeProtocolParametersStorer::new(vec![
+            (epoch, protocol_parameters.clone()),
+            (epoch + 1, protocol_parameters.clone()),
+        ]);
 
-        assert!(!is_empty_store);
+        store
+            .handle_discrepancies_at_startup(epoch, &protocol_parameters_new)
+            .await
+            .unwrap();
+
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch).await.unwrap();
+        assert_eq!(
+            Some(protocol_parameters.clone()),
+            protocol_parameters_stored
+        );
+
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
+        assert_eq!(
+            Some(protocol_parameters.clone()),
+            protocol_parameters_stored
+        );
+
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 2).await.unwrap();
+        assert_eq!(
+            Some(protocol_parameters_new.clone()),
+            protocol_parameters_stored
+        );
+
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 3).await.unwrap();
+        assert!(protocol_parameters_stored.is_none());
     }
 }
