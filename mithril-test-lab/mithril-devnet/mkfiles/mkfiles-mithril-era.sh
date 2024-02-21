@@ -19,6 +19,7 @@ AMOUNT_TRANSFERRED=$(( SCRIPT_TX_VALUE * 10 ))
 cat >> era-mithril.sh <<EOF
 #!/usr/bin/env bash
 set -e
+set -x
 
 # Wait for a number of blocks has elapsed
 function wait_for_elapsed_blocks {

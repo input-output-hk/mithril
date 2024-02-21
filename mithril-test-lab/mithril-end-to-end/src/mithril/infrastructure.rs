@@ -29,6 +29,7 @@ pub struct MithrilInfrastructureConfig {
     pub signed_entity_types: Vec<String>,
     pub run_only_mode: bool,
     pub use_p2p_network_mode: bool,
+    pub use_p2p_passive_relays: bool,
 }
 
 pub struct MithrilInfrastructure {
@@ -100,15 +101,17 @@ impl MithrilInfrastructure {
             relay_aggregator.start()?;
 
             let mut relay_passive_id = 1;
-            let mut relay_passive_aggregator = RelayPassive::new(
-                config.server_port + 200,
-                relay_aggregator.peer_addr().to_owned(),
-                format!("{relay_passive_id}"),
-                &config.work_dir,
-                &config.bin_dir,
-            )?;
-            relay_passive_aggregator.start()?;
-            relay_passives.push(relay_passive_aggregator);
+            if config.use_p2p_passive_relays {
+                let mut relay_passive_aggregator = RelayPassive::new(
+                    config.server_port + 200,
+                    relay_aggregator.peer_addr().to_owned(),
+                    format!("{relay_passive_id}"),
+                    &config.work_dir,
+                    &config.bin_dir,
+                )?;
+                relay_passive_aggregator.start()?;
+                relay_passives.push(relay_passive_aggregator);
+            }
 
             for (index, pool_node) in signer_cardano_nodes.iter().enumerate() {
                 let mut relay_signer = RelaySigner::new(
@@ -122,18 +125,20 @@ impl MithrilInfrastructure {
                 )?;
                 relay_signer.start()?;
 
-                relay_passive_id += 1;
-                let mut relay_passive_signer = RelayPassive::new(
-                    config.server_port + index as u64 + 500,
-                    relay_signer.peer_addr().to_owned(),
-                    format!("{relay_passive_id}"),
-                    &config.work_dir,
-                    &config.bin_dir,
-                )?;
-                relay_passive_signer.start()?;
+                if config.use_p2p_passive_relays {
+                    relay_passive_id += 1;
+                    let mut relay_passive_signer = RelayPassive::new(
+                        config.server_port + index as u64 + 500,
+                        relay_signer.peer_addr().to_owned(),
+                        format!("{relay_passive_id}"),
+                        &config.work_dir,
+                        &config.bin_dir,
+                    )?;
+                    relay_passive_signer.start()?;
+                    relay_passives.push(relay_passive_signer);
+                }
 
                 relay_signers.push(relay_signer);
-                relay_passives.push(relay_passive_signer);
             }
 
             relay_aggregators.push(relay_aggregator);

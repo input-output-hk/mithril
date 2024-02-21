@@ -92,6 +92,10 @@ pub struct Args {
     #[clap(long)]
     use_p2p_network: bool,
 
+    /// Enable P2P passive relays in P2P mode
+    #[clap(long, default_value = "true")]
+    use_p2p_passive_relays: bool,
+
     /// Skip cardano binaries download
     #[clap(long)]
     skip_cardano_bin_download: bool,
@@ -152,6 +156,7 @@ async fn main() -> StdResult<()> {
     };
     let run_only_mode = args.run_only;
     let use_p2p_network_mode = args.use_p2p_network;
+    let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
     let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
         devnet_scripts_dir: args.devnet_scripts_directory,
@@ -178,6 +183,7 @@ async fn main() -> StdResult<()> {
         signed_entity_types: args.signed_entity_types,
         run_only_mode,
         use_p2p_network_mode,
+        use_p2p_passive_relays,
     })
     .await?;
 
