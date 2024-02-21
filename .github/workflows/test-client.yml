@@ -69,7 +69,25 @@ jobs:
           echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
 
+      - name: Assessing aggregator capabilities (Unix)
+        id: aggregator_capability_unix
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          CTX_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
+          echo "ctx_enabled=$CTX_CAPABILITY" >> $GITHUB_OUTPUT
+
+      - name: Assessing aggregator capabilities (Windows)
+        id: aggregator_capability_windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          aria2c -o aggregator_capabilities.json $AGGREGATOR_ENDPOINT
+          CTX_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])' aggregator_capabilities.json)
+          echo "ctx_enabled=$CTX_CAPABILITY" >> $GITHUB_OUTPUT
+          
       - name: Checkout binary
         uses: dawidd6/action-download-artifact@v3
         with:
@@ -114,6 +132,12 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH
 
+      - name: Cardano transaction certify
+        if: steps.aggregator_capability_unix.outputs.ctx_enabled == 'true' || steps.aggregator_capability_windows.outputs.ctx_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
+
   test-docker:
     strategy:
       fail-fast: false
@@ -133,6 +157,14 @@ jobs:
           echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+
+      - name: Assessing aggregator capabilities
+        id: aggregator_capability
+        shell: bash
+        run: |
+          CTX_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
+          echo "ctx_enabled=$CTX_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Prepare Mithril client command
         id: command
@@ -163,6 +195,11 @@ jobs:
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
+
+      - name: Cardano transaction certify
+        if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
 
   test-mithril-client-wasm:
     strategy:
