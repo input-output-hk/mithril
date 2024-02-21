@@ -1,5 +1,7 @@
-use clap::Parser;
+use anyhow::anyhow;
+use clap::{CommandFactory, Parser, Subcommand};
 use mithril_common::StdResult;
+use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
     Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
 };
@@ -17,6 +19,10 @@ use tokio_util::sync::CancellationToken;
 /// Tests args
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
+    /// Available commands
+    #[command(subcommand)]
+    command: Option<EndToEndCommands>,
+
     /// A directory where all logs, generated devnet artefacts, snapshots and store folder
     /// will be located.
     ///
@@ -108,10 +114,23 @@ impl Args {
     }
 }
 
+#[derive(Subcommand, Debug, Clone)]
+enum EndToEndCommands {
+    #[clap(alias("doc"), hide(true))]
+    GenerateDoc(GenerateDocCommands),
+}
+
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
+
+    if let Some(EndToEndCommands::GenerateDoc(cmd)) = &args.command {
+        return cmd
+            .execute(&mut Args::command())
+            .map_err(|message| anyhow!(message));
+    }
+
     let server_port = 8080;
     let work_dir = match args.work_directory {
         Some(path) => {

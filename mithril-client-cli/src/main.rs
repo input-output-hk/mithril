@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
-use anyhow::Context;
-use clap::{Parser, Subcommand};
+use anyhow::{anyhow, Context};
+use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
 use mithril_client::MithrilResult;
+use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
@@ -37,7 +38,7 @@ impl LogOutputType {
     }
 }
 
-#[derive(Parser, Debug, Clone)]
+#[derive(Documenter, Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
     about = "This program shows, downloads and verifies certified blockchain artifacts.",
@@ -55,6 +56,7 @@ pub struct Args {
 
     /// Verbosity level (-v=warning, -vv=info, -vvv=debug).
     #[clap(short, long, action = clap::ArgAction::Count)]
+    #[example = "Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace`"]
     verbose: u8,
 
     /// Directory where configuration file is located.
@@ -63,6 +65,7 @@ pub struct Args {
 
     /// Override configuration Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
+    #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
     aggregator_endpoint: Option<String>,
 
     /// Enable JSON output for logs displayed according to verbosity level
@@ -71,6 +74,7 @@ pub struct Args {
 
     /// Redirect the logs to a file
     #[clap(long, alias("o"))]
+    #[example = "`./mithril-client.log`"]
     log_output: Option<String>,
 
     /// Enable unstable commands (Such as Cardano Transactions)
@@ -166,6 +170,9 @@ enum ArtifactCommands {
 
     #[clap(subcommand, alias("ctx"))]
     CardanoTransaction(CardanoTransactionCommands),
+
+    #[clap(alias("doc"), hide(true))]
+    GenerateDoc(GenerateDocCommands),
 }
 
 impl ArtifactCommands {
@@ -189,6 +196,9 @@ impl ArtifactCommands {
                     ctx.execute(config_builder).await
                 }
             }
+            Self::GenerateDoc(cmd) => cmd
+                .execute(&mut Args::command())
+                .map_err(|message| anyhow!(message)),
         }
     }
 }

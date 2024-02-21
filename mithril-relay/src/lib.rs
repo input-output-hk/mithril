@@ -6,6 +6,7 @@ mod commands;
 pub mod p2p;
 mod relay;
 
+pub use commands::Args;
 pub use commands::RelayCommands;
 pub use relay::AggregatorRelay;
 pub use relay::PassiveRelay;

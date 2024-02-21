@@ -316,7 +316,7 @@ impl Demonstrator {
             })
             .collect::<Vec<Vec<u8>>>();
         Self {
-            config: *config,
+            config: config.clone(),
             parties,
             verifier: None,
             messages,
@@ -495,6 +495,7 @@ mod tests {
     fn default_config() -> crate::Config {
         let protocol_parameters = setup_protocol_parameters();
         crate::Config {
+            command: None,
             m: protocol_parameters.m,
             k: protocol_parameters.k,
             phi_f: protocol_parameters.phi_f,

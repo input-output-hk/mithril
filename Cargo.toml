@@ -12,6 +12,8 @@ members = [
   "mithril-client-cli",
   "mithril-client-wasm",
   "mithril-common",
+  "mithril-doc",
+  "mithril-doc-derive",
   "mithril-persistence",
   "mithril-relay",
   "mithril-signer",

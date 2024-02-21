@@ -1,8 +1,9 @@
-use clap::Subcommand;
+use super::{AggregatorCommand, Args, PassiveCommand, SignerCommand};
+use anyhow::anyhow;
+use clap::{CommandFactory, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::StdResult;
-
-use super::{AggregatorCommand, PassiveCommand, SignerCommand};
+use mithril_doc::GenerateDocCommands;
 
 /// The available sub-commands of the relay
 #[derive(Subcommand, Debug, Clone)]
@@ -18,6 +19,10 @@ pub enum RelayCommands {
     /// Run a passive relay (just a peer in the P2P network)
     #[clap(arg_required_else_help = true)]
     Passive(PassiveCommand),
+
+    /// Generate command line documentation
+    #[clap(alias("doc"), hide(true))]
+    GenerateDoc(GenerateDocCommands),
 }
 
 impl RelayCommands {
@@ -27,6 +32,9 @@ impl RelayCommands {
             Self::Aggregator(cmd) => cmd.execute(config_builder).await,
             Self::Signer(cmd) => cmd.execute(config_builder).await,
             Self::Passive(cmd) => cmd.execute(config_builder).await,
+            Self::GenerateDoc(cmd) => cmd
+                .execute(&mut Args::command())
+                .map_err(|message| anyhow!(message)),
         }
     }
 }

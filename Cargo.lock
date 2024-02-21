@@ -3331,7 +3331,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.38"
+version = "0.4.39"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3343,6 +3343,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc",
  "mithril-persistence",
  "mockall",
  "openssl",
@@ -3426,7 +3427,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3439,6 +3440,7 @@ dependencies = [
  "human_bytes",
  "indicatif",
  "mithril-client",
+ "mithril-doc",
  "openssl",
  "openssl-probe",
  "serde",
@@ -3520,8 +3522,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-doc"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "config",
+ "mithril-doc-derive",
+ "regex",
+]
+
+[[package]]
+name = "mithril-doc-derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.48",
+]
+
+[[package]]
 name = "mithril-end-to-end"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3531,6 +3551,7 @@ dependencies = [
  "hex",
  "indicatif",
  "mithril-common",
+ "mithril-doc",
  "reqwest",
  "serde",
  "serde_json",
@@ -3569,13 +3590,14 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "clap",
  "config",
  "libp2p",
  "mithril-common",
+ "mithril-doc",
  "reqwest",
  "serde",
  "serde_json",
@@ -3592,7 +3614,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.108"
+version = "0.2.109"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3601,6 +3623,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc",
  "mithril-persistence",
  "mockall",
  "openssl",
@@ -3645,7 +3668,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.29"
+version = "0.1.30"
 dependencies = [
  "base64 0.21.7",
  "blake2 0.10.6",
@@ -3653,6 +3676,7 @@ dependencies = [
  "hex",
  "log",
  "mithril-common",
+ "mithril-doc",
  "mithril-stm",
  "rand_chacha",
  "rand_core 0.6.4",
