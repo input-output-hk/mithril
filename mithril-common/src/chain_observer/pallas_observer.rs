@@ -205,6 +205,7 @@ impl PallasChainObserver {
         Ok(state_snapshot)
     }
 
+    /// Returns the stake pool hash from the given bytestring.
     fn get_stake_pool_hash(&self, key: &Bytes) -> Result<String, ChainObserverError> {
         let pool_hash = bech32::encode("pool", key.to_base32(), Variant::Bech32)
             .map_err(|err| anyhow!(err))
@@ -213,6 +214,7 @@ impl PallasChainObserver {
         Ok(pool_hash)
     }
 
+    /// Fetches the current stake distribution using the provided `statequery` client.
     async fn get_stake_distribution(
         &self,
         client: &mut NodeClient,
