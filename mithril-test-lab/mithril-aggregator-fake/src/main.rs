@@ -6,6 +6,7 @@
 //!
 //! The fake aggregator uses Axum as web server with tower for logging.
 mod application;
+mod default_values;
 mod error;
 mod handlers;
 mod shared_state;

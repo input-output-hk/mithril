@@ -6,8 +6,15 @@ use crate::StdError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 /// A cryptographic proof for a set of Cardano transactions
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    target_family = "wasm",
+    wasm_bindgen(getter_with_clone, js_name = "CardanoTransactionsProofs")
+)]
 pub struct CardanoTransactionsProofsMessage {
     /// Hash of the certificate that validate this proof merkle root
     pub certificate_hash: String,
@@ -17,6 +24,21 @@ pub struct CardanoTransactionsProofsMessage {
 
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
+}
+
+#[cfg_attr(
+    target_family = "wasm",
+    wasm_bindgen(js_class = "CardanoTransactionsProofs")
+)]
+impl CardanoTransactionsProofsMessage {
+    /// Transactions that have been certified
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
+    pub fn transactions_hashes(&self) -> Vec<TransactionHash> {
+        self.certified_transactions
+            .iter()
+            .flat_map(|ct| ct.transactions_hashes.clone())
+            .collect::<Vec<_>>()
+    }
 }
 
 /// Set of transactions verified by [CardanoTransactionsProofsMessage::verify].

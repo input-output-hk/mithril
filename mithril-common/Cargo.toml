@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.3.4"
+version = "0.3.5"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -74,6 +74,7 @@ mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = fal
 mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = false, features = [
     "num-integer-backend",
 ] }
+wasm-bindgen = "0.2.90"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
