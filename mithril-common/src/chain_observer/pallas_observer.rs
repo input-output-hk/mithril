@@ -7,8 +7,8 @@ use pallas_network::{
     facades::NodeClient,
     miniprotocols::localstate::{
         queries_v16::{
-            self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, TransactionOutput,
-            UTxOByAddress,
+            self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
+            TransactionOutput, UTxOByAddress,
         },
         Client,
     },
@@ -225,11 +225,15 @@ impl PallasChainObserver {
 
         let mut stake_distribution = StakeDistribution::new();
 
-        for (key, stakes) in stake_snapshot.snapshots.stake_snapshots.iter() {
-            if stakes.snapshot_mark_pool > 0 {
-                let pool_hash = self.get_stake_pool_hash(key)?;
-                stake_distribution.insert(pool_hash, stakes.snapshot_mark_pool);
-            }
+        let have_stakes_in_two_epochs = |stakes: &Stakes| stakes.snapshot_mark_pool > 0;
+        for (key, stakes) in stake_snapshot
+            .snapshots
+            .stake_snapshots
+            .iter()
+            .filter(|(_, stakes)| have_stakes_in_two_epochs(stakes))
+        {
+            let pool_hash = self.get_stake_pool_hash(key)?;
+            stake_distribution.insert(pool_hash, stakes.snapshot_mark_pool);
         }
 
         Ok(Some(stake_distribution))
