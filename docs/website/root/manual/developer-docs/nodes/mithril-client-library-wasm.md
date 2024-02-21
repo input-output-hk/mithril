@@ -114,7 +114,23 @@ let valid_stake_distribution_message = await client.verify_message_match_certifi
 console.log("valid_stake_distribution_message:", valid_stake_distribution_message);
 ```
 
-If the aggregator signs **CardanoTransactions** _(as of 2023-02-19 only the sanchonet aggregator signs them)_, you can add the code below to the previous example:
+If the aggregator signs **CardanoTransactions**, you can add the code below to the previous example:
+
+:::tip
+
+You can verify that the aggregator signs **CardanoTransactions** by running the command below:
+
+```bash
+wget -q -O - YOUR_AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])'
+```
+
+For example with the aggregator on `testing-sanchonet` Mithril network:
+
+```bash
+wget -q -O - https://aggregator.testing-sanchonet.api.mithril.network/aggregator | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])'
+```
+
+:::
 
 ```js
 const proof = await client.unstable.get_cardano_transaction_proofs(["CARDANO_TRANSACTION_HASH_1", "CARDANO_TRANSACTION_HASH_2"]);
