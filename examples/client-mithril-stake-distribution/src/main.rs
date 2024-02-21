@@ -1,8 +1,6 @@
 //! This example shows how to implement a Mithril client and use its features.
 //!
 //! In this example, the client interacts by default with a real aggregator (`testing-preview`) to get the data.
-//!
-//! The [SlogFeedbackReceiver] is used to report the progress to the console.
 
 use anyhow::anyhow;
 use clap::Parser;

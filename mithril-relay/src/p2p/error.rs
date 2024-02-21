@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-/// [Peer] related errors.
+/// [Peer][crate::p2p::Peer] related errors.
 #[derive(Debug, Error)]
 pub enum PeerError {
     /// Topic does not exist
