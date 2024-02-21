@@ -162,7 +162,7 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
 
     let proof_certificate;
     test_number++;
-    await run_test("proof verify_certificate_chain", test_number, async () => {
+    await run_test("proof_verify_certificate_chain", test_number, async () => {
       proof_certificate = await client.verify_certificate_chain(
         ctx_proof.certificate_hash
       );
@@ -185,7 +185,7 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
     );
 
     test_number++;
-    await run_test("proof verify_message_match_certificate", test_number, async () => {
+    await run_test("proof_verify_message_match_certificate", test_number, async () => {
       const valid_stake_distribution_message =
         await client.verify_message_match_certificate(
           ctx_proof_message,
