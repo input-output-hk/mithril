@@ -23,6 +23,7 @@ pub use cardano_transaction_commitment_list::{
 };
 pub use cardano_transactions_proof::{
     CardanoTransactionsProofsMessage, VerifiedCardanoTransactions,
+    VerifyCardanoTransactionsProofsError,
 };
 pub use certificate::CertificateMessage;
 pub use certificate_list::{

@@ -20,14 +20,14 @@ use mithril_client_cli::commands::{
 };
 
 enum LogOutputType {
-    Stdout,
+    StdErr,
     File(String),
 }
 
 impl LogOutputType {
     fn get_writer(&self) -> MithrilResult<Box<dyn Write + Send>> {
         let writer: Box<dyn Write + Send> = match self {
-            LogOutputType::Stdout => Box::new(std::io::stdout()),
+            LogOutputType::StdErr => Box::new(std::io::stderr()),
             LogOutputType::File(filepath) => Box::new(
                 File::create(filepath)
                     .with_context(|| format!("Can not create output log file: {}", filepath))?,
@@ -41,8 +41,8 @@ impl LogOutputType {
 #[derive(Documenter, Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
-    about = "This program shows, downloads and verifies certified blockchain artifacts.",
-    long_about = None
+about = "This program shows, downloads and verifies certified blockchain artifacts.",
+long_about = None
 )]
 #[command(version)]
 pub struct Args {
@@ -109,7 +109,7 @@ impl Args {
         if let Some(output_filepath) = &self.log_output {
             LogOutputType::File(output_filepath.to_string())
         } else {
-            LogOutputType::Stdout
+            LogOutputType::StdErr
         }
     }
 
@@ -131,7 +131,7 @@ impl Args {
             slog_async::Async::new(drain).build().fuse()
         } else {
             match log_output_type {
-                LogOutputType::Stdout => self.wrap_drain(slog_term::TermDecorator::new().build()),
+                LogOutputType::StdErr => self.wrap_drain(slog_term::TermDecorator::new().build()),
                 LogOutputType::File(_) => self.wrap_drain(slog_term::PlainDecorator::new(writer)),
             }
         };
@@ -221,8 +221,13 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
-        let args = Args::try_parse_from(["mithril-client", "cardano-transaction", "sets", "list"])
-            .unwrap();
+        let args = Args::try_parse_from([
+            "mithril-client",
+            "cardano-transaction",
+            "commitment",
+            "list",
+        ])
+        .unwrap();
 
         args.execute()
             .await

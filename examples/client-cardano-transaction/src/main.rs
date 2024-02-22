@@ -50,7 +50,7 @@ async fn main() -> MithrilResult<()> {
 
     info!(logger, "Fetching a proof for the given transactions...",);
     let cardano_transaction_proof = client
-        .cardano_transaction_proof()
+        .cardano_transaction()
         .get_proofs(transactions_hashes)
         .await
         .unwrap();

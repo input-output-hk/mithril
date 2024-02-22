@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-wasm"
-version = "0.1.10"
+version = "0.1.11"
 description = "Mithril client WASM"
 authors = { workspace = true }
 edition = { workspace = true }

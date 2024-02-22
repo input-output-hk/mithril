@@ -15,9 +15,11 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 :::tip
 
-* For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+* For more information about the **Mithril network**, please see
+  the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril client** node, please see [this overview](../../../mithril/mithril-network/client.md).
+* For more information about the **Mithril client** node, please
+  see [this overview](../../../mithril/mithril-network/client.md).
 
 * Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
 
@@ -29,7 +31,6 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 :::
 
-
 ## Resources
 
 | Node | Source repository | Rust documentation | Docker packages |
@@ -38,7 +39,8 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
+  toolchain.
 
 * Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
@@ -64,7 +66,7 @@ Switch to the desired branch/tag:
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
-Change the directory: 
+Change the directory:
 
 ```bash
 cd mithril/mithril-client-cli
@@ -198,7 +200,8 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 
 ### Registry image
 
-A list of available images on the registry can be found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
+A list of available images on the registry can be
+found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
 
 To prepare the environment variables, retrieve the values from the above **Mithril networks** table.
 
@@ -249,11 +252,11 @@ mithril_client mithril-stake-distribution list
 # 6- Download and verify the given Mithril stake distribution
 mithril_client mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_ARTIFACT_HASH
 
-# 7- List Cardano transaction sets
-mithril_client --unstable cardano-transaction sets list
+# 7- List Cardano transaction commitments
+mithril_client --unstable cardano-transaction commitment list
 
-# 8- Show detailed information about a Cardano transaction sets
-mithril_client --unstable cardano-transaction sets show $CARDANO_TRANSACTION_SETS_HASH 
+# 8- Show detailed information about a Cardano transaction commitment
+mithril_client --unstable cardano-transaction commitment show $CARDANO_TRANSACTION_COMMITMENT_HASH
 
 # 9- Certify that given list of transactions hashes are included in the Cardano transactions set
 mithril_client --unstable cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
@@ -299,15 +302,16 @@ Here are the subcommands available:
 | Subcommand | Performed action |
 |------------|------------------|
 | **certify** | Certifies that given list of transactions hashes are included in the Cardano transactions set|
+| **commitment list** | Lists available Cardano transactions commitments|
+| **commitment show** | Shows information about a Cardano transactions commitment|
 | **help** | Prints this message or the help for the given subcommand(s)|
-| **sets list** | Lists available Cardano transactions sets|
-| **sets show** | Shows information about a Cardano transaction sets|
 
 ## Configuration parameters
 
 The configuration parameters can be set in either of the following ways:
 
-1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is
+   located in `./conf/testnet.json`.
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
@@ -358,20 +362,20 @@ Here is a list of the available parameters:
 | `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
 
-`cardano-transaction --unstable sets show` command:
+`cardano-transaction commitment show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `hash` | `--hash` | - | `HASH` | Cardano transaction sets hash or `latest` for the latest Cardano transaction sets | - | - | :heavy_check_mark: |
+| `hash` | `--hash` | - | `HASH` | Cardano transaction commitment hash or `latest` for the latest Cardano transaction commitment | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-transaction --unstable sets list` command:
+`cardano-transaction commitment list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-transaction --unstable download` command:
+`cardano-transaction certify` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
