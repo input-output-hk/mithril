@@ -33,10 +33,7 @@ jobs:
       - name: Cargo build - Tooling
         shell: bash
         run: |
-          cargo build --features portable --release --workspace \
-              --exclude mithril-aggregator --exclude mithril-client-cli \
-              --exclude mithril-client --exclude mithril-signer \
-              --exclude mithril-stm
+          cargo build --features portable --release -p mithril-end-to-end
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
