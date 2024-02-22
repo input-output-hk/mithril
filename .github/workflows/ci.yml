@@ -6,7 +6,7 @@ on:
       - 'main'
       - 'hotfix**'
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [ opened, reopened, synchronize ]
     branches-ignore:
       - 'hotfix**' # hotfix are handled by the push trigger
 
@@ -21,7 +21,7 @@ jobs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -33,10 +33,7 @@ jobs:
       - name: Cargo build - Tooling
         shell: bash
         run: |
-          cargo build --features portable --release --workspace \
-              --exclude mithril-aggregator --exclude mithril-client-cli \
-              --exclude mithril-client --exclude mithril-signer \
-              --exclude mithril-stm
+          cargo build --features portable --release -p mithril-end-to-end
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
@@ -53,14 +50,14 @@ jobs:
           cargo deb --no-build --package mithril-relay
 
       - name: Publish Debian packages
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mithril-deb-packages-${{ runner.os }}-${{ runner.arch }}
           path: target/debian/*.deb
           if-no-files-found: error
 
       - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
           path: target/release/mithril-end-to-end
@@ -80,20 +77,20 @@ jobs:
         os: [ macos-12, windows-latest ]
 
         include:
-        # Only build client on windows & mac
-        - os: macos-12
-          binaries-build-args: --bin mithril-client --features bundle_openssl
-          libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
-        - os: windows-latest
-          # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
-          # hack in mithril common cargo.toml doesn't apply (we have no idea why).
-          binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
-          libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend,full,unstable
+          # Only build client on windows & mac
+          - os: macos-12
+            binaries-build-args: --bin mithril-client --features bundle_openssl
+            libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
+          - os: windows-latest
+            # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
+            # hack in mithril common cargo.toml doesn't apply (we have no idea why).
+            binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
+            libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend,full,unstable
     runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -111,7 +108,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -155,7 +152,7 @@ jobs:
           wasm-pack test --node mithril-client-wasm --release
 
       - name: Publish Mithril Distribution (WASM)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mithril-distribution-wasm
           path: |
@@ -180,7 +177,7 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -207,7 +204,7 @@ jobs:
           mv target/nextest/ci/tests-result.junit.xml test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml
 
       - name: Upload Tests Results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
           name: test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}
@@ -218,7 +215,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -240,7 +237,7 @@ jobs:
 
       - name: Upload clippy analysis results to GitHub
         if: success() || failure()
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: rust-clippy-results.sarif
           wait-for-processing: true
@@ -257,7 +254,7 @@ jobs:
 
       - name: Dependency & Vulnerabilities Review
         if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v3
+        uses: actions/dependency-review-action@v4
         with:
           base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
           head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
@@ -268,12 +265,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: ["std"]
+        mode: [ "std" ]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: ["8.7.3"]
-        hard_fork_latest_era_at_epoch: [0,10,100]
-        run_id: ["#1","#2"]
-        extra_args: [""]
+        cardano_node_version: [ "8.7.3" ]
+        hard_fork_latest_era_at_epoch: [ 0,10,100 ]
+        run_id: [ "#1","#2" ]
+        extra_args: [ "" ]
 
         include:
           # Include a hard fork test for `8.1.2` which is not concerned
@@ -292,16 +289,16 @@ jobs:
             extra_args: "--use-p2p-network"
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
 
       - name: Download rust test runner
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
           path: ./
@@ -325,8 +322,8 @@ jobs:
             --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
 
       - name: Upload E2E Tests Artifacts
-        if:  ${{ failure() }}
-        uses: actions/upload-artifact@v3
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
         with:
           name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-mode_${{ matrix.mode }}-era_${{ matrix.era }}-cardano-${{ matrix.cardano_node_version }}-fork-${{  matrix.hard_fork_latest_era_at_epoch }}-run_id_${{ matrix.run_id }}
           path: |
@@ -341,24 +338,24 @@ jobs:
   publish-tests-results:
     if: success() || failure()
     runs-on: ubuntu-22.04
-    needs: 
+    needs:
       - test
     steps:
       - name: Download Tests Results (${{ runner.os }}-${{ runner.arch }})
         if: success() || failure()
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: test-results-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download Tests Results (macOS-X64)
         if: success() || failure()
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: test-results-macOS-X64
 
       - name: Download Tests Results (Windows-X64)
         if: success() || failure()
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: test-results-Windows-X64
 
@@ -397,10 +394,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Log in to the Container registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -408,7 +405,7 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
           tags: |
@@ -416,13 +413,13 @@ jobs:
             type=raw,value=${{ github.base_ref || github.ref_name }}-{{sha}}
 
       - name: Download built artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ${{ matrix.project }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
@@ -444,7 +441,7 @@ jobs:
       - check
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
@@ -475,7 +472,7 @@ jobs:
       - build-test-wasm
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -503,7 +500,7 @@ jobs:
       - check
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Prepare packaging
         run: mkdir package
@@ -513,25 +510,25 @@ jobs:
         run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
       - name: Download built artifacts (Linux-X64)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-distribution-Linux-X64
           path: ./package-Linux-X64
 
       - name: Download Debian packages (Linux-X64)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-deb-packages-Linux-X64
           path: ./package
 
       - name: Download built artifacts (macOS-X64)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-distribution-macOS-X64
           path: ./package-macOS-X64
 
       - name: Download built artifacts (Windows-X64)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-distribution-Windows-X64
           path: ./package-Windows-X64
@@ -554,10 +551,10 @@ jobs:
           files: package/*
 
       - name: Update unstable release body with release notes addon
-        uses: tubone24/update_release@v1.3.1
+        uses: tubone24/update_release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: unstable 
+          TAG_NAME: unstable
         with:
           is_append_body: true
           body_path: ./release-notes-addon.txt
@@ -569,62 +566,62 @@ jobs:
       matrix:
         environment: [ testing-preview, testing-sanchonet ]
         include:
-        - environment: testing-preview
-          environment_prefix: testing
-          cardano_network: preview
-          mithril_use_p2p_network: false
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 2422
-              m     = 20973
-              phi_f = 0.2
-            }
-          mithril_signers: |
-            {
-              "1" = {
-                type    = "verified",
-                pool_id = "",
-              },
-              "2" = {
-                type    = "verified",
-                pool_id = "",
-              },
-              "3" = {
-                type    = "verified",
-                pool_id = "",
-              },
-            }
-          terraform_backend_bucket: hydra-terraform-admin
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-standard-8
-          google_compute_instance_boot_disk_size: 200
-          google_compute_instance_data_disk_size: 250
-        - environment: testing-sanchonet
-          environment_prefix: testing
-          cardano_network: sanchonet
-          mithril_use_p2p_network: false
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 5
-              m     = 100
-              phi_f = 0.65
-            }
-          mithril_signers: |
-            {
-              "1" = {
-                type    = "verified",
-                pool_id = "",
-              },
-            }
-          terraform_backend_bucket: hydra-terraform-admin
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-highmem-4
-          google_compute_instance_boot_disk_size: 200
-          google_compute_instance_data_disk_size: 250
+          - environment: testing-preview
+            environment_prefix: testing
+            cardano_network: preview
+            mithril_use_p2p_network: false
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 2422
+                m     = 20973
+                phi_f = 0.2
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+                "2" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+                "3" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-standard-8
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
+          - environment: testing-sanchonet
+            environment_prefix: testing
+            cardano_network: sanchonet
+            mithril_use_p2p_network: false
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 5
+                m     = 100
+                phi_f = 0.65
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-4
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
     needs:
@@ -634,7 +631,7 @@ jobs:
         working-directory: mithril-infra
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get Docker image id
         run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
@@ -689,7 +686,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install stable toolchain and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
@@ -720,13 +717,13 @@ jobs:
 
       - name: Upload cargo-doc results to GitHub
         if: success() || failure()
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: rust-cargo-doc-results.sarif
           wait-for-processing: true
 
       - name: Publish Mithril-rust-doc
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: mithril-rust-doc
           if-no-files-found: error
@@ -737,10 +734,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
@@ -756,7 +753,7 @@ jobs:
           npm run build
 
       - name: Publish Docusaurus build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: docusaurus-build
           if-no-files-found: error
@@ -768,10 +765,10 @@ jobs:
     needs: build-test-wasm
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Download built artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-distribution-wasm
           path: mithril-client-wasm
@@ -782,7 +779,7 @@ jobs:
           tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
@@ -791,7 +788,7 @@ jobs:
       - name: Install dependencies
         working-directory: mithril-explorer
         run: npm ci
-      
+
       - name: Test explorer
         working-directory: mithril-explorer
         run: make test
@@ -805,7 +802,7 @@ jobs:
         run: make build
 
       - name: Publish Explorer build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: explorer-build
           if-no-files-found: error
@@ -816,7 +813,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
@@ -825,7 +822,7 @@ jobs:
           spec-file: ./openapi.yaml
 
       - name: Publish OpenAPI UI build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: openapi-ui-build
           if-no-files-found: error
@@ -842,25 +839,25 @@ jobs:
       - build-open-api-ui
     steps:
       - name: Download mithril-rust-doc artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: mithril-rust-doc
           path: ./github-pages/rust-doc
 
       - name: Download Docusaurus build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: docusaurus-build
           path: ./github-pages/doc
 
       - name: Download Explorer build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: explorer-build
           path: ./github-pages/explorer
 
       - name: Download OpenAPI UI build
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: openapi-ui-build
           path: ./github-pages/openapi-ui
