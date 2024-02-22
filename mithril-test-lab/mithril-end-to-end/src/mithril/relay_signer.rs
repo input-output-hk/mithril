@@ -1,4 +1,3 @@
-use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
 use mithril_common::entities::PartyId;
 use mithril_common::StdResult;
@@ -20,18 +19,17 @@ impl RelaySigner {
         listen_port: u64,
         server_port: u64,
         dial_to: String,
-        aggregator_endpoint: String,
-        pool_node: &PoolNode,
+        aggregator_endpoint: &str,
+        party_id: PartyId,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> StdResult<Self> {
         let listen_port_str = format!("{listen_port}");
         let server_port_str = format!("{server_port}");
-        let party_id = pool_node.party_id()?;
         let env = HashMap::from([
             ("LISTEN_PORT", listen_port_str.as_str()),
             ("SERVER_PORT", server_port_str.as_str()),
-            ("AGGREGATOR_ENDPOINT", aggregator_endpoint.as_str()),
+            ("AGGREGATOR_ENDPOINT", aggregator_endpoint),
             ("DIAL_TO", &dial_to),
         ]);
         let args = vec!["-vvv", "signer"];
