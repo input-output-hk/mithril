@@ -120,6 +120,7 @@ impl SnapshotDownloadCommand {
             &certificate,
             &message,
             &snapshot_message,
+            &db_dir,
         )
         .await?;
 
@@ -233,10 +234,15 @@ impl SnapshotDownloadCommand {
         certificate: &MithrilCertificate,
         message: &ProtocolMessage,
         snapshot: &Snapshot,
+        db_dir: &Path,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Verifying the snapshot signature…")?;
         if !certificate.match_message(message) {
             debug!("Digest verification failed, removing unpacked files & directory.");
+
+            if let Err(error) = std::fs::remove_dir_all(db_dir) {
+                warn!("Error while removing unpacked files & directory: {error}.");
+            }
 
             return Err(anyhow!(
                 "Certificate verification failed (snapshot digest = '{}').",
@@ -325,5 +331,73 @@ impl Source for SnapshotDownloadCommand {
         }
 
         Ok(map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_client::{
+        common::{Beacon, ProtocolMessagePartKey},
+        MithrilCertificateMetadata,
+    };
+
+    use super::*;
+
+    fn dummy_certificate() -> MithrilCertificate {
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            Snapshot::dummy().digest.to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "whatever".to_string(),
+        );
+        MithrilCertificate {
+            hash: "hash".to_string(),
+            previous_hash: "previous_hash".to_string(),
+            beacon: Beacon::new("testnet".to_string(), 10, 100),
+            metadata: MithrilCertificateMetadata::dummy(),
+            protocol_message: protocol_message.clone(),
+            signed_message: "signed_message".to_string(),
+            aggregate_verification_key: String::new(),
+            multi_signature: String::new(),
+            genesis_signature: String::new(),
+        }
+    }
+
+    #[tokio::test]
+    async fn verify_snapshot_signature_should_remove_db_dir_if_messages_dismatch() {
+        let progress_printer = ProgressPrinter::new(ProgressOutputType::Tty, 1);
+        let certificate = dummy_certificate();
+        let mut message = ProtocolMessage::new();
+        message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, "digest".to_string());
+        message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "avk".to_string(),
+        );
+        let snapshot = Snapshot::dummy();
+        let db_dir = std::env::temp_dir().join("db");
+        if db_dir.exists() {
+            std::fs::remove_dir_all(&db_dir).unwrap();
+        }
+        std::fs::create_dir_all(&db_dir).unwrap();
+        println!("db_dir: '{:?}'", db_dir);
+
+        let result = SnapshotDownloadCommand::verify_snapshot_signature(
+            1,
+            &progress_printer,
+            &certificate,
+            &message,
+            &snapshot,
+            &db_dir,
+        )
+        .await;
+
+        assert!(result.is_err());
+        assert!(
+            !db_dir.exists(),
+            "The db directory should have been removed but it still exists"
+        );
     }
 }
