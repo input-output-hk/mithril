@@ -44,10 +44,6 @@ pub struct Args {
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
 
-    /// Number of BFT nodes in the devnet
-    #[clap(long, default_value_t = 0)]
-    number_of_bft_nodes: u8,
-
     /// Number of Pool nodes in the devnet
     #[clap(long, default_value_t = 3, value_parser = has_at_least_two_pool_nodes)]
     number_of_pool_nodes: u8,
@@ -173,7 +169,6 @@ async fn main() -> StdResult<()> {
     let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
         devnet_scripts_dir: args.devnet_scripts_directory,
         artifacts_target_dir: work_dir.join("devnet"),
-        number_of_bft_nodes: args.number_of_bft_nodes,
         number_of_pool_nodes: args.number_of_pool_nodes,
         cardano_slot_length: args.cardano_slot_length,
         cardano_epoch_length: args.cardano_epoch_length,

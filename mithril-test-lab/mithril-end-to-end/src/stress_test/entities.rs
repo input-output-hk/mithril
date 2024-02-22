@@ -42,7 +42,7 @@ pub struct MainOpts {
     server_port: u32,
 
     /// Log level
-    #[arg(short='v', action = clap::ArgAction::Count)]
+    #[arg(short = 'v', action = clap::ArgAction::Count)]
     verbose: u8,
 }
 
