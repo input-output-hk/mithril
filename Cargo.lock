@@ -946,7 +946,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -959,7 +959,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "clap",
@@ -3400,7 +3400,7 @@ version = "0.1.0"
 
 [[package]]
 name = "mithril-client"
-version = "0.6.3"
+version = "0.6.4"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3433,7 +3433,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3462,7 +3462,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "async-trait",
  "futures",
@@ -3478,7 +3478,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3549,7 +3549,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3598,7 +3598,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "clap",
