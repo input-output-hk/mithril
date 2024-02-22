@@ -383,10 +383,7 @@ mod tests {
     use tokio::net::UnixListener;
 
     use super::*;
-    use crate::{
-        chain_observer::test_cli_runner::TestCliRunner, crypto_helper::ColdKeyGenerator,
-        CardanoNetwork,
-    };
+    use crate::{crypto_helper::ColdKeyGenerator, CardanoNetwork};
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
