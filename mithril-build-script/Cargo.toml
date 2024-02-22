@@ -1,0 +1,11 @@
+[package]
+name = "mithril-build-script"
+version = "0.1.0"
+description = "A toolbox for Mithril crates build scripts"
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[dependencies]

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.3.5"
+version = "0.3.6"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -74,6 +74,7 @@ mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = fal
 mithril-stm = { path = "../mithril-stm", version = "0.3", default-features = false, features = [
     "num-integer-backend",
 ] }
+wasm-bindgen = "0.2.90"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
@@ -99,14 +100,14 @@ default = []
 full = ["random", "fs", "test_tools"]
 random = ["rand_core/getrandom"]
 fs = [
-  "tokio/fs",
-  "tokio/process",
-  "dep:minicbor",
-  "dep:pallas-addresses",
-  "dep:pallas-codec",
-  "dep:pallas-network",
-  "dep:pallas-primitives",
-  "dep:pallas-traverse",
+    "tokio/fs",
+    "tokio/process",
+    "dep:minicbor",
+    "dep:pallas-addresses",
+    "dep:pallas-codec",
+    "dep:pallas-network",
+    "dep:pallas-primitives",
+    "dep:pallas-traverse",
 ]
 
 # Portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it

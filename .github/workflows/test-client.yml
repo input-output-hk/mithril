@@ -31,6 +31,10 @@ on:
         required: false
         type: string
         default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey
+      transactions_hashes_to_certify:
+        description: Comma separated list of transactions hashes to test certification on.
+        required: false
+        type: string
       enable_debug:
         description: Enable debug output ("-vvv") for the mithril-client calls
         required: true
@@ -193,6 +197,7 @@ jobs:
         run: |
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./www-test/.env
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./www-test/.env
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./www-test/.env
 
       - name: Start the server
         working-directory: mithril-client-wasm

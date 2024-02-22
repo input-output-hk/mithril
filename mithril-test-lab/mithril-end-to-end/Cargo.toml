@@ -1,6 +1,6 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.3.0"
+version = "0.3.3"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -23,6 +23,7 @@ glob = "0.3.1"
 hex = "0.4.3"
 indicatif = { version = "0.17.7", features = ["tokio"] }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
+mithril-doc = { path = "../../mithril-doc" }
 reqwest = { version = "0.11.23", features = ["json"] }
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"

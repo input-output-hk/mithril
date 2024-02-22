@@ -1,5 +1,6 @@
 use anyhow::Context;
 use config::{ConfigError, Map, Source, Value, ValueKind};
+use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
 
@@ -15,23 +16,28 @@ use mithril_common::{
 };
 
 /// Client configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Documenter)]
 pub struct Configuration {
     /// Cardano CLI tool path
+    #[example = "`cardano-cli`"]
     pub cardano_cli_path: PathBuf,
 
     /// Path of the socket used by the Cardano CLI tool
     /// to communicate with the Cardano node
+    #[example = "`/tmp/cardano.sock`"]
     pub cardano_node_socket_path: PathBuf,
 
     /// Cardano Network Magic number
     /// useful for TestNet & DevNet
+    #[example = "`1097911063` or `42`"]
     pub network_magic: Option<u64>,
 
     /// Cardano network
+    #[example = "`testnet` or `mainnet` or `devnet`"]
     pub network: String,
 
     /// Aggregator endpoint
+    #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
     pub aggregator_endpoint: String,
 
     /// Relay endpoint
@@ -39,15 +45,18 @@ pub struct Configuration {
 
     /// Party Id
     // TODO: Field should be removed once the signer certification is fully deployed
+    #[example = "`pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x`"]
     pub party_id: Option<PartyId>,
 
     /// Run Interval
+    #[example = "`60000`"]
     pub run_interval: u64,
 
     /// Directory to snapshot
     pub db_directory: PathBuf,
 
     /// Directory to store signer data (Stakes, Protocol initializers, ...)
+    #[example = "`./mithril-signer/stores`"]
     pub data_stores_directory: PathBuf,
 
     /// Store retention limit. If set to None, no limit will be set.
@@ -149,7 +158,7 @@ impl Configuration {
 }
 
 /// Default configuration with all the default values for configurations.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, DocumenterDefault)]
 pub struct DefaultConfiguration {
     /// Era reader adapter type
     pub era_reader_adapter_type: String,

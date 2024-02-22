@@ -3,14 +3,17 @@ mod genesis_command;
 mod serve_command;
 mod tools_command;
 
-use clap::{Parser, Subcommand};
+use anyhow::anyhow;
+use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
+use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use slog::Level;
 use slog_scope::debug;
 use std::path::PathBuf;
 
-use crate::DefaultConfiguration;
+use crate::{Configuration, DefaultConfiguration};
+use mithril_doc::GenerateDocCommands;
 
 /// Main command selector
 #[derive(Debug, Clone, Subcommand)]
@@ -19,6 +22,8 @@ pub enum MainCommand {
     Era(era_command::EraCommand),
     Serve(serve_command::ServeCommand),
     Tools(tools_command::ToolsCommand),
+    #[clap(alias("doc"), hide(true))]
+    GenerateDoc(GenerateDocCommands),
 }
 
 impl MainCommand {
@@ -28,12 +33,17 @@ impl MainCommand {
             Self::Era(cmd) => cmd.execute(config_builder).await,
             Self::Serve(cmd) => cmd.execute(config_builder).await,
             Self::Tools(cmd) => cmd.execute(config_builder).await,
+            Self::GenerateDoc(cmd) => {
+                let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
+                cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
+                    .map_err(|message| anyhow!(message))
+            }
         }
     }
 }
 
 /// Mithril Aggregator Node
-#[derive(Parser, Debug, Clone)]
+#[derive(Documenter, Parser, Debug, Clone)]
 #[command(version)]
 pub struct MainOpts {
     /// application main command
@@ -46,6 +56,7 @@ pub struct MainOpts {
 
     /// Verbosity level
     #[clap(short, long, action = clap::ArgAction::Count)]
+    #[example = "Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace`"]
     pub verbose: u8,
 
     /// Directory of the Cardano node files

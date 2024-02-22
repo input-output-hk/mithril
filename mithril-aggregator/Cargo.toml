@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.4.38"
+version = "0.4.39"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -19,6 +19,7 @@ config = "0.13.4"
 flate2 = "1.0.28"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
+mithril-doc = { path = "../mithril-doc" }
 mithril-persistence = { path = "../mithril-persistence" }
 openssl = { version = "0.10.63", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }

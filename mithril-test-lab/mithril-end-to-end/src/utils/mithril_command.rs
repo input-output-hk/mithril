@@ -11,6 +11,7 @@ pub struct MithrilCommand {
     name: String,
     process_path: PathBuf,
     log_path: PathBuf,
+    output_path: Option<PathBuf>,
     work_dir: PathBuf,
     env_vars: HashMap<String, String>,
     default_args: Vec<String>,
@@ -58,14 +59,31 @@ impl MithrilCommand {
             name: name.to_string(),
             process_path,
             log_path,
+            output_path: None,
             work_dir: work_dir.to_path_buf(),
             env_vars,
             default_args,
         })
     }
 
+    /// Set the name of the file where the stderr (and stdout if an output_filename is not set) of
+    /// the command will be redirected.
+    ///
+    /// It will be suffixed with '.log'
     pub fn set_log_name(&mut self, name: &str) {
         self.log_path = self.work_dir.join(format!("{name}.log"));
+    }
+
+    /// Set the name of the file where the stdout of the command will be redirected.
+    /// Return the path to the output file.
+    ///
+    /// It will be suffixed with '.out'
+    ///
+    /// If not set the stdout will be redirected to the log file instead.
+    pub fn set_output_filename(&mut self, name: &str) -> PathBuf {
+        let path = self.work_dir.join(format!("{name}.out"));
+        self.output_path = Some(path.clone());
+        path
     }
 
     pub fn set_env_var(&mut self, name: &str, value: &str) {
@@ -75,7 +93,7 @@ impl MithrilCommand {
     pub fn start(&mut self, args: &[String]) -> StdResult<Child> {
         let args = [&self.default_args, args].concat();
 
-        let log_file_stdout = std::fs::File::options()
+        let log_file_stderr = std::fs::File::options()
             .create(true)
             .append(true)
             .open(&self.log_path)
@@ -85,12 +103,22 @@ impl MithrilCommand {
                     self.log_path.display(),
                 )
             })?;
-        let log_file_stderr = log_file_stdout.try_clone().with_context(|| {
-            format!(
-                "failed to use file `{}` for logging",
-                self.log_path.display(),
-            )
-        })?;
+
+        let log_file_stdout = match &self.output_path {
+            None => log_file_stderr.try_clone().with_context(|| {
+                format!(
+                    "failed to use file `{}` for logging",
+                    self.log_path.display(),
+                )
+            })?,
+            Some(path) => std::fs::File::options()
+                .create(true)
+                .append(true)
+                .open(path)
+                .with_context(|| {
+                    format!("failed to use file `{}` for command stdout", path.display(),)
+                })?,
+        };
 
         let mut command = Command::new(&self.process_path);
         command

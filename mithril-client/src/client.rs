@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
-use crate::cardano_transaction_proof_client::CardanoTransactionProofClient;
+use crate::cardano_transaction_client::CardanoTransactionClient;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
@@ -20,9 +20,10 @@ use crate::MithrilResult;
 /// Structure that aggregates the available clients for each of the Mithril types of certified data.
 ///
 /// Use the [ClientBuilder] to instantiate it easily.
+#[derive(Clone)]
 pub struct Client {
     #[cfg(feature = "unstable")]
-    cardano_transaction_proof_client: Arc<CardanoTransactionProofClient>,
+    cardano_transaction_client: Arc<CardanoTransactionClient>,
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
     snapshot_client: Arc<SnapshotClient>,
@@ -31,8 +32,8 @@ pub struct Client {
 impl Client {
     /// Get the client that fetches and verifies Mithril Cardano transaction proof.
     #[cfg(feature = "unstable")]
-    pub fn cardano_transaction_proof(&self) -> Arc<CardanoTransactionProofClient> {
-        self.cardano_transaction_proof_client.clone()
+    pub fn cardano_transaction(&self) -> Arc<CardanoTransactionClient> {
+        self.cardano_transaction_client.clone()
     }
 
     /// Get the client that fetches and verifies Mithril certificates.
@@ -139,9 +140,8 @@ impl ClientBuilder {
         };
 
         #[cfg(feature = "unstable")]
-        let cardano_transaction_proof_client = Arc::new(CardanoTransactionProofClient::new(
-            aggregator_client.clone(),
-        ));
+        let cardano_transaction_client =
+            Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
 
         let certificate_verifier = match self.certificate_verifier {
             None => Arc::new(
@@ -176,7 +176,7 @@ impl ClientBuilder {
 
         Ok(Client {
             #[cfg(feature = "unstable")]
-            cardano_transaction_proof_client,
+            cardano_transaction_client,
             certificate_client,
             mithril_stake_distribution_client,
             snapshot_client,

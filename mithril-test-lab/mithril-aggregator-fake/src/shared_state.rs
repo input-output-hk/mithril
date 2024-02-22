@@ -1,6 +1,3 @@
-#[path = "default_values.rs"]
-mod default_values;
-
 use std::{
     collections::BTreeMap,
     path::{Path, PathBuf},
@@ -12,7 +9,7 @@ use serde_json::Value;
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
 
-use crate::StdResult;
+use crate::{default_values, StdResult};
 
 pub struct AppState {
     epoch_settings: String,
@@ -22,6 +19,9 @@ pub struct AppState {
     snapshots: BTreeMap<String, String>,
     msd_list: String,
     msds: BTreeMap<String, String>,
+    ctx_commitment_list: String,
+    ctx_commitments: BTreeMap<String, String>,
+    ctx_proofs: BTreeMap<String, String>,
 }
 
 /// Wrapper to access the application state in shared execution.
@@ -44,6 +44,9 @@ impl Default for AppState {
             snapshots: default_values::snapshots(),
             msd_list: default_values::msd_list().to_owned(),
             msds: default_values::msds(),
+            ctx_commitment_list: default_values::ctx_commitments_list().to_owned(),
+            ctx_commitments: default_values::ctx_commitments(),
+            ctx_proofs: default_values::ctx_proofs(),
         }
     }
 }
@@ -53,11 +56,13 @@ impl AppState {
     /// This will fail if some files are missing or are inconsistent.
     pub fn from_directory(data_dir: &Path) -> StdResult<Self> {
         let reader = DataDir::new(data_dir)?;
-        let epoch_settings = default_values::epoch_settings().to_owned();
+        let epoch_settings = reader.read_file("epoch-settings")?;
         let (certificate_list, mut certificates) = reader.read_files("certificate", "hash")?;
         reader.read_certificate_chain(&certificate_list, &mut certificates)?;
         let (snapshot_list, snapshots) = reader.read_files("snapshot", "digest")?;
         let (msd_list, msds) = reader.read_files("mithril-stake-distribution", "hash")?;
+        let (ctx_commitment_list, ctx_commitments) = reader.read_files("ctx-commitment", "hash")?;
+        let (_, ctx_proofs) = reader.read_files("ctx-proof", "transaction_hash")?;
 
         let instance = Self {
             epoch_settings,
@@ -67,9 +72,17 @@ impl AppState {
             snapshots,
             msd_list,
             msds,
+            ctx_commitment_list,
+            ctx_commitments,
+            ctx_proofs,
         };
 
         Ok(instance)
+    }
+
+    /// return the compiled epoch settings
+    pub async fn get_epoch_settings(&self) -> StdResult<String> {
+        Ok(self.epoch_settings.clone())
     }
 
     /// return the list of snapshots in the same order as they were read
@@ -102,9 +115,19 @@ impl AppState {
         Ok(self.certificates.get(key).cloned())
     }
 
-    /// return the compiled epoch settings
-    pub async fn get_epoch_settings(&self) -> StdResult<String> {
-        Ok(self.epoch_settings.clone())
+    /// return the list of Cardano transactions commitments in the same order as they were read
+    pub async fn get_ctx_commitments(&self) -> StdResult<String> {
+        Ok(self.ctx_commitment_list.clone())
+    }
+
+    /// return the Cardano transactions commitment identified by the given key if any.
+    pub async fn get_ctx_commitment(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.ctx_commitments.get(key).cloned())
+    }
+
+    /// return the Cardano transactions proofs from Cardano transaction hashes.
+    pub async fn get_ctx_proofs(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.ctx_proofs.get(key).cloned())
     }
 }
 
@@ -134,6 +157,20 @@ impl DataDir {
         };
 
         Ok(instance)
+    }
+
+    fn read_file(&self, entity: &str) -> StdResult<String> {
+        let file = {
+            let file_name = format!("{entity}.json");
+
+            self.data_dir.to_owned().join(file_name)
+        };
+
+        trace!("Reading JSON file '{}'.", file.display());
+        let file_content = std::fs::read_to_string(&file)
+            .with_context(|| format!("Error while reading file '{}'.", file.display()))?;
+
+        Ok(file_content)
     }
 
     fn read_list_file(&self, entity: &str) -> StdResult<(String, Value)> {
@@ -233,5 +270,16 @@ impl DataDir {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_appstate_from_default_data() {
+        AppState::from_directory(Path::new("./default_data"))
+            .expect("Should be able to construct an AppState from the default_data");
     }
 }

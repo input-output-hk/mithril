@@ -945,10 +945,24 @@ dependencies = [
 ]
 
 [[package]]
-name = "client-mithril-stake-distribution"
-version = "0.1.6"
+name = "client-cardano-transaction"
+version = "0.1.1"
 dependencies = [
  "anyhow",
+ "clap",
+ "mithril-client",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
+name = "client-mithril-stake-distribution"
+version = "0.1.8"
+dependencies = [
+ "anyhow",
+ "clap",
  "mithril-client",
  "slog",
  "slog-async",
@@ -958,10 +972,11 @@ dependencies = [
 
 [[package]]
 name = "client-snapshot"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "async-trait",
+ "clap",
  "futures",
  "indicatif",
  "mithril-client",
@@ -3316,7 +3331,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.38"
+version = "0.4.39"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3328,6 +3343,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc",
  "mithril-persistence",
  "mockall",
  "openssl",
@@ -3357,15 +3373,17 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.1.3"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
  "clap_derive",
  "futures",
+ "mithril-build-script",
  "mithril-common",
  "reqwest",
+ "serde",
  "serde_json",
  "signal-hook",
  "signal-hook-tokio",
@@ -3377,8 +3395,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-build-script"
+version = "0.1.0"
+
+[[package]]
 name = "mithril-client"
-version = "0.6.2"
+version = "0.6.4"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3411,7 +3433,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3424,6 +3446,7 @@ dependencies = [
  "human_bytes",
  "indicatif",
  "mithril-client",
+ "mithril-doc",
  "openssl",
  "openssl-probe",
  "serde",
@@ -3439,10 +3462,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.1.9"
+version = "0.1.11"
 dependencies = [
  "async-trait",
  "futures",
+ "mithril-build-script",
  "mithril-client",
  "serde",
  "serde-wasm-bindgen",
@@ -3454,7 +3478,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3502,11 +3526,30 @@ dependencies = [
  "typetag",
  "walkdir",
  "warp",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "mithril-doc"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "config",
+ "mithril-doc-derive",
+ "regex",
+]
+
+[[package]]
+name = "mithril-doc-derive"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.48",
 ]
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.3.0"
+version = "0.3.3"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3516,6 +3559,7 @@ dependencies = [
  "hex",
  "indicatif",
  "mithril-common",
+ "mithril-doc",
  "reqwest",
  "serde",
  "serde_json",
@@ -3554,13 +3598,14 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.9"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "clap",
  "config",
  "libp2p",
  "mithril-common",
+ "mithril-doc",
  "reqwest",
  "serde",
  "serde_json",
@@ -3577,7 +3622,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.108"
+version = "0.2.109"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3586,6 +3631,7 @@ dependencies = [
  "hex",
  "httpmock",
  "mithril-common",
+ "mithril-doc",
  "mithril-persistence",
  "mockall",
  "openssl",
@@ -3630,7 +3676,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.29"
+version = "0.1.30"
 dependencies = [
  "base64 0.21.7",
  "blake2 0.10.6",
@@ -3638,6 +3684,7 @@ dependencies = [
  "hex",
  "log",
  "mithril-common",
+ "mithril-doc",
  "mithril-stm",
  "rand_chacha",
  "rand_core 0.6.4",

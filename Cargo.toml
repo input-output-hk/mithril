@@ -4,13 +4,17 @@ resolver = "2"
 
 members = [
   "demo/protocol-demo",
+  "examples/client-cardano-transaction",
   "examples/client-mithril-stake-distribution",
   "examples/client-snapshot",
   "mithril-aggregator",
+  "mithril-build-script",
   "mithril-client",
   "mithril-client-cli",
   "mithril-client-wasm",
   "mithril-common",
+  "mithril-doc",
+  "mithril-doc-derive",
   "mithril-persistence",
   "mithril-relay",
   "mithril-signer",

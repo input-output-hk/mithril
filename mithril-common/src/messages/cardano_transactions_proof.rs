@@ -6,8 +6,15 @@ use crate::StdError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 /// A cryptographic proof for a set of Cardano transactions
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[cfg_attr(
+    target_family = "wasm",
+    wasm_bindgen(getter_with_clone, js_name = "CardanoTransactionsProofs")
+)]
 pub struct CardanoTransactionsProofsMessage {
     /// Hash of the certificate that validate this proof merkle root
     pub certificate_hash: String,
@@ -17,6 +24,21 @@ pub struct CardanoTransactionsProofsMessage {
 
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
+}
+
+#[cfg_attr(
+    target_family = "wasm",
+    wasm_bindgen(js_class = "CardanoTransactionsProofs")
+)]
+impl CardanoTransactionsProofsMessage {
+    /// Transactions that have been certified
+    #[cfg_attr(target_family = "wasm", wasm_bindgen(getter))]
+    pub fn transactions_hashes(&self) -> Vec<TransactionHash> {
+        self.certified_transactions
+            .iter()
+            .flat_map(|ct| ct.transactions_hashes.clone())
+            .collect::<Vec<_>>()
+    }
 }
 
 /// Set of transactions verified by [CardanoTransactionsProofsMessage::verify].
@@ -51,12 +73,15 @@ impl VerifiedCardanoTransactions {
     }
 }
 
+/// Error encountered or produced by the [cardano transaction proof verification][CardanoTransactionsProofsMessage::verify].
 #[derive(Error, Debug)]
 pub enum VerifyCardanoTransactionsProofsError {
     /// The verification of an individual [CardanoTransactionsSetProofMessagePart] failed.
     #[error("Invalid set proof for transactions hashes: {transactions_hashes:?}")]
     InvalidSetProof {
+        /// Hashes of the invalid transactions
         transactions_hashes: Vec<TransactionHash>,
+        /// Error source
         source: StdError,
     },
 
@@ -67,7 +92,7 @@ pub enum VerifyCardanoTransactionsProofsError {
     /// Not all certified transactions set proof have the same merkle root.
     ///
     /// This is problematic because all the set proof should be generated from the same
-    /// merkle tree which root is signed in the [crate::entities::Certificate][certificate].
+    /// merkle tree which root is signed in the [certificate][crate::entities::Certificate].
     #[error("All certified transactions set proofs must share the same Merkle root")]
     NonMatchingMerkleRoot,
 
@@ -94,8 +119,11 @@ impl CardanoTransactionsProofsMessage {
     /// Verify that all the certified transactions proofs are valid
     ///
     /// The following checks will be executed:
+    ///
     /// 1 - Check that each Merkle proof is valid
+    ///
     /// 2 - Check that all proofs share the same Merkle root
+    ///
     /// 3 - Assert that there's at least one certified transaction
     ///
     /// If every check is okay, the hex encoded Merkle root of the proof will be returned.
