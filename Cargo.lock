@@ -4160,8 +4160,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 [[package]]
 name = "pallas-addresses"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7015bf4b1770b7e2ce8c9742d7c798db540914562e67e22953eff4b6d53aab90"
+source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
 dependencies = [
  "base58",
  "bech32",
@@ -4176,8 +4175,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9f8d41f17000f9a6bab7c26c99b19038a12de5cf004e901e1d0f5fa993e3d7d"
+source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
 dependencies = [
  "hex",
  "minicbor",
@@ -4188,8 +4186,7 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6610d24e42fe2d8408022bda788ba4bf6d125debe3da404e2499848e108788a1"
+source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4202,8 +4199,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e581074044a45f6d65445b3796dd283fa513f13cf95412784a884da7bab4524e"
+source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
 dependencies = [
  "byteorder",
  "hex",
@@ -4220,8 +4216,7 @@ dependencies = [
 [[package]]
 name = "pallas-primitives"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73c1d8c016d49522e0de0b6839abeb0dbd2eb7de5353931d785ddc2cfe189d8a"
+source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
 dependencies = [
  "base58",
  "bech32",
@@ -4236,8 +4231,7 @@ dependencies = [
 [[package]]
 name = "pallas-traverse"
 version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a92e50d84b029e069c9d6e36b38b1da2b5fe427c75a066697c8636e30dc9163"
+source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
 dependencies = [
  "hex",
  "pallas-addresses",
