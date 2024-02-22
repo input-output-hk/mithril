@@ -335,7 +335,12 @@ mod tests {
 
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
     use pallas_crypto::hash::Hash;
-    use pallas_network::miniprotocols::localstate::{self, queries_v16::Value, ClientQueryRequest};
+    use pallas_network::miniprotocols::localstate::{
+        queries_v16::{
+            BlockQuery, HardForkQuery, LedgerQuery, Request, Snapshots, StakeSnapshot, Value,
+        },
+        ClientQueryRequest,
+    };
     use tokio::net::UnixListener;
 
     use super::*;
@@ -380,7 +385,7 @@ mod tests {
                     hex::decode("00000036d515e12e18cd3c88c74f09a67984c2c279a5296aa96efe89")
                         .unwrap(),
                 ),
-                localstate::queries_v16::Stakes {
+                Stakes {
                     snapshot_mark_pool: 300000000001,
                     snapshot_set_pool: 300000000002,
                     snapshot_go_pool: 300000000000,
@@ -391,7 +396,7 @@ mod tests {
                     hex::decode("000000f66e28b0f18aef20555f4c4954234e3270dfbbdcc13f54e799")
                         .unwrap(),
                 ),
-                localstate::queries_v16::Stakes {
+                Stakes {
                     snapshot_mark_pool: 600000000001,
                     snapshot_set_pool: 600000000002,
                     snapshot_go_pool: 600000000000,
@@ -402,7 +407,7 @@ mod tests {
                     hex::decode("00000110093effbf3ce788aebd3e7506b80322bd3995ad432e61fad5")
                         .unwrap(),
                 ),
-                localstate::queries_v16::Stakes {
+                Stakes {
                     snapshot_mark_pool: 1200000000001,
                     snapshot_set_pool: 1200000000002,
                     snapshot_go_pool: 1200000000000,
@@ -413,7 +418,7 @@ mod tests {
                     hex::decode("00000ffff93effbf3ce788aebd3e7506b80322bd3995ad432e61fad5")
                         .unwrap(),
                 ),
-                localstate::queries_v16::Stakes {
+                Stakes {
                     snapshot_mark_pool: 0,
                     snapshot_set_pool: 1300000000002,
                     snapshot_go_pool: 0,
@@ -421,8 +426,8 @@ mod tests {
             ),
         ]);
 
-        localstate::queries_v16::StakeSnapshot {
-            snapshots: localstate::queries_v16::Snapshots {
+        StakeSnapshot {
+            snapshots: Snapshots {
                 stake_snapshots,
                 snapshot_stake_mark_total: 2100000000003,
                 snapshot_stake_set_total: 2100000000006,
@@ -440,29 +445,18 @@ mod tests {
             };
 
         match query {
-            localstate::queries_v16::Request::LedgerQuery(
-                localstate::queries_v16::LedgerQuery::HardForkQuery(
-                    localstate::queries_v16::HardForkQuery::GetCurrentEra,
-                ),
-            ) => AnyCbor::from_encode(4),
-            localstate::queries_v16::Request::LedgerQuery(
-                localstate::queries_v16::LedgerQuery::BlockQuery(
-                    _,
-                    localstate::queries_v16::BlockQuery::GetEpochNo,
-                ),
-            ) => AnyCbor::from_encode([8]),
-            localstate::queries_v16::Request::LedgerQuery(
-                localstate::queries_v16::LedgerQuery::BlockQuery(
-                    _,
-                    localstate::queries_v16::BlockQuery::GetUTxOByAddress(_),
-                ),
-            ) => AnyCbor::from_encode(get_fake_utxo_by_address()),
-            localstate::queries_v16::Request::LedgerQuery(
-                localstate::queries_v16::LedgerQuery::BlockQuery(
-                    _,
-                    localstate::queries_v16::BlockQuery::GetStakeSnapshots(_),
-                ),
-            ) => AnyCbor::from_encode(get_fake_stake_snapshot()),
+            Request::LedgerQuery(LedgerQuery::HardForkQuery(HardForkQuery::GetCurrentEra)) => {
+                AnyCbor::from_encode(4)
+            }
+            Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetEpochNo)) => {
+                AnyCbor::from_encode([8])
+            }
+            Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetUTxOByAddress(_))) => {
+                AnyCbor::from_encode(get_fake_utxo_by_address())
+            }
+            Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetStakeSnapshots(_))) => {
+                AnyCbor::from_encode(get_fake_stake_snapshot())
+            }
             _ => panic!("unexpected query from client: {query:?}"),
         }
     }
