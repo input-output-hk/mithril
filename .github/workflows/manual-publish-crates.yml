@@ -14,10 +14,10 @@ on:
         required: true
         type: choice
         options:
-        - all
-        - mithril-stm
-        - mithril-common
-        - mithril-client
+          - all
+          - mithril-stm
+          - mithril-common
+          - mithril-client
       dry_run:
         description: Dry run will not publish to crates.io registry.
         required: true
@@ -32,13 +32,13 @@ jobs:
       matrix:
         package: [ mithril-stm, mithril-common, mithril-client ]
         include:
-        - package: mithril-stm
-          api_token_secret_name: CRATES_IO_API_TOKEN
-        - package: mithril-common
-          api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
-        - package: mithril-client
-          api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CLIENT
-          
+          - package: mithril-stm
+            api_token_secret_name: CRATES_IO_API_TOKEN
+          - package: mithril-common
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
+          - package: mithril-client
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CLIENT
+
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -52,7 +52,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-        
+
       - name: ${{ inputs.dry_run && 'Test publish' || 'Publish' }} package to crates.io
         if: inputs.package == matrix.package || inputs.package == 'all'
         uses: ./.github/workflows/actions/publish-crate-package

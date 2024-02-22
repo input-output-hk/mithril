@@ -69,34 +69,34 @@ jobs:
           echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
-          
+
       - name: Checkout binary
         uses: dawidd6/action-download-artifact@v3
         with:
           name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
-          commit: ${{ steps.prepare.outputs.sha }} 
+          commit: ${{ steps.prepare.outputs.sha }}
           branch: ${{ steps.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success
-      
+
       - name: Set permissions
         shell: bash
         working-directory: ./bin
         run: chmod +x ./mithril-client
-      
+
       - name: Show client version
         shell: bash
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --version
-      
+
       - name: Snapshot / list and get last digest
         shell: bash
         working-directory: ./bin
         run: |
           ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot list
           echo "SNAPSHOT_DIGEST=$(./mithril-client snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
-      
+
       - name: Snapshot / download & restore latest
         shell: bash
         working-directory: ./bin
@@ -108,7 +108,7 @@ jobs:
         run: |
           ./mithril-client ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution list
           echo "MITHRIL_STAKE_DISTRIBUTION_HASH=$(./mithril-client mithril-stake-distribution list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
-      
+
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
         working-directory: ./bin
@@ -143,13 +143,13 @@ jobs:
       - name: Show client version
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --version
-      
+
       - name: Snapshot / list and get last digest
         shell: bash
         run: |
           ${{ steps.command.outputs.mithril_client }} snapshot list
           echo "SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
-      
+
       - name: Snapshot / download & restore latest
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} snapshot download $SNAPSHOT_DIGEST --download-dir /app
@@ -159,10 +159,10 @@ jobs:
         run: |
           ${{ steps.command.outputs.mithril_client }} mithril-stake-distribution list
           echo "MITHRIL_STAKE_DISTRIBUTION_HASH=$(${{ steps.command.outputs.mithril_client }} mithril-stake-distribution list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
-      
+
       - name: Mithril Stake Distribution / download & restore latest
         shell: bash
-        run:  ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
 
   test-mithril-client-wasm:
     strategy:
@@ -179,7 +179,7 @@ jobs:
         with:
           name: mithril-distribution-wasm
           path: ./mithril-client-wasm
-          commit: ${{ steps.prepare.outputs.sha }} 
+          commit: ${{ steps.prepare.outputs.sha }}
           branch: ${{ steps.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success

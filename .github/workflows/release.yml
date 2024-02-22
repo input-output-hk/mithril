@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [released]
+    types: [ released ]
 
 jobs:
   build-push-docker:
@@ -70,48 +70,48 @@ jobs:
       matrix:
         environment: [ release-preprod, release-mainnet ]
         include:
-        - environment: release-preprod
-          environment_prefix: release
-          cardano_network: preprod
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 5
-              m     = 100
-              phi_f = 0.65
-            }
-          mithril_signers: |
-            {
-              "2" = {
-                type    = "verified",
-                pool_id = "",
-              },
-            }
-          terraform_backend_bucket: hydra-terraform-admin
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-highmem-2
-          google_compute_instance_boot_disk_size: 200
-          google_compute_instance_data_disk_size: 250
-        - environment: release-mainnet
-          environment_prefix: release
-          cardano_network: mainnet
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 2422
-              m     = 20973
-              phi_f = 0.20
-            }
-          mithril_signers: |
-            {}
-          terraform_backend_bucket: mithril-terraform-prod
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-highmem-8
-          google_compute_instance_boot_disk_size: 250
-          google_compute_instance_data_disk_size: 1000
-          
+          - environment: release-preprod
+            environment_prefix: release
+            cardano_network: preprod
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 5
+                m     = 100
+                phi_f = 0.65
+              }
+            mithril_signers: |
+              {
+                "2" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-2
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
+          - environment: release-mainnet
+            environment_prefix: release
+            cardano_network: mainnet
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 2422
+                m     = 20973
+                phi_f = 0.20
+              }
+            mithril_signers: |
+              {}
+            terraform_backend_bucket: mithril-terraform-prod
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-8
+            google_compute_instance_boot_disk_size: 250
+            google_compute_instance_data_disk_size: 1000
+
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
     needs:
@@ -174,13 +174,13 @@ jobs:
       matrix:
         package: [ mithril-stm, mithril-common, mithril-client ]
         include:
-        - package: mithril-stm
-          api_token_secret_name: CRATES_IO_API_TOKEN
-        - package: mithril-common
-          api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
-        - package: mithril-client
-          api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CLIENT
-          
+          - package: mithril-stm
+            api_token_secret_name: CRATES_IO_API_TOKEN
+          - package: mithril-common
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
+          - package: mithril-client
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CLIENT
+
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -190,7 +190,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-        
+
       - name: Publish package to crates.io
         uses: ./.github/workflows/actions/publish-crate-package
         with:
@@ -210,7 +210,7 @@ jobs:
             tag: latest
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
-          
+
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -221,7 +221,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
-        
+
       - name: Publish package to npm
         uses: ./.github/workflows/actions/publish-npm-package
         with:

@@ -44,7 +44,7 @@ jobs:
           commit: ${{ github.sha }}
           workflow: ci.yml
           workflow_conclusion: success
-      
+
       - name: Download built artifacts (Windows-x64)
         uses: dawidd6/action-download-artifact@v3
         with:
@@ -79,7 +79,7 @@ jobs:
         uses: tubone24/update_release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }} 
+          TAG_NAME: ${{ github.ref_name }}
         with:
           is_append_body: true
           body_path: ./release-notes-addon.txt
@@ -149,29 +149,29 @@ jobs:
       matrix:
         environment: [ pre-release-preview ]
         include:
-        - environment: pre-release-preview
-          environment_prefix: pre-release
-          cardano_network: preview
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 5
-              m     = 100
-              phi_f = 0.65
-            }
-          mithril_signers: |
-            {
-              "2" = {
-                type    = "verified",
-                pool_id = "",
-              },
-            }
-          terraform_backend_bucket: hydra-terraform-admin
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-highmem-2
-          google_compute_instance_boot_disk_size: 200
-          google_compute_instance_data_disk_size: 250
+          - environment: pre-release-preview
+            environment_prefix: pre-release
+            cardano_network: preview
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 5
+                m     = 100
+                phi_f = 0.65
+              }
+            mithril_signers: |
+              {
+                "2" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-2
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
     needs:
@@ -235,7 +235,7 @@ jobs:
       max-parallel: 1
       matrix:
         package: [ mithril-stm, mithril-common, mithril-client ]
-          
+
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -245,7 +245,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-        
+
       - name: Publish package to crates.io
         uses: ./.github/workflows/actions/publish-crate-package
         with:
@@ -264,7 +264,7 @@ jobs:
             tag: next
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
-          
+
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -275,7 +275,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
-        
+
       - name: Publish package to npm
         uses: ./.github/workflows/actions/publish-npm-package
         with:

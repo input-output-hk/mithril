@@ -6,7 +6,7 @@ on:
       - 'main'
       - 'hotfix**'
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [ opened, reopened, synchronize ]
     branches-ignore:
       - 'hotfix**' # hotfix are handled by the push trigger
 
@@ -80,15 +80,15 @@ jobs:
         os: [ macos-12, windows-latest ]
 
         include:
-        # Only build client on windows & mac
-        - os: macos-12
-          binaries-build-args: --bin mithril-client --features bundle_openssl
-          libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
-        - os: windows-latest
-          # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
-          # hack in mithril common cargo.toml doesn't apply (we have no idea why).
-          binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
-          libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend,full,unstable
+          # Only build client on windows & mac
+          - os: macos-12
+            binaries-build-args: --bin mithril-client --features bundle_openssl
+            libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
+          - os: windows-latest
+            # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
+            # hack in mithril common cargo.toml doesn't apply (we have no idea why).
+            binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
+            libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend,full,unstable
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -268,12 +268,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: ["std"]
+        mode: [ "std" ]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: ["8.7.3"]
-        hard_fork_latest_era_at_epoch: [0,10,100]
-        run_id: ["#1","#2"]
-        extra_args: [""]
+        cardano_node_version: [ "8.7.3" ]
+        hard_fork_latest_era_at_epoch: [ 0,10,100 ]
+        run_id: [ "#1","#2" ]
+        extra_args: [ "" ]
 
         include:
           # Include a hard fork test for `8.1.2` which is not concerned
@@ -341,7 +341,7 @@ jobs:
   publish-tests-results:
     if: success() || failure()
     runs-on: ubuntu-22.04
-    needs: 
+    needs:
       - test
     steps:
       - name: Download Tests Results (${{ runner.os }}-${{ runner.arch }})
@@ -557,7 +557,7 @@ jobs:
         uses: tubone24/update_release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: unstable 
+          TAG_NAME: unstable
         with:
           is_append_body: true
           body_path: ./release-notes-addon.txt
@@ -569,62 +569,62 @@ jobs:
       matrix:
         environment: [ testing-preview, testing-sanchonet ]
         include:
-        - environment: testing-preview
-          environment_prefix: testing
-          cardano_network: preview
-          mithril_use_p2p_network: false
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 2422
-              m     = 20973
-              phi_f = 0.2
-            }
-          mithril_signers: |
-            {
-              "1" = {
-                type    = "verified",
-                pool_id = "",
-              },
-              "2" = {
-                type    = "verified",
-                pool_id = "",
-              },
-              "3" = {
-                type    = "verified",
-                pool_id = "",
-              },
-            }
-          terraform_backend_bucket: hydra-terraform-admin
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-standard-8
-          google_compute_instance_boot_disk_size: 200
-          google_compute_instance_data_disk_size: 250
-        - environment: testing-sanchonet
-          environment_prefix: testing
-          cardano_network: sanchonet
-          mithril_use_p2p_network: false
-          mithril_api_domain: api.mithril.network
-          mithril_protocol_parameters: |
-            {
-              k     = 5
-              m     = 100
-              phi_f = 0.65
-            }
-          mithril_signers: |
-            {
-              "1" = {
-                type    = "verified",
-                pool_id = "",
-              },
-            }
-          terraform_backend_bucket: hydra-terraform-admin
-          google_region: europe-west1
-          google_zone: europe-west1-b
-          google_machine_type: e2-highmem-4
-          google_compute_instance_boot_disk_size: 200
-          google_compute_instance_data_disk_size: 250
+          - environment: testing-preview
+            environment_prefix: testing
+            cardano_network: preview
+            mithril_use_p2p_network: false
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 2422
+                m     = 20973
+                phi_f = 0.2
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+                "2" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+                "3" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-standard-8
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
+          - environment: testing-sanchonet
+            environment_prefix: testing
+            cardano_network: sanchonet
+            mithril_use_p2p_network: false
+            mithril_api_domain: api.mithril.network
+            mithril_protocol_parameters: |
+              {
+                k     = 5
+                m     = 100
+                phi_f = 0.65
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "verified",
+                  pool_id = "",
+                },
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-4
+            google_compute_instance_boot_disk_size: 200
+            google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
     needs:
@@ -791,7 +791,7 @@ jobs:
       - name: Install dependencies
         working-directory: mithril-explorer
         run: npm ci
-      
+
       - name: Test explorer
         working-directory: mithril-explorer
         run: make test
