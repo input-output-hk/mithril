@@ -49,7 +49,7 @@ pub struct Args {
     number_of_bft_nodes: u8,
 
     /// Number of Pool nodes in the devnet
-    #[clap(long, default_value_t = 3)]
+    #[clap(long, default_value_t = 3, value_parser = has_at_least_two_pool_nodes)]
     number_of_pool_nodes: u8,
 
     /// Length of a Cardano slot in the devnet (in s)
@@ -119,6 +119,18 @@ impl Args {
             3 => Level::Debug,
             _ => Level::Trace,
         }
+    }
+}
+
+fn has_at_least_two_pool_nodes(s: &str) -> Result<u8, String> {
+    let number_of_pool_nodes: u8 = s.parse().map_err(|_| format!("`{}` isn't a number", s))?;
+    if number_of_pool_nodes > 2 {
+        Ok(number_of_pool_nodes)
+    } else {
+        Err(format!(
+            "At least two pool nodes are required (one for the aggregator, one for at least one \
+            signer), number given: {s}",
+        ))
     }
 }
 
