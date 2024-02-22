@@ -28,13 +28,11 @@ use crate::{
 };
 
 use super::model::{try_inspect, Datum, Datums};
-use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
 pub struct PallasChainObserver {
     socket: PathBuf,
     network: CardanoNetwork,
-    fallback: CardanoCliChainObserver,
 }
 
 impl From<anyhow::Error> for ChainObserverError {
@@ -44,12 +42,11 @@ impl From<anyhow::Error> for ChainObserverError {
 }
 
 impl PallasChainObserver {
-    /// Creates a new PallasObserver while accepting a fallback CliRunner
-    pub fn new(socket: &Path, network: CardanoNetwork, fallback: CardanoCliChainObserver) -> Self {
+    /// Creates a new PallasObserver
+    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
         Self {
             socket: socket.to_owned(),
             network,
-            fallback,
         }
     }
 
@@ -59,11 +56,6 @@ impl PallasChainObserver {
         let client = NodeClient::connect(&self.socket, magic).await?;
 
         Ok(client)
-    }
-
-    /// Returns a reference to the fallback `CardanoCliChainObserver` instance.
-    fn get_fallback(&self) -> &CardanoCliChainObserver {
-        &self.fallback
     }
 
     /// Creates and returns a new `NodeClient`, handling any potential errors.
@@ -587,16 +579,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_epoch_with_fallback() {
-        let socket_path = create_temp_dir("get_current_epoch_with_fallback").join("node.socket");
+    async fn get_current_epoch() {
+        let socket_path = create_temp_dir("get_current_epoch").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             observer.get_current_epoch().await.unwrap().unwrap()
         });
 
@@ -606,16 +594,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_datums_with_fallback() {
-        let socket_path = create_temp_dir("get_current_datums_with_fallback").join("node.socket");
+    async fn get_current_datums() {
+        let socket_path = create_temp_dir("get_current_datums").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             let address =
                 "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".to_string();
             observer.get_current_datums(&address).await.unwrap()
@@ -627,17 +611,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_stake_distribution_with_fallback() {
-        let socket_path =
-            create_temp_dir("get_current_stake_distribution_with_fallback").join("node.socket");
+    async fn get_current_stake_distribution() {
+        let socket_path = create_temp_dir("get_current_stake_distribution").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = super::PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                super::PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             observer.get_current_stake_distribution().await.unwrap()
         });
 
@@ -662,17 +641,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_kes_period_with_fallback() {
-        let socket_path =
-            create_temp_dir("get_current_kes_period_with_fallback").join("node.socket");
+    async fn get_current_kes_period() {
+        let socket_path = create_temp_dir("get_current_kes_period").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = super::PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                super::PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
 
             let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
             let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];

@@ -135,16 +135,9 @@ impl MithrilInfrastructure {
             signers.push(signer);
         }
 
-        let fallback = CardanoCliChainObserver::new(Box::new(CardanoCliRunner::new(
-            config.devnet.cardano_cli_path(),
-            bft_node.socket_path.clone(),
-            CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-        )));
-
         let cardano_chain_observer = Arc::new(PallasChainObserver::new(
             &bft_node.socket_path,
             CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-            fallback,
         ));
 
         Ok(Self {
