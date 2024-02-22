@@ -134,8 +134,8 @@ inputs:
 runs:
   using: "composite"
   steps:
-  - name: Checkout sources
-    uses: actions/checkout@v3
+    - name: Checkout sources
+      uses: actions/checkout@v4
 
   - name: Prepare service account credentials
     shell: bash
@@ -192,10 +192,10 @@ runs:
       terraform fmt ./env.variables.tfvars
       cat ./env.variables.tfvars
 
-  - name: Setup Terraform
-    uses: hashicorp/setup-terraform@v2
-    with:
-      terraform_wrapper: false
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
 
   - name: Init Terraform
     shell: bash

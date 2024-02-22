@@ -34,7 +34,7 @@ runs:
       run: cargo build --lib --release ${{ inputs.libraries-build-args }} ${{ inputs.common-build-args }}
 
     - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
         path: |
