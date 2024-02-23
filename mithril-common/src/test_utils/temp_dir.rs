@@ -115,6 +115,7 @@ impl TempDir {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs, io::Write, ops::Not};
 
     #[test]
     fn non_short_path_are_in_a_mithril_test_slash_module_folder_structure() {
@@ -203,5 +204,29 @@ mod tests {
             .build_path();
 
         assert_ne!(path1, path2);
+    }
+
+    #[test]
+    fn creating_temp_dir_remove_existing_content() {
+        let builder = TempDir::new("temp_dir", "creating_temp_dir_remove_existing_content");
+        let (existing_dir, existing_file) = {
+            let path = builder.build_path();
+            (path.join("existing_subdir"), path.join("existing_file.md"))
+        };
+
+        fs::create_dir_all(&existing_dir).unwrap();
+        let mut file = fs::File::create(&existing_file).unwrap();
+        file.write_all(b"file content").unwrap();
+
+        builder.build();
+
+        assert!(
+            existing_file.exists().not(),
+            "should have cleaned up existing files"
+        );
+        assert!(
+            existing_dir.exists().not(),
+            "should have cleaned up existing subdirectory"
+        );
     }
 }
