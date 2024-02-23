@@ -132,6 +132,20 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH
 
+      - name: Cardano transaction / list and get last commitment
+        if: steps.aggregator_capability_unix.outputs.ctx_enabled == 'true' || steps.aggregator_capability_windows.outputs.ctx_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable cardano-transaction commitment list
+          echo "CTX_COMMITMENT_HASH=$(./mithril-client --unstable cardano-transaction commitment list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano transaction / show commitment
+        if: steps.aggregator_capability_unix.outputs.ctx_enabled == 'true' || steps.aggregator_capability_windows.outputs.ctx_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client --unstable cardano-transaction commitment show $CTX_COMMITMENT_HASH
+
       - name: Cardano transaction certify
         if: steps.aggregator_capability_unix.outputs.ctx_enabled == 'true' || steps.aggregator_capability_windows.outputs.ctx_enabled == 'true'
         shell: bash
@@ -196,6 +210,18 @@ jobs:
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_HASH --download-dir /app
 
+      - name: Cardano transaction / list and get last commitment
+        if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} --unstable cardano-transaction commitment list
+          echo "CTX_COMMITMENT_HASH=$(${{ steps.command.outputs.mithril_client }} --unstable cardano-transaction commitment list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano transaction / show commitment
+        if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --unstable cardano-transaction commitment show $CTX_COMMITMENT_HASH
+    
       - name: Cardano transaction certify
         if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
         shell: bash
