@@ -1,6 +1,6 @@
-use crate::p2p::{Peer, PeerBehaviourEvent, PeerEvent};
+use crate::p2p::{Peer, PeerEvent};
 use anyhow::anyhow;
-use libp2p::{gossipsub, Multiaddr};
+use libp2p::Multiaddr;
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
 use reqwest::StatusCode;
 use slog_scope::{error, info};
@@ -20,18 +20,6 @@ impl AggregatorRelay {
         })
     }
 
-    fn convert_peer_event_to_signature_message(
-        &mut self,
-        event: PeerEvent,
-    ) -> StdResult<Option<RegisterSignatureMessage>> {
-        match event {
-            PeerEvent::Behaviour {
-                event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
-            } => Ok(Some(serde_json::from_slice(&message.data)?)),
-            _ => Ok(None),
-        }
-    }
-
     async fn notify_signature_to_aggregator(
         &self,
         signature_message: &RegisterSignatureMessage,
@@ -45,7 +33,7 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!("Relay aggregator: sent successfully signature message to aggregator");
+                    info!("Relay aggregator: sent successfully signature message to aggregator"; "signature_message" => format!("{:#?}", signature_message));
                     Ok(())
                 }
                 status => {
@@ -63,11 +51,22 @@ impl AggregatorRelay {
     /// Tick the aggregator relay
     pub async fn tick(&mut self) -> StdResult<()> {
         if let Some(peer_event) = self.peer.tick_swarm().await? {
-            if let Ok(Some(signature_message_received)) =
-                self.convert_peer_event_to_signature_message(peer_event)
+            if let Ok(Some(signature_message_received)) = self
+                .peer
+                .convert_peer_event_to_signature_message(peer_event)
             {
-                self.notify_signature_to_aggregator(&signature_message_received)
-                    .await?;
+                let retry_max = 3;
+                let mut retry_count = 0;
+                while let Err(e) = self
+                    .notify_signature_to_aggregator(&signature_message_received)
+                    .await
+                {
+                    retry_count += 1;
+                    if retry_count >= retry_max {
+                        error!("Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
+                        return Err(e);
+                    }
+                }
             }
         }
 

@@ -14,6 +14,7 @@ pub struct SignerConfig<'a> {
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
+    pub mithril_run_interval: u32,
     pub mithril_era: &'a str,
     pub mithril_era_reader_adapter: &'a str,
     pub mithril_era_marker_address: &'a str,
@@ -44,9 +45,10 @@ impl Signer {
                     signer_config.mithril_era
                 )
             };
+        let mithril_run_interval = format!("{}", signer_config.mithril_run_interval);
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "100"),
+            ("RUN_INTERVAL", &mithril_run_interval),
             ("AGGREGATOR_ENDPOINT", &signer_config.aggregator_endpoint),
             (
                 "DB_DIRECTORY",

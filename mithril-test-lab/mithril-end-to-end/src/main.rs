@@ -44,12 +44,8 @@ pub struct Args {
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
 
-    /// Number of BFT nodes in the devnet
-    #[clap(long, default_value_t = 1)]
-    number_of_bft_nodes: u8,
-
     /// Number of Pool nodes in the devnet
-    #[clap(long, default_value_t = 2)]
+    #[clap(long, default_value_t = 3, value_parser = has_at_least_two_pool_nodes)]
     number_of_pool_nodes: u8,
 
     /// Length of a Cardano slot in the devnet (in s)
@@ -67,6 +63,10 @@ pub struct Args {
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
     #[clap(long, default_value_t = 0)]
     cardano_hard_fork_latest_era_at_epoch: u16,
+
+    /// Mithril run interval for nodes (in ms)
+    #[clap(long, default_value_t = 150)]
+    mithril_run_interval: u32,
 
     /// Mithril era to run
     #[clap(long, default_value = "thales")]
@@ -87,6 +87,10 @@ pub struct Args {
     /// Enable P2P network mode
     #[clap(long)]
     use_p2p_network: bool,
+
+    /// Enable P2P passive relays in P2P mode
+    #[clap(long, default_value = "true")]
+    use_p2p_passive_relays: bool,
 
     /// Skip cardano binaries download
     #[clap(long)]
@@ -111,6 +115,18 @@ impl Args {
             3 => Level::Debug,
             _ => Level::Trace,
         }
+    }
+}
+
+fn has_at_least_two_pool_nodes(s: &str) -> Result<u8, String> {
+    let number_of_pool_nodes: u8 = s.parse().map_err(|_| format!("`{}` isn't a number", s))?;
+    if number_of_pool_nodes >= 2 {
+        Ok(number_of_pool_nodes)
+    } else {
+        Err(format!(
+            "At least two pool nodes are required (one for the aggregator, one for at least one \
+            signer), number given: {s}",
+        ))
     }
 }
 
@@ -148,11 +164,11 @@ async fn main() -> StdResult<()> {
     };
     let run_only_mode = args.run_only;
     let use_p2p_network_mode = args.use_p2p_network;
+    let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
     let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
         devnet_scripts_dir: args.devnet_scripts_directory,
         artifacts_target_dir: work_dir.join("devnet"),
-        number_of_bft_nodes: args.number_of_bft_nodes,
         number_of_pool_nodes: args.number_of_pool_nodes,
         cardano_slot_length: args.cardano_slot_length,
         cardano_epoch_length: args.cardano_epoch_length,
@@ -168,11 +184,13 @@ async fn main() -> StdResult<()> {
         work_dir,
         bin_dir: args.bin_directory,
         cardano_node_version: args.cardano_node_version,
+        mithril_run_interval: args.mithril_run_interval,
         mithril_era: args.mithril_era,
         mithril_era_reader_adapter: args.mithril_era_reader_adapter,
         signed_entity_types: args.signed_entity_types,
         run_only_mode,
         use_p2p_network_mode,
+        use_p2p_passive_relays,
     })
     .await?;
 
@@ -194,7 +212,7 @@ async fn main() -> StdResult<()> {
             Ok(())
         }
         Err(error) => {
-            let has_written_logs = infrastructure.tail_logs(20).await;
+            let has_written_logs = infrastructure.tail_logs(40).await;
             error!("Mithril End to End test in failed: {}", error);
             devnet.stop().await?;
             has_written_logs?;

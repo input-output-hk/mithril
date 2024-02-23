@@ -467,7 +467,8 @@ mod tests {
     use std::collections::{BTreeSet, HashMap};
 
     use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;
-    use crate::{ProtocolParametersStore, VerificationKeyStore};
+    use crate::store::FakeProtocolParametersStorer;
+    use crate::VerificationKeyStore;
 
     use super::*;
 
@@ -558,26 +559,20 @@ mod tests {
             }
         }
 
-        let protocol_parameters_store = ProtocolParametersStore::new(
-            Box::new(
-                MemoryAdapter::new(Some(vec![
-                    (
-                        signer_retrieval_epoch,
-                        current_epoch_fixture.protocol_parameters(),
-                    ),
-                    (
-                        next_signer_retrieval_epoch,
-                        next_epoch_fixture.protocol_parameters(),
-                    ),
-                    (
-                        next_signer_retrieval_epoch.next(),
-                        upcoming_protocol_parameters.clone(),
-                    ),
-                ]))
-                .unwrap(),
+        let protocol_parameters_store = FakeProtocolParametersStorer::new(vec![
+            (
+                signer_retrieval_epoch,
+                current_epoch_fixture.protocol_parameters(),
             ),
-            None,
-        );
+            (
+                next_signer_retrieval_epoch,
+                next_epoch_fixture.protocol_parameters(),
+            ),
+            (
+                next_signer_retrieval_epoch.next(),
+                upcoming_protocol_parameters.clone(),
+            ),
+        ]);
         let vkey_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::new(Some(vec![
                 (

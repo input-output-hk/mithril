@@ -12,10 +12,11 @@ ADDR=mithril-era
     --testnet-magic ${NETWORK_MAGIC} \
     --out-file addresses/${ADDR}.addr
 
-## Send funds to Mithril era address
+## Write datums for Mithril era address
 N=1
 SCRIPT_TX_VALUE=2000000
 AMOUNT_TRANSFERRED=$(( SCRIPT_TX_VALUE * 10 ))
+MITHRIL_ERA_ERROR_FILE=./era-mithril-error
 cat >> era-mithril.sh <<EOF
 #!/usr/bin/env bash
 set -e
@@ -40,7 +41,6 @@ function wait_for_elapsed_blocks {
             sleep \$CARDANO_NEXT_BLOCK_WAIT_ROUND_DELAY
         else
             echo ">>>> Cardano target block is reached [current: \$CARDANO_BLOCK, target: \$CARDANO_BLOCK_TARGET] [attempt \$CARDANO_NEXT_BLOCK_WAIT_ROUNDS]"
-            sleep \$CARDANO_NEXT_BLOCK_WAIT_ROUND_DELAY
             break
         fi
         CARDANO_NEXT_BLOCK_WAIT_ROUNDS=\$(( \$CARDANO_NEXT_BLOCK_WAIT_ROUNDS + 1 ))
@@ -51,9 +51,11 @@ function wait_for_elapsed_blocks {
     done
 }
 
-EOF
+# Send funds to Mithril era address
+function send_funds_to_era_address {
+    # Remove if exists previous error file
+    rm -f ${MITHRIL_ERA_ERROR_FILE}
 
-cat >> era-mithril.sh <<EOF
     # Get current Cardano era
     CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
         --testnet-magic ${NETWORK_MAGIC} \\
@@ -98,8 +100,49 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-funds.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
-    ## Wait at least for 2 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 2
+    ## Wait at least for 10 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 10
+
+    ## Wait for all pool nodes to see the new funds
+    for (( i=1; i<=${NUM_POOL_NODES}; i++ )); do
+        AMOUNT_RETRIEVED=\$(CARDANO_NODE_SOCKET_PATH=node-pool\${i}/ipc/node.sock ./cardano-cli query utxo \\
+        --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
+        | jq '. [] | select(.value.lovelace | . != null and . != "") | .value.lovelace')
+        echo ">>>>>> Era address funds retrieved on node-pool\${i}: \${AMOUNT_RETRIEVED}"
+        if [ "\${AMOUNT_RETRIEVED}" != "${AMOUNT_TRANSFERRED}" ]; then
+            touch ${MITHRIL_ERA_ERROR_FILE}
+            break
+        fi
+    done
+}
+
+# Try to send funds to Mithril era address
+function try_send_funds_to_era_address {
+    SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS_MAX=3
+    SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS=1
+    SEND_FUNDS_ERA_ADDRESS_WAIT_ROUND_DELAY=2
+    while true
+    do
+        send_funds_to_era_address
+        if [ -f ${MITHRIL_ERA_ERROR_FILE} ]; then
+            echo ">>>> Funds not transferred successfully to Mithril era address, a rollback has happened [attempt \$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS]!"
+            sleep \$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUND_DELAY
+        else
+            echo ">>>> Funds transferred successfully to Mithril era address [attempt \$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS]!"
+            break
+        fi
+        SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS=\$(( \$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS + 1 ))
+        if [ "\$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS" -gt "\$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS_MAX" ] ; then
+            echo ">>>> Timeout: Funds were not transferred successfully to Mithril era address within \$SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS_MAX attempts"
+            exit 1
+        fi
+    done
+}
+
+# Write datums for Mithril era address
+function write_datums_for_era_address {
+    # Remove if exists previous error file
+    rm -f ${MITHRIL_ERA_ERROR_FILE}
 
     # Write the era datum on chain
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
@@ -128,9 +171,50 @@ cat >> era-mithril.sh <<EOF
         --tx-file node-pool${N}/tx/tx${N}-era-datum.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
-    ## Wait at least for 2 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 2
+    ## Wait at least for 10 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 10
 
+    ## Wait for all pool nodes to see the new era datum
+    for (( i=1; i<=${NUM_POOL_NODES}; i++ )); do
+        INLINE_DATUM=\$(CARDANO_NODE_SOCKET_PATH=node-pool\${i}/ipc/node.sock ./cardano-cli query utxo \\
+        --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
+        | jq  -r '. [] | select(.inlineDatum | . != null and . != "") | .inlineDatum.fields[].bytes' | xxd -r -p)
+        echo ">>>>>> Era address inline datum retrieved on node-pool\${i}: \${INLINE_DATUM}"
+        if [ "\${INLINE_DATUM}" == "" ]; then
+            touch ${MITHRIL_ERA_ERROR_FILE}
+            break
+        fi
+    done
+}
+
+# Try to write datums for Mithril era address
+function try_write_datums_for_era_address {
+    WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS_MAX=3
+    WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS=1
+    WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUND_DELAY=2
+    while true
+    do
+        write_datums_for_era_address
+        if [ -f ${MITHRIL_ERA_ERROR_FILE} ]; then
+            echo ">>>> Datums not written successfully for Mithril era address, a rollback has happened [attempt \$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS]!"
+            sleep \$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUND_DELAY
+        else
+            echo ">>>> Datums successfully written for Mithril era address [attempt \$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS]!"
+            break
+        fi
+        WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS=\$(( \$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS + 1 ))
+        if [ "\$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS" -gt "\$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS_MAX" ] ; then
+            echo ">>>> Timeout: Datums were not written successfully for Mithril era address within \$WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS_MAX attempts"
+            exit 1
+        fi
+    done
+}
+
+# Try to send funds to Mithril era address
+try_send_funds_to_era_address
+
+# Try to write datums for Mithril era address
+try_write_datums_for_era_address
     
 EOF
 
