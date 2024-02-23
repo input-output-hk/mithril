@@ -6,18 +6,11 @@ pub mod fake;
 pub mod mock;
 mod routes;
 
+use mithril_common::test_utils::TempDir;
 use std::path::PathBuf;
 
 pub fn get_test_dir(subdir_name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join("mithril_test").join(subdir_name);
-
-    if dir.exists() {
-        std::fs::remove_dir_all(&dir)
-            .unwrap_or_else(|e| panic!("Could not remove dir {dir:?}: {e}"));
-    }
-    std::fs::create_dir_all(&dir).unwrap_or_else(|e| panic!("Could not create dir {dir:?}: {e}"));
-
-    dir
+    TempDir::create("client_integration", subdir_name)
 }
 
 pub fn test_logger() -> slog::Logger {
