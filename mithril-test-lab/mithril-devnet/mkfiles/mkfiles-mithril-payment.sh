@@ -59,17 +59,6 @@ function wait_for_elapsed_blocks {
     done
 }
 
-# Get current Cardano era
-CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
-    --testnet-magic ${NETWORK_MAGIC} \\
-    | jq  -r '.era |= ascii_downcase | .era')
-echo ">>>>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
-
-# Fix: era related command is not (well) supported in Cardano node version '8.1.2'
-if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
-    CURRENT_CARDANO_ERA=""
-fi
-
 EOF
 
 cat >> payment-mithril.sh <<EOF
@@ -77,16 +66,23 @@ function process_payment_iteration {
     j=\$1
     echo ">>>> Payment iteration #\${j}/\${PAYMENT_ITERATIONS} in progress..."
 
-     # Get current Cardano block
-    CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
-        --testnet-magic ${NETWORK_MAGIC} \\
-        | jq  -r '.block')
-    echo ">>>>>> Current Cardano Block: \${CURRENT_CARDANO_BLOCK}"
 EOF
 for (( i=1; i<=${NUM_POOL_NODES}; i++ ))
 do
     ADDR_RX=mithril-rx${i}
 cat >> payment-mithril.sh <<EOF
+    # Get current Cardano era
+    CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        | jq  -r '.era |= ascii_downcase | .era')
+    echo ">>>>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
+
+    # Fix: era related command is not (well) supported in Cardano node version '8.1.2'
+    if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
+        CURRENT_CARDANO_ERA=""
+    fi
+
+    # Set the amount to be transferred
     AMOUNT_TRANSFERRED=\$(( 2000000 + 10 * ${i} + j))
     echo ">>>>>> Send funds: \${AMOUNT_TRANSFERRED} Lovelace from 'utxo${i}.addr' to '${ADDR_RX}.addr'"
 
@@ -119,8 +115,8 @@ cat >> payment-mithril.sh <<EOF
 EOF
 done
 cat >> payment-mithril.sh <<EOF
-    ## Wait at least for 20 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 20
+    ## Wait at least for 10 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 10
 
 EOF
 for (( i=1; i<=${NUM_POOL_NODES}; i++ ))
