@@ -340,6 +340,7 @@ mod tests {
         common::{Beacon, ProtocolMessagePartKey},
         MithrilCertificateMetadata,
     };
+    use mithril_common::test_utils::TempDir;
 
     use super::*;
 
@@ -367,7 +368,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_snapshot_signature_should_remove_db_dir_if_messages_dismatch() {
+    async fn verify_snapshot_signature_should_remove_db_dir_if_messages_mismatch() {
         let progress_printer = ProgressPrinter::new(ProgressOutputType::Tty, 1);
         let certificate = dummy_certificate();
         let mut message = ProtocolMessage::new();
@@ -377,12 +378,10 @@ mod tests {
             "avk".to_string(),
         );
         let snapshot = Snapshot::dummy();
-        let db_dir = std::env::temp_dir().join("db");
-        if db_dir.exists() {
-            std::fs::remove_dir_all(&db_dir).unwrap();
-        }
-        std::fs::create_dir_all(&db_dir).unwrap();
-        println!("db_dir: '{:?}'", db_dir);
+        let db_dir = TempDir::create(
+            "client-cli",
+            "verify_snapshot_signature_should_remove_db_dir_if_messages_mismatch",
+        );
 
         let result = SnapshotDownloadCommand::verify_snapshot_signature(
             1,
