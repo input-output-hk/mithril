@@ -83,13 +83,16 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use crate::digesters::cache::JsonImmutableFileDigestCacheProviderBuilder;
+    use crate::test_utils::TempDir;
+    use std::path::PathBuf;
+
+    fn get_test_dir(subdir_name: &str) -> PathBuf {
+        TempDir::new("json_provider_builder", subdir_name).build_path()
+    }
 
     #[tokio::test]
     async fn create_dir_if_ensure_dir_exist_is_set() {
-        let dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("json_provider_builder")
-            .join("create_dir_if_ensure_dir_exist_is_set");
+        let dir = get_test_dir("create_dir_if_ensure_dir_exist_is_set");
 
         JsonImmutableFileDigestCacheProviderBuilder::new(&dir, "test.json")
             .ensure_dir_exist()
@@ -102,10 +105,7 @@ mod tests {
 
     #[tokio::test]
     async fn dont_create_dir_if_ensure_dir_exist_is_not_set() {
-        let dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("json_provider_builder")
-            .join("dont_create_dir_if_ensure_dir_exist_is_not_set");
+        let dir = get_test_dir("dont_create_dir_if_ensure_dir_exist_is_not_set");
 
         JsonImmutableFileDigestCacheProviderBuilder::new(&dir, "test.json")
             .build()

@@ -29,20 +29,13 @@ impl EraReaderAdapter for FileAdapter {
 #[cfg(test)]
 mod tests {
     use crate::entities::Epoch;
+    use crate::era::SupportedEra;
+    use crate::test_utils::TempDir;
 
-    use super::super::super::SupportedEra;
     use super::*;
 
     fn get_temp_dir(dir_name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join("mithril_test").join(dir_name);
-
-        if dir.exists() {
-            let _ = fs::remove_dir_all(&dir);
-        }
-
-        let _ = fs::create_dir_all(&dir);
-
-        dir
+        TempDir::create("era-adapter", dir_name)
     }
 
     #[tokio::test]
