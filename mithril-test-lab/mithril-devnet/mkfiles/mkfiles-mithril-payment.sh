@@ -116,17 +116,40 @@ cat >> payment-mithril.sh <<EOF
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction submit \\
         --tx-file node-pool${i}/tx/tx${i}-payment-funds.tx \\
         --testnet-magic ${NETWORK_MAGIC}
+EOF
+done
+cat >> payment-mithril.sh <<EOF
+    ## Wait at least for 20 blocks so that the transaction is confirmed
+    wait_for_elapsed_blocks 20
 
-    ## Record the transaction id to file
-    TX_ID=\$(./cardano-cli \${CURRENT_CARDANO_ERA} transaction txid --tx-file node-pool${i}/tx/tx${i}-payment-funds.tx)
-    echo ">>>>>> Save transaction id #\${TX_ID} to ${TX_ID_OUTPUT_FILE} file"
-    echo \$TX_ID >> ${TX_ID_OUTPUT_FILE}
+EOF
+for (( i=1; i<=${NUM_POOL_NODES}; i++ ))
+do
+    ADDR_RX=mithril-rx${i}
+cat >> payment-mithril.sh <<EOF
+
+    ## Compute the submitted transaction id
+    TX_ID_SUBMITTED=\$(./cardano-cli \${CURRENT_CARDANO_ERA} transaction txid --tx-file node-pool${i}/tx/tx${i}-payment-funds.tx)
+
+    ## Retrieve the on-chain transaction id
+    TX_IN_ON_CHAIN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
+        --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/utxo${i}.addr) --out-file /dev/stdout \\
+        | jq  -r 'to_entries | [last] | .[0].key' | cut -d '#' -f 1)
+    
+    ## Save the transaction id to file
+    if [ "\$TX_ID_SUBMITTED" == "\$TX_IN_ON_CHAIN" ]; then
+        ## Save the transaction id to file
+        echo ">>>>>> Save transaction id #\${TX_ID_SUBMITTED} to ${TX_ID_OUTPUT_FILE} file"
+        echo \$TX_ID_SUBMITTED >> ${TX_ID_OUTPUT_FILE}
+    else
+        ## Save the transaction id to file
+        echo ">>>>>> Transaction #\${TX_ID_SUBMITTED} has likely been rolled-back and will not be recorded to ${TX_ID_OUTPUT_FILE} file"
+    fi
 
 EOF
 done
 cat >> payment-mithril.sh <<EOF
-    ## Wait at least for 10 blocks so that the transaction is confirmed
-    wait_for_elapsed_blocks 10
+    
 }
 EOF
 
