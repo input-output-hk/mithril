@@ -86,6 +86,7 @@ impl Devnet {
             "ARTIFACTS_DIR",
             bootstrap_args.artifacts_target_dir.to_str().unwrap(),
         );
+        bootstrap_command.env("NUM_BFT_NODES", 0.to_string());
         bootstrap_command.env(
             "NUM_POOL_NODES",
             bootstrap_args.number_of_pool_nodes.to_string(),
