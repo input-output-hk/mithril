@@ -448,8 +448,7 @@ impl ChainObserver for CardanoCliChainObserver {
     ) -> Result<Option<KESPeriod>, ChainObserverError> {
         let dir = std::env::temp_dir().join("mithril_kes_period");
         fs::create_dir_all(&dir).map_err(|e| ChainObserverError::General(e.into()))?;
-        let opcert_file =
-            std::env::temp_dir().join(format!("opcert_kes_period-{}", opcert.compute_hash()));
+        let opcert_file = dir.join(format!("opcert_kes_period-{}", opcert.compute_hash()));
         opcert
             .to_file(&opcert_file)
             .map_err(|e| ChainObserverError::General(e.into()))?;
