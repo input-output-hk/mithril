@@ -120,7 +120,7 @@ impl Args {
 
 fn has_at_least_two_pool_nodes(s: &str) -> Result<u8, String> {
     let number_of_pool_nodes: u8 = s.parse().map_err(|_| format!("`{}` isn't a number", s))?;
-    if number_of_pool_nodes > 2 {
+    if number_of_pool_nodes >= 2 {
         Ok(number_of_pool_nodes)
     } else {
         Err(format!(
