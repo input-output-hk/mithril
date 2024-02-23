@@ -11,6 +11,8 @@ pub struct TempDir {
 }
 
 const TEMP_DIR_ROOT_NAME: &str = "mithril_test";
+// 90 to have some room for the folder content (in case of restrained length like socket path)
+const DEFAULT_SHORT_PATH_MAX_LEN: usize = 90;
 
 impl TempDir {
     /// `TempDir` builder factory
@@ -19,8 +21,7 @@ impl TempDir {
             module_name: module.into(),
             name: name.into(),
             enable_short_path: false,
-            // 90 to have some room for the folder content (in case of restrained length like socket path)
-            short_path_max_len: 90,
+            short_path_max_len: DEFAULT_SHORT_PATH_MAX_LEN,
         }
     }
 
@@ -29,6 +30,12 @@ impl TempDir {
     /// Typically used for cases when the generated folder will include a socket.
     pub fn generate_shorter_path(mut self) -> Self {
         self.enable_short_path = true;
+        self
+    }
+
+    /// Set the max len that a short path can have
+    pub fn set_short_path_max_len(mut self, max_len: usize) -> Self {
+        self.short_path_max_len = max_len;
         self
     }
 
@@ -145,6 +152,7 @@ mod tests {
             "name",
         )
             .generate_shorter_path()
+            .set_short_path_max_len(90)
             .build_path();
         let path_len = path.to_string_lossy().len();
 
@@ -164,6 +172,7 @@ mod tests {
             "name_longer_than_a_string_of_90_characters_so_this_test_can_fail_if_the_builder_is_a_bad_builder_that_do_nothing",
         )
             .generate_shorter_path()
+            .set_short_path_max_len(90)
             .build_path();
         let path_len = path.to_string_lossy().len();
 
