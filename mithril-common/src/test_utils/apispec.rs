@@ -52,6 +52,12 @@ impl<'a> APISpec<'a> {
         response: &Response<Bytes>,
         status_code: &StatusCode,
     ) -> Result<(), String> {
+        if spec_files.is_empty() {
+            return Err(
+                "OpenAPI need a spec file to validate conformity. None were given.".to_string(),
+            );
+        }
+
         for spec_file in spec_files {
             if let Err(e) = APISpec::from_file(&spec_file)
                 .method(method)
@@ -661,5 +667,28 @@ mod tests {
         );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().to_string(), error_message);
+    }
+
+    #[test]
+    fn test_apispec_verify_conformity_should_panic_when_no_spec_file() {
+        let result = APISpec::verify_conformity_result_with_status(
+            vec![],
+            Method::GET.as_str(),
+            "/certificate-pending",
+            "application/json",
+            &Null,
+            &Response::<Bytes>::new(Bytes::from(
+                json!(CertificatePendingMessage::dummy())
+                    .to_string()
+                    .into_bytes(),
+            )),
+            &StatusCode::OK,
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "OpenAPI need a spec file to validate conformity. None were given."
+        );
     }
 }
