@@ -2,8 +2,6 @@
 
 use glob::glob;
 use jsonschema::JSONSchema;
-// TODO APISpec is used only for test in modules but we need to add this dependency to expose it.
-// Can we use the feature "test_tools" ?
 use serde::Serialize;
 use serde_json::{json, Value, Value::Null};
 use warp::http::Response;
@@ -212,6 +210,17 @@ impl<'a> APISpec<'a> {
         }
     }
 
+    pub fn validate(
+        &'a mut self,
+        response: &Response<Bytes>,
+        validator: Box<dyn RequestValidator>,
+    ) -> Result<&mut APISpec, String> {
+        match validator.validate(response) {
+            Ok(_) => Ok(self),
+            Err(e) => Err(e),
+        }
+    }
+
     /// Get default spec file
     pub fn get_defaut_spec_file() -> String {
         "../openapi.yaml".to_string()
@@ -233,6 +242,34 @@ impl<'a> APISpec<'a> {
 
         open_api_spec_files
     }
+}
+
+pub trait RequestValidator {
+    fn validate(&self, response: &Response<Bytes>) -> Result<(), String>;
+}
+
+struct StatusValidator {
+    expected_status_code: StatusCode,
+}
+impl RequestValidator for StatusValidator {
+    fn validate(&self, response: &Response<Bytes>) -> Result<(), String> {
+        if self.expected_status_code.as_u16() != response.status().as_u16() {
+            return Err(format!(
+                "expected status code {} but was {}",
+                self.expected_status_code.as_u16(),
+                response.status().as_u16(),
+            ));
+        }
+
+        return Ok(());
+    }
+}
+
+fn request_validator(expected_status_code: StatusCode) -> Box<dyn RequestValidator> {
+    let s = StatusValidator {
+        expected_status_code,
+    };
+    Box::new(s)
 }
 
 #[cfg(test)]
@@ -333,6 +370,41 @@ mod tests {
                     StatusCode::INTERNAL_SERVER_ERROR.as_u16()
                 )
             );
+        }
+    }
+
+    #[test]
+    fn test_apispec_should_be_ok_when_the_status_code_is_the_right_one_with_validator() {
+        // Route exists and matches default status code
+        let mut response = Response::<Bytes>::new(Bytes::from(
+            json!(&entities::InternalServerError::new(
+                "an error occurred".to_string(),
+            ))
+            .to_string()
+            .into_bytes(),
+        ));
+        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+
+            let result = api_spec
+                .method(Method::GET.as_str())
+                .path("/certificate-pending")
+                .validate(
+                    &response,
+                    request_validator(StatusCode::INTERNAL_SERVER_ERROR),
+                );
+
+            assert!(result.is_ok());
+        }
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+            let result = api_spec
+                .method(Method::GET.as_str())
+                .path("/certificate-pending")
+                .validate(&response, request_validator(StatusCode::OK));
+
+            assert!(result.is_err());
         }
     }
 
