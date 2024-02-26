@@ -2,9 +2,12 @@
 
 use glob::glob;
 use jsonschema::JSONSchema;
+// TODO APISpec is used only for test in modules but we need to add this dependency to expose it.
+// Can we use the feature "test_tools" ?
 use serde::Serialize;
 use serde_json::{json, Value, Value::Null};
 use warp::http::Response;
+use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
 
 use crate::era::SupportedEra;
@@ -86,6 +89,50 @@ impl<'a> APISpec<'a> {
         self.validate_conformity(value, request_schema)
     }
 
+    /// Validates if the status is the expected one
+    pub fn validate_status(
+        &'a mut self,
+        response: &Response<Bytes>,
+        expected_status_code: &StatusCode,
+    ) -> Result<&mut APISpec, String> {
+        if expected_status_code.as_u16() != response.status().as_u16() {
+            return Err(format!(
+                "expected status code {} but was {}",
+                expected_status_code.as_u16(),
+                response.status().as_u16(),
+            ));
+        }
+
+        return Ok(self);
+    }
+
+    /// Validates if a response is valid
+    pub fn validate_response_and_status(
+        &'a mut self,
+        response: &Response<Bytes>,
+        expected_status_code: &StatusCode,
+    ) -> Result<&mut APISpec, String> {
+        self.validate_status(response, expected_status_code)
+            .and_then(|s| s.validate_response(response))
+
+        // // Return ????
+        // let result = self.validate_status(response, expected_status_code);
+        // // Recreate Err because it need a Result<&mut APISpec, String> when Result<&APISpec, String> is return
+        // // Can we do in a better way ?
+        // if let Err(err) = result {
+        //     return Err(err);
+        // }
+
+        // // if expected_status_code.as_u16() != response.status().as_u16() {
+        // //     return Err(format!(
+        // //         "expected status code {} but was {}",
+        // //         expected_status_code.as_u16(),
+        // //         response.status().as_u16(),
+        // //     ));
+        // // }
+
+        // return self.validate_response(response);
+    }
     /// Validates if a response is valid
     pub fn validate_response(
         &'a mut self,
@@ -236,6 +283,100 @@ mod tests {
             .path("/register-signer")
             .validate_response(&response)
             .is_ok());
+    }
+
+    #[test]
+    fn test_apispec_should_fail_when_the_status_code_is_not_the_expected_one() {
+        // Route exists and matches default status code
+        let mut response = Response::<Bytes>::new(Bytes::from(
+            json!(&entities::InternalServerError::new(
+                "an error occurred".to_string(),
+            ))
+            .to_string()
+            .into_bytes(),
+        ));
+        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+            let result = api_spec
+                .method(Method::GET.as_str())
+                .path("/certificate-pending")
+                .validate_request(&Null)
+                .unwrap()
+                .validate_status(&response, &StatusCode::OK);
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.err().unwrap().to_string(),
+                format!(
+                    "expected status code {} but was {}",
+                    StatusCode::OK.as_u16(),
+                    StatusCode::INTERNAL_SERVER_ERROR.as_u16()
+                )
+            );
+        }
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+            let result = api_spec
+                .method(Method::GET.as_str())
+                .path("/certificate-pending")
+                .validate_request(&Null)
+                .unwrap()
+                .validate_response_and_status(&response, &StatusCode::OK);
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.err().unwrap().to_string(),
+                format!(
+                    "expected status code {} but was {}",
+                    StatusCode::OK.as_u16(),
+                    StatusCode::INTERNAL_SERVER_ERROR.as_u16()
+                )
+            );
+        }
+    }
+
+    #[test]
+    fn test_apispec_should_be_ok_when_the_status_code_is_the_right_one() {
+        // Route exists and matches default status code
+        let mut response = Response::<Bytes>::new(Bytes::from(
+            json!(&entities::InternalServerError::new(
+                "an error occurred".to_string(),
+            ))
+            .to_string()
+            .into_bytes(),
+        ));
+        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+
+        // Is it better to use unwrap to see the error message ?
+        let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_status(&response, &StatusCode::INTERNAL_SERVER_ERROR);
+
+        // TODO it could be better to not have to unwrap
+        // We can call one function with a chain of validations
+        // We can return an ApiSpec with function is_ok and is_err.
+
+        assert!(result.is_ok());
+        // Can we put Debug on ApiSpec to uses expect_err ?
+
+        // How to specify this is the response we expect ? Because it is not here
+        // Validate response check there is one response expected.
+        // We want to specify the one expected.
+
+        let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response_and_status(&response, &StatusCode::INTERNAL_SERVER_ERROR);
+
+        assert!(result.is_ok());
     }
 
     #[test]
