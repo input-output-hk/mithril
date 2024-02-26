@@ -28,29 +28,6 @@ impl<'a> APISpec<'a> {
         request_body: &impl Serialize,
         response: &Response<Bytes>,
         status_code: &StatusCode,
-    ) {
-        if let Err(e) = APISpec::verify_conformity_result_with_status(
-            spec_files,
-            method,
-            path,
-            content_type,
-            request_body,
-            response,
-            status_code,
-        ) {
-            panic!("{}", e);
-        }
-    }
-
-    /// Verify conformity helper of API Specs
-    pub fn verify_conformity_result_with_status(
-        spec_files: Vec<String>,
-        method: &str,
-        path: &str,
-        content_type: &str,
-        request_body: &impl Serialize,
-        response: &Response<Bytes>,
-        status_code: &StatusCode,
     ) -> Result<(), String> {
         if spec_files.is_empty() {
             return Err(
@@ -154,36 +131,9 @@ impl<'a> APISpec<'a> {
             ));
         }
 
-        return Ok(self);
+        Ok(self)
     }
 
-    /// Validates if a response is valid
-    fn validate_response_and_status(
-        &'a self,
-        response: &Response<Bytes>,
-        expected_status_code: &StatusCode,
-    ) -> Result<&APISpec, String> {
-        self.validate_status(response, expected_status_code)
-            .and_then(|s| s.validate_response(response))
-
-        // // Return ????
-        // let result = self.validate_status(response, expected_status_code);
-        // // Recreate Err because it need a Result<&mut APISpec, String> when Result<&APISpec, String> is return
-        // // Can we do in a better way ?
-        // if let Err(err) = result {
-        //     return Err(err);
-        // }
-
-        // // if expected_status_code.as_u16() != response.status().as_u16() {
-        // //     return Err(format!(
-        // //         "expected status code {} but was {}",
-        // //         expected_status_code.as_u16(),
-        // //         response.status().as_u16(),
-        // //     ));
-        // // }
-
-        // return self.validate_response(response);
-    }
     /// Validates if a response is valid
     fn validate_response(&'a self, response: &Response<Bytes>) -> Result<&APISpec, String> {
         let body = response.body();
@@ -221,10 +171,7 @@ impl<'a> APISpec<'a> {
                     }
                 } else {
                     match &serde_json::from_slice(body) {
-                        Ok(value) => match self.validate_conformity(value, response_schema) {
-                            Ok(_) => Ok(self),
-                            Err(e) => Err(e),
-                        },
+                        Ok(value) => self.validate_conformity(value, response_schema),
                         Err(_) => Err("non empty body expected".to_string()),
                     }
                 }
@@ -263,21 +210,8 @@ impl<'a> APISpec<'a> {
         }
     }
 
-    fn validate(
-        &'a mut self,
-        response: &Response<Bytes>,
-        validators: Vec<Box<dyn RequestValidator>>,
-    ) -> Result<&mut APISpec, String> {
-        for validator in validators {
-            if let Err(e) = validator.validate(response) {
-                return Err(e);
-            }
-        }
-        Ok(self)
-    }
-
     /// Get default spec file
-    pub fn get_defaut_spec_file() -> String {
+    pub fn get_default_spec_file() -> String {
         "../openapi.yaml".to_string()
     }
 
@@ -299,34 +233,6 @@ impl<'a> APISpec<'a> {
     }
 }
 
-pub trait RequestValidator {
-    fn validate(&self, response: &Response<Bytes>) -> Result<(), String>;
-}
-
-struct StatusValidator {
-    expected_status_code: StatusCode,
-}
-impl RequestValidator for StatusValidator {
-    fn validate(&self, response: &Response<Bytes>) -> Result<(), String> {
-        if self.expected_status_code.as_u16() != response.status().as_u16() {
-            return Err(format!(
-                "expected status code {} but was {}",
-                self.expected_status_code.as_u16(),
-                response.status().as_u16(),
-            ));
-        }
-
-        return Ok(());
-    }
-}
-
-fn expected_status(expected_status_code: StatusCode) -> Box<dyn RequestValidator> {
-    let s = StatusValidator {
-        expected_status_code,
-    };
-    Box::new(s)
-}
-
 #[cfg(test)]
 mod tests {
     use warp::http::Method;
@@ -340,7 +246,7 @@ mod tests {
     #[test]
     fn test_apispec_validate_ok() {
         // Route exists and does not expect request body, but expects response
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&Null)
@@ -353,7 +259,7 @@ mod tests {
             .is_ok());
 
         // Route exists and expects request body, but does not expect response
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_request(&SignerMessagePart::dummy())
@@ -370,7 +276,7 @@ mod tests {
             .into_bytes(),
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&response)
@@ -388,94 +294,24 @@ mod tests {
             .into_bytes(),
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        {
-            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-            let result = api_spec
-                .method(Method::GET.as_str())
-                .path("/certificate-pending")
-                .validate_request(&Null)
-                .unwrap()
-                .validate_status(&response, &StatusCode::OK);
 
-            assert!(result.is_err());
-            assert_eq!(
-                result.err().unwrap().to_string(),
-                format!(
-                    "expected status code {} but was {}",
-                    StatusCode::OK.as_u16(),
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16()
-                )
-            );
-        }
-        {
-            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-            let result = api_spec
-                .method(Method::GET.as_str())
-                .path("/certificate-pending")
-                .validate_request(&Null)
-                .unwrap()
-                .validate_response_and_status(&response, &StatusCode::OK);
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_status(&response, &StatusCode::OK);
 
-            assert!(result.is_err());
-            assert_eq!(
-                result.err().unwrap().to_string(),
-                format!(
-                    "expected status code {} but was {}",
-                    StatusCode::OK.as_u16(),
-                    StatusCode::INTERNAL_SERVER_ERROR.as_u16()
-                )
-            );
-        }
-    }
-
-    #[test]
-    fn test_apispec_should_be_ok_when_the_status_code_is_the_right_one_with_validator() {
-        // Route exists and matches default status code
-        let mut response = Response::<Bytes>::new(Bytes::from(
-            json!(&entities::InternalServerError::new(
-                "an error occurred".to_string(),
-            ))
-            .to_string()
-            .into_bytes(),
-        ));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        {
-            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-
-            let result = api_spec
-                .method(Method::GET.as_str())
-                .path("/certificate-pending")
-                .validate(
-                    &response,
-                    vec![expected_status(StatusCode::INTERNAL_SERVER_ERROR)],
-                );
-
-            assert!(result.is_ok());
-        }
-        {
-            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-            let result = api_spec
-                .method(Method::GET.as_str())
-                .path("/certificate-pending")
-                .validate(&response, vec![expected_status(StatusCode::OK)]);
-
-            assert!(result.is_err());
-        }
-        {
-            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-            let result = api_spec
-                .method(Method::GET.as_str())
-                .path("/certificate-pending")
-                .validate(
-                    &response,
-                    vec![
-                        expected_status(StatusCode::INTERNAL_SERVER_ERROR),
-                        expected_status(StatusCode::OK),
-                    ],
-                );
-
-            assert!(result.is_err());
-        }
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            format!(
+                "expected status code {} but was {}",
+                StatusCode::OK.as_u16(),
+                StatusCode::INTERNAL_SERVER_ERROR.as_u16()
+            )
+        );
     }
 
     #[test]
@@ -490,87 +326,58 @@ mod tests {
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
 
-        // Is it better to use unwrap to see the error message ?
-        let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-        let result = api_spec
+        APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&Null)
             .unwrap()
-            .validate_status(&response, &StatusCode::INTERNAL_SERVER_ERROR);
-
-        // TODO it could be better to not have to unwrap
-        // We can call one function with a chain of validations
-        // We can return an ApiSpec with function is_ok and is_err.
-
-        assert!(result.is_ok());
-        // Can we put Debug on ApiSpec to uses expect_err ?
-
-        // How to specify this is the response we expect ? Because it is not here
-        // Validate response check there is one response expected.
-        // We want to specify the one expected.
-
-        let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
-        let result = api_spec
-            .method(Method::GET.as_str())
-            .path("/certificate-pending")
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response_and_status(&response, &StatusCode::INTERNAL_SERVER_ERROR);
-
-        assert!(result.is_ok());
+            .validate_status(&response, &StatusCode::INTERNAL_SERVER_ERROR)
+            .unwrap();
     }
 
     #[test]
     fn test_apispec_validate_errors() {
         // Route does not exist
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/route-not-existing-in-openapi-spec")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but method does not
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::OPTIONS.as_str())
             .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but expects non empty reponse
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());
 
         // Route exists, but expects empty reponse
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but does not expect request body
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&fake_data::beacon())
             .is_err());
 
         // Route exists, but expects non empty request body
-        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_request(&Null)
             .is_err());
-    }
-
-    #[test]
-    fn test_get_all_spec_files_not_empty() {
-        let spec_files = APISpec::get_all_spec_files();
-        assert!(!spec_files.is_empty());
-        assert!(spec_files.contains(&APISpec::get_defaut_spec_file()))
     }
 
     #[test]
@@ -604,7 +411,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_verify_conformity_with_expected_status() {
+    fn test_apispec_verify_conformity_with_expected_status() -> Result<(), String> {
         APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
@@ -617,25 +424,7 @@ mod tests {
                     .into_bytes(),
             )),
             &StatusCode::OK,
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_apispec_verify_conformity_with_non_expected_status() {
-        APISpec::verify_conformity_with_status(
-            APISpec::get_all_spec_files(),
-            Method::GET.as_str(),
-            "/certificate-pending",
-            "application/json",
-            &Null,
-            &Response::<Bytes>::new(Bytes::from(
-                json!(CertificatePendingMessage::dummy())
-                    .to_string()
-                    .into_bytes(),
-            )),
-            &StatusCode::BAD_REQUEST,
-        );
+        )
     }
 
     #[test]
@@ -646,8 +435,8 @@ mod tests {
                 .into_bytes(),
         ));
 
-        let spec_file = APISpec::get_defaut_spec_file();
-        let result = APISpec::verify_conformity_result_with_status(
+        let spec_file = APISpec::get_default_spec_file();
+        let result = APISpec::verify_conformity_with_status(
             vec![spec_file.clone()],
             Method::GET.as_str(),
             "/certificate-pending",
@@ -671,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_apispec_verify_conformity_should_panic_when_no_spec_file() {
-        let result = APISpec::verify_conformity_result_with_status(
+        let result = APISpec::verify_conformity_with_status(
             vec![],
             Method::GET.as_str(),
             "/certificate-pending",
@@ -690,5 +479,12 @@ mod tests {
             result.err().unwrap().to_string(),
             "OpenAPI need a spec file to validate conformity. None were given."
         );
+    }
+
+    #[test]
+    fn test_get_all_spec_files_not_empty() {
+        let spec_files = APISpec::get_all_spec_files();
+        assert!(!spec_files.is_empty());
+        assert!(spec_files.contains(&APISpec::get_default_spec_file()))
     }
 }
