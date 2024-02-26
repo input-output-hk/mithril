@@ -112,7 +112,10 @@ mod tests {
         CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
     };
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use crate::services::MockSignedEntityService;
     use crate::{
@@ -134,7 +137,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proof_cardano_transaction_ok() {
+    async fn proof_cardano_transaction_ok() -> Result<(), String> {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -161,18 +164,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn proof_cardano_transaction_not_found() {
+    async fn proof_cardano_transaction_not_found() -> Result<(), String> {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -188,18 +192,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn proof_cardano_transaction_ko() {
+    async fn proof_cardano_transaction_ko() -> Result<(), String> {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -220,13 +225,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 }
