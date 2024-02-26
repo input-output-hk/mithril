@@ -244,7 +244,7 @@ mod tests {
     use crate::test_utils::fake_data;
 
     #[test]
-    fn test_apispec_validate_ok() {
+    fn test_validate_ok() {
         // Route exists and does not expect request body, but expects response
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
@@ -284,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_should_fail_when_the_status_code_is_not_the_expected_one() {
+    fn test_should_fail_when_the_status_code_is_not_the_expected_one() {
         // Route exists and matches default status code
         let mut response = Response::<Bytes>::new(Bytes::from(
             json!(&entities::InternalServerError::new(
@@ -315,7 +315,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_should_be_ok_when_the_status_code_is_the_right_one() {
+    fn test_should_be_ok_when_the_status_code_is_the_right_one() {
         // Route exists and matches default status code
         let mut response = Response::<Bytes>::new(Bytes::from(
             json!(&entities::InternalServerError::new(
@@ -336,43 +336,47 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_validate_errors() {
-        // Route does not exist
+    fn test_validate_returns_error_when_route_does_not_exist() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/route-not-existing-in-openapi-spec")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
-
-        // Route exists, but method does not
+    }
+    #[test]
+    fn test_validate_returns_error_when_route_exists_but_method_does_not() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::OPTIONS.as_str())
             .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
-
-        // Route exists, but expects non empty reponse
+    }
+    #[test]
+    fn test_validate_returns_error_when_route_exists_but_expects_non_empty_response() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());
-
-        // Route exists, but expects empty reponse
+    }
+    #[test]
+    fn test_validate_returns_error_when_route_exists_but_expects_empty_response() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
-
-        // Route exists, but does not expect request body
+    }
+    #[test]
+    fn test_validate_returns_errors_when_route_exists_but_does_not_expect_request_body() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&fake_data::beacon())
             .is_err());
-
-        // Route exists, but expects non empty request body
+    }
+    #[test]
+    fn test_validate_returns_error_when_route_exists_but_expects_non_empty_request_body() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
@@ -381,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_verify_conformity() {
+    fn test_verify_conformity() {
         // Route exists and does not expect request body, but expects response
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
@@ -399,7 +403,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    fn test_apispec_verify_conformity_should_panic_with_bad_response() {
+    fn test_verify_conformity_should_panic_with_bad_response() {
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
@@ -411,7 +415,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_verify_conformity_with_expected_status() -> Result<(), String> {
+    fn test_verify_conformity_with_expected_status() -> Result<(), String> {
         APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
@@ -428,7 +432,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_verify_conformity_result_with_non_expected_status() {
+    fn test_verify_conformity_with_non_expected_status_returns_error() {
         let response = Response::<Bytes>::new(Bytes::from(
             json!(CertificatePendingMessage::dummy())
                 .to_string()
@@ -459,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn test_apispec_verify_conformity_should_panic_when_no_spec_file() {
+    fn test_verify_conformity_when_no_spec_file_returns_error() {
         let result = APISpec::verify_conformity_with_status(
             vec![],
             Method::GET.as_str(),
