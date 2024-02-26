@@ -91,6 +91,7 @@ mod tests {
     use warp::http::Method;
     use warp::test::request;
     use warp::Filter;
+    use zstd::stream::raw::Status;
 
     use super::*;
 
@@ -108,7 +109,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_route_ok() {
+    async fn test_root_route_ok() -> Result<(), String> {
         let method = Method::GET.as_str();
         let path = "/";
         let mut dependency_manager = initialize_dependencies().await;
@@ -150,13 +151,14 @@ mod tests {
             }
         );
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 }
