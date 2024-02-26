@@ -20,6 +20,56 @@ pub struct APISpec<'a> {
 
 impl<'a> APISpec<'a> {
     /// Verify conformity helper of API Specs
+    pub fn verify_conformity_with_status(
+        spec_files: Vec<String>,
+        method: &str,
+        path: &str,
+        content_type: &str,
+        request_body: &impl Serialize,
+        response: &Response<Bytes>,
+        status_code: &StatusCode,
+    ) {
+        if let Err(e) = APISpec::verify_conformity_result_with_status(
+            spec_files,
+            method,
+            path,
+            content_type,
+            request_body,
+            response,
+            status_code,
+        ) {
+            panic!("{}", e);
+        }
+    }
+
+    /// Verify conformity helper of API Specs
+    pub fn verify_conformity_result_with_status(
+        spec_files: Vec<String>,
+        method: &str,
+        path: &str,
+        content_type: &str,
+        request_body: &impl Serialize,
+        response: &Response<Bytes>,
+        status_code: &StatusCode,
+    ) -> Result<(), String> {
+        for spec_file in spec_files {
+            if let Err(e) = APISpec::from_file(&spec_file)
+                .method(method)
+                .path(path)
+                .content_type(content_type)
+                .validate_request(request_body)
+                .and_then(|api| api.validate_response(response))
+                .and_then(|api| api.validate_status(response, status_code))
+            {
+                return Err(format!(
+                    "OpenAPI invalid response in {spec_file}, reason: {e}\nresponse: {response:#?}"
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Verify conformity helper of API Specs
     pub fn verify_conformity(
         spec_files: Vec<String>,
         method: &str,
@@ -515,5 +565,101 @@ mod tests {
         let spec_files = APISpec::get_all_spec_files();
         assert!(!spec_files.is_empty());
         assert!(spec_files.contains(&APISpec::get_defaut_spec_file()))
+    }
+
+    #[test]
+    fn test_apispec_verify_conformity() {
+        // Route exists and does not expect request body, but expects response
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            Method::GET.as_str(),
+            "/certificate-pending",
+            "application/json",
+            &Null,
+            &Response::<Bytes>::new(Bytes::from(
+                json!(CertificatePendingMessage::dummy())
+                    .to_string()
+                    .into_bytes(),
+            )),
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_apispec_verify_conformity_should_panic_with_bad_response() {
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            Method::GET.as_str(),
+            "/certificate-pending",
+            "application/json",
+            &Null,
+            &Response::<Bytes>::new(Bytes::new()),
+        );
+    }
+
+    #[test]
+    fn test_apispec_verify_conformity_with_expected_status() {
+        APISpec::verify_conformity_with_status(
+            APISpec::get_all_spec_files(),
+            Method::GET.as_str(),
+            "/certificate-pending",
+            "application/json",
+            &Null,
+            &Response::<Bytes>::new(Bytes::from(
+                json!(CertificatePendingMessage::dummy())
+                    .to_string()
+                    .into_bytes(),
+            )),
+            &StatusCode::OK,
+        );
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_apispec_verify_conformity_with_non_expected_status() {
+        APISpec::verify_conformity_with_status(
+            APISpec::get_all_spec_files(),
+            Method::GET.as_str(),
+            "/certificate-pending",
+            "application/json",
+            &Null,
+            &Response::<Bytes>::new(Bytes::from(
+                json!(CertificatePendingMessage::dummy())
+                    .to_string()
+                    .into_bytes(),
+            )),
+            &StatusCode::BAD_REQUEST,
+        );
+    }
+
+    #[test]
+    fn test_apispec_verify_conformity_result_with_non_expected_status() {
+        let response = Response::<Bytes>::new(Bytes::from(
+            json!(CertificatePendingMessage::dummy())
+                .to_string()
+                .into_bytes(),
+        ));
+
+        let spec_file = APISpec::get_defaut_spec_file();
+        let result = APISpec::verify_conformity_result_with_status(
+            vec![spec_file.clone()],
+            Method::GET.as_str(),
+            "/certificate-pending",
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::BAD_REQUEST,
+        );
+
+        let error_reason = format!(
+            "expected status code {} but was {}",
+            StatusCode::BAD_REQUEST.as_u16(),
+            StatusCode::OK.as_u16()
+        );
+        let error_message = format!(
+            "OpenAPI invalid response in {spec_file}, reason: {error_reason}\nresponse: {response:#?}"
+        );
+        assert!(result.is_err());
+        assert_eq!(result.err().unwrap().to_string(), error_message);
     }
 }
