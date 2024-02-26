@@ -47,13 +47,13 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 ## Step 2: Get Mithril ready for `mainnet`
 
-:::info
+:::warning
 
-This step is **optional**, but **strongly recommended**.
+This step is **mandatory**. You must complete it before moving forward to **Step 3**.
 
 :::
 
-To get ready for `mainnet`, you should:
+To get ready for `mainnet`, you need to:
 - Be an active SPO on the Cardano `preprod` network for at least one epoch or five days.
 - Set up a **Mithril signer** node on Mithril's `release-preprod` network by following the [**Run a Mithril signer node (SPO)**](run-signer-node.md) guide.
 - You **must** run the **Production** deployment model.
@@ -68,7 +68,7 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 :::warning
 
-This step is **mandatory**. It is **strongly recommended** to complete **Step 2** beforehand.
+This step is **mandatory**. You must have completed **Step 2** before.
 
 :::
 
