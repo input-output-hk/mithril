@@ -73,10 +73,7 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if a request is valid
-    pub fn validate_request(
-        &'a mut self,
-        request_body: &impl Serialize,
-    ) -> Result<&mut APISpec, String> {
+    fn validate_request(&'a self, request_body: &impl Serialize) -> Result<&APISpec, String> {
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
         let content_type = self.content_type.unwrap();
@@ -88,11 +85,11 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if the status is the expected one
-    pub fn validate_status(
-        &'a mut self,
+    fn validate_status(
+        &'a self,
         response: &Response<Bytes>,
         expected_status_code: &StatusCode,
-    ) -> Result<&mut APISpec, String> {
+    ) -> Result<&APISpec, String> {
         if expected_status_code.as_u16() != response.status().as_u16() {
             return Err(format!(
                 "expected status code {} but was {}",
@@ -105,11 +102,11 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if a response is valid
-    pub fn validate_response_and_status(
-        &'a mut self,
+    fn validate_response_and_status(
+        &'a self,
         response: &Response<Bytes>,
         expected_status_code: &StatusCode,
-    ) -> Result<&mut APISpec, String> {
+    ) -> Result<&APISpec, String> {
         self.validate_status(response, expected_status_code)
             .and_then(|s| s.validate_response(response))
 
@@ -132,10 +129,7 @@ impl<'a> APISpec<'a> {
         // return self.validate_response(response);
     }
     /// Validates if a response is valid
-    pub fn validate_response(
-        &'a mut self,
-        response: &Response<Bytes>,
-    ) -> Result<&mut APISpec, String> {
+    fn validate_response(&'a self, response: &Response<Bytes>) -> Result<&APISpec, String> {
         let body = response.body();
         let status = response.status();
 
@@ -171,7 +165,10 @@ impl<'a> APISpec<'a> {
                     }
                 } else {
                     match &serde_json::from_slice(body) {
-                        Ok(value) => self.validate_conformity(value, response_schema),
+                        Ok(value) => match self.validate_conformity(value, response_schema) {
+                            Ok(_) => Ok(self),
+                            Err(e) => Err(e),
+                        },
                         Err(_) => Err("non empty body expected".to_string()),
                     }
                 }
@@ -181,11 +178,11 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates conformity of a value against a schema
-    pub fn validate_conformity(
-        &'a mut self,
+    fn validate_conformity(
+        &'a self,
         value: &Value,
         schema: &mut Value,
-    ) -> Result<&mut APISpec, String> {
+    ) -> Result<&APISpec, String> {
         match schema {
             Null => match value {
                 Null => Ok(self),
@@ -210,15 +207,17 @@ impl<'a> APISpec<'a> {
         }
     }
 
-    pub fn validate(
+    fn validate(
         &'a mut self,
         response: &Response<Bytes>,
-        validator: Box<dyn RequestValidator>,
+        validators: Vec<Box<dyn RequestValidator>>,
     ) -> Result<&mut APISpec, String> {
-        match validator.validate(response) {
-            Ok(_) => Ok(self),
-            Err(e) => Err(e),
+        for validator in validators {
+            if let Err(e) = validator.validate(response) {
+                return Err(e);
+            }
         }
+        Ok(self)
     }
 
     /// Get default spec file
@@ -265,7 +264,7 @@ impl RequestValidator for StatusValidator {
     }
 }
 
-fn request_validator(expected_status_code: StatusCode) -> Box<dyn RequestValidator> {
+fn expected_status(expected_status_code: StatusCode) -> Box<dyn RequestValidator> {
     let s = StatusValidator {
         expected_status_code,
     };
@@ -392,7 +391,7 @@ mod tests {
                 .path("/certificate-pending")
                 .validate(
                     &response,
-                    request_validator(StatusCode::INTERNAL_SERVER_ERROR),
+                    vec![expected_status(StatusCode::INTERNAL_SERVER_ERROR)],
                 );
 
             assert!(result.is_ok());
@@ -402,7 +401,22 @@ mod tests {
             let result = api_spec
                 .method(Method::GET.as_str())
                 .path("/certificate-pending")
-                .validate(&response, request_validator(StatusCode::OK));
+                .validate(&response, vec![expected_status(StatusCode::OK)]);
+
+            assert!(result.is_err());
+        }
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_defaut_spec_file());
+            let result = api_spec
+                .method(Method::GET.as_str())
+                .path("/certificate-pending")
+                .validate(
+                    &response,
+                    vec![
+                        expected_status(StatusCode::INTERNAL_SERVER_ERROR),
+                        expected_status(StatusCode::OK),
+                    ],
+                );
 
             assert!(result.is_err());
         }
