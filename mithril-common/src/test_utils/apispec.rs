@@ -243,6 +243,10 @@ mod tests {
     use crate::messages::{CertificatePendingMessage, SignerMessagePart};
     use crate::test_utils::fake_data;
 
+    fn build_json_response<T: Serialize>(value: T) -> Response<Bytes> {
+        Response::<Bytes>::new(Bytes::from(json!(value).to_string().into_bytes()))
+    }
+
     #[test]
     fn test_validate_ok() {
         // Route exists and does not expect request body, but expects response
@@ -251,11 +255,7 @@ mod tests {
             .path("/certificate-pending")
             .validate_request(&Null)
             .unwrap()
-            .validate_response(&Response::<Bytes>::new(Bytes::from(
-                json!(CertificatePendingMessage::dummy())
-                    .to_string()
-                    .into_bytes(),
-            )))
+            .validate_response(&build_json_response(CertificatePendingMessage::dummy()))
             .is_ok());
 
         // Route exists and expects request body, but does not expect response
@@ -286,12 +286,8 @@ mod tests {
     #[test]
     fn test_should_fail_when_the_status_code_is_not_the_expected_one() {
         // Route exists and matches default status code
-        let mut response = Response::<Bytes>::new(Bytes::from(
-            json!(&entities::InternalServerError::new(
-                "an error occurred".to_string(),
-            ))
-            .to_string()
-            .into_bytes(),
+        let mut response = build_json_response(entities::InternalServerError::new(
+            "an error occurred".to_string(),
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
 
@@ -317,12 +313,8 @@ mod tests {
     #[test]
     fn test_should_be_ok_when_the_status_code_is_the_right_one() {
         // Route exists and matches default status code
-        let mut response = Response::<Bytes>::new(Bytes::from(
-            json!(&entities::InternalServerError::new(
-                "an error occurred".to_string(),
-            ))
-            .to_string()
-            .into_bytes(),
+        let mut response = build_json_response(entities::InternalServerError::new(
+            "an error occurred".to_string(),
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
 
@@ -393,11 +385,7 @@ mod tests {
             "/certificate-pending",
             "application/json",
             &Null,
-            &Response::<Bytes>::new(Bytes::from(
-                json!(CertificatePendingMessage::dummy())
-                    .to_string()
-                    .into_bytes(),
-            )),
+            &build_json_response(CertificatePendingMessage::dummy()),
         );
     }
 
@@ -422,22 +410,14 @@ mod tests {
             "/certificate-pending",
             "application/json",
             &Null,
-            &Response::<Bytes>::new(Bytes::from(
-                json!(CertificatePendingMessage::dummy())
-                    .to_string()
-                    .into_bytes(),
-            )),
+            &build_json_response(CertificatePendingMessage::dummy()),
             &StatusCode::OK,
         )
     }
 
     #[test]
     fn test_verify_conformity_with_non_expected_status_returns_error() {
-        let response = Response::<Bytes>::new(Bytes::from(
-            json!(CertificatePendingMessage::dummy())
-                .to_string()
-                .into_bytes(),
-        ));
+        let response = build_json_response(CertificatePendingMessage::dummy());
 
         let spec_file = APISpec::get_default_spec_file();
         let result = APISpec::verify_conformity_with_status(
@@ -470,11 +450,7 @@ mod tests {
             "/certificate-pending",
             "application/json",
             &Null,
-            &Response::<Bytes>::new(Bytes::from(
-                json!(CertificatePendingMessage::dummy())
-                    .to_string()
-                    .into_bytes(),
-            )),
+            &build_json_response(CertificatePendingMessage::dummy()),
             &StatusCode::OK,
         );
 
