@@ -9,3 +9,5 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
+semver = "1.0.21"
+serde_yaml = "0.9.31"

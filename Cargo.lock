@@ -3397,6 +3397,10 @@ dependencies = [
 [[package]]
 name = "mithril-build-script"
 version = "0.1.0"
+dependencies = [
+ "semver",
+ "serde_yaml",
+]
 
 [[package]]
 name = "mithril-client"
@@ -3496,6 +3500,7 @@ dependencies = [
  "jsonschema",
  "kes-summed-ed25519",
  "minicbor",
+ "mithril-build-script",
  "mithril-stm",
  "mockall",
  "nom",

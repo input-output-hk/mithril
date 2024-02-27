@@ -180,17 +180,7 @@ impl FakeAggregatorData {
 }
 
 pub fn list_json_files_in_folder(folder: &Path) -> impl Iterator<Item = std::fs::DirEntry> + '_ {
-    fs::read_dir(folder)
-        .unwrap_or_else(|_| panic!("Could not read `{}` dir", folder.display()))
-        .filter_map(move |e| {
-            let entry = e.unwrap_or_else(|_| {
-                panic!("Failed to read a file in the `{}` dir", folder.display())
-            });
-            match entry.file_type() {
-                Ok(file_type) if file_type.is_file() => Some(entry),
-                _ => None,
-            }
-        })
+    crate::list_files_in_folder(folder)
         .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
 }
 

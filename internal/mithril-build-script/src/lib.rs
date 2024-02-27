@@ -1,6 +1,8 @@
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub mod fake_aggregator;
+pub mod open_api;
 
 pub fn get_package_path(package_name: &str) -> PathBuf {
     let cargo_pkgid_output = std::process::Command::new(env!("CARGO"))
@@ -44,6 +46,20 @@ fn extract_package_path<'a>(pkgid_output: &'a str) -> &'a str {
         .collect::<Vec<_>>()
         .first()
         .unwrap_or_else(|| panic!("Could not remove '#x.y.z' suffix from `cargo pkgid` output: {pkgid_output}"))
+}
+
+pub(crate) fn list_files_in_folder(folder: &Path) -> impl Iterator<Item = fs::DirEntry> + '_ {
+    fs::read_dir(folder)
+        .unwrap_or_else(|_| panic!("Could not read `{}` dir", folder.display()))
+        .filter_map(move |e| {
+            let entry = e.unwrap_or_else(|_| {
+                panic!("Failed to read a file in the `{}` dir", folder.display())
+            });
+            match entry.file_type() {
+                Ok(file_type) if file_type.is_file() => Some(entry),
+                _ => None,
+            }
+        })
 }
 
 #[cfg(test)]
