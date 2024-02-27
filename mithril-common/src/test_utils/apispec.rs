@@ -111,8 +111,8 @@ impl<'a> APISpec<'a> {
         let method = self.method.unwrap().to_lowercase();
         let content_type = self.content_type.unwrap();
 
-        let request_schema = &mut self.openapi.clone()["paths"][path][method]["requestBody"]
-            ["content"][content_type]["schema"];
+        let request_schema =
+            &self.openapi["paths"][path][method]["requestBody"]["content"][content_type]["schema"];
         let value = &json!(&request_body);
         self.validate_conformity(value, request_schema)
     }
@@ -147,52 +147,54 @@ impl<'a> APISpec<'a> {
         let response_spec = {
             match &mut openapi["paths"][path][&method]["responses"] {
                 Null => None,
-                response_spec => {
+                responses_spec => {
                     let status_code = status.as_str();
-                    if response_spec.as_object().unwrap().contains_key(status_code) {
-                        Some(&response_spec[status_code])
+                    if responses_spec
+                        .as_object()
+                        .unwrap()
+                        .contains_key(status_code)
+                    {
+                        Some(&responses_spec[status_code])
                     } else {
-                        Some(&response_spec["default"])
+                        Some(&responses_spec["default"])
                     }
                 }
             }
         };
-
         match response_spec {
             Some(response_spec) => {
-                let response_schema = &mut response_spec.clone()["content"][content_type]["schema"];
+                let response_schema = &response_spec["content"][content_type]["schema"];
                 if body.is_empty() {
-                    match response_spec.as_object() {
-                        Some(_) => match response_schema.as_object() {
-                            Some(_) => Err("non empty body expected".to_string()),
-                            None => Ok(self),
-                        },
-                        None => Err("empty body expected".to_string()),
+                    match response_schema.as_object() {
+                        Some(_) => Err("Non empty body expected".to_string()),
+                        None => Ok(self),
                     }
                 } else {
-                    match &serde_json::from_slice(body) {
-                        Ok(value) => self.validate_conformity(value, response_schema),
-                        Err(_) => Err("non empty body expected".to_string()),
+                    match response_schema.as_object() {
+                        Some(_) => match &serde_json::from_slice(body) {
+                            Ok(value) => self.validate_conformity(value, response_schema),
+                            Err(_) => Err(format!("Expected a valid json but got: {body:?}")),
+                        },
+                        None => Err(format!("Expected empty body but got: {body:?}")),
                     }
                 }
             }
-            None => Err(format!("unmatched path and method: {path} {method}")),
+            None => Err(format!(
+                "Unmatched path and method: {path} {}",
+                method.to_uppercase()
+            )),
         }
     }
 
     /// Validates conformity of a value against a schema
-    fn validate_conformity(
-        &'a self,
-        value: &Value,
-        schema: &mut Value,
-    ) -> Result<&APISpec, String> {
+    fn validate_conformity(&'a self, value: &Value, schema: &Value) -> Result<&APISpec, String> {
         match schema {
             Null => match value {
                 Null => Ok(self),
                 _ => Err(format!("Expected nothing but got: {value:?}")),
             },
             _ => {
-                let schema = &mut schema.as_object_mut().unwrap().clone();
+                let mut schema = schema.as_object().unwrap().clone();
                 let components = self.openapi["components"].clone();
                 schema.insert(String::from("components"), components);
 
@@ -243,22 +245,54 @@ mod tests {
     use crate::messages::{CertificatePendingMessage, SignerMessagePart};
     use crate::test_utils::fake_data;
 
-    fn build_json_response<T: Serialize>(value: T) -> Response<Bytes> {
-        Response::<Bytes>::new(Bytes::from(json!(value).to_string().into_bytes()))
+    fn build_empty_response(status_code: u16) -> Response<Bytes> {
+        Response::builder()
+            .status(status_code)
+            .body(Bytes::new())
+            .unwrap()
+    }
+
+    fn build_json_response<T: Serialize>(status_code: u16, value: T) -> Response<Bytes> {
+        Response::builder()
+            .status(status_code)
+            .body(Bytes::from(json!(value).to_string().into_bytes()))
+            .unwrap()
+    }
+
+    fn build_response(status_code: u16, content: &'static [u8]) -> Response<Bytes> {
+        Response::builder()
+            .status(status_code)
+            .body(Bytes::from_static(content))
+            .unwrap()
     }
 
     #[test]
-    fn test_validate_ok() {
-        // Route exists and does not expect request body, but expects response
+    fn test_validate_a_response_without_body() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&Null)
             .unwrap()
-            .validate_response(&build_json_response(CertificatePendingMessage::dummy()))
+            .validate_response(&build_empty_response(204))
             .is_ok());
+    }
 
-        // Route exists and expects request body, but does not expect response
+    #[test]
+    fn test_validate_ok_when_request_without_body_and_expects_response() {
+        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&build_json_response(
+                200,
+                CertificatePendingMessage::dummy()
+            ))
+            .is_ok());
+    }
+
+    #[test]
+    fn test_validate_ok_when_request_with_body_and_expects_no_response() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
@@ -266,16 +300,17 @@ mod tests {
             .unwrap()
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());
+    }
 
-        // Route exists and matches default status code
-        let mut response = Response::<Bytes>::new(Bytes::from(
-            json!(&entities::InternalServerError::new(
-                "an error occurred".to_string(),
-            ))
-            .to_string()
-            .into_bytes(),
-        ));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+    #[test]
+    fn test_validate_ok_when_response_match_default_status_code() {
+        // INTERNAL_SERVER_ERROR(500) is not one of the defined status code
+        // for this route, so it's the default response spec that is used.
+        let response = build_json_response(
+            StatusCode::INTERNAL_SERVER_ERROR.into(),
+            &entities::InternalServerError::new("an error occurred".to_string()),
+        );
+
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
@@ -285,11 +320,10 @@ mod tests {
 
     #[test]
     fn test_should_fail_when_the_status_code_is_not_the_expected_one() {
-        // Route exists and matches default status code
-        let mut response = build_json_response(entities::InternalServerError::new(
-            "an error occurred".to_string(),
-        ));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        let response = build_json_response(
+            StatusCode::INTERNAL_SERVER_ERROR.into(),
+            entities::InternalServerError::new("an error occurred".to_string()),
+        );
 
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         let result = api_spec
@@ -312,11 +346,10 @@ mod tests {
 
     #[test]
     fn test_should_be_ok_when_the_status_code_is_the_right_one() {
-        // Route exists and matches default status code
-        let mut response = build_json_response(entities::InternalServerError::new(
-            "an error occurred".to_string(),
-        ));
-        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        let response = build_json_response(
+            StatusCode::INTERNAL_SERVER_ERROR.into(),
+            entities::InternalServerError::new("an error occurred".to_string()),
+        );
 
         APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
@@ -329,36 +362,90 @@ mod tests {
 
     #[test]
     fn test_validate_returns_error_when_route_does_not_exist() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
             .method(Method::GET.as_str())
             .path("/route-not-existing-in-openapi-spec")
-            .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
-            .is_err());
+            .validate_response(&build_response(200, b"abcdefgh"));
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err(),
+            Some("Unmatched path and method: /route-not-existing-in-openapi-spec GET".to_string())
+        );
     }
+
     #[test]
     fn test_validate_returns_error_when_route_exists_but_method_does_not() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
             .method(Method::OPTIONS.as_str())
             .path("/certificate-pending")
-            .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
-            .is_err());
+            .validate_response(&build_response(200, b"abcdefgh"));
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err(),
+            Some("Unmatched path and method: /certificate-pending OPTIONS".to_string())
+        );
     }
     #[test]
     fn test_validate_returns_error_when_route_exists_but_expects_non_empty_response() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
             .method(Method::GET.as_str())
             .path("/certificate-pending")
-            .validate_response(&Response::<Bytes>::new(Bytes::new()))
-            .is_err());
+            .validate_response(&build_empty_response(200));
+
+        assert!(result.is_err());
+        assert_eq!(result.err(), Some("Non empty body expected".to_string()));
     }
+
     #[test]
     fn test_validate_returns_error_when_route_exists_but_expects_empty_response() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
-            .method(Method::POST.as_str())
-            .path("/register-signer")
-            .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
-            .is_err());
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+            let result = api_spec
+                .method(Method::POST.as_str())
+                .path("/register-signer")
+                .validate_response(&build_response(201, b"abcdefgh"));
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.err(),
+                Some("Expected empty body but got: b\"abcdefgh\"".to_string())
+            );
+        }
+        {
+            let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+            let result = api_spec
+                .method(Method::POST.as_str())
+                .path("/register-signer")
+                .validate_response(&build_json_response(201, "something"));
+
+            assert!(result.is_err());
+            assert_eq!(
+                result.err(),
+                Some("Expected empty body but got: b\"\\\"something\\\"\"".to_string())
+            );
+        }
     }
+
+    #[test]
+    fn test_validate_returns_error_when_json_is_not_valid() {
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&build_response(200, b"not a json"));
+        assert_eq!(
+            result.err(),
+            Some("Expected a valid json but got: b\"not a json\"".to_string())
+        );
+    }
+
     #[test]
     fn test_validate_returns_errors_when_route_exists_but_does_not_expect_request_body() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
@@ -378,14 +465,13 @@ mod tests {
 
     #[test]
     fn test_verify_conformity() {
-        // Route exists and does not expect request body, but expects response
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
             "/certificate-pending",
             "application/json",
             &Null,
-            &build_json_response(CertificatePendingMessage::dummy()),
+            &build_json_response(200, CertificatePendingMessage::dummy()),
         );
     }
 
@@ -410,14 +496,14 @@ mod tests {
             "/certificate-pending",
             "application/json",
             &Null,
-            &build_json_response(CertificatePendingMessage::dummy()),
+            &build_json_response(200, CertificatePendingMessage::dummy()),
             &StatusCode::OK,
         )
     }
 
     #[test]
     fn test_verify_conformity_with_non_expected_status_returns_error() {
-        let response = build_json_response(CertificatePendingMessage::dummy());
+        let response = build_json_response(200, CertificatePendingMessage::dummy());
 
         let spec_file = APISpec::get_default_spec_file();
         let result = APISpec::verify_conformity_with_status(
@@ -450,7 +536,7 @@ mod tests {
             "/certificate-pending",
             "application/json",
             &Null,
-            &build_json_response(CertificatePendingMessage::dummy()),
+            &build_json_response(200, CertificatePendingMessage::dummy()),
             &StatusCode::OK,
         );
 
