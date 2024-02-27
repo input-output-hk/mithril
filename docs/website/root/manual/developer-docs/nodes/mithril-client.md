@@ -252,11 +252,11 @@ mithril_client mithril-stake-distribution list
 # 6- Download and verify the given Mithril stake distribution
 mithril_client mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_ARTIFACT_HASH
 
-# 7- List Cardano transaction commitments
-mithril_client --unstable cardano-transaction commitment list
+# 7- List Cardano transaction snapshots
+mithril_client --unstable cardano-transaction snapshot list
 
-# 8- Show detailed information about a Cardano transaction commitment
-mithril_client --unstable cardano-transaction commitment show $CARDANO_TRANSACTION_COMMITMENT_HASH
+# 8- Show detailed information about a Cardano transaction snapshot
+mithril_client --unstable cardano-transaction snapshot show $CARDANO_TRANSACTION_SNAPSHOT_HASH
 
 # 9- Certify that given list of transactions hashes are included in the Cardano transactions set
 mithril_client --unstable cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
@@ -302,8 +302,8 @@ Here are the subcommands available:
 | Subcommand | Performed action |
 |------------|------------------|
 | **certify** | Certifies that given list of transactions hashes are included in the Cardano transactions set|
-| **commitment list** | Lists available Cardano transactions commitments|
-| **commitment show** | Shows information about a Cardano transactions commitment|
+| **snapshot list** | Lists available Cardano transactions snapshots|
+| **snapshot show** | Shows information about a Cardano transactions snapshot|
 | **help** | Prints this message or the help for the given subcommand(s)|
 
 ## Configuration parameters
@@ -362,14 +362,14 @@ Here is a list of the available parameters:
 | `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
 
-`cardano-transaction commitment show` command:
+`cardano-transaction snapshot show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `hash` | `--hash` | - | `HASH` | Cardano transaction commitment hash or `latest` for the latest Cardano transaction commitment | - | - | :heavy_check_mark: |
+| `hash` | `--hash` | - | `HASH` | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-transaction commitment list` command:
+`cardano-transaction snapshot list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
