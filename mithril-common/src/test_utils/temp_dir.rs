@@ -45,9 +45,9 @@ impl TempDir {
         let base_dir = std::env::temp_dir().join(TEMP_DIR_ROOT_NAME);
 
         // Short path only:
-        // Combined max len should be lower than `self.short_path_max_len` to have some rooms for
+        // Combined max len should be lower than `self.short_path_max_len` to have some room for
         // the folder content.
-        // MacOS temp folder are not in the `/tmp` folder but in a dynamic path adding 45 chars.
+        // MacOS temp folders are not in the `/tmp` folder but in a dynamic path adding 45 chars.
         // ie: /var/folders/_k/7j0m5c_n4g94vgx9gxknp4tm0000gn/T/
         if self.enable_short_path {
             // In order to discriminate two tests with the same name but within different modules
@@ -70,7 +70,7 @@ impl TempDir {
         }
     }
 
-    /// Create a directory based of builder configuration in the system temp folder.
+    /// Create a directory based on the builder configuration in the system temp folder.
     pub fn build(&self) -> PathBuf {
         let path = self.build_path();
         self.create_dir(&path);
