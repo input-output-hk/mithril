@@ -17,7 +17,7 @@ Then, click on the **Run workflow** button:
 
 Then fill the form to manually run the workflow:
 
-![Run workflow form](./img/run-workflow-form-png)
+![Run workflow form](./img/run-workflow-form.png)
 
 > [!WARNING]
 > - The **Mithril image id** of the distribution to deploy must be published on the [package registry](https://github.com/orgs/input-output-hk/packages?repo_name=mithril)
