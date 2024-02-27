@@ -14,27 +14,27 @@ use crate::{
     commands::client_builder,
     configuration::ConfigParameters,
     utils::{
-        ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
-        SnapshotUnpacker, SnapshotUtils,
+        CardanoDbUnpacker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
+        ProgressOutputType, ProgressPrinter,
     },
 };
 use mithril_client::{
     common::ProtocolMessage, Client, MessageBuilder, MithrilCertificate, MithrilResult, Snapshot,
 };
 
-/// Clap command to download the snapshot and verify the certificate.
+/// Clap command to download the cardano db and verify the certificate.
 #[derive(Parser, Debug, Clone)]
-pub struct SnapshotDownloadCommand {
+pub struct CardanoDbDownloadCommand {
     /// Enable JSON output.
     #[clap(long)]
     json: bool,
 
-    /// Digest of the snapshot to download. Use the `list` command to get that information.
+    /// Digest of the cardano db to download. Use the `list` command to get that information.
     ///
-    /// If `latest` is specified as digest, the command will return the latest snapshot.
+    /// If `latest` is specified as digest, the command will return the latest cardano db.
     digest: String,
 
-    /// Directory where the snapshot will be downloaded. By default, a
+    /// Directory where the cardano db will be downloaded. By default, a
     /// subdirectory will be created in this directory to extract and verify the
     /// certificate.
     #[clap(long)]
@@ -45,10 +45,9 @@ pub struct SnapshotDownloadCommand {
     genesis_verification_key: Option<String>,
 }
 
-impl SnapshotDownloadCommand {
+impl CardanoDbDownloadCommand {
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        debug!("Snapshot service: download.");
         let config = config_builder.add_source(self.clone()).build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let download_dir: &String = &params.require("download_dir")?;
@@ -67,64 +66,64 @@ impl SnapshotDownloadCommand {
             .build()?;
 
         let get_list_of_artifact_ids = || async {
-            let snapshots = client.snapshot().list().await.with_context(|| {
-                "Can not get the list of artifacts while retrieving the latest snapshot digest"
+            let cardano_dbs = client.snapshot().list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest cardano db digest"
             })?;
 
-            Ok(snapshots
+            Ok(cardano_dbs
                 .iter()
-                .map(|snapshot| snapshot.digest.to_owned())
+                .map(|cardano_db| cardano_db.digest.to_owned())
                 .collect::<Vec<String>>())
         };
 
-        let snapshot_message = client
+        let cardano_db_message = client
             .snapshot()
             .get(
                 &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
                     .await?,
             )
             .await?
-            .with_context(|| format!("Can not get the snapshot for digest: '{}'", self.digest))?;
+            .with_context(|| format!("Can not get the cardano db for digest: '{}'", self.digest))?;
 
-        Self::check_local_disk_info(1, &progress_printer, &db_dir, &snapshot_message)?;
+        Self::check_local_disk_info(1, &progress_printer, &db_dir, &cardano_db_message)?;
 
         let certificate = Self::fetch_certificate_and_verifying_chain(
             2,
             &progress_printer,
             &client,
-            &snapshot_message.certificate_hash,
+            &cardano_db_message.certificate_hash,
         )
         .await?;
 
-        Self::download_and_unpack_snapshot(
+        Self::download_and_unpack_cardano_db(
             3,
             &progress_printer,
             &client,
-            &snapshot_message,
+            &cardano_db_message,
             &db_dir,
         )
         .await
         .with_context(|| {
             format!(
-                "Can not get download and unpack snapshot for digest: '{}'",
+                "Can not get download and unpack cardano db for digest: '{}'",
                 self.digest
             )
         })?;
 
         let message =
-            Self::compute_snapshot_message(4, &progress_printer, &certificate, &db_dir).await?;
+            Self::compute_cardano_db_message(4, &progress_printer, &certificate, &db_dir).await?;
 
-        Self::verify_snapshot_signature(
+        Self::verify_cardano_db_signature(
             5,
             &progress_printer,
             &certificate,
             &message,
-            &snapshot_message,
+            &cardano_db_message,
             &db_dir,
         )
         .await?;
 
-        Self::log_download_information(&db_dir, &snapshot_message, self.json)?;
+        Self::log_download_information(&db_dir, &cardano_db_message, self.json)?;
 
         Ok(())
     }
@@ -133,16 +132,16 @@ impl SnapshotDownloadCommand {
         step_number: u16,
         progress_printer: &ProgressPrinter,
         db_dir: &PathBuf,
-        snapshot: &Snapshot,
+        cardano_db: &Snapshot,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
-        if let Err(e) = SnapshotUnpacker::check_prerequisites(
+        if let Err(e) = CardanoDbUnpacker::check_prerequisites(
             db_dir,
-            snapshot.size,
-            snapshot.compression_algorithm.unwrap_or_default(),
+            cardano_db.size,
+            cardano_db.compression_algorithm.unwrap_or_default(),
         ) {
             progress_printer
-                .report_step(step_number, &SnapshotUtils::check_disk_space_error(e)?)?;
+                .report_step(step_number, &CardanoDbUtils::check_disk_space_error(e)?)?;
         }
 
         std::fs::create_dir_all(db_dir).with_context(|| {
@@ -179,20 +178,23 @@ impl SnapshotDownloadCommand {
         Ok(certificate)
     }
 
-    async fn download_and_unpack_snapshot(
+    async fn download_and_unpack_cardano_db(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         client: &Client,
-        snapshot: &Snapshot,
+        cardano_db: &Snapshot,
         db_dir: &Path,
     ) -> MithrilResult<()> {
-        progress_printer.report_step(step_number, "Downloading and unpacking the snapshot…")?;
-        client.snapshot().download_unpack(snapshot, db_dir).await?;
+        progress_printer.report_step(step_number, "Downloading and unpacking the cardano db")?;
+        client
+            .snapshot()
+            .download_unpack(cardano_db, db_dir)
+            .await?;
 
-        // The snapshot download does not fail if the statistic call fails.
+        // The cardano db download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
-        if let Err(e) = client.snapshot().add_statistics(snapshot).await {
-            warn!("Could not increment snapshot download statistics: {e:?}");
+        if let Err(e) = client.snapshot().add_statistics(cardano_db).await {
+            warn!("Could not increment cardano db download statistics: {e:?}");
         }
 
         // Append 'clean' file to speedup node bootstrap
@@ -206,21 +208,21 @@ impl SnapshotDownloadCommand {
         Ok(())
     }
 
-    async fn compute_snapshot_message(
+    async fn compute_cardano_db_message(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
         db_dir: &Path,
     ) -> MithrilResult<ProtocolMessage> {
-        progress_printer.report_step(step_number, "Computing the snapshot message")?;
-        let message = SnapshotUtils::wait_spinner(
+        progress_printer.report_step(step_number, "Computing the cardano db message")?;
+        let message = CardanoDbUtils::wait_spinner(
             progress_printer,
             MessageBuilder::new().compute_snapshot_message(certificate, db_dir),
         )
         .await
         .with_context(|| {
             format!(
-                "Can not compute the snapshot message from the directory: '{:?}'",
+                "Can not compute the cardano db message from the directory: '{:?}'",
                 db_dir
             )
         })?;
@@ -228,15 +230,15 @@ impl SnapshotDownloadCommand {
         Ok(message)
     }
 
-    async fn verify_snapshot_signature(
+    async fn verify_cardano_db_signature(
         step_number: u16,
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
         message: &ProtocolMessage,
-        snapshot: &Snapshot,
+        cardano_db: &Snapshot,
         db_dir: &Path,
     ) -> MithrilResult<()> {
-        progress_printer.report_step(step_number, "Verifying the snapshot signature…")?;
+        progress_printer.report_step(step_number, "Verifying the cardano db signature…")?;
         if !certificate.match_message(message) {
             debug!("Digest verification failed, removing unpacked files & directory.");
 
@@ -245,8 +247,8 @@ impl SnapshotDownloadCommand {
             }
 
             return Err(anyhow!(
-                "Certificate verification failed (snapshot digest = '{}').",
-                snapshot.digest.clone()
+                "Certificate verification failed (cardano db digest = '{}').",
+                cardano_db.digest.clone()
             ));
         }
 
@@ -255,7 +257,7 @@ impl SnapshotDownloadCommand {
 
     fn log_download_information(
         db_dir: &Path,
-        snapshot: &Snapshot,
+        cardano_db: &Snapshot,
         json_output: bool,
     ) -> MithrilResult<()> {
         let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
@@ -272,12 +274,12 @@ impl SnapshotDownloadCommand {
                 canonicalized_filepath.display()
             );
         } else {
-            let cardano_node_version = snapshot
+            let cardano_node_version = cardano_db
                 .cardano_node_version
                 .clone()
                 .unwrap_or("latest".to_string());
             println!(
-                r###"Snapshot '{}' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
+                r###"Cardano db '{}' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
                     
     Files in the directory '{}' can be used to run a Cardano node with version >= {}.
     
@@ -286,11 +288,11 @@ impl SnapshotDownloadCommand {
     docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}
     
     "###,
-                snapshot.digest,
+                cardano_db.digest,
                 db_dir.display(),
                 cardano_node_version,
                 canonicalized_filepath.display(),
-                snapshot.beacon.network,
+                cardano_db.beacon.network,
                 cardano_node_version
             );
         }
@@ -299,7 +301,7 @@ impl SnapshotDownloadCommand {
     }
 }
 
-impl Source for SnapshotDownloadCommand {
+impl Source for CardanoDbDownloadCommand {
     fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
         Box::new(self.clone())
     }
@@ -368,7 +370,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_snapshot_signature_should_remove_db_dir_if_messages_mismatch() {
+    async fn verify_cardano_db_signature_should_remove_db_dir_if_messages_mismatch() {
         let progress_printer = ProgressPrinter::new(ProgressOutputType::Tty, 1);
         let certificate = dummy_certificate();
         let mut message = ProtocolMessage::new();
@@ -377,18 +379,18 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "avk".to_string(),
         );
-        let snapshot = Snapshot::dummy();
+        let cardano_db = Snapshot::dummy();
         let db_dir = TempDir::create(
             "client-cli",
-            "verify_snapshot_signature_should_remove_db_dir_if_messages_mismatch",
+            "verify_cardano_db_signature_should_remove_db_dir_if_messages_mismatch",
         );
 
-        let result = SnapshotDownloadCommand::verify_snapshot_signature(
+        let result = CardanoDbDownloadCommand::verify_cardano_db_signature(
             1,
             &progress_printer,
             &certificate,
             &message,
-            &snapshot,
+            &cardano_db,
             &db_dir,
         )
         .await;

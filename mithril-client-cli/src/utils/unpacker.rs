@@ -9,11 +9,11 @@ use mithril_client::{common::CompressionAlgorithm, MithrilError, MithrilResult};
 
 /// Check and unpack a downloaded archive in a given directory.
 #[derive(Default)]
-pub struct SnapshotUnpacker;
+pub struct CardanoDbUnpacker;
 
-/// Errors tied with the SnapshotUnpacker.
+/// Errors tied with the CardanoDbUnpacker.
 #[derive(Debug, Error)]
-pub enum SnapshotUnpackerError {
+pub enum CardanoDbUnpackerError {
     /// Not enough space on the disk. There should be at least the ratio given for the
     /// used algorithm (see [CompressionAlgorithm::free_space_snapshot_ratio]) times
     /// the size of the archive to download to ensure it could be unpacked safely.
@@ -25,11 +25,11 @@ pub enum SnapshotUnpackerError {
         /// Specified location
         pathdir: PathBuf,
 
-        /// Packed snapshot size
+        /// Packed cardano db size
         archive_size: f64,
     },
 
-    /// The directory where the files from snapshot are expanded already exists.
+    /// The directory where the files from cardano db are expanded already exists.
     /// An error is raised because it lets the user a chance to preserve a
     /// previous work.
     #[error("Unpack directory '{0}' already exists, please move or delete it.")]
@@ -40,9 +40,9 @@ pub enum SnapshotUnpackerError {
     UnpackDirectoryIsNotWritable(PathBuf, #[source] MithrilError),
 }
 
-impl SnapshotUnpacker {
+impl CardanoDbUnpacker {
     /// Check all prerequisites are met before starting to download and unpack
-    /// big snapshot archive.
+    /// big cardano db archive.
     pub fn check_prerequisites(
         pathdir: &Path,
         size: u64,
@@ -50,18 +50,18 @@ impl SnapshotUnpacker {
     ) -> MithrilResult<()> {
         if pathdir.exists() {
             return Err(
-                SnapshotUnpackerError::UnpackDirectoryAlreadyExists(pathdir.to_owned()).into(),
+                CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(pathdir.to_owned()).into(),
             );
         }
         create_dir_all(pathdir).map_err(|e| {
-            SnapshotUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
+            CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
         })?;
         let free_space = fs2::available_space(pathdir)? as f64;
         // `remove_dir` doesn't remove intermediate directories that could have been created by `create_dir_all`
         remove_dir(pathdir)?;
 
         if free_space < compression_algorithm.free_space_snapshot_ratio() * size as f64 {
-            return Err(SnapshotUnpackerError::NotEnoughSpace {
+            return Err(CardanoDbUnpackerError::NotEnoughSpace {
                 left_space: free_space,
                 pathdir: pathdir.to_owned(),
                 archive_size: size as f64,
@@ -86,7 +86,7 @@ mod test {
     fn should_return_ok() {
         let pathdir = create_temporary_empty_directory("return_ok").join("target_directory");
 
-        SnapshotUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
+        CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
             .expect("check_prerequisites should not fail");
     }
 
@@ -95,13 +95,13 @@ mod test {
         let pathdir = create_temporary_empty_directory("existing_directory");
 
         let error =
-            SnapshotUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
+            CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
                 .expect_err("check_prerequisites should fail");
 
         assert!(
             matches!(
-                error.downcast_ref::<SnapshotUnpackerError>(),
-                Some(SnapshotUnpackerError::UnpackDirectoryAlreadyExists(_))
+                error.downcast_ref::<CardanoDbUnpackerError>(),
+                Some(CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(_))
             ),
             "Unexpected error: {:?}",
             error
@@ -122,13 +122,13 @@ mod test {
         let targetdir = pathdir.join("target_directory");
 
         let error =
-            SnapshotUnpacker::check_prerequisites(&targetdir, 12, CompressionAlgorithm::default())
+            CardanoDbUnpacker::check_prerequisites(&targetdir, 12, CompressionAlgorithm::default())
                 .expect_err("check_prerequisites should fail");
 
         assert!(
             matches!(
-                error.downcast_ref::<SnapshotUnpackerError>(),
-                Some(SnapshotUnpackerError::UnpackDirectoryIsNotWritable(_, _))
+                error.downcast_ref::<CardanoDbUnpackerError>(),
+                Some(CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(_, _))
             ),
             "Unexpected error: {:?}",
             error
@@ -141,7 +141,7 @@ mod test {
             create_temporary_empty_directory("enough_available_space").join("target_directory");
         let archive_size = u64::MAX;
 
-        let error = SnapshotUnpacker::check_prerequisites(
+        let error = CardanoDbUnpacker::check_prerequisites(
             &pathdir,
             archive_size,
             CompressionAlgorithm::default(),
@@ -150,8 +150,8 @@ mod test {
 
         assert!(
             matches!(
-                error.downcast_ref::<SnapshotUnpackerError>(),
-                Some(SnapshotUnpackerError::NotEnoughSpace {
+                error.downcast_ref::<CardanoDbUnpackerError>(),
+                Some(CardanoDbUnpackerError::NotEnoughSpace {
                     left_space: _,
                     pathdir: _,
                     archive_size: _

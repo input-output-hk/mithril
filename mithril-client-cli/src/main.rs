@@ -15,8 +15,8 @@ use mithril_client::MithrilResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
-    cardano_transaction::CardanoTransactionCommands,
-    mithril_stake_distribution::MithrilStakeDistributionCommands, snapshot::SnapshotCommands,
+    cardano_db::CardanoDbCommands, cardano_transaction::CardanoTransactionCommands,
+    mithril_stake_distribution::MithrilStakeDistributionCommands,
 };
 
 enum LogOutputType {
@@ -162,8 +162,13 @@ impl Source for Args {
 
 #[derive(Subcommand, Debug, Clone)]
 enum ArtifactCommands {
+    /// Deprecated, use `cardano-db` instead
     #[clap(subcommand)]
-    Snapshot(SnapshotCommands),
+    #[deprecated(since = "0.7.2", note = "use `CardanoDb` command instead")]
+    Snapshot(CardanoDbCommands),
+
+    #[clap(subcommand, alias("cdb"))]
+    CardanoDb(CardanoDbCommands),
 
     #[clap(subcommand, alias("msd"))]
     MithrilStakeDistribution(MithrilStakeDistributionCommands),
@@ -182,7 +187,12 @@ impl ArtifactCommands {
         config_builder: ConfigBuilder<DefaultState>,
     ) -> MithrilResult<()> {
         match self {
-            Self::Snapshot(cmd) => cmd.execute(config_builder).await,
+            #[allow(deprecated)]
+            Self::Snapshot(cmd) => {
+                eprintln!("`snapshot` command is deprecated, use `cardano-db` instead");
+                cmd.execute(config_builder).await
+            }
+            Self::CardanoDb(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
             Self::CardanoTransaction(ctx) => {
                 if !unstable_enabled {
@@ -221,13 +231,9 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
-        let args = Args::try_parse_from([
-            "mithril-client",
-            "cardano-transaction",
-            "snapshot",
-            "list",
-        ])
-        .unwrap();
+        let args =
+            Args::try_parse_from(["mithril-client", "cardano-transaction", "snapshot", "list"])
+                .unwrap();
 
         args.execute()
             .await
