@@ -224,7 +224,7 @@ mod tests {
         let args = Args::try_parse_from([
             "mithril-client",
             "cardano-transaction",
-            "commitment",
+            "snapshot",
             "list",
         ])
         .unwrap();
