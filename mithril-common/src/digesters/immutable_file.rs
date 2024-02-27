@@ -182,22 +182,13 @@ impl Ord for ImmutableFile {
 #[cfg(test)]
 mod tests {
     use super::ImmutableFile;
-    use std::fs;
+    use crate::test_utils::TempDir;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::{Path, PathBuf};
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
-        let parent_dir = std::env::temp_dir().join("mithril_test").join(subdir_name);
-
-        if parent_dir.exists() {
-            fs::remove_dir_all(&parent_dir)
-                .unwrap_or_else(|_| panic!("Could not remove dir {parent_dir:?}"));
-        }
-        fs::create_dir_all(&parent_dir)
-            .unwrap_or_else(|_| panic!("Could not create dir {parent_dir:?}"));
-
-        parent_dir
+        TempDir::create("immutable_file", subdir_name)
     }
 
     fn create_fake_files(parent_dir: &Path, child_filenames: &[&str]) {

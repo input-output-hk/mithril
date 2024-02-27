@@ -321,7 +321,7 @@ impl CompressedArchiveSnapshotter {
                     return Err(SnapshotError::InvalidArchiveError(format!(
                         "can't unpack entry with error: '{:?}'",
                         e
-                    )))
+                    )));
                 }
                 Ok(_) => {
                     if let Err(e) = fs::remove_file(unpack_file_path) {
@@ -391,20 +391,12 @@ mod tests {
     use std::sync::Arc;
 
     use mithril_common::digesters::DummyImmutablesDbBuilder;
+    use mithril_common::test_utils::TempDir;
 
     use super::*;
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
-        let test_dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("snapshotter")
-            .join(dir_name);
-        if test_dir.exists() {
-            std::fs::remove_dir_all(&test_dir).unwrap();
-        }
-        std::fs::create_dir_all(&test_dir).unwrap();
-
-        test_dir
+        TempDir::create("snapshotter", dir_name)
     }
 
     #[test]
@@ -430,7 +422,7 @@ mod tests {
     fn should_create_directory_if_does_not_exist() {
         let test_dir = get_test_directory("should_create_directory_if_does_not_exist");
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
-        let db_directory = std::env::temp_dir().join("whatever");
+        let db_directory = test_dir.join("whatever");
 
         Arc::new(
             CompressedArchiveSnapshotter::new(
@@ -449,9 +441,9 @@ mod tests {
         let test_dir =
             get_test_directory("should_clean_pending_snapshot_directory_if_already_exists");
         let pending_snapshot_directory = test_dir.join("pending_snapshot");
-        let db_directory = std::env::temp_dir().join("whatever");
+        let db_directory = test_dir.join("whatever");
 
-        std::fs::create_dir_all(&pending_snapshot_directory).unwrap();
+        fs::create_dir_all(&pending_snapshot_directory).unwrap();
 
         File::create(pending_snapshot_directory.join("whatever.txt")).unwrap();
 

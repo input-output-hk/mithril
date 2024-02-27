@@ -76,15 +76,10 @@ impl SnapshotUnpacker {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::remove_dir_all;
+    use mithril_common::test_utils::TempDir;
 
     fn create_temporary_empty_directory(name: &str) -> PathBuf {
-        let pathdir = std::env::temp_dir().join(name);
-        if pathdir.exists() {
-            remove_dir_all(&pathdir).unwrap();
-        }
-        create_dir_all(&pathdir).unwrap();
-        pathdir
+        TempDir::create("client-cli", name)
     }
 
     #[test]

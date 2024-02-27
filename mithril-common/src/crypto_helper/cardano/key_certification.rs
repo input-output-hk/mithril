@@ -95,6 +95,7 @@ pub enum ProtocolInitializerErrorWrapper {
     #[error("Period of key file, {0}, does not match with period provided by user, {1}")]
     KesMismatch(KESPeriod, KESPeriod),
 }
+
 /// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
 /// It now obtains a KES signature over the Mithril key. This allows the signers prove
 /// their correct identity with respect to a Cardano PoolID.
@@ -303,22 +304,20 @@ impl KeyRegWrapper {
 
 #[cfg(test)]
 mod test {
-
     use super::*;
     use crate::crypto_helper::{cardano::ColdKeyGenerator, OpCert};
 
+    use crate::test_utils::TempDir;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
-    use std::{fs, path::PathBuf};
+    use std::path::PathBuf;
 
-    fn setup_temp_directory() -> PathBuf {
-        let temp_dir = std::env::temp_dir().join("mithril_cardano_key_certification");
-        fs::create_dir_all(&temp_dir).expect("temp dir creation should not fail");
-        temp_dir
+    fn setup_temp_directory(test_name: &str) -> PathBuf {
+        TempDir::create("mithril_cardano_key_certification", test_name)
     }
 
     fn create_cryptographic_material(party_idx: u64) -> (ProtocolPartyId, PathBuf, PathBuf) {
-        let temp_dir = setup_temp_directory();
+        let temp_dir = setup_temp_directory(&format!("create_cryptographic_material_{party_idx}"));
         let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
         let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
         let mut dummy_seed = [party_idx as u8; 32];
