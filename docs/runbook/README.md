@@ -21,3 +21,4 @@ This page gathers the available guides to operate a Mithril network.
 | **Deploy a test network manually**        | [test-deploy-network](./test-deploy-network/README.md)                 | Manually deploy a test distribution to a test Mithril network.            |
 | **Publish crates to crates.io manually**  | [manual-publish-crates](./manual-publish-crates/README.md)             | Manually publish Rust crates to crates.io.                                |
 | **Publish packages to npm manually**      | [manual-publish-npm](./manual-publish-npm/README.md)                   | Manually publish packages to npm registry.                                |
+| **Client multi-platform test**            | [test-client-multiplatform](./test-client-multiplatform/README.md)     | Run multi-platform client CLI binaries, docker and WASM package tests.    |
