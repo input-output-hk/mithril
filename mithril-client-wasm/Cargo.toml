@@ -26,7 +26,7 @@ web-sys = { version = "0.3.67", features = ["BroadcastChannel"] }
 wasm-bindgen-test = "0.3.40"
 
 [build-dependencies]
-mithril-build-script = { path = "../mithril-build-script" }
+mithril-build-script = { path = "../internal/mithril-build-script" }
 
 [features]
 # Include nothing by default

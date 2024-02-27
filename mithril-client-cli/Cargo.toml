@@ -33,7 +33,7 @@ futures = "0.3.28"
 human_bytes = { version = "0.4.3", features = ["fast"] }
 indicatif = { version = "0.17.7", features = ["tokio"] }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
-mithril-doc = { path = "../mithril-doc" }
+mithril-doc = { path = "../internal/mithril-doc" }
 openssl = { version = "0.10.63", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 serde = { version = "1.0.196", features = ["derive"] }
