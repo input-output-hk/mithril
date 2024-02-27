@@ -64,8 +64,6 @@ This repository consists of the following parts:
 
 * [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
  
-* [**Mithril persistence**](./mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
-
 * [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
 
 * [**Mithril explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril aggregator** and displays its **Certificate chain** and artifacts.
@@ -73,6 +71,16 @@ This repository consists of the following parts:
 * [**Mithril infrastructure**](./mithril-infra): the infrastructure used to power a **Mithril network** in the cloud.
 
 * [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
+
+* [**Internal**](./internal): the shared tools and API used by **Mithril** crates.
+
+  * [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates using a build scripts phase.
+
+  * [**Mithril doc**](./internal/mithril-doc): an API that generates markdown documentation for a crate command lines arguments.
+
+  * [**Mithril doc derive**](./internal/mithril-doc-derive): a macro implementation used by **Mithril doc**.
+
+  * [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
 
 * [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
 
