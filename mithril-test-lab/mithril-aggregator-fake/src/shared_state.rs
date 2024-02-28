@@ -19,8 +19,8 @@ pub struct AppState {
     snapshots: BTreeMap<String, String>,
     msd_list: String,
     msds: BTreeMap<String, String>,
-    ctx_commitment_list: String,
-    ctx_commitments: BTreeMap<String, String>,
+    ctx_snapshot_list: String,
+    ctx_snapshots: BTreeMap<String, String>,
     ctx_proofs: BTreeMap<String, String>,
 }
 
@@ -44,8 +44,8 @@ impl Default for AppState {
             snapshots: default_values::snapshots(),
             msd_list: default_values::msd_list().to_owned(),
             msds: default_values::msds(),
-            ctx_commitment_list: default_values::ctx_commitments_list().to_owned(),
-            ctx_commitments: default_values::ctx_commitments(),
+            ctx_snapshot_list: default_values::ctx_snapshots_list().to_owned(),
+            ctx_snapshots: default_values::ctx_snapshots(),
             ctx_proofs: default_values::ctx_proofs(),
         }
     }
@@ -61,7 +61,7 @@ impl AppState {
         reader.read_certificate_chain(&certificate_list, &mut certificates)?;
         let (snapshot_list, snapshots) = reader.read_files("snapshot", "digest")?;
         let (msd_list, msds) = reader.read_files("mithril-stake-distribution", "hash")?;
-        let (ctx_commitment_list, ctx_commitments) = reader.read_files("ctx-commitment", "hash")?;
+        let (ctx_snapshot_list, ctx_snapshots) = reader.read_files("ctx-snapshot", "hash")?;
         let (_, ctx_proofs) = reader.read_files("ctx-proof", "transaction_hash")?;
 
         let instance = Self {
@@ -72,8 +72,8 @@ impl AppState {
             snapshots,
             msd_list,
             msds,
-            ctx_commitment_list,
-            ctx_commitments,
+            ctx_snapshot_list,
+            ctx_snapshots,
             ctx_proofs,
         };
 
@@ -115,14 +115,14 @@ impl AppState {
         Ok(self.certificates.get(key).cloned())
     }
 
-    /// return the list of Cardano transactions commitments in the same order as they were read
-    pub async fn get_ctx_commitments(&self) -> StdResult<String> {
-        Ok(self.ctx_commitment_list.clone())
+    /// return the list of Cardano transactions snapshots in the same order as they were read
+    pub async fn get_ctx_snapshots(&self) -> StdResult<String> {
+        Ok(self.ctx_snapshot_list.clone())
     }
 
-    /// return the Cardano transactions commitment identified by the given key if any.
-    pub async fn get_ctx_commitment(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.ctx_commitments.get(key).cloned())
+    /// return the Cardano transactions snapshot identified by the given key if any.
+    pub async fn get_ctx_snapshot(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.ctx_snapshots.get(key).cloned())
     }
 
     /// return the Cardano transactions proofs from Cardano transaction hashes.

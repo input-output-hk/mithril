@@ -22,7 +22,7 @@ impl CardanoTransactionSnapshotListCommand {
         let config = config_builder.build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
-        let lines = client.cardano_transaction().list_commitments().await?;
+        let lines = client.cardano_transaction().list_snapshots().await?;
 
         if self.json {
             println!("{}", serde_json::to_string(&lines)?);

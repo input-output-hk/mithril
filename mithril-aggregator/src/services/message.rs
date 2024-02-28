@@ -8,7 +8,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::SignedEntityTypeDiscriminants,
     messages::{
-        CardanoTransactionCommitmentListMessage, CardanoTransactionCommitmentMessage,
+        CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
         CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
         MithrilStakeDistributionMessage, SnapshotListMessage, SnapshotMessage,
     },
@@ -67,13 +67,13 @@ pub trait MessageService: Sync + Send {
     async fn get_cardano_transaction_message(
         &self,
         signed_entity_id: &str,
-    ) -> StdResult<Option<CardanoTransactionCommitmentMessage>>;
+    ) -> StdResult<Option<CardanoTransactionSnapshotMessage>>;
 
     /// Return the list of the last Cardano transactions set message
     async fn get_cardano_transaction_list_message(
         &self,
         limit: usize,
-    ) -> StdResult<CardanoTransactionCommitmentListMessage>;
+    ) -> StdResult<CardanoTransactionSnapshotListMessage>;
 }
 
 /// Implementation of the [MessageService]
@@ -165,7 +165,7 @@ impl MessageService for MithrilMessageService {
     async fn get_cardano_transaction_message(
         &self,
         signed_entity_id: &str,
-    ) -> StdResult<Option<CardanoTransactionCommitmentMessage>> {
+    ) -> StdResult<Option<CardanoTransactionSnapshotMessage>> {
         let signed_entity = self
             .signed_entity_storer
             .get_signed_entity(signed_entity_id)
@@ -177,7 +177,7 @@ impl MessageService for MithrilMessageService {
     async fn get_cardano_transaction_list_message(
         &self,
         limit: usize,
-    ) -> StdResult<CardanoTransactionCommitmentListMessage> {
+    ) -> StdResult<CardanoTransactionSnapshotListMessage> {
         let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoTransactions;
         let entities = self
             .signed_entity_storer
@@ -194,7 +194,7 @@ mod tests {
 
     use mithril_common::{
         entities::{
-            Beacon, CardanoTransactionsCommitment, MithrilStakeDistribution, SignedEntity,
+            Beacon, CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntity,
             SignedEntityType, Snapshot,
         },
         messages::ToMessageAdapter,
@@ -440,7 +440,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_transaction() {
-        let entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
+        let entity = SignedEntity::<CardanoTransactionsSnapshot>::dummy();
         let record = SignedEntityRecord {
             signed_entity_id: entity.signed_entity_id.clone(),
             signed_entity_type: SignedEntityType::CardanoTransactions(
@@ -490,7 +490,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_transaction_list_message() {
-        let entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
+        let entity = SignedEntity::<CardanoTransactionsSnapshot>::dummy();
         let records = vec![SignedEntityRecord {
             signed_entity_id: entity.signed_entity_id.clone(),
             signed_entity_type: SignedEntityType::CardanoTransactions(

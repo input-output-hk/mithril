@@ -1,5 +1,5 @@
 import initMithrilClient, {
-  MithrilClient,
+  MithrilClient
 } from "@mithril-dev/mithril-client-wasm";
 
 async function run_test(test_name, test_number, fun) {
@@ -132,18 +132,18 @@ await run_test("verify_message_match_certificate", test_number, async () => {
 });
 
 if (aggregator_capabilities.includes("CardanoTransactions")) {
-  const transactions_hashes_to_certify = process.env.TRANSACTIONS_HASHES_TO_CERTIFY?.split(',') ?? [];
+  const transactions_hashes_to_certify = process.env.TRANSACTIONS_HASHES_TO_CERTIFY?.split(",") ?? [];
 
   let ctx_sets;
   test_number++;
-  await run_test("list_cardano_transactions_commitments", test_number, async () => {
-    ctx_sets = await client.unstable.list_cardano_transactions_commitments();
+  await run_test("list_cardano_transactions_snapshots", test_number, async () => {
+    ctx_sets = await client.unstable.list_cardano_transactions_snapshots();
     console.log("cardano_transactions_sets", ctx_sets);
   });
 
   test_number++;
-  await run_test("get_cardano_transactions_commitment", test_number, async () => {
-    const ctx_set = await client.unstable.get_cardano_transactions_commitment(ctx_sets[0].hash);
+  await run_test("get_cardano_transactions_snapshot", test_number, async () => {
+    const ctx_set = await client.unstable.get_cardano_transactions_snapshot(ctx_sets[0].hash);
     console.log("cardano_transaction_set", ctx_set);
   });
 

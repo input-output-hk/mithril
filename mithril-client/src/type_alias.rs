@@ -45,13 +45,13 @@ cfg_unstable! {
 
     pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;
 
-    /// A commitment that Mithril have certified Cardano transactions up to a given [point of time][common::Beacon].
+    /// A snapshot that allow to know up to which [point of time][common::Beacon] Mithril have certified Cardano transactions.
     ///
-    pub use mithril_common::messages::CardanoTransactionCommitmentMessage as CardanoTransactionCommitment;
+    pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTransactionSnapshot;
 
-    /// List item of a Cardano transaction commitment.
+    /// List item of a Cardano transaction snapshot.
     ///
-    pub use mithril_common::messages::CardanoTransactionCommitmentListItemMessage as CardanoTransactionCommitmentListItem;
+    pub use mithril_common::messages::CardanoTransactionSnapshotListItemMessage as CardanoTransactionSnapshotListItem;
 }
 
 /// `mithril-common` re-exports

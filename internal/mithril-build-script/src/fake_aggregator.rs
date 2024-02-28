@@ -22,8 +22,8 @@ pub struct FakeAggregatorData {
     msds_list: FileContent,
     individual_msds: BTreeMap<ArtifactId, FileContent>,
 
-    ctx_commitments_list: FileContent,
-    individual_ctx_commitments: BTreeMap<ArtifactId, FileContent>,
+    ctx_snapshots_list: FileContent,
+    individual_ctx_snapshots: BTreeMap<ArtifactId, FileContent>,
     ctx_proofs: BTreeMap<ArtifactId, FileContent>,
 }
 
@@ -58,8 +58,8 @@ impl FakeAggregatorData {
                 "certificates.json" => {
                     data.certificates_list = file_content;
                 }
-                "ctx-commitments.json" => {
-                    data.ctx_commitments_list = file_content;
+                "ctx-snapshots.json" => {
+                    data.ctx_snapshots_list = file_content;
                 }
                 _ if filename.starts_with("mithril-stake-distribution-") => {
                     data.individual_msds.insert(
@@ -75,9 +75,9 @@ impl FakeAggregatorData {
                     data.individual_certificates
                         .insert(extract_artifact_id(&filename, "certificate-"), file_content);
                 }
-                _ if filename.starts_with("ctx-commitment-") => {
-                    data.individual_ctx_commitments.insert(
-                        extract_artifact_id(&filename, "ctx-commitment-"),
+                _ if filename.starts_with("ctx-snapshot-") => {
+                    data.individual_ctx_snapshots.insert(
+                        extract_artifact_id(&filename, "ctx-snapshot-"),
                         file_content,
                     );
                 }
@@ -109,8 +109,8 @@ impl FakeAggregatorData {
                     BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
                 ),
                 generate_ids_array(
-                    "ctx_commitment_hashes",
-                    BTreeSet::from_iter(self.individual_ctx_commitments.keys().cloned()),
+                    "ctx_snapshot_hashes",
+                    BTreeSet::from_iter(self.individual_ctx_snapshots.keys().cloned()),
                 ),
                 generate_ids_array(
                     "proof_transaction_hashes",
@@ -144,11 +144,11 @@ impl FakeAggregatorData {
                 generate_artifact_getter("certificates", self.individual_certificates),
                 generate_list_getter("certificate_list", self.certificates_list),
                 generate_ids_array(
-                    "ctx_commitment_hashes",
-                    BTreeSet::from_iter(self.individual_ctx_commitments.keys().cloned()),
+                    "ctx_snapshot_hashes",
+                    BTreeSet::from_iter(self.individual_ctx_snapshots.keys().cloned()),
                 ),
-                generate_artifact_getter("ctx_commitments", self.individual_ctx_commitments),
-                generate_list_getter("ctx_commitments_list", self.ctx_commitments_list),
+                generate_artifact_getter("ctx_snapshots", self.individual_ctx_snapshots),
+                generate_list_getter("ctx_snapshots_list", self.ctx_snapshots_list),
                 generate_ids_array(
                     "proof_transaction_hashes",
                     BTreeSet::from_iter(self.ctx_proofs.keys().cloned()),

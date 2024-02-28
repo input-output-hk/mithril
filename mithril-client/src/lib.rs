@@ -8,7 +8,7 @@
 //!
 //! - [Snapshot][snapshot_client] list, get, download tarball and record statistics.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
-//! - [Cardano transactions proofs][cardano_transaction_client] list & get commitment, get proofs
+//! - [Cardano transactions][cardano_transaction_client] list & get snapshot, get proofs
 //! _(available using crate feature_ **unstable**_)_.
 //! - [Certificates][certificate_client] list, get, and chain validation.
 //!

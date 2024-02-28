@@ -1,25 +1,25 @@
-use mithril_common::entities::{CardanoTransactionsCommitment, SignedEntity};
+use mithril_common::entities::{CardanoTransactionsSnapshot, SignedEntity};
 use mithril_common::messages::{
-    CardanoTransactionCommitmentListItemMessage, CardanoTransactionCommitmentListMessage,
+    CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotListMessage,
     ToMessageAdapter,
 };
 
-/// Adapter to convert a list of [CardanoTransaction] to [CardanoTransactionCommitmentListMessage] instances
+/// Adapter to convert a list of [CardanoTransaction] to [CardanoTransactionSnapshotListMessage] instances
 pub struct ToCardanoTransactionListMessageAdapter;
 
 impl
     ToMessageAdapter<
-        Vec<SignedEntity<CardanoTransactionsCommitment>>,
-        CardanoTransactionCommitmentListMessage,
+        Vec<SignedEntity<CardanoTransactionsSnapshot>>,
+        CardanoTransactionSnapshotListMessage,
     > for ToCardanoTransactionListMessageAdapter
 {
     /// Method to trigger the conversion
     fn adapt(
-        snapshots: Vec<SignedEntity<CardanoTransactionsCommitment>>,
-    ) -> CardanoTransactionCommitmentListMessage {
+        snapshots: Vec<SignedEntity<CardanoTransactionsSnapshot>>,
+    ) -> CardanoTransactionSnapshotListMessage {
         snapshots
             .into_iter()
-            .map(|entity| CardanoTransactionCommitmentListItemMessage {
+            .map(|entity| CardanoTransactionSnapshotListItemMessage {
                 merkle_root: entity.artifact.merkle_root.clone(),
                 beacon: entity.artifact.beacon.clone(),
                 hash: entity.artifact.hash,
@@ -36,9 +36,9 @@ mod tests {
 
     #[test]
     fn adapt_ok() {
-        let signed_entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
+        let signed_entity = SignedEntity::<CardanoTransactionsSnapshot>::dummy();
         let mithril_stake_distribution_list_message_expected =
-            vec![CardanoTransactionCommitmentListItemMessage {
+            vec![CardanoTransactionSnapshotListItemMessage {
                 merkle_root: signed_entity.artifact.merkle_root.clone(),
                 beacon: signed_entity.artifact.beacon.clone(),
                 hash: signed_entity.artifact.hash.clone(),
