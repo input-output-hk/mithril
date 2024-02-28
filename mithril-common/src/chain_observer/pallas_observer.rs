@@ -262,7 +262,7 @@ impl PallasChainObserver {
 
         let config = genesis_config
             .first()
-            .with_context(|| "PallasChainObserver failed to get genesis config")?;
+            .with_context(|| "PallasChainObserver failed to extract the config")?;
 
         let slots_per_kes_period = config.slots_per_kes_period as u64;
         let current_kes_period = chain_point.slot_or_default() / slots_per_kes_period;
