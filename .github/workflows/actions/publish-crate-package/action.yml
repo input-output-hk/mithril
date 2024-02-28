@@ -8,7 +8,7 @@ inputs:
   package:
     description: crate package name.
     required: true
-  api_token: 
+  api_token:
     description: crates.io API token.
     required: false
   publish_args:
@@ -18,45 +18,46 @@ inputs:
 runs:
   using: "composite"
   steps:
-  - name: Check crate latest version
-    id: check_version
-    shell: bash
-    run: |
-      echo "Check crate latest published version for '${{ inputs.package}}' package"
-      LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package}} | jq -r '.crate.newest_version')
-      LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
-      echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
-      echo "Local version: $LOCAL_VERSION"
+    - name: Check crate latest version
+      id: check_version
+      shell: bash
+      run: |
+        echo "Check crate latest published version for '${{ inputs.package}}' package"
+        LATEST_REMOTE_VERSION=$(curl -sL https://crates.io/api/v1/crates/${{ inputs.package}} | jq -r '.crate.newest_version')
+        LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
+        echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
+        echo "Local version: $LOCAL_VERSION"
+        
+        if [ "$LOCAL_VERSION" != "$LATEST_REMOTE_VERSION" ]; then 
+          echo "Local version is newer than remote version: we will publish to crates.io"
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+        else
+          echo "Local version and remote version are the same: no need to publish to crates.io"
+          echo "should_deploy=false" >> $GITHUB_OUTPUT
+        fi
 
-      if [ "$LOCAL_VERSION" != "$LATEST_REMOTE_VERSION" ]; then 
-        echo "Local version is newer than remote version: we will publish to crates.io"
-        echo "should_deploy=true" >> $GITHUB_OUTPUT
-      else
-        echo "Local version and remote version are the same: no need to publish to crates.io"
-        echo "should_deploy=false" >> $GITHUB_OUTPUT
-      fi
+    - name: Copy OpenAPI specs files
+      if: inputs.package == 'mithril-common'
+      shell: bash
+      run: |
+        echo "Copy OpenAPI specs files"
+        cp openapi*.yaml ./${{ inputs.package}}
 
-  - name: Copy OpenAPI specs files
-    shell: bash
-    run: |
-      echo "Copy OpenAPI specs files"
-      cp openapi*.yaml ./${{ inputs.package}}
+    - name: Cargo publish dry run
+      shell: bash
+      run: |
+        echo "Cargo publish '${{ inputs.package }}' package (dry run)"
+        cargo publish -p ${{ inputs.package }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }} 
 
-  - name: Cargo publish dry run
-    shell: bash
-    run: |
-      echo "Cargo publish '${{ inputs.package }}' package (dry run)"
-      cargo publish -p ${{ inputs.package }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }} 
+    - name: Cargo package list
+      shell: bash
+      run: |
+        echo "Cargo package list '${{ inputs.package }}' package"
+        cargo package -p ${{ inputs.package }} --list --allow-dirty
 
-  - name: Cargo package list
-    shell: bash
-    run: |
-      echo "Cargo package list '${{ inputs.package }}' package"
-      cargo package -p ${{ inputs.package }} --list --allow-dirty
-
-  - name: Cargo publish
-    if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
-    shell: bash
-    run: |
-      echo "Cargo publish '${{ inputs.package }}' package"
-      cargo publish -p ${{ inputs.package }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}
+    - name: Cargo publish
+      if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
+      shell: bash
+      run: |
+        echo "Cargo publish '${{ inputs.package }}' package"
+        cargo publish -p ${{ inputs.package }} --token ${{ inputs.api_token }} --no-verify --allow-dirty ${{ inputs.publish_args }}

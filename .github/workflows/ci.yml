@@ -431,7 +431,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-stm, mithril-common, mithril-client ]
+        package: [ mithril-stm, mithril-build-script, mithril-common, mithril-client ]
 
     runs-on: ubuntu-22.04
     needs:

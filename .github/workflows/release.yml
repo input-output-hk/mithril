@@ -172,10 +172,12 @@ jobs:
       fail-fast: true
       max-parallel: 1
       matrix:
-        package: [ mithril-stm, mithril-common, mithril-client ]
+        package: [ mithril-stm, mithril-build-script, mithril-common, mithril-client ]
         include:
           - package: mithril-stm
             api_token_secret_name: CRATES_IO_API_TOKEN
+          - package: mithril-build-script
+            api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_BUILD_SCRIPT
           - package: mithril-common
             api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_COMMON
           - package: mithril-client
