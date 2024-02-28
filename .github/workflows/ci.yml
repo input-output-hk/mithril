@@ -207,9 +207,8 @@ jobs:
         uses: actions/upload-artifact@v4
         if: success() || failure()
         with:
-          name: test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            ./test-results-*.xml
+          name: test-results-${{ runner.os }}-${{ runner.arch }}
+          path: ./test-results-*.xml
 
   check:
     runs-on: ubuntu-22.04
@@ -335,29 +334,18 @@ jobs:
             !./artifacts/devnet/cardano-node
           if-no-files-found: error
 
-  publish-tests-results:
+  send-tests-results:
     if: success() || failure()
     runs-on: ubuntu-22.04
     needs:
       - test
     steps:
-      - name: Download Tests Results (${{ runner.os }}-${{ runner.arch }})
+      - name: Download Tests Results
         if: success() || failure()
         uses: actions/download-artifact@v4
         with:
-          name: test-results-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Download Tests Results (macOS-X64)
-        if: success() || failure()
-        uses: actions/download-artifact@v4
-        with:
-          name: test-results-macOS-X64
-
-      - name: Download Tests Results (Windows-X64)
-        if: success() || failure()
-        uses: actions/download-artifact@v4
-        with:
-          name: test-results-Windows-X64
+          pattern: test-results-*
+          merge-multiple: true
 
       - name: Publish Unit Test Results
         if: success() || failure()
