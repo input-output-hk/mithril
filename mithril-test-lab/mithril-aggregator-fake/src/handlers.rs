@@ -15,6 +15,7 @@ use tower_http::{
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
+use tracing::debug;
 use tracing::Level;
 
 use crate::shared_state::SharedState;
@@ -71,7 +72,10 @@ pub async fn snapshot(
         .get_snapshot(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("snapshot digest={key}")))
+        .ok_or_else(|| {
+            debug!("snapshot digest={key} NOT FOUND.");
+            AppError::NotFound("".to_string())
+        })
 }
 
 /// HTTP: return the list of snapshots.
@@ -101,7 +105,10 @@ pub async fn msd(
         .get_msd(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("mithril stake distribution epoch={key}")))
+        .ok_or_else(|| {
+            debug!("mithril stake distribution epoch={key} NOT FOUND.");
+            AppError::NotFound("".to_string())
+        })
 }
 
 /// HTTP: return the list of certificates
@@ -123,7 +130,10 @@ pub async fn certificate(
         .get_certificate(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("certificate hash={key}")))
+        .ok_or_else(|| {
+            debug!("certificate hash={key} NOT FOUND.");
+            AppError::NotFound("".to_string())
+        })
 }
 
 /// HTTP: return the list of certificates

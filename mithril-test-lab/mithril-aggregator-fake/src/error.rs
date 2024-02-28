@@ -3,7 +3,7 @@ use axum::{
     http::{Response, StatusCode},
     response::IntoResponse,
 };
-use tracing::{debug, error};
+use tracing::error;
 
 /// error that wraps `anyhow::Error`.
 #[derive(Debug)]
@@ -11,7 +11,7 @@ pub enum AppError {
     /// Catching anyhow errors
     Internal(anyhow::Error),
 
-    /// Resource not found (specify what)
+    /// Resource not found (specify body)
     NotFound(String),
 }
 
@@ -24,15 +24,7 @@ impl IntoResponse for AppError {
 
                 (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {:?}", e)).into_response()
             }
-            Self::NotFound(resource) => {
-                debug!("{resource} NOT FOUND.");
-
-                (
-                    StatusCode::NOT_FOUND,
-                    format!("resource '{resource}' not found"),
-                )
-                    .into_response()
-            }
+            Self::NotFound(response_body) => (StatusCode::NOT_FOUND, response_body).into_response(),
         }
     }
 }
