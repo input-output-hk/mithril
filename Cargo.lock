@@ -4160,7 +4160,7 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 [[package]]
 name = "pallas-addresses"
 version = "0.23.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#b6d6e56f4f0099fca0368e24445d4599abbb6868"
 dependencies = [
  "base58",
  "bech32",
@@ -4175,7 +4175,7 @@ dependencies = [
 [[package]]
 name = "pallas-codec"
 version = "0.23.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#b6d6e56f4f0099fca0368e24445d4599abbb6868"
 dependencies = [
  "hex",
  "minicbor",
@@ -4186,7 +4186,7 @@ dependencies = [
 [[package]]
 name = "pallas-crypto"
 version = "0.23.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#b6d6e56f4f0099fca0368e24445d4599abbb6868"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4199,7 +4199,7 @@ dependencies = [
 [[package]]
 name = "pallas-network"
 version = "0.23.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#b6d6e56f4f0099fca0368e24445d4599abbb6868"
 dependencies = [
  "byteorder",
  "hex",
@@ -4216,7 +4216,7 @@ dependencies = [
 [[package]]
 name = "pallas-primitives"
 version = "0.23.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#b6d6e56f4f0099fca0368e24445d4599abbb6868"
 dependencies = [
  "base58",
  "bech32",
@@ -4231,7 +4231,7 @@ dependencies = [
 [[package]]
 name = "pallas-traverse"
 version = "0.23.0"
-source = "git+https://github.com/falcucci/pallas.git?branch=feat/genesis-config#e9e03cfdbd6fab8554366fcc2f033769651f28dd"
+source = "git+https://github.com/txpipe/pallas.git?branch=main#b6d6e56f4f0099fca0368e24445d4599abbb6868"
 dependencies = [
  "hex",
  "pallas-addresses",
