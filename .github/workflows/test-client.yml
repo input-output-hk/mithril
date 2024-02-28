@@ -108,17 +108,17 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --version
 
-      - name: Snapshot / list and get last digest
+      - name: Cardano-db / list and get last digest
         shell: bash
         working-directory: ./bin
         run: |
           ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot list
-          echo "SNAPSHOT_DIGEST=$(./mithril-client snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client cardano-db list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
-      - name: Snapshot / download & restore latest
+      - name: Cardano-db / download & restore latest
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot download $SNAPSHOT_DIGEST
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-db download $CDB_SNAPSHOT_DIGEST
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
@@ -190,15 +190,15 @@ jobs:
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --version
 
-      - name: Snapshot / list and get last digest
+      - name: Cardano-db / list and get last digest
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} snapshot list
-          echo "SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} cardano-db list
+          echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} cardano-db list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
-      - name: Snapshot / download & restore latest
+      - name: Cardano-db / download & restore latest
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} snapshot download $SNAPSHOT_DIGEST --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
