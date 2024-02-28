@@ -172,6 +172,7 @@ impl Eq for SqlMigration {}
 #[cfg(test)]
 mod tests {
     use anyhow::Context;
+    use mithril_common::test_utils::TempDir;
     use mithril_common::StdResult;
     use sqlite::Connection;
     use std::path::PathBuf;
@@ -188,14 +189,9 @@ mod tests {
         assert_eq!(db_version, version.version);
     }
 
-    fn create_sqlite_file(name: &str) -> StdResult<(PathBuf, SqliteConnection)> {
-        let dirpath = std::env::temp_dir().join("mithril_test_database");
-        std::fs::create_dir_all(&dirpath).unwrap();
-        let filepath = dirpath.join(name);
-
-        if filepath.exists() {
-            std::fs::remove_file(filepath.as_path()).unwrap();
-        }
+    fn create_sqlite_file(test_name: &str) -> StdResult<(PathBuf, SqliteConnection)> {
+        let dirpath = TempDir::create("mithril_test_database", test_name);
+        let filepath = dirpath.join("db.sqlite3");
 
         let connection = Connection::open_thread_safe(&filepath)
             .with_context(|| "connection to sqlite file failure")?;
@@ -279,8 +275,7 @@ mod tests {
 
     #[tokio::test]
     async fn starting_with_migration() {
-        let (_filepath, connection) =
-            create_sqlite_file("starting_with_migration.sqlite3").unwrap();
+        let (_filepath, connection) = create_sqlite_file("starting_with_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -303,7 +298,7 @@ mod tests {
     /// * previous migrations are ok and the database version is updated
     /// * further migrations are not played.
     async fn test_failing_migration() {
-        let (_filepath, connection) = create_sqlite_file("test_failing_migration.sqlite3").unwrap();
+        let (_filepath, connection) = create_sqlite_file("test_failing_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -334,7 +329,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_fail_downgrading() {
-        let (_filepath, connection) = create_sqlite_file("test_fail_downgrading.sqlite3").unwrap();
+        let (_filepath, connection) = create_sqlite_file("test_fail_downgrading").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,

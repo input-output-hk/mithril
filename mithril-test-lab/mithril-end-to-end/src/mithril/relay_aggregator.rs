@@ -14,14 +14,14 @@ pub struct RelayAggregator {
 impl RelayAggregator {
     pub fn new(
         listen_port: u64,
-        aggregator_endpoint: String,
+        aggregator_endpoint: &str,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> StdResult<Self> {
         let listen_port_str = format!("{listen_port}");
         let env = HashMap::from([
             ("LISTEN_PORT", listen_port_str.as_str()),
-            ("AGGREGATOR_ENDPOINT", aggregator_endpoint.as_str()),
+            ("AGGREGATOR_ENDPOINT", aggregator_endpoint),
         ]);
         let args = vec!["-vvv", "aggregator"];
 

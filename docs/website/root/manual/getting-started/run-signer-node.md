@@ -61,6 +61,22 @@ The **Mithril signer** uses your Cardano `operational certificate` and `KES secr
 * Verification of your `PoolId` ownership and the associated stake used by the Mithril protocol
 * Verification of your Mithril `signer secret key` ownership, which allows you to participate in the multi-signature process for certificate production on the Mithril network
 
+## Mithril signer footprint
+
+The **Mithril signer** has been designed to have the lowest footprint possible in terms of CPU, memory, disk i/o and storage.
+Thus, there are no extra requirements on the recommended hardware than for running a Cardano stake pool, as detailed in this [guide](https://developers.cardano.org/docs/operate-a-stake-pool/hardware-requirements).
+
+:::info
+
+Here are some figures about the Mithril signer node running on the `mainnet` Cardano network:
+- It is **idle** most of the time at `<50MB` memory usage and `<1%` CPU.
+- It sends to the aggregator a **new signature** roughly every `4 hours` and a **new registration** every `5 days` (`<1MB` per day).
+- When signing for the **first time**, the digest cache needs to be built with a spike of `50-70%` CPU on one core for `~1 hour`.
+- Also, the full Cardano database will be **read from disk once** during this cache building process.
+- Only **stake distributions**, **Mithril keys** and some **digest cache** are stored on the disk (`<100MB`).
+
+:::
+
 ## Pre-requisites
 
 :::info

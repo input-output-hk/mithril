@@ -383,6 +383,7 @@ mod tests {
     use tokio::net::UnixListener;
 
     use super::*;
+    use crate::test_utils::TempDir;
     use crate::{crypto_helper::ColdKeyGenerator, CardanoNetwork};
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
@@ -530,21 +531,7 @@ mod tests {
 
     /// Creates a new work directory in the system's temporary folder.
     fn create_temp_dir(folder_name: &str) -> PathBuf {
-        #[cfg(not(target_os = "macos"))]
-        let temp_dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("pallas_chain_observer_test")
-            .join(folder_name);
-
-        // macOS-domain addresses are variable-length filesystem pathnames of at most 104 characters.
-        #[cfg(target_os = "macos")]
-        let temp_dir: PathBuf = std::env::temp_dir().join(folder_name);
-
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).expect("Previous work dir removal failed");
-        }
-        fs::create_dir_all(&temp_dir).expect("Work dir creation failed");
-        temp_dir
+        TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
     }
 
     /// Sets up a mock server.

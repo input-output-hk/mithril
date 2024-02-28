@@ -24,7 +24,8 @@ NUM_SPO_NODES=$NUM_POOL_NODES
 INIT_SUPPLY=12000000
 TOTAL_SUPPLY=2000000000000
 DELEGATED_SUPPLY=240000000002
-SECURITY_PARAM=2
+ACTIVE_SLOTS_COEFF=1.0
+SECURITY_PARAM=10
 START_GENESIS_DELAY=5
 
 START_TIME="$(${DATE} -d "now + ${START_GENESIS_DELAY} seconds" +%s)"
@@ -113,7 +114,7 @@ $CARDANO_CLI genesis create-staked --genesis-dir "${ARTIFACTS_DIR_TEMP}" \
   --gen-utxo-keys ${NUM_SPO_NODES}
 
 ## Customize the Shelley genesis file
-cat ${ARTIFACTS_DIR_TEMP}/genesis.json | jq --argjson slot_length ${SLOT_LENGTH} --argjson epoch_length ${EPOCH_LENGTH} --argjson security_param ${SECURITY_PARAM} '. + {slotLength: $slot_length, activeSlotsCoeff: 0.50, securityParam: $security_param, epochLength: $epoch_length, maxLovelaceSupply: 10000000000000, updateQuorum: 2}' > ${ARTIFACTS_DIR_TEMP}/genesis.json.tmp
+cat ${ARTIFACTS_DIR_TEMP}/genesis.json | jq --argjson slot_length ${SLOT_LENGTH} --argjson epoch_length ${EPOCH_LENGTH} --argjson active_slots_coeff ${ACTIVE_SLOTS_COEFF} --argjson security_param ${SECURITY_PARAM} '. + {slotLength: $slot_length, activeSlotsCoeff: $active_slots_coeff, securityParam: $security_param, epochLength: $epoch_length, maxLovelaceSupply: 10000000000000, updateQuorum: 2}' > ${ARTIFACTS_DIR_TEMP}/genesis.json.tmp
 cat ${ARTIFACTS_DIR_TEMP}/genesis.json.tmp | jq --raw-output '.protocolParams.protocolVersion.major = 7 | .protocolParams.minFeeA = 44 | .protocolParams.minFeeB = 155381 | .protocolParams.minUTxOValue = 1000000 | .protocolParams.decentralisationParam = 0.7 | .protocolParams.rho = 0.1 | .protocolParams.tau = 0.1'  > ${ARTIFACTS_DIR_TEMP}/genesis.json
 rm ${ARTIFACTS_DIR_TEMP}/genesis.json.tmp
 

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.7.0"
+version = "0.7.1"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -48,6 +48,9 @@ slog-scope = "4.4.0"
 slog-term = "2.9.0"
 thiserror = "1.0.56"
 tokio = { version = "1.35.1", features = ["full"] }
+
+[dev-dependencies]
+mithril-common = { path = "../mithril-common", features = ["test_tools"] }
 
 [features]
 portable = ["mithril-client/portable"]

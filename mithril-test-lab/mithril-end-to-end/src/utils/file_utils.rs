@@ -25,23 +25,13 @@ pub async fn tail(file_path: &Path, number_of_line: u64) -> StdResult<String> {
 #[cfg(test)]
 mod tests {
     use crate::utils::file_utils;
-    use std::fs;
+    use mithril_common::test_utils::TempDir;
     use std::fs::File;
     use std::io::prelude::*;
     use std::path::{Path, PathBuf};
 
     fn get_temp_dir(subfolder_name: &str) -> PathBuf {
-        let temp_dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join(subfolder_name);
-        if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir)
-                .unwrap_or_else(|_| panic!("Could not remove dir {temp_dir:?}"));
-        }
-        fs::create_dir_all(&temp_dir)
-            .unwrap_or_else(|_| panic!("Could not create dir {temp_dir:?}"));
-
-        temp_dir
+        TempDir::create("e2e-file-utils", subfolder_name)
     }
 
     fn write_file(path: &Path, file_content: &str) {

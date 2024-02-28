@@ -15,9 +15,11 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 :::tip
 
-* For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+* For more information about the **Mithril network**, please see
+  the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril client** node, please see [this overview](../../../mithril/mithril-network/client.md).
+* For more information about the **Mithril client** node, please
+  see [this overview](../../../mithril/mithril-network/client.md).
 
 * Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
 
@@ -29,7 +31,6 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 :::
 
-
 ## Resources
 
 | Node | Source repository | Rust documentation | Docker packages |
@@ -38,7 +39,8 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
+  toolchain.
 
 * Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
@@ -64,7 +66,7 @@ Switch to the desired branch/tag:
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
-Change the directory: 
+Change the directory:
 
 ```bash
 cd mithril/mithril-client-cli
@@ -119,14 +121,15 @@ Display the help menu:
 You should see:
 
 ```bash
-This program shows, downloads, and verifies certified blockchain artifacts.
+This program shows, downloads and verifies certified blockchain artifacts.
 
-Usage: mithril-client-cli [OPTIONS] <COMMAND>
+Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  snapshot                    Snapshot commands
-  mithril-stake-distribution  Mithril stake distribution management (alias: msd)
-  help                        Print this message or the help for the given subcommand(s)
+  snapshot                    Snapshot management
+  mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
+  help                        Print this message or the help of the given subcommand(s)
 
 Options:
       --run-mode <RUN_MODE>
@@ -136,16 +139,17 @@ Options:
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL
+          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
+      --unstable
+          Enable unstable commands (such as Cardano Transactions)
   -h, --help
           Print help
   -V, --version
           Print version
-
 
 ```
 
@@ -196,7 +200,8 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 
 ### Registry image
 
-A list of available images on the registry can be found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
+A list of available images on the registry can be
+found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
 
 To prepare the environment variables, retrieve the values from the above **Mithril networks** table.
 
@@ -246,6 +251,15 @@ mithril_client mithril-stake-distribution list
 
 # 6- Download and verify the given Mithril stake distribution
 mithril_client mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_ARTIFACT_HASH
+
+# 7- List Cardano transaction commitments
+mithril_client --unstable cardano-transaction commitment list
+
+# 8- Show detailed information about a Cardano transaction commitment
+mithril_client --unstable cardano-transaction commitment show $CARDANO_TRANSACTION_COMMITMENT_HASH
+
+# 9- Certify that given list of transactions hashes are included in the Cardano transactions set
+mithril_client --unstable cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
 ```
 
 ### Local image
@@ -283,11 +297,21 @@ Here are the subcommands available:
 | **help** | Prints this message or the help for the given subcommand(s)|
 | **list** | Lists available Mithril stake distributions|
 
+### Cardano transactions
+
+| Subcommand | Performed action |
+|------------|------------------|
+| **certify** | Certifies that given list of transactions hashes are included in the Cardano transactions set|
+| **commitment list** | Lists available Cardano transactions commitments|
+| **commitment show** | Shows information about a Cardano transactions commitment|
+| **help** | Prints this message or the help for the given subcommand(s)|
+
 ## Configuration parameters
 
 The configuration parameters can be set in either of the following ways:
 
-1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is located in `./conf/testnet.json`.
+1. In a configuration file, depending on the `--run-mode` parameter. If the runtime mode is `testnet`, the file is
+   located in `./conf/testnet.json`.
 
 2. The value can be overridden by an environment variable with the parameter name in uppercase.
 
@@ -296,6 +320,7 @@ Here is a list of the available parameters:
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `unstable` | `--unstable` | - | - | Enable unstable commands | - | - | - |
 | `run_mode` | `--run-mode` | - | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
 | `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
@@ -336,3 +361,23 @@ Here is a list of the available parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
+
+`cardano-transaction commitment show` command:
+
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `hash` | `--hash` | - | `HASH` | Cardano transaction commitment hash or `latest` for the latest Cardano transaction commitment | - | - | :heavy_check_mark: |
+| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+
+`cardano-transaction commitment list` command:
+
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+
+`cardano-transaction certify` command:
+
+| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `transactions_hashes` | `--transactions_hashes` | - | `TRANSACTIONS_HASHES` | Cardano transactions hashes separated by commas | - | - | :heavy_check_mark: |
+| `json` | `--json` | - | - | Enable JSON output for progress logs | - | - | - |

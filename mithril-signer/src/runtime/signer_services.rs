@@ -348,26 +348,16 @@ mod tests {
 
     use super::*;
 
+    use mithril_common::test_utils::TempDir;
     use std::path::PathBuf;
 
-    fn get_test_dir() -> PathBuf {
-        let test_dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("signer_service");
-
-        if test_dir.exists() {
-            fs::remove_dir_all(&test_dir)
-                .unwrap_or_else(|_| panic!("Could not remove dir {test_dir:?}"));
-        }
-        fs::create_dir_all(&test_dir)
-            .unwrap_or_else(|_| panic!("Could not create dir {test_dir:?}"));
-
-        test_dir
+    fn get_test_dir(test_name: &str) -> PathBuf {
+        TempDir::create("signer_service", test_name)
     }
 
     #[tokio::test]
     async fn test_auto_create_stores_directory() {
-        let stores_dir = get_test_dir().join("stores");
+        let stores_dir = get_test_dir("test_auto_create_stores_directory").join("stores");
         let config = Configuration {
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),

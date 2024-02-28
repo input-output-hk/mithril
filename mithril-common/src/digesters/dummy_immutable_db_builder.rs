@@ -1,3 +1,4 @@
+use crate::test_utils::TempDir;
 use crate::{digesters::ImmutableFile, entities::ImmutableFileNumber};
 use std::{
     fs::File,
@@ -115,19 +116,7 @@ impl DummyImmutablesDbBuilder {
     }
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
-        let parent_dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join(subdir_name)
-            .join("immutable");
-
-        if parent_dir.exists() {
-            std::fs::remove_dir_all(&parent_dir)
-                .unwrap_or_else(|e| panic!("Could not remove dir {parent_dir:?}: {e}"));
-        }
-        std::fs::create_dir_all(&parent_dir)
-            .unwrap_or_else(|e| panic!("Could not create dir {parent_dir:?}: {e}"));
-
-        parent_dir
+        TempDir::create(subdir_name, "immutable")
     }
 }
 

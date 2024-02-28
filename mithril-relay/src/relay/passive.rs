@@ -1,7 +1,7 @@
 use crate::p2p::{Peer, PeerBehaviourEvent, PeerEvent};
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::{messages::RegisterSignatureMessage, StdResult};
-use slog_scope::debug;
+use slog_scope::{debug, info};
 
 /// A passive relay
 pub struct PassiveRelay {
@@ -43,7 +43,14 @@ impl PassiveRelay {
 
     /// Tick the passive relay
     pub async fn tick(&mut self) -> StdResult<()> {
-        self.tick_peer().await?;
+        if let Some(peer_event) = self.peer.tick_swarm().await? {
+            if let Ok(Some(signature_message_received)) = self
+                .peer
+                .convert_peer_event_to_signature_message(peer_event)
+            {
+                info!("Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+            }
+        }
 
         Ok(())
     }

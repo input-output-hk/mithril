@@ -20,11 +20,12 @@ pub async fn bootstrap_aggregator(
 
     let mut aggregator = Aggregator::new(&AggregatorConfig {
         server_port: args.server_port as u64,
-        bft_node: &args.bft_node,
+        pool_node: &args.pool_node,
         cardano_cli_path: &args.cardano_cli_path,
         work_dir: &args.work_dir,
         bin_dir: &args.bin_dir,
         cardano_node_version: "1.2.3",
+        mithril_run_interval: 1000,
         mithril_era: &args.mithril_era,
         mithril_era_marker_address: "",
         mithril_era_reader_adapter: "dummy",

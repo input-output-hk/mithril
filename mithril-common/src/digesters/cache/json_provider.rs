@@ -113,22 +113,11 @@ mod tests {
         ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
     };
     use crate::digesters::ImmutableFile;
-    use std::{collections::BTreeMap, fs, path::PathBuf};
+    use crate::test_utils::TempDir;
+    use std::{collections::BTreeMap, path::PathBuf};
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
-        let parent_dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("json_digester_cache_provider")
-            .join(subdir_name);
-
-        if parent_dir.exists() {
-            fs::remove_dir_all(&parent_dir)
-                .unwrap_or_else(|e| panic!("Could not remove dir {parent_dir:?}: {e}"));
-        }
-        fs::create_dir_all(&parent_dir)
-            .unwrap_or_else(|e| panic!("Could not create dir {parent_dir:?}: {e}"));
-
-        parent_dir
+        TempDir::create("json_digester_cache_provider", subdir_name)
     }
 
     #[tokio::test]

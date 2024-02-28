@@ -1,7 +1,6 @@
 use anyhow::Context;
 use semver::Version;
 use slog::Logger;
-use slog_scope::debug;
 use sqlite::Connection;
 use std::sync::Arc;
 use tokio::{
@@ -536,10 +535,34 @@ impl DependenciesBuilder {
     async fn build_protocol_parameters_store(
         &mut self,
     ) -> Result<Arc<dyn ProtocolParametersStorer>> {
-        Ok(Arc::new(EpochSettingStore::new(
+        let protocol_parameters_store = EpochSettingStore::new(
             self.get_sqlite_connection().await?,
             self.configuration.safe_epoch_retention_limit(),
-        )))
+        );
+        let current_epoch = self
+            .get_chain_observer()
+            .await?
+            .get_current_epoch()
+            .await
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "cannot create aggregator runner: failed to retrieve current epoch."
+                    .to_string(),
+                error: Some(e.into()),
+            })?
+            .ok_or(DependenciesBuilderError::Initialization {
+                message: "cannot build aggregator runner: no epoch returned.".to_string(),
+                error: None,
+            })?;
+
+        protocol_parameters_store
+            .handle_discrepancies_at_startup(current_epoch, &self.configuration.protocol_parameters)
+            .await
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "can not create aggregator runner".to_string(),
+                error: Some(e),
+            })?;
+
+        Ok(Arc::new(protocol_parameters_store))
     }
 
     /// Get a configured [ProtocolParametersStorer].
@@ -1214,57 +1237,6 @@ impl DependenciesBuilder {
 
     /// Create the AggregatorRunner
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
-        // initialize ProtocolParameters store if needed
-        {
-            let current_epoch = self
-                .get_chain_observer()
-                .await?
-                .get_current_epoch()
-                .await
-                .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: "cannot create aggregator runner: failed to retrieve current epoch."
-                        .to_string(),
-                    error: Some(e.into()),
-                })?
-                .ok_or(DependenciesBuilderError::Initialization {
-                    message: "cannot build aggregator runner: no epoch returned.".to_string(),
-                    error: None,
-                })?;
-            let (work_epoch, epoch_to_sign, next_epoch_to_sign) = match current_epoch {
-                Epoch(0) => (Epoch(0), Epoch(1), Epoch(2)),
-                epoch => (
-                    epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                    epoch.offset_to_next_signer_retrieval_epoch(),
-                    epoch.offset_to_next_signer_retrieval_epoch().next(),
-                ),
-            };
-            let protocol_parameters_store = self.get_protocol_parameters_store().await?;
-
-            if protocol_parameters_store
-                .get_protocol_parameters(work_epoch)
-                .await
-                .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: "can not create aggregator runner".to_string(),
-                    error: Some(e),
-                })?
-                .is_none()
-            {
-                debug!("First launch, will use the configured protocol parameters for the current and next epoch certificate");
-
-                for epoch in [work_epoch, epoch_to_sign, next_epoch_to_sign] {
-                    protocol_parameters_store
-                        .save_protocol_parameters(
-                            epoch,
-                            self.configuration.protocol_parameters.clone(),
-                        )
-                        .await
-                        .map_err(|e| DependenciesBuilderError::Initialization {
-                            message: "can not create aggregator runner".to_string(),
-                            error: Some(e),
-                        })?;
-                }
-            }
-        }
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         let config = AggregatorConfig::new(

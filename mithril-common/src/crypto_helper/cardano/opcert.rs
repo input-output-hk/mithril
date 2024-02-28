@@ -179,22 +179,20 @@ impl<'de> Deserialize<'de> for OpCert {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::crypto_helper::cardano::ColdKeyGenerator;
+    use crate::test_utils::TempDir;
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
-    use std::{fs, path::PathBuf};
+    use std::path::PathBuf;
 
-    fn setup_temp_directory() -> PathBuf {
-        let temp_dir = std::env::temp_dir().join("mithril_cardano_opcert");
-        fs::create_dir_all(&temp_dir).expect("temp dir creation should not fail");
-        temp_dir
+    fn setup_temp_directory(test_name: &str) -> PathBuf {
+        TempDir::create("mithril_cardano_opcert", test_name)
     }
 
     #[test]
     fn test_vector_opcert() {
-        let temp_dir = setup_temp_directory();
+        let temp_dir = setup_temp_directory("test_vector_opcert");
         let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
         let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];
         let mut dummy_seed = [0u8; 32];

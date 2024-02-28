@@ -551,7 +551,8 @@ jobs:
           files: package/*
 
       - name: Update unstable release body with release notes addon
-        uses: tubone24/update_release@v1
+        # specific version since this action does not support giving only the major number
+        uses: tubone24/update_release@v1.3.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: unstable

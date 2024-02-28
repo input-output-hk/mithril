@@ -206,26 +206,15 @@ mod tests {
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{ProtocolClerk, ProtocolGenesisSigner},
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::{fake_data, MithrilFixtureBuilder, TempDir},
     };
     use sqlite::Connection;
-    use std::{fs, path::PathBuf};
+    use std::path::PathBuf;
 
     use super::*;
 
     fn get_temp_dir(dir_name: &str) -> PathBuf {
-        let dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("genesis")
-            .join(dir_name);
-
-        if dir.exists() {
-            let _ = fs::remove_dir_all(&dir);
-        }
-
-        let _ = fs::create_dir_all(&dir);
-
-        dir
+        TempDir::create("genesis", dir_name)
     }
 
     fn create_fake_genesis_avk() -> ProtocolAggregateVerificationKey {

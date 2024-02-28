@@ -22,6 +22,12 @@ impl<'a> Spec<'a> {
             .await?
             .unwrap_or_default();
 
+        // Transfer some funds on the devnet to have some Cardano transactions to sign.
+        // This step needs to be executed early in the process so that the transactions are available
+        // for signing in the penultimate immutable chunk before the end of the test.
+        // As we get closer to the tip of the chain when signing, we'll be able to relax this constraint.
+        assertions::transfer_funds(self.infrastructure.devnet()).await?;
+
         // Wait 4 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
         let mut target_epoch = start_epoch + 4;
         assertions::wait_for_target_epoch(
@@ -55,9 +61,6 @@ impl<'a> Spec<'a> {
         )
         .await?;
         assertions::update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
-
-        // Transfer some funds on the devnet to have some Cardano transactions to sign
-        assertions::transfer_funds(self.infrastructure.devnet()).await?;
 
         // Wait 6 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
         target_epoch += 6;

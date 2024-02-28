@@ -3,9 +3,11 @@ mod protocol_parameters_store;
 mod verification_key_store;
 
 pub use pending_certificate_store::CertificatePendingStore;
-pub use protocol_parameters_store::{ProtocolParametersStore, ProtocolParametersStorer};
+pub use protocol_parameters_store::ProtocolParametersStorer;
 pub use verification_key_store::{VerificationKeyStore, VerificationKeyStorer};
 
+#[cfg(test)]
+pub use protocol_parameters_store::FakeProtocolParametersStorer;
 #[cfg(test)]
 pub use verification_key_store::test_suite as verification_key_store_test_suite;
 #[cfg(test)]

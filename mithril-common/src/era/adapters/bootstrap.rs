@@ -14,7 +14,7 @@ impl EraReaderAdapter for BootstrapAdapter {
     async fn read(&self) -> StdResult<Vec<EraMarker>> {
         Ok(vec![EraMarker::new(
             &SupportedEra::eras().first().unwrap().to_string(),
-            Some(Epoch(1)),
+            Some(Epoch(0)),
         )])
     }
 }
@@ -32,7 +32,7 @@ mod tests {
         assert_eq!(
             vec![EraMarker::new(
                 &SupportedEra::dummy().to_string(),
-                Some(Epoch(1))
+                Some(Epoch(0))
             )],
             adapter
                 .read()

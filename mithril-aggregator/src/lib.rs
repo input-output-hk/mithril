@@ -55,8 +55,7 @@ pub use snapshotter::{
     SnapshotterCompressionAlgorithm,
 };
 pub use store::{
-    CertificatePendingStore, ProtocolParametersStore, ProtocolParametersStorer,
-    VerificationKeyStore, VerificationKeyStorer,
+    CertificatePendingStore, ProtocolParametersStorer, VerificationKeyStore, VerificationKeyStorer,
 };
 pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,

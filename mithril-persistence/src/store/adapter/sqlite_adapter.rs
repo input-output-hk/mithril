@@ -293,47 +293,21 @@ impl<V> Iterator for SQLiteResultIterator<V> {
 
 #[cfg(test)]
 mod tests {
-
+    use mithril_common::test_utils::TempDir;
     use sqlite::Value;
-    use std::{
-        fs::{create_dir_all, remove_file},
-        path::PathBuf,
-    };
+    use std::path::{Path, PathBuf};
 
     use super::*;
 
     const TABLE_NAME: &str = "key_value_store";
 
     fn get_file_path(test_name: &str) -> PathBuf {
-        let dirpath = std::env::temp_dir()
-            .join("mithril_test")
-            .join("sqlite_adapter");
-
-        if !dirpath.exists() {
-            create_dir_all(&dirpath).unwrap_or_else(|_| {
-                panic!(
-                    "Expecting to be able to create the test directory '{}'.",
-                    dirpath.display()
-                )
-            });
-        }
-
-        dirpath.join(format!("{test_name}.sqlite3"))
+        TempDir::create("sqlite_adapter", test_name).join("db.sqlite3")
     }
 
-    fn init_db(test_name: &str, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
-        let filepath = get_file_path(test_name);
-
-        if filepath.exists() {
-            remove_file(&filepath).unwrap_or_else(|_| {
-                panic!(
-                    "Expecting to be able to remove the database file '{}'.",
-                    filepath.display()
-                )
-            });
-        }
+    fn init_db(db_path: &Path, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
         let tablename = tablename.unwrap_or(TABLE_NAME);
-        let connection = Connection::open_thread_safe(filepath).unwrap();
+        let connection = Connection::open_thread_safe(db_path).unwrap();
 
         SQLiteAdapter::new(tablename, Arc::new(connection)).unwrap()
     }
@@ -341,9 +315,9 @@ mod tests {
     #[tokio::test]
     async fn test_store_record() {
         let test_name = "test_store_record";
-        let mut adapter = init_db(test_name, None);
-        adapter.store_record(&1, &"one".to_string()).await.unwrap();
         let filepath = get_file_path(test_name);
+        let mut adapter = init_db(&filepath, None);
+        adapter.store_record(&1, &"one".to_string()).await.unwrap();
         let connection = Connection::open(&filepath).unwrap_or_else(|_| {
             panic!(
                 "Expecting to be able to open SQLite file '{}'.",
@@ -379,7 +353,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_record() {
         let test_name = "test_get_record";
-        let mut adapter = init_db(test_name, None);
+        let mut adapter = init_db(&get_file_path(test_name), None);
         adapter.store_record(&1, &"one".to_string()).await.unwrap();
         adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
@@ -404,7 +378,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_iterator() {
         let test_name = "test_get_iterator";
-        let mut adapter = init_db(test_name, None);
+        let mut adapter = init_db(&get_file_path(test_name), None);
         adapter.store_record(&1, &"one".to_string()).await.unwrap();
         adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
@@ -426,7 +400,7 @@ mod tests {
     #[tokio::test]
     async fn test_record_exists() {
         let test_name = "test_record_exists";
-        let mut adapter = init_db(test_name, None);
+        let mut adapter = init_db(&get_file_path(test_name), None);
         adapter.store_record(&1, &"one".to_string()).await.unwrap();
         adapter.store_record(&2, &"two".to_string()).await.unwrap();
 
@@ -438,7 +412,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove() {
         let test_name = "test_remove";
-        let mut adapter = init_db(test_name, None);
+        let mut adapter = init_db(&get_file_path(test_name), None);
         adapter.store_record(&1, &"one".to_string()).await.unwrap();
         adapter.store_record(&2, &"two".to_string()).await.unwrap();
         let record = adapter
@@ -457,7 +431,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_last_n_records() {
         let test_name = "test_get_last_n_records";
-        let mut adapter = init_db(test_name, None);
+        let mut adapter = init_db(&get_file_path(test_name), None);
         adapter.store_record(&1, &"one".to_string()).await.unwrap();
         adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
@@ -487,7 +461,7 @@ mod tests {
     #[tokio::test]
     async fn check_get_last_n_modified_records() {
         let test_name = "check_get_last_n_modified_records";
-        let mut adapter = init_db(test_name, None);
+        let mut adapter = init_db(&get_file_path(test_name), None);
         adapter.store_record(&1, &"one".to_string()).await.unwrap();
         adapter.store_record(&2, &"two".to_string()).await.unwrap();
         adapter
