@@ -20,8 +20,52 @@ CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-
                     --cardano-mode \\
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
-        
+
+# Stake addresses registration certs
+for ADDR in ${USER_ADDRS}; do
+  if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
+    KEY_REGISTRATION_DEPOSIT_ANOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq -r .enactState.curPParams.keyDeposit)
+    if [ "\${KEY_REGISTRATION_DEPOSIT_ANOUNT}" != "null" ]; then
+      # Conway specific creation of registration certificate
+      ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
+      --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
+      --out-file addresses/\${ADDR}-stake.reg.cert \
+      --key-reg-deposit-amt \$KEY_REGISTRATION_DEPOSIT_ANOUNT 
+    else
+      # Legacy creation of registration certificate
+      ./cardano-cli stake-address registration-certificate \
+      --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
+      --out-file addresses/\${ADDR}-stake.reg.cert
+    fi
+  else
+    # Legacy creation of registration certificate
+    ./cardano-cli stake-address registration-certificate \
+      --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
+      --out-file addresses/\${ADDR}-stake.reg.cert
+  fi
+done
+
 EOF
+
+# User N will delegate to pool N
+for N in ${POOL_NODES_N}; do
+  cat >> delegate.sh <<EOF
+    if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
+      # Stake address delegation certs
+      ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
+          --stake-verification-key-file addresses/user${N}-stake.vkey \
+          --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
+          --out-file addresses/user${N}-stake.deleg.cert
+    else
+      # Stake address delegation certs
+      ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address delegation-certificate \
+          --stake-verification-key-file addresses/user${N}-stake.vkey \
+          --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
+          --out-file addresses/user${N}-stake.deleg.cert
+    fi
+
+EOF
+done
 
 # Prepare transactions for delegating to stake pools
 for N in ${POOL_NODES_N}; do

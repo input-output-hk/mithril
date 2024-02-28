@@ -194,18 +194,6 @@ for ADDR in ${USER_ADDRS}; do
       --stake-verification-key-file addresses/${ADDR}-stake.vkey \
       --testnet-magic ${NETWORK_MAGIC} \
       --out-file addresses/${ADDR}-stake.addr
-
-  # Stake addresses registration certs
-  ./cardano-cli stake-address registration-certificate \
-      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
-      --out-file addresses/${ADDR}-stake.reg.cert
+  
 done
 
-# User N will delegate to pool N
-for N in ${POOL_NODES_N}; do
-  # Stake address delegation certs
-  ./cardano-cli stake-address delegation-certificate \
-      --stake-verification-key-file addresses/user${N}-stake.vkey \
-      --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
-      --out-file addresses/user${N}-stake.deleg.cert
-done
