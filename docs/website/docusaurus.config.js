@@ -36,7 +36,7 @@ const config = {
           editUrl: ({ docPath }) => {
             // We want users to submit doc updates to the upstream/next version!
             // Otherwise we risk losing the update on the next release.
-            return `https://github.com/input-output-hk/mithril/edit/main/docs/root/${docPath}`;
+            return `https://github.com/input-output-hk/mithril/edit/main/docs/website/root/${docPath}`;
           },
           lastVersion: 'maintained',
           versions: {
