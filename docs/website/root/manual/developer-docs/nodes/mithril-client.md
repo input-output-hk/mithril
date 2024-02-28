@@ -126,7 +126,8 @@ This program shows, downloads and verifies certified blockchain artifacts.
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  snapshot                    Snapshot management
+  snapshot                    Deprecated, use `cardano-db` instead
+  cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
   help                        Print this message or the help of the given subcommand(s)
@@ -139,13 +140,13 @@ Options:
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=https://aggregator.testing-sanchonet.api.mithril.network/aggregator]
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
       --unstable
-          Enable unstable commands (such as Cardano Transactions)
+          Enable unstable commands (Such as Cardano Transactions)
   -h, --help
           Print help
   -V, --version
@@ -237,14 +238,14 @@ Now you can use the `mithril_client` functions:
 # 1- Help
 mithril_client help
 
-# 2- List snapshots
-mithril_client snapshot list
+# 2- List cardano db
+mithril_client cardano-db list
 
-# 3- Show detailed information about a snapshot
-mithril_client snapshot show $SNAPSHOT_DIGEST
+# 3- Show detailed information about a cardano db
+mithril_client cardano-db show $CARDANO_DB_DIGEST
 
-# 4- Download the given snapshot and verify the certificate
-mithril_client snapshot download $SNAPSHOT_DIGEST
+# 4- Download the given cardano db and verify the certificate
+mithril_client cardano-db download $CARDANO_DB_DIGEST
 
 # 5- List Mithril stake distributions
 mithril_client mithril-stake-distribution list
@@ -280,7 +281,12 @@ make docker-run
 
 Here are the subcommands available:
 
-### Snapshot
+### Cardano DB (previously: Snapshot)
+
+:::warning
+For backward compatibility a `snapshot` alias is available but is deprecated, as it will be removed in the near future please replace
+it in your commands with `cardano-db`.
+:::
 
 | Subcommand | Performed action |
 |------------|------------------|
@@ -328,25 +334,25 @@ Here is a list of the available parameters:
 | `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
 | `log_output` | `--log-output` | `-o` | - | Redirect the logs to a file | - | `./mithril-client.log` | - |
 
-`snapshot show` command:
+`cardano-db show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
+| `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`snapshot list` command:
+`cardano-db list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`snapshot download` command:
+`cardano-db download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
-| `download_dir` | `--download-dir` | - | - | Directory where the snapshot will be downloaded | . | - | - |
+| `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
+| `download_dir` | `--download-dir` | - | - | Directory where the Cardano DB will be downloaded | . | - | - |
 | `json` | `--json` | - | - | Enable JSON output for progress logs | - | - | - |
 
 `mithril-stake-distribution list` command:
