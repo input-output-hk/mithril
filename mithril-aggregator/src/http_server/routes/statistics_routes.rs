@@ -57,7 +57,10 @@ mod tests {
     use mithril_common::messages::SnapshotDownloadMessage;
     use mithril_common::test_utils::apispec::APISpec;
 
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use crate::{
         dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH, Configuration,
@@ -77,7 +80,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn post_statistics_ok() {
+    async fn post_statistics_ok() -> Result<(), String> {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut rx = builder.get_event_transmitter_receiver().await.unwrap();
@@ -94,15 +97,17 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        let result = APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &snapshot_download_message,
             &response,
+            &StatusCode::CREATED,
         );
 
         let _ = rx.try_recv().unwrap();
+        result
     }
 }

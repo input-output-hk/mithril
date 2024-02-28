@@ -103,7 +103,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use warp::http::Method;
+    use warp::http::{Method, StatusCode};
     use warp::test::request;
 
     use mithril_common::{
@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ok() {
+    async fn test_register_signatures_post_ok() -> Result<(), String> {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -153,18 +153,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::CREATED,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_400() {
+    async fn test_register_signatures_post_ko_400() -> Result<(), String> {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -185,18 +186,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::BAD_REQUEST,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_404() {
+    async fn test_register_signatures_post_ko_404() -> Result<(), String> {
         let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
@@ -218,18 +220,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_410() {
+    async fn test_register_signatures_post_ko_410() -> Result<(), String> {
         let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
@@ -251,18 +254,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::GONE,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_500() {
+    async fn test_register_signatures_post_ko_500() -> Result<(), String> {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -282,13 +286,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 }

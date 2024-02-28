@@ -45,7 +45,7 @@ impl<'a> APISpec<'a> {
                 .and_then(|api| api.validate_status(response, status_code))
             {
                 return Err(format!(
-                    "OpenAPI invalid response in {spec_file}, reason: {e}\nresponse: {response:#?}"
+                    "OpenAPI invalid response in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"
                 ));
             }
         }
