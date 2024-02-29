@@ -103,7 +103,10 @@ pub mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
 
@@ -121,7 +124,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distributions_get_ok() {
+    async fn test_mithril_stake_distributions_get_ok() -> Result<(), String> {
         let signed_entity_records = create_signed_entities(
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(5),
@@ -144,18 +147,19 @@ pub mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distributions_get_ko() {
+    async fn test_mithril_stake_distributions_get_ko() -> Result<(), String> {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_list_message()
@@ -173,18 +177,19 @@ pub mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_get_ok() {
+    async fn test_mithril_stake_distribution_get_ok() -> Result<(), String> {
         let signed_entity = create_signed_entities(
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(1),
@@ -210,18 +215,20 @@ pub mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_ok_norecord() {
+    async fn test_mithril_stake_distribution_returns_404_no_found_when_no_record(
+    ) -> Result<(), String> {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
@@ -239,18 +246,19 @@ pub mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_get_ko() {
+    async fn test_mithril_stake_distribution_get_ko() -> Result<(), String> {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
@@ -268,13 +276,14 @@ pub mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 }
