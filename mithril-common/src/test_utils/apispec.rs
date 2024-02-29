@@ -106,6 +106,7 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if a request is valid
+    // TODO should validate query parameters.
     fn validate_request(&'a self, request_body: &impl Serialize) -> Result<&APISpec, String> {
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
@@ -140,6 +141,7 @@ impl<'a> APISpec<'a> {
         let status = response.status();
 
         let path = self.path.unwrap();
+        let path = path.split('?').next().unwrap();
         let method = self.method.unwrap().to_lowercase();
         let content_type = self.content_type.unwrap();
         let mut openapi = self.openapi.clone();
@@ -490,6 +492,17 @@ mod tests {
             result.err().unwrap().to_string(),
             "Expected content type 'whatever' but spec is '{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/CertificatePendingMessage\"}}}'",
         );
+    }
+
+    #[test]
+    fn test_validate_a_response_with_query_parameters() -> Result<(), String> {
+        APISpec::from_file(&APISpec::get_default_spec_file())
+            .method(Method::GET.as_str())
+            .path("/proof/cardano-transaction?transaction_hashes={hash}")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&build_empty_response(404))
+            .map(|_apispec| ())
     }
 
     #[test]
