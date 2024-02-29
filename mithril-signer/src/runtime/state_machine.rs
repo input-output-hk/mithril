@@ -1,5 +1,5 @@
 use slog_scope::{crit, debug, error, info};
-use std::{fmt::Display, ops::Deref, time::Duration};
+use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
@@ -8,6 +8,8 @@ use mithril_common::{
         Beacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake,
     },
 };
+
+use crate::MetricsService;
 
 use super::{Runner, RuntimeError};
 
@@ -88,6 +90,7 @@ pub struct StateMachine {
     state: Mutex<SignerState>,
     runner: Box<dyn Runner>,
     state_sleep: Duration,
+    metrics_service: Arc<MetricsService>,
 }
 
 impl StateMachine {
@@ -96,11 +99,13 @@ impl StateMachine {
         starting_state: SignerState,
         runner: Box<dyn Runner>,
         state_sleep: Duration,
+        metrics_service: Arc<MetricsService>,
     ) -> Self {
         Self {
             state: Mutex::new(starting_state),
             runner,
             state_sleep,
+            metrics_service,
         }
     }
 
@@ -114,6 +119,9 @@ impl StateMachine {
         info!("STATE MACHINE: launching");
 
         loop {
+            self.metrics_service
+                .runtime_cycle_total_since_startup_counter_increment();
+
             if let Err(e) = self.cycle().await {
                 if e.is_critical() {
                     crit!("{e}");
@@ -128,6 +136,8 @@ impl StateMachine {
                 "… Cycle finished, Sleeping for {} ms",
                 self.state_sleep.as_millis()
             );
+            self.metrics_service
+                .runtime_cycle_success_since_startup_counter_increment();
             sleep(self.state_sleep).await;
         }
     }
@@ -437,10 +447,12 @@ mod tests {
     use crate::runtime::runner::MockSignerRunner;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
         StateMachine {
             state: init_state.into(),
             runner: Box::new(runner),
             state_sleep: Duration::from_millis(100),
+            metrics_service,
         }
     }
 

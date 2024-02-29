@@ -12,6 +12,8 @@ pub struct MetricsService {
     signer_registration_total_since_startup_counter: Box<Counter>,
     signature_registration_success_since_startup_counter: Box<Counter>,
     signature_registration_total_since_startup_counter: Box<Counter>,
+    runtime_cycle_success_since_startup_counter: Box<Counter>,
+    runtime_cycle_total_since_startup_counter: Box<Counter>,
 }
 
 impl MetricsService {
@@ -47,12 +49,26 @@ impl MetricsService {
             )?);
         registry.register(signature_registration_total_since_startup_counter.clone())?;
 
+        let runtime_cycle_success_since_startup_counter = Box::new(Self::create_metric_counter(
+            "runtime_cycle_success_since_startup",
+            "Number of successful runtime cycles since startup",
+        )?);
+        registry.register(runtime_cycle_success_since_startup_counter.clone())?;
+
+        let runtime_cycle_total_since_startup_counter = Box::new(Self::create_metric_counter(
+            "runtime_cycle_total_since_startup",
+            "Number of runtime cycles since startup",
+        )?);
+        registry.register(runtime_cycle_total_since_startup_counter.clone())?;
+
         Ok(Self {
             registry,
             signer_registration_success_since_startup_counter,
             signer_registration_total_since_startup_counter,
             signature_registration_success_since_startup_counter,
             signature_registration_total_since_startup_counter,
+            runtime_cycle_success_since_startup_counter,
+            runtime_cycle_total_since_startup_counter,
         })
     }
 
@@ -129,6 +145,30 @@ impl MetricsService {
             .get()
             .round() as u32
     }
+
+    /// Increment the `runtime_cycle_total_since_startup` counter.
+    pub fn runtime_cycle_total_since_startup_counter_increment(&self) {
+        debug!("MetricsService: incrementing 'runtime_cycle_total_since_startup' counter");
+        self.runtime_cycle_total_since_startup_counter.inc();
+    }
+
+    /// Get the `runtime_cycle_total_since_startup` counter.
+    pub fn runtime_cycle_total_since_startup_counter_get(&self) -> u32 {
+        self.runtime_cycle_total_since_startup_counter.get().round() as u32
+    }
+
+    /// Increment the `runtime_cycle_success_since_startup` counter.
+    pub fn runtime_cycle_success_since_startup_counter_increment(&self) {
+        debug!("MetricsService: incrementing 'runtime_cycle_success_since_startup' counter");
+        self.runtime_cycle_success_since_startup_counter.inc();
+    }
+
+    /// Get the `runtime_cycle_success_since_startup` counter.
+    pub fn runtime_cycle_success_since_startup_counter_get(&self) -> u32 {
+        self.runtime_cycle_success_since_startup_counter
+            .get()
+            .round() as u32
+    }
 }
 
 #[cfg(test)]
@@ -176,6 +216,28 @@ mod tests {
         assert_eq!(
             1,
             metrics_service.signature_registration_total_since_startup_counter_get(),
+        );
+    }
+
+    #[test]
+    fn test_runtime_cycle_success_since_startup_counter_increment() {
+        let metrics_service = MetricsService::new().unwrap();
+
+        metrics_service.runtime_cycle_success_since_startup_counter_increment();
+        assert_eq!(
+            1,
+            metrics_service.runtime_cycle_success_since_startup_counter_get(),
+        );
+    }
+
+    #[test]
+    fn test_runtime_cycle_total_since_startup_counter_increment() {
+        let metrics_service = MetricsService::new().unwrap();
+
+        metrics_service.runtime_cycle_total_since_startup_counter_increment();
+        assert_eq!(
+            1,
+            metrics_service.runtime_cycle_total_since_startup_counter_get(),
         );
     }
 }

@@ -169,7 +169,7 @@ impl StateMachineTester {
             era_reader,
             api_version_provider,
             signable_builder_service,
-            metrics_service,
+            metrics_service: metrics_service.clone(),
         };
         // set up stake distribution
         chain_observer
@@ -178,7 +178,12 @@ impl StateMachineTester {
 
         let runner = Box::new(SignerRunner::new(config, services));
 
-        let state_machine = StateMachine::new(SignerState::Init, runner, Duration::from_secs(5));
+        let state_machine = StateMachine::new(
+            SignerState::Init,
+            runner,
+            Duration::from_secs(5),
+            metrics_service,
+        );
 
         Ok(StateMachineTester {
             state_machine,

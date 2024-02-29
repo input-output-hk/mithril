@@ -65,7 +65,7 @@ pub struct Args {
     reset_digests_cache: bool,
 
     /// Enable metrics HTTP server (Prometheus endpoint on /metrics).
-    #[clap(long, env = "ENABLE_METRICS_SERVER", default_value_t = true)]
+    #[clap(long, env = "ENABLE_METRICS_SERVER", default_value_t = false)]
     enable_metrics_server: bool,
 
     /// Metrics HTTP server IP.
@@ -163,6 +163,7 @@ async fn main() -> StdResult<()> {
         SignerState::Init,
         Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
+        metrics_service.clone(),
     );
 
     let mut join_set = JoinSet::new();
