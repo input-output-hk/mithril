@@ -10,14 +10,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
     signal::unix::{signal, SignalKind},
+    sync::oneshot,
     task::JoinSet,
 };
 
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_signer::{
-    Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
-    SignerState, StateMachine,
+    Configuration, DefaultConfiguration, MetricsServer, ProductionServiceBuilder, ServiceBuilder,
+    SignerRunner, SignerState, StateMachine,
 };
 
 /// CLI args
@@ -62,6 +63,18 @@ pub struct Args {
     /// Will be ignored if set in conjunction with `--disable-digests-cache`.
     #[clap(long)]
     reset_digests_cache: bool,
+
+    /// Enable metrics HTTP server (Prometheus endpoint on /metrics).
+    #[clap(long, env = "ENABLE_METRICS_SERVER", default_value_t = false)]
+    enable_metrics_server: bool,
+
+    /// Metrics HTTP server IP.
+    #[clap(long, env = "METRICS_SERVER_IP", default_value = "0.0.0.0")]
+    metrics_server_ip: String,
+
+    /// Metrics HTTP server listening port.
+    #[clap(long, env = "METRICS_SERVER_PORT", default_value_t = 9090)]
+    metrics_server_port: u16,
 }
 
 impl Args {
@@ -121,6 +134,8 @@ async fn main() -> StdResult<()> {
         .with_context(|| "configuration error: could not set `disable_digests_cache`")?
         .set_default("reset_digests_cache", args.reset_digests_cache)
         .with_context(|| "configuration error: could not set `reset_digests_cache`")?
+        .set_default("enable_metrics_server", args.enable_metrics_server)
+        .with_context(|| "configuration error: could not set `enable_metrics_server`")?
         .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(
@@ -141,6 +156,8 @@ async fn main() -> StdResult<()> {
         .await
         .with_context(|| "services initialization error")?;
 
+    let metrics_service = services.metrics_service.clone();
+
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
     let state_machine = StateMachine::new(
         SignerState::Init,
@@ -156,6 +173,21 @@ async fn main() -> StdResult<()> {
             .map_err(|e| anyhow!(e))
             .map(|_| None)
     });
+
+    let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
+    if config.enable_metrics_server {
+        join_set.spawn(async move {
+            MetricsServer::new(
+                &config.metrics_server_ip,
+                config.metrics_server_port,
+                metrics_service,
+            )
+            .start(metrics_server_shutdown_rx)
+            .await
+            .map_err(|e| anyhow!(e))
+            .map(|_| None)
+        });
+    }
 
     join_set.spawn(async {
         tokio::signal::ctrl_c()
@@ -190,6 +222,10 @@ async fn main() -> StdResult<()> {
         Some(Ok(res)) => res?,
         None => None,
     };
+
+    metrics_server_shutdown_tx
+        .send(())
+        .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
 
     join_set.shutdown().await;
 

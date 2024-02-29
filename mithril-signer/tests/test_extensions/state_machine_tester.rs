@@ -155,7 +155,7 @@ impl StateMachineTester {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
         ));
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),

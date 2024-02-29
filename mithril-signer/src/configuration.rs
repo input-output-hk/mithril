@@ -81,6 +81,15 @@ pub struct Configuration {
 
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
+
+    /// Enable metrics server (Prometheus endpoint on /metrics).
+    pub enable_metrics_server: bool,
+
+    /// Metrics HTTP Server IP.
+    pub metrics_server_ip: String,
+
+    /// Metrics HTTP Server listening port.
+    pub metrics_server_port: u16,
 }
 
 impl Configuration {
@@ -108,6 +117,9 @@ impl Configuration {
             reset_digests_cache: false,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            enable_metrics_server: true,
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         }
     }
 
@@ -162,12 +174,20 @@ impl Configuration {
 pub struct DefaultConfiguration {
     /// Era reader adapter type
     pub era_reader_adapter_type: String,
+
+    /// Metrics HTTP server IP.
+    pub metrics_server_ip: String,
+
+    /// Metrics HTTP server listening port.
+    pub metrics_server_port: u16,
 }
 
 impl Default for DefaultConfiguration {
     fn default() -> Self {
         Self {
             era_reader_adapter_type: "bootstrap".to_string(),
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         }
     }
 }
@@ -187,6 +207,19 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.era_reader_adapter_type),
+            ),
+        );
+
+        result.insert(
+            "metrics_server_ip".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.metrics_server_ip)),
+        );
+
+        result.insert(
+            "metrics_server_port".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.metrics_server_port),
             ),
         );
 

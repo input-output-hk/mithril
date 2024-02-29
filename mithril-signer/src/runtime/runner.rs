@@ -552,7 +552,7 @@ mod tests {
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
         ));
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -596,6 +596,9 @@ mod tests {
             reset_digests_cache: false,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            enable_metrics_server: true,
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         };
 
         SignerRunner::new(

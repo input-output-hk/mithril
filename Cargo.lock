@@ -3632,6 +3632,7 @@ version = "0.2.111"
 dependencies = [
  "anyhow",
  "async-trait",
+ "axum",
  "clap",
  "config",
  "hex",
