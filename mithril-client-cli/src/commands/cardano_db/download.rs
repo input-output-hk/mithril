@@ -22,7 +22,7 @@ use mithril_client::{
     common::ProtocolMessage, Client, MessageBuilder, MithrilCertificate, MithrilResult, Snapshot,
 };
 
-/// Clap command to download the cardano db and verify the certificate.
+/// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
     /// Enable JSON output.

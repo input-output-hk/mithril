@@ -140,18 +140,17 @@ Options:
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=https://aggregator.testing-sanchonet.api.mithril.network/aggregator]
+          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
       --unstable
-          Enable unstable commands (Such as Cardano Transactions)
+          Enable unstable commands (such as Cardano Transactions)
   -h, --help
           Print help
   -V, --version
           Print version
-
 ```
 
 Run in release mode with the default configuration:
@@ -238,11 +237,11 @@ Now you can use the `mithril_client` functions:
 # 1- Help
 mithril_client help
 
-# 2- List cardano db
-mithril_client cardano-db list
+# 2- List cardano db snapshots
+mithril_client cardano-db snapshot list
 
-# 3- Show detailed information about a cardano db
-mithril_client cardano-db show $CARDANO_DB_DIGEST
+# 3- Show detailed information about a cardano db snapshot
+mithril_client cardano-db snapshot show $CARDANO_DB_DIGEST
 
 # 4- Download the given cardano db and verify the certificate
 mithril_client cardano-db download $CARDANO_DB_DIGEST
@@ -283,17 +282,26 @@ Here are the subcommands available:
 
 ### Cardano DB (previously: Snapshot)
 
+| Subcommand | Performed action |
+|------------|------------------|
+| **download** | Downloads and restores a cardano-db snapshot|
+| **help** | Prints this message or the help for the given subcommand(s)|
+| **snapshot list** | Lists available cardano-db snapshots|
+| **snapshot show** | Shows information about a cardano-db snapshot|
+
+### Snapshot
+
 :::warning
-For backward compatibility a `snapshot` alias is available but is deprecated, as it will be removed in the near future please replace
-it in your commands with `cardano-db`.
+The `snapshot` commands are now **deprecated** and has been superseded by the `cardano-db` commands.
+The `snapshot` commands  will be removed in the near future.
 :::
 
 | Subcommand | Performed action |
 |------------|------------------|
-| **download** | Downloads and restores a snapshot|
+| **download** | Downloads and restores a cardano-db snapshot|
 | **help** | Prints this message or the help for the given subcommand(s)|
-| **list** | Lists available snapshots|
-| **show** | Shows information about a snapshot|
+| **list** | Lists available cardano-db snapshots|
+| **show** | Shows information about a cardano-db snapshot|
 
 ### Mithril stake distribution
 
@@ -334,20 +342,20 @@ Here is a list of the available parameters:
 | `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
 | `log_output` | `--log-output` | `-o` | - | Redirect the logs to a file | - | `./mithril-client.log` | - |
 
-`cardano-db show` command:
+`cardano-db snapshot show` or `snapshot show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-db list` command:
+`cardano-db snapshot list` or `snapshot list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-db download` command:
+`cardano-db download` or `snapshot download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|

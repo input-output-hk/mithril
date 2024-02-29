@@ -112,8 +112,8 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot list
-          echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client cardano-db list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-db snapshot list
+          echo "CDB_SNAPSHOT_DIGEST=$(./mithril-client cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano-db / download & restore latest
         shell: bash
@@ -193,8 +193,8 @@ jobs:
       - name: Cardano-db / list and get last digest
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} cardano-db list
-          echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} cardano-db list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} cardano-db snapshot list
+          echo "CDB_SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} cardano-db snapshot list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
 
       - name: Cardano-db / download & restore latest
         shell: bash

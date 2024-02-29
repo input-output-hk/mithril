@@ -15,7 +15,8 @@ use mithril_client::MithrilResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
-    cardano_db::CardanoDbCommands, cardano_transaction::CardanoTransactionCommands,
+    cardano_db::{deprecated::SnapshotCommands, CardanoDbCommands},
+    cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands,
 };
 
@@ -77,7 +78,7 @@ pub struct Args {
     #[example = "`./mithril-client.log`"]
     log_output: Option<String>,
 
-    /// Enable unstable commands (Such as Cardano Transactions)
+    /// Enable unstable commands (such as Cardano Transactions)
     #[clap(long)]
     unstable: bool,
 }
@@ -164,8 +165,8 @@ impl Source for Args {
 enum ArtifactCommands {
     /// Deprecated, use `cardano-db` instead
     #[clap(subcommand)]
-    #[deprecated(since = "0.7.2", note = "use `CardanoDb` command instead")]
-    Snapshot(CardanoDbCommands),
+    #[deprecated(since = "0.7.2", note = "use `CardanoDb` commands instead")]
+    Snapshot(SnapshotCommands),
 
     #[clap(subcommand, alias("cdb"))]
     CardanoDb(CardanoDbCommands),
