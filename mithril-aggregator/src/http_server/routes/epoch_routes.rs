@@ -60,14 +60,20 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use crate::http_server::SERVER_BASE_PATH;
-    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::{
+        entities::Epoch,
+        test_utils::{apispec::APISpec, MithrilFixtureBuilder},
+    };
     use serde_json::Value::Null;
-    use warp::http::Method;
+    use tokio::sync::RwLock;
+    use warp::http::{Method, StatusCode};
     use warp::test::request;
 
-    use super::*;
+    use crate::http_server::SERVER_BASE_PATH;
     use crate::initialize_dependencies;
+    use crate::services::FakeEpochService;
+
+    use super::*;
 
     fn setup_router(
         dependency_manager: Arc<DependencyContainer>,
@@ -83,10 +89,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_epoch_settings_get_ok() {
+    async fn test_epoch_settings_get_ok() -> Result<(), String> {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
-        let dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let epoch_service = FakeEpochService::from_fixture(Epoch(5), &fixture);
+        dependency_manager.epoch_service = Arc::new(RwLock::new(epoch_service));
 
         let response = request()
             .method(method)
@@ -94,18 +103,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_epoch_settings_get_ko_500() {
+    async fn test_epoch_settings_get_ko_500() -> Result<(), String> {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
         let dependency_manager = initialize_dependencies().await;
@@ -116,13 +126,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 }
