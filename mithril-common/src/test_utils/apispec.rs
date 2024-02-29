@@ -67,10 +67,10 @@ impl<'a> APISpec<'a> {
                 .path(path)
                 .content_type(content_type)
                 .validate_request(request_body)
-                .map_err(|e| panic!("OpenAPI invalid request in {spec_file}, reason: {e}\nresponse: {response:#?}"))
+                .map_err(|e| panic!("OpenAPI invalid request in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"))
                 .unwrap()
                 .validate_response(response)
-                .map_err(|e| panic!("OpenAPI invalid response in {spec_file}, reason: {e}\nresponse: {response:#?}"))
+                .map_err(|e| panic!("OpenAPI invalid response in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"))
                 .unwrap();
         }
     }
@@ -163,7 +163,18 @@ impl<'a> APISpec<'a> {
         };
         match response_spec {
             Some(response_spec) => {
-                let response_schema = &response_spec["content"][content_type]["schema"];
+                let response_schema = match &response_spec["content"] {
+                    Null => &Null,
+                    content => {
+                        if content[content_type] == Null {
+                            return Err(format!(
+                                "Expected content type '{}' but spec is '{}'",
+                                content_type, response_spec["content"],
+                            ));
+                        }
+                        &content[content_type]["schema"]
+                    }
+                };
                 if body.is_empty() {
                     match response_schema.as_object() {
                         Some(_) => Err("Non empty body expected".to_string()),
@@ -464,6 +475,24 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_returns_error_when_content_type_does_not_exist() {
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
+            .content_type("whatever")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&build_empty_response(200));
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Expected content type 'whatever' but spec is '{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/CertificatePendingMessage\"}}}'",
+        );
+    }
+
+    #[test]
     fn test_verify_conformity() {
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
@@ -522,7 +551,7 @@ mod tests {
             StatusCode::OK.as_u16()
         );
         let error_message = format!(
-            "OpenAPI invalid response in {spec_file}, reason: {error_reason}\nresponse: {response:#?}"
+            "OpenAPI invalid response in {spec_file} on route /certificate-pending, reason: {error_reason}\nresponse: {response:#?}"
         );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().to_string(), error_message);
