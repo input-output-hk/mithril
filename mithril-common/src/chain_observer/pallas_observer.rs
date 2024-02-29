@@ -265,6 +265,14 @@ impl PallasChainObserver {
             .with_context(|| "PallasChainObserver failed to extract the config")?;
 
         let slots_per_kes_period = config.slots_per_kes_period as u64;
+
+        if slots_per_kes_period == 0 {
+            return Err(anyhow!(
+                "PallasChainObserver failed to get slots per KES period"
+            ))
+            .with_context(|| "slots_per_kes_period must be greater than 0")?;
+        }
+
         let current_kes_period = chain_point.slot_or_default() / slots_per_kes_period;
 
         Ok(Some(current_kes_period as u32))
