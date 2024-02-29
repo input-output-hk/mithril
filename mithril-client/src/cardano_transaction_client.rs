@@ -3,10 +3,10 @@
 //! In order to do so it defines a [CardanoTransactionClient] which exposes the following features:
 //!  - [get_proofs][CardanoTransactionClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
 //! that the transactions with given hash are included in the global Cardano transactions set.
-//!  - [get][CardanoTransactionClient::get_commitment]: get a [Cardano transaction commitment][CardanoTransactionCommitment]
+//!  - [get][CardanoTransactionClient::get_snapshot]: get a [Cardano transaction snapshot][CardanoTransactionSnapshot]
 //! data from its hash.
-//!  - [list][CardanoTransactionClient::list_commitments]: get the list of the latest available Cardano transaction
-//! commitments.
+//!  - [list][CardanoTransactionClient::list_snapshots]: get the list of the latest available Cardano transaction
+//! snapshot.
 //!
 //!  **Important:** Verifying a proof **only** means that its cryptography is valid, in order to certify that a Cardano
 //! transactions subset is valid, the associated proof must be tied to a valid Mithril certificate (see the example below).
@@ -40,35 +40,35 @@
 //! # }
 //! ```
 //!
-//! # Get a Cardano transaction commitment
+//! # Get a Cardano transaction snapshot
 //!
-//! To get a Cardano transaction commitment using the [ClientBuilder][crate::client::ClientBuilder].
+//! To get a Cardano transaction snapshot using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_commitment = client.cardano_transaction().get_commitment("CARDANO_TRANSACTION_COMMITMENT_HASH").await?.unwrap();
+//! let cardano_transaction_snapshot = client.cardano_transaction().get_snapshot("CARDANO_TRANSACTION_SNAPSHOT_HASH").await?.unwrap();
 //!
-//! println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
+//! println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.beacon.epoch);
 //! #    Ok(())
 //! # }
 //! ```
 //!
-//! # List available Cardano transaction commitments
+//! # List available Cardano transaction snapshots
 //!
-//! To list latest available Cardano transaction commitments using the [ClientBuilder][crate::client::ClientBuilder].
+//! To list latest available Cardano transaction snapshots using the [ClientBuilder][crate::client::ClientBuilder].
 //!
 //! ```no_run
 //! # async fn run() -> mithril_client::MithrilResult<()> {
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_transaction_commitments = client.cardano_transaction().list_commitments().await?;
+//! let cardano_transaction_snapshots = client.cardano_transaction().list_snapshots().await?;
 //!
-//! for cardano_transaction_commitment in cardano_transaction_commitments {
-//!     println!("Cardano transaction commitment hash={}, epoch={}", cardano_transaction_commitment.hash, cardano_transaction_commitment.beacon.epoch);
+//! for cardano_transaction_snapshot in cardano_transaction_snapshots {
+//!     println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.beacon.epoch);
 //! }
 //! #    Ok(())
 //! # }
@@ -76,7 +76,7 @@
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::{
-    CardanoTransactionCommitment, CardanoTransactionCommitmentListItem, CardanoTransactionsProofs,
+    CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
     MithrilResult,
 };
 use anyhow::Context;
@@ -117,40 +117,38 @@ impl CardanoTransactionClient {
         }
     }
 
-    /// Fetch a list of signed Cardano transaction commitments.
-    pub async fn list_commitments(
-        &self,
-    ) -> MithrilResult<Vec<CardanoTransactionCommitmentListItem>> {
+    /// Fetch a list of signed Cardano transaction snapshots.
+    pub async fn list_snapshots(&self) -> MithrilResult<Vec<CardanoTransactionSnapshotListItem>> {
         let response = self
             .aggregator_client
-            .get_content(AggregatorRequest::ListCardanoTransactionCommitments)
+            .get_content(AggregatorRequest::ListCardanoTransactionSnapshots)
             .await
             .with_context(|| "CardanoTransactionClient Client can not get the artifact list")?;
-        let items = serde_json::from_str::<Vec<CardanoTransactionCommitmentListItem>>(&response)
+        let items = serde_json::from_str::<Vec<CardanoTransactionSnapshotListItem>>(&response)
             .with_context(|| "CardanoTransactionClient Client can not deserialize artifact list")?;
 
         Ok(items)
     }
 
-    /// Get the given Cardano transaction commitment data. If it cannot be found, a None is returned.
-    pub async fn get_commitment(
+    /// Get the given Cardano transaction snapshot data. If it cannot be found, a None is returned.
+    pub async fn get_snapshot(
         &self,
         hash: &str,
-    ) -> MithrilResult<Option<CardanoTransactionCommitment>> {
+    ) -> MithrilResult<Option<CardanoTransactionSnapshot>> {
         match self
             .aggregator_client
-            .get_content(AggregatorRequest::GetCardanoTransactionCommitment {
+            .get_content(AggregatorRequest::GetCardanoTransactionSnapshot {
                 hash: hash.to_string(),
             })
             .await
         {
             Ok(content) => {
-                let cardano_transaction_commitment: CardanoTransactionCommitment =
+                let cardano_transaction_snapshot: CardanoTransactionSnapshot =
                     serde_json::from_str(&content).with_context(|| {
                         "CardanoTransactionClient Client can not deserialize artifact"
                     })?;
 
-                Ok(Some(cardano_transaction_commitment))
+                Ok(Some(cardano_transaction_snapshot))
             }
             Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
@@ -163,8 +161,8 @@ mod tests {
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
     use crate::common::Beacon;
     use crate::{
-        CardanoTransactionCommitment, CardanoTransactionCommitmentListItem,
-        CardanoTransactionsProofs, CardanoTransactionsSetProof,
+        CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
+        CardanoTransactionsSetProof,
     };
     use anyhow::anyhow;
     use chrono::{DateTime, Utc};
@@ -172,9 +170,9 @@ mod tests {
 
     use super::*;
 
-    fn fake_messages() -> Vec<CardanoTransactionCommitmentListItem> {
+    fn fake_messages() -> Vec<CardanoTransactionSnapshotListItem> {
         vec![
-            CardanoTransactionCommitmentListItem {
+            CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-123".to_string(),
                 beacon: Beacon::new("network".to_string(), 1, 1),
                 hash: "hash-123".to_string(),
@@ -183,7 +181,7 @@ mod tests {
                     .unwrap()
                     .with_timezone(&Utc),
             },
-            CardanoTransactionCommitmentListItem {
+            CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-456".to_string(),
                 beacon: Beacon::new("network".to_string(), 1, 2),
                 hash: "hash-456".to_string(),
@@ -196,14 +194,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_transactions_commitment_list() {
+    async fn get_cardano_transactions_snapshot_list() {
         let message = fake_messages();
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = CardanoTransactionClient::new(Arc::new(http_client));
-        let items = client.list_commitments().await.unwrap();
+        let items = client.list_snapshots().await.unwrap();
 
         assert_eq!(2, items.len());
         assert_eq!("hash-123".to_string(), items[0].hash);
@@ -211,9 +209,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_cardano_transactions_commitment() {
+    async fn get_cardano_transactions_snapshot() {
         let mut http_client = MockAggregatorHTTPClient::new();
-        let message = CardanoTransactionCommitment {
+        let message = CardanoTransactionSnapshot {
             merkle_root: "mk-123".to_string(),
             beacon: Beacon::new("network".to_string(), 1, 1),
             hash: "hash-123".to_string(),
@@ -227,13 +225,13 @@ mod tests {
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = CardanoTransactionClient::new(Arc::new(http_client));
-        let cardano_transaction_commitment = client
-            .get_commitment("hash")
+        let cardano_transaction_snapshot = client
+            .get_snapshot("hash")
             .await
             .unwrap()
-            .expect("This test returns a cardano transaction commitment");
+            .expect("This test returns a cardano transaction snapshot");
 
-        assert_eq!(expected, cardano_transaction_commitment);
+        assert_eq!(expected, cardano_transaction_snapshot);
     }
 
     #[tokio::test]

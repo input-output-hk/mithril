@@ -1,6 +1,6 @@
 //! ## SignedEntityService
 //!
-//! This service is responsible of dealing with [SignedEntity] type.
+//! This service is responsible for dealing with [SignedEntity] type.
 //! It creates [Artifact] that can be accessed by clients.
 use anyhow::Context;
 use async_trait::async_trait;
@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{
-        Beacon, CardanoTransactionsCommitment, Certificate, Epoch, MithrilStakeDistribution,
+        Beacon, CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution,
         SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
     signable_builder::Artifact,
@@ -49,10 +49,10 @@ pub trait SignedEntityService: Send + Sync {
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
 
-    /// Return the last signed Cardano Transaction Commitment.
-    async fn get_last_cardano_transaction_commitment(
+    /// Return the last signed Cardano Transaction Snapshot.
+    async fn get_last_cardano_transaction_snapshot(
         &self,
-    ) -> StdResult<Option<SignedEntity<CardanoTransactionsCommitment>>>;
+    ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>>;
 
     /// Return a signed snapshot
     async fn get_signed_snapshot_by_id(
@@ -74,7 +74,7 @@ pub struct MithrilSignedEntityService {
         Arc<dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>>,
     cardano_immutable_files_full_artifact_builder: Arc<dyn ArtifactBuilder<Beacon, Snapshot>>,
     cardano_transactions_artifact_builder:
-        Arc<dyn ArtifactBuilder<Beacon, CardanoTransactionsCommitment>>,
+        Arc<dyn ArtifactBuilder<Beacon, CardanoTransactionsSnapshot>>,
 }
 
 impl MithrilSignedEntityService {
@@ -86,7 +86,7 @@ impl MithrilSignedEntityService {
         >,
         cardano_immutable_files_full_artifact_builder: Arc<dyn ArtifactBuilder<Beacon, Snapshot>>,
         cardano_transactions_artifact_builder: Arc<
-            dyn ArtifactBuilder<Beacon, CardanoTransactionsCommitment>,
+            dyn ArtifactBuilder<Beacon, CardanoTransactionsSnapshot>,
         >,
     ) -> Self {
         Self {
@@ -239,9 +239,9 @@ impl SignedEntityService for MithrilSignedEntityService {
         Ok(signed_entities)
     }
 
-    async fn get_last_cardano_transaction_commitment(
+    async fn get_last_cardano_transaction_snapshot(
         &self,
-    ) -> StdResult<Option<SignedEntity<CardanoTransactionsCommitment>>> {
+    ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>> {
         let mut signed_entities_records = self
             .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
             .await?;
@@ -296,7 +296,7 @@ impl SignedEntityService for MithrilSignedEntityService {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{CardanoTransactionsCommitment, Epoch},
+        entities::{CardanoTransactionsSnapshot, Epoch},
         signable_builder,
         test_utils::fake_data,
     };
@@ -334,7 +334,7 @@ mod tests {
             MockArtifactBuilder<Epoch, MithrilStakeDistribution>,
         mock_cardano_immutable_files_full_artifact_builder: MockArtifactBuilder<Beacon, Snapshot>,
         mock_cardano_transactions_artifact_builder:
-            MockArtifactBuilder<Beacon, CardanoTransactionsCommitment>,
+            MockArtifactBuilder<Beacon, CardanoTransactionsSnapshot>,
     }
 
     impl MockDependencyInjector {
@@ -351,7 +351,7 @@ mod tests {
                 >::new(),
                 mock_cardano_transactions_artifact_builder: MockArtifactBuilder::<
                     Beacon,
-                    CardanoTransactionsCommitment,
+                    CardanoTransactionsSnapshot,
                 >::new(),
             }
         }
@@ -436,18 +436,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_cardano_transactions_commitment_artifact_when_given_cardano_transactions_type() {
+    async fn build_cardano_transactions_snapshot_artifact_when_given_cardano_transactions_type() {
         let mut mock_container = MockDependencyInjector::new();
 
         let expected =
-            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default());
+            CardanoTransactionsSnapshot::new("merkle_root".to_string(), Beacon::default());
 
         mock_container
             .mock_cardano_transactions_artifact_builder
             .expect_compute_artifact()
             .times(1)
             .returning(|_, _| {
-                Ok(CardanoTransactionsCommitment::new(
+                Ok(CardanoTransactionsSnapshot::new(
                     "merkle_root".to_string(),
                     Beacon::default(),
                 ))
@@ -469,7 +469,7 @@ mod tests {
     async fn should_store_the_artifact_when_creating_artifact_for_cardano_transactions() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoTransactions(Beacon::default()),
-            CardanoTransactionsCommitment::new("merkle_root".to_string(), Beacon::default()),
+            CardanoTransactionsSnapshot::new("merkle_root".to_string(), Beacon::default()),
             &|mock_injector| &mut mock_injector.mock_cardano_transactions_artifact_builder,
         )
         .await;

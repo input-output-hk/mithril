@@ -10,30 +10,30 @@ use crate::{
 };
 use mithril_client::MithrilResult;
 
-/// Clap command to show a given Cardano transaction commitment
+/// Clap command to show a given Cardano transaction snapshot
 #[derive(Parser, Debug, Clone)]
-pub struct CardanoTransactionsCommitmentShowCommand {
+pub struct CardanoTransactionsSnapshotShowCommand {
     /// Enable JSON output.
     #[clap(long)]
     json: bool,
 
-    /// Cardano transaction commitment hash.
+    /// Cardano transaction snapshot hash.
     ///
     /// If `latest` is specified as hash, the command will return the latest Cardano transaction
-    /// commitment.
+    /// snapshot.
     hash: String,
 }
 
-impl CardanoTransactionsCommitmentShowCommand {
-    /// Cardano transaction commitment Show command
+impl CardanoTransactionsSnapshotShowCommand {
+    /// Cardano transaction snapshot Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
 
         let get_list_of_artifact_ids = || async {
-            let transactions_sets = client.cardano_transaction().list_commitments().await.with_context(|| {
-                "Can not get the list of artifacts while retrieving the latest Cardano transaction commitment hash"
+            let transactions_sets = client.cardano_transaction().list_snapshots().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest Cardano transaction snapshot hash"
             })?;
 
             Ok(transactions_sets
@@ -44,14 +44,14 @@ impl CardanoTransactionsCommitmentShowCommand {
 
         let tx_sets = client
             .cardano_transaction()
-            .get_commitment(
+            .get_snapshot(
                 &ExpanderUtils::expand_eventual_id_alias(&self.hash, get_list_of_artifact_ids())
                     .await?,
             )
             .await?
             .ok_or_else(|| {
                 anyhow!(
-                    "Cardano transaction commitment not found for hash: '{}'",
+                    "Cardano transaction snapshot not found for hash: '{}'",
                     &self.hash
                 )
             })?;

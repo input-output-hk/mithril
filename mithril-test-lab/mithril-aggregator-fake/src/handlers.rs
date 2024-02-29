@@ -27,8 +27,8 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/artifact/mithril-stake-distributions", get(msds))
         .route("/artifact/mithril-stake-distribution/:digest", get(msd))
         .route("/artifact/snapshot/:digest", get(snapshot))
-        .route("/artifact/cardano-transactions", get(ctx_commitments))
-        .route("/artifact/cardano-transaction/:hash", get(ctx_commitment))
+        .route("/artifact/cardano-transactions", get(ctx_snapshots))
+        .route("/artifact/cardano-transaction/:hash", get(ctx_snapshot))
         .route("/proof/cardano-transaction", get(ctx_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/:hash", get(certificate))
@@ -127,25 +127,25 @@ pub async fn certificate(
 }
 
 /// HTTP: return the list of certificates
-pub async fn ctx_commitments(State(state): State<SharedState>) -> Result<String, AppError> {
+pub async fn ctx_snapshots(State(state): State<SharedState>) -> Result<String, AppError> {
     let app_state = state.read().await;
-    let certificates = app_state.get_ctx_commitments().await?;
+    let certificates = app_state.get_ctx_snapshots().await?;
 
     Ok(certificates)
 }
 
-/// HTTP: return a cardano transaction commitment identified by its hash.
-pub async fn ctx_commitment(
+/// HTTP: return a cardano transaction snapshot identified by its hash.
+pub async fn ctx_snapshot(
     Path(key): Path<String>,
     State(state): State<SharedState>,
 ) -> Result<Response<Body>, AppError> {
     let app_state = state.read().await;
 
     app_state
-        .get_ctx_commitment(&key)
+        .get_ctx_snapshot(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("ctx commitment hash={key}")))
+        .ok_or_else(|| AppError::NotFound(format!("ctx snapshot hash={key}")))
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -274,24 +274,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn invalid_ctx_commitment_hash() {
+    async fn invalid_ctx_snapshot_hash() {
         let state: State<SharedState> = State(AppState::default().into());
         let hash = Path("whatever".to_string());
 
-        let error = ctx_commitment(hash, state).await.expect_err(
-            "The handler was expected to fail since the ctx commitment's hash does not exist.",
+        let error = ctx_snapshot(hash, state).await.expect_err(
+            "The handler was expected to fail since the ctx snapshot's hash does not exist.",
         );
 
         assert!(matches!(error, AppError::NotFound(_)));
     }
 
     #[tokio::test]
-    async fn existing_ctx_commitment_hash() {
+    async fn existing_ctx_snapshot_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash = Path(default_values::ctx_commitment_hashes()[0].to_string());
+        let hash = Path(default_values::ctx_snapshot_hashes()[0].to_string());
 
-        let response = ctx_commitment(hash, state).await.expect(
-            "The handler was expected to succeed since the ctx commitment's hash does exist.",
+        let response = ctx_snapshot(hash, state).await.expect(
+            "The handler was expected to succeed since the ctx snapshot's hash does exist.",
         );
 
         assert_eq!(StatusCode::OK, response.status());

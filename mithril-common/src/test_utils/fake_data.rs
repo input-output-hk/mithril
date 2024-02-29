@@ -220,10 +220,10 @@ pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDist
 }
 
 /// Fake Cardano Transactions
-pub fn cardano_transactions_commitment(total: u64) -> Vec<entities::CardanoTransactionsCommitment> {
+pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransactionsSnapshot> {
     (1..total + 1)
         .map(|idx| {
-            entities::CardanoTransactionsCommitment::new(
+            entities::CardanoTransactionsSnapshot::new(
                 format!("merkleroot-{idx}"),
                 entities::Beacon {
                     immutable_file_number: idx,

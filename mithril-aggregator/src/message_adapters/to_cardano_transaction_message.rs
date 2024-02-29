@@ -1,20 +1,15 @@
-use mithril_common::entities::{CardanoTransactionsCommitment, SignedEntity};
-use mithril_common::messages::{CardanoTransactionCommitmentMessage, ToMessageAdapter};
+use mithril_common::entities::{CardanoTransactionsSnapshot, SignedEntity};
+use mithril_common::messages::{CardanoTransactionSnapshotMessage, ToMessageAdapter};
 
-/// Adapter to convert [CardanoTransaction] to [CardanoTransactionCommitmentMessage] instances
+/// Adapter to convert [CardanoTransaction] to [CardanoTransactionSnapshotMessage] instances
 pub struct ToCardanoTransactionMessageAdapter;
 
-impl
-    ToMessageAdapter<
-        SignedEntity<CardanoTransactionsCommitment>,
-        CardanoTransactionCommitmentMessage,
-    > for ToCardanoTransactionMessageAdapter
+impl ToMessageAdapter<SignedEntity<CardanoTransactionsSnapshot>, CardanoTransactionSnapshotMessage>
+    for ToCardanoTransactionMessageAdapter
 {
     /// Method to trigger the conversion
-    fn adapt(
-        from: SignedEntity<CardanoTransactionsCommitment>,
-    ) -> CardanoTransactionCommitmentMessage {
-        CardanoTransactionCommitmentMessage {
+    fn adapt(from: SignedEntity<CardanoTransactionsSnapshot>) -> CardanoTransactionSnapshotMessage {
+        CardanoTransactionSnapshotMessage {
             merkle_root: from.artifact.merkle_root.clone(),
             beacon: from.artifact.beacon,
             hash: from.artifact.hash,
@@ -30,8 +25,8 @@ mod tests {
 
     #[test]
     fn adapt_ok() {
-        let signed_entity = SignedEntity::<CardanoTransactionsCommitment>::dummy();
-        let cardano_stake_distribution_message_expected = CardanoTransactionCommitmentMessage {
+        let signed_entity = SignedEntity::<CardanoTransactionsSnapshot>::dummy();
+        let cardano_stake_distribution_message_expected = CardanoTransactionSnapshotMessage {
             merkle_root: signed_entity.artifact.merkle_root.clone(),
             beacon: signed_entity.artifact.beacon.clone(),
             hash: signed_entity.artifact.hash.clone(),

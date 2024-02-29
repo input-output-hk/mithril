@@ -123,7 +123,7 @@ pub mod tests {
     async fn test_cardano_transactions_get_ok() {
         let signed_entity_records = create_signed_entities(
             SignedEntityType::CardanoTransactions(Beacon::default()),
-            fake_data::cardano_transactions_commitment(5),
+            fake_data::cardano_transactions_snapshot(5),
         );
         let message = ToCardanoTransactionListMessageAdapter::adapt(signed_entity_records);
         let mut mock_http_message_service = MockMessageService::new();
@@ -186,7 +186,7 @@ pub mod tests {
     async fn test_cardano_transaction_get_ok() {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoTransactions(Beacon::default()),
-            fake_data::cardano_transactions_commitment(1),
+            fake_data::cardano_transactions_snapshot(1),
         )
         .first()
         .unwrap()

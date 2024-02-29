@@ -82,16 +82,16 @@ pub enum AggregatorRequest {
         transactions_hashes: Vec<String>,
     },
 
-    /// Get a specific [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    /// Get a specific [Cardano transaction snapshot][crate::CardanoTransactionSnapshot]
     #[cfg(feature = "unstable")]
-    GetCardanoTransactionCommitment {
-        /// Hash of the Cardano transaction commitment to retrieve
+    GetCardanoTransactionSnapshot {
+        /// Hash of the Cardano transaction snapshot to retrieve
         hash: String,
     },
 
-    /// Lists the aggregator [Cardano transaction commitment][crate::CardanoTransactionCommitment]
+    /// Lists the aggregator [Cardano transaction snapshot][crate::CardanoTransactionSnapshot]
     #[cfg(feature = "unstable")]
-    ListCardanoTransactionCommitments,
+    ListCardanoTransactionSnapshots,
 }
 
 impl AggregatorRequest {
@@ -123,11 +123,11 @@ impl AggregatorRequest {
                 transactions_hashes.join(",")
             ),
             #[cfg(feature = "unstable")]
-            AggregatorRequest::GetCardanoTransactionCommitment { hash } => {
+            AggregatorRequest::GetCardanoTransactionSnapshot { hash } => {
                 format!("artifact/cardano-transaction/{hash}")
             }
             #[cfg(feature = "unstable")]
-            AggregatorRequest::ListCardanoTransactionCommitments => {
+            AggregatorRequest::ListCardanoTransactionSnapshots => {
                 "artifact/cardano-transactions".to_string()
             }
         }
@@ -470,7 +470,7 @@ mod tests {
 
             assert_eq!(
                 "artifact/cardano-transaction/abc".to_string(),
-                AggregatorRequest::GetCardanoTransactionCommitment {
+                AggregatorRequest::GetCardanoTransactionSnapshot {
                     hash: "abc".to_string()
                 }
                 .route()
@@ -478,7 +478,7 @@ mod tests {
 
             assert_eq!(
                 "artifact/cardano-transactions".to_string(),
-                AggregatorRequest::ListCardanoTransactionCommitments.route()
+                AggregatorRequest::ListCardanoTransactionSnapshots.route()
             );
         }
     }
