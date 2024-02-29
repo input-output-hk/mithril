@@ -234,7 +234,10 @@ mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
 
@@ -252,7 +255,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_snapshots_get_ok() {
+    async fn test_snapshots_get_ok() -> Result<(), String> {
         let signed_entities = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(5),
@@ -275,18 +278,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshots_get_ko() {
+    async fn test_snapshots_get_ko() -> Result<(), String> {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_list_message()
@@ -304,18 +308,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ok() {
+    async fn test_snapshot_digest_get_ok() -> Result<(), String> {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(1),
@@ -341,18 +346,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ok_nosnapshot() {
+    async fn test_snapshot_digest_returns_404_not_found_when_no_snapshot() -> Result<(), String> {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_message()
@@ -370,18 +376,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ko() {
+    async fn test_snapshot_digest_get_ko() -> Result<(), String> {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_message()
@@ -399,18 +406,20 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_get_ok() {
+    async fn test_snapshot_download_returns_302_found_when_the_snapshot_exists(
+    ) -> Result<(), String> {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(1),
@@ -435,18 +444,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/gzip",
             &Null,
             &response,
-        );
+            &StatusCode::FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_get_ok_nosnapshot() {
+    async fn test_snapshot_download_returns_404_not_found_when_no_snapshot() -> Result<(), String> {
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_signed_snapshot_by_id()
@@ -464,18 +474,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/gzip",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_get_ko() {
+    async fn test_snapshot_download_get_ko() -> Result<(), String> {
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_signed_snapshot_by_id()
@@ -493,13 +504,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 }

@@ -254,7 +254,10 @@ mod tests {
     use mithril_persistence::store::adapter::AdapterError;
     use mockall::predicate::eq;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use crate::database::provider::{MockSignerGetter, SignerRecord};
     use crate::{
@@ -279,7 +282,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ok() {
+    async fn test_register_signer_post_ok() -> Result<(), String> {
         let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
@@ -303,18 +306,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::CREATED,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ok_existing() {
+    async fn test_register_signer_post_ok_existing() -> Result<(), String> {
         let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
@@ -342,18 +346,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::CREATED,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ko_400() {
+    async fn test_register_signer_post_ko_400() -> Result<(), String> {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
@@ -380,18 +385,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::BAD_REQUEST,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ko_500() {
+    async fn test_register_signer_post_ko_500() -> Result<(), String> {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
@@ -417,18 +423,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ko_503() {
+    async fn test_register_signer_post_ko_503() -> Result<(), String> {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
@@ -450,14 +457,15 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::SERVICE_UNAVAILABLE,
+        )
     }
 
     #[tokio::test]
@@ -489,7 +497,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_registered_signers_get_ok() {
+    async fn test_registered_signers_get_ok() -> Result<(), String> {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
             .expect_get_signers()
@@ -507,18 +515,20 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             &format!("{base_path}/{{epoch}}"),
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_registered_signers_get_ok_noregistration() {
+    async fn test_registered_signers_returns_404_not_found_when_no_registration(
+    ) -> Result<(), String> {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
             .expect_get_signers()
@@ -536,18 +546,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             &format!("{base_path}/{{epoch}}"),
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
     }
 
     #[tokio::test]
-    async fn test_registered_signers_get_ko() {
+    async fn test_registered_signers_get_ko() -> Result<(), String> {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
             .expect_get_signers()
@@ -564,18 +575,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             &format!("{base_path}/{{epoch}}"),
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 
     #[tokio::test]
-    async fn test_signers_tickers_get_ok() {
+    async fn test_signers_tickers_get_ok() -> Result<(), String> {
         let mut mock_signer_getter = MockSignerGetter::new();
         mock_signer_getter
             .expect_get_all()
@@ -610,18 +622,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
     }
 
     #[tokio::test]
-    async fn test_signers_tickers_get_ko() {
+    async fn test_signers_tickers_get_ko() -> Result<(), String> {
         let mut mock_signer_getter = MockSignerGetter::new();
         mock_signer_getter
             .expect_get_all()
@@ -639,13 +652,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
+        APISpec::verify_conformity_with_status(
             APISpec::get_all_spec_files(),
             method,
             path,
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
     }
 }
