@@ -155,7 +155,10 @@ pub async fn ctx_snapshot(
         .get_ctx_snapshot(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("ctx snapshot hash={key}")))
+        .ok_or_else(|| {
+            debug!("ctx snapshot hash={key} NOT FOUND.");
+            AppError::NotFound("".to_string())
+        })
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -176,7 +179,11 @@ pub async fn ctx_proof(
         .await?
         .map(|s| s.into_response())
         .ok_or_else(|| {
-            AppError::NotFound(format!("ctx proof tx_hash={}", params.transaction_hashes))
+            debug!(
+                "ctx proof ctx_hash={} NOT FOUND.",
+                params.transaction_hashes
+            );
+            AppError::NotFound("".to_string())
         })
 }
 
