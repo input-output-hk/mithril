@@ -91,7 +91,6 @@ mod tests {
     use warp::http::Method;
     use warp::test::request;
     use warp::Filter;
-    use zstd::stream::raw::Status;
 
     use super::*;
 

@@ -418,8 +418,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_returns_302_found_when_the_snapshot_exists(
-    ) -> Result<(), String> {
+    async fn test_snapshot_local_download_returns_302_found_when_the_snapshot_exists() {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(1),
@@ -444,15 +443,15 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity_with_status(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/gzip",
-            &Null,
-            &response,
-            &StatusCode::FOUND,
-        )
+        assert_eq!(response.status(), StatusCode::FOUND);
+        let location = std::str::from_utf8(response.headers()["location"].as_bytes())
+            .unwrap()
+            .to_string();
+        assert!(
+            location.contains(&format!("/{SERVER_BASE_PATH}/snapshot_download/testnet")),
+            "Expected value '/{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {}",
+            location
+        );
     }
 
     #[tokio::test]
