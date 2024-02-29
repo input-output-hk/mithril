@@ -234,6 +234,8 @@ impl PallasChainObserver {
         Ok(Some(stake_distribution))
     }
 
+    /// Calculates the current KES period
+    /// using the provided `chain_point`and `slots_per_kes_period`.
     async fn calculate_kes_period(
         &self,
         chain_point: Point,
