@@ -21,7 +21,7 @@ use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer
 
 use mithril_signer::{
     database::provider::CardanoTransactionRepository, AggregatorClient, Configuration,
-    MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
+    MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     StateMachine,
 };
@@ -155,6 +155,7 @@ impl StateMachineTester {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
         ));
+        let metrics_service = MetricsService::new().unwrap();
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
@@ -168,6 +169,7 @@ impl StateMachineTester {
             era_reader,
             api_version_provider,
             signable_builder_service,
+            metrics_service,
         };
         // set up stake distribution
         chain_observer

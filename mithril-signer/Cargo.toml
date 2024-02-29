@@ -20,6 +20,7 @@ mithril-doc = { path = "../internal/mithril-doc" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
 openssl = { version = "0.10.63", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
+prometheus = "0.13.3"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 reqwest = { version = "0.11.23", features = ["json", "stream"] }

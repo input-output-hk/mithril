@@ -210,6 +210,10 @@ impl Runner for SignerRunner {
             .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
             .await?;
 
+        self.services
+            .metrics_service
+            .signer_registration_success_since_startup_counter_increment();
+
         Ok(())
     }
 
@@ -475,8 +479,8 @@ mod tests {
     };
 
     use crate::{
-        AggregatorClient, DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient,
-        ProtocolInitializerStore, SingleSigner,
+        metrics_service::MetricsService, AggregatorClient, DumbAggregatorClient,
+        MithrilSingleSigner, MockAggregatorClient, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -548,6 +552,7 @@ mod tests {
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
         ));
+        let metrics_service = MetricsService::new().unwrap();
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -564,6 +569,7 @@ mod tests {
             era_reader,
             api_version_provider,
             signable_builder_service,
+            metrics_service,
         }
     }
 
