@@ -65,7 +65,7 @@ pub struct Args {
     reset_digests_cache: bool,
 
     /// Enable metrics HTTP server (Prometheus endpoint on /metrics).
-    #[clap(long, env = "ENABLE_METRICS_SERVER", default_value_t = false)]
+    #[clap(long, env = "ENABLE_METRICS_SERVER", default_value_t = true)]
     enable_metrics_server: bool,
 
     /// Metrics HTTP server IP.

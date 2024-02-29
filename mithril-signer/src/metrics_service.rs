@@ -9,12 +9,16 @@ pub type MetricName = str;
 pub struct MetricsService {
     registry: Registry,
     signer_registration_success_since_startup_counter: Box<Counter>,
+    signer_registration_total_since_startup_counter: Box<Counter>,
+    signature_registration_success_since_startup_counter: Box<Counter>,
+    signature_registration_total_since_startup_counter: Box<Counter>,
 }
 
 impl MetricsService {
     /// Create a new `MetricsService` instance.
     pub fn new() -> StdResult<Self> {
         let registry = Registry::new();
+
         let signer_registration_success_since_startup_counter =
             Box::new(Self::create_metric_counter(
                 "signer_registration_success_since_startup",
@@ -22,9 +26,33 @@ impl MetricsService {
             )?);
         registry.register(signer_registration_success_since_startup_counter.clone())?;
 
+        let signer_registration_total_since_startup_counter =
+            Box::new(Self::create_metric_counter(
+                "signer_registration_total_since_startup",
+                "Number of signer registrations since startup",
+            )?);
+        registry.register(signer_registration_total_since_startup_counter.clone())?;
+
+        let signature_registration_success_since_startup_counter =
+            Box::new(Self::create_metric_counter(
+                "signature_registration_success_since_startup",
+                "Number of successful signature registrations since startup",
+            )?);
+        registry.register(signature_registration_success_since_startup_counter.clone())?;
+
+        let signature_registration_total_since_startup_counter =
+            Box::new(Self::create_metric_counter(
+                "signature_registration_total_since_startup",
+                "Number of signature registrations since startup",
+            )?);
+        registry.register(signature_registration_total_since_startup_counter.clone())?;
+
         Ok(Self {
             registry,
             signer_registration_success_since_startup_counter,
+            signer_registration_total_since_startup_counter,
+            signature_registration_success_since_startup_counter,
+            signature_registration_total_since_startup_counter,
         })
     }
 
@@ -48,13 +76,56 @@ impl MetricsService {
 
     /// Increment the `signer_registration_success_since_startup` counter.
     pub fn signer_registration_success_since_startup_counter_increment(&self) {
-        debug!("MetricsService: incrementing signer_registration_success_since_startup counter");
+        debug!("MetricsService: incrementing 'signer_registration_success_since_startup' counter");
         self.signer_registration_success_since_startup_counter.inc();
     }
 
     /// Get the `signer_registration_success_since_startup` counter.
     pub fn signer_registration_success_since_startup_counter_get(&self) -> u32 {
         self.signer_registration_success_since_startup_counter
+            .get()
+            .round() as u32
+    }
+
+    /// Increment the `signer_registration_total_since_startup` counter.
+    pub fn signer_registration_total_since_startup_counter_increment(&self) {
+        debug!("MetricsService: incrementing 'signer_registration_total_since_startup' counter");
+        self.signer_registration_total_since_startup_counter.inc();
+    }
+
+    /// Get the `signer_registration_total_since_startup` counter.
+    pub fn signer_registration_total_since_startup_counter_get(&self) -> u32 {
+        self.signer_registration_total_since_startup_counter
+            .get()
+            .round() as u32
+    }
+
+    /// Increment the `signature_registration_success_since_startup` counter.
+    pub fn signature_registration_success_since_startup_counter_increment(&self) {
+        debug!(
+            "MetricsService: incrementing 'signature_registration_success_since_startup' counter"
+        );
+        self.signature_registration_success_since_startup_counter
+            .inc();
+    }
+
+    /// Get the `signature_registration_success_since_startup` counter.
+    pub fn signature_registration_success_since_startup_counter_get(&self) -> u32 {
+        self.signature_registration_success_since_startup_counter
+            .get()
+            .round() as u32
+    }
+
+    /// Increment the `signature_registration_total_since_startup` counter.
+    pub fn signature_registration_total_since_startup_counter_increment(&self) {
+        debug!("MetricsService: incrementing 'signature_registration_total_since_startup' counter");
+        self.signature_registration_total_since_startup_counter
+            .inc();
+    }
+
+    /// Get the `signature_registration_total_since_startup` counter.
+    pub fn signature_registration_total_since_startup_counter_get(&self) -> u32 {
+        self.signature_registration_total_since_startup_counter
             .get()
             .round() as u32
     }
@@ -72,6 +143,39 @@ mod tests {
         assert_eq!(
             1,
             metrics_service.signer_registration_success_since_startup_counter_get(),
+        );
+    }
+
+    #[test]
+    fn test_signer_registration_total_since_startup_counter_increment() {
+        let metrics_service = MetricsService::new().unwrap();
+
+        metrics_service.signer_registration_total_since_startup_counter_increment();
+        assert_eq!(
+            1,
+            metrics_service.signer_registration_total_since_startup_counter_get(),
+        );
+    }
+
+    #[test]
+    fn test_signature_registration_success_since_startup_counter_increment() {
+        let metrics_service = MetricsService::new().unwrap();
+
+        metrics_service.signature_registration_success_since_startup_counter_increment();
+        assert_eq!(
+            1,
+            metrics_service.signature_registration_success_since_startup_counter_get(),
+        );
+    }
+
+    #[test]
+    fn test_signature_registration_total_since_startup_counter_increment() {
+        let metrics_service = MetricsService::new().unwrap();
+
+        metrics_service.signature_registration_total_since_startup_counter_increment();
+        assert_eq!(
+            1,
+            metrics_service.signature_registration_total_since_startup_counter_get(),
         );
     }
 }
