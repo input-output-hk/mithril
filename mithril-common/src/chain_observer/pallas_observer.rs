@@ -533,7 +533,7 @@ mod tests {
 
         match query {
             Request::GetChainPoint => {
-                AnyCbor::from_encode(Point::Specific(53536042, vec![1, 2, 3]))
+                AnyCbor::from_encode(Point::Specific(52851885, vec![1, 2, 3]))
             }
             Request::LedgerQuery(LedgerQuery::HardForkQuery(HardForkQuery::GetCurrentEra)) => {
                 AnyCbor::from_encode(4)
