@@ -165,7 +165,7 @@ impl Source for Args {
 enum ArtifactCommands {
     /// Deprecated, use `cardano-db` instead
     #[clap(subcommand)]
-    #[deprecated(since = "0.7.2", note = "use `CardanoDb` commands instead")]
+    #[deprecated(since = "0.7.3", note = "use `CardanoDb` commands instead")]
     Snapshot(SnapshotCommands),
 
     #[clap(subcommand, alias("cdb"))]
