@@ -241,16 +241,15 @@ impl PallasChainObserver {
         chain_point: Point,
         slots_per_kes_period: u64,
     ) -> Result<KESPeriod, ChainObserverError> {
-        match slots_per_kes_period {
-            slots if slots > 0 => {
-                let current_kes_period = chain_point.slot_or_default() / slots;
-                Ok(u32::try_from(current_kes_period)
-                    .map_err(|err| anyhow!(err))
-                    .with_context(|| "PallasChainObserver failed to convert kes period")?)
-            }
-            _ => Err(anyhow!("slots_per_kes_period must be greater than 0"))
-                .with_context(|| "PallasChainObserver failed to calculate kes period")?,
+        if slots_per_kes_period == 0 {
+            return Err(anyhow!("slots_per_kes_period must be greater than 0"))
+                .with_context(|| "PallasChainObserver failed to calculate kes period")?;
         }
+
+        let current_kes_period = chain_point.slot_or_default() / slots_per_kes_period;
+        Ok(u32::try_from(current_kes_period)
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to convert kes period")?)
     }
 
     /// Fetches chain point and genesis config through the local statequery.
