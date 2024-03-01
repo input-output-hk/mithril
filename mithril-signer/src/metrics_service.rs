@@ -234,7 +234,64 @@ impl MetricsService {
 
 #[cfg(test)]
 mod tests {
+    use prometheus_parse::Value;
+    use std::collections::HashMap;
+
     use super::*;
+
+    fn parse_metrics(raw_metrics: &str) -> StdResult<HashMap<String, Value>> {
+        Ok(
+            prometheus_parse::Scrape::parse(raw_metrics.lines().map(|s| Ok(s.to_owned())))?
+                .samples
+                .into_iter()
+                .map(|s| (s.metric, s.value))
+                .collect::<HashMap<_, _>>(),
+        )
+    }
+
+    #[test]
+    fn test_export_metrics() {
+        let metrics_service = MetricsService::new().unwrap();
+        let exported_metrics = metrics_service.export_metrics().unwrap();
+
+        let parsed_metrics = parse_metrics(&exported_metrics).unwrap();
+
+        let parsed_metrics_expected = HashMap::from([
+            (
+                "runtime_cycle_success_since_startup".to_string(),
+                Value::Counter(0.0),
+            ),
+            (
+                "runtime_cycle_total_since_startup".to_string(),
+                Value::Counter(0.0),
+            ),
+            (
+                "signature_registration_success_last_epoch".to_string(),
+                Value::Gauge(0.0),
+            ),
+            (
+                "signature_registration_success_since_startup".to_string(),
+                Value::Counter(0.0),
+            ),
+            (
+                "signature_registration_total_since_startup".to_string(),
+                Value::Counter(0.0),
+            ),
+            (
+                "signer_registration_success_last_epoch".to_string(),
+                Value::Gauge(0.0),
+            ),
+            (
+                "signer_registration_success_since_startup".to_string(),
+                Value::Counter(0.0),
+            ),
+            (
+                "signer_registration_total_since_startup".to_string(),
+                Value::Counter(0.0),
+            ),
+        ]);
+        assert_eq!(parsed_metrics_expected, parsed_metrics);
+    }
 
     #[test]
     fn test_signer_registration_success_since_startup_counter_increment() {
