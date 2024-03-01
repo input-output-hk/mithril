@@ -245,7 +245,7 @@ impl PallasChainObserver {
     ///
     /// where:
     /// - `P` represents the current point on the chain (slot number).
-    /// - `S` symbolizes the number of slots in each KES period.
+    /// - `S` represents the number of slots in each KES period.
     /// - `floor(.)` is the floor function which rounds down a number to the nearest whole.
     ///
     /// ## Example:
