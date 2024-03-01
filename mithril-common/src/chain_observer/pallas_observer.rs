@@ -240,16 +240,16 @@ impl PallasChainObserver {
         &self,
         chain_point: Point,
         slots_per_kes_period: u64,
-    ) -> Result<u32, ChainObserverError> {
+    ) -> Result<KESPeriod, ChainObserverError> {
         match slots_per_kes_period {
             slots if slots > 0 => {
                 let current_kes_period = chain_point.slot_or_default() / slots;
-                Ok(current_kes_period as u32)
+                Ok(u32::try_from(current_kes_period)
+                    .map_err(|err| anyhow!(err))
+                    .with_context(|| "PallasChainObserver failed to convert kes period")?)
             }
-            _ => Err(anyhow!(
-                "PallasChainObserver failed to calculate kes period"
-            ))
-            .with_context(|| "slots_per_kes_period must be greater than 0")?,
+            _ => Err(anyhow!("slots_per_kes_period must be greater than 0"))
+                .with_context(|| "PallasChainObserver failed to calculate kes period")?,
         }
     }
 
@@ -687,7 +687,7 @@ mod tests {
         assert_eq!(413, current_kes_period);
 
         let current_kes_period = observer
-            .calculate_kes_period(Point::Specific(53600000, vec![1, 2, 3]), 129600)
+            .calculate_kes_period(Point::Specific(53524800, vec![1, 2, 3]), 129600)
             .await
             .unwrap();
 
