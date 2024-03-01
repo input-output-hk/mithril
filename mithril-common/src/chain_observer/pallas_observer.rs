@@ -241,12 +241,12 @@ impl PallasChainObserver {
     ///
     /// The calculation formula is represented as:
     ///
-    /// `floor(P / S)`
+    /// `current_kes_period = ⌊current_slot_number/slots_per_kes_period⌋`
     ///
     /// where:
-    /// - `P` represents the current point on the chain (slot number).
-    /// - `S` represents the number of slots in each KES period.
-    /// - `floor(.)` is the floor function which rounds down a number to the nearest whole.
+    /// - `current_slot_number` represents the current slot number given by the `point` on the chain.
+    /// - `slots_per_kes_period` represents the number of slots in a KES period.
+    /// - `⌊x⌋` is the floor function which rounds the greatest integer less than or equal to `x`.
     ///
     /// ## Example:
     ///
