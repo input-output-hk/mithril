@@ -119,9 +119,6 @@ impl StateMachine {
         info!("STATE MACHINE: launching");
 
         loop {
-            self.metrics_service
-                .runtime_cycle_total_since_startup_counter_increment();
-
             if let Err(e) = self.cycle().await {
                 if e.is_critical() {
                     crit!("{e}");
@@ -136,8 +133,6 @@ impl StateMachine {
                 "… Cycle finished, Sleeping for {} ms",
                 self.state_sleep.as_millis()
             );
-            self.metrics_service
-                .runtime_cycle_success_since_startup_counter_increment();
             sleep(self.state_sleep).await;
         }
     }
@@ -147,6 +142,9 @@ impl StateMachine {
         let mut state = self.state.lock().await;
         info!("================================================================================");
         info!("STATE MACHINE: new cycle: {}", *state);
+
+        self.metrics_service
+            .runtime_cycle_total_since_startup_counter_increment();
 
         match state.deref() {
             SignerState::Init => {
@@ -257,6 +255,9 @@ impl StateMachine {
             }
         };
 
+        self.metrics_service
+            .runtime_cycle_success_since_startup_counter_increment();
+
         Ok(())
     }
 
@@ -325,6 +326,9 @@ impl StateMachine {
         &self,
         epoch_settings: &EpochSettings,
     ) -> Result<SignerState, RuntimeError> {
+        self.metrics_service
+            .signer_registration_total_since_startup_counter_increment();
+
         let beacon = self.get_current_beacon("unregistered → registered").await?;
         self.runner.update_stake_distribution(beacon.epoch)
             .await
@@ -343,6 +347,11 @@ impl StateMachine {
                 RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch), nested_error: Some(e) }
             }
         })?;
+
+        self.metrics_service
+            .signer_registration_success_since_startup_counter_increment();
+        self.metrics_service
+            .signer_registration_success_last_epoch_gauge_set(beacon.epoch);
 
         Ok(SignerState::Registered {
             epoch: beacon.epoch,
@@ -366,6 +375,9 @@ impl StateMachine {
             "retrieval_epoch" => ?retrieval_epoch,
             "next_retrieval_epoch" => ?next_retrieval_epoch,
         );
+
+        self.metrics_service
+            .signature_registration_total_since_startup_counter_increment();
 
         let signers: Vec<SignerWithStake> = self
             .runner
@@ -405,6 +417,11 @@ impl StateMachine {
                 message: format!("Could not send single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
                 nested_error: Some(e)
             })?;
+
+        self.metrics_service
+            .signature_registration_success_since_startup_counter_increment();
+        self.metrics_service
+            .signature_registration_success_last_epoch_gauge_set(current_beacon.epoch);
 
         Ok(SignerState::Signed {
             epoch: current_beacon.epoch,

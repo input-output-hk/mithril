@@ -147,9 +147,6 @@ impl Runner for SignerRunner {
         protocol_parameters: &ProtocolParameters,
     ) -> StdResult<()> {
         debug!("RUNNER: register_signer_to_aggregator");
-        self.services
-            .metrics_service
-            .signer_registration_total_since_startup_counter_increment();
 
         let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
         let stake_distribution = self
@@ -212,13 +209,6 @@ impl Runner for SignerRunner {
             .protocol_initializer_store
             .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
             .await?;
-
-        self.services
-            .metrics_service
-            .signer_registration_success_since_startup_counter_increment();
-        self.services
-            .metrics_service
-            .signer_registration_success_last_epoch_gauge_set(epoch);
 
         Ok(())
     }
@@ -417,22 +407,9 @@ impl Runner for SignerRunner {
             debug!(" > there is a single signature to send");
 
             self.services
-                .metrics_service
-                .signature_registration_total_since_startup_counter_increment();
-
-            self.services
                 .certificate_handler
                 .register_signatures(signed_entity_type, &single_signatures)
                 .await?;
-
-            self.services
-                .metrics_service
-                .signature_registration_success_since_startup_counter_increment();
-            self.services
-                .metrics_service
-                .signature_registration_success_last_epoch_gauge_set(
-                    signed_entity_type.get_epoch(),
-                );
 
             Ok(())
         } else {
