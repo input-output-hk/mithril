@@ -1,7 +1,8 @@
 #![allow(dead_code)]
+use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
-use std::{fmt::Debug, path::Path, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
@@ -57,6 +58,7 @@ pub struct StateMachineTester {
     era_reader_adapter: Arc<EraReaderDummyAdapter>,
     comment_no: u32,
     _logs_guard: slog_scope::GlobalLoggerGuard,
+    metrics_service: Arc<MetricsService>,
 }
 
 impl Debug for StateMachineTester {
@@ -182,7 +184,7 @@ impl StateMachineTester {
             SignerState::Init,
             runner,
             Duration::from_secs(5),
-            metrics_service,
+            metrics_service.clone(),
         );
 
         Ok(StateMachineTester {
@@ -196,6 +198,7 @@ impl StateMachineTester {
             era_reader_adapter,
             comment_no: 0,
             _logs_guard: logs_guard,
+            metrics_service,
         })
     }
 
@@ -375,5 +378,33 @@ impl StateMachineTester {
         self.era_reader_adapter.set_markers(markers);
 
         self
+    }
+
+    fn parse_exported_metrics(&self) -> Result<BTreeMap<String, Value>> {
+        Ok(prometheus_parse::Scrape::parse(
+            self.metrics_service
+                .export_metrics()?
+                .lines()
+                .map(|s| Ok(s.to_owned())),
+        )
+        .map_err(|e| TestError::ValueError(e.to_string()))?
+        .samples
+        .into_iter()
+        .map(|s| (s.metric, s.value))
+        .collect::<BTreeMap<_, _>>())
+    }
+
+    // Check that the metrics service exports the expected metrics
+    pub fn check_metrics(
+        &mut self,
+        expected_metrics: BTreeMap<String, Value>,
+    ) -> Result<&mut Self> {
+        let metrics = self.parse_exported_metrics()?;
+        self.assert(
+            expected_metrics == metrics,
+            format!("Metrics service should export expected metrics: given {metrics:?}, expected {expected_metrics:?}"),
+        )?;
+
+        Ok(self)
     }
 }

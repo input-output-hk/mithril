@@ -1,5 +1,8 @@
 mod test_extensions;
 
+use prometheus_parse::Value;
+use std::collections::BTreeMap;
+
 use mithril_common::{
     crypto_helper::tests_setup, entities::Epoch, test_utils::MithrilFixtureBuilder,
 };
@@ -93,5 +96,41 @@ async fn test_create_single_signature() {
 
         .comment("signer should be able to create a single signature → Signed")
         .cycle_signed().await.unwrap()
+
+        .comment("metrics should be correctly computed")
+        .check_metrics(BTreeMap::from([
+            (
+                "runtime_cycle_success_since_startup".to_string(),
+                Value::Counter(22.0),
+            ),
+            (
+                "runtime_cycle_total_since_startup".to_string(),
+                Value::Counter(22.0),
+            ),
+            (
+                "signature_registration_success_last_epoch".to_string(),
+                Value::Gauge(5.0),
+            ),
+            (
+                "signature_registration_success_since_startup".to_string(),
+                Value::Counter(3.0),
+            ),
+            (
+                "signature_registration_total_since_startup".to_string(),
+                Value::Counter(3.0),
+            ),
+            (
+                "signer_registration_success_last_epoch".to_string(),
+                Value::Gauge(5.0),
+            ),
+            (
+                "signer_registration_success_since_startup".to_string(),
+                Value::Counter(4.0),
+            ),
+            (
+                "signer_registration_total_since_startup".to_string(),
+                Value::Counter(4.0),
+            ),
+        ])).unwrap()
         ;
 }
