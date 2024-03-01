@@ -234,8 +234,29 @@ impl PallasChainObserver {
         Ok(Some(stake_distribution))
     }
 
-    /// Calculates the current KES period
-    /// using the provided `chain_point`and `slots_per_kes_period`.
+    /// # Calculate Current KES Period
+    ///
+    /// It calculates the current Key Evolving Signature (KES) period
+    /// based on the provided `chain_point` and `slots_per_kes_period`.
+    ///
+    /// The calculation formula is represented as:
+    ///
+    /// `floor(P / S)`
+    ///
+    /// where:
+    /// - `P` represents the current point on the chain (slot number).
+    /// - `S` symbolizes the number of slots in each KES period.
+    /// - `floor(.)` is the floor function which rounds down a number to the nearest whole.
+    ///
+    /// ## Example:
+    ///
+    /// ```rust
+    /// let (chain_point, slots_per_kes_period) = (Point::new(1), 10);
+    /// match calculate_kes_period(&self, chain_point, slots_per_kes_period) {
+    ///     Ok(kes_period) => println!("Current KES Period: {}", kes_period),
+    ///     Err(e) => println!("Error occurred: {}", e),
+    /// }
+    /// ```
     async fn calculate_kes_period(
         &self,
         chain_point: Point,
