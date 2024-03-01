@@ -2,8 +2,10 @@
 
 use glob::glob;
 use jsonschema::JSONSchema;
+use reqwest::Url;
 use serde::Serialize;
 use serde_json::{json, Value, Value::Null};
+
 use warp::http::Response;
 use warp::http::StatusCode;
 use warp::hyper::body::Bytes;
@@ -83,16 +85,44 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if a request is valid
-    // TODO should validate query parameters.
     fn validate_request(&'a self, request_body: &impl Serialize) -> Result<&APISpec, String> {
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
         let content_type = self.content_type.unwrap();
 
-        let request_schema =
-            &self.openapi["paths"][path][method]["requestBody"]["content"][content_type]["schema"];
+        let openapi_path_entry = path.split('?').next().unwrap();
+        let operation_object = &self.openapi["paths"][openapi_path_entry][method];
+
+        self.validate_query_parameters(path, operation_object)?;
+
+        let request_schema = &operation_object["requestBody"]["content"][content_type]["schema"];
         let value = &json!(&request_body);
         self.validate_conformity(value, request_schema)
+    }
+
+    fn validate_query_parameters(
+        &'a self,
+        path: &str,
+        operation_object: &Value,
+    ) -> Result<&APISpec, String> {
+        let fake_base_url = "http://0.0.0.1";
+        let url = Url::parse(&format!("{}{}", fake_base_url, path)).unwrap();
+
+        check_query_parameter_limitations(&url, operation_object);
+
+        let mut query_pairs = url.query_pairs();
+        if let Some(parameter) = query_pairs.next() {
+            let spec_parameter = &operation_object["parameters"][0];
+            let spec_parameter_name = &spec_parameter["name"].as_str().unwrap();
+            let spec_parameter_in = &spec_parameter["in"].as_str().unwrap();
+            if spec_parameter_in.eq(&"query") && spec_parameter_name.eq(&parameter.0) {
+                Ok(self)
+            } else {
+                Err(format!("Unexpected query parameter '{}'", parameter.0))
+            }
+        } else {
+            Ok(self)
+        }
     }
 
     /// Validates if the status is the expected one
@@ -225,6 +255,25 @@ impl<'a> APISpec<'a> {
     }
 }
 
+// TODO: For now, it verifies only one parameter,
+// should verify with multiple query parameters using an openapi.yaml file for test.
+fn check_query_parameter_limitations(url: &Url, operation_object: &Value) {
+    if url.query_pairs().count() >= 2 {
+        panic!("This method does not work with multiple parameters");
+    }
+
+    if let Some(parameters) = operation_object["parameters"].as_array() {
+        let len = parameters
+            .iter()
+            .filter(|p| p["in"].eq("query"))
+            .collect::<Vec<_>>()
+            .len();
+        if len >= 2 {
+            panic!("This method does not work with multiple parameters");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use warp::http::Method;
@@ -298,7 +347,7 @@ mod tests {
         // for this route, so it's the default response spec that is used.
         let response = build_json_response(
             StatusCode::INTERNAL_SERVER_ERROR.into(),
-            &entities::InternalServerError::new("an error occurred".to_string()),
+            entities::InternalServerError::new("an error occurred".to_string()),
         );
 
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
@@ -480,6 +529,62 @@ mod tests {
             .unwrap()
             .validate_response(&build_empty_response(404))
             .map(|_apispec| ())
+    }
+
+    #[test]
+    fn test_validate_a_request_with_wrong_query_parameter_name() {
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/proof/cardano-transaction?whatever=123")
+            .validate_request(&Null);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Unexpected query parameter 'whatever'",
+        );
+    }
+
+    #[test]
+    fn test_validate_a_request_should_failed_when_query_parameter_is_in_path() {
+        let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec
+            .method(Method::GET.as_str())
+            .path("/artifact/cardano-transaction/{hash}?hash=456")
+            .validate_request(&Null);
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Unexpected query parameter 'hash'",
+        );
+    }
+
+    #[test]
+    fn test_validate_query_parameters_with_correct_parameter_name() -> Result<(), String> {
+        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        api_spec
+            .validate_query_parameters(
+                "/proof/cardano-transaction?transaction_hashes=123",
+                &api_spec.openapi["paths"]["/proof/cardano-transaction"]["get"],
+            )
+            .map(|_apispec| ())
+    }
+
+    #[test]
+    fn test_validate_query_parameters_with_wrong_query_parameter_name() {
+        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+        let result = api_spec.validate_query_parameters(
+            "/proof/cardano-transaction?whatever=123",
+            &api_spec.openapi["paths"]["/proof/cardano-transaction"]["get"],
+        );
+
+        assert!(result.is_err());
+        assert_eq!(
+            result.err().unwrap().to_string(),
+            "Unexpected query parameter 'whatever'",
+        );
     }
 
     #[test]

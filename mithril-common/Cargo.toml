@@ -47,6 +47,7 @@ pallas-traverse = { version = "0.23.0", optional = true }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 rayon = "1.8.1"
+reqwest = { version = "0.11.23", features = ["json"], optional = true }
 semver = "1.0.21"
 serde = { version = "1.0.196", features = ["derive"] }
 serde_bytes = "0.11.14"
@@ -85,7 +86,6 @@ criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = "0.12.1"
 pallas-crypto = "0.23.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-reqwest = { version = "0.11.23", features = ["json"] }
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
@@ -119,7 +119,7 @@ allow_skip_signer_certification = []
 # Enable all tests tools
 test_tools = ["apispec", "test_http_server", "random"]
 # Enable tools to helps validate conformity to an OpenAPI specification
-apispec = ["dep:glob", "dep:jsonschema", "dep:warp"]
+apispec = ["dep:glob", "dep:jsonschema", "dep:warp", "dep:reqwest"]
 test_http_server = ["dep:warp"]
 
 [package.metadata.docs.rs]

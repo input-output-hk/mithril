@@ -486,7 +486,7 @@ mod tests {
             yield_now().await;
 
             let path = "/proof/cardano-transaction";
-            let response = http_request(PORT, &path).await;
+            let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
                 get_spec_files(),
