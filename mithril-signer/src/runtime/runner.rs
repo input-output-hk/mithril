@@ -216,6 +216,9 @@ impl Runner for SignerRunner {
         self.services
             .metrics_service
             .signer_registration_success_since_startup_counter_increment();
+        self.services
+            .metrics_service
+            .signer_registration_success_last_epoch_gauge_set(epoch);
 
         Ok(())
     }
@@ -425,6 +428,11 @@ impl Runner for SignerRunner {
             self.services
                 .metrics_service
                 .signature_registration_success_since_startup_counter_increment();
+            self.services
+                .metrics_service
+                .signature_registration_success_last_epoch_gauge_set(
+                    signed_entity_type.get_epoch(),
+                );
 
             Ok(())
         } else {
