@@ -11,6 +11,13 @@ function fetchAggregatorCapabilities(aggregator) {
     });
 }
 
+function fetchSignersTickers(aggregator) {
+  return fetch(`${aggregator}/signers/tickers`).then((response) =>
+    response.status === 200 ? response.json() : {},
+  );
+}
+
 module.exports = {
   fetchAggregatorCapabilities,
+  fetchSignersTickers,
 };
