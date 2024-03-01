@@ -235,17 +235,17 @@ impl MetricsService {
 #[cfg(test)]
 mod tests {
     use prometheus_parse::Value;
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use super::*;
 
-    fn parse_metrics(raw_metrics: &str) -> StdResult<HashMap<String, Value>> {
+    fn parse_metrics(raw_metrics: &str) -> StdResult<BTreeMap<String, Value>> {
         Ok(
             prometheus_parse::Scrape::parse(raw_metrics.lines().map(|s| Ok(s.to_owned())))?
                 .samples
                 .into_iter()
                 .map(|s| (s.metric, s.value))
-                .collect::<HashMap<_, _>>(),
+                .collect::<BTreeMap<_, _>>(),
         )
     }
 
@@ -256,7 +256,7 @@ mod tests {
 
         let parsed_metrics = parse_metrics(&exported_metrics).unwrap();
 
-        let parsed_metrics_expected = HashMap::from([
+        let parsed_metrics_expected = BTreeMap::from([
             (
                 "runtime_cycle_success_since_startup".to_string(),
                 Value::Counter(0.0),

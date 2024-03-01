@@ -500,8 +500,8 @@ mod tests {
     };
 
     use crate::{
-        metrics_service::MetricsService, AggregatorClient, DumbAggregatorClient,
-        MithrilSingleSigner, MockAggregatorClient, ProtocolInitializerStore, SingleSigner,
+        metrics::MetricsService, AggregatorClient, DumbAggregatorClient, MithrilSingleSigner,
+        MockAggregatorClient, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;

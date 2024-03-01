@@ -89,18 +89,21 @@ mod tests {
     use anyhow::anyhow;
     use reqwest::StatusCode;
     use std::time::Duration;
-    use tokio::{sync::oneshot, time::sleep};
+    use tokio::{sync::oneshot, task::yield_now, time::sleep};
 
     use super::*;
 
     #[tokio::test]
     async fn test_metrics_server() {
-        let (_, shutdown_rx) = oneshot::channel();
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let metrics_server = Arc::new(MetricsServer::new("0.0.0.0", 9090, metrics_service.clone()));
         let metrics_server_endpoint = metrics_server.endpoint();
 
         let exported_metrics_test = tokio::spawn(async move {
+            // Yield to make sure the web server starts first.
+            yield_now().await;
+
             let response = reqwest::get(format!("{metrics_server_endpoint}/metrics"))
                 .await
                 .unwrap();
@@ -115,5 +118,7 @@ mod tests {
             res = exported_metrics_test => res.map_err(|e| e.into()),
         )
         .unwrap();
+
+        shutdown_tx.send(()).unwrap();
     }
 }

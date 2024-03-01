@@ -29,8 +29,8 @@ use mithril_persistence::{
 
 use crate::{
     aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
-    metrics_service::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient,
-    Configuration, MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
+    metrics::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient, Configuration,
+    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
     HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
