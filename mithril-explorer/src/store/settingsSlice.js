@@ -1,5 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
+import aggregator_api from "../aggregator-api";
 import default_available_aggregators from "../aggregators-list";
+import { defaultAggregatorCapabilities } from "../constants";
 import { checkUrl } from "../utils";
 
 export const initialState = {
@@ -7,6 +9,7 @@ export const initialState = {
   updateInterval: 10000,
   selectedAggregator: default_available_aggregators[0],
   availableAggregators: default_available_aggregators,
+  aggregatorCapabilities: defaultAggregatorCapabilities,
   canRemoveSelected: false,
 };
 
@@ -52,12 +55,40 @@ export const settingsSlice = createSlice({
         ),
       };
     },
+    updateSelectedAggregatorCapabilities: (state, action) => {
+      return {
+        ...state,
+        aggregatorCapabilities: action.payload,
+      };
+    },
   },
 });
 
-export const { setUpdateInterval, toggleAutoUpdate, selectAggregator, removeSelectedAggregator } =
-  settingsSlice.actions;
+export const addSettingsListeners = (listenerMiddleware) => {
+  listenerMiddleware.startListening({
+    actionCreator: selectAggregator,
+    effect: async (action, listenerApi) => {
+      const aggregator = action.payload;
+
+      if (aggregator) {
+        const capabilities = await aggregator_api.fetchAggregatorCapabilities(aggregator);
+        listenerApi.dispatch(updateSelectedAggregatorCapabilities(capabilities));
+      }
+    },
+  });
+};
+
+export const {
+  setUpdateInterval,
+  toggleAutoUpdate,
+  selectAggregator,
+  removeSelectedAggregator,
+  updateSelectedAggregatorCapabilities,
+} = settingsSlice.actions;
 
 export const selectedAggregator = (state) => state.settings.selectedAggregator;
+export const doesSelectedAggregatorSignEntity = (state, signed_entity_type) =>
+  state.settings?.aggregatorCapabilities?.signed_entity_types?.includes(signed_entity_type) ??
+  false;
 
 export default settingsSlice.reducer;
