@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.18
+  version: 0.1.19
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -291,20 +291,20 @@ paths:
 
   /artifact/cardano-transactions:
     get:
-      summary: Get most recent Cardano transactions set commitments
+      summary: Get most recent Cardano transactions set snapshots
       description: |
-        Returns the list of the most recent Cardano transactions set commitments
+        Returns the list of the most recent Cardano transactions set snapshots
       responses:
         "200":
-          description: Cardano transactions set commitments found
+          description: Cardano transactions set snapshots found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CardanoTransactionCommitmentListMessage"
+                $ref: "#/components/schemas/CardanoTransactionSnapshotListMessage"
         "412":
           description: API version mismatch
         default:
-          description: Cardano transactions set commitments retrieval error
+          description: Cardano transactions set snapshots retrieval error
           content:
             application/json:
               schema:
@@ -312,13 +312,13 @@ paths:
 
   /artifact/cardano-transaction/{hash}:
     get:
-      summary: Get Cardano transactions set commitment information
+      summary: Get Cardano transactions set snapshot information
       description: |
-        Returns the information of a Cardano transactions set commitment
+        Returns the information of a Cardano transactions set snapshot
       parameters:
         - name: hash
           in: path
-          description: Hash of the Cardano transactions set commitment to retrieve
+          description: Hash of the Cardano transactions set snapshot to retrieve
           required: true
           schema:
             type: string
@@ -326,17 +326,17 @@ paths:
           example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
       responses:
         "200":
-          description: Cardano transactions set commitment found
+          description: Cardano transactions set snapshot found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CardanoTransactionCommitmentMessage"
+                $ref: "#/components/schemas/CardanoTransactionSnapshotMessage"
         "404":
-          description: Cardano transactions set commitment not found
+          description: Cardano transactions set snapshot not found
         "412":
           description: API version mismatch
         default:
-          description: Cardano transactions set commitment retrieval error
+          description: Cardano transactions set snapshot retrieval error
           content:
             application/json:
               schema:
@@ -566,13 +566,13 @@ components:
                   - CardanoStakeDistribution
                   - CardanoImmutableFilesFull
                   - CardanoTransactions
-      example: 
+      example:
         {
           "open_api_version": "0.1.17",
           "documentation_url": "https://mithril.network",
           "capabilities":
             {
-              "signed_entity_types": ["MithrilStakeDistribution", "CardanoImmutableFilesFull", "CardanoTransactions"]
+              "signed_entity_types": [ "MithrilStakeDistribution", "CardanoImmutableFilesFull", "CardanoTransactions" ]
             }
         }
 
@@ -596,8 +596,8 @@ components:
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
           $ref: "#/components/schemas/ProtocolParameters"
-      example: 
-        { 
+      example:
+        {
           "epoch": 329,
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
           "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 }
@@ -682,7 +682,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Signer"
-      example: 
+      example:
         {
           "beacon":
             {
@@ -710,7 +710,7 @@ components:
                 "kes_period": 456
               }
             ],
-          "next_signers": 
+          "next_signers":
             [
               {
                 "party_id": "3456789000",
@@ -925,8 +925,8 @@ components:
 
     RegisterSingleSignatureMessage:
       description: |
-          This message holds a Signer Single Signature with the
-          list of won indexes in the lottery.
+        This message holds a Signer Single Signature with the
+        list of won indexes in the lottery.
       type: object
       additionalProperties: false
       required:
@@ -955,7 +955,7 @@ components:
           "entity_type": { "MithrilStakeDistribution": 246 },
           "party_id": "1234567890",
           "signature": "7b2c36322c3130352c3232322c31302c3131302c33312c37312c39372c22766b223a5b3136342c2c31393137352c313834",
-          "indexes": [25, 35]
+          "indexes": [ 25, 35 ]
         }
 
     ProtocolMessageParts:
@@ -990,7 +990,7 @@ components:
           $ref: "#/components/schemas/ProtocolMessageParts"
       example:
         {
-          "message_parts": 
+          "message_parts":
             {
               "snapshot_digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
               "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363"
@@ -1521,10 +1521,10 @@ components:
           $ref: "#/components/schemas/ProtocolParameters"
       example:
         {
-        "epoch": 123,
-        "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-        "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
-        "signers":
+          "epoch": 123,
+          "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+          "signers":
             [
               {
                 "party_id": "1234567890",
@@ -1543,12 +1543,12 @@ components:
                 "stake": 2345
               }
             ],
-        "created_at": "2022-06-14T10:52:31Z",
-        "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
+          "created_at": "2022-06-14T10:52:31Z",
+          "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
         }
 
-    CardanoTransactionCommitmentListMessage:
-      description: CardanoTransactionCommitmentListMessage represents a list of Cardano transactions set commitments
+    CardanoTransactionSnapshotListMessage:
+      description: CardanoTransactionSnapshotListMessage represents a list of Cardano transactions set snapshots
       type: array
       items:
         type: object
@@ -1584,16 +1584,16 @@ components:
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
             "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
+              {
+                "network": "mainnet",
+                "epoch": 329,
+                "immutable_file_number": 7060000
+              },
             "created_at": "2022-06-14T10:52:31Z"
           }
 
-    CardanoTransactionCommitmentMessage:
-      description: This message represents a Cardano transactions set commitment.
+    CardanoTransactionSnapshotMessage:
+      description: This message represents a Cardano transactions set snapshot.
       type: object
       additionalProperties: false
       required:
@@ -1627,11 +1627,11 @@ components:
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
           "beacon":
-          {
-            "network": "mainnet",
-            "epoch": 329,
-            "immutable_file_number": 7060000
-          },
+            {
+              "network": "mainnet",
+              "epoch": 329,
+              "immutable_file_number": 7060000
+            },
           "created_at": "2022-06-14T10:52:31Z"
         }
 
@@ -1676,11 +1676,11 @@ components:
       example:
         {
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
-          "certified_transactions": [{
-            "transactions_hashes": ["6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732", "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732"],
+          "certified_transactions": [ {
+            "transactions_hashes": [ "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732", "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732" ],
             "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
-          }],
-          "non_certified_transactions": ["732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"],
+          } ],
+          "non_certified_transactions": [ "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517" ],
         }
 
     Error:

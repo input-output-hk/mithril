@@ -184,8 +184,8 @@ download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest" true
 download_data "$BASE_URL/artifact/mithril-stake-distributions" "mithril-stake-distributions"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash" true
 
-download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-commitments"
-download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-commitment" "hash"
+download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-snapshots"
+download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-snapshot" "hash"
 
 if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
     download_ctx_proof $CARDANO_TRANSACTIONS_HASHES

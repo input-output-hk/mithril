@@ -68,16 +68,16 @@ impl MithrilStakeDistributionCommand {
 
 #[derive(Debug)]
 pub enum CardanoTransactionCommand {
-    ListCommitment,
-    ShowCommitment { hash: String },
+    ListSnapshot,
+    ShowSnapshot { hash: String },
     Certify { tx_hashes: Vec<TransactionHash> },
 }
 
 impl CardanoTransactionCommand {
     fn name(&self) -> String {
         match self {
-            CardanoTransactionCommand::ListCommitment => "list-commitment".to_string(),
-            CardanoTransactionCommand::ShowCommitment { hash } => format!("show-commitment-{hash}"),
+            CardanoTransactionCommand::ListSnapshot => "list-snapshot".to_string(),
+            CardanoTransactionCommand::ShowSnapshot { hash } => format!("show-snapshot-{hash}"),
             CardanoTransactionCommand::Certify { tx_hashes } if tx_hashes.len() > 1 => {
                 // Only output first & last hash to avoid too long filenames
                 format!("certify-{}..{}", tx_hashes[0], tx_hashes.last().unwrap())
@@ -90,11 +90,11 @@ impl CardanoTransactionCommand {
 
     fn cli_arg(&self) -> Vec<String> {
         match self {
-            CardanoTransactionCommand::ListCommitment => {
-                vec!["commitment".to_string(), "list".to_string()]
+            CardanoTransactionCommand::ListSnapshot => {
+                vec!["snapshot".to_string(), "list".to_string()]
             }
-            CardanoTransactionCommand::ShowCommitment { hash } => {
-                vec!["commitment".to_string(), "show".to_string(), hash.clone()]
+            CardanoTransactionCommand::ShowSnapshot { hash } => {
+                vec!["snapshot".to_string(), "show".to_string(), hash.clone()]
             }
             CardanoTransactionCommand::Certify { tx_hashes } => {
                 vec!["certify".to_string(), tx_hashes.join(",")]

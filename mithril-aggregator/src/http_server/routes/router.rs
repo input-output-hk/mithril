@@ -115,6 +115,7 @@ pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
 
 #[cfg(test)]
 mod tests {
+    use semver::Version;
     use std::collections::HashMap;
 
     use mithril_common::{
@@ -156,7 +157,7 @@ mod tests {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
         let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), "1.0.0".to_string());
+        open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 0, 0));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
         let filters = header_must_be(api_version_provider);
@@ -173,7 +174,7 @@ mod tests {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
         let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), "0.1.0".to_string());
+        open_api_versions.insert("openapi.yaml".to_string(), Version::new(0, 1, 0));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
         let filters = header_must_be(api_version_provider);

@@ -11,7 +11,7 @@ use mithril_common::{
         Beacon, Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
     messages::{
-        CardanoTransactionCommitmentListItemMessage, CardanoTransactionCommitmentMessage,
+        CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
         MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
         SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
     },
@@ -140,7 +140,7 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionListItemMessage {
     }
 }
 
-impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentMessage {
+impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
@@ -151,7 +151,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentMessage {
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
-        let cardano_transaction_message = CardanoTransactionCommitmentMessage {
+        let cardano_transaction_message = CardanoTransactionSnapshotMessage {
             merkle_root: artifact.merkle_root,
             beacon: artifact.beacon,
             hash: artifact.hash,
@@ -163,7 +163,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentMessage {
     }
 }
 
-impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentListItemMessage {
+impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotListItemMessage {
     type Error = StdError;
 
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
@@ -174,7 +174,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionCommitmentListItemMessage
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
-        let message = CardanoTransactionCommitmentListItemMessage {
+        let message = CardanoTransactionSnapshotListItemMessage {
             merkle_root: artifact.merkle_root,
             beacon: artifact.beacon,
             hash: artifact.hash,

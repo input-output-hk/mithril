@@ -67,7 +67,7 @@ mod handlers {
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
-                .get_last_cardano_transaction_commitment()
+                .get_last_cardano_transaction_snapshot()
                 .await,
             "proof_cardano_transaction::error"
         ) {
@@ -109,7 +109,7 @@ mod tests {
 
     use anyhow::anyhow;
     use mithril_common::entities::{
-        CardanoTransactionsCommitment, CardanoTransactionsSetProof, SignedEntity,
+        CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
     };
     use serde_json::Value::Null;
     use warp::{http::Method, test::request};
@@ -140,8 +140,8 @@ mod tests {
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
-            .expect_get_last_cardano_transaction_commitment()
-            .returning(|| Ok(Some(SignedEntity::<CardanoTransactionsCommitment>::dummy())));
+            .expect_get_last_cardano_transaction_snapshot()
+            .returning(|| Ok(Some(SignedEntity::<CardanoTransactionsSnapshot>::dummy())));
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let mut mock_prover_service = MockProverService::new();
@@ -205,7 +205,7 @@ mod tests {
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
-            .expect_get_last_cardano_transaction_commitment()
+            .expect_get_last_cardano_transaction_snapshot()
             .returning(|| Err(anyhow!("Error")));
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 

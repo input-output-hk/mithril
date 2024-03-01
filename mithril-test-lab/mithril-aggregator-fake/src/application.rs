@@ -403,7 +403,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_ctx() {
+    async fn get_ctx_snapshot() {
         const PORT: u16 = 3011;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going
@@ -411,7 +411,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/cardano-transaction/{hash}";
-            let hash = default_values::ctx_commitment_hashes()[0];
+            let hash = default_values::ctx_snapshot_hashes()[0];
             let url = BASE_URL.replace("PORT", &PORT.to_string());
             let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
                 .await
@@ -435,7 +435,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_no_ctx() {
+    async fn get_no_ctx_snapshot() {
         const PORT: u16 = 3012;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going

@@ -4,8 +4,7 @@ use super::ArtifactBuilder;
 use anyhow::{anyhow, Context};
 use mithril_common::{
     entities::{
-        Beacon, CardanoTransactionsCommitment, Certificate, ProtocolMessagePartKey,
-        SignedEntityType,
+        Beacon, CardanoTransactionsSnapshot, Certificate, ProtocolMessagePartKey, SignedEntityType,
     },
     StdResult,
 };
@@ -21,12 +20,12 @@ impl CardanoTransactionsArtifactBuilder {
 }
 
 #[async_trait]
-impl ArtifactBuilder<Beacon, CardanoTransactionsCommitment> for CardanoTransactionsArtifactBuilder {
+impl ArtifactBuilder<Beacon, CardanoTransactionsSnapshot> for CardanoTransactionsArtifactBuilder {
     async fn compute_artifact(
         &self,
         beacon: Beacon,
         certificate: &Certificate,
-    ) -> StdResult<CardanoTransactionsCommitment> {
+    ) -> StdResult<CardanoTransactionsSnapshot> {
         let merkle_root = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::CardanoTransactionsMerkleRoot)
@@ -40,7 +39,7 @@ impl ArtifactBuilder<Beacon, CardanoTransactionsCommitment> for CardanoTransacti
                 )
             })?;
 
-        Ok(CardanoTransactionsCommitment::new(
+        Ok(CardanoTransactionsSnapshot::new(
             merkle_root.to_string(),
             beacon,
         ))
@@ -75,7 +74,7 @@ mod tests {
             .await
             .unwrap();
         let artifact_expected =
-            CardanoTransactionsCommitment::new("merkleroot".to_string(), certificate.beacon);
+            CardanoTransactionsSnapshot::new("merkleroot".to_string(), certificate.beacon);
         assert_eq!(artifact_expected, artifact);
     }
 

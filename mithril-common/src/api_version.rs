@@ -1,7 +1,6 @@
 //! API Version provider service
 include!(concat!(env!("OUT_DIR"), "/open_api.rs"));
 use anyhow::anyhow;
-use anyhow::Context;
 use semver::{Version, VersionReq};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,7 +12,7 @@ use crate::StdResult;
 #[derive(Clone)]
 pub struct APIVersionProvider {
     era_checker: Arc<EraChecker>,
-    open_api_versions: HashMap<OpenAPIFileName, OpenAPIVersionRaw>,
+    open_api_versions: HashMap<OpenAPIFileName, Version>,
 }
 
 impl APIVersionProvider {
@@ -30,7 +29,7 @@ impl APIVersionProvider {
         let current_era = self.era_checker.current_era();
         let open_api_spec_file_name_default = "openapi.yaml";
         let open_api_spec_file_name_era = &format!("openapi-{current_era}.yaml");
-        let open_api_version_raw = self
+        let open_api_version = self
             .open_api_versions
             .get(open_api_spec_file_name_era)
             .unwrap_or(
@@ -39,9 +38,7 @@ impl APIVersionProvider {
                     .ok_or_else(|| anyhow!("Missing default API version"))?,
             );
 
-        Version::parse(open_api_version_raw)
-            .map_err(|e| anyhow!(e))
-            .with_context(|| format!("Cannot parse Semver from: '{open_api_version_raw:?}'"))
+        Ok(open_api_version.clone())
     }
 
     /// Compute the current api version requirement
@@ -58,10 +55,7 @@ impl APIVersionProvider {
 
     /// Compute all the sorted list of all versions
     pub fn compute_all_versions_sorted() -> StdResult<Vec<Version>> {
-        let mut versions = Vec::new();
-        for version_raw in get_open_api_versions_mapping().into_values() {
-            versions.push(Version::parse(&version_raw)?)
-        }
+        let mut versions: Vec<Version> = get_open_api_versions_mapping().into_values().collect();
         versions.sort();
         Ok(versions)
     }
@@ -69,7 +63,7 @@ impl APIVersionProvider {
     /// Update open api versions. Test only
     pub fn update_open_api_versions(
         &mut self,
-        open_api_versions: HashMap<OpenAPIFileName, OpenAPIVersionRaw>,
+        open_api_versions: HashMap<OpenAPIFileName, Version>,
     ) {
         self.open_api_versions = open_api_versions;
     }
@@ -77,6 +71,7 @@ impl APIVersionProvider {
 
 #[cfg(test)]
 mod test {
+    use semver::Version;
     use std::{collections::HashMap, sync::Arc};
 
     use crate::{
@@ -90,7 +85,7 @@ mod test {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
         let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), "1.2.3".to_string());
+        open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 2, 3));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
 
@@ -108,10 +103,10 @@ mod test {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
         let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), "1.2.3".to_string());
+        open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 2, 3));
         open_api_versions.insert(
             format!("openapi-{}.yaml", SupportedEra::dummy()),
-            "2.1.0".to_string(),
+            Version::new(2, 1, 0),
         );
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
@@ -130,7 +125,7 @@ mod test {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
         let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), "0.2.3".to_string());
+        open_api_versions.insert("openapi.yaml".to_string(), Version::new(0, 2, 3));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
 
@@ -148,7 +143,7 @@ mod test {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let mut version_provider = APIVersionProvider::new(Arc::new(era_checker));
         let mut open_api_versions = HashMap::new();
-        open_api_versions.insert("openapi.yaml".to_string(), "3.2.1".to_string());
+        open_api_versions.insert("openapi.yaml".to_string(), Version::new(3, 2, 1));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
 

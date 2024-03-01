@@ -220,30 +220,30 @@ impl MithrilUnstableClient {
         }
     }
 
-    /// Call the client for the list of available Cardano transactions commitments
+    /// Call the client for the list of available Cardano transactions snapshots
     #[wasm_bindgen]
-    pub async fn list_cardano_transactions_commitments(&self) -> WasmResult {
+    pub async fn list_cardano_transactions_snapshots(&self) -> WasmResult {
         let result = self
             .client
             .cardano_transaction()
-            .list_commitments()
+            .list_snapshots()
             .await
             .map_err(|err| format!("{err:?}"))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
-    /// Call the client to get a Cardano transactions commitment from a hash
+    /// Call the client to get a Cardano transactions snapshot from a hash
     #[wasm_bindgen]
-    pub async fn get_cardano_transactions_commitment(&self, hash: &str) -> WasmResult {
+    pub async fn get_cardano_transactions_snapshot(&self, hash: &str) -> WasmResult {
         let result = self
             .client
             .cardano_transaction()
-            .get_commitment(hash)
+            .get_snapshot(hash)
             .await
             .map_err(|err| format!("{err:?}"))?
             .ok_or(JsValue::from_str(&format!(
-                "No cardano transactions commitment found for hash: '{hash}'"
+                "No cardano transactions snapshot found for hash: '{hash}'"
             )))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
@@ -301,7 +301,7 @@ mod tests {
     use wasm_bindgen_test::*;
 
     use mithril_client::{
-        common::ProtocolMessage, CardanoTransactionCommitment, MithrilCertificateListItem,
+        common::ProtocolMessage, CardanoTransactionSnapshot, MithrilCertificateListItem,
         MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
     };
 
@@ -493,13 +493,13 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn list_cardano_transactions_commitments_should_return_value_convertible_in_rust_type() {
+    async fn list_cardano_transactions_snapshots_should_return_value_convertible_in_rust_type() {
         let cardano_tx_sets_js_value = get_mithril_client()
             .unstable
-            .list_cardano_transactions_commitments()
+            .list_cardano_transactions_snapshots()
             .await
-            .expect("list_cardano_transactions_commitments should not fail");
-        let cardano_tx_sets = serde_wasm_bindgen::from_value::<Vec<CardanoTransactionCommitment>>(
+            .expect("list_cardano_transactions_snapshots should not fail");
+        let cardano_tx_sets = serde_wasm_bindgen::from_value::<Vec<CardanoTransactionSnapshot>>(
             cardano_tx_sets_js_value,
         )
         .expect("conversion should not fail");
@@ -507,31 +507,31 @@ mod tests {
         assert_eq!(
             cardano_tx_sets.len(),
             // Aggregator return up to 20 items for a list route
-            test_data::ctx_commitment_hashes().len().min(20)
+            test_data::ctx_snapshot_hashes().len().min(20)
         );
     }
 
     #[wasm_bindgen_test]
-    async fn get_cardano_transactions_commitment_should_return_value_convertible_in_rust_type() {
+    async fn get_cardano_transactions_snapshot_should_return_value_convertible_in_rust_type() {
         let cardano_tx_set_js_value = get_mithril_client()
             .unstable
-            .get_cardano_transactions_commitment(test_data::ctx_commitment_hashes()[0])
+            .get_cardano_transactions_snapshot(test_data::ctx_snapshot_hashes()[0])
             .await
-            .expect("get_cardano_transactions_commitment should not fail");
+            .expect("get_cardano_transactions_snapshot should not fail");
         let cardano_tx_set =
-            serde_wasm_bindgen::from_value::<CardanoTransactionCommitment>(cardano_tx_set_js_value)
+            serde_wasm_bindgen::from_value::<CardanoTransactionSnapshot>(cardano_tx_set_js_value)
                 .expect("conversion should not fail");
 
-        assert_eq!(cardano_tx_set.hash, test_data::ctx_commitment_hashes()[0]);
+        assert_eq!(cardano_tx_set.hash, test_data::ctx_snapshot_hashes()[0]);
     }
 
     #[wasm_bindgen_test]
-    async fn get_cardano_transactions_commitment_should_fail_with_unknown_digest() {
+    async fn get_cardano_transactions_snapshot_should_fail_with_unknown_digest() {
         get_mithril_client()
             .unstable
-            .get_cardano_transactions_commitment("whatever")
+            .get_cardano_transactions_snapshot("whatever")
             .await
-            .expect_err("get_cardano_transactions_commitment should fail");
+            .expect_err("get_cardano_transactions_snapshot should fail");
     }
 
     #[wasm_bindgen_test]

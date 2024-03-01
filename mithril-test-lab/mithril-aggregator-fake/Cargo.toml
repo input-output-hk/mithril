@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-fake"
-version = "0.2.0"
+version = "0.2.2"
 description = "Mithril Fake Aggregator for client testing"
 authors = { workspace = true }
 documentation = { workspace = true }
@@ -33,4 +33,4 @@ reqwest = "0.11.23"
 warp = "0.3.6"
 
 [build-dependencies]
-mithril-build-script = { path = "../../mithril-build-script" }
+mithril-build-script = { path = "../../internal/mithril-build-script" }
