@@ -97,7 +97,7 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        let result = APISpec::verify_conformity_with_status(
+        let result = APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
             path,

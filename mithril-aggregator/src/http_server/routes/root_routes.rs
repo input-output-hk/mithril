@@ -150,7 +150,7 @@ mod tests {
             }
         );
 
-        APISpec::verify_conformity_with_status(
+        APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
             path,

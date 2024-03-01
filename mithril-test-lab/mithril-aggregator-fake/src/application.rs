@@ -154,7 +154,7 @@ mod tests {
             let path = "/certificates";
             let response = http_request(PORT, path).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -179,7 +179,7 @@ mod tests {
             let path = "/artifact/snapshots";
             let response = http_request(PORT, path).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -204,7 +204,7 @@ mod tests {
             let path = "/artifact/mithril-stake-distributions";
             let response = http_request(PORT, path).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -231,7 +231,7 @@ mod tests {
             let response =
                 http_request(PORT, &path.replace("{certificate_hash}", certificate_hash)).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -257,7 +257,7 @@ mod tests {
             let response =
                 http_request(PORT, &path.replace("{certificate_hash}", "whatever")).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -283,7 +283,7 @@ mod tests {
             let digest = default_values::snapshot_digests()[0];
             let response = http_request(PORT, path.replace("{digest}", digest).as_str()).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -309,7 +309,7 @@ mod tests {
             let digest = "whatever";
             let response = http_request(PORT, &path.replace("{digest}", digest)).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -335,7 +335,7 @@ mod tests {
             let hash = default_values::msd_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -360,7 +360,7 @@ mod tests {
             let path = "/artifact/mithril-stake-distribution/{hash}";
             let response = http_request(PORT, &path.replace("{hash}", "whatever")).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -385,7 +385,7 @@ mod tests {
             let path = "/epoch-settings";
             let response = http_request(PORT, path).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -411,7 +411,7 @@ mod tests {
             let hash = default_values::ctx_snapshot_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -437,7 +437,7 @@ mod tests {
             let hash = "whatever";
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -463,7 +463,7 @@ mod tests {
             let hash = default_values::proof_transaction_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,
@@ -488,7 +488,7 @@ mod tests {
             let path = "/proof/cardano-transaction";
             let response = http_request(PORT, &path).await;
 
-            APISpec::verify_conformity_with_status(
+            APISpec::verify_conformity(
                 get_spec_files(),
                 "GET",
                 path,

@@ -103,7 +103,7 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity_with_status(
+        APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
             path,
@@ -126,7 +126,7 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity_with_status(
+        APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
             path,

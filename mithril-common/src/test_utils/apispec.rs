@@ -20,7 +20,7 @@ pub struct APISpec<'a> {
 
 impl<'a> APISpec<'a> {
     /// Verify conformity helper of API Specs
-    pub fn verify_conformity_with_status(
+    pub fn verify_conformity(
         spec_files: Vec<String>,
         method: &str,
         path: &str,
@@ -50,29 +50,6 @@ impl<'a> APISpec<'a> {
             }
         }
         Ok(())
-    }
-
-    /// Verify conformity helper of API Specs
-    pub fn verify_conformity(
-        spec_files: Vec<String>,
-        method: &str,
-        path: &str,
-        content_type: &str,
-        request_body: &impl Serialize,
-        response: &Response<Bytes>,
-    ) {
-        for spec_file in spec_files {
-            APISpec::from_file(&spec_file)
-                .method(method)
-                .path(path)
-                .content_type(content_type)
-                .validate_request(request_body)
-                .map_err(|e| panic!("OpenAPI invalid request in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"))
-                .unwrap()
-                .validate_response(response)
-                .map_err(|e| panic!("OpenAPI invalid response in {spec_file} on route {path}, reason: {e}\nresponse: {response:#?}"))
-                .unwrap();
-        }
     }
 
     /// APISpec factory from spec
@@ -506,33 +483,8 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_conformity() {
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            Method::GET.as_str(),
-            "/certificate-pending",
-            "application/json",
-            &Null,
-            &build_json_response(200, CertificatePendingMessage::dummy()),
-        );
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_verify_conformity_should_panic_with_bad_response() {
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            Method::GET.as_str(),
-            "/certificate-pending",
-            "application/json",
-            &Null,
-            &Response::<Bytes>::new(Bytes::new()),
-        );
-    }
-
-    #[test]
     fn test_verify_conformity_with_expected_status() -> Result<(), String> {
-        APISpec::verify_conformity_with_status(
+        APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
             "/certificate-pending",
@@ -548,7 +500,7 @@ mod tests {
         let response = build_json_response(200, CertificatePendingMessage::dummy());
 
         let spec_file = APISpec::get_default_spec_file();
-        let result = APISpec::verify_conformity_with_status(
+        let result = APISpec::verify_conformity(
             vec![spec_file.clone()],
             Method::GET.as_str(),
             "/certificate-pending",
@@ -572,7 +524,7 @@ mod tests {
 
     #[test]
     fn test_verify_conformity_when_no_spec_file_returns_error() {
-        let result = APISpec::verify_conformity_with_status(
+        let result = APISpec::verify_conformity(
             vec![],
             Method::GET.as_str(),
             "/certificate-pending",
