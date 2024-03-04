@@ -67,7 +67,9 @@ export default function CertificateModal(props) {
         {Object.entries(certificate).length === 0 ? (
           <p>Not found</p>
         ) : (
-          <Container>
+          // Little hack: hide the modal content if the verify modal is shown so this modal content
+          // never overflow behind the verify certificate modal.
+          <Container className={showVerifyCertificateModal && "d-none"}>
             <Row md={1} xl="auto">
               <Col xl={4} className="mb-3">
                 <h4>Beacon</h4>
