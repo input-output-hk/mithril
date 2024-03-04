@@ -18,11 +18,13 @@ import {
 import CertificatesList from "../components/Artifacts/CertificatesList";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
-import SnapshotsList from "../components/Artifacts/SnapshotsList";
+import CardanoTransactionsSnapshotsList from "../components/Artifacts/CardanoTransactionsSnapshotsList";
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
-import { aggregatorSearchParam } from "../constants";
+import SnapshotsList from "../components/Artifacts/SnapshotsList";
+import { aggregatorSearchParam, signedEntityType } from "../constants";
 import { setChartJsDefaults } from "../charts";
 import {
+  doesSelectedAggregatorSignEntity,
   selectAggregator,
   selectedAggregator as currentlySelectedAggregator,
 } from "../store/settingsSlice";
@@ -46,6 +48,9 @@ export default function Explorer() {
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
+  const enableCardanoTransactionTab = useSelector((state) =>
+    doesSelectedAggregatorSignEntity(state, signedEntityType.CardanoTransactions),
+  );
 
   // Update the aggregator in the url query
   useEffect(() => {
@@ -73,6 +78,7 @@ export default function Explorer() {
         dispatch(selectAggregator(aggregatorInUrl));
       }
     }
+
     allowNavigation();
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -92,18 +98,23 @@ export default function Explorer() {
           <PendingCertificate />
         </Col>
       </Row>
-      <Tabs defaultActiveKey="snapshots">
-        <Tab title="Snapshots" eventKey="snapshots">
+      <Tabs defaultActiveKey={signedEntityType.CardanoImmutableFilesFull}>
+        <Tab title="Snapshots" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <SnapshotsList />
         </Tab>
-        <Tab title="Mithril Stake Distribution" eventKey="mithrilStakeDistribution">
+        <Tab
+          title="Mithril Stake Distribution"
+          eventKey={signedEntityType.MithrilStakeDistribution}>
           <MithrilStakeDistributionsList />
         </Tab>
-        {
-          <Tab title="Certificates" eventKey="certificates">
-            <CertificatesList />
+        {enableCardanoTransactionTab && (
+          <Tab title="Cardano Transactions" eventKey={signedEntityType.CardanoTransactions}>
+            <CardanoTransactionsSnapshotsList />
           </Tab>
-        }
+        )}
+        <Tab title="Certificates" eventKey="certificates">
+          <CertificatesList />
+        </Tab>
       </Tabs>
     </Stack>
   );
