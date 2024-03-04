@@ -11,8 +11,8 @@ pub enum AppError {
     /// Catching anyhow errors
     Internal(anyhow::Error),
 
-    /// Resource not found (specify body)
-    NotFound(String),
+    /// Resource not found
+    NotFound,
 }
 
 /// Tell axum how to convert `AppError` into a response.
@@ -24,7 +24,7 @@ impl IntoResponse for AppError {
 
                 (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {:?}", e)).into_response()
             }
-            Self::NotFound(response_body) => (StatusCode::NOT_FOUND, response_body).into_response(),
+            Self::NotFound => (StatusCode::NOT_FOUND).into_response(),
         }
     }
 }

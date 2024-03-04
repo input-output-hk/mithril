@@ -74,7 +74,7 @@ pub async fn snapshot(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("snapshot digest={key} NOT FOUND.");
-            AppError::NotFound("".to_string())
+            AppError::NotFound
         })
 }
 
@@ -107,7 +107,7 @@ pub async fn msd(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("mithril stake distribution epoch={key} NOT FOUND.");
-            AppError::NotFound("".to_string())
+            AppError::NotFound
         })
 }
 
@@ -132,7 +132,7 @@ pub async fn certificate(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("certificate hash={key} NOT FOUND.");
-            AppError::NotFound("".to_string())
+            AppError::NotFound
         })
 }
 
@@ -157,7 +157,7 @@ pub async fn ctx_snapshot(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("ctx snapshot hash={key} NOT FOUND.");
-            AppError::NotFound("".to_string())
+            AppError::NotFound
         })
 }
 
@@ -183,7 +183,7 @@ pub async fn ctx_proof(
                 "ctx proof ctx_hash={} NOT FOUND.",
                 params.transaction_hashes
             );
-            AppError::NotFound("".to_string())
+            AppError::NotFound
         })
 }
 
@@ -227,7 +227,7 @@ mod tests {
             "The handler was expected to fail since the snapshot's digest does not exist.",
         );
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -251,7 +251,7 @@ mod tests {
             .await
             .expect_err("The handler was expected to fail since the msd's hash does not exist.");
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -275,7 +275,7 @@ mod tests {
             "The handler was expected to fail since the certificate's hash does not exist.",
         );
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -299,7 +299,7 @@ mod tests {
             "The handler was expected to fail since the ctx snapshot's hash does not exist.",
         );
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -322,7 +322,7 @@ mod tests {
             .await
             .expect_err("The handler was expected to fail since no transaction hash was provided.");
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -339,7 +339,7 @@ mod tests {
         .await
         .expect_err("The handler was expected to fail since the ctx proof's hash does not exist.");
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
