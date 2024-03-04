@@ -100,35 +100,35 @@ async fn test_create_single_signature() {
         .comment("metrics should be correctly computed")
         .check_metrics(BTreeMap::from([
             (
-                "runtime_cycle_success_since_startup".to_string(),
+                "mithril_signer_runtime_cycle_success_since_startup".to_string(),
                 Value::Counter(22.0),
             ),
             (
-                "runtime_cycle_total_since_startup".to_string(),
+                "mithril_signer_runtime_cycle_total_since_startup".to_string(),
                 Value::Counter(22.0),
             ),
             (
-                "signature_registration_success_last_epoch".to_string(),
+                "mithril_signer_signature_registration_success_last_epoch".to_string(),
                 Value::Gauge(5.0),
             ),
             (
-                "signature_registration_success_since_startup".to_string(),
+                "mithril_signer_signature_registration_success_since_startup".to_string(),
                 Value::Counter(3.0),
             ),
             (
-                "signature_registration_total_since_startup".to_string(),
+                "mithril_signer_signature_registration_total_since_startup".to_string(),
                 Value::Counter(3.0),
             ),
             (
-                "signer_registration_success_last_epoch".to_string(),
+                "mithril_signer_signer_registration_success_last_epoch".to_string(),
                 Value::Gauge(5.0),
             ),
             (
-                "signer_registration_success_since_startup".to_string(),
+                "mithril_signer_signer_registration_success_since_startup".to_string(),
                 Value::Counter(4.0),
             ),
             (
-                "signer_registration_total_since_startup".to_string(),
+                "mithril_signer_signer_registration_total_since_startup".to_string(),
                 Value::Counter(4.0),
             ),
         ])).unwrap()

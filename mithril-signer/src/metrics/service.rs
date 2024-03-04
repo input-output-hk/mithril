@@ -29,55 +29,55 @@ impl MetricsService {
         // Signer registration metrics
         let signer_registration_success_since_startup_counter =
             Box::new(Self::create_metric_counter(
-                "signer_registration_success_since_startup",
-                "Number of successful signer registrations since startup",
+                "mithril_signer_signer_registration_success_since_startup",
+                "Number of successful signer registrations since startup on a Mithril signer node",
             )?);
         registry.register(signer_registration_success_since_startup_counter.clone())?;
 
         let signer_registration_total_since_startup_counter =
             Box::new(Self::create_metric_counter(
-                "signer_registration_total_since_startup",
-                "Number of signer registrations since startup",
+                "mithril_signer_signer_registration_total_since_startup",
+                "Number of signer registrations since startup on a Mithril signer node",
             )?);
         registry.register(signer_registration_total_since_startup_counter.clone())?;
 
         let signer_registration_success_last_epoch_gauge = Box::new(Self::create_metric_gauge(
-            "signer_registration_success_last_epoch",
-            "Latest epoch at which signer successfully registered",
+            "mithril_signer_signer_registration_success_last_epoch",
+            "Latest epoch at which signer successfully registered on a Mithril signer node",
         )?);
         registry.register(signer_registration_success_last_epoch_gauge.clone())?;
 
         // Signature registration metrics
         let signature_registration_success_since_startup_counter =
             Box::new(Self::create_metric_counter(
-                "signature_registration_success_since_startup",
-                "Number of successful signature registrations since startup",
+                "mithril_signer_signature_registration_success_since_startup",
+                "Number of successful signature registrations since startup on a Mithril signer node",
             )?);
         registry.register(signature_registration_success_since_startup_counter.clone())?;
 
         let signature_registration_total_since_startup_counter =
             Box::new(Self::create_metric_counter(
-                "signature_registration_total_since_startup",
-                "Number of signature registrations since startup",
+                "mithril_signer_signature_registration_total_since_startup",
+                "Number of signature registrations since startup on a Mithril signer node",
             )?);
         registry.register(signature_registration_total_since_startup_counter.clone())?;
 
         let signature_registration_success_last_epoch_gauge = Box::new(Self::create_metric_gauge(
-            "signature_registration_success_last_epoch",
-            "Latest epoch at which signatures were successfully registered",
+            "mithril_signer_signature_registration_success_last_epoch",
+            "Latest epoch at which signatures were successfully registered on a Mithril signer node",
         )?);
         registry.register(signature_registration_success_last_epoch_gauge.clone())?;
 
         // Runtime cycle metrics
         let runtime_cycle_success_since_startup_counter = Box::new(Self::create_metric_counter(
-            "runtime_cycle_success_since_startup",
-            "Number of successful runtime cycles since startup",
+            "mithril_signer_runtime_cycle_success_since_startup",
+            "Number of successful runtime cycles since startup on a Mithril signer node",
         )?);
         registry.register(runtime_cycle_success_since_startup_counter.clone())?;
 
         let runtime_cycle_total_since_startup_counter = Box::new(Self::create_metric_counter(
-            "runtime_cycle_total_since_startup",
-            "Number of runtime cycles since startup",
+            "mithril_signer_runtime_cycle_total_since_startup",
+            "Number of runtime cycles since startup on a Mithril signer node",
         )?);
         registry.register(runtime_cycle_total_since_startup_counter.clone())?;
 
@@ -258,35 +258,35 @@ mod tests {
 
         let parsed_metrics_expected = BTreeMap::from([
             (
-                "runtime_cycle_success_since_startup".to_string(),
+                "mithril_signer_runtime_cycle_success_since_startup".to_string(),
                 Value::Counter(0.0),
             ),
             (
-                "runtime_cycle_total_since_startup".to_string(),
+                "mithril_signer_runtime_cycle_total_since_startup".to_string(),
                 Value::Counter(0.0),
             ),
             (
-                "signature_registration_success_last_epoch".to_string(),
+                "mithril_signer_signature_registration_success_last_epoch".to_string(),
                 Value::Gauge(0.0),
             ),
             (
-                "signature_registration_success_since_startup".to_string(),
+                "mithril_signer_signature_registration_success_since_startup".to_string(),
                 Value::Counter(0.0),
             ),
             (
-                "signature_registration_total_since_startup".to_string(),
+                "mithril_signer_signature_registration_total_since_startup".to_string(),
                 Value::Counter(0.0),
             ),
             (
-                "signer_registration_success_last_epoch".to_string(),
+                "mithril_signer_signer_registration_success_last_epoch".to_string(),
                 Value::Gauge(0.0),
             ),
             (
-                "signer_registration_success_since_startup".to_string(),
+                "mithril_signer_signer_registration_success_since_startup".to_string(),
                 Value::Counter(0.0),
             ),
             (
-                "signer_registration_total_since_startup".to_string(),
+                "mithril_signer_signer_registration_total_since_startup".to_string(),
                 Value::Counter(0.0),
             ),
         ]);
