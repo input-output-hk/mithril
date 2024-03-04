@@ -1,8 +1,5 @@
 mod test_extensions;
 
-use prometheus_parse::Value;
-use std::collections::BTreeMap;
-
 use mithril_common::{
     crypto_helper::tests_setup, entities::Epoch, test_utils::MithrilFixtureBuilder,
 };
@@ -17,6 +14,8 @@ async fn test_create_single_signature() {
     let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.into()).build();
     let signers_with_stake = fixture.signers_with_stake();
     let mut tester = StateMachineTester::init(&signers_with_stake).await.expect("state machine tester init should not fail");
+    let total_signer_registrations_expected = 4;
+    let total_signature_registrations_expected = 3;
 
     tester
         .comment("state machine starts in Init and transit to Unregistered state.")
@@ -98,39 +97,6 @@ async fn test_create_single_signature() {
         .cycle_signed().await.unwrap()
 
         .comment("metrics should be correctly computed")
-        .check_metrics(BTreeMap::from([
-            (
-                "mithril_signer_runtime_cycle_success_since_startup".to_string(),
-                Value::Counter(22.0),
-            ),
-            (
-                "mithril_signer_runtime_cycle_total_since_startup".to_string(),
-                Value::Counter(22.0),
-            ),
-            (
-                "mithril_signer_signature_registration_success_last_epoch".to_string(),
-                Value::Gauge(5.0),
-            ),
-            (
-                "mithril_signer_signature_registration_success_since_startup".to_string(),
-                Value::Counter(3.0),
-            ),
-            (
-                "mithril_signer_signature_registration_total_since_startup".to_string(),
-                Value::Counter(3.0),
-            ),
-            (
-                "mithril_signer_signer_registration_success_last_epoch".to_string(),
-                Value::Gauge(5.0),
-            ),
-            (
-                "mithril_signer_signer_registration_success_since_startup".to_string(),
-                Value::Counter(4.0),
-            ),
-            (
-                "mithril_signer_signer_registration_total_since_startup".to_string(),
-                Value::Counter(4.0),
-            ),
-        ])).unwrap()
+        .check_metrics(total_signer_registrations_expected,total_signature_registrations_expected).await.unwrap()
         ;
 }
