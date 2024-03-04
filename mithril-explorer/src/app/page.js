@@ -41,7 +41,6 @@ Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Toolti
 setChartJsDefaults(Chart);
 
 export default function Explorer() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
 
@@ -61,7 +60,7 @@ export default function Explorer() {
       params.set("aggregator", selectedAggregator);
 
       setIsUpdatingAggregatorInUrl(true);
-      router.push("?" + params.toString(), undefined, { shallow: true });
+      window.history.pushState(null, "", `?${params.toString()}`);
     }
 
     dispatch(updatePoolsForAggregator(selectedAggregator));
