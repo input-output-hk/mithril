@@ -103,7 +103,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use warp::http::Method;
+    use warp::http::{Method, StatusCode};
     use warp::test::request;
 
     use mithril_common::{
@@ -160,7 +160,9 @@ mod tests {
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::CREATED,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -192,7 +194,9 @@ mod tests {
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -225,7 +229,9 @@ mod tests {
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -258,7 +264,9 @@ mod tests {
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::GONE,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -289,6 +297,8 @@ mod tests {
             "application/json",
             &message,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 }

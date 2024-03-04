@@ -96,6 +96,7 @@ mod tests {
         time::sleep,
     };
     use warp::http::{Response, StatusCode};
+    use warp::hyper::body::Bytes;
 
     use mithril_common::test_utils::apispec::APISpec;
 
@@ -124,30 +125,43 @@ mod tests {
         .unwrap();
     }
 
+    async fn into_response(response: reqwest::Response) -> Response<Bytes> {
+        Response::builder()
+            .status(response.status())
+            .body(response.bytes().await.unwrap())
+            .unwrap()
+    }
+
+    async fn http_request(port: u16, path: &str) -> Response<Bytes> {
+        let url = BASE_URL.replace("PORT", &port.to_string());
+        let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
+        into_response(response).await
+    }
+
+    fn get_spec_files() -> Vec<String> {
+        APISpec::get_all_spec_files_from("../..")
+    }
+
     #[tokio::test]
     async fn get_certificates() {
         const PORT: u16 = 3001;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/certificates";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -157,26 +171,22 @@ mod tests {
     async fn get_snapshots() {
         const PORT: u16 = 3002;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/snapshots";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -186,26 +196,22 @@ mod tests {
     async fn get_msds() {
         const PORT: u16 = 3003;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/mithril-stake-distributions";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -215,32 +221,24 @@ mod tests {
     async fn get_certificate() {
         const PORT: u16 = 3004;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/certificate/{certificate_hash}";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
             let certificate_hash = default_values::certificate_hashes()[0];
-            let response = reqwest::get(&format!(
-                "{url}{}",
-                path.replace("{certificate_hash}", certificate_hash)
-            ))
-            .await
-            .unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response =
+                http_request(PORT, &path.replace("{certificate_hash}", certificate_hash)).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -250,17 +248,23 @@ mod tests {
     async fn get_no_certificate() {
         const PORT: u16 = 3005;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
-            let path = "/certificate/whatever";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
+            let path = "/certificate/{certificate_hash}";
+            let response =
+                http_request(PORT, &path.replace("{certificate_hash}", "whatever")).await;
 
-            assert_eq!(StatusCode::NOT_FOUND, response.status());
-
-            Ok(())
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -270,29 +274,23 @@ mod tests {
     async fn get_snapshot() {
         const PORT: u16 = 3006;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/snapshot/{digest}";
             let digest = default_values::snapshot_digests()[0];
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path.replace("{digest}", digest)))
-                .await
-                .unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, path.replace("{digest}", digest).as_str()).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -302,20 +300,23 @@ mod tests {
     async fn get_no_snapshot() {
         const PORT: u16 = 3007;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/snapshot/{digest}";
             let digest = "whatever";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path.replace("{digest}", digest)))
-                .await
-                .unwrap();
+            let response = http_request(PORT, &path.replace("{digest}", digest)).await;
 
-            assert_eq!(StatusCode::NOT_FOUND, response.status());
-
-            Ok(())
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -325,29 +326,23 @@ mod tests {
     async fn get_msd() {
         const PORT: u16 = 3008;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/mithril-stake-distribution/{hash}";
             let hash = default_values::msd_hashes()[0];
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
-                .await
-                .unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -357,17 +352,22 @@ mod tests {
     async fn get_no_msd() {
         const PORT: u16 = 3009;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
-            let path = "/artifact/mithril_stake_distribution/whatever";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
+            let path = "/artifact/mithril-stake-distribution/{hash}";
+            let response = http_request(PORT, &path.replace("{hash}", "whatever")).await;
 
-            assert_eq!(StatusCode::NOT_FOUND, response.status());
-
-            Ok(())
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -377,26 +377,22 @@ mod tests {
     async fn get_epoch_settings() {
         const PORT: u16 = 3010;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/epoch-settings";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{path}")).await.unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -406,29 +402,23 @@ mod tests {
     async fn get_ctx_snapshot() {
         const PORT: u16 = 3011;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/cardano-transaction/{hash}";
             let hash = default_values::ctx_snapshot_hashes()[0];
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
-                .await
-                .unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -438,20 +428,23 @@ mod tests {
     async fn get_no_ctx_snapshot() {
         const PORT: u16 = 3012;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/artifact/cardano-transaction/{hash}";
             let hash = "whatever";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
-                .await
-                .unwrap();
+            let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
-            assert_eq!(StatusCode::NOT_FOUND, response.status());
-
-            Ok(())
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -461,29 +454,23 @@ mod tests {
     async fn get_ctx_proof() {
         const PORT: u16 = 3013;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/proof/cardano-transaction?transaction_hashes={hash}";
             let hash = default_values::proof_transaction_hashes()[0];
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path.replace("{hash}", hash)))
-                .await
-                .unwrap();
-
-            assert_eq!(StatusCode::OK, response.status());
+            let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
-                APISpec::get_all_spec_files(),
+                get_spec_files(),
                 "GET",
                 path,
                 "application/json",
                 &Null,
-                &Response::new(response.bytes().await.unwrap()),
-            );
-
-            Ok(())
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;
@@ -493,17 +480,22 @@ mod tests {
     async fn get_no_ctx_proof() {
         const PORT: u16 = 3014;
         let task = tokio::spawn(async move {
-            // Yield back to Tokio's scheduler to ensure the web server is ready before going
-            // on.
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
             let path = "/proof/cardano-transaction";
-            let url = BASE_URL.replace("PORT", &PORT.to_string());
-            let response = reqwest::get(&format!("{url}{}", path)).await.unwrap();
+            let response = http_request(PORT, path).await;
 
-            assert_eq!(StatusCode::NOT_FOUND, response.status());
-
-            Ok(())
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
         });
 
         test(task, PORT).await;

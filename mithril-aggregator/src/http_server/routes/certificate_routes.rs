@@ -121,12 +121,20 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mithril_common::test_utils::{apispec::APISpec, fake_data};
+    use mithril_common::{
+        entities::CertificatePending,
+        test_utils::{apispec::APISpec, fake_data},
+    };
+    use mithril_persistence::store::adapter::DumbStoreAdapter;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockCertifierService,
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockMessageService,
+        CertificatePendingStore,
     };
 
     use super::*;
@@ -145,10 +153,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_get_ok() {
+    async fn test_certificate_pending_with_content_get_ok_200() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
         let dependency_manager = initialize_dependencies().await;
+        let certificate_pending = {
+            let mut signers = fake_data::signers(3);
+            signers[0].party_id = "1".to_string();
+            CertificatePending {
+                signers,
+                ..fake_data::certificate_pending()
+            }
+        };
+        dependency_manager
+            .certificate_pending_store
+            .save(certificate_pending)
+            .await
+            .unwrap();
 
         let response = request()
             .method(method)
@@ -163,15 +184,16 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_get_ok_204() {
-        let dependency_manager = initialize_dependencies().await;
-
+    async fn test_certificate_pending_without_content_get_ok_204() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
+        let dependency_manager = initialize_dependencies().await;
 
         let response = request()
             .method(method)
@@ -186,14 +208,20 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NO_CONTENT,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
     async fn test_certificate_pending_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let dependency_manager = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
+
+        let certificate_pending_store_store =
+            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new_failing_adapter("error")));
+        dependency_manager.certificate_pending_store = Arc::new(certificate_pending_store_store);
 
         let response = request()
             .method(method)
@@ -208,7 +236,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -236,17 +266,19 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_certificates_get_ko() {
+    async fn test_certificate_when_error_retrieving_certificates_returns_ko_500() {
         let mut dependency_manager = initialize_dependencies().await;
-        let mut certifier_service = MockCertifierService::new();
-        certifier_service
-            .expect_get_latest_certificates()
+        let mut message_service = MockMessageService::new();
+        message_service
+            .expect_get_certificate_list_message()
             .returning(|_| Err(anyhow!("an error")));
-        dependency_manager.certifier_service = Arc::new(certifier_service);
+        dependency_manager.message_service = Arc::new(message_service);
 
         let method = Method::GET.as_str();
         let path = "/certificates";
@@ -264,7 +296,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -292,7 +326,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -315,24 +351,29 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_get_ko() {
+    async fn test_certificate_when_error_on_retrieving_certificate_hash_returns_ko_500() {
         let mut dependency_manager = initialize_dependencies().await;
-        let mut certifier_service = MockCertifierService::new();
-        certifier_service
-            .expect_get_certificate_by_hash()
+        let mut message_service = MockMessageService::new();
+        message_service
+            .expect_get_certificate_message()
             .returning(|_| Err(anyhow!("an error")));
-        dependency_manager.certifier_service = Arc::new(certifier_service);
+        dependency_manager.message_service = Arc::new(message_service);
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{}",
+                path.replace("{certificate_hash}", "whatever")
+            ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -343,6 +384,8 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 }

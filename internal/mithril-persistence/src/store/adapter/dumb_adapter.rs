@@ -1,10 +1,12 @@
 use super::{AdapterError, StoreAdapter};
+use anyhow::anyhow;
 use async_trait::async_trait;
 
 /// A [StoreAdapter] that store one fixed data record, for testing purpose.
 pub struct DumbStoreAdapter<K, R> {
     last_key: Option<K>,
     last_value: Option<R>,
+    error: Option<String>,
 }
 
 impl<K, R> DumbStoreAdapter<K, R> {
@@ -13,6 +15,15 @@ impl<K, R> DumbStoreAdapter<K, R> {
         Self {
             last_key: None,
             last_value: None,
+            error: None,
+        }
+    }
+
+    /// DumbStoreAdapter factory that returns error when 'get_record' is called.
+    pub fn new_failing_adapter(error: &str) -> Self {
+        Self {
+            error: Some(error.to_string()),
+            ..Self::new()
         }
     }
 }
@@ -47,10 +58,15 @@ where
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        if self.record_exists(key).await? {
-            Ok(self.last_value.as_ref().cloned())
-        } else {
-            Ok(None)
+        match &self.error {
+            Some(error) => Err(AdapterError::GeneralError(anyhow!(error.clone()))),
+            None => {
+                if self.record_exists(key).await? {
+                    Ok(self.last_value.as_ref().cloned())
+                } else {
+                    Ok(None)
+                }
+            }
         }
     }
 
@@ -207,5 +223,14 @@ mod tests {
         let records = adapter.get_iter().await.unwrap();
 
         assert_eq!(0, records.count());
+    }
+
+    #[tokio::test]
+    async fn test_return_error_calling_get_record() {
+        let adapter: DumbStoreAdapter<String, String> =
+            DumbStoreAdapter::new_failing_adapter("error");
+        let result = adapter.get_record(&"key".to_string()).await;
+
+        assert!(result.is_err());
     }
 }
