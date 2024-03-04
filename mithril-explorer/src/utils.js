@@ -90,6 +90,15 @@ function computeAggregatorNetworkFromUrl(aggregatorUrl) {
   return network && network[1] ? network[1] : null;
 }
 
+async function fetchGenesisVerificationKey(aggregator) {
+  const network = computeAggregatorNetworkFromUrl(aggregator);
+  return fetch(
+    `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/${network}/genesis.vkey`,
+  )
+    .then((res) => res.text())
+    .catch((err) => console.error("Error fetching genesis verification key:", err));
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -100,4 +109,5 @@ module.exports = {
   getCExplorerUrlForPool,
   formatProcessDuration,
   computeAggregatorNetworkFromUrl,
+  fetchGenesisVerificationKey,
 };
