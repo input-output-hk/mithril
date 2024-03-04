@@ -70,8 +70,8 @@ runs:
       cd ${{ inputs.package }}/pkg
       npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }} --dry-run
 
-  - name: Publish package
-    if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
+  - name: Publish package new version
+    if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true' && inputs.tag != 'latest'
     shell: bash
     env:
       NPM_TOKEN: ${{ inputs.api_token }}
@@ -81,3 +81,17 @@ runs:
       npm whoami
       cd ${{ inputs.package }}/pkg
       npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }}
+
+  - name: Promote package distribution tag to 'latest'
+    if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true' && inputs.tag == 'latest'
+    shell: bash
+    env:
+      NPM_TOKEN: ${{ inputs.api_token }}
+    run: |
+      echo "Publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
+      npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
+      npm whoami
+      cd ${{ inputs.package }}/pkg
+      PACKAGE_VERSION=$(npm pkg get version | tr -d '"')
+      npm dist-tag add @${{ inputs.scope }}/${{ inputs.package }}@$PACKAGE_VERSION latest
+      npm dist-tag rm @${{ inputs.scope }}/${{ inputs.package }}@$PACKAGE_VERSION next
