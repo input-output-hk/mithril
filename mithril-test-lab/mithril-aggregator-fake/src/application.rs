@@ -139,9 +139,7 @@ mod tests {
     }
 
     fn get_spec_files() -> Vec<String> {
-        // APISpec::get_all_spec_files()
-        // TODO call get_all_spec_files with a root_path (../..)
-        vec!["../../openapi.yaml".to_string()]
+        APISpec::get_all_spec_files_from("../..")
     }
 
     #[tokio::test]

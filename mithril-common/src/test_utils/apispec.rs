@@ -244,8 +244,13 @@ impl<'a> APISpec<'a> {
 
     /// Get all spec files
     pub fn get_all_spec_files() -> Vec<String> {
+        APISpec::get_all_spec_files_from("..")
+    }
+
+    /// Get all spec files in the directory
+    pub fn get_all_spec_files_from(root_path: &str) -> Vec<String> {
         let mut open_api_spec_files = Vec::new();
-        for entry in glob("../openapi*.yaml").unwrap() {
+        for entry in glob(&format!("{}/openapi*.yaml", root_path)).unwrap() {
             let entry_path = entry.unwrap().to_str().unwrap().to_string();
             open_api_spec_files.push(entry_path.clone());
             open_api_spec_files.push(entry_path);
