@@ -70,16 +70,12 @@ export default function SnapshotsList(props) {
                         <ListGroup.Item>
                           Immutable file number: {snapshot.beacon.immutable_file_number}
                         </ListGroup.Item>
-                        {snapshot.cardano_node_version && (
-                          <ListGroup.Item>
-                            Cardano node: {snapshot.cardano_node_version}
-                          </ListGroup.Item>
-                        )}
-                        {snapshot.compression_algorithm && (
-                          <ListGroup.Item>
-                            Compression: {snapshot.compression_algorithm}
-                          </ListGroup.Item>
-                        )}
+                        <ListGroup.Item>
+                          Cardano node: {snapshot.cardano_node_version}
+                        </ListGroup.Item>
+                        <ListGroup.Item>
+                          Compression: {snapshot.compression_algorithm}
+                        </ListGroup.Item>
                         <ListGroup.Item>
                           Certificate hash: <br />
                           {snapshot.certificate_hash}{" "}
