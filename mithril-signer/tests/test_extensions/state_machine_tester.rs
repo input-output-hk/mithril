@@ -21,7 +21,7 @@ use mithril_common::{
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
-    database::provider::CardanoTransactionRepository, AggregatorClient, Configuration,
+    database::provider::CardanoTransactionRepository, metrics::*, AggregatorClient, Configuration,
     MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     StateMachine,
@@ -422,27 +422,27 @@ impl StateMachineTester {
         let metrics = Self::parse_exported_metrics(&self.metrics_service)?;
         let mut expected_metrics = Self::parse_exported_metrics(&self.expected_metrics_service)?;
         expected_metrics.insert(
-            "mithril_signer_signature_registration_success_last_epoch".to_string(),
+            SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
             Value::Gauge(self.current_epoch().await?.0 as f64),
         );
         expected_metrics.insert(
-            "mithril_signer_signature_registration_success_since_startup".to_string(),
+            SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
             Value::Counter(total_signature_registrations_expected as f64),
         );
         expected_metrics.insert(
-            "mithril_signer_signature_registration_total_since_startup".to_string(),
+            SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
             Value::Counter(total_signature_registrations_expected as f64),
         );
         expected_metrics.insert(
-            "mithril_signer_signer_registration_success_last_epoch".to_string(),
+            SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
             Value::Gauge(self.current_epoch().await?.0 as f64),
         );
         expected_metrics.insert(
-            "mithril_signer_signer_registration_success_since_startup".to_string(),
+            SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
             Value::Counter(total_signer_registrations_expected as f64),
         );
         expected_metrics.insert(
-            "mithril_signer_signer_registration_total_since_startup".to_string(),
+            SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
             Value::Counter(total_signer_registrations_expected as f64),
         );
         self.assert(
