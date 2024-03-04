@@ -121,13 +121,11 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use async_trait::async_trait;
     use mithril_common::{
         entities::CertificatePending,
         test_utils::{apispec::APISpec, fake_data},
     };
-    use mithril_persistence::store::adapter::AdapterError;
-    use mithril_persistence::store::adapter::StoreAdapter;
+    use mithril_persistence::store::adapter::DumbStoreAdapter;
     use serde_json::Value::Null;
     use warp::{
         http::{Method, StatusCode},
@@ -140,89 +138,6 @@ mod tests {
     };
 
     use super::*;
-
-    ///////////////
-
-    pub struct MockStoreAdapter {}
-
-    #[async_trait]
-    impl StoreAdapter for MockStoreAdapter {
-        type Key = String;
-        type Record = CertificatePending;
-
-        async fn store_record(
-            &mut self,
-            _key: &Self::Key,
-            _record: &Self::Record,
-        ) -> Result<(), AdapterError> {
-            Ok(())
-        }
-
-        async fn get_record(&self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-            Err(AdapterError::GeneralError(anyhow!("Ca marche pô")))
-        }
-
-        async fn record_exists(&self, _key: &Self::Key) -> Result<bool, AdapterError> {
-            Ok(true)
-        }
-
-        async fn get_last_n_records(
-            &self,
-            _how_many: usize,
-        ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-            Ok(Vec::new())
-        }
-
-        async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-            Ok(None)
-        }
-
-        async fn get_iter(
-            &self,
-        ) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-            Err(AdapterError::GeneralError(anyhow!("")))
-        }
-    }
-
-    //////////////
-    // use mockall::mock;
-
-    // mock! {
-    //     pub StoreAdapterTotoImpl<K: 'static, R: 'static> { }
-
-    //     #[async_trait]
-    //     impl<K, R> StoreAdapter for StoreAdapterTotoImpl<K, R> where K: Sync + Send , R: Sync + Send {
-    //         type Key = K;
-    //         type Record = R;
-
-    //         /// Store the given `record`.
-    //         async fn store_record(
-    //             &mut self,
-    //             key: &Self::Key,
-    //             record: &Self::Record,
-    //         ) -> Result<(), AdapterError>;
-
-    //         /// Get the record stored using the given `key`.
-    //         async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
-
-    //         /// Check if a record exist for the given `key`.
-    //         async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError>;
-
-    //         /// Get the last `n` records in the store
-    //         async fn get_last_n_records(
-    //             &self,
-    //             how_many: usize,
-    //         ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError>;
-
-    //         /// remove values from store
-    //         ///
-    //         /// if the value exists it is returned by the adapter otherwise None is returned
-    //         async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
-
-    //         /// Get an iterator over the stored values, from the latest to the oldest.
-    //         async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError>;
-    //     }
-    // }
 
     fn setup_router(
         dependency_manager: Arc<DependencyContainer>,
@@ -302,8 +217,8 @@ mod tests {
         let path = "/certificate-pending";
         let mut dependency_manager = initialize_dependencies().await;
 
-        let adapter = MockStoreAdapter {};
-        let certificate_pending_store_store = CertificatePendingStore::new(Box::new(adapter));
+        let certificate_pending_store_store =
+            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new_failing_adapter("error")));
         dependency_manager.certificate_pending_store = Arc::new(certificate_pending_store_store);
 
         let response = request()
