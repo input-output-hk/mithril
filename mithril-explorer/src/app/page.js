@@ -15,12 +15,12 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import CertificatesList from "../components/Artifacts/CertificatesList";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
+import CardanoDbSnapshotsList from "../components/Artifacts/CardanoDbSnapshotsList";
 import CardanoTransactionsSnapshotsList from "../components/Artifacts/CardanoTransactionsSnapshotsList";
+import CertificatesList from "../components/Artifacts/CertificatesList";
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
-import SnapshotsList from "../components/Artifacts/SnapshotsList";
 import { aggregatorSearchParam, signedEntityType } from "../constants";
 import { setChartJsDefaults } from "../charts";
 import {
@@ -99,8 +99,8 @@ export default function Explorer() {
         </Col>
       </Row>
       <Tabs defaultActiveKey={signedEntityType.CardanoImmutableFilesFull}>
-        <Tab title="Snapshots" eventKey={signedEntityType.CardanoImmutableFilesFull}>
-          <SnapshotsList />
+        <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
+          <CardanoDbSnapshotsList />
         </Tab>
         <Tab
           title="Mithril Stake Distribution"
