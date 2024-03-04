@@ -307,27 +307,27 @@ mod tests {
 
     #[test]
     fn test_validate_a_response_without_body() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&Null)
             .unwrap()
             .validate_response(&build_empty_response(204))
-            .is_ok());
+            .unwrap();
     }
 
     #[test]
     fn test_validate_ok_when_request_without_body_and_expects_response() {
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&Null)
             .unwrap()
             .validate_response(&build_json_response(
                 200,
-                CertificatePendingMessage::dummy()
+                CertificatePendingMessage::dummy(),
             ))
-            .is_ok());
+            .unwrap();
     }
 
     #[test]
@@ -350,11 +350,11 @@ mod tests {
             entities::InternalServerError::new("an error occurred".to_string()),
         );
 
-        assert!(APISpec::from_file(&APISpec::get_default_spec_file())
+        APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&response)
-            .is_ok());
+            .unwrap();
     }
 
     #[test]
@@ -521,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_a_response_with_query_parameters() -> Result<(), String> {
+    fn test_validate_a_response_with_query_parameters() {
         APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
             .path("/proof/cardano-transaction?transaction_hashes={hash}")
@@ -529,6 +529,7 @@ mod tests {
             .unwrap()
             .validate_response(&build_empty_response(404))
             .map(|_apispec| ())
+            .unwrap();
     }
 
     #[test]
@@ -562,7 +563,7 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_query_parameters_with_correct_parameter_name() -> Result<(), String> {
+    fn test_validate_query_parameters_with_correct_parameter_name() {
         let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         api_spec
             .validate_query_parameters(
@@ -570,6 +571,7 @@ mod tests {
                 &api_spec.openapi["paths"]["/proof/cardano-transaction"]["get"],
             )
             .map(|_apispec| ())
+            .unwrap()
     }
 
     #[test]
@@ -588,7 +590,7 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_conformity_with_expected_status() -> Result<(), String> {
+    fn test_verify_conformity_with_expected_status() {
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
@@ -598,6 +600,7 @@ mod tests {
             &build_json_response(200, CertificatePendingMessage::dummy()),
             &StatusCode::OK,
         )
+        .unwrap()
     }
 
     #[test]

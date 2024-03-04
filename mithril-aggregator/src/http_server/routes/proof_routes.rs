@@ -137,7 +137,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn proof_cardano_transaction_ok() -> Result<(), String> {
+    async fn proof_cardano_transaction_ok() {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -173,10 +173,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn proof_cardano_transaction_not_found() -> Result<(), String> {
+    async fn proof_cardano_transaction_not_found() {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -201,10 +202,11 @@ mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn proof_cardano_transaction_ko() -> Result<(), String> {
+    async fn proof_cardano_transaction_ko() {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -234,5 +236,6 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }

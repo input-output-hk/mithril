@@ -123,7 +123,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_transactions_get_ok() -> Result<(), String> {
+    async fn test_cardano_transactions_get_ok() {
         let signed_entity_records = create_signed_entities(
             SignedEntityType::CardanoTransactions(Beacon::default()),
             fake_data::cardano_transactions_snapshot(5),
@@ -155,10 +155,11 @@ pub mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_cardano_transactions_get_ko() -> Result<(), String> {
+    async fn test_cardano_transactions_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_transaction_list_message()
@@ -185,10 +186,11 @@ pub mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_cardano_transaction_get_ok() -> Result<(), String> {
+    async fn test_cardano_transaction_get_ok() {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoTransactions(Beacon::default()),
             fake_data::cardano_transactions_snapshot(1),
@@ -223,10 +225,11 @@ pub mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_cardano_transaction_return_404_not_found_when_no_record() -> Result<(), String> {
+    async fn test_cardano_transaction_return_404_not_found_when_no_record() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_transaction_message()
@@ -253,10 +256,11 @@ pub mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_cardano_transaction_get_ko() -> Result<(), String> {
+    async fn test_cardano_transaction_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_transaction_message()
@@ -283,5 +287,6 @@ pub mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }

@@ -124,7 +124,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distributions_get_ok() -> Result<(), String> {
+    async fn test_mithril_stake_distributions_get_ok() {
         let signed_entity_records = create_signed_entities(
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(5),
@@ -156,10 +156,11 @@ pub mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distributions_get_ko() -> Result<(), String> {
+    async fn test_mithril_stake_distributions_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_list_message()
@@ -186,10 +187,11 @@ pub mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_get_ok() -> Result<(), String> {
+    async fn test_mithril_stake_distribution_get_ok() {
         let signed_entity = create_signed_entities(
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(1),
@@ -224,11 +226,11 @@ pub mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_returns_404_no_found_when_no_record(
-    ) -> Result<(), String> {
+    async fn test_mithril_stake_distribution_returns_404_no_found_when_no_record() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
@@ -255,10 +257,11 @@ pub mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_mithril_stake_distribution_get_ko() -> Result<(), String> {
+    async fn test_mithril_stake_distribution_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
@@ -285,5 +288,6 @@ pub mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }

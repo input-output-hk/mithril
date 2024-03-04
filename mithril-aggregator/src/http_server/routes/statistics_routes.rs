@@ -80,7 +80,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn post_statistics_ok() -> Result<(), String> {
+    async fn post_statistics_ok() {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut rx = builder.get_event_transmitter_receiver().await.unwrap();
@@ -108,6 +108,6 @@ mod tests {
         );
 
         let _ = rx.try_recv().unwrap();
-        result
+        result.unwrap();
     }
 }

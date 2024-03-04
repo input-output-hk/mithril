@@ -89,7 +89,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_epoch_settings_get_ok() -> Result<(), String> {
+    async fn test_epoch_settings_get_ok() {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
         let mut dependency_manager = initialize_dependencies().await;
@@ -112,10 +112,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_epoch_settings_get_ko_500() -> Result<(), String> {
+    async fn test_epoch_settings_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
         let dependency_manager = initialize_dependencies().await;
@@ -135,5 +136,6 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }

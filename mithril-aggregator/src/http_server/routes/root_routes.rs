@@ -108,7 +108,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_route_ok() -> Result<(), String> {
+    async fn test_root_route_ok() {
         let method = Method::GET.as_str();
         let path = "/";
         let mut dependency_manager = initialize_dependencies().await;
@@ -159,5 +159,6 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 }

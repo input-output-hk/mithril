@@ -153,7 +153,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_with_content_get_ok_200() -> Result<(), String> {
+    async fn test_certificate_pending_with_content_get_ok_200() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
         let dependency_manager = initialize_dependencies().await;
@@ -186,10 +186,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_without_content_get_ok_204() -> Result<(), String> {
+    async fn test_certificate_pending_without_content_get_ok_204() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
         let dependency_manager = initialize_dependencies().await;
@@ -209,10 +210,11 @@ mod tests {
             &response,
             &StatusCode::NO_CONTENT,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_get_ko_500() -> Result<(), String> {
+    async fn test_certificate_pending_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
         let mut dependency_manager = initialize_dependencies().await;
@@ -236,10 +238,11 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_certificates_get_ok() -> Result<(), String> {
+    async fn test_certificate_certificates_get_ok() {
         let dependency_manager = initialize_dependencies().await;
         dependency_manager
             .certificate_repository
@@ -265,11 +268,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_when_error_retrieving_certificates_returns_ko_500(
-    ) -> Result<(), String> {
+    async fn test_certificate_when_error_retrieving_certificates_returns_ko_500() {
         let mut dependency_manager = initialize_dependencies().await;
         let mut message_service = MockMessageService::new();
         message_service
@@ -295,10 +298,11 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_get_ok() -> Result<(), String> {
+    async fn test_certificate_certificate_hash_get_ok() {
         let dependency_manager = initialize_dependencies().await;
         dependency_manager
             .certificate_repository
@@ -315,8 +319,6 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        println!("Response: {:?}", response);
-
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
@@ -326,10 +328,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_get_ok_404() -> Result<(), String> {
+    async fn test_certificate_certificate_hash_get_ok_404() {
         let dependency_manager = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
@@ -341,7 +344,6 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        println!("Response: {:?}", response);
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
@@ -351,11 +353,11 @@ mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_certificate_when_error_on_retrieving_certificate_hash_returns_ko_500(
-    ) -> Result<(), String> {
+    async fn test_certificate_when_error_on_retrieving_certificate_hash_returns_ko_500() {
         let mut dependency_manager = initialize_dependencies().await;
         let mut message_service = MockMessageService::new();
         message_service
@@ -384,5 +386,6 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }

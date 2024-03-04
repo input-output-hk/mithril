@@ -255,7 +255,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_snapshots_get_ok() -> Result<(), String> {
+    async fn test_snapshots_get_ok() {
         let signed_entities = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(5),
@@ -287,10 +287,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshots_get_ko() -> Result<(), String> {
+    async fn test_snapshots_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_list_message()
@@ -317,10 +318,11 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ok() -> Result<(), String> {
+    async fn test_snapshot_digest_get_ok() {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(1),
@@ -355,10 +357,11 @@ mod tests {
             &response,
             &StatusCode::OK,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_returns_404_not_found_when_no_snapshot() -> Result<(), String> {
+    async fn test_snapshot_digest_returns_404_not_found_when_no_snapshot() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_message()
@@ -385,10 +388,11 @@ mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ko() -> Result<(), String> {
+    async fn test_snapshot_digest_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_message()
@@ -415,6 +419,7 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -455,7 +460,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_returns_404_not_found_when_no_snapshot() -> Result<(), String> {
+    async fn test_snapshot_download_returns_404_not_found_when_no_snapshot() {
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_signed_snapshot_by_id()
@@ -482,10 +487,11 @@ mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_get_ko() -> Result<(), String> {
+    async fn test_snapshot_download_get_ko() {
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_signed_snapshot_by_id()
@@ -512,5 +518,6 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }

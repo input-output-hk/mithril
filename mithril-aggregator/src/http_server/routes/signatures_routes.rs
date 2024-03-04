@@ -133,7 +133,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ok() -> Result<(), String> {
+    async fn test_register_signatures_post_ok() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -162,10 +162,11 @@ mod tests {
             &response,
             &StatusCode::CREATED,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_400() -> Result<(), String> {
+    async fn test_register_signatures_post_ko_400() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -195,10 +196,11 @@ mod tests {
             &response,
             &StatusCode::BAD_REQUEST,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_404() -> Result<(), String> {
+    async fn test_register_signatures_post_ko_404() {
         let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
@@ -229,10 +231,11 @@ mod tests {
             &response,
             &StatusCode::NOT_FOUND,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_410() -> Result<(), String> {
+    async fn test_register_signatures_post_ko_410() {
         let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
@@ -263,10 +266,11 @@ mod tests {
             &response,
             &StatusCode::GONE,
         )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_500() -> Result<(), String> {
+    async fn test_register_signatures_post_ko_500() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
@@ -295,5 +299,6 @@ mod tests {
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
+        .unwrap();
     }
 }
