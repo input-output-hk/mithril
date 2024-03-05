@@ -52,6 +52,16 @@ cat /home/curry/docker/prometheus/cardano.json | jq --arg CARDANO_NODES "$CARDAN
 }]' | jq '. | map(try(.targets |= split(",")) // .)' > /home/curry/docker/prometheus/cardano.json.new
 rm -f /home/curry/docker/prometheus/cardano.json
 mv /home/curry/docker/prometheus/cardano.json.new docker/prometheus/cardano.json
+# Setup prometheus targets configuration for Mithril signer nodes
+MITHRIL_SIGNER_NODES=$(docker ps --format='{{.Names}}:9090,' | grep "mithril-signer" | grep -v "www" | grep -v "relay" | sort | tr -d '\n\t\r ' | sed 's/.$//')
+cat /home/curry/docker/prometheus/mithril-signer.json | jq --arg MITHRIL_SIGNER_NODES "$MITHRIL_SIGNER_NODES" '. += [{
+    "labels": {
+        "job": "mithril-signer"
+    },
+    "targets": $MITHRIL_SIGNER_NODES
+}]' | jq '. | map(try(.targets |= split(",")) // .)' > /home/curry/docker/prometheus/mithril-signer.json.new
+rm -f /home/curry/docker/prometheus/mithril-signer.json
+mv /home/curry/docker/prometheus/mithril-signer.json.new docker/prometheus/mithril-signer.json
 EOT
       ,
       <<-EOT

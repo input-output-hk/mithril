@@ -10,6 +10,7 @@ mod aggregator_client;
 mod configuration;
 pub mod database;
 mod message_adapters;
+pub mod metrics;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
@@ -21,6 +22,7 @@ pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
 };
+pub use metrics::*;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;

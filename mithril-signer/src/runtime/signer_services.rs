@@ -29,9 +29,9 @@ use mithril_persistence::{
 
 use crate::{
     aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
-    single_signer::SingleSigner, AggregatorHTTPClient, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
-    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    metrics::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient, Configuration,
+    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
+    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -282,6 +282,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
         ));
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         let services = SignerServices {
             beacon_provider,
@@ -295,6 +296,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             era_reader,
             api_version_provider,
             signable_builder_service,
+            metrics_service,
         };
 
         Ok(services)
@@ -335,6 +337,9 @@ pub struct SignerServices {
 
     /// Signable Builder Service
     pub signable_builder_service: Arc<dyn SignableBuilderService>,
+
+    /// Metrics service
+    pub metrics_service: Arc<MetricsService>,
 }
 
 #[cfg(test)]
@@ -376,6 +381,9 @@ mod tests {
             reset_digests_cache: false,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            enable_metrics_server: true,
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         };
 
         assert!(!stores_dir.exists());

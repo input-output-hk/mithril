@@ -408,6 +408,48 @@ Finally, monitor the logs of the service:
 tail /var/log/syslog
 ```
 
+### Activate Prometheus endpoint
+
+The Mithril signer node can expose basic metrics on a Prometheus endpoint, which is not activated by default.
+
+In order to expose metrics on the endpoint, you need to append the following environment variable to your environment file. In that case, the metrics server will listen on the `9090` port:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+ENABLE_METRICS_SERVER=true
+EOF`
+```
+
+You can also specify custom listen IP address and port for the metrics server:
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+ENABLE_METRICS_SERVER=true
+METRICS_SERVER_IP=**YOUR_METRICS_SERVER_IP**
+METRICS_SERVER_PORT=**YOUR_METRICS_SERVER_PORT**
+EOF`
+```
+
+:::tip
+
+Here is an example that reproduces the default configuration for the prometheus server:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+ENABLE_METRICS_SERVER=true
+METRICS_SERVER_IP=0.0.0.0
+METRICS_SERVER_PORT=9090
+EOF`
+```
+
+:::
+
+
+:::info
+
+When activated, the metrics endpoint will be accessible to the location `http://**YOUR_METRICS_SERVER_IP**:**YOUR_METRICS_SERVER_PORT**/metrics`, which translates to [`http://0.0.0.0:9090/metrics`](http://0.0.0.0:9090/metrics) with the default configuration.
+
+:::
+
 ### Rotating the KES keys
 
 :::danger

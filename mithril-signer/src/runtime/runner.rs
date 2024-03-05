@@ -405,11 +405,13 @@ impl Runner for SignerRunner {
 
         if let Some(single_signatures) = maybe_signature {
             debug!(" > there is a single signature to send");
+
             self.services
                 .certificate_handler
                 .register_signatures(signed_entity_type, &single_signatures)
-                .await
-                .map_err(|e| e.into())
+                .await?;
+
+            Ok(())
         } else {
             debug!(" > NO single signature to send, doing nothing");
 
@@ -475,8 +477,8 @@ mod tests {
     };
 
     use crate::{
-        AggregatorClient, DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient,
-        ProtocolInitializerStore, SingleSigner,
+        metrics::MetricsService, AggregatorClient, DumbAggregatorClient, MithrilSingleSigner,
+        MockAggregatorClient, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -548,6 +550,7 @@ mod tests {
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
         ));
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -564,6 +567,7 @@ mod tests {
             era_reader,
             api_version_provider,
             signable_builder_service,
+            metrics_service,
         }
     }
 
@@ -590,6 +594,9 @@ mod tests {
             reset_digests_cache: false,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            enable_metrics_server: true,
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         };
 
         SignerRunner::new(

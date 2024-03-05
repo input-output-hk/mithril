@@ -27,3 +27,8 @@ scrape_configs:
     file_sd_configs:
     - files:
       - 'cardano.json'
+
+  - job_name: 'mithril-signers'
+    file_sd_configs:
+    - files:
+      - 'mithril-signer.json'
