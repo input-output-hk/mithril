@@ -3,29 +3,61 @@ import React, { useEffect, useState } from "react";
 import { Container, Modal } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { fetchGenesisVerificationKey } from "../../utils";
-import CertificateVerifier from "../VerifyCertificate/verifier";
+import CertificateVerifier, { certificateValidationSteps } from "../VerifyCertificate/verifier";
+
+const validationSteps = {
+  ready: 1,
+  fetchingProof: 2,
+  validatingCertificateChain: 3,
+  validatingProof: 4,
+  done: 5,
+};
 
 export default function CertifyCardanoTransactionsModal({ transactionHashes, ...props }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
-  const [loading, setLoading] = useState(false);
+  const [certificate, setCertificate] = useState(undefined);
+  const [certificateVerifierStep, setCertificateVerifierStep] = useState(
+    certificateValidationSteps.ready,
+  );
   const [transactionsProofs, setTransactionsProofs] = useState({});
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
+  const [isEverythingValid, setIsEverythingValid] = useState(false);
+  const [currentStep, setCurrentStep] = useState(validationSteps.ready);
 
   useEffect(() => {
     setShowLoadingWarning(false);
+    setIsEverythingValid(false);
+    setCertificate(undefined);
+    setCurrentStep(validationSteps.ready);
 
     if (transactionHashes?.length > 0) {
+      setCurrentStep(validationSteps.fetchingProof);
       getTransactionsProofs(currentAggregator, transactionHashes).catch((err) => {
         console.error("Cardano Transactions Certification Error:", err);
+        setCurrentStep(validationSteps.done);
       });
+      setCurrentStep(validationSteps.validatingCertificateChain);
     }
   }, [currentAggregator, transactionHashes]);
 
   useEffect(() => {
-    if (!loading) {
+    if (certificateVerifierStep === certificateValidationSteps.done) {
+      setCurrentStep(validationSteps.validatingProof);
       setShowLoadingWarning(false);
     }
-  }, [loading]);
+  }, [certificateVerifierStep]);
+
+  useEffect(() => {
+    if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
+      verifyTransactionProofAgainstCertificate(currentAggregator, transactionsProofs, certificate)
+        .catch((err) => {
+          console.error("Cardano Transactions Certification Error:", err);
+        })
+        .finally(() => {
+          setCurrentStep(validationSteps.done);
+        });
+    }
+  }, [currentAggregator, currentStep, transactionsProofs, certificate]);
 
   async function getTransactionsProofs(aggregator, transactionHashes) {
     const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
@@ -35,9 +67,27 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
     setTransactionsProofs(proofs);
   }
 
+  async function verifyTransactionProofAgainstCertificate(
+    aggregator,
+    transactionsProofs,
+    certificate,
+  ) {
+    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
+    const client = new MithrilClient(aggregator, genesisVerificationKey);
+    // Verify proof validity if so get its protocol message
+    const protocolMessage =
+      await client.unstable.verify_cardano_transaction_proof_then_compute_message(
+        transactionsProofs,
+        certificate,
+      );
+
+    if ((await client.verify_message_match_certificate(protocolMessage, certificate)) === true) {
+      setIsEverythingValid(true);
+    }
+  }
+
   function closeIfNotRunning() {
-    // Only allow closing if not loading
-    if (loading) {
+    if (certificateVerifierStep === certificateValidationSteps.validationInProgress) {
       setShowLoadingWarning(true);
     } else {
       props.onHashesChange([]);
@@ -58,7 +108,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
       </Modal.Header>
 
       <Modal.Body>
-        {Object.entries(transactionsProofs).length > 0 && (
+        {currentStep > validationSteps.ready && (
           <>
             {showLoadingWarning && (
               <div className="alert alert-warning" role="alert">
@@ -67,14 +117,26 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
               </div>
             )}
 
-            <div>Transactions Certified: {transactionsProofs.transactions_hashes}</div>
-            <div>Transactions not certified: {transactionsProofs.non_certified_transactions}</div>
-            <div>Certificate hash: {transactionsProofs.certificate_hash}</div>
+            {currentStep >= validationSteps.fetchingProof && (
+              <>
+                <div>Transactions Certified: {transactionsProofs.transactions_hashes}</div>
+                <div>
+                  Transactions not certified: {transactionsProofs.non_certified_transactions}
+                </div>
+                <div>Certificate hash: {transactionsProofs.certificate_hash}</div>
+              </>
+            )}
 
-            <CertificateVerifier
-              onLoadingChange={(loading) => setLoading(loading)}
-              certificateHash={transactionsProofs.certificate_hash}
-            />
+            {currentStep >= validationSteps.validatingCertificateChain && (
+              <CertificateVerifier
+                onStepChange={(step) => setCertificateVerifierStep(step)}
+                onCertificateChange={(certificate) => setCertificate(certificate)}
+                certificateHash={transactionsProofs.certificate_hash}
+              />
+            )}
+
+            {currentStep === validationSteps.done && isEverythingValid && <>Success</>}
+            {currentStep === validationSteps.done && !isEverythingValid && <>Failure</>}
           </>
         )}
         <Container></Container>

@@ -1,6 +1,6 @@
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
-import CertificateVerifier from "./verifier";
+import CertificateVerifier, { certificateValidationSteps } from "./verifier";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
   const [loading, setLoading] = useState(false);
@@ -48,7 +48,9 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
               </div>
             )}
             <CertificateVerifier
-              onLoadingChange={(loading) => setLoading(loading)}
+              onStepChange={(step) =>
+                setLoading(step === certificateValidationSteps.validationInProgress)
+              }
               certificateHash={certificateHash}
             />
           </>
