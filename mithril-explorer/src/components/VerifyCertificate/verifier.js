@@ -32,36 +32,28 @@ export default function CertificateVerifier({ certificateHash, ...props }) {
     setCertificate({});
     setVerificationEvents([]);
 
-    if (certificateHash && !loading) {
+    if (certificateHash) {
       setLoading(true);
 
-      buildClientAndVerifyChain(certificateHash).catch((err) =>
-        console.error("Certificate Chain verification error", err),
-      );
+      verifyCertificateChain(currentAggregator, certificateHash)
+        .catch((err) => console.error("Certificate Chain verification error", err))
+        .finally(() => {
+          setLoading(false);
+        });
     }
-  }, [certificateHash]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentAggregator, certificateHash]);
 
-  async function buildClientAndVerifyChain(certificate_hash) {
-    try {
-      const client = await initializeClient();
+  async function verifyCertificateChain(aggregator, certificate_hash) {
+    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
+    const client = new MithrilClient(aggregator, genesisVerificationKey);
 
-      if (certificate_hash !== null && certificate_hash !== undefined) {
-        let startTime = performance.now();
-        const certificate = await client.get_mithril_certificate(certificate_hash);
-        setCertificate(certificate);
-        await client.verify_certificate_chain(certificate_hash);
-        setVerificationDuration(formatProcessDuration(startTime));
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setLoading(false);
+    if (certificate_hash !== null && certificate_hash !== undefined) {
+      let startTime = performance.now();
+      const certificate = await client.get_mithril_certificate(certificate_hash);
+      setCertificate(certificate);
+      await client.verify_certificate_chain(certificate_hash);
+      setVerificationDuration(formatProcessDuration(startTime));
     }
-  }
-
-  async function initializeClient() {
-    const genesisVerificationKey = await fetchGenesisVerificationKey(currentAggregator);
-    return new MithrilClient(currentAggregator, genesisVerificationKey);
   }
 
   function clientEventListener(e) {
@@ -80,8 +72,8 @@ export default function CertificateVerifier({ certificateHash, ...props }) {
       message = <>The certificate chain is valid ✅</>;
     }
 
-    setVerificationEvents((old_evts) => [
-      ...old_evts,
+    setVerificationEvents((existingEvents) => [
+      ...existingEvents,
       { id: nextVerifyEventId++, message: message },
     ]);
   }
