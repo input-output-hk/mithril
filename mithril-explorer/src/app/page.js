@@ -15,6 +15,7 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
+import initMithrilClient from "@mithril-dev/mithril-client-wasm";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
 import CardanoDbSnapshotsList from "../components/Artifacts/CardanoDbSnapshotsList";
@@ -50,6 +51,11 @@ export default function Explorer() {
   const enableCardanoTransactionTab = useSelector((state) =>
     doesSelectedAggregatorSignEntity(state, signedEntityType.CardanoTransactions),
   );
+
+  // Global mithril client wasm init
+  useEffect(() => {
+    initMithrilClient().catch((err) => console.error("Mithril-client-wasm init error:", err));
+  }, []);
 
   // Update the aggregator in the url query
   useEffect(() => {

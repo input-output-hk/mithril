@@ -1,4 +1,4 @@
-import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm";
+import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import { useEffect, useState } from "react";
 import LocalDateTime from "../LocalDateTime";
 import { Spinner } from "react-bootstrap";
@@ -60,7 +60,6 @@ export default function CertificateVerifier({ certificateHash, showLoadingWarnin
   }
 
   async function initializeClient() {
-    await initMithrilClient();
     const genesisVerificationKey = await fetchGenesisVerificationKey(currentAggregator);
     return new MithrilClient(currentAggregator, genesisVerificationKey);
   }
