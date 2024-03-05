@@ -15,10 +15,16 @@ build: package-lock.json
 	cp out/registrations.txt out/registrations/index.txt
 
 serve: build
-	npm run start
+	if [ -d "explorer/" ]; then rm -rf explorer/; fi
+	mv out explorer/
+
+	@echo "=========================================================================="
+	@echo "\033[1mServing production build at: http://localhost:3001/explorer \033[0m"
+	python3 -m http.server --bind 127.0.0.1 3001
 
 dev: build
-	@echo "Serving dev build at: http://localhost:3000/explorer"
+	@echo "=========================================================================="
+	@echo "\033[1mServing dev build at: http://localhost:3000/explorer \033[0m"
 	npm run dev
 
 test: package-lock.json
