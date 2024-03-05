@@ -74,7 +74,10 @@ export default function CardanoTransactionsSnapshotsList(props) {
     if (form.checkValidity() === true) {
       const formData = new FormData(form);
       const formJson = Object.fromEntries(formData.entries());
-      const hashes = (formJson?.txHashes ?? "").split(",").filter((hash) => hash.length > 0);
+      const hashes = (formJson?.txHashes ?? "")
+        .split(",")
+        .map((hash) => hash.trim())
+        .filter((hash) => hash.length > 0);
 
       setTransactionHashesToCertify(hashes);
       setShowCertificationFormValidation(false);
@@ -111,7 +114,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
                       type="text"
                       placeholder="1cfbee5ed59c, 3bf71cd66d48, b16b6e006b1d, ..."
                       required
-                      pattern="(\w+,)*\w+"
+                      pattern=" *(\w+ *, *)*\w+,? *"
                     />
                     <Form.Control.Feedback type="invalid">
                       Please provide a comma-separated list of transactions hashes.
