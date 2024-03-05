@@ -13,6 +13,7 @@ import {
   Stack,
 } from "react-bootstrap";
 import CertificateModal from "../../CertificateModal";
+import CertifyCardanoTransactionsModal from "../../CertifyCardanoTransactionsModal";
 import RawJsonButton from "../../RawJsonButton";
 import { useSelector } from "react-redux";
 import { selectedAggregator } from "../../../store/settingsSlice";
@@ -22,6 +23,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
   const [cardanoTransactionsSnapshots, setCardanoTransactionsSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const [showCertificationFormValidation, setShowCertificationFormValidation] = useState(false);
+  const [transactionHashesToCertify, setTransactionHashesToCertify] = useState([]);
   const aggregator = useSelector(selectedAggregator);
   const artifactsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/artifact/cardano-transactions`,
@@ -55,6 +57,10 @@ export default function CardanoTransactionsSnapshotsList(props) {
     setSelectedCertificateHash(hash);
   }
 
+  function handleTransactionHashesToCertifyChange(hashes) {
+    setTransactionHashesToCertify(hashes);
+  }
+
   function showCertificate(hash) {
     setSelectedCertificateHash(hash);
   }
@@ -69,7 +75,8 @@ export default function CardanoTransactionsSnapshotsList(props) {
       const formData = new FormData(form);
       const formJson = Object.fromEntries(formData.entries());
       const hashes = (formJson?.txHashes ?? "").split(",").filter((hash) => hash.length > 0);
-      console.log("hashes", hashes);
+
+      setTransactionHashesToCertify(hashes);
       setShowCertificationFormValidation(false);
     } else {
       setShowCertificationFormValidation(true);
@@ -79,6 +86,10 @@ export default function CardanoTransactionsSnapshotsList(props) {
   return (
     <>
       <CertificateModal hash={selectedCertificateHash} onHashChange={handleCertificateHashChange} />
+      <CertifyCardanoTransactionsModal
+        transactionHashes={transactionHashesToCertify}
+        onHashesChange={handleTransactionHashesToCertifyChange}
+      />
 
       <div className={props.className}>
         <h2>
