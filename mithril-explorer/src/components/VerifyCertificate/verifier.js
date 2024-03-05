@@ -9,7 +9,7 @@ import styles from "./styles.module.css";
 
 let nextVerifyEventId = 0;
 
-export default function CertificateVerifier({ certificateHash, showLoadingWarning, stateRef }) {
+export default function CertificateVerifier({ certificateHash, ...props }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [loading, setLoading] = useState(false);
   const [certificate, setCertificate] = useState({});
@@ -24,8 +24,8 @@ export default function CertificateVerifier({ certificateHash, showLoadingWarnin
   }, []);
 
   useEffect(() => {
-    stateRef.current = { loading };
-  }, [loading, stateRef]);
+    props.onLoadingChange(loading);
+  }, [loading, props]);
 
   useEffect(() => {
     // Reset state if any
@@ -88,12 +88,6 @@ export default function CertificateVerifier({ certificateHash, showLoadingWarnin
 
   return (
     <>
-      {showLoadingWarning && (
-        <div className="alert alert-warning" role="alert">
-          Verification is in progress. Please wait until the process is complete (less than a
-          minute).
-        </div>
-      )}
       {Object.entries(certificate).length > 0 && (
         <>
           <h4>Certificate Details</h4>

@@ -1,26 +1,32 @@
 import { Modal } from "react-bootstrap";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import CertificateVerifier from "./verifier";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
-  const verifier = useRef(null);
-  const [showWarning, setShowWarning] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showLoadingWarning, setShowLoadingWarning] = useState(false);
 
   useEffect(() => {
     if (show) {
       // Force hide warning when shown
-      setShowWarning(false);
+      setShowLoadingWarning(false);
     }
   }, [show]);
 
-  const handleModalClose = () => {
+  useEffect(() => {
+    if (!loading) {
+      setShowLoadingWarning(false);
+    }
+  }, [loading]);
+
+  function handleModalClose() {
     // Only allow closing if not loading
-    if (verifier.current.loading) {
-      setShowWarning(true);
+    if (loading) {
+      setShowLoadingWarning(true);
     } else {
       onClose();
     }
-  };
+  }
 
   return (
     <Modal
@@ -34,11 +40,18 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
       </Modal.Header>
       <Modal.Body>
         {show && (
-          <CertificateVerifier
-            stateRef={verifier}
-            certificateHash={certificateHash}
-            showLoadingWarning={showWarning}
-          />
+          <>
+            {showLoadingWarning && (
+              <div className="alert alert-warning" role="alert">
+                Verification is in progress. Please wait until the process is complete (less than a
+                minute).
+              </div>
+            )}
+            <CertificateVerifier
+              onLoadingChange={(loading) => setLoading(loading)}
+              certificateHash={certificateHash}
+            />
+          </>
         )}
       </Modal.Body>
       <Modal.Footer></Modal.Footer>
