@@ -9,7 +9,7 @@ use slog::{debug, Logger};
 
 use crate::{
     cardano_transaction_parser::TransactionParser,
-    crypto_helper::{MKTree, MKTreeNode, MKTreeStore},
+    crypto_helper::{MKTree, MKTreeNode},
     entities::{Beacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
@@ -51,9 +51,8 @@ impl CardanoTransactionsSignableBuilder {
     }
 
     fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
-        let store = MKTreeStore::default();
         let leaves = transactions.iter().map(|tx| tx.into()).collect::<Vec<_>>();
-        let mk_tree = MKTree::new(&leaves, &store)
+        let mk_tree = MKTree::new(&leaves)
             .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree")?;
         let mk_root = mk_tree
             .compute_root()

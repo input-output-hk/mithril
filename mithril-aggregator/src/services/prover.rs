@@ -4,7 +4,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
-    crypto_helper::{MKTree, MKTreeNode, MKTreeStore},
+    crypto_helper::{MKTree, MKTreeNode},
     entities::{Beacon, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash},
     StdResult,
 };
@@ -56,9 +56,8 @@ impl ProverService for MithrilProverService {
         let transactions = self.transaction_retriever.get_up_to(up_to).await?;
         let mk_leaves_all: Vec<MKTreeNode> =
             transactions.iter().map(|t| t.to_owned().into()).collect();
-        let store = MKTreeStore::default();
-        let mktree = MKTree::new(&mk_leaves_all, &store)
-            .with_context(|| "MKTree creation should not fail")?;
+        let mktree =
+            MKTree::new(&mk_leaves_all).with_context(|| "MKTree creation should not fail")?;
 
         let mut transaction_hashes_certified = vec![];
         for transaction_hash in transaction_hashes {
