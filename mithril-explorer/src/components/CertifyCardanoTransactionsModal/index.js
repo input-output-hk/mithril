@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import { fetchGenesisVerificationKey } from "../../utils";
 import CertificateVerifier, { certificateValidationSteps } from "../VerifyCertificate/verifier";
 import { TransactionCertificationBreadcrumb } from "./TransactionCertificationBreadcrumb";
+import { TransactionCertificationResult } from "./TransactionCertificationResult";
 
 export const validationSteps = {
   ready: 1,
@@ -133,16 +134,6 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
               </div>
             )}
 
-            {currentStep >= validationSteps.fetchingProof && (
-              <>
-                <div>Transactions Certified: {transactionsProofs.transactions_hashes}</div>
-                <div>
-                  Transactions not certified: {transactionsProofs.non_certified_transactions}
-                </div>
-                <div>Certificate hash: {transactionsProofs.certificate_hash}</div>
-              </>
-            )}
-
             {currentStep >= validationSteps.validatingCertificateChain && (
               <>
                 <hr />
@@ -154,8 +145,16 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
               </>
             )}
 
-            {currentStep === validationSteps.done && isEverythingValid && <>Success</>}
-            {currentStep === validationSteps.done && !isEverythingValid && <>Failure</>}
+            {currentStep === validationSteps.done && (
+              <>
+                <hr />
+                <TransactionCertificationResult
+                  isSuccess={isEverythingValid}
+                  certifiedTransactions={transactionsProofs.transactions_hashes}
+                  nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
+                />
+              </>
+            )}
           </Stack>
         )}
         <Container></Container>
