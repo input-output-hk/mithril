@@ -94,7 +94,11 @@ runs:
     run: |
       echo "Publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
       npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
-      npm whoami
+      if [ -z "${NPM_TOKEN}" -a "${{ inputs.dry_run }}" == "true" ]; then
+        echo "Warning: An NPM access token is required for authentication and has not been provided."
+      else
+        npm whoami
+      fi
       cd ${{ inputs.package }}/pkg
       if [ "${{ inputs.dry_run }}" == "false" ]; then
         dry_run_option=""
