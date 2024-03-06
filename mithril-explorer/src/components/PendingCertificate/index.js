@@ -85,7 +85,7 @@ export default function PendingCertificate(props) {
                             <PartyId partyId={signer.party_id} />
                             {signer.verification_key_signature && (
                               <div className="float-end">
-                                <VerifiedBadge tooltip="Verified Signer" />
+                                <VerifiedBadge />
                               </div>
                             )}
                           </ListGroup.Item>
@@ -109,7 +109,7 @@ export default function PendingCertificate(props) {
                             <PartyId partyId={signer.party_id} />
                             {signer.verification_key_signature && (
                               <div className="float-end">
-                                <VerifiedBadge tooltip="Verified Signer" />
+                                <VerifiedBadge />
                               </div>
                             )}
                           </ListGroup.Item>

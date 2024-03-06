@@ -22,7 +22,7 @@ export default function SignerTable({ signers, aggregator, displayIndexes, ...pr
           <tr key={signer.party_id}>
             {displayIndexes === true && <td>{index}</td>}
             <td>
-              <VerifiedBadge tooltip="Verified Signer" /> <PartyId partyId={signer.party_id} />
+              <VerifiedBadge /> <PartyId partyId={signer.party_id} />
             </td>
             <td>
               <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
