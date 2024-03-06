@@ -51,8 +51,7 @@ impl CardanoTransactionsSignableBuilder {
     }
 
     fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
-        let leaves = transactions.iter().map(|tx| tx.into()).collect::<Vec<_>>();
-        let mk_tree = MKTree::new(&leaves)
+        let mk_tree = MKTree::new(transactions)
             .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree")?;
         let mk_root = mk_tree
             .compute_root()
