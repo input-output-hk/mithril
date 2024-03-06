@@ -33,11 +33,17 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
 
     if (transactionHashes?.length > 0) {
       setCurrentStep(validationSteps.fetchingProof);
-      getTransactionsProofs(currentAggregator, transactionHashes).catch((err) => {
-        console.error("Cardano Transactions Certification Error:", err);
-        setCurrentStep(validationSteps.done);
-      });
-      setCurrentStep(validationSteps.validatingCertificateChain);
+      getTransactionsProofs(currentAggregator, transactionHashes)
+        .then(() =>
+          // Artificial wait to give the user a feel of the work load under-hood
+          setTimeout(() => {
+            setCurrentStep(validationSteps.validatingCertificateChain);
+          }, 350),
+        )
+        .catch((err) => {
+          console.error("Cardano Transactions Certification Error:", err);
+          setCurrentStep(validationSteps.done);
+        });
     }
   }, [currentAggregator, transactionHashes]);
 
@@ -51,10 +57,14 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
   useEffect(() => {
     if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
       verifyTransactionProofAgainstCertificate(currentAggregator, transactionsProofs, certificate)
+        .then(() =>
+          // Artificial wait to give the user a feel of the work load under-hood
+          setTimeout(() => {
+            setCurrentStep(validationSteps.done);
+          }, 250),
+        )
         .catch((err) => {
           console.error("Cardano Transactions Certification Error:", err);
-        })
-        .finally(() => {
           setCurrentStep(validationSteps.done);
         });
     }
