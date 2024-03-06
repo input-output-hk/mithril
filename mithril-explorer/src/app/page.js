@@ -25,9 +25,9 @@ import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeD
 import { aggregatorSearchParam, signedEntityType } from "../constants";
 import { setChartJsDefaults } from "../charts";
 import {
-  doesSelectedAggregatorSignEntity,
   selectAggregator,
   selectedAggregator as currentlySelectedAggregator,
+  selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "../store/settingsSlice";
 import { updatePoolsForAggregator } from "../store/poolsSlice";
 
@@ -47,10 +47,17 @@ export default function Explorer() {
 
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
+  const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
-  const enableCardanoTransactionTab = useSelector((state) =>
-    doesSelectedAggregatorSignEntity(state, signedEntityType.CardanoTransactions),
+  const selectedAggregatorSignedEntities = useSelector((state) =>
+    currentAggregatorSignedEntities(state),
   );
+
+  useEffect(() => {
+    setEnableCardanoTransactionTab(
+      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
+    );
+  }, [selectedAggregatorSignedEntities]);
 
   // Global mithril client wasm init
   useEffect(() => {
