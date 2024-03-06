@@ -1,17 +1,16 @@
 import React from "react";
 import { Button, OverlayTrigger, Tooltip } from "react-bootstrap";
-import { formatPartyId } from "../utils";
 
-export default function PartyId({ partyId }) {
+export default function CopyableHash({ hash }) {
   function copyToClipboard() {
-    if (window.isSecureContext && partyId) {
-      navigator.clipboard.writeText(partyId).then(() => {});
+    if (window.isSecureContext && hash) {
+      navigator.clipboard.writeText(hash).then(() => {});
     }
   }
 
   return (
     <span className="text-break">
-      {partyId}
+      {hash}
       <> </>
       <OverlayTrigger overlay={<Tooltip>Copy</Tooltip>}>
         <Button variant="link" onClick={copyToClipboard} size="md" className="p-0">

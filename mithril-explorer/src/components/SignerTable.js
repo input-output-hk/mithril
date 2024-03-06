@@ -1,6 +1,6 @@
 import React from "react";
 import { Table } from "react-bootstrap";
-import PartyId from "./PartyId";
+import CopyableHash from "./CopyableHash";
 import VerifiedBadge from "./VerifiedBadge";
 import PoolTicker from "./PoolTicker";
 import Stake from "./Stake";
@@ -22,7 +22,7 @@ export default function SignerTable({ signers, aggregator, displayIndexes, ...pr
           <tr key={signer.party_id}>
             {displayIndexes === true && <td>{index}</td>}
             <td>
-              <VerifiedBadge /> <PartyId partyId={signer.party_id} />
+              <VerifiedBadge /> <CopyableHash hash={signer.party_id} />
             </td>
             <td>
               <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
