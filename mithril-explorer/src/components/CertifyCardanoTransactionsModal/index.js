@@ -1,11 +1,12 @@
 import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import React, { useEffect, useState } from "react";
-import { Container, Modal } from "react-bootstrap";
+import { Container, Modal, Stack } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { fetchGenesisVerificationKey } from "../../utils";
 import CertificateVerifier, { certificateValidationSteps } from "../VerifyCertificate/verifier";
+import { TransactionCertificationBreadcrumb } from "./TransactionCertificationBreadcrumb";
 
-const validationSteps = {
+export const validationSteps = {
   ready: 1,
   fetchingProof: 2,
   validatingCertificateChain: 3,
@@ -109,9 +110,14 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
 
       <Modal.Body>
         {currentStep > validationSteps.ready && (
-          <>
+          <Stack gap={1}>
+            <TransactionCertificationBreadcrumb
+              currentStep={currentStep}
+              isSuccess={isEverythingValid}
+            />
+
             {showLoadingWarning && (
-              <div className="alert alert-warning" role="alert">
+              <div className="alert alert-warning mb-0 mt-2" role="alert">
                 Verification is in progress. Please wait until the process is complete (less than a
                 minute).
               </div>
@@ -128,16 +134,19 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
             )}
 
             {currentStep >= validationSteps.validatingCertificateChain && (
-              <CertificateVerifier
-                onStepChange={(step) => setCertificateVerifierStep(step)}
-                onCertificateChange={(certificate) => setCertificate(certificate)}
-                certificateHash={transactionsProofs.certificate_hash}
-              />
+              <>
+                <hr />
+                <CertificateVerifier
+                  onStepChange={(step) => setCertificateVerifierStep(step)}
+                  onCertificateChange={(certificate) => setCertificate(certificate)}
+                  certificateHash={transactionsProofs.certificate_hash}
+                />
+              </>
             )}
 
             {currentStep === validationSteps.done && isEverythingValid && <>Success</>}
             {currentStep === validationSteps.done && !isEverythingValid && <>Failure</>}
-          </>
+          </Stack>
         )}
         <Container></Container>
       </Modal.Body>
