@@ -1,11 +1,12 @@
 import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import React, { useEffect, useState } from "react";
-import { Container, Modal, Stack } from "react-bootstrap";
+import { Alert, Col, Modal, Row, Tab, Table } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { fetchGenesisVerificationKey } from "../../utils";
 import CertificateVerifier, { certificateValidationSteps } from "../VerifyCertificate/verifier";
 import { TransactionCertificationBreadcrumb } from "./TransactionCertificationBreadcrumb";
 import { TransactionCertificationResult } from "./TransactionCertificationResult";
+import CopyableHash from "../CopyableHash";
 
 export const validationSteps = {
   ready: 1,
@@ -25,6 +26,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [isEverythingValid, setIsEverythingValid] = useState(false);
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
+  const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
 
   useEffect(() => {
     setShowLoadingWarning(false);
@@ -54,6 +56,10 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
       setShowLoadingWarning(false);
     }
   }, [certificateVerifierStep]);
+
+  useEffect(() => {
+    setCurrentTab(getTabForStep(currentStep));
+  }, [currentStep]);
 
   useEffect(() => {
     if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
@@ -98,8 +104,30 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
     }
   }
 
+  function getTabForStep(step) {
+    switch (step) {
+      case validationSteps.validatingCertificateChain:
+        return `#step-${validationSteps.validatingCertificateChain}`;
+      case validationSteps.validatingProof:
+        return `#step-${validationSteps.validatingProof}`;
+      case validationSteps.done:
+        return `#step-${validationSteps.done}`;
+      case validationSteps.ready:
+      case validationSteps.fetchingProof:
+      default:
+        return `#step-${validationSteps.fetchingProof}`;
+    }
+  }
+
+  function handleStepClick(step) {
+    // Only allow navigation when the work is done
+    if (currentStep === validationSteps.done) {
+      setCurrentTab(getTabForStep(step));
+    }
+  }
+
   function closeIfNotRunning() {
-    if (certificateVerifierStep === certificateValidationSteps.validationInProgress) {
+    if (currentStep !== validationSteps.done) {
       setShowLoadingWarning(true);
     } else {
       props.onHashesChange([]);
@@ -121,43 +149,80 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
 
       <Modal.Body>
         {currentStep > validationSteps.ready && (
-          <Stack gap={1}>
-            <TransactionCertificationBreadcrumb
-              currentStep={currentStep}
-              isSuccess={isEverythingValid}
-            />
-
-            {showLoadingWarning && (
-              <div className="alert alert-warning mb-0 mt-2" role="alert">
-                Verification is in progress. Please wait until the process is complete (less than a
-                minute).
-              </div>
-            )}
-
-            {currentStep >= validationSteps.validatingCertificateChain && (
-              <>
-                <hr />
-                <CertificateVerifier
-                  onStepChange={(step) => setCertificateVerifierStep(step)}
-                  onCertificateChange={(certificate) => setCertificate(certificate)}
-                  certificateHash={transactionsProofs.certificate_hash}
-                />
-              </>
-            )}
-
-            {currentStep === validationSteps.done && (
-              <>
-                <hr />
-                <TransactionCertificationResult
-                  isSuccess={isEverythingValid}
-                  certifiedTransactions={transactionsProofs.transactions_hashes}
-                  nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
-                />
-              </>
-            )}
-          </Stack>
+          <>
+            <Tab.Container activeKey={currentTab}>
+              <Row className="mb-2">
+                <Col>
+                  <TransactionCertificationBreadcrumb
+                    currentStep={currentStep}
+                    isSuccess={isEverythingValid}
+                    onStepClick={handleStepClick}
+                  />
+                  {showLoadingWarning && (
+                    <Alert variant="warning" className="mt-2">
+                      Verification is in progress. Please wait until the process is complete (less
+                      than a minute).
+                    </Alert>
+                  )}
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  <Tab.Content>
+                    <Tab.Pane eventKey={`#step-${validationSteps.fetchingProof}`}>
+                      <h4>
+                        Fetching a cryptographic proof that the transactions are part of the Cardano
+                        transactions sets from the aggregator
+                      </h4>
+                      <Table responsive striped>
+                        <thead>
+                          <tr>
+                            <th>Transaction Hash to certify</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {transactionHashes.map((tx) => (
+                            <tr key={tx}>
+                              <td>
+                                <CopyableHash hash={tx} />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
+                    </Tab.Pane>
+                    <Tab.Pane eventKey={`#step-${validationSteps.validatingCertificateChain}`}>
+                      {currentStep >= validationSteps.validatingCertificateChain && (
+                        <CertificateVerifier
+                          onStepChange={(step) => setCertificateVerifierStep(step)}
+                          onCertificateChange={(certificate) => setCertificate(certificate)}
+                          certificateHash={transactionsProofs.certificate_hash}
+                        />
+                      )}
+                    </Tab.Pane>
+                    <Tab.Pane eventKey={`#step-${validationSteps.validatingProof}`}>
+                      <h4>Checking cryptographic proof validity and certificate association</h4>
+                      <p>The certificate chain associated to the cryptographic proof is valid.</p>
+                      <p>
+                        But the proof may not be associated to the certificate it claims to and its
+                        cryptographic materials may not be valid.
+                      </p>
+                    </Tab.Pane>
+                    <Tab.Pane eventKey={`#step-${validationSteps.done}`}>
+                      {currentStep === validationSteps.done && (
+                        <TransactionCertificationResult
+                          isSuccess={isEverythingValid}
+                          certifiedTransactions={transactionsProofs.transactions_hashes}
+                          nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
+                        />
+                      )}
+                    </Tab.Pane>
+                  </Tab.Content>
+                </Col>
+              </Row>
+            </Tab.Container>
+          </>
         )}
-        <Container></Container>
       </Modal.Body>
       <Modal.Footer></Modal.Footer>
     </Modal>
