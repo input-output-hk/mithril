@@ -30,21 +30,21 @@ pub const SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP: &str =
 
 /// 'signature_registration_success_since_startup' metric name
 pub const SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME: &str =
-    "mithril_signature_signature_registration_success_since_startup";
+    "mithril_signer_signature_registration_success_since_startup";
 /// 'signature_registration_success_since_startup' metric help
 pub const SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_HELP: &str =
     "Number of successful signature registrations since startup on a Mithril signature node";
 
 /// 'signature_registration_total_since_startup' metric name
 pub const SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME: &str =
-    "mithril_signature_signature_registration_total_since_startup";
+    "mithril_signer_signature_registration_total_since_startup";
 /// 'signature_registration_total_since_startup' metric help
 pub const SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_HELP: &str =
     "Number of signature registrations since startup on a Mithril signature node";
 
 /// 'signature_registration_success_last_epoch' metric name
 pub const SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME: &str =
-    "mithril_signature_signature_registration_success_last_epoch";
+    "mithril_signer_signature_registration_success_last_epoch";
 /// 'signature_registration_success_last_epoch' metric help
 pub const SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP: &str =
     "Latest epoch at which signature successfully registered on a Mithril signature node";
