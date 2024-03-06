@@ -13,7 +13,6 @@ export default function PendingCertificate(props) {
   const pendingCertificateEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/certificate-pending`,
   );
-  const aggregator = useSelector(selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -80,7 +79,7 @@ export default function PendingCertificate(props) {
                         </ListGroup.Item>
                         {pendingCertificate.signers.map((signer) => (
                           <ListGroup.Item key={signer.party_id}>
-                            <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                            <PoolTicker partyId={signer.party_id} />
                             <br />
                             <CopyableHash hash={signer.party_id} />
                             {signer.verification_key_signature && (
@@ -104,7 +103,7 @@ export default function PendingCertificate(props) {
                         </ListGroup.Item>
                         {pendingCertificate.next_signers.map((signer) => (
                           <ListGroup.Item key={signer.party_id}>
-                            <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                            <PoolTicker partyId={signer.party_id} />
                             <br />
                             <CopyableHash hash={signer.party_id} />
                             {signer.verification_key_signature && (

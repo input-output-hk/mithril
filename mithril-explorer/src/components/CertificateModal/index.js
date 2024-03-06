@@ -19,7 +19,6 @@ export default function CertificateModal(props) {
   const certificateEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/certificate/${props.hash}`,
   );
-  const aggregator = useSelector(selectedAggregator);
 
   useEffect(() => {
     if (!props.hash) {
@@ -151,10 +150,7 @@ export default function CertificateModal(props) {
                           retrieval or the signing process
                         </div>
                       ) : (
-                        <SignerTable
-                          signers={certificate.metadata.signers}
-                          aggregator={aggregator}
-                        />
+                        <SignerTable signers={certificate.metadata.signers} />
                       )}
                     </Accordion.Body>
                   </Accordion.Item>

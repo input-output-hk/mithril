@@ -58,17 +58,14 @@ const poolsForAggregator = (poolsSlice, aggregator) => {
   return poolsSlice.list.find((poolsData) => poolsData.aggregator === aggregator);
 };
 
-export const getPool = createSelector(
-  [
-    (state) => state.pools,
-    (state, aggregator, poolId) => ({ aggregator: aggregator, poolId: poolId }),
-  ],
-  (pools, args) => {
-    const aggregator = poolsForAggregator(pools, args.aggregator);
-    const data = aggregator?.pools.find((pool) => pool.party_id === args.poolId);
+export const getPoolForSelectedAggregator = createSelector(
+  [(state) => state.settings.selectedAggregator, (state) => state.pools, (state, poolId) => poolId],
+  (aggregator, pools, poolId) => {
+    const aggregatorPools = poolsForAggregator(pools, aggregator);
+    const data = aggregatorPools?.pools.find((pool) => pool.party_id === poolId);
 
     return {
-      network: aggregator?.network,
+      network: aggregatorPools?.network,
       ...data,
     };
   },
