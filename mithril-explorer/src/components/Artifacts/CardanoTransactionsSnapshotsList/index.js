@@ -67,6 +67,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
         .split(",")
         .map((hash) => hash.trim())
         .filter((hash) => hash.length > 0);
+      hashes.sort();
 
       setTransactionHashesToCertify(hashes);
       setShowCertificationFormValidation(false);

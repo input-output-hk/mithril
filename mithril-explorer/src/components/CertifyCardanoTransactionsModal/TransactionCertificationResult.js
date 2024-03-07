@@ -20,6 +20,15 @@ export function TransactionCertificationResult({
       }))
       .concat(nonCertifiedTransactions.map((tx) => ({ hash: tx, certified: false })));
 
+    transactionsList.sort((tx1, tx2) => {
+      if (tx1.hash < tx2.hash) {
+        return -1;
+      } else if (tx1.hash > tx2.hash) {
+        return 1;
+      }
+      return 0;
+    });
+
     setTransactions(transactionsList);
   }, [isSuccess, certifiedTransactions, nonCertifiedTransactions]);
 
