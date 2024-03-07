@@ -9,7 +9,7 @@ export default function CardanoTransactionsFormInput() {
         <Form.Control
           name="txHashes"
           type="text"
-          placeholder="1cfbee5ed59c, 3bf71cd66d48, b16b6e006b1d, ..."
+          placeholder="comma-separated list of transactions hashes"
           required
           pattern=" *(\w+ *, *)*\w+,? *"
         />

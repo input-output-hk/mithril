@@ -18,11 +18,11 @@ export function TransactionCertificationResult({
         <Alert variant="danger" className="mb-0">
           <Alert.Heading>Mithril could not certify the transactions</Alert.Heading>
           <p className="mb-1">
-            Either the cryptographic proof was invalid or Mithril could not certify any of the
-            transactions.
+            Either the transactions proof is invalid or all the transactions are not certified.
           </p>
           <p className="mb-0 fst-italic">
-            <i className="bi bi-info-circle"></i> The transactions may not be in blockchain yet.
+            <i className="bi bi-info-circle"></i> Mithril may still have to certify those
+            transactions.
           </p>
         </Alert>
       )}
@@ -58,8 +58,8 @@ export function TransactionCertificationResult({
       </Table>
       {isSuccess && nonCertifiedTransactions.length > 0 && (
         <p className="mb-0 fst-italic">
-          <i className="bi bi-info-circle"></i> Some transactions could not be certified, this could
-          be either they&apos;re not in the blockchain yet or they don&apos;t exist at all.
+          <i className="bi bi-info-circle"></i> Some transactions could not be certified, Mithril
+          may still have to certify those transactions or they don&apos;t exist in the blockchain.
         </p>
       )}
     </>

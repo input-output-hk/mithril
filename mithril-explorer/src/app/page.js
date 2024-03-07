@@ -114,16 +114,16 @@ export default function Explorer() {
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />
         </Tab>
-        <Tab
-          title="Mithril Stake Distribution"
-          eventKey={signedEntityType.MithrilStakeDistribution}>
-          <MithrilStakeDistributionsList />
-        </Tab>
         {enableCardanoTransactionTab && (
           <Tab title="Cardano Transactions" eventKey={signedEntityType.CardanoTransactions}>
             <CardanoTransactionsSnapshotsList />
           </Tab>
         )}
+        <Tab
+          title="Mithril Stake Distribution"
+          eventKey={signedEntityType.MithrilStakeDistribution}>
+          <MithrilStakeDistributionsList />
+        </Tab>
         <Tab title="Certificates" eventKey="certificates">
           <CertificatesList />
         </Tab>

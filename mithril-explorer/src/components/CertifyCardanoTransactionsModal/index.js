@@ -1,12 +1,13 @@
 import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import React, { useEffect, useState } from "react";
-import { Alert, Col, Modal, Row, Tab, Table } from "react-bootstrap";
+import { Alert, Col, Modal, Row, Tab } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { fetchGenesisVerificationKey } from "../../utils";
 import CertificateVerifier, { certificateValidationSteps } from "../VerifyCertificate/verifier";
 import { TransactionCertificationBreadcrumb } from "./TransactionCertificationBreadcrumb";
 import { TransactionCertificationResult } from "./TransactionCertificationResult";
-import CopyableHash from "../CopyableHash";
+import { FetchingProofPane } from "./FetchingProofPane";
+import { ValidatingProofPane } from "./ValidatingProofPane";
 
 export const validationSteps = {
   ready: 1,
@@ -141,7 +142,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
       centered>
       <Modal.Header className="text-break" closeButton>
         <Modal.Title id="contained-modal-title-vcenter">
-          Cardano transaction certification
+          Cardano Transactions Certification
         </Modal.Title>
       </Modal.Header>
 
@@ -168,26 +169,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
                 <Col>
                   <Tab.Content>
                     <Tab.Pane eventKey={getTabForStep(validationSteps.fetchingProof)}>
-                      <h4>
-                        Fetching a cryptographic proof that the transactions are part of the Cardano
-                        transactions sets from the aggregator
-                      </h4>
-                      <Table responsive striped>
-                        <thead>
-                          <tr>
-                            <th>Transaction Hash to certify</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {transactionHashes.map((tx) => (
-                            <tr key={tx}>
-                              <td>
-                                <CopyableHash hash={tx} />
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </Table>
+                      <FetchingProofPane transactionHashes={transactionHashes} />
                     </Tab.Pane>
                     <Tab.Pane eventKey={getTabForStep(validationSteps.validatingCertificateChain)}>
                       {currentStep >= validationSteps.validatingCertificateChain && (
@@ -199,12 +181,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
                       )}
                     </Tab.Pane>
                     <Tab.Pane eventKey={getTabForStep(validationSteps.validatingProof)}>
-                      <h4>Checking cryptographic proof validity and certificate association</h4>
-                      <p>The certificate chain associated to the cryptographic proof is valid.</p>
-                      <p>
-                        But the proof may not be associated to the certificate it claims to and its
-                        cryptographic materials may not be valid.
-                      </p>
+                      <ValidatingProofPane isEverythingValid={isEverythingValid} />
                     </Tab.Pane>
                     <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
                       {currentStep === validationSteps.done && (

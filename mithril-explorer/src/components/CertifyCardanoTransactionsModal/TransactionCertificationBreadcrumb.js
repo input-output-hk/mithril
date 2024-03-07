@@ -18,7 +18,7 @@ export function TransactionCertificationBreadcrumb({
   const activeSteps = [
     {
       step: validationSteps.fetchingProof,
-      text: "Fetching Proof for the Transactions",
+      text: "Fetching Transactions Proof",
     },
     {
       step: validationSteps.validatingCertificateChain,
@@ -26,7 +26,7 @@ export function TransactionCertificationBreadcrumb({
     },
     {
       step: validationSteps.validatingProof,
-      text: "Verifying Proof against its Certificate",
+      text: "Verifying Transactions Proof",
     },
   ];
 
