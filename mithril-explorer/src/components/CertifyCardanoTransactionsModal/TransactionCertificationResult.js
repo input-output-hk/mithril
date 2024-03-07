@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Table } from "react-bootstrap";
 import IconBadge from "../IconBadge";
 import CopyableHash from "../CopyableHash";
@@ -8,6 +8,21 @@ export function TransactionCertificationResult({
   certifiedTransactions,
   nonCertifiedTransactions,
 }) {
+  const [transactions, setTransactions] = useState([]);
+
+  useEffect(() => {
+    const transactionsList = certifiedTransactions
+      .map((tx) => ({
+        hash: tx,
+        // if the proof verification failed then even transactions that the proof
+        // said are certified must be shown as not certified
+        certified: isSuccess,
+      }))
+      .concat(nonCertifiedTransactions.map((tx) => ({ hash: tx, certified: false })));
+
+    setTransactions(transactionsList);
+  }, [isSuccess, certifiedTransactions, nonCertifiedTransactions]);
+
   return (
     <>
       {isSuccess ? (
@@ -34,23 +49,17 @@ export function TransactionCertificationResult({
           </tr>
         </thead>
         <tbody>
-          {certifiedTransactions.map((tx) => (
-            <tr key={tx}>
+          {transactions.map((tx) => (
+            <tr key={tx.hash}>
               <td>
-                <CopyableHash hash={tx} />
+                <CopyableHash hash={tx.hash} />
               </td>
               <td>
-                <IconBadge tooltip="Certified by Mithril" variant="success" icon="shield-lock" />
-              </td>
-            </tr>
-          ))}
-          {nonCertifiedTransactions.map((tx) => (
-            <tr key={tx}>
-              <td>
-                <CopyableHash hash={tx} />
-              </td>
-              <td>
-                <IconBadge tooltip="Not certified" variant="danger" icon="shield-slash" />
+                {tx.certified ? (
+                  <IconBadge tooltip="Certified by Mithril" variant="success" icon="shield-lock" />
+                ) : (
+                  <IconBadge tooltip="Not certified" variant="danger" icon="shield-slash" />
+                )}
               </td>
             </tr>
           ))}
