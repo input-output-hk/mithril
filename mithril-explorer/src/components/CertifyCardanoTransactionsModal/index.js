@@ -17,7 +17,10 @@ export const validationSteps = {
   done: 5,
 };
 
-export default function CertifyCardanoTransactionsModal({ transactionHashes, ...props }) {
+export default function CertifyCardanoTransactionsModal({
+  transactionHashes,
+  onHashesChange = (hash) => {},
+}) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [certificate, setCertificate] = useState(undefined);
   const [certificateVerifierStep, setCertificateVerifierStep] = useState(
@@ -129,7 +132,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
     if (currentStep !== validationSteps.done) {
       setShowLoadingWarning(true);
     } else {
-      props.onHashesChange([]);
+      onHashesChange([]);
     }
   }
 
