@@ -4,13 +4,13 @@ title: |
   4. Mithril Network Upgrade Strategy
 authors:
 - name: Mithril Team
-tags: [Draft]
+tags: [Accepted]
 date: 2023-01-05
 ---
 
 ## Status
 
-**Draft**
+Accepted
 
 ## Context
 
