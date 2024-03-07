@@ -71,4 +71,12 @@ export const getPoolForSelectedAggregator = createSelector(
   },
 );
 
+export const getSelectedAggregatorNetwork = createSelector(
+  [(state) => state.settings.selectedAggregator, (state) => state.pools],
+  (aggregator, pools) => {
+    const aggregatorPools = poolsForAggregator(pools, aggregator);
+    return aggregatorPools?.network;
+  },
+);
+
 export default poolsSlice.reducer;

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, Table } from "react-bootstrap";
 import IconBadge from "../IconBadge";
 import CopyableHash from "../CopyableHash";
+import TransactionHash from "../TransactionHash";
 
 export default function TransactionCertificationResult({
   isSuccess,
@@ -61,7 +62,11 @@ export default function TransactionCertificationResult({
           {transactions.map((tx) => (
             <tr key={tx.hash}>
               <td>
-                <CopyableHash hash={tx.hash} />
+                {tx.certified ? (
+                  <TransactionHash hash={tx.hash} />
+                ) : (
+                  <CopyableHash hash={tx.hash} />
+                )}
               </td>
               <td>
                 {tx.certified ? (

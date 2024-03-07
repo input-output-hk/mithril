@@ -4,7 +4,7 @@ import { initStore } from "./helpers";
 import { Provider } from "react-redux";
 import { poolsSlice } from "../src/store/poolsSlice";
 import PoolTicker from "../src/components/PoolTicker";
-import { getCExplorerUrlForPool } from "../src/utils";
+import { getCExplorerUrl } from "../src/utils";
 import { settingsSlice } from "../src/store/settingsSlice";
 
 function renderPoolTickerComponent(partyId, default_state = undefined) {
@@ -17,6 +17,11 @@ function renderPoolTickerComponent(partyId, default_state = undefined) {
     ),
     store,
   ];
+}
+
+function getCExplorerUrlForPool(network, partyId) {
+  const cExplorerUrl = getCExplorerUrl(network);
+  return cExplorerUrl ? `${cExplorerUrl}/pool/${partyId}` : undefined;
 }
 
 describe("PoolTicker", () => {
