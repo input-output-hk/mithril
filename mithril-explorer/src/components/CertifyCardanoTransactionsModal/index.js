@@ -107,11 +107,9 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
   function getTabForStep(step) {
     switch (step) {
       case validationSteps.validatingCertificateChain:
-        return `#step-${validationSteps.validatingCertificateChain}`;
       case validationSteps.validatingProof:
-        return `#step-${validationSteps.validatingProof}`;
       case validationSteps.done:
-        return `#step-${validationSteps.done}`;
+        return `#step-${step}`;
       case validationSteps.ready:
       case validationSteps.fetchingProof:
       default:
@@ -169,7 +167,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
               <Row>
                 <Col>
                   <Tab.Content>
-                    <Tab.Pane eventKey={`#step-${validationSteps.fetchingProof}`}>
+                    <Tab.Pane eventKey={getTabForStep(validationSteps.fetchingProof)}>
                       <h4>
                         Fetching a cryptographic proof that the transactions are part of the Cardano
                         transactions sets from the aggregator
@@ -191,7 +189,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
                         </tbody>
                       </Table>
                     </Tab.Pane>
-                    <Tab.Pane eventKey={`#step-${validationSteps.validatingCertificateChain}`}>
+                    <Tab.Pane eventKey={getTabForStep(validationSteps.validatingCertificateChain)}>
                       {currentStep >= validationSteps.validatingCertificateChain && (
                         <CertificateVerifier
                           onStepChange={(step) => setCertificateVerifierStep(step)}
@@ -200,7 +198,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
                         />
                       )}
                     </Tab.Pane>
-                    <Tab.Pane eventKey={`#step-${validationSteps.validatingProof}`}>
+                    <Tab.Pane eventKey={getTabForStep(validationSteps.validatingProof)}>
                       <h4>Checking cryptographic proof validity and certificate association</h4>
                       <p>The certificate chain associated to the cryptographic proof is valid.</p>
                       <p>
@@ -208,7 +206,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
                         cryptographic materials may not be valid.
                       </p>
                     </Tab.Pane>
-                    <Tab.Pane eventKey={`#step-${validationSteps.done}`}>
+                    <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
                       {currentStep === validationSteps.done && (
                         <TransactionCertificationResult
                           isSuccess={isEverythingValid}
