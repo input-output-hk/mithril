@@ -174,6 +174,7 @@ export default function CertifyCardanoTransactionsModal({ transactionHashes, ...
                     <Tab.Pane eventKey={getTabForStep(validationSteps.validatingCertificateChain)}>
                       {currentStep >= validationSteps.validatingCertificateChain && (
                         <CertificateVerifier
+                          showSpinner={false}
                           onStepChange={(step) => setCertificateVerifierStep(step)}
                           onCertificateChange={(certificate) => setCertificate(certificate)}
                           certificateHash={transactionsProofs.certificate_hash}

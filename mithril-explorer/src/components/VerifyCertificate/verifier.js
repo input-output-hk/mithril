@@ -23,6 +23,7 @@ const certificateChainValidationEvents = {
 
 export default function CertificateVerifier({
   certificateHash,
+  showSpinner = true,
   onStepChange = (step) => {},
   onCertificateChange = (certificate) => {},
 }) {
@@ -120,7 +121,7 @@ export default function CertificateVerifier({
             {currentStep === certificateValidationSteps.validationInProgress && (
               <div className="d-flex align-items-center">
                 <div className="ms-1 pe-1">Verifying the certificate chain...</div>
-                <Spinner animation="border" variant="primary" />
+                {showSpinner && <Spinner animation="border" variant="primary" />}
               </div>
             )}
             {currentStep === certificateValidationSteps.done && (
