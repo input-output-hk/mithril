@@ -8,7 +8,7 @@ import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
 import ProtocolParameters from "../ProtocolParameters";
 import SignerTable from "../SignerTable";
-import VerifyCertificateModal from "../VerifyCertificate/modal";
+import VerifyCertificateModal from "../VerifyCertificate/VerifyCertificateModal";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});

@@ -3,11 +3,13 @@ import React, { useEffect, useState } from "react";
 import { Alert, Col, Modal, Row, Tab } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { fetchGenesisVerificationKey } from "../../utils";
-import CertificateVerifier, { certificateValidationSteps } from "../VerifyCertificate/verifier";
-import { TransactionCertificationBreadcrumb } from "./TransactionCertificationBreadcrumb";
-import { TransactionCertificationResult } from "./TransactionCertificationResult";
-import { FetchingProofPane } from "./FetchingProofPane";
-import { ValidatingProofPane } from "./ValidatingProofPane";
+import CertificateVerifier, {
+  certificateValidationSteps,
+} from "../VerifyCertificate/CertificateVerifier";
+import TransactionCertificationBreadcrumb from "./TransactionCertificationBreadcrumb";
+import TransactionCertificationResult from "./TransactionCertificationResult";
+import FetchingProofPane from "./FetchingProofPane";
+import ValidatingProofPane from "./ValidatingProofPane";
 
 export const validationSteps = {
   ready: 1,

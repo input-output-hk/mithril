@@ -2,7 +2,7 @@ import React from "react";
 import { Table } from "react-bootstrap";
 import CopyableHash from "../CopyableHash";
 
-export function FetchingProofPane({ transactionHashes }) {
+export default function FetchingProofPane({ transactionHashes }) {
   return (
     <>
       <h4>Fetching a transactions proof of membership from the aggregator</h4>

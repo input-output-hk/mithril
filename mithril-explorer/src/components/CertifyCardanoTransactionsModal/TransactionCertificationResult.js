@@ -3,7 +3,7 @@ import { Alert, Table } from "react-bootstrap";
 import IconBadge from "../IconBadge";
 import CopyableHash from "../CopyableHash";
 
-export function TransactionCertificationResult({
+export default function TransactionCertificationResult({
   isSuccess,
   certifiedTransactions,
   nonCertifiedTransactions,

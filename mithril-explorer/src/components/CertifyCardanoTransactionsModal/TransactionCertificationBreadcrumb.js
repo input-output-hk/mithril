@@ -2,7 +2,7 @@ import React from "react";
 import { ListGroup, Spinner } from "react-bootstrap";
 import { validationSteps } from "./index";
 
-export function TransactionCertificationBreadcrumb({
+export default function TransactionCertificationBreadcrumb({
   currentStep,
   isSuccess,
   onStepClick = (step) => {},

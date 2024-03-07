@@ -1,6 +1,6 @@
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
-import CertificateVerifier, { certificateValidationSteps } from "./verifier";
+import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
   const [loading, setLoading] = useState(false);

@@ -2,7 +2,7 @@ import React from "react";
 import { Table } from "react-bootstrap";
 import IconBadge from "../IconBadge";
 
-export function ValidatingProofPane({ isEverythingValid }) {
+export default function ValidatingProofPane({ isEverythingValid }) {
   return (
     <>
       <h4>Checking transactions proof validity and certificate matching</h4>
