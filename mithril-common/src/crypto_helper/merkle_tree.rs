@@ -6,7 +6,11 @@ use ckb_merkle_mountain_range::{
     util::MemStore, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, ops::Deref, sync::Arc};
+use std::{
+    collections::HashMap,
+    ops::{Add, Deref},
+    sync::Arc,
+};
 
 use crate::{StdError, StdResult};
 
@@ -71,9 +75,36 @@ impl TryFrom<MKTree> for MKTreeNode {
     }
 }
 
+impl TryFrom<&MKTree> for MKTreeNode {
+    type Error = StdError;
+    fn try_from(other: &MKTree) -> Result<Self, Self::Error> {
+        other.compute_root()
+    }
+}
+
 impl ToString for MKTreeNode {
     fn to_string(&self) -> String {
         String::from_utf8_lossy(&self.hash).to_string()
+    }
+}
+
+impl Add for MKTreeNode {
+    type Output = MKTreeNode;
+
+    fn add(self, other: MKTreeNode) -> MKTreeNode {
+        &self + &other
+    }
+}
+
+impl Add for &MKTreeNode {
+    type Output = MKTreeNode;
+
+    fn add(self, other: &MKTreeNode) -> MKTreeNode {
+        let mut hasher = Blake2s256::new();
+        hasher.update(self.deref());
+        hasher.update(other.deref());
+        let hash_merge = hasher.finalize();
+        MKTreeNode::new(hash_merge.to_vec())
     }
 }
 
@@ -83,12 +114,9 @@ impl Merge for MergeMKTreeNode {
     type Item = Arc<MKTreeNode>;
 
     fn merge(lhs: &Self::Item, rhs: &Self::Item) -> MMRResult<Self::Item> {
-        let mut hasher = Blake2s256::new();
-        hasher.update(Arc::unwrap_or_clone(lhs.to_owned()).deref());
-        hasher.update(Arc::unwrap_or_clone(rhs.to_owned()).deref());
-        let hash_merge = hasher.finalize();
-
-        Ok(Arc::new(MKTreeNode::new(hash_merge.to_vec())))
+        Ok(Arc::new(
+            Arc::unwrap_or_clone(lhs.to_owned()) + Arc::unwrap_or_clone(rhs.to_owned()),
+        ))
     }
 }
 
