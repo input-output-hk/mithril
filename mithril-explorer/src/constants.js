@@ -6,10 +6,3 @@ export const signedEntityType = {
   CardanoImmutableFilesFull: "CardanoImmutableFilesFull",
   CardanoTransactions: "CardanoTransactions",
 };
-
-export const defaultAggregatorCapabilities = {
-  signed_entity_types: [
-    signedEntityType.CardanoImmutableFilesFull,
-    signedEntityType.MithrilStakeDistribution,
-  ],
-};

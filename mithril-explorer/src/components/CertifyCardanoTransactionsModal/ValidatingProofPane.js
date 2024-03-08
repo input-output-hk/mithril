@@ -2,7 +2,7 @@ import React from "react";
 import { Table } from "react-bootstrap";
 import IconBadge from "../IconBadge";
 
-export default function ValidatingProofPane({ isEverythingValid }) {
+export default function ValidatingProofPane({ isProofValid }) {
   return (
     <>
       <h4>Checking transactions proof validity and certificate matching</h4>
@@ -19,7 +19,7 @@ export default function ValidatingProofPane({ isEverythingValid }) {
               <tr key={verification}>
                 <td>{verification}</td>
                 <td>
-                  {isEverythingValid ? (
+                  {isProofValid ? (
                     <IconBadge variant="success" tooltip="yes" icon="check-circle" />
                   ) : (
                     <IconBadge variant="danger" tooltip="no" icon="x-circle" />

@@ -30,13 +30,13 @@ export default function CertifyCardanoTransactionsModal({
   );
   const [transactionsProofs, setTransactionsProofs] = useState({});
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
-  const [isEverythingValid, setIsEverythingValid] = useState(false);
+  const [isProofValid, setIsProofValid] = useState(false);
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
   const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
 
   useEffect(() => {
     setShowLoadingWarning(false);
-    setIsEverythingValid(false);
+    setIsProofValid(false);
     setCertificate(undefined);
     setCurrentStep(validationSteps.ready);
 
@@ -106,7 +106,7 @@ export default function CertifyCardanoTransactionsModal({
       );
 
     if ((await client.verify_message_match_certificate(protocolMessage, certificate)) === true) {
-      setIsEverythingValid(true);
+      setIsProofValid(true);
     }
   }
 
@@ -159,7 +159,7 @@ export default function CertifyCardanoTransactionsModal({
                 <Col>
                   <TransactionCertificationBreadcrumb
                     currentStep={currentStep}
-                    isSuccess={isEverythingValid}
+                    isSuccess={isProofValid}
                     onStepClick={handleStepClick}
                   />
                   {showLoadingWarning && (
@@ -187,12 +187,12 @@ export default function CertifyCardanoTransactionsModal({
                       )}
                     </Tab.Pane>
                     <Tab.Pane eventKey={getTabForStep(validationSteps.validatingProof)}>
-                      <ValidatingProofPane isEverythingValid={isEverythingValid} />
+                      <ValidatingProofPane isProofValid={isProofValid} />
                     </Tab.Pane>
                     <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
                       {currentStep === validationSteps.done && (
                         <TransactionCertificationResult
-                          isSuccess={isEverythingValid}
+                          isSuccess={isProofValid}
                           certifiedTransactions={transactionsProofs.transactions_hashes}
                           nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
                         />

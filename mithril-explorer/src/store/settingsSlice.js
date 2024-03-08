@@ -1,7 +1,6 @@
 import { createSlice } from "@reduxjs/toolkit";
 import aggregator_api from "../aggregator-api";
 import default_available_aggregators from "../aggregators-list";
-import { defaultAggregatorCapabilities } from "../constants";
 import { checkUrl } from "../utils";
 
 export const initialState = {
@@ -9,7 +8,7 @@ export const initialState = {
   updateInterval: 10000,
   selectedAggregator: default_available_aggregators[0],
   availableAggregators: default_available_aggregators,
-  aggregatorCapabilities: defaultAggregatorCapabilities,
+  aggregatorCapabilities: [],
   canRemoveSelected: false,
 };
 
