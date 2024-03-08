@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -9,14 +10,18 @@ use slog::{debug, Logger};
 
 use crate::{
     cardano_transaction_parser::TransactionParser,
-    crypto_helper::{MKTree, MKTreeNode},
-    entities::{Beacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
+    crypto_helper::{MKHashMap, MKHashMapNode, MKTreeNode},
+    entities::{Beacon, BlockRange, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
 };
 
 #[cfg(test)]
 use mockall::automock;
+
+/// The length of the block range
+/// Important: this value should be updated with extreme care (probably with an era change) in order to avoid signing disruptions.
+pub const BLOCK_RANGE_LENGTH: u64 = 15;
 
 /// Cardano transactions store
 #[cfg_attr(test, automock)]
@@ -25,7 +30,6 @@ pub trait TransactionStore: Send + Sync {
     /// Store list of transactions
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
 }
-
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
     transaction_parser: Arc<dyn TransactionParser>,
@@ -51,11 +55,37 @@ impl CardanoTransactionsSignableBuilder {
     }
 
     fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
-        let mk_tree = MKTree::new(transactions)
-            .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree")?;
-        let mk_root = mk_tree
-            .compute_root()
-            .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree root")?;
+        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<MKHashMapNode<BlockRange>>> =
+            HashMap::new();
+        for transaction in transactions {
+            let block_range_start =
+                transaction.block_number / BLOCK_RANGE_LENGTH * BLOCK_RANGE_LENGTH;
+            let block_range_end = block_range_start + BLOCK_RANGE_LENGTH;
+            let block_range = BlockRange::new(block_range_start, block_range_end);
+            transactions_by_block_ranges
+                .entry(block_range)
+                .or_default()
+                .push(MKHashMapNode::TreeNode(
+                    transaction.transaction_hash.to_owned().into(),
+                ));
+        }
+        let mk_hash_map = MKHashMap::new(
+            transactions_by_block_ranges
+                .into_iter()
+                .flat_map(|(block_range, transactions)| {
+                    transactions
+                        .into_iter()
+                        .map(|transaction| (block_range.clone(), transaction))
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )
+        .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKHashMap")?;
+
+        let mk_root = mk_hash_map.compute_root().with_context(|| {
+            "CardanoTransactionsSignableBuilder failed to compute MKHashMap root"
+        })?;
 
         Ok(mk_root)
     }
