@@ -18,7 +18,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <link rel="icon" href="/explorer/logo.svg?v=1" type="image/svg+xml" />
+        <link rel="icon" href="/explorer/favicon.svg?v=2" type="image/svg+xml" />
 
         <Suspense>
           <Providers>

@@ -93,9 +93,9 @@ export default function TransactionCertificationResult({
               </td>
               <td>
                 {tx.certified ? (
-                  <IconBadge tooltip="Certified by Mithril" variant="success" icon="shield-lock" />
+                  <IconBadge tooltip="Certified by Mithril" variant="success" icon="mithril" />
                 ) : (
-                  <IconBadge tooltip="Not certified" variant="danger" icon="shield-slash" />
+                  <IconBadge tooltip="Not certified" variant="danger" icon="shield-slash-fill" />
                 )}
               </td>
             </tr>

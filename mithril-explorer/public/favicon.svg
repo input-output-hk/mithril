@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- Variant of `favicon.svg` but without the color-scheme aware style -->
 <svg
         zoomAndPan="magnify"
         viewBox="0 0 487.5 487.5"
@@ -7,6 +6,22 @@
         version="1.0"
         id="svg97"
         xmlns="http://www.w3.org/2000/svg">
+    <!-- Adapt the favicon automatically to the user color scheme -->
+    <style id="style1">
+        g {
+        fill: black;
+        stroke: white;
+        stroke-width: 4px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+        g {
+        fill: white;
+        stroke: black;
+        stroke-width: 4px;
+        }
+        }
+    </style>
     <defs id="defs57"/>
     <g id="layer1" transform="translate(-26.390007,-25.62134)">
         <path
