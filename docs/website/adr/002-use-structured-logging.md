@@ -4,13 +4,13 @@ title: |
   2. Use simple structured logging
 authors:
 - name: Mithril Team
-tags: [Draft]
+tags: [Superseded]
 date: 2022-04-24
 ---
 
 ## Status
 
-**Draft**
+Superseded by [ADR 7](/adr/7)
 
 ## Context
 

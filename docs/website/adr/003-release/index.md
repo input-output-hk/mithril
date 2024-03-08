@@ -4,13 +4,13 @@ title: |
   3. Release process and versioning
 authors:
 - name: Mithril Team
-tags: [Draft]
+tags: [Accepted]
 date: 2022-10-21
 ---
 
 ## Status
 
-**draft**
+Accepted
 
 ## Context
 
