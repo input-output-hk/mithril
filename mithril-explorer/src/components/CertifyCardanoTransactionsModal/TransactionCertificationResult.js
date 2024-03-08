@@ -1,10 +1,31 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Table } from "react-bootstrap";
+import { Alert, ListGroup, Table } from "react-bootstrap";
 import IconBadge from "../IconBadge";
 import CopyableHash from "../CopyableHash";
 import TransactionHash from "../TransactionHash";
 
+function CertifiedDataBeacon({ certificate }) {
+  return (
+    <>
+      <p className="mb-2 px-2 fw-light">
+        The point of the Cardano chain used during the verification process.
+      </p>
+      <ListGroup horizontal>
+        <ListGroup.Item>
+          <span className="fst-italic">Epoch: </span>
+          {certificate.beacon.epoch}
+        </ListGroup.Item>
+        <ListGroup.Item>
+          <span className="fst-italic">Immutable File Number: </span>
+          {certificate.beacon.immutable_file_number}
+        </ListGroup.Item>
+      </ListGroup>
+    </>
+  );
+}
+
 export default function TransactionCertificationResult({
+  certificate,
   isSuccess,
   certifiedTransactions,
   nonCertifiedTransactions,
@@ -36,11 +57,11 @@ export default function TransactionCertificationResult({
   return (
     <>
       {isSuccess ? (
-        <Alert variant="success" className="mb-0">
+        <Alert variant="success" className="mb-2">
           <Alert.Heading>Mithril certified the transactions</Alert.Heading>
         </Alert>
       ) : (
-        <Alert variant="danger" className="mb-0">
+        <Alert variant="danger" className="mb-2">
           <Alert.Heading>Mithril could not certify the transactions</Alert.Heading>
           <p className="mb-1">
             Either the transactions proof is invalid or all the transactions are not certified.
@@ -51,6 +72,8 @@ export default function TransactionCertificationResult({
           </p>
         </Alert>
       )}
+      <h5>Beacon</h5>
+      <CertifiedDataBeacon certificate={certificate} />
       <Table responsive striped>
         <thead>
           <tr>

@@ -193,6 +193,7 @@ export default function CertifyCardanoTransactionsModal({
                       {currentStep === validationSteps.done && (
                         <TransactionCertificationResult
                           isSuccess={isProofValid}
+                          certificate={certificate}
                           certifiedTransactions={transactionsProofs.transactions_hashes}
                           nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
                         />
