@@ -21,7 +21,7 @@ type Bytes = Vec<u8>;
 type MKTreeLeafPosition = u64;
 
 /// A node of a Merkle tree
-#[derive(Debug, PartialEq, Eq, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Serialize, Deserialize)]
 pub struct MKTreeNode {
     hash: Bytes,
 }
@@ -250,9 +250,34 @@ impl MKTree {
         })
     }
 
+    /// Append leaves to the Merkle tree
+    pub fn append<T: Into<MKTreeNode> + Clone>(&mut self, leaves: &[T]) -> StdResult<()> {
+        for leaf in leaves {
+            let leaf = Arc::new(leaf.to_owned().into());
+            let inner_tree_position = self.inner_tree.push(leaf.clone())?;
+            self.inner_leaves.insert(leaf.clone(), inner_tree_position);
+        }
+        self.inner_tree.commit()?;
+
+        Ok(())
+    }
+
     /// Number of leaves in the Merkle tree
     pub fn total_leaves(&self) -> usize {
         self.inner_leaves.len()
+    }
+
+    /// List of leaves with their positions in the Merkle tree
+    pub fn leaves(&self) -> Vec<MKTreeNode> {
+        self.inner_leaves
+            .keys()
+            .map(|v| Arc::unwrap_or_clone(v.to_owned()))
+            .collect()
+    }
+
+    /// Check if the Merkle tree contains the given leaf
+    pub fn contains(&self, leaf: &MKTreeNode) -> bool {
+        self.inner_leaves.contains_key(leaf)
     }
 
     /// Generate root of the Merkle tree
@@ -289,6 +314,8 @@ impl MKTree {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
@@ -327,6 +354,29 @@ mod tests {
             MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
         proof.inner_root = Arc::new(leaves[10].to_owned());
         proof.verify().expect_err("The MKProof should be invalid");
+    }
+
+    #[test]
+    fn test_should_list_leaves() {
+        let leaves = generate_leaves(1000);
+        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let leaves_retrieved = mktree.leaves();
+        assert_eq!(
+            BTreeSet::from_iter(leaves.iter()),
+            BTreeSet::from_iter(leaves_retrieved.iter())
+        );
+    }
+
+    #[test]
+    fn test_should_support_append_leaves() {
+        let leaves = generate_leaves(1000);
+        let leaves_creation = &leaves[..900];
+        let leaves_to_append = &leaves[900..];
+        let mut mktree = MKTree::new(leaves_creation).expect("MKTree creation should not fail");
+        mktree
+            .append(leaves_to_append)
+            .expect("MKTree append leaves should not fail");
+        assert_eq!(1000, mktree.total_leaves());
     }
 
     #[test]
