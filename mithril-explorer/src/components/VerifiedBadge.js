@@ -1,12 +1,6 @@
 import React from "react";
-import { OverlayTrigger, Tooltip } from "react-bootstrap";
+import IconBadge from "./IconBadge";
 
-export default function VerifiedBadge(props) {
-  return (
-    <OverlayTrigger overlay={<Tooltip>{props.tooltip}</Tooltip>}>
-      <a href="#" className="badge bg-success">
-        <i className="bi bi-shield-lock"></i>
-      </a>
-    </OverlayTrigger>
-  );
+export default function VerifiedBadge({ tooltip = "Verified Signer" }) {
+  return <IconBadge tooltip={tooltip} icon="shield-lock" variant="success" />;
 }

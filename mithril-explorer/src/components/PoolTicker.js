@@ -1,21 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { getPool } from "../store/poolsSlice";
+import { getPoolForSelectedAggregator } from "../store/poolsSlice";
 import { getCExplorerUrlForPool } from "../utils";
 import Image from "next/image";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 
-export default function PoolTicker({ aggregator, partyId, ...props }) {
-  const pool = useSelector((state) => getPool(state, aggregator, partyId));
+export default function PoolTicker({ partyId }) {
+  const pool = useSelector((state) => getPoolForSelectedAggregator(state, partyId));
   const [url, setUrl] = useState(undefined);
 
   useEffect(() => {
-    if (pool?.network) {
-      setUrl(getCExplorerUrlForPool(pool.network, partyId));
-    } else {
-      setUrl(undefined);
-    }
-  }, [partyId, pool.network]);
+    setUrl(getCExplorerUrlForPool(pool?.network, partyId));
+  }, [pool.network, partyId]);
 
   return url !== undefined ? (
     <>
@@ -30,12 +26,12 @@ export default function PoolTicker({ aggregator, partyId, ...props }) {
               height={20}
             />
             <> </>
-            {pool.pool_ticker ?? "Not available"}
+            {pool?.pool_ticker ?? "Not available"}
           </span>
         </OverlayTrigger>
       </a>
     </>
   ) : (
-    <span>{pool.pool_ticker}</span>
+    <span>{pool?.pool_ticker}</span>
   );
 }

@@ -8,7 +8,7 @@ import RawJsonButton from "../RawJsonButton";
 import Stake from "../Stake";
 import ProtocolParameters from "../ProtocolParameters";
 import SignerTable from "../SignerTable";
-import VerifyCertificate from "../VerifyCertificate";
+import VerifyCertificateModal from "../VerifyCertificate/VerifyCertificateModal";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -19,7 +19,6 @@ export default function CertificateModal(props) {
   const certificateEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/certificate/${props.hash}`,
   );
-  const aggregator = useSelector(selectedAggregator);
 
   useEffect(() => {
     if (!props.hash) {
@@ -44,10 +43,6 @@ export default function CertificateModal(props) {
     props.onHashChange(certificate.previous_hash);
   }
 
-  function verifyCertificate(certificate) {
-    setShowVerifyCertificateModal(true);
-  }
-
   function close() {
     props.onHashChange(undefined);
   }
@@ -67,7 +62,9 @@ export default function CertificateModal(props) {
         {Object.entries(certificate).length === 0 ? (
           <p>Not found</p>
         ) : (
-          <Container>
+          // Little hack: hide the modal content if the verify modal is shown so this modal content
+          // never overflow behind the verify certificate modal.
+          <Container className={showVerifyCertificateModal && "d-none"}>
             <Row md={1} xl="auto">
               <Col xl={4} className="mb-3">
                 <h4>Beacon</h4>
@@ -153,10 +150,7 @@ export default function CertificateModal(props) {
                           retrieval or the signing process
                         </div>
                       ) : (
-                        <SignerTable
-                          signers={certificate.metadata.signers}
-                          aggregator={aggregator}
-                        />
+                        <SignerTable signers={certificate.metadata.signers} />
                       )}
                     </Accordion.Body>
                   </Accordion.Item>
@@ -167,7 +161,10 @@ export default function CertificateModal(props) {
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button size="sm" onClick={() => verifyCertificate(certificate)} className="text-break">
+        <Button
+          size="sm"
+          onClick={() => setShowVerifyCertificateModal(true)}
+          className="text-break">
           Verify certificate
         </Button>
         {certificate.genesis_signature !== "" ? (
@@ -181,7 +178,7 @@ export default function CertificateModal(props) {
         )}
         <RawJsonButton href={certificateEndpoint} size="sm" />
       </Modal.Footer>
-      <VerifyCertificate
+      <VerifyCertificateModal
         show={showVerifyCertificateModal}
         onClose={() => setShowVerifyCertificateModal(false)}
         certificateHash={certificate.hash}

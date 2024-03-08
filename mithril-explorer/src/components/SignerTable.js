@@ -1,12 +1,12 @@
 import React from "react";
 import { Table } from "react-bootstrap";
-import PartyId from "./PartyId";
+import CopyableHash from "./CopyableHash";
 import VerifiedBadge from "./VerifiedBadge";
 import PoolTicker from "./PoolTicker";
 import Stake from "./Stake";
 
 // Display a table of signers (they must have a party_id and a stake property)
-export default function SignerTable({ signers, aggregator, displayIndexes, ...props }) {
+export default function SignerTable({ signers, displayIndexes, ...props }) {
   return (
     <Table responsive striped {...props}>
       <thead>
@@ -22,10 +22,10 @@ export default function SignerTable({ signers, aggregator, displayIndexes, ...pr
           <tr key={signer.party_id}>
             {displayIndexes === true && <td>{index}</td>}
             <td>
-              <VerifiedBadge tooltip="Verified Signer" /> <PartyId partyId={signer.party_id} />
+              <VerifiedBadge /> <CopyableHash hash={signer.party_id} />
             </td>
             <td>
-              <PoolTicker aggregator={aggregator} partyId={signer.party_id} />
+              <PoolTicker partyId={signer.party_id} />
             </td>
             <td style={{ textAlign: "end" }}>
               <Stake lovelace={signer.stake} />

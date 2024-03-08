@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Accordion, Card, CardGroup, ListGroup } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import PartyId from "../PartyId";
+import CopyableHash from "../CopyableHash";
 import PoolTicker from "../PoolTicker";
 import RawJsonButton from "../RawJsonButton";
 import SignedEntityType from "../SignedEntityType";
@@ -13,7 +13,6 @@ export default function PendingCertificate(props) {
   const pendingCertificateEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/certificate-pending`,
   );
-  const aggregator = useSelector(selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -80,12 +79,12 @@ export default function PendingCertificate(props) {
                         </ListGroup.Item>
                         {pendingCertificate.signers.map((signer) => (
                           <ListGroup.Item key={signer.party_id}>
-                            <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                            <PoolTicker partyId={signer.party_id} />
                             <br />
-                            <PartyId partyId={signer.party_id} />
+                            <CopyableHash hash={signer.party_id} />
                             {signer.verification_key_signature && (
                               <div className="float-end">
-                                <VerifiedBadge tooltip="Verified Signer" />
+                                <VerifiedBadge />
                               </div>
                             )}
                           </ListGroup.Item>
@@ -104,12 +103,12 @@ export default function PendingCertificate(props) {
                         </ListGroup.Item>
                         {pendingCertificate.next_signers.map((signer) => (
                           <ListGroup.Item key={signer.party_id}>
-                            <PoolTicker partyId={signer.party_id} aggregator={aggregator} />
+                            <PoolTicker partyId={signer.party_id} />
                             <br />
-                            <PartyId partyId={signer.party_id} />
+                            <CopyableHash hash={signer.party_id} />
                             {signer.verification_key_signature && (
                               <div className="float-end">
-                                <VerifiedBadge tooltip="Verified Signer" />
+                                <VerifiedBadge />
                               </div>
                             )}
                           </ListGroup.Item>

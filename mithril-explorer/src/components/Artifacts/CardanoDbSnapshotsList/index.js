@@ -7,8 +7,8 @@ import { selectedAggregator } from "../../../store/settingsSlice";
 import LocalDateTime from "../../LocalDateTime";
 import { formatBytes } from "../../../utils";
 
-export default function SnapshotsList(props) {
-  const [snapshots, setSnapshots] = useState([]);
+export default function CardanoDbSnapshotsList(props) {
+  const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const aggregator = useSelector(selectedAggregator);
   const artifactsEndpoint = useSelector(
@@ -25,10 +25,10 @@ export default function SnapshotsList(props) {
     let fetchSnapshots = () => {
       fetch(artifactsEndpoint)
         .then((response) => response.json())
-        .then((data) => setSnapshots(data))
+        .then((data) => setCardanoDbSnapshots(data))
         .catch((error) => {
-          setSnapshots([]);
-          console.error("Fetch snapshots error:", error);
+          setCardanoDbSnapshots([]);
+          console.error("Fetch Cardano Db Snapshots error:", error);
         });
     };
 
@@ -53,14 +53,15 @@ export default function SnapshotsList(props) {
 
       <div className={props.className}>
         <h2>
-          Snapshots <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
+          Cardano Db Snapshots{" "}
+          <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        {Object.entries(snapshots).length === 0 ? (
+        {Object.entries(cardanoDbSnapshots).length === 0 ? (
           <p>No snapshot available</p>
         ) : (
           <Container fluid>
             <Row xs={1} md={2} lg={3} xl={4}>
-              {snapshots.map((snapshot, index) => (
+              {cardanoDbSnapshots.map((snapshot, index) => (
                 <Col key={snapshot.digest} className="mb-2">
                   <Card border={index === 0 ? "primary" : ""}>
                     <Card.Body>
@@ -70,16 +71,12 @@ export default function SnapshotsList(props) {
                         <ListGroup.Item>
                           Immutable file number: {snapshot.beacon.immutable_file_number}
                         </ListGroup.Item>
-                        {snapshot.cardano_node_version && (
-                          <ListGroup.Item>
-                            Cardano node: {snapshot.cardano_node_version}
-                          </ListGroup.Item>
-                        )}
-                        {snapshot.compression_algorithm && (
-                          <ListGroup.Item>
-                            Compression: {snapshot.compression_algorithm}
-                          </ListGroup.Item>
-                        )}
+                        <ListGroup.Item>
+                          Cardano node: {snapshot.cardano_node_version}
+                        </ListGroup.Item>
+                        <ListGroup.Item>
+                          Compression: {snapshot.compression_algorithm}
+                        </ListGroup.Item>
                         <ListGroup.Item>
                           Certificate hash: <br />
                           {snapshot.certificate_hash}{" "}
