@@ -66,11 +66,9 @@ to your PATH from your bashrc like:
 
 Once saved, you need to reload your shell profile. Execute source $HOME/.bashrc or source $HOME/.zshrc (depending on the shell application you use).
 
-#### Use your own cardano binaries
+### Use your own cardano binaries
 
-The cardano binaries downloaded to run the test suite are only built for Linux.
-
-To run the end to end test, you will need to build and use your own compiled cardano binaries:
+You can use your own compiled cardano binaries to run the end to end test:
 
 - Build the **cardano-node** and **cardano-cli** binaries following the documentation on the [Cardano Developer Portal](https://developers.cardano.org/docs/get-started/installing-cardano-node#macos).
 
