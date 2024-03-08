@@ -1,11 +1,14 @@
-use std::sync::Arc;
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
-    crypto_helper::{MKTree, MKTreeNode},
-    entities::{Beacon, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash},
+    crypto_helper::{MKHashMap, MKHashMapNode, MKTree, MKTreeNode},
+    entities::{
+        Beacon, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
+    },
+    signable_builder::BLOCK_RANGE_LENGTH,
     StdResult,
 };
 
@@ -54,16 +57,48 @@ impl ProverService for MithrilProverService {
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         let transactions = self.transaction_retriever.get_up_to(up_to).await?;
-        let mk_leaves_all: Vec<MKTreeNode> =
-            transactions.iter().map(|t| t.to_owned().into()).collect();
-        let mktree =
-            MKTree::new(&mk_leaves_all).with_context(|| "MKTree creation should not fail")?;
+        let mut transactions_to_certify = vec![];
+        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
+            HashMap::new();
+        for transaction in &transactions {
+            let block_range_start =
+                transaction.block_number / BLOCK_RANGE_LENGTH * BLOCK_RANGE_LENGTH;
+            let block_range_end = block_range_start + BLOCK_RANGE_LENGTH;
+            let block_range = BlockRange::new(block_range_start, block_range_end);
+            if transaction_hashes.contains(&transaction.transaction_hash) {
+                transactions_to_certify.push((block_range.clone(), transaction));
+            }
+            transactions_by_block_ranges
+                .entry(block_range)
+                .or_default()
+                .push(transaction.transaction_hash.to_owned());
+        }
+        let mk_hash_map = MKHashMap::new(
+            transactions_by_block_ranges
+                .into_iter()
+                .try_fold(
+                    vec![],
+                    |mut acc, (block_range, transactions)| -> StdResult<Vec<_>> {
+                        acc.push((
+                            block_range,
+                            MKHashMapNode::Tree(Rc::new(MKTree::new(&transactions)?)),
+                        ));
+                        Ok(acc)
+                    },
+                )?
+                .as_slice(),
+        )
+        .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKHashMap")?;
 
         let mut transaction_hashes_certified = vec![];
-        for transaction_hash in transaction_hashes {
-            let mk_leaf = transaction_hash.to_string().into();
-            if mktree.compute_proof(&[mk_leaf]).is_ok() {
-                transaction_hashes_certified.push(transaction_hash.to_string());
+        for (_block_range, transaction) in transactions_to_certify {
+            let mk_tree_node_transaction_hash: MKTreeNode =
+                transaction.transaction_hash.to_owned().into();
+            if mk_hash_map
+                .compute_proof(&[mk_tree_node_transaction_hash])
+                .is_ok()
+            {
+                transaction_hashes_certified.push(transaction.transaction_hash.to_string());
             }
         }
 
@@ -72,7 +107,7 @@ impl ProverService for MithrilProverService {
                 .iter()
                 .map(|h| h.to_owned().into())
                 .collect();
-            let mk_proof = mktree.compute_proof(&mk_leaves)?;
+            let mk_proof = mk_hash_map.compute_proof(&mk_leaves)?;
             let transactions_set_proof_batch =
                 CardanoTransactionsSetProof::new(transaction_hashes_certified, mk_proof);
 

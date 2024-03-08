@@ -263,7 +263,7 @@ mod tests {
     fn verify_invalid_proofs() {
         let set_proof = CardanoTransactionsSetProof::new(
             vec!["invalid1".to_string()],
-            MKProof::from_leaves(&["invalid2"]).unwrap(),
+            MKProof::from_leaves(&["invalid2"]).unwrap().into(),
         );
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
@@ -291,11 +291,11 @@ mod tests {
         let set_proofs = vec![
             CardanoTransactionsSetProof::new(
                 vec!["tx-1".to_string()],
-                MKProof::from_leaves(&["tx-1"]).unwrap(),
+                MKProof::from_leaves(&["tx-1"]).unwrap().into(),
             ),
             CardanoTransactionsSetProof::new(
                 vec!["tx-2".to_string()],
-                MKProof::from_leaves(&["tx-2"]).unwrap(),
+                MKProof::from_leaves(&["tx-2"]).unwrap().into(),
             ),
         ];
         let txs_proofs = CardanoTransactionsProofsMessage::new(
