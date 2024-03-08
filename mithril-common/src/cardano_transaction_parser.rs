@@ -209,6 +209,10 @@ impl TransactionParser for CardanoTransactionParser {
 #[cfg(test)]
 mod tests {
 
+    use std::path::Path;
+
+    use pallas_hardano::storage::immutable::chunk;
+
     use super::*;
 
     fn get_number_of_immutable_chunk_in_dir(dir: &Path) -> usize {
@@ -261,5 +265,129 @@ mod tests {
             .unwrap();
 
         assert_eq!(transactions.len(), tx_count);
+    }
+
+    fn build_chunk_list(dirpath: &Path, beacon: &Beacon) -> StdResult<Vec<ImmutableFile>> {
+        let up_to_file_number = beacon.immutable_file_number;
+
+        // TODO The last file is not returned with this method !!!
+        let chunk_list = ImmutableFile::list_completed_in_dir(dirpath)?
+            .into_iter()
+            .filter(|f| f.number <= up_to_file_number && f.filename.contains("chunk"))
+            .collect::<Vec<_>>();
+        Ok(chunk_list)
+    }
+
+    fn extract_name(f: &ImmutableFile) -> String {
+        Path::new(&f.filename)
+            .file_stem()
+            .unwrap()
+            .to_string_lossy()
+            .into()
+    }
+
+    #[tokio::test]
+    async fn test_build_chunk_list() {
+        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
+        let beacon = Beacon {
+            immutable_file_number: 2,
+            ..Beacon::default()
+        };
+        assert_eq!(
+            vec!["00000".to_string(), "00001".to_string(),],
+            build_chunk_list(db_path, &beacon)
+                .unwrap()
+                .iter()
+                .map(extract_name)
+                .collect::<Vec<_>>()
+        );
+
+        let beacon = Beacon {
+            immutable_file_number: 0,
+            ..Beacon::default()
+        };
+        assert_eq!(
+            vec!["00000".to_string()],
+            build_chunk_list(db_path, &beacon)
+                .unwrap()
+                .iter()
+                .map(extract_name)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    fn transactions_of_block(
+        immutable_file_number: u64,
+        block_data: &Vec<u8>,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        let block = pallas_traverse::MultiEraBlock::decode(&block_data).unwrap();
+        let block_transactions = block
+            .txs()
+            .iter()
+            .map(|t| map_to_cardano_transaction(immutable_file_number, &block, t))
+            .collect::<Vec<_>>();
+
+        Ok(block_transactions)
+    }
+
+    fn map_to_cardano_transaction(
+        immutable_file_number: u64,
+        block: &MultiEraBlock<'_>,
+        t: &pallas_traverse::MultiEraTx<'_>,
+    ) -> CardanoTransaction {
+        CardanoTransaction {
+            transaction_hash: t.hash().to_string(),
+            block_number: block.number(),
+            immutable_file_number,
+        }
+    }
+
+    #[tokio::test]
+    async fn test_parse_with_pallas_hardano() -> StdResult<()> {
+        let dirpath = Path::new("/tmp/mithril/db/immutable");
+        let beacon = Beacon {
+            immutable_file_number: 2,
+            ..Beacon::default()
+        };
+
+        let immutable_chunks = build_chunk_list(dirpath, &beacon)?;
+        let mut transactions: Vec<CardanoTransaction> = vec![];
+
+        for immutable_file in &immutable_chunks {
+            println!("dirpath: {dirpath:?}");
+            println!("number: {}", extract_name(immutable_file));
+            let blocks = pallas_hardano::storage::immutable::chunk::read_blocks(
+                dirpath,
+                &extract_name(immutable_file),
+            )
+            .unwrap();
+
+            let mut nb_blocks = 0;
+            let mut nb_error_blocks = 0;
+
+            for block in blocks {
+                nb_blocks += 1;
+                match block {
+                    Ok(block) => match transactions_of_block(immutable_file.number, &block) {
+                        Ok(block_transactions) => transactions.extend(block_transactions),
+                        Err(error) => {
+                            nb_error_blocks += 1;
+                            println!("Error extracting transactions from block: {:?}", error);
+                        }
+                    },
+
+                    Err(error) => {
+                        nb_error_blocks += 1;
+                        println!("Error reading block: {:?}", error);
+                    }
+                }
+            }
+
+            for t in &transactions {
+                println!("{:?}", t);
+            }
+            println!("{} blocks, nb errors {}", nb_blocks, nb_error_blocks);
+        }
+        Ok(())
     }
 }
