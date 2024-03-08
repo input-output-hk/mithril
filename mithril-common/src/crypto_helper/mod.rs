@@ -5,6 +5,7 @@ mod codec;
 mod conversions;
 mod era;
 mod genesis;
+mod merkle_hash_map;
 mod merkle_tree;
 mod types;
 
@@ -26,6 +27,7 @@ pub use era::{
     EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
 };
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
+pub use merkle_hash_map::{MKHashMap, MKHashMapNode, MKHashMapProof};
 pub use merkle_tree::{MKProof, MKTree, MKTreeNode, MKTreeStore};
 pub use types::*;
 
