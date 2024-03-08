@@ -7,7 +7,7 @@ use ckb_merkle_mountain_range::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     ops::{Add, Deref},
     sync::Arc,
 };
@@ -270,8 +270,11 @@ impl MKTree {
     /// List of leaves with their positions in the Merkle tree
     pub fn leaves(&self) -> Vec<MKTreeNode> {
         self.inner_leaves
-            .keys()
-            .map(|v| Arc::unwrap_or_clone(v.to_owned()))
+            .iter()
+            .map(|(leaf, position)| (position, leaf))
+            .collect::<BTreeMap<_, _>>()
+            .into_values()
+            .map(|leaf| Arc::unwrap_or_clone(leaf.to_owned()))
             .collect()
     }
 
@@ -312,10 +315,15 @@ impl MKTree {
     }
 }
 
+impl Clone for MKTree {
+    fn clone(&self) -> Self {
+        // Cloning should never fail so uwnrap is safe
+        Self::new(&self.leaves()).unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
     use super::*;
 
     fn generate_leaves(total_leaves: usize) -> Vec<MKTreeNode> {
@@ -331,6 +339,7 @@ mod tests {
         let mkroot = mktree
             .compute_root()
             .expect("MKRoot generation should not fail");
+
         assert_eq!(
             "3bbced153528697ecde7345a22e50115306478353619411523e804f2323fd921",
             mkroot.to_hex()
@@ -361,9 +370,22 @@ mod tests {
         let leaves = generate_leaves(1000);
         let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
         let leaves_retrieved = mktree.leaves();
+
         assert_eq!(
-            BTreeSet::from_iter(leaves.iter()),
-            BTreeSet::from_iter(leaves_retrieved.iter())
+            leaves.iter().collect::<Vec<_>>(),
+            leaves_retrieved.iter().collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_should_clone() {
+        let leaves = generate_leaves(1000);
+        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree_clone = mktree.clone();
+
+        assert_eq!(
+            mktree.compute_root().unwrap(),
+            mktree_clone.compute_root().unwrap(),
         );
     }
 
@@ -376,6 +398,7 @@ mod tests {
         mktree
             .append(leaves_to_append)
             .expect("MKTree append leaves should not fail");
+
         assert_eq!(1000, mktree.total_leaves());
     }
 
