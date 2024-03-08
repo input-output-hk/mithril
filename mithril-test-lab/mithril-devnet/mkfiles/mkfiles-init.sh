@@ -1,9 +1,18 @@
+# Get the operating system
+UNAME=$(uname -s) OPERATING_SYSTEM=
+case $UNAME in
+  Darwin )      OPERATING_SYSTEM="macos";;
+  Linux )       OPERATING_SYSTEM="linux";;
+  * )           echo "Error: Unsupported operating system. This script can only be run on Linux or MacOS."
+                exit 1;;
+esac
+
 # Cardano node version
 if [ -z "${CARDANO_NODE_VERSION}" ]; then 
   CARDANO_NODE_VERSION="8.7.3"
 fi
 if [ -z "${CARDANO_BINARY_URL}" ]; then 
-  CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-linux.tar.gz"
+  CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION}-${OPERATING_SYSTEM}.tar.gz"
 fi
 if [ -z "${NETWORK_MAGIC}" ]; then 
   NETWORK_MAGIC=42
