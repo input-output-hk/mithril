@@ -2,13 +2,14 @@ import { createSlice } from "@reduxjs/toolkit";
 import aggregator_api from "../aggregator-api";
 import default_available_aggregators from "../aggregators-list";
 import { checkUrl } from "../utils";
+import { defaultAggregatorCapabilities } from "../constants";
 
 export const initialState = {
   autoUpdate: true,
   updateInterval: 10000,
   selectedAggregator: default_available_aggregators[0],
   availableAggregators: default_available_aggregators,
-  aggregatorCapabilities: [],
+  aggregatorCapabilities: defaultAggregatorCapabilities,
   canRemoveSelected: false,
 };
 
