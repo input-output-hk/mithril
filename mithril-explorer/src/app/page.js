@@ -41,6 +41,8 @@ const IntervalSetter = dynamic(() => import("../components/IntervalSetter"), {
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
 
+const defaultTab = signedEntityType.CardanoImmutableFilesFull;
+
 export default function Explorer() {
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
@@ -48,6 +50,7 @@ export default function Explorer() {
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
+  const [currentTab, setCurrentTab] = useState(defaultTab);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
   const selectedAggregatorSignedEntities = useSelector((state) =>
     currentAggregatorSignedEntities(state),
@@ -58,6 +61,12 @@ export default function Explorer() {
       selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
     );
   }, [selectedAggregatorSignedEntities]);
+
+  useEffect(() => {
+    if (!enableCardanoTransactionTab && currentTab === signedEntityType.CardanoTransactions) {
+      setCurrentTab(defaultTab);
+    }
+  }, [currentTab, enableCardanoTransactionTab]);
 
   // Global mithril client wasm init
   useEffect(() => {
@@ -110,7 +119,7 @@ export default function Explorer() {
           <PendingCertificate />
         </Col>
       </Row>
-      <Tabs defaultActiveKey={signedEntityType.CardanoImmutableFilesFull}>
+      <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />
         </Tab>
