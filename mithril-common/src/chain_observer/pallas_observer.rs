@@ -250,13 +250,11 @@ impl PallasChainObserver {
     ///
     /// ## Example:
     ///
-    ///! ```no_run
-    ///! let (chain_point, slots_per_kes_period) = (Point::new(1), 10);
-    ///! match calculate_kes_period(&self, chain_point, slots_per_kes_period) {
-    ///!     Ok(kes_period) => println!("Current KES Period: {}", kes_period),
-    ///!     Err(e) => println!("Error occurred: {}", e),
-    ///! }
-    ///! ```
+    /// let (chain_point, slots_per_kes_period) = (Point::new(1), 10);
+    /// match calculate_kes_period(&self, chain_point, slots_per_kes_period) {
+    ///     Ok(kes_period) => println!("Current KES Period: {}", kes_period),
+    ///     Err(e) => println!("Error occurred: {}", e),
+    /// }
     async fn calculate_kes_period(
         &self,
         chain_point: Point,
