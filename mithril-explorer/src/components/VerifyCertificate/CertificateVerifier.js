@@ -114,6 +114,7 @@ export default function CertificateVerifier({
         <div>
           <h4>Certificate Details</h4>
           <div>Certificate hash: {certificate.hash}</div>
+          <div>Epoch: {certificate.beacon.epoch}</div>
           <div className="d-flex justify-content-between">
             <div>
               Sealed at: <LocalDateTime datetime={certificate.metadata.sealed_at} />
