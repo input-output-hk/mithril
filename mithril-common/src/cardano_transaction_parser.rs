@@ -1,17 +1,13 @@
 //! The module used for parsing Cardano transactions
-
 use crate::{
     digesters::ImmutableFile,
     entities::{Beacon, BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
     StdResult,
 };
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use pallas_traverse::{
-    probe::{block_era, Outcome},
-    MultiEraBlock,
-};
-use std::{cmp::min, fs, path::Path};
+use pallas_traverse::MultiEraBlock;
+use std::path::Path;
 use tokio::sync::RwLock;
 
 /// A parser that can read cardano transactions in a cardano database
@@ -119,32 +115,14 @@ impl CardanoTransactionParser {
 
     /// Read blocks from immutable file
     fn read_blocks_from_immutable_file(immutable_file: &ImmutableFile) -> StdResult<Vec<Block>> {
-        let cbor = fs::read(&immutable_file.path).with_context(|| {
-            format!(
-                "CardanoTransactionParser could not read from immutable file: {:?}",
-                immutable_file.path
-            )
-        })?;
-
-        let mut blocks_start_byte_index: Vec<_> = (0..cbor.len())
-            .filter(|&byte_index| {
-                let cbor_header_maybe = &cbor[byte_index..min(byte_index + 2, cbor.len())];
-                match block_era(cbor_header_maybe) {
-                    Outcome::Matched(_) | Outcome::EpochBoundary => true,
-                    Outcome::Inconclusive => false,
-                }
-            })
-            .collect();
-
-        blocks_start_byte_index.push(cbor.len() + 1);
+        let hardano_blocks = hardano_blocks(immutable_file)?;
 
         let mut blocks = Vec::new();
-        let mut last_start_byte_index = 0;
-        for block_start_index in blocks_start_byte_index.into_iter().skip(1) {
-            let maybe_end_byte_index = min(block_start_index, cbor.len());
-            if let Ok(multi_era_block) =
-                MultiEraBlock::decode(&cbor[last_start_byte_index..maybe_end_byte_index])
-            {
+        for block in hardano_blocks {
+            // TODO block.unwrap ???
+            // if let Ok() = decode ???
+            let block = block.unwrap();
+            if let Ok(multi_era_block) = MultiEraBlock::decode(&block) {
                 let block = Block::try_convert(multi_era_block, immutable_file.number)
                     .with_context(|| {
                         format!(
@@ -153,12 +131,30 @@ impl CardanoTransactionParser {
                     )
                     })?;
                 blocks.push(block);
-                last_start_byte_index = block_start_index;
             }
         }
 
         Ok(blocks)
     }
+}
+
+fn hardano_blocks(
+    immutable_file: &ImmutableFile,
+) -> StdResult<pallas_hardano::storage::immutable::chunk::Reader> {
+    let dir_path = immutable_file.path.parent().ok_or(anyhow!(format!(
+        "Could not retrieve immutable file directory with immutable file path: '{:?}'",
+        immutable_file.path
+    )))?;
+    let file_name = &Path::new(&immutable_file.filename)
+        .file_stem()
+        .ok_or(anyhow!(format!(
+            "Could not extract immutable file name from file: '{}'",
+            immutable_file.filename
+        )))?
+        .to_string_lossy();
+    let blocks = pallas_hardano::storage::immutable::chunk::read_blocks(dir_path, file_name)?;
+
+    Ok(blocks)
 }
 
 impl Default for CardanoTransactionParser {
@@ -209,10 +205,6 @@ impl TransactionParser for CardanoTransactionParser {
 #[cfg(test)]
 mod tests {
 
-    use std::path::Path;
-
-    use pallas_hardano::storage::immutable::chunk;
-
     use super::*;
 
     fn get_number_of_immutable_chunk_in_dir(dir: &Path) -> usize {
@@ -226,7 +218,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_expected_number_of_transactions() {
         // We known the number of transactions in those prebuilt immutables
-        let immutable_files = [("00000", 20usize), ("00001", 9), ("00002", 0)];
+        let immutable_files = [("00000", 0usize), ("00001", 2), ("00002", 3)];
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
@@ -248,12 +240,12 @@ mod tests {
     #[tokio::test]
     async fn test_parse_up_to_given_beacon() {
         // We known the number of transactions in those prebuilt immutables
-        let immutable_files = [("00000", 20usize)];
+        let immutable_files = [("00000", 0usize), ("00001", 2)];
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);
 
         let beacon = Beacon {
-            immutable_file_number: 0,
+            immutable_file_number: 1,
             ..Beacon::default()
         };
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
@@ -265,129 +257,5 @@ mod tests {
             .unwrap();
 
         assert_eq!(transactions.len(), tx_count);
-    }
-
-    fn build_chunk_list(dirpath: &Path, beacon: &Beacon) -> StdResult<Vec<ImmutableFile>> {
-        let up_to_file_number = beacon.immutable_file_number;
-
-        // TODO The last file is not returned with this method !!!
-        let chunk_list = ImmutableFile::list_completed_in_dir(dirpath)?
-            .into_iter()
-            .filter(|f| f.number <= up_to_file_number && f.filename.contains("chunk"))
-            .collect::<Vec<_>>();
-        Ok(chunk_list)
-    }
-
-    fn extract_name(f: &ImmutableFile) -> String {
-        Path::new(&f.filename)
-            .file_stem()
-            .unwrap()
-            .to_string_lossy()
-            .into()
-    }
-
-    #[tokio::test]
-    async fn test_build_chunk_list() {
-        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
-        let beacon = Beacon {
-            immutable_file_number: 2,
-            ..Beacon::default()
-        };
-        assert_eq!(
-            vec!["00000".to_string(), "00001".to_string(),],
-            build_chunk_list(db_path, &beacon)
-                .unwrap()
-                .iter()
-                .map(extract_name)
-                .collect::<Vec<_>>()
-        );
-
-        let beacon = Beacon {
-            immutable_file_number: 0,
-            ..Beacon::default()
-        };
-        assert_eq!(
-            vec!["00000".to_string()],
-            build_chunk_list(db_path, &beacon)
-                .unwrap()
-                .iter()
-                .map(extract_name)
-                .collect::<Vec<_>>()
-        );
-    }
-
-    fn transactions_of_block(
-        immutable_file_number: u64,
-        block_data: &Vec<u8>,
-    ) -> StdResult<Vec<CardanoTransaction>> {
-        let block = pallas_traverse::MultiEraBlock::decode(&block_data).unwrap();
-        let block_transactions = block
-            .txs()
-            .iter()
-            .map(|t| map_to_cardano_transaction(immutable_file_number, &block, t))
-            .collect::<Vec<_>>();
-
-        Ok(block_transactions)
-    }
-
-    fn map_to_cardano_transaction(
-        immutable_file_number: u64,
-        block: &MultiEraBlock<'_>,
-        t: &pallas_traverse::MultiEraTx<'_>,
-    ) -> CardanoTransaction {
-        CardanoTransaction {
-            transaction_hash: t.hash().to_string(),
-            block_number: block.number(),
-            immutable_file_number,
-        }
-    }
-
-    #[tokio::test]
-    async fn test_parse_with_pallas_hardano() -> StdResult<()> {
-        let dirpath = Path::new("/tmp/mithril/db/immutable");
-        let beacon = Beacon {
-            immutable_file_number: 2,
-            ..Beacon::default()
-        };
-
-        let immutable_chunks = build_chunk_list(dirpath, &beacon)?;
-        let mut transactions: Vec<CardanoTransaction> = vec![];
-
-        for immutable_file in &immutable_chunks {
-            println!("dirpath: {dirpath:?}");
-            println!("number: {}", extract_name(immutable_file));
-            let blocks = pallas_hardano::storage::immutable::chunk::read_blocks(
-                dirpath,
-                &extract_name(immutable_file),
-            )
-            .unwrap();
-
-            let mut nb_blocks = 0;
-            let mut nb_error_blocks = 0;
-
-            for block in blocks {
-                nb_blocks += 1;
-                match block {
-                    Ok(block) => match transactions_of_block(immutable_file.number, &block) {
-                        Ok(block_transactions) => transactions.extend(block_transactions),
-                        Err(error) => {
-                            nb_error_blocks += 1;
-                            println!("Error extracting transactions from block: {:?}", error);
-                        }
-                    },
-
-                    Err(error) => {
-                        nb_error_blocks += 1;
-                        println!("Error reading block: {:?}", error);
-                    }
-                }
-            }
-
-            for t in &transactions {
-                println!("{:?}", t);
-            }
-            println!("{} blocks, nb errors {}", nb_blocks, nb_error_blocks);
-        }
-        Ok(())
     }
 }
