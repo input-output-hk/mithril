@@ -25,3 +25,22 @@ make dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000/explorer) with your browser to see the result.
+
+## Adding or updating an icon of the 'Mithril' font
+
+In the `./icons` folder add or modify a svg.
+
+If you add a new icon you need to reference and associate it with a codepoint in the `./fantasticonrc.js`
+configuration file.
+
+Then rebuild the font:
+
+```bash
+make icons-font
+```
+
+You can then use the icon in the js, ie if your icon name is `shield`:
+
+```jsx
+<i className={`bi mithril mithril-shield`}></i>
+```

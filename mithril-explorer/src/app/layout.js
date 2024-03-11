@@ -4,9 +4,10 @@ import React, { Suspense } from "react";
 import styles from "./explorer.module.css";
 
 // These styles apply to every route in the application
-import "./global.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import "./global.css";
+import "./mithril-icons.css";
 import Link from "next/link";
 
 export const metadata = {

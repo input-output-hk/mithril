@@ -4,23 +4,8 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 function MithrilIcon({ tooltip, variant }) {
   return (
     <OverlayTrigger overlay={<Tooltip>{tooltip}</Tooltip>}>
-      <span className={`badge bg-${variant} mithril-icon`}>
-        <style jsx>
-          {`
-            .mithril-icon {
-              padding: 0.15rem 0.35rem 0.05rem 0.35rem !important;
-            }
-
-            .mithril-icon i::before {
-              content: url("/explorer/logo.svg");
-              display: inline-block;
-              width: 16px;
-              height: auto;
-              filter: invert(100%);
-            }
-          `}
-        </style>
-        <i></i>
+      <span className={`badge bg-${variant}`}>
+        <i className={`mi mi-logo`}></i>
       </span>
     </OverlayTrigger>
   );
