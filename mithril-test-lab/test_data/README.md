@@ -17,6 +17,7 @@ These files were generated manually from the blocks in the sibling folder:
 | [mary1.block](./blocks/mary1.block) | `14` | `00000.chunk`         |
 | [allegra1.block](./blocks/allegra1.block) | `3` | `00001.chunk`         |
 | [alonzo1.block](./blocks/alonzo1.block) | `5` | `00001.chunk`         |
+| [conway1.block](./blocks/conway1.block) | `1` | `00001.chunk`         |
 
 The following code was used to generate the immutable files:
 ```rust
@@ -49,6 +50,10 @@ let immutable_files = vec![
             ),
             (
                 include_str!("./blocks/alonzo1.block"),
+                5,
+            ),
+            (
+                include_str!("./blocks/conway1.block"),
                 5,
             ),
         ],
