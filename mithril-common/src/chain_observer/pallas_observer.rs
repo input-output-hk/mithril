@@ -234,23 +234,23 @@ impl PallasChainObserver {
         Ok(Some(stake_distribution))
     }
 
-    ///! # Calculate Current KES Period
-    ///!
-    ///! It calculates the current Key Evolving Signature (KES) period
-    ///! based on the provided `chain_point` and `slots_per_kes_period`.
-    ///!
-    ///! The calculation formula is represented as:
-    ///!
-    ///! `current_kes_period = ⌊current_slot_number/slots_per_kes_period⌋`
-    ///!
-    ///! where:
-    ///! - `current_slot_number` represents the current slot number given by the `point` on the chain.
-    ///! - `slots_per_kes_period` represents the number of slots in a KES period.
-    ///! - `⌊x⌋` is the floor function which rounds the greatest integer less than or equal to `x`.
-    ///!
-    ///! ## Example:
-    ///!
-    ///!! ```no_run
+    /// # Calculate Current KES Period
+    ///
+    /// It calculates the current Key Evolving Signature (KES) period
+    /// based on the provided `chain_point` and `slots_per_kes_period`.
+    ///
+    /// The calculation formula is represented as:
+    ///
+    /// `current_kes_period = ⌊current_slot_number/slots_per_kes_period⌋`
+    ///
+    /// where:
+    /// - `current_slot_number` represents the current slot number given by the `point` on the chain.
+    /// - `slots_per_kes_period` represents the number of slots in a KES period.
+    /// - `⌊x⌋` is the floor function which rounds the greatest integer less than or equal to `x`.
+    ///
+    /// ## Example:
+    ///
+    ///! ```no_run
     ///! let (chain_point, slots_per_kes_period) = (Point::new(1), 10);
     ///! match calculate_kes_period(&self, chain_point, slots_per_kes_period) {
     ///!     Ok(kes_period) => println!("Current KES Period: {}", kes_period),
