@@ -24,6 +24,35 @@ function CertifiedDataBeacon({ certificate }) {
   );
 }
 
+function TransactionsTable({ transactions }) {
+  return (
+    <Table responsive striped>
+      <thead>
+        <tr>
+          <th>Transaction Hash</th>
+          <th>Certified</th>
+        </tr>
+      </thead>
+      <tbody>
+        {transactions.map((tx) => (
+          <tr key={tx.hash}>
+            <td>
+              {tx.certified ? <TransactionHash hash={tx.hash} /> : <CopyableHash hash={tx.hash} />}
+            </td>
+            <td>
+              {tx.certified ? (
+                <IconBadge tooltip="Certified by Mithril" variant="success" icon="mithril" />
+              ) : (
+                <IconBadge tooltip="Not certified" variant="danger" icon="shield-slash-fill" />
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+  );
+}
+
 export default function TransactionCertificationResult({
   certificate,
   isSuccess,
@@ -74,34 +103,8 @@ export default function TransactionCertificationResult({
       )}
       <h5>Beacon</h5>
       <CertifiedDataBeacon certificate={certificate} />
-      <Table responsive striped>
-        <thead>
-          <tr>
-            <th>Transaction Hash</th>
-            <th>Certified</th>
-          </tr>
-        </thead>
-        <tbody>
-          {transactions.map((tx) => (
-            <tr key={tx.hash}>
-              <td>
-                {tx.certified ? (
-                  <TransactionHash hash={tx.hash} />
-                ) : (
-                  <CopyableHash hash={tx.hash} />
-                )}
-              </td>
-              <td>
-                {tx.certified ? (
-                  <IconBadge tooltip="Certified by Mithril" variant="success" icon="mithril" />
-                ) : (
-                  <IconBadge tooltip="Not certified" variant="danger" icon="shield-slash-fill" />
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </Table>
+      <h5 className="mt-2">Transactions</h5>
+      <TransactionsTable transactions={transactions} />
       {isSuccess && nonCertifiedTransactions.length > 0 && (
         <p className="mb-0 fst-italic">
           <i className="bi bi-info-circle"></i> Some transactions could not be certified, Mithril
