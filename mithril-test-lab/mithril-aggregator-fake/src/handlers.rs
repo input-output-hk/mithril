@@ -15,6 +15,7 @@ use tower_http::{
     trace::{DefaultMakeSpan, DefaultOnRequest, DefaultOnResponse, TraceLayer},
     LatencyUnit,
 };
+use tracing::debug;
 use tracing::Level;
 
 use crate::shared_state::SharedState;
@@ -71,7 +72,10 @@ pub async fn snapshot(
         .get_snapshot(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("snapshot digest={key}")))
+        .ok_or_else(|| {
+            debug!("snapshot digest={key} NOT FOUND.");
+            AppError::NotFound
+        })
 }
 
 /// HTTP: return the list of snapshots.
@@ -101,7 +105,10 @@ pub async fn msd(
         .get_msd(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("mithril stake distribution epoch={key}")))
+        .ok_or_else(|| {
+            debug!("mithril stake distribution epoch={key} NOT FOUND.");
+            AppError::NotFound
+        })
 }
 
 /// HTTP: return the list of certificates
@@ -123,7 +130,10 @@ pub async fn certificate(
         .get_certificate(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("certificate hash={key}")))
+        .ok_or_else(|| {
+            debug!("certificate hash={key} NOT FOUND.");
+            AppError::NotFound
+        })
 }
 
 /// HTTP: return the list of certificates
@@ -145,7 +155,10 @@ pub async fn ctx_snapshot(
         .get_ctx_snapshot(&key)
         .await?
         .map(|s| s.into_response())
-        .ok_or_else(|| AppError::NotFound(format!("ctx snapshot hash={key}")))
+        .ok_or_else(|| {
+            debug!("ctx snapshot hash={key} NOT FOUND.");
+            AppError::NotFound
+        })
 }
 
 #[derive(serde::Deserialize, Default)]
@@ -166,7 +179,11 @@ pub async fn ctx_proof(
         .await?
         .map(|s| s.into_response())
         .ok_or_else(|| {
-            AppError::NotFound(format!("ctx proof tx_hash={}", params.transaction_hashes))
+            debug!(
+                "ctx proof ctx_hash={} NOT FOUND.",
+                params.transaction_hashes
+            );
+            AppError::NotFound
         })
 }
 
@@ -210,7 +227,7 @@ mod tests {
             "The handler was expected to fail since the snapshot's digest does not exist.",
         );
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -234,7 +251,7 @@ mod tests {
             .await
             .expect_err("The handler was expected to fail since the msd's hash does not exist.");
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -258,7 +275,7 @@ mod tests {
             "The handler was expected to fail since the certificate's hash does not exist.",
         );
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -282,7 +299,7 @@ mod tests {
             "The handler was expected to fail since the ctx snapshot's hash does not exist.",
         );
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -305,7 +322,7 @@ mod tests {
             .await
             .expect_err("The handler was expected to fail since no transaction hash was provided.");
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]
@@ -322,7 +339,7 @@ mod tests {
         .await
         .expect_err("The handler was expected to fail since the ctx proof's hash does not exist.");
 
-        assert!(matches!(error, AppError::NotFound(_)));
+        assert!(matches!(error, AppError::NotFound));
     }
 
     #[tokio::test]

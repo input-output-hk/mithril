@@ -35,7 +35,7 @@ pub use crate::configuration::{
     ZstandardCompressionParameters,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
-pub use commands::MainOpts;
+pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::DependencyContainer;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,

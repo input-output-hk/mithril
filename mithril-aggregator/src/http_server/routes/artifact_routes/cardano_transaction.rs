@@ -102,7 +102,10 @@ pub mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
 
@@ -150,7 +153,9 @@ pub mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -179,7 +184,9 @@ pub mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -216,11 +223,13 @@ pub mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_cardano_transaction_ok_norecord() {
+    async fn test_cardano_transaction_return_404_not_found_when_no_record() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_transaction_message()
@@ -245,7 +254,9 @@ pub mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -274,6 +285,8 @@ pub mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 }

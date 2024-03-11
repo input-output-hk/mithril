@@ -157,6 +157,8 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 }

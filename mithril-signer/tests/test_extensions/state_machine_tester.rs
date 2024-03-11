@@ -1,13 +1,14 @@
 #![allow(dead_code)]
+use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
-use std::{fmt::Debug, path::Path, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_transaction_parser::DumbTransactionParser,
-    chain_observer::FakeObserver,
+    chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{Beacon, Epoch, SignerWithStake},
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
@@ -20,8 +21,8 @@ use mithril_common::{
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
-    database::provider::CardanoTransactionRepository, AggregatorClient, Configuration,
-    MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
+    database::provider::CardanoTransactionRepository, metrics::*, AggregatorClient, Configuration,
+    MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     StateMachine,
 };
@@ -57,6 +58,8 @@ pub struct StateMachineTester {
     era_reader_adapter: Arc<EraReaderDummyAdapter>,
     comment_no: u32,
     _logs_guard: slog_scope::GlobalLoggerGuard,
+    metrics_service: Arc<MetricsService>,
+    expected_metrics_service: Arc<MetricsService>,
 }
 
 impl Debug for StateMachineTester {
@@ -155,6 +158,8 @@ impl StateMachineTester {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
         ));
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let expected_metrics_service = Arc::new(MetricsService::new().unwrap());
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
@@ -168,6 +173,7 @@ impl StateMachineTester {
             era_reader,
             api_version_provider,
             signable_builder_service,
+            metrics_service: metrics_service.clone(),
         };
         // set up stake distribution
         chain_observer
@@ -176,7 +182,12 @@ impl StateMachineTester {
 
         let runner = Box::new(SignerRunner::new(config, services));
 
-        let state_machine = StateMachine::new(SignerState::Init, runner, Duration::from_secs(5));
+        let state_machine = StateMachine::new(
+            SignerState::Init,
+            runner,
+            Duration::from_secs(5),
+            metrics_service.clone(),
+        );
 
         Ok(StateMachineTester {
             state_machine,
@@ -189,6 +200,8 @@ impl StateMachineTester {
             era_reader_adapter,
             comment_no: 0,
             _logs_guard: logs_guard,
+            metrics_service,
+            expected_metrics_service,
         })
     }
 
@@ -201,7 +214,13 @@ impl StateMachineTester {
     }
     /// trigger a cycle in the state machine
     async fn cycle(&mut self) -> Result<&mut Self> {
+        self.expected_metrics_service
+            .runtime_cycle_total_since_startup_counter_increment();
+
         self.state_machine.cycle().await?;
+
+        self.expected_metrics_service
+            .runtime_cycle_success_since_startup_counter_increment();
 
         Ok(self)
     }
@@ -217,6 +236,7 @@ impl StateMachineTester {
     /// cycle the state machine and test the resulting state
     pub async fn cycle_registered(&mut self) -> Result<&mut Self> {
         self.cycle().await?;
+
         self.assert(
             self.state_machine.get_state().await.is_registered(),
             format!(
@@ -323,6 +343,15 @@ impl StateMachineTester {
         )
     }
 
+    async fn current_epoch(&self) -> Result<Epoch> {
+        self.chain_observer
+            .get_current_epoch()
+            .await
+            .map_err(|e| TestError::SubsystemError(e.into()))
+            .transpose()
+            .unwrap_or_else(|| Err(TestError::ValueError("no epoch returned".to_string())))
+    }
+
     /// add a comment in the logs
     pub fn comment(&mut self, comment: &str) -> &mut Self {
         self.comment_no += 1;
@@ -368,5 +397,59 @@ impl StateMachineTester {
         self.era_reader_adapter.set_markers(markers);
 
         self
+    }
+
+    fn parse_exported_metrics(metrics_service: &MetricsService) -> Result<BTreeMap<String, Value>> {
+        Ok(prometheus_parse::Scrape::parse(
+            metrics_service
+                .export_metrics()?
+                .lines()
+                .map(|s| Ok(s.to_owned())),
+        )
+        .map_err(|e| TestError::ValueError(e.to_string()))?
+        .samples
+        .into_iter()
+        .map(|s| (s.metric, s.value))
+        .collect::<BTreeMap<_, _>>())
+    }
+
+    // Check that the metrics service exports the expected metrics
+    pub async fn check_metrics(
+        &mut self,
+        total_signer_registrations_expected: u64,
+        total_signature_registrations_expected: u64,
+    ) -> Result<&mut Self> {
+        let metrics = Self::parse_exported_metrics(&self.metrics_service)?;
+        let mut expected_metrics = Self::parse_exported_metrics(&self.expected_metrics_service)?;
+        expected_metrics.insert(
+            SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
+            Value::Gauge(self.current_epoch().await?.0 as f64),
+        );
+        expected_metrics.insert(
+            SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+            Value::Counter(total_signature_registrations_expected as f64),
+        );
+        expected_metrics.insert(
+            SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+            Value::Counter(total_signature_registrations_expected as f64),
+        );
+        expected_metrics.insert(
+            SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
+            Value::Gauge(self.current_epoch().await?.0 as f64),
+        );
+        expected_metrics.insert(
+            SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+            Value::Counter(total_signer_registrations_expected as f64),
+        );
+        expected_metrics.insert(
+            SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+            Value::Counter(total_signer_registrations_expected as f64),
+        );
+        self.assert(
+            expected_metrics == metrics,
+            format!("Metrics service should export expected metrics: given {metrics:?}, expected {expected_metrics:?}"),
+        )?;
+
+        Ok(self)
     }
 }

@@ -1,6 +1,10 @@
-import { configureStore } from "@reduxjs/toolkit";
+import { configureStore, createListenerMiddleware } from "@reduxjs/toolkit";
 import { poolsSlice } from "./poolsSlice";
-import { initialState as settingsInitialState, settingsSlice } from "./settingsSlice";
+import {
+  addSettingsListeners,
+  initialState as settingsInitialState,
+  settingsSlice,
+} from "./settingsSlice";
 import default_available_aggregators from "../aggregators-list";
 import { checkUrl } from "../utils";
 
@@ -65,11 +69,17 @@ export function initStoreFromLocalStorage(initialAggregator) {
   return initStore(loadFromLocalStorage(), initialAggregator);
 }
 
-export const storeBuilder = (initialAggregator) =>
-  configureStore({
+export const storeBuilder = (initialAggregator) => {
+  const listenerMiddleware = createListenerMiddleware();
+  addSettingsListeners(listenerMiddleware);
+
+  return configureStore({
     reducer: {
       settings: settingsSlice.reducer,
       pools: poolsSlice.reducer,
     },
     preloadedState: initStoreFromLocalStorage(initialAggregator),
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware().prepend(listenerMiddleware.middleware),
   });
+};

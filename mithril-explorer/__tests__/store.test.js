@@ -1,4 +1,6 @@
-import { saveToLocalStorage, storeBuilder } from "../src/store/store";
+import default_available_aggregators from "../src/aggregators-list";
+import { signedEntityType } from "../src/constants";
+import { poolsSlice } from "../src/store/poolsSlice";
 import {
   removeSelectedAggregator,
   selectAggregator,
@@ -6,9 +8,21 @@ import {
   setUpdateInterval,
   toggleAutoUpdate,
 } from "../src/store/settingsSlice";
-import default_available_aggregators from "../src/aggregators-list";
+import { saveToLocalStorage, storeBuilder } from "../src/store/store";
+import { waitFor } from "@testing-library/react";
 import { initStore } from "./helpers";
-import { poolsSlice } from "../src/store/poolsSlice";
+
+const expectedCapabilities = {
+  signed_entity_types: [signedEntityType.CardanoTransactions],
+};
+
+jest.mock("../src/aggregator-api", () => {
+  return {
+    fetchAggregatorCapabilities: jest.fn().mockImplementation(() => {
+      return expectedCapabilities;
+    }),
+  };
+});
 
 describe("Store Initialization", () => {
   it("init with settings initialState without local storage", () => {
@@ -86,6 +100,21 @@ describe("Store Initialization", () => {
     store.dispatch(selectAggregator(expected));
     expect(store.getState().settings.selectedAggregator).toEqual(expected);
     expect(store.getState().settings.availableAggregators).toContain(expected);
+  });
+
+  it("Changing selectedAggregator launch aggregatorCapabilities fetching", async () => {
+    const store = initStore({
+      settings: {
+        ...settingsSlice.getInitialState(),
+        aggregatorCapabilities: { signed_entity_types: [] },
+      },
+    });
+    const aggregator = "http://aggregator.test";
+
+    store.dispatch(selectAggregator(aggregator));
+    await waitFor(() =>
+      expect(store.getState().settings.aggregatorCapabilities).toEqual(expectedCapabilities),
+    );
   });
 
   it("Can't remove a default aggregator", () => {

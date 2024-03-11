@@ -17,6 +17,7 @@ services:
       - ../data/monitoring/prometheus:/prometheus
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/cardano.json:/etc/prometheus/cardano.json:ro
+      - ./prometheus/mithril-signer.json:/etc/prometheus/mithril-signer.json:ro
     logging:
       driver: "${LOGGING_DRIVER}"
       options:

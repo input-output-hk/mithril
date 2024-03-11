@@ -234,7 +234,10 @@ mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use super::*;
 
@@ -282,7 +285,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -311,7 +316,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -348,11 +355,13 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ok_nosnapshot() {
+    async fn test_snapshot_digest_returns_404_not_found_when_no_snapshot() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_message()
@@ -377,7 +386,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -406,11 +417,13 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_get_ok() {
+    async fn test_snapshot_local_download_returns_302_found_when_the_snapshot_exists() {
         let signed_entity = create_signed_entities(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             fake_data::snapshots(1),
@@ -435,18 +448,19 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/gzip",
-            &Null,
-            &response,
+        assert_eq!(response.status(), StatusCode::FOUND);
+        let location = std::str::from_utf8(response.headers()["location"].as_bytes())
+            .unwrap()
+            .to_string();
+        assert!(
+            location.contains(&format!("/{SERVER_BASE_PATH}/snapshot_download/testnet")),
+            "Expected value '/{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {}",
+            location
         );
     }
 
     #[tokio::test]
-    async fn test_snapshot_download_get_ok_nosnapshot() {
+    async fn test_snapshot_download_returns_404_not_found_when_no_snapshot() {
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_signed_snapshot_by_id()
@@ -471,7 +485,9 @@ mod tests {
             "application/gzip",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -500,6 +516,8 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 }

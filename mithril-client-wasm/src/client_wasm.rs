@@ -279,7 +279,7 @@ impl MithrilUnstableClient {
     #[wasm_bindgen]
     pub async fn verify_cardano_transaction_proof_then_compute_message(
         &self,
-        cardano_transaction_proof: CardanoTransactionsProofs,
+        cardano_transaction_proof: &CardanoTransactionsProofs,
         certificate: JsValue,
     ) -> WasmResult {
         let certificate: MithrilCertificate =
@@ -552,7 +552,7 @@ mod tests {
 
         client
             .unstable
-            .verify_cardano_transaction_proof_then_compute_message(tx_proof, certificate)
+            .verify_cardano_transaction_proof_then_compute_message(&tx_proof, certificate)
             .await
             .expect("Compute tx proof message for matching cert failed");
     }

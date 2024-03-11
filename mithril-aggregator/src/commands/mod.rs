@@ -25,6 +25,14 @@ pub enum MainCommand {
     #[clap(alias("doc"), hide(true))]
     GenerateDoc(GenerateDocCommands),
 }
+/// Identifies the type of command
+pub enum CommandType {
+    /// Command that runs a server
+    Server,
+
+    /// Command that outputs some result after execution
+    CommandLine,
+}
 
 impl MainCommand {
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
@@ -38,6 +46,16 @@ impl MainCommand {
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
                     .map_err(|message| anyhow!(message))
             }
+        }
+    }
+
+    pub fn command_type(&self) -> CommandType {
+        match self {
+            MainCommand::Serve(_) => CommandType::Server,
+            MainCommand::Genesis(_) => CommandType::CommandLine,
+            MainCommand::Era(_) => CommandType::CommandLine,
+            MainCommand::Tools(_) => CommandType::CommandLine,
+            MainCommand::GenerateDoc(_) => CommandType::CommandLine,
         }
     }
 }

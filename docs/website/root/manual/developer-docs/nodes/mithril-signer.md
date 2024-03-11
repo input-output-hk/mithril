@@ -118,25 +118,55 @@ Display the help menu:
 You should see:
 
 ```bash
-An implementation of a Mithril signer
+An implementation of a Mithril Signer
 
 Usage: mithril-signer [OPTIONS]
 
 Options:
   -r, --run-mode <RUN_MODE>
-          Run Mode [env: RUN_MODE=] [default: dev]
+          Run Mode
+          
+          [env: RUN_MODE=]
+          [default: dev]
+
   -v, --verbose...
           Verbosity level, add more v to increase
+
   -c, --configuration-dir <CONFIGURATION_DIR>
-          Directory where the configuration file is located [default: ./config]
+          Directory where the configuration file is located
+          
+          [default: ./config]
+
       --disable-digests-cache
           Disable immutables digests cache
+
       --reset-digests-cache
-          If set the existing immutables digests cache will be reset
+          If set the existing immutables digests cache will be reset.
+          
+          Will be ignored if set in conjunction with `--disable-digests-cache`.
+
+      --enable-metrics-server
+          Enable metrics HTTP server (Prometheus endpoint on /metrics)
+          
+          [env: ENABLE_METRICS_SERVER=]
+
+      --metrics-server-ip <METRICS_SERVER_IP>
+          Metrics HTTP server IP
+          
+          [env: METRICS_SERVER_IP=]
+          [default: 0.0.0.0]
+
+      --metrics-server-port <METRICS_SERVER_PORT>
+          Metrics HTTP server listening port
+          
+          [env: METRICS_SERVER_PORT=]
+          [default: 9090]
+
   -h, --help
-          Print help information (use `--help` for more detail)
+          Print help (see a summary with '-h')
+
   -V, --version
-          Print version information
+          Print version
 ```
 
 Run in release mode with the default configuration:
@@ -213,3 +243,6 @@ Here is a list of the available parameters:
 | `operational_certificate_path` | - | - | `OPERATIONAL_CERTIFICATE_PATH` | Path to the `Cardano operational certificate` file. Mandatory in `Pool Id certification mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |
 | `era_reader_adapter_type` | `--era-reader-adapter-type` | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type that can be `cardano-chain`, `file` or `bootstrap`. | `bootstrap` | - | - |
 | `era_reader_adapter_params` | `--era-reader-adapter-params` | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter params that is an optional JSON encoded parameters structure that is expected depending on the `era_reader_adapter_type` parameter | - | - | - |
+| `enable_metrics_server` | `--enable-metrics-server` | - | `ENABLE_METRICS_SERVER` | Enable metrics HTTP server (Prometheus endpoint on /metrics) | `false` | - | - |
+| `metrics_server_ip` | `--metrics-server-ip` | - | `METRICS_SERVER_IP` | Metrics HTTP server IP | `0.0.0.0` | - | - |
+| `metrics_server_port` | `--metrics-server-port` | - | `METRICS_SERVER_PORT` | Metrics HTTP server listening port | `9090` | - | - |

@@ -4,13 +4,13 @@ title: |
   6. Errors implementation Standard
 authors:
 - name: Mithril Team
-tags: [Draft]
+tags: [Accepted]
 date: 2023-09-27
 ---
 
 ## Status
 
-Draft
+Accepted
 
 ## Context
 

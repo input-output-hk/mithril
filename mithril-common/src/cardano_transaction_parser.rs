@@ -222,7 +222,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_expected_number_of_transactions() {
         // We known the number of transactions in those prebuilt immutables
-        let immutable_files = [("00000", 20usize), ("00001", 8), ("00002", 0)];
+        let immutable_files = [("00000", 20usize), ("00001", 9), ("00002", 0)];
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 

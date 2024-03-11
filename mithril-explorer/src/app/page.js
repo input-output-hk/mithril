@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Col, Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
 import {
@@ -15,16 +15,19 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import CertificatesList from "../components/Artifacts/CertificatesList";
+import initMithrilClient from "@mithril-dev/mithril-client-wasm";
 import EpochSettings from "../components/EpochSettings";
 import PendingCertificate from "../components/PendingCertificate";
-import SnapshotsList from "../components/Artifacts/SnapshotsList";
+import CardanoDbSnapshotsList from "../components/Artifacts/CardanoDbSnapshotsList";
+import CardanoTransactionsSnapshotsList from "../components/Artifacts/CardanoTransactionsSnapshotsList";
+import CertificatesList from "../components/Artifacts/CertificatesList";
 import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
-import { aggregatorSearchParam } from "../constants";
+import { aggregatorSearchParam, signedEntityType } from "../constants";
 import { setChartJsDefaults } from "../charts";
 import {
   selectAggregator,
   selectedAggregator as currentlySelectedAggregator,
+  selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "../store/settingsSlice";
 import { updatePoolsForAggregator } from "../store/poolsSlice";
 
@@ -39,13 +42,27 @@ Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Toolti
 setChartJsDefaults(Chart);
 
 export default function Explorer() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
 
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
+  const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
+  const selectedAggregatorSignedEntities = useSelector((state) =>
+    currentAggregatorSignedEntities(state),
+  );
+
+  useEffect(() => {
+    setEnableCardanoTransactionTab(
+      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
+    );
+  }, [selectedAggregatorSignedEntities]);
+
+  // Global mithril client wasm init
+  useEffect(() => {
+    initMithrilClient().catch((err) => console.error("Mithril-client-wasm init error:", err));
+  }, []);
 
   // Update the aggregator in the url query
   useEffect(() => {
@@ -56,7 +73,7 @@ export default function Explorer() {
       params.set("aggregator", selectedAggregator);
 
       setIsUpdatingAggregatorInUrl(true);
-      router.push("?" + params.toString(), undefined, { shallow: true });
+      window.history.pushState(null, "", `?${params.toString()}`);
     }
 
     dispatch(updatePoolsForAggregator(selectedAggregator));
@@ -73,6 +90,7 @@ export default function Explorer() {
         dispatch(selectAggregator(aggregatorInUrl));
       }
     }
+
     allowNavigation();
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -92,18 +110,23 @@ export default function Explorer() {
           <PendingCertificate />
         </Col>
       </Row>
-      <Tabs defaultActiveKey="snapshots">
-        <Tab title="Snapshots" eventKey="snapshots">
-          <SnapshotsList />
+      <Tabs defaultActiveKey={signedEntityType.CardanoImmutableFilesFull}>
+        <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
+          <CardanoDbSnapshotsList />
         </Tab>
-        <Tab title="Mithril Stake Distribution" eventKey="mithrilStakeDistribution">
+        {enableCardanoTransactionTab && (
+          <Tab title="Cardano Transactions" eventKey={signedEntityType.CardanoTransactions}>
+            <CardanoTransactionsSnapshotsList />
+          </Tab>
+        )}
+        <Tab
+          title="Mithril Stake Distribution"
+          eventKey={signedEntityType.MithrilStakeDistribution}>
           <MithrilStakeDistributionsList />
         </Tab>
-        {
-          <Tab title="Certificates" eventKey="certificates">
-            <CertificatesList />
-          </Tab>
-        }
+        <Tab title="Certificates" eventKey="certificates">
+          <CertificatesList />
+        </Tab>
       </Tabs>
     </Stack>
   );

@@ -1,5 +1,5 @@
 use slog_scope::{crit, debug, error, info};
-use std::{fmt::Display, ops::Deref, time::Duration};
+use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
@@ -8,6 +8,8 @@ use mithril_common::{
         Beacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake,
     },
 };
+
+use crate::MetricsService;
 
 use super::{Runner, RuntimeError};
 
@@ -88,6 +90,7 @@ pub struct StateMachine {
     state: Mutex<SignerState>,
     runner: Box<dyn Runner>,
     state_sleep: Duration,
+    metrics_service: Arc<MetricsService>,
 }
 
 impl StateMachine {
@@ -96,11 +99,13 @@ impl StateMachine {
         starting_state: SignerState,
         runner: Box<dyn Runner>,
         state_sleep: Duration,
+        metrics_service: Arc<MetricsService>,
     ) -> Self {
         Self {
             state: Mutex::new(starting_state),
             runner,
             state_sleep,
+            metrics_service,
         }
     }
 
@@ -137,6 +142,9 @@ impl StateMachine {
         let mut state = self.state.lock().await;
         info!("================================================================================");
         info!("STATE MACHINE: new cycle: {}", *state);
+
+        self.metrics_service
+            .runtime_cycle_total_since_startup_counter_increment();
 
         match state.deref() {
             SignerState::Init => {
@@ -247,6 +255,9 @@ impl StateMachine {
             }
         };
 
+        self.metrics_service
+            .runtime_cycle_success_since_startup_counter_increment();
+
         Ok(())
     }
 
@@ -315,6 +326,9 @@ impl StateMachine {
         &self,
         epoch_settings: &EpochSettings,
     ) -> Result<SignerState, RuntimeError> {
+        self.metrics_service
+            .signer_registration_total_since_startup_counter_increment();
+
         let beacon = self.get_current_beacon("unregistered → registered").await?;
         self.runner.update_stake_distribution(beacon.epoch)
             .await
@@ -333,6 +347,11 @@ impl StateMachine {
                 RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch), nested_error: Some(e) }
             }
         })?;
+
+        self.metrics_service
+            .signer_registration_success_since_startup_counter_increment();
+        self.metrics_service
+            .signer_registration_success_last_epoch_gauge_set(beacon.epoch);
 
         Ok(SignerState::Registered {
             epoch: beacon.epoch,
@@ -356,6 +375,9 @@ impl StateMachine {
             "retrieval_epoch" => ?retrieval_epoch,
             "next_retrieval_epoch" => ?next_retrieval_epoch,
         );
+
+        self.metrics_service
+            .signature_registration_total_since_startup_counter_increment();
 
         let signers: Vec<SignerWithStake> = self
             .runner
@@ -395,6 +417,11 @@ impl StateMachine {
                 message: format!("Could not send single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
                 nested_error: Some(e)
             })?;
+
+        self.metrics_service
+            .signature_registration_success_since_startup_counter_increment();
+        self.metrics_service
+            .signature_registration_success_last_epoch_gauge_set(current_beacon.epoch);
 
         Ok(SignerState::Signed {
             epoch: current_beacon.epoch,
@@ -437,10 +464,12 @@ mod tests {
     use crate::runtime::runner::MockSignerRunner;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
+        let metrics_service = Arc::new(MetricsService::new().unwrap());
         StateMachine {
             state: init_state.into(),
             runner: Box::new(runner),
             state_sleep: Duration::from_millis(100),
+            metrics_service,
         }
     }
 

@@ -123,6 +123,9 @@ services:
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
       - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
+      - ENABLE_METRICS_SERVER=${ENABLE_METRICS_SERVER}
+      - METRICS_SERVER_IP=${METRICS_SERVER_IP}
+      - METRICS_SERVER_PORT=${METRICS_SERVER_PORT}
       - RELAY_ENDPOINT=http://mithril-relay-${SIGNER_ID}:3128
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril

@@ -221,7 +221,7 @@ export default function Registrations() {
         <Row>
           <Col xs={12} sm={12} md={7}>
             <h3>Signers</h3>
-            <SignerTable signers={registrations} aggregator={aggregator} displayIndexes />
+            <SignerTable signers={registrations} displayIndexes />
           </Col>
           <Col xs={12} sm={12} md={5}>
             <Stack gap={3}>

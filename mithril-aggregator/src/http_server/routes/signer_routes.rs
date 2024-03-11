@@ -254,7 +254,10 @@ mod tests {
     use mithril_persistence::store::adapter::AdapterError;
     use mockall::predicate::eq;
     use serde_json::Value::Null;
-    use warp::{http::Method, test::request};
+    use warp::{
+        http::{Method, StatusCode},
+        test::request,
+    };
 
     use crate::database::provider::{MockSignerGetter, SignerRecord};
     use crate::{
@@ -310,7 +313,9 @@ mod tests {
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::CREATED,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -349,7 +354,9 @@ mod tests {
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::CREATED,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -387,7 +394,9 @@ mod tests {
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -424,7 +433,9 @@ mod tests {
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -457,7 +468,9 @@ mod tests {
             "application/json",
             &signer,
             &response,
-        );
+            &StatusCode::SERVICE_UNAVAILABLE,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -514,11 +527,13 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
-    async fn test_registered_signers_get_ok_noregistration() {
+    async fn test_registered_signers_returns_404_not_found_when_no_registration() {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
             .expect_get_signers()
@@ -543,7 +558,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::NOT_FOUND,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -571,7 +588,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -617,7 +636,9 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::OK,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
@@ -646,6 +667,8 @@ mod tests {
             "application/json",
             &Null,
             &response,
-        );
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
     }
 }

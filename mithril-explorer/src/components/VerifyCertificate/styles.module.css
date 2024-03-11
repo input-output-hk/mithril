@@ -1,0 +1,13 @@
+.events {
+  height: 400px;
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column-reverse;
+}
+
+/* hack to ensure that scroll flow from top to bottom */
+.events > span {
+  flex: 1 1 0;
+}

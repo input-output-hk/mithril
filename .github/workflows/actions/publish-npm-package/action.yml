@@ -31,18 +31,46 @@ runs:
     shell: bash
     run: |
       echo "Check crate latest published version for '${{ inputs.package}}' package"
-      LATEST_REMOTE_VERSION=$(npm view @${{ inputs.scope }}/${{ inputs.package }} dist-tags.${{ inputs.tag }} 2> /dev/null || true)
-      LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
-      echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
-      echo "Local version: $LOCAL_VERSION"
 
-      if [ "$LOCAL_VERSION" != "$LATEST_REMOTE_VERSION" ]; then 
-        echo "Local version is newer than remote version: we will publish to npm registry"
-        echo "should_deploy=true" >> $GITHUB_OUTPUT
-      else
-        echo "Local version and remote version are the same: no need to publish to npm registry"
-        echo "should_deploy=false" >> $GITHUB_OUTPUT
+      if [ "${{ inputs.tag }}" != "latest" -a "${{ inputs.tag }}" != "next" ]; then
+        echo "Tag '${{ inputs.tag }}' is not valid. It should be one of 'latest' or 'next'"
+        exit 1
       fi
+
+      LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
+      NEXT_REMOTE_VERSION=$(npm view @${{ inputs.scope }}/${{ inputs.package }} dist-tags.next 2> /dev/null || true)
+      LATEST_REMOTE_VERSION=$(npm view @${{ inputs.scope }}/${{ inputs.package }} dist-tags.latest 2> /dev/null || true)
+
+      echo "Latest crate.io version: '$LATEST_REMOTE_VERSION'"
+      echo "Next crate.io version: '$NEXT_REMOTE_VERSION'"
+      echo "Local version: '$LOCAL_VERSION'"
+
+      if [ "${{ inputs.tag }}" == "latest" ]; then
+        if [ "$LOCAL_VERSION" == "$LATEST_REMOTE_VERSION" ]; then
+          echo "Local version and remote version are the same: no need to publish to npm registry"
+          DEPLOY_MODE='none'
+        elif [ "$LOCAL_VERSION" == "$NEXT_REMOTE_VERSION" ]; then
+          DEPLOY_MODE='promote'
+        else
+          DEPLOY_MODE='publish'
+        fi
+      else # input.tag == 'next'
+        if [ "$LOCAL_VERSION" == "$LATEST_REMOTE_VERSION" ]; then
+          # A latest already published: no need to tag with next
+          echo "Local version and remote version are the same: no need to publish to npm registry"
+          DEPLOY_MODE='none'
+        elif [ "$LOCAL_VERSION" == "$NEXT_REMOTE_VERSION" ]; then
+          echo "Local version and remote version are the same: no need to publish to npm registry"
+          DEPLOY_MODE='none'
+        else
+          DEPLOY_MODE='publish'
+        fi
+      fi
+
+      echo "Deploy mode: '$DEPLOY_MODE'"
+      echo "Dry run: '${{ inputs.dry_run }}'"
+      echo "deploy_mode=$DEPLOY_MODE" >> $GITHUB_OUTPUT
+      echo "package_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
 
   - name: Build package
     shell: bash
@@ -58,20 +86,29 @@ runs:
       echo "List '@${{ inputs.scope }}/${{ inputs.package }}' package"
       ls -al ${{ inputs.package }}/pkg
 
-  - name: Test publish package
-    if: inputs.dry_run == 'true' && steps.check_version.outputs.should_deploy == 'true'
+  - name: Publish package new version
+    if: steps.check_version.outputs.deploy_mode == 'publish'
     shell: bash
     env:
       NPM_TOKEN: ${{ inputs.api_token }}
     run: |
-      echo "test publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
+      echo "Publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
       npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
-      npm whoami
+      if [ -z "${NPM_TOKEN}" -a "${{ inputs.dry_run }}" == "true" ]; then
+        echo "Warning: An NPM access token is required for authentication and has not been provided."
+      else
+        npm whoami
+      fi
       cd ${{ inputs.package }}/pkg
-      npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }} --dry-run
+      if [ "${{ inputs.dry_run }}" == "false" ]; then
+        dry_run_option=""
+      else
+        dry_run_option="--dry-run"
+      fi
+      npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }} $dry_run_option
 
-  - name: Publish package
-    if: inputs.dry_run == 'false' && steps.check_version.outputs.should_deploy == 'true'
+  - name: Promote package distribution tag to 'latest'
+    if: inputs.dry_run == 'false' && steps.check_version.outputs.deploy_mode == 'promote'
     shell: bash
     env:
       NPM_TOKEN: ${{ inputs.api_token }}
@@ -80,4 +117,5 @@ runs:
       npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
       npm whoami
       cd ${{ inputs.package }}/pkg
-      npm publish --tag ${{ inputs.tag }} --access ${{ inputs.access }}
+      npm dist-tag add @${{ inputs.scope }}/${{ inputs.package }}@{{ steps.check_version.outputs.package_version }} latest
+      npm dist-tag rm @${{ inputs.scope }}/${{ inputs.package }}@{{ steps.check_version.outputs.package_version }} next
