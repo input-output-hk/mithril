@@ -1,9 +1,7 @@
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import { useEffect, useState } from "react";
 import LocalDateTime from "../LocalDateTime";
 import { Spinner } from "react-bootstrap";
-import { useSelector } from "react-redux";
-import { fetchGenesisVerificationKey, formatProcessDuration } from "../../utils";
+import { formatProcessDuration } from "../../utils";
 
 import styles from "./styles.module.css";
 
@@ -22,14 +20,12 @@ const certificateChainValidationEvents = {
 };
 
 export default function CertificateVerifier({
-  certificateHash,
+  client,
+  certificate,
   showSpinner = true,
   onStepChange = (step) => {},
-  onCertificateChange = (certificate) => {},
 }) {
-  const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [currentStep, setCurrentStep] = useState(certificateValidationSteps.ready);
-  const [certificate, setCertificate] = useState({});
   const [verificationDuration, setVerificationDuration] = useState(null);
   const [verificationEvents, setVerificationEvents] = useState([]);
 
@@ -41,41 +37,36 @@ export default function CertificateVerifier({
   }, []);
 
   useEffect(() => {
-    onCertificateChange(certificate);
-  }, [certificate, onCertificateChange]);
-
-  useEffect(() => {
     onStepChange(currentStep);
   }, [currentStep, onStepChange]);
 
   useEffect(() => {
-    // Reset state if any
-    setCertificate({});
-    setVerificationEvents([]);
-    setCurrentStep(certificateValidationSteps.ready);
+    switch (currentStep) {
+      case certificateValidationSteps.ready:
+        setVerificationEvents([]);
+        if (client && certificate) {
+          setCurrentStep(certificateValidationSteps.validationInProgress);
 
-    if (certificateHash) {
-      setCurrentStep(certificateValidationSteps.validationInProgress);
-
-      verifyCertificateChain(currentAggregator, certificateHash)
-        .catch((err) => console.error("Certificate Chain verification error", err))
-        .finally(() => {
-          setCurrentStep(certificateValidationSteps.done);
-        });
+          verifyCertificateChain(client, certificate.hash)
+            .catch((err) => {
+              console.error("Certificate Chain verification error", err);
+            })
+            .finally(() => {
+              setCurrentStep(certificateValidationSteps.done);
+            });
+        }
+        break;
+      case certificateValidationSteps.validationInProgress:
+      case certificateValidationSteps.done:
+      default:
+        break;
     }
-  }, [currentAggregator, certificateHash]);
+  }, [currentStep, client, certificate]);
 
-  async function verifyCertificateChain(aggregator, certificate_hash) {
-    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const client = new MithrilClient(aggregator, genesisVerificationKey);
-
-    if (certificate_hash !== null && certificate_hash !== undefined) {
-      let startTime = performance.now();
-      const certificate = await client.get_mithril_certificate(certificate_hash);
-      setCertificate(certificate);
-      await client.verify_certificate_chain(certificate_hash);
-      setVerificationDuration(formatProcessDuration(startTime));
-    }
+  async function verifyCertificateChain(client, certificateHash) {
+    let startTime = performance.now();
+    await client.verify_certificate_chain(certificateHash);
+    setVerificationDuration(formatProcessDuration(startTime));
   }
 
   function clientEventListener(e) {
