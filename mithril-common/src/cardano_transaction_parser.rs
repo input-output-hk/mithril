@@ -119,38 +119,36 @@ impl CardanoTransactionParser {
         let cardano_blocks_reader =
             CardanoTransactionParser::cardano_blocks_reader(immutable_file)?;
 
-        cardano_blocks_reader
-            .into_iter()
-            .map(|b| CardanoTransactionParser::convert_to_block(b, immutable_file))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| anyhow!(e))
+        let mut blocks = Vec::new();
+        for block in cardano_blocks_reader {
+            let block = block.map_err(|e| {
+                anyhow!(e).context(format!(
+                    "Error while reading block in immutable file: '{:?}'",
+                    immutable_file.path
+                ))
+            })?;
+            blocks.push(CardanoTransactionParser::convert_to_block(
+                &block,
+                immutable_file,
+            )?);
+        }
+        Ok(blocks)
     }
 
-    fn convert_to_block(
-        block: Result<Vec<u8>, std::io::Error>,
-        immutable_file: &ImmutableFile,
-    ) -> StdResult<Block> {
-        let block = block.map_err(|e| {
-            anyhow!(e).context(format!(
-                "Error while reading block in immutable file: '{:?}'",
-                immutable_file.path
-            ))
-        })?;
-        let multi_era_block = MultiEraBlock::decode(&block).map_err(|e| {
+    fn convert_to_block(block: &[u8], immutable_file: &ImmutableFile) -> StdResult<Block> {
+        let multi_era_block = MultiEraBlock::decode(block).map_err(|e| {
             anyhow!(e).context(format!(
                 "Error while decoding block in immutable file: '{:?}'",
                 immutable_file.path
             ))
         })?;
-        let block =
-            Block::try_convert(multi_era_block, immutable_file.number).with_context(|| {
-                format!(
-            "CardanoTransactionParser could not read data from block in immutable file: {:?}",
-            immutable_file.path
-        )
-            })?;
 
-        Ok(block)
+        Block::try_convert(multi_era_block, immutable_file.number).with_context(|| {
+            format!(
+                "CardanoTransactionParser could not read data from block in immutable file: {:?}",
+                immutable_file.path
+            )
+        })
     }
 
     fn cardano_blocks_reader(immutable_file: &ImmutableFile) -> StdResult<Reader> {
