@@ -119,18 +119,30 @@ impl CardanoTransactionParser {
 
         let mut blocks = Vec::new();
         for block in hardano_blocks {
-            // TODO block.unwrap ???
-            // if let Ok() = decode ???
-            let block = block.unwrap();
-            if let Ok(multi_era_block) = MultiEraBlock::decode(&block) {
-                let block = Block::try_convert(multi_era_block, immutable_file.number)
-                    .with_context(|| {
-                        format!(
-                        "CardanoTransactionParser could not read data from block in immutable file: {:?}",
+            let block = block.map_err(|e| {
+                anyhow!(e).context(format!(
+                    "Error while reading block in immutable file: '{:?}'",
+                    immutable_file.path
+                ))
+            })?;
+
+            match MultiEraBlock::decode(&block) {
+                Ok(multi_era_block) => {
+                    let block = Block::try_convert(multi_era_block, immutable_file.number)
+                        .with_context(|| {
+                            format!(
+                            "CardanoTransactionParser could not read data from block in immutable file: {:?}",
+                            immutable_file.path
+                        )
+                        })?;
+                    blocks.push(block);
+                }
+                Err(err) => {
+                    return Err(anyhow!(err).context(format!(
+                        "Error while decoding block in immutable file: '{:?}'",
                         immutable_file.path
-                    )
-                    })?;
-                blocks.push(block);
+                    )))
+                }
             }
         }
 
