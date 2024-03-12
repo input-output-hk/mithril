@@ -18,6 +18,10 @@ pub enum ProtocolMessagePartKey {
     /// aka AVK(n-1)
     #[serde(rename = "next_aggregate_verification_key")]
     NextAggregateVerificationKey,
+
+    /// Latest immutable file number associated to the Cardano Transactions
+    #[serde(rename = "latest_immutable_file_number")]
+    LatestImmutableFileNumber,
 }
 
 impl Display for ProtocolMessagePartKey {
@@ -26,6 +30,7 @@ impl Display for ProtocolMessagePartKey {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
+            Self::LatestImmutableFileNumber => write!(f, "latest_immutable_file_number"),
         }
     }
 }
@@ -83,9 +88,70 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_protocol_message_compute_hash() {
-        let hash_expected = "71dee1e558cd647cdbc219a24b766940f568e7e8287c30a8292209ef11666e03";
+    fn test_protocol_message_compute_hash_include_next_aggregate_verification_key() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
 
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_include_snapshot_digest() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "snapshot-digest-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_include_cardano_transactions_merkle_root() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+            "ctx-merke-root-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_include_lastest_immutable_file_number() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            "latest-immutable-file-number-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_the_same_hash_with_same_protocol_message() {
+        assert_eq!(
+            build_protocol_message_reference().compute_hash(),
+            build_protocol_message_reference().compute_hash()
+        );
+    }
+
+    fn build_protocol_message_reference() -> ProtocolMessage {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -95,20 +161,15 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
-        assert_eq!(hash_expected, protocol_message.compute_hash());
-
-        let mut protocol_message_modified = protocol_message.clone();
-        protocol_message_modified.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-456".to_string(),
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
+            "ctx-merkle-root-123".to_string(),
         );
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
-
-        let mut protocol_message_modified = protocol_message.clone();
-        protocol_message_modified.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "snapshot-digest-456".to_string(),
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            "latest-immutable-file-number-123".to_string(),
         );
-        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+
+        protocol_message
     }
 }
