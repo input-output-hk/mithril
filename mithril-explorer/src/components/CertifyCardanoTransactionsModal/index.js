@@ -14,8 +14,8 @@ import ValidatingProofPane from "./ValidatingProofPane";
 export const validationSteps = {
   ready: 1,
   fetchingProof: 2,
-  validatingCertificateChain: 3,
-  validatingProof: 4,
+  validatingProof: 3,
+  validatingCertificateChain: 4,
   done: 5,
 };
 
@@ -24,6 +24,7 @@ export default function CertifyCardanoTransactionsModal({
   onHashesChange = (hash) => {},
 }) {
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
+  const [client, setClient] = useState(undefined);
   const [certificate, setCertificate] = useState(undefined);
   const [certificateVerifierStep, setCertificateVerifierStep] = useState(
     certificateValidationSteps.ready,
@@ -41,24 +42,16 @@ export default function CertifyCardanoTransactionsModal({
     setCurrentStep(validationSteps.ready);
 
     if (transactionHashes?.length > 0) {
-      setCurrentStep(validationSteps.fetchingProof);
-      getTransactionsProofs(currentAggregator, transactionHashes)
-        .then(() =>
-          // Artificial wait to give the user a feel of the work load under-hood
-          setTimeout(() => {
-            setCurrentStep(validationSteps.validatingCertificateChain);
-          }, 350),
-        )
-        .catch((err) => {
-          console.error("Cardano Transactions Certification Error:", err);
-          setCurrentStep(validationSteps.done);
-        });
+      fetchGenesisVerificationKey(currentAggregator)
+        .then((genesisKey) => buildClient(currentAggregator, genesisKey))
+        .then(() => setCurrentStep(validationSteps.fetchingProof))
+        .catch((err) => handleError(err));
     }
   }, [currentAggregator, transactionHashes]);
 
   useEffect(() => {
     if (certificateVerifierStep === certificateValidationSteps.done) {
-      setCurrentStep(validationSteps.validatingProof);
+      setCurrentStep(validationSteps.done);
       setShowLoadingWarning(false);
     }
   }, [certificateVerifierStep]);
@@ -68,36 +61,46 @@ export default function CertifyCardanoTransactionsModal({
   }, [currentStep]);
 
   useEffect(() => {
-    if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
-      verifyTransactionProofAgainstCertificate(currentAggregator, transactionsProofs, certificate)
+    if (currentStep === validationSteps.fetchingProof) {
+      getTransactionsProofsAndCertificate(client, transactionHashes)
         .then(() =>
-          // Artificial wait to give the user a feel of the work load under-hood
+          // Artificial wait to give the user a feel of the workload under-hood
           setTimeout(() => {
-            setCurrentStep(validationSteps.done);
+            setCurrentStep(validationSteps.validatingProof);
+          }, 350),
+        )
+        .catch((err) => handleError(err));
+    }
+  }, [client, currentStep, transactionHashes]);
+
+  useEffect(() => {
+    if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
+      verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate)
+        .then(() =>
+          // Artificial wait to give the user a feel of the workload under-hood
+          setTimeout(() => {
+            setCurrentStep(validationSteps.validatingCertificateChain);
           }, 250),
         )
-        .catch((err) => {
-          console.error("Cardano Transactions Certification Error:", err);
-          setCurrentStep(validationSteps.done);
-        });
+        .catch((err) => handleError(err));
     }
-  }, [currentAggregator, currentStep, transactionsProofs, certificate]);
+  }, [client, currentStep, transactionsProofs, certificate]);
 
-  async function getTransactionsProofs(aggregator, transactionHashes) {
-    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const client = new MithrilClient(aggregator, genesisVerificationKey);
-    const proofs = await client.unstable.get_cardano_transaction_proofs(transactionHashes);
-
-    setTransactionsProofs(proofs);
+  async function buildClient(aggregator, genesisKey) {
+    const client = new MithrilClient(aggregator, genesisKey);
+    setClient(client);
+    return client;
   }
 
-  async function verifyTransactionProofAgainstCertificate(
-    aggregator,
-    transactionsProofs,
-    certificate,
-  ) {
-    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const client = new MithrilClient(aggregator, genesisVerificationKey);
+  async function getTransactionsProofsAndCertificate(client, transactionHashes) {
+    const proofs = await client.unstable.get_cardano_transaction_proofs(transactionHashes);
+    const certificate = await client.get_mithril_certificate(proofs.certificate_hash);
+
+    setTransactionsProofs(proofs);
+    setCertificate(certificate);
+  }
+
+  async function verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate) {
     // Verify proof validity if so get its protocol message
     const protocolMessage =
       await client.unstable.verify_cardano_transaction_proof_then_compute_message(
@@ -108,6 +111,11 @@ export default function CertifyCardanoTransactionsModal({
     if ((await client.verify_message_match_certificate(protocolMessage, certificate)) === true) {
       setIsProofValid(true);
     }
+  }
+
+  function handleError(error) {
+    console.error("Cardano Transactions Certification Error:", error);
+    setCurrentStep(validationSteps.done);
   }
 
   function getTabForStep(step) {
@@ -153,57 +161,54 @@ export default function CertifyCardanoTransactionsModal({
 
       <Modal.Body>
         {currentStep > validationSteps.ready && (
-          <>
-            <Tab.Container activeKey={currentTab}>
-              <Row className="mb-2">
-                <Col>
-                  <TransactionCertificationBreadcrumb
-                    currentStep={currentStep}
-                    isSuccess={isProofValid}
-                    onStepClick={handleStepClick}
-                  />
-                  {showLoadingWarning && (
-                    <Alert variant="warning" className="mt-2">
-                      Verification is in progress. Please wait until the process is complete (less
-                      than a minute).
-                    </Alert>
-                  )}
-                </Col>
-              </Row>
-              <Row>
-                <Col>
-                  <Tab.Content>
-                    <Tab.Pane eventKey={getTabForStep(validationSteps.fetchingProof)}>
-                      <FetchingProofPane transactionHashes={transactionHashes} />
-                    </Tab.Pane>
-                    <Tab.Pane eventKey={getTabForStep(validationSteps.validatingCertificateChain)}>
-                      {currentStep >= validationSteps.validatingCertificateChain && (
-                        <CertificateVerifier
-                          showSpinner={false}
-                          onStepChange={(step) => setCertificateVerifierStep(step)}
-                          onCertificateChange={(certificate) => setCertificate(certificate)}
-                          certificateHash={transactionsProofs.certificate_hash}
-                        />
-                      )}
-                    </Tab.Pane>
-                    <Tab.Pane eventKey={getTabForStep(validationSteps.validatingProof)}>
-                      <ValidatingProofPane isProofValid={isProofValid} />
-                    </Tab.Pane>
-                    <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
-                      {currentStep === validationSteps.done && (
-                        <TransactionCertificationResult
-                          isSuccess={isProofValid}
-                          certificate={certificate}
-                          certifiedTransactions={transactionsProofs.transactions_hashes}
-                          nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
-                        />
-                      )}
-                    </Tab.Pane>
-                  </Tab.Content>
-                </Col>
-              </Row>
-            </Tab.Container>
-          </>
+          <Tab.Container activeKey={currentTab}>
+            <Row className="mb-2">
+              <Col>
+                <TransactionCertificationBreadcrumb
+                  currentStep={currentStep}
+                  isSuccess={isProofValid}
+                  onStepClick={handleStepClick}
+                />
+                {showLoadingWarning && (
+                  <Alert variant="warning" className="mt-2">
+                    Verification is in progress. Please wait until the process is complete (less
+                    than a minute).
+                  </Alert>
+                )}
+              </Col>
+            </Row>
+            <Row>
+              <Col>
+                <Tab.Content>
+                  <Tab.Pane eventKey={getTabForStep(validationSteps.fetchingProof)}>
+                    <FetchingProofPane transactionHashes={transactionHashes} />
+                  </Tab.Pane>
+                  <Tab.Pane eventKey={getTabForStep(validationSteps.validatingProof)}>
+                    <ValidatingProofPane isProofValid={isProofValid} />
+                  </Tab.Pane>
+                  <Tab.Pane eventKey={getTabForStep(validationSteps.validatingCertificateChain)}>
+                    {currentStep >= validationSteps.validatingCertificateChain && isProofValid && (
+                      <CertificateVerifier
+                        showSpinner={false}
+                        onStepChange={(step) => setCertificateVerifierStep(step)}
+                        certificateHash={transactionsProofs.certificate_hash}
+                      />
+                    )}
+                  </Tab.Pane>
+                  <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
+                    {currentStep === validationSteps.done && (
+                      <TransactionCertificationResult
+                        isSuccess={isProofValid}
+                        certificate={certificate}
+                        certifiedTransactions={transactionsProofs.transactions_hashes}
+                        nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
+                      />
+                    )}
+                  </Tab.Pane>
+                </Tab.Content>
+              </Col>
+            </Row>
+          </Tab.Container>
         )}
       </Modal.Body>
       <Modal.Footer></Modal.Footer>

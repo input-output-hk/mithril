@@ -21,12 +21,12 @@ export default function TransactionCertificationBreadcrumb({
       text: "Fetching Transactions Proof",
     },
     {
-      step: validationSteps.validatingCertificateChain,
-      text: "Validating Certificate Chain",
-    },
-    {
       step: validationSteps.validatingProof,
       text: "Verifying Transactions Proof",
+    },
+    {
+      step: validationSteps.validatingCertificateChain,
+      text: "Validating Certificate Chain",
     },
   ];
 
