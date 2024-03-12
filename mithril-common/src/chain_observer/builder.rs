@@ -75,17 +75,8 @@ impl ChainObserverBuilder {
                     .to_owned(),
             ))),
             ChainObserverType::Pallas => {
-                let fallback = CardanoCliChainObserver::new(
-                    self.cardano_cli_runner
-                        .as_ref()
-                        .ok_or(ChainObserverBuilderError::MissingCardanoCliRunner)?
-                        .to_owned(),
-                );
-                let observer = PallasChainObserver::new(
-                    &self.cardano_node_socket_path,
-                    self.cardano_network,
-                    fallback,
-                );
+                let observer =
+                    PallasChainObserver::new(&self.cardano_node_socket_path, self.cardano_network);
                 Ok(Arc::new(observer))
             }
             #[cfg(any(test, feature = "test_tools"))]

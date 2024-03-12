@@ -5,12 +5,15 @@ use pallas_addresses::Address;
 use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::{
     facades::NodeClient,
-    miniprotocols::localstate::{
-        queries_v16::{
-            self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
-            TransactionOutput, UTxOByAddress,
+    miniprotocols::{
+        localstate::{
+            queries_v16::{
+                self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
+                TransactionOutput, UTxOByAddress,
+            },
+            Client,
         },
-        Client,
+        Point,
     },
 };
 
@@ -28,13 +31,11 @@ use crate::{
 };
 
 use super::model::{try_inspect, Datum, Datums};
-use super::CardanoCliChainObserver;
 
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
 pub struct PallasChainObserver {
     socket: PathBuf,
     network: CardanoNetwork,
-    fallback: CardanoCliChainObserver,
 }
 
 impl From<anyhow::Error> for ChainObserverError {
@@ -44,12 +45,11 @@ impl From<anyhow::Error> for ChainObserverError {
 }
 
 impl PallasChainObserver {
-    /// Creates a new PallasObserver while accepting a fallback CliRunner
-    pub fn new(socket: &Path, network: CardanoNetwork, fallback: CardanoCliChainObserver) -> Self {
+    /// Creates a new PallasObserver
+    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
         Self {
             socket: socket.to_owned(),
             network,
-            fallback,
         }
     }
 
@@ -59,11 +59,6 @@ impl PallasChainObserver {
         let client = NodeClient::connect(&self.socket, magic).await?;
 
         Ok(client)
-    }
-
-    /// Returns a reference to the fallback `CardanoCliChainObserver` instance.
-    fn get_fallback(&self) -> &CardanoCliChainObserver {
-        &self.fallback
     }
 
     /// Creates and returns a new `NodeClient`, handling any potential errors.
@@ -239,6 +234,83 @@ impl PallasChainObserver {
         Ok(Some(stake_distribution))
     }
 
+    /// # Calculate Current KES Period
+    ///
+    /// It calculates the current Key Evolving Signature (KES) period
+    /// based on the provided `chain_point` and `slots_per_kes_period`.
+    ///
+    /// The calculation formula is represented as:
+    ///
+    /// `current_kes_period = ⌊current_slot_number/slots_per_kes_period⌋`
+    ///
+    /// where:
+    /// - `current_slot_number` represents the current slot number given by the `point` on the chain.
+    /// - `slots_per_kes_period` represents the number of slots in a KES period.
+    /// - `⌊x⌋` is the floor function which rounds the greatest integer less than or equal to `x`.
+    ///
+    /// ## Example:
+    ///
+    /// let (chain_point, slots_per_kes_period) = (Point::new(1), 10);
+    /// match calculate_kes_period(&self, chain_point, slots_per_kes_period) {
+    ///     Ok(kes_period) => println!("Current KES Period: {}", kes_period),
+    ///     Err(e) => println!("Error occurred: {}", e),
+    /// }
+    async fn calculate_kes_period(
+        &self,
+        chain_point: Point,
+        slots_per_kes_period: u64,
+    ) -> Result<KESPeriod, ChainObserverError> {
+        if slots_per_kes_period == 0 {
+            return Err(anyhow!("slots_per_kes_period must be greater than 0"))
+                .with_context(|| "PallasChainObserver failed to calculate kes period")?;
+        }
+
+        let current_kes_period = chain_point.slot_or_default() / slots_per_kes_period;
+        Ok(u32::try_from(current_kes_period)
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to convert kes period")?)
+    }
+
+    /// Fetches chain point and genesis config through the local statequery.
+    /// The KES period is calculated afterwards.
+    async fn get_kes_period(
+        &self,
+        client: &mut NodeClient,
+    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+        let statequery = client.statequery();
+
+        statequery
+            .acquire(None)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to acquire statequery")?;
+
+        let chain_point = queries_v16::get_chain_point(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get chain point")?;
+
+        let era = queries_v16::get_current_era(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get current era")?;
+
+        let genesis_config = queries_v16::get_genesis_config(statequery, era)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get genesis config")?;
+
+        let config = genesis_config
+            .first()
+            .with_context(|| "PallasChainObserver failed to extract the config")?;
+
+        let current_kes_period = self
+            .calculate_kes_period(chain_point, config.slots_per_kes_period as u64)
+            .await?;
+
+        Ok(Some(current_kes_period))
+    }
+
     /// Processes a state query with the `NodeClient`, releasing the state query.
     async fn process_statequery(&self, client: &mut NodeClient) -> StdResult<()> {
         let statequery = client.statequery();
@@ -322,10 +394,17 @@ impl ChainObserver for PallasChainObserver {
 
     async fn get_current_kes_period(
         &self,
-        opcert: &OpCert,
+        _opcert: &OpCert,
     ) -> Result<Option<KESPeriod>, ChainObserverError> {
-        let fallback = self.get_fallback();
-        fallback.get_current_kes_period(opcert).await
+        let mut client = self.get_client().await?;
+
+        let current_kes_period = self.get_kes_period(&mut client).await?;
+
+        self.post_process_statequery(&mut client).await?;
+
+        client.abort().await;
+
+        Ok(current_kes_period)
     }
 }
 
@@ -333,19 +412,24 @@ impl ChainObserver for PallasChainObserver {
 mod tests {
     use std::fs;
 
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
     use pallas_codec::utils::{AnyCbor, AnyUInt, KeyValuePairs, TagWrap};
     use pallas_crypto::hash::Hash;
-    use pallas_network::miniprotocols::localstate::{
-        queries_v16::{
-            BlockQuery, HardForkQuery, LedgerQuery, Request, Snapshots, StakeSnapshot, Value,
+    use pallas_network::miniprotocols::{
+        localstate::{
+            queries_v16::{
+                BlockQuery, Fraction, Genesis, HardForkQuery, LedgerQuery, Request, Snapshots,
+                StakeSnapshot, SystemStart, Value,
+            },
+            ClientQueryRequest,
         },
-        ClientQueryRequest,
+        Point,
     };
     use tokio::net::UnixListener;
 
     use super::*;
     use crate::test_utils::TempDir;
-    use crate::{chain_observer::test_cli_runner::TestCliRunner, CardanoNetwork};
+    use crate::{crypto_helper::ColdKeyGenerator, CardanoNetwork};
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
@@ -437,6 +521,28 @@ mod tests {
         }
     }
 
+    fn get_fake_genesis_config() -> Vec<Genesis> {
+        let genesis = Genesis {
+            system_start: SystemStart {
+                year: 2021,
+                day_of_year: 150,
+                picoseconds_of_day: 0,
+            },
+            network_magic: 42,
+            network_id: 42,
+            active_slots_coefficient: Fraction { num: 6, dem: 10 },
+            security_param: 2160,
+            epoch_length: 432000,
+            slots_per_kes_period: 129600,
+            max_kes_evolutions: 62,
+            slot_length: 1,
+            update_quorum: 5,
+            max_lovelace_supply: AnyUInt::MajorByte(2),
+        };
+
+        vec![genesis]
+    }
+
     /// pallas responses mock server.
     async fn mock_server(server: &mut pallas_network::facades::NodeServer) -> AnyCbor {
         let query: queries_v16::Request =
@@ -446,11 +552,17 @@ mod tests {
             };
 
         match query {
+            Request::GetChainPoint => {
+                AnyCbor::from_encode(Point::Specific(52851885, vec![1, 2, 3]))
+            }
             Request::LedgerQuery(LedgerQuery::HardForkQuery(HardForkQuery::GetCurrentEra)) => {
                 AnyCbor::from_encode(4)
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetEpochNo)) => {
                 AnyCbor::from_encode([8])
+            }
+            Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetGenesisConfig)) => {
+                AnyCbor::from_encode(get_fake_genesis_config())
             }
             Request::LedgerQuery(LedgerQuery::BlockQuery(_, BlockQuery::GetUTxOByAddress(_))) => {
                 AnyCbor::from_encode(get_fake_utxo_by_address())
@@ -488,21 +600,20 @@ mod tests {
 
                 let result = mock_server(&mut server).await;
                 server.statequery().send_result(result).await.unwrap();
+
+                let result = mock_server(&mut server).await;
+                server.statequery().send_result(result).await.unwrap();
             }
         })
     }
 
     #[tokio::test]
-    async fn get_current_epoch_with_fallback() {
-        let socket_path = create_temp_dir("get_current_epoch_with_fallback").join("node.socket");
+    async fn get_current_epoch() {
+        let socket_path = create_temp_dir("get_current_epoch").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             observer.get_current_epoch().await.unwrap().unwrap()
         });
 
@@ -512,16 +623,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_datums_with_fallback() {
-        let socket_path = create_temp_dir("get_current_datums_with_fallback").join("node.socket");
+    async fn get_current_datums() {
+        let socket_path = create_temp_dir("get_current_datums").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             let address =
                 "addr_test1vr80076l3x5uw6n94nwhgmv7ssgy6muzf47ugn6z0l92rhg2mgtu0".to_string();
             observer.get_current_datums(&address).await.unwrap()
@@ -533,17 +640,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_stake_distribution_with_fallback() {
-        let socket_path =
-            create_temp_dir("get_current_stake_distribution_with_fallback").join("node.socket");
+    async fn get_current_stake_distribution() {
+        let socket_path = create_temp_dir("get_current_stake_distribution").join("node.socket");
         let server = setup_server(socket_path.clone()).await;
         let client = tokio::spawn(async move {
-            let fallback = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
-            let observer = super::PallasChainObserver::new(
-                socket_path.as_path(),
-                CardanoNetwork::TestNet(10),
-                fallback,
-            );
+            let observer =
+                super::PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             observer.get_current_stake_distribution().await.unwrap()
         });
 
@@ -565,5 +667,55 @@ mod tests {
         );
 
         assert_eq!(expected_stake_distribution, computed_stake_distribution);
+    }
+
+    #[tokio::test]
+    async fn get_current_kes_period() {
+        let socket_path = create_temp_dir("get_current_kes_period").join("node.socket");
+        let server = setup_server(socket_path.clone()).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+
+            let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
+            let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];
+            let mut dummy_seed = [0u8; 32];
+            let (_, kes_verification_key) = Sum6Kes::keygen(&mut dummy_key_buffer, &mut dummy_seed);
+            let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+            observer
+                .get_current_kes_period(&operational_certificate)
+                .await
+                .unwrap()
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let kes_period = client_res.unwrap().unwrap();
+        assert_eq!(407, kes_period);
+    }
+
+    #[tokio::test]
+    async fn calculate_kes_period() {
+        let socket_path = create_temp_dir("get_current_kes_period").join("node.socket");
+        let observer = PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+        let current_kes_period = observer
+            .calculate_kes_period(Point::Specific(53536042, vec![1, 2, 3]), 129600)
+            .await
+            .unwrap();
+
+        assert_eq!(413, current_kes_period);
+
+        let current_kes_period = observer
+            .calculate_kes_period(Point::Specific(53524800, vec![1, 2, 3]), 129600)
+            .await
+            .unwrap();
+
+        assert_eq!(413, current_kes_period);
+
+        let current_kes_period = observer
+            .calculate_kes_period(Point::Specific(53649999, vec![1, 2, 3]), 129600)
+            .await
+            .unwrap();
+
+        assert_eq!(413, current_kes_period);
     }
 }
