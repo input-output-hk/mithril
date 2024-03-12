@@ -24,8 +24,10 @@ export default function CertificateVerifier({
   certificate,
   showSpinner = true,
   onStepChange = (step) => {},
+  onChainValidationError = (error) => {},
 }) {
   const [currentStep, setCurrentStep] = useState(certificateValidationSteps.ready);
+  const [validationError, setValidationError] = useState(undefined);
   const [verificationDuration, setVerificationDuration] = useState(null);
   const [verificationEvents, setVerificationEvents] = useState([]);
 
@@ -41,19 +43,26 @@ export default function CertificateVerifier({
   }, [currentStep, onStepChange]);
 
   useEffect(() => {
+    if (validationError) {
+      onChainValidationError(validationError);
+    }
+  }, [validationError, onChainValidationError]);
+
+  useEffect(() => {
     switch (currentStep) {
       case certificateValidationSteps.ready:
         setVerificationEvents([]);
+        setValidationError(undefined);
+
         if (client && certificate) {
           setCurrentStep(certificateValidationSteps.validationInProgress);
 
           verifyCertificateChain(client, certificate.hash)
             .catch((err) => {
               console.error("Certificate Chain verification error", err);
+              setValidationError(err);
             })
-            .finally(() => {
-              setCurrentStep(certificateValidationSteps.done);
-            });
+            .finally(() => setCurrentStep(certificateValidationSteps.done));
         }
         break;
       case certificateValidationSteps.validationInProgress:
@@ -86,7 +95,11 @@ export default function CertificateVerifier({
         );
         break;
       case certificateChainValidationEvents.done:
-        message = <>The certificate chain is valid ✅</>;
+        message = (
+          <>
+            The certificate chain is valid <i className="text-success bi bi-check-circle-fill"></i>
+          </>
+        );
         break;
       default:
         message = <>{event}</>;
@@ -128,6 +141,13 @@ export default function CertificateVerifier({
               {verificationEvents.map((evt) => (
                 <div key={evt.id}>{evt.message}</div>
               ))}
+              {validationError !== undefined && (
+                <div>
+                  <i className="text-danger bi bi-x-circle-fill"></i> Invalid certificate chain:
+                  <br />
+                  {validationError.message}
+                </div>
+              )}
             </div>
           </div>
         </div>
