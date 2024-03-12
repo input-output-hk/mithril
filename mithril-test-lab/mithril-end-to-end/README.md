@@ -21,6 +21,7 @@ git clone https://github.com/input-output-hk/mithril
 make -C mithril-aggregator build
 make -C mithril-signer build
 make -C mithril-client-cli build
+make -C mithril-relay build
 
 # Go to sources directory
 cd mithril-test-lab/mithril-end-to-end

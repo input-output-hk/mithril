@@ -6,6 +6,7 @@ use crate::{
 };
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use pallas_hardano::storage::immutable::chunk::{read_blocks, Reader};
 use pallas_traverse::MultiEraBlock;
 use std::path::Path;
 use tokio::sync::RwLock;
@@ -115,58 +116,59 @@ impl CardanoTransactionParser {
 
     /// Read blocks from immutable file
     fn read_blocks_from_immutable_file(immutable_file: &ImmutableFile) -> StdResult<Vec<Block>> {
-        let hardano_blocks = hardano_blocks(immutable_file)?;
+        let cardano_blocks_reader =
+            CardanoTransactionParser::cardano_blocks_reader(immutable_file)?;
 
-        let mut blocks = Vec::new();
-        for block in hardano_blocks {
-            let block = block.map_err(|e| {
-                anyhow!(e).context(format!(
-                    "Error while reading block in immutable file: '{:?}'",
-                    immutable_file.path
-                ))
+        cardano_blocks_reader
+            .into_iter()
+            .map(|b| CardanoTransactionParser::convert_to_block(b, immutable_file))
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| anyhow!(e))
+    }
+
+    fn convert_to_block(
+        block: Result<Vec<u8>, std::io::Error>,
+        immutable_file: &ImmutableFile,
+    ) -> StdResult<Block> {
+        let block = block.map_err(|e| {
+            anyhow!(e).context(format!(
+                "Error while reading block in immutable file: '{:?}'",
+                immutable_file.path
+            ))
+        })?;
+        let multi_era_block = MultiEraBlock::decode(&block).map_err(|e| {
+            anyhow!(e).context(format!(
+                "Error while decoding block in immutable file: '{:?}'",
+                immutable_file.path
+            ))
+        })?;
+        let block =
+            Block::try_convert(multi_era_block, immutable_file.number).with_context(|| {
+                format!(
+            "CardanoTransactionParser could not read data from block in immutable file: {:?}",
+            immutable_file.path
+        )
             })?;
 
-            match MultiEraBlock::decode(&block) {
-                Ok(multi_era_block) => {
-                    let block = Block::try_convert(multi_era_block, immutable_file.number)
-                        .with_context(|| {
-                            format!(
-                            "CardanoTransactionParser could not read data from block in immutable file: {:?}",
-                            immutable_file.path
-                        )
-                        })?;
-                    blocks.push(block);
-                }
-                Err(err) => {
-                    return Err(anyhow!(err).context(format!(
-                        "Error while decoding block in immutable file: '{:?}'",
-                        immutable_file.path
-                    )))
-                }
-            }
-        }
+        Ok(block)
+    }
+
+    fn cardano_blocks_reader(immutable_file: &ImmutableFile) -> StdResult<Reader> {
+        let dir_path = immutable_file.path.parent().ok_or(anyhow!(format!(
+            "Could not retrieve immutable file directory with immutable file path: '{:?}'",
+            immutable_file.path
+        )))?;
+        let file_name = &Path::new(&immutable_file.filename)
+            .file_stem()
+            .ok_or(anyhow!(format!(
+                "Could not extract immutable file name from file: '{}'",
+                immutable_file.filename
+            )))?
+            .to_string_lossy();
+        let blocks = read_blocks(dir_path, file_name)?;
 
         Ok(blocks)
     }
-}
-
-fn hardano_blocks(
-    immutable_file: &ImmutableFile,
-) -> StdResult<pallas_hardano::storage::immutable::chunk::Reader> {
-    let dir_path = immutable_file.path.parent().ok_or(anyhow!(format!(
-        "Could not retrieve immutable file directory with immutable file path: '{:?}'",
-        immutable_file.path
-    )))?;
-    let file_name = &Path::new(&immutable_file.filename)
-        .file_stem()
-        .ok_or(anyhow!(format!(
-            "Could not extract immutable file name from file: '{}'",
-            immutable_file.filename
-        )))?
-        .to_string_lossy();
-    let blocks = pallas_hardano::storage::immutable::chunk::read_blocks(dir_path, file_name)?;
-
-    Ok(blocks)
 }
 
 impl Default for CardanoTransactionParser {
