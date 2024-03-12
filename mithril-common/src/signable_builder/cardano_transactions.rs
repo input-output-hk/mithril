@@ -10,8 +10,11 @@ use slog::{debug, Logger};
 
 use crate::{
     cardano_transaction_parser::TransactionParser,
-    crypto_helper::{MKHashMap, MKHashMapNode, MKTreeNode},
-    entities::{Beacon, BlockRange, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
+    crypto_helper::{MKHashMap, MKTree, MKTreeNode},
+    entities::{
+        Beacon, BlockRange, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
+        TransactionHash,
+    },
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -67,7 +70,7 @@ impl CardanoTransactionsSignableBuilder {
     }
 
     fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
-        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<MKHashMapNode<BlockRange>>> =
+        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
         for transaction in transactions {
             let block_range_start =
@@ -77,20 +80,18 @@ impl CardanoTransactionsSignableBuilder {
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
-                .push(MKHashMapNode::TreeNode(
-                    transaction.transaction_hash.to_owned().into(),
-                ));
+                .push(transaction.transaction_hash.to_owned());
         }
         let mk_hash_map = MKHashMap::new(
             transactions_by_block_ranges
                 .into_iter()
-                .flat_map(|(block_range, transactions)| {
-                    transactions
-                        .into_iter()
-                        .map(|transaction| (block_range.clone(), transaction))
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>()
+                .try_fold(
+                    vec![],
+                    |mut acc, (block_range, transactions)| -> StdResult<Vec<_>> {
+                        acc.push((block_range, MKTree::new(&transactions)?.into()));
+                        Ok(acc)
+                    },
+                )?
                 .as_slice(),
         )
         .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKHashMap")?;

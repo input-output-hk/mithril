@@ -1,10 +1,10 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
-    crypto_helper::{MKHashMap, MKHashMapNode, MKTree, MKTreeNode},
+    crypto_helper::{MKHashMap, MKTree, MKTreeNode},
     entities::{Beacon, BlockRange, CardanoTransactionsSetProof, TransactionHash},
     signable_builder::{TransactionRetriever, BLOCK_RANGE_LENGTH},
     StdResult,
@@ -69,16 +69,13 @@ impl ProverService for MithrilProverService {
                 .try_fold(
                     vec![],
                     |mut acc, (block_range, transactions)| -> StdResult<Vec<_>> {
-                        acc.push((
-                            block_range,
-                            MKHashMapNode::Tree(Rc::new(MKTree::new(&transactions)?)),
-                        ));
+                        acc.push((block_range, MKTree::new(&transactions)?.into()));
                         Ok(acc)
                     },
                 )?
                 .as_slice(),
         )
-        .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKHashMap")?;
+        .with_context(|| "ProverService failed to compute MKHashMap")?;
 
         let mut transaction_hashes_certified = vec![];
         for (_block_range, transaction) in transactions_to_certify {
