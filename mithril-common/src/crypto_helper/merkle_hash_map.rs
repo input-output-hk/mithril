@@ -128,7 +128,7 @@ where
     K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
 {
     master_proof: MKProof,
-    sub_proofs: BTreeMap<K, MKHashMapProof<K>>,
+    sub_proofs: Vec<(K, MKHashMapProof<K>)>,
 }
 
 impl<K> MKHashMapProof<K>
@@ -136,7 +136,7 @@ where
     K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
 {
     /// MKHashMapProof factory
-    pub fn new(master_proof: MKProof, sub_proofs: HashMap<K, MKHashMapProof<K>>) -> Self {
+    pub fn new(master_proof: MKProof, sub_proofs: BTreeMap<K, MKHashMapProof<K>>) -> Self {
         let sub_proofs = sub_proofs.into_iter().collect();
         Self {
             master_proof,
@@ -152,7 +152,7 @@ where
     /// Verify the merkelized hash map proof
     // TODO: parallelize proof verification? Is it compatible with WASM?
     pub fn verify(&self) -> StdResult<()> {
-        for proof in self.sub_proofs.values() {
+        for (_key, proof) in &self.sub_proofs {
             proof
                 .verify()
                 .with_context(|| "MKHashMapProof could not verify sub proof")?;
@@ -196,7 +196,7 @@ where
     K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
 {
     fn from(other: MKProof) -> Self {
-        MKHashMapProof::new(other, HashMap::default())
+        MKHashMapProof::new(other, BTreeMap::default())
     }
 }
 
@@ -225,6 +225,7 @@ where
         for (key, value) in sorted_entries {
             mk_hash_map.insert(key.clone(), value.clone())?;
         }
+
         Ok(mk_hash_map)
     }
 
@@ -310,7 +311,7 @@ where
                 acc
             });
 
-        let mut sub_proofs = HashMap::<K, MKHashMapProof<K>>::default();
+        let mut sub_proofs = BTreeMap::<K, MKHashMapProof<K>>::default();
         for (key, sub_leaves) in leaves_by_keys {
             match self.inner_map_values.get(&key) {
                 Some(MKHashMapNode::Tree(ref value)) => {
