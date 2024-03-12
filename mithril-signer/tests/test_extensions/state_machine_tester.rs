@@ -147,9 +147,11 @@ impl StateMachineTester {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
+        let transaction_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser.clone(),
             transaction_store.clone(),
+            transaction_retriever.clone(),
             Path::new(""),
             slog_scope::logger(),
         ));

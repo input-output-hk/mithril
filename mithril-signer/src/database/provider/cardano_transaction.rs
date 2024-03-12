@@ -1,6 +1,6 @@
 use mithril_common::{
-    entities::{BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
-    signable_builder::TransactionStore,
+    entities::{Beacon, BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
+    signable_builder::{TransactionRetriever, TransactionStore},
     StdResult,
 };
 use mithril_persistence::sqlite::{
@@ -32,6 +32,16 @@ impl From<CardanoTransaction> for CardanoTransactionRecord {
             transaction_hash: transaction.transaction_hash,
             block_number: transaction.block_number,
             immutable_file_number: transaction.immutable_file_number,
+        }
+    }
+}
+
+impl From<CardanoTransactionRecord> for CardanoTransaction {
+    fn from(other: CardanoTransactionRecord) -> CardanoTransaction {
+        CardanoTransaction {
+            transaction_hash: other.transaction_hash,
+            block_number: other.block_number,
+            immutable_file_number: other.immutable_file_number,
         }
     }
 }
@@ -90,6 +100,13 @@ impl<'client> CardanoTransactionProvider<'client> {
             vec![Value::String(transaction_hash.to_owned())],
         )
     }
+
+    pub(crate) fn get_transaction_up_to_beacon_condition(&self, beacon: &Beacon) -> WhereCondition {
+        WhereCondition::new(
+            "immutable_file_number <= ?*",
+            vec![Value::Integer(beacon.immutable_file_number as i64)],
+        )
+    }
 }
 
 impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
@@ -103,9 +120,7 @@ impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!(
-            "select {projection} from cardano_tx where {condition} order by transaction_hash desc"
-        )
+        format!("select {projection} from cardano_tx where {condition} order by rowid")
     }
 }
 
@@ -198,6 +213,19 @@ impl CardanoTransactionRepository {
         Ok(transactions.next())
     }
 
+    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
+    /// chronological order.
+    pub async fn get_transactions_up_to(
+        &self,
+        beacon: &Beacon,
+    ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let provider = CardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_up_to_beacon_condition(beacon);
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions.collect())
+    }
+
     /// Create a new [CardanoTransactionRecord] in the database.
     pub async fn create_transaction(
         &self,
@@ -239,6 +267,17 @@ impl TransactionStore for CardanoTransactionRepository {
             .with_context(|| "CardanoTransactionRepository can not store transactions")?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl TransactionRetriever for CardanoTransactionRepository {
+    async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>> {
+        self.get_transactions_up_to(beacon).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 }
 
@@ -500,5 +539,47 @@ mod tests {
             }),
             transaction_result
         );
+    }
+
+    #[tokio::test]
+    async fn repository_store_transactions_and_get_up_to_beacon_transactions() {
+        let connection = get_connection().await;
+        let repository = CardanoTransactionRepository::new(connection.clone());
+
+        let cardano_transactions: Vec<CardanoTransaction> = (20..=40)
+            .map(|i| CardanoTransaction {
+                transaction_hash: format!("tx-hash-{i}"),
+                block_number: i % 10,
+                immutable_file_number: i,
+            })
+            .collect();
+        repository
+            .store_transactions(&cardano_transactions)
+            .await
+            .unwrap();
+
+        let transaction_result = repository
+            .get_up_to(&Beacon::new("".to_string(), 1, 34))
+            .await
+            .unwrap();
+
+        assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
+
+        let transaction_result = repository
+            .get_up_to(&Beacon::new("".to_string(), 1, 300))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            cardano_transactions.into_iter().collect::<Vec<_>>(),
+            transaction_result
+        );
+
+        let transaction_result = repository
+            .get_up_to(&Beacon::new("".to_string(), 1, 19))
+            .await
+            .unwrap();
+
+        assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
     }
 }

@@ -30,10 +30,20 @@ pub trait TransactionStore: Send + Sync {
     /// Store list of transactions
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
 }
+
+/// Cardano transactions retriever
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait TransactionRetriever: Sync + Send {
+    /// Get transactions up to given beacon using chronological order
+    async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
+}
+
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
     transaction_parser: Arc<dyn TransactionParser>,
     transaction_store: Arc<dyn TransactionStore>,
+    transaction_retriever: Arc<dyn TransactionRetriever>,
     logger: Logger,
     dirpath: PathBuf,
 }
@@ -43,12 +53,14 @@ impl CardanoTransactionsSignableBuilder {
     pub fn new(
         transaction_parser: Arc<dyn TransactionParser>,
         transaction_store: Arc<dyn TransactionStore>,
+        transaction_retriever: Arc<dyn TransactionRetriever>,
         dirpath: &Path,
         logger: Logger,
     ) -> Self {
         Self {
             transaction_parser,
             transaction_store,
+            transaction_retriever,
             logger,
             dirpath: dirpath.to_owned(),
         }
@@ -117,6 +129,7 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
                 .await?;
         }
 
+        let transactions = self.transaction_retriever.get_up_to(&beacon).await?;
         let mk_root = self.compute_merkle_root(&transactions)?;
 
         let mut protocol_message = ProtocolMessage::new();
@@ -136,7 +149,7 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
 #[cfg(test)]
 mod tests {
     use crate::cardano_transaction_parser::DumbTransactionParser;
-    use crate::signable_builder::MockTransactionStore;
+    use crate::signable_builder::{MockTransactionRetriever, MockTransactionStore};
 
     use super::*;
     use slog::Drain;
@@ -165,6 +178,7 @@ mod tests {
                 transactions_set_reference.clone(),
             )),
             Arc::new(MockTransactionStore::new()),
+            Arc::new(MockTransactionRetriever::new()),
             Path::new("/tmp"),
             create_logger(),
         );
@@ -225,15 +239,23 @@ mod tests {
             CardanoTransaction::new("tx-hash-456", 2, 12),
             CardanoTransaction::new("tx-hash-789", 3, 13),
         ];
+        let transactions_clone = transactions.clone();
         let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
         let mut mock_transaction_store = MockTransactionStore::new();
         mock_transaction_store
             .expect_store_transactions()
             .returning(|_| Ok(()));
         let transaction_store = Arc::new(mock_transaction_store);
+        let mut mock_transaction_retriever = MockTransactionRetriever::new();
+        mock_transaction_retriever
+            .expect_get_up_to()
+            .times(1)
+            .return_once(|_| Ok(transactions_clone));
+        let transaction_retriever = Arc::new(mock_transaction_retriever);
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             transaction_parser,
             transaction_store,
+            transaction_retriever,
             Path::new("/tmp"),
             create_logger(),
         );

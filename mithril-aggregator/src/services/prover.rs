@@ -5,10 +5,8 @@ use async_trait::async_trait;
 
 use mithril_common::{
     crypto_helper::{MKHashMap, MKHashMapNode, MKTree, MKTreeNode},
-    entities::{
-        Beacon, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
-    },
-    signable_builder::BLOCK_RANGE_LENGTH,
+    entities::{Beacon, BlockRange, CardanoTransactionsSetProof, TransactionHash},
+    signable_builder::{TransactionRetriever, BLOCK_RANGE_LENGTH},
     StdResult,
 };
 
@@ -27,22 +25,14 @@ pub trait ProverService: Sync + Send {
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 }
 
-/// Transactions retriever
-#[cfg_attr(test, automock)]
-#[async_trait]
-pub trait TransactionsRetriever: Sync + Send {
-    /// Get transactions up to given beacon using chronological order
-    async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
-}
-
 /// Mithril prover
 pub struct MithrilProverService {
-    transaction_retriever: Arc<dyn TransactionsRetriever>,
+    transaction_retriever: Arc<dyn TransactionRetriever>,
 }
 
 impl MithrilProverService {
     /// Create a new Mithril prover
-    pub fn new(transaction_retriever: Arc<dyn TransactionsRetriever>) -> Self {
+    pub fn new(transaction_retriever: Arc<dyn TransactionRetriever>) -> Self {
         Self {
             transaction_retriever,
         }
@@ -123,9 +113,19 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::entities::CardanoTransaction;
     use mithril_common::test_utils::fake_data;
-    use mockall::predicate::eq;
+    use mockall::{mock, predicate::eq};
 
     use super::*;
+
+    mock! {
+        TransactionRetrieverImpl { }
+
+        #[async_trait]
+        impl TransactionRetriever for TransactionRetrieverImpl
+        {
+            async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
+        }
+    }
 
     fn generate_transactions(
         total_transactions: usize,
@@ -145,7 +145,7 @@ mod tests {
     #[tokio::test]
     async fn compute_proof_for_one_set_with_multiple_transactions() {
         let (transaction_hashes, transactions) = generate_transactions(3);
-        let mut transaction_retriever = MockTransactionsRetriever::new();
+        let mut transaction_retriever = MockTransactionRetrieverImpl::new();
         transaction_retriever
             .expect_get_up_to()
             .with(eq(fake_data::beacon()))
@@ -167,7 +167,7 @@ mod tests {
     #[tokio::test]
     async fn cant_compute_proof_for_unknown_transaction() {
         let (transaction_hashes, _transactions) = generate_transactions(3);
-        let mut transaction_retriever = MockTransactionsRetriever::new();
+        let mut transaction_retriever = MockTransactionRetrieverImpl::new();
         transaction_retriever
             .expect_get_up_to()
             .with(eq(fake_data::beacon()))
@@ -186,7 +186,7 @@ mod tests {
         let (transaction_hashes, transactions) = generate_transactions(5);
         // The last two are not in the "store"
         let transactions = transactions[0..=2].to_vec();
-        let mut transaction_retriever = MockTransactionsRetriever::new();
+        let mut transaction_retriever = MockTransactionRetrieverImpl::new();
         transaction_retriever
             .expect_get_up_to()
             .with(eq(fake_data::beacon()))
@@ -211,7 +211,7 @@ mod tests {
     #[tokio::test]
     async fn cant_compute_proof_if_retriever_fail() {
         let (transaction_hashes, _transactions) = generate_transactions(3);
-        let mut transaction_retriever = MockTransactionsRetriever::new();
+        let mut transaction_retriever = MockTransactionRetrieverImpl::new();
         transaction_retriever
             .expect_get_up_to()
             .with(eq(fake_data::beacon()))

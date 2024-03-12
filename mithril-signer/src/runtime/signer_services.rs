@@ -276,9 +276,11 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
+        let transaction_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser,
             transaction_store,
+            transaction_retriever,
             &self.config.db_directory,
             slog_scope::logger(),
         ));
