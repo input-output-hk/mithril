@@ -7,3 +7,4 @@
 > [!NOTE]
 > The immutable files (`.chunk`, `.primary` and `.secondary`) files are data that are the result of
 > the `mithril-end-to-end` test command execution.
+> The `parsing_error/` directory contains a file `04831.chunk` with unparsable block. It's needed for testing.

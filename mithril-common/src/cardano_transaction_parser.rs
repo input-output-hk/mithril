@@ -279,7 +279,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_should_error_with_unparsable_block_format() {
-        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
+        let db_path = Path::new("../mithril-test-lab/test_data/parsing_error/immutable/");
         let beacon = Beacon {
             immutable_file_number: 4831,
             ..Beacon::default()
@@ -300,7 +300,7 @@ mod tests {
             "test_parse_should_log_error_with_unparsable_block_format",
         );
         let filepath = temp_dir.join("test.log");
-        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
+        let db_path = Path::new("../mithril-test-lab/test_data/parsing_error/immutable/");
         let beacon = Beacon {
             immutable_file_number: 4831,
             ..Beacon::default()
@@ -309,9 +309,10 @@ mod tests {
             CardanoTransactionParser::new(create_file_logger(&filepath));
         cardano_transaction_parser.allow_unparsable_block = true;
 
-        let result = cardano_transaction_parser.parse(db_path, &beacon).await;
-
-        assert!(result.is_ok());
+        cardano_transaction_parser
+            .parse(db_path, &beacon)
+            .await
+            .unwrap();
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();
         assert!(log_file.contains("pallas-hardano does not support this block format"));
