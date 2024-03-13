@@ -120,12 +120,12 @@ impl CardanoTransactionParser {
             CardanoTransactionParser::cardano_blocks_reader(immutable_file)?;
 
         let mut blocks = Vec::new();
-        for block in cardano_blocks_reader {
-            let block = block.map_err(|e| {
-                anyhow!(e).context(format!(
+        for parsed_block in cardano_blocks_reader {
+            let block = parsed_block.with_context(|| {
+                format!(
                     "Error while reading block in immutable file: '{:?}'",
                     immutable_file.path
-                ))
+                )
             })?;
             blocks.push(CardanoTransactionParser::convert_to_block(
                 &block,
@@ -136,11 +136,11 @@ impl CardanoTransactionParser {
     }
 
     fn convert_to_block(block: &[u8], immutable_file: &ImmutableFile) -> StdResult<Block> {
-        let multi_era_block = MultiEraBlock::decode(block).map_err(|e| {
-            anyhow!(e).context(format!(
+        let multi_era_block = MultiEraBlock::decode(block).with_context(|| {
+            format!(
                 "Error while decoding block in immutable file: '{:?}'",
                 immutable_file.path
-            ))
+            )
         })?;
 
         Block::try_convert(multi_era_block, immutable_file.number).with_context(|| {
