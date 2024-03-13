@@ -17,6 +17,12 @@
 # Download sources from github
 git clone https://github.com/input-output-hk/mithril
 
+# Build nodes
+make -C mithril-aggregator build
+make -C mithril-signer build
+make -C mithril-client-cli build
+make -C mithril-relay build
+
 # Go to sources directory
 cd mithril-test-lab/mithril-end-to-end
 ```
@@ -31,7 +37,7 @@ make build
 ./mithril-end-to-end --help
 
 # Run
-./mithril-end-to-end -vvv --db-directory db/ --bin-directory ../../target/release
+./mithril-end-to-end -vvv --work-directory db/ --bin-directory ../../target/release --devnet-scripts-directory=../mithril-devnet
 ```
 
 To run `mithril-end-to-end` command, you must first compile the Mithril nodes:
