@@ -1,6 +1,6 @@
 import React from "react";
 import { Table } from "react-bootstrap";
-import IconBadge from "../IconBadge";
+import IconBadge from "#/IconBadge";
 
 export default function ValidatingProofPane({ isProofValid }) {
   return (

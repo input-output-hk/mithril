@@ -7,8 +7,8 @@ import {
   computeSignersWeightDataset,
   computeStakeShapesDataset,
   setChartJsDefaults,
-} from "../../charts";
-import { checkUrl } from "../../utils";
+} from "@/charts";
+import { checkUrl } from "@/utils";
 import { Alert, ButtonGroup, Col, Row, Spinner, Stack, Table } from "react-bootstrap";
 import {
   ArcElement,
@@ -21,12 +21,12 @@ import {
   Tooltip,
 } from "chart.js";
 import { Bar, Pie } from "react-chartjs-2";
-import { aggregatorSearchParam } from "../../constants";
-import { updatePoolsForAggregator } from "../../store/poolsSlice";
-import LinkButton from "../../components/LinkButton";
-import Stake from "../../components/Stake";
-import RawJsonButton from "../../components/RawJsonButton";
-import SignerTable from "../../components/SignerTable";
+import { aggregatorSearchParam } from "@/constants";
+import { updatePoolsForAggregator } from "@/store/poolsSlice";
+import LinkButton from "#/LinkButton";
+import Stake from "#/Stake";
+import RawJsonButton from "#/RawJsonButton";
+import SignerTable from "#/SignerTable";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);

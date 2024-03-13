@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
-import CertificateModal from "../../CertificateModal";
-import RawJsonButton from "../../RawJsonButton";
 import { useSelector } from "react-redux";
-import { selectedAggregator } from "../../../store/settingsSlice";
-import LocalDateTime from "../../LocalDateTime";
+import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
+import CertificateModal from "#/CertificateModal";
+import RawJsonButton from "#/RawJsonButton";
+import LocalDateTime from "#/LocalDateTime";
+import { selectedAggregator } from "@/store/settingsSlice";
 
 export default function CertificatesList(props) {
   const [certificates, setCertificates] = useState([]);

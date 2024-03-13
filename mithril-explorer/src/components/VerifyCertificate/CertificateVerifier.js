@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Spinner, Table } from "react-bootstrap";
-import { formatProcessDuration } from "../../utils";
-import CopyableHash from "../CopyableHash";
-import CopyButton from "../CopyButton";
-import IconBadge from "../IconBadge";
-import LocalDateTime from "../LocalDateTime";
+import { formatProcessDuration } from "@/utils";
+import CopyableHash from "#/CopyableHash";
+import CopyButton from "#/CopyButton";
+import IconBadge from "#/IconBadge";
+import LocalDateTime from "#/LocalDateTime";
 
 import styles from "./styles.module.css";
 

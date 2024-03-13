@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Card, ListGroup } from "react-bootstrap";
-import LinkButton from "../LinkButton";
-import RawJsonButton from "../RawJsonButton";
+import { Card } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import ProtocolParameters from "../ProtocolParameters";
-import { selectedAggregator } from "../../store/settingsSlice";
-import { checkUrl } from "../../utils";
+import LinkButton from "#/LinkButton";
+import RawJsonButton from "#/RawJsonButton";
+import ProtocolParameters from "#/ProtocolParameters";
+import { selectedAggregator } from "@/store/settingsSlice";
+import { checkUrl } from "@/utils";
 
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});

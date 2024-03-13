@@ -2,13 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Accordion, Badge, Button, Col, Container, Modal, Row, Table } from "react-bootstrap";
 import { Bar } from "react-chartjs-2";
 import { useSelector } from "react-redux";
-import { computeStakeShapesDataset } from "../../charts";
-import { selectedAggregator } from "../../store/settingsSlice";
-import RawJsonButton from "../RawJsonButton";
-import Stake from "../Stake";
-import ProtocolParameters from "../ProtocolParameters";
-import SignerTable from "../SignerTable";
-import VerifyCertificateModal from "../VerifyCertificate/VerifyCertificateModal";
+import { computeStakeShapesDataset } from "@/charts";
+import { selectedAggregator } from "@/store/settingsSlice";
+import RawJsonButton from "#/RawJsonButton";
+import Stake from "#/Stake";
+import ProtocolParameters from "#/ProtocolParameters";
+import SignerTable from "#/SignerTable";
+import VerifyCertificateModal from "#/VerifyCertificate/VerifyCertificateModal";
 
 export default function CertificateModal({
   hash,

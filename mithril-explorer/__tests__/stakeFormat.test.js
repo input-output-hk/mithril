@@ -1,4 +1,4 @@
-import { formatStake } from "../src/utils";
+import { formatStake } from "@/utils";
 
 const toLovelace = (ada) => ada * 1000000;
 

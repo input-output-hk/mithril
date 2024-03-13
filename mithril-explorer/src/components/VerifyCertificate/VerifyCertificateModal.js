@@ -2,7 +2,7 @@ import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
-import { fetchGenesisVerificationKey } from "../../utils";
+import { fetchGenesisVerificationKey } from "@/utils";
 import { useSelector } from "react-redux";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {

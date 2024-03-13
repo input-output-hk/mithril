@@ -1,9 +1,9 @@
 import React from "react";
 import { Table } from "react-bootstrap";
-import CopyableHash from "./CopyableHash";
-import VerifiedBadge from "./VerifiedBadge";
-import PoolTicker from "./PoolTicker";
-import Stake from "./Stake";
+import CopyableHash from "#/CopyableHash";
+import VerifiedBadge from "#/VerifiedBadge";
+import PoolTicker from "#/PoolTicker";
+import Stake from "#/Stake";
 
 // Display a table of signers (they must have a party_id and a stake property)
 export default function SignerTable({ signers, displayIndexes, ...props }) {

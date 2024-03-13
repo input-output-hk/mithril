@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import TransactionCertificationBreadcrumb from "../src/components/CertifyCardanoTransactionsModal/TransactionCertificationBreadcrumb";
-import { validationSteps } from "../src/components/CertifyCardanoTransactionsModal";
+import TransactionCertificationBreadcrumb from "#/CertifyCardanoTransactionsModal/TransactionCertificationBreadcrumb";
+import { validationSteps } from "#/CertifyCardanoTransactionsModal";
 
 function setup(currentStep, isProofValid, isCertificateChainValid) {
   const utils = [

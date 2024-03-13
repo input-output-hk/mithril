@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
-import CardanoTransactionsFormInput from "../src/components/CardanoTransactionsFormInput";
+import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
 
 function setup() {
   const utils = [render(<CardanoTransactionsFormInput />)];

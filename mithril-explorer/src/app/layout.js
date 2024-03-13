@@ -1,14 +1,15 @@
 import Image from "next/image";
-import { Providers } from "../store/provider";
+import Link from "next/link";
 import React, { Suspense } from "react";
-import styles from "./explorer.module.css";
+import { Providers } from "@/store/provider";
 
 // These styles apply to every route in the application
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./global.css";
 import "./mithril-icons.css";
-import Link from "next/link";
+
+import styles from "./explorer.module.css";
 
 export const metadata = {
   title: "Mithril Explorer",

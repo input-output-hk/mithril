@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, ListGroup, Table } from "react-bootstrap";
-import IconBadge from "../IconBadge";
-import CopyableHash from "../CopyableHash";
-import TransactionHash from "../TransactionHash";
+import IconBadge from "#/IconBadge";
+import TransactionHash from "#/TransactionHash";
 
 function CertifiedDataBeacon({ certificate }) {
   return (

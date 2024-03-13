@@ -1,6 +1,6 @@
 import { useDispatch, useSelector } from "react-redux";
 import { Button, Col, Form, InputGroup } from "react-bootstrap";
-import { setUpdateInterval, toggleAutoUpdate } from "../../store/settingsSlice";
+import { setUpdateInterval, toggleAutoUpdate } from "@/store/settingsSlice";
 
 export default function IntervalSetter(props) {
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);

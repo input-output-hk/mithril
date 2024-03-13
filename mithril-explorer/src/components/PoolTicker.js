@@ -1,8 +1,8 @@
 import React from "react";
 import { useSelector } from "react-redux";
-import { getPoolForSelectedAggregator } from "../store/poolsSlice";
-import { getCExplorerUrl } from "../utils";
-import { CExplorerUrl } from "./CExplorerUrl";
+import { getPoolForSelectedAggregator } from "@/store/poolsSlice";
+import { getCExplorerUrl } from "@/utils";
+import { CExplorerUrl } from "#/CExplorerUrl";
 
 export default function PoolTicker({ partyId }) {
   const pool = useSelector((state) => getPoolForSelectedAggregator(state, partyId));
