@@ -37,7 +37,7 @@ function TransactionsTable({ transactions }) {
         {transactions.map((tx) => (
           <tr key={tx.hash}>
             <td>
-              {tx.certified ? <TransactionHash hash={tx.hash} /> : <CopyableHash hash={tx.hash} />}
+              <TransactionHash hash={tx.hash} />
             </td>
             <td>
               {tx.certified ? (
