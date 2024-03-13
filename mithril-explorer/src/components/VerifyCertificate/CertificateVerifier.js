@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
-import LocalDateTime from "../LocalDateTime";
-import { Spinner } from "react-bootstrap";
+import React, { useEffect, useState } from "react";
+import { Spinner, Table } from "react-bootstrap";
 import { formatProcessDuration } from "../../utils";
+import CopyableHash from "../CopyableHash";
+import IconBadge from "../IconBadge";
+import LocalDateTime from "../LocalDateTime";
 
 import styles from "./styles.module.css";
 
@@ -17,6 +19,13 @@ const certificateChainValidationEvents = {
   started: "CertificateChainValidationStarted",
   certificateValidated: "CertificateValidated",
   done: "CertificateChainValidated",
+  unknown: "Unknown",
+};
+
+const eventPosition = {
+  beforeTable: 1,
+  inTable: 2,
+  afterTable: 3,
 };
 
 export default function CertificateVerifier({
@@ -81,16 +90,23 @@ export default function CertificateVerifier({
   function clientEventListener(e) {
     const event = e.data;
     let message = <></>;
+    let position = eventPosition.afterTable;
 
     switch (event.type) {
       case certificateChainValidationEvents.started:
+        position = eventPosition.beforeTable;
         message = <>The certificate chain validation has started...</>;
         break;
       case certificateChainValidationEvents.certificateValidated:
+        position = eventPosition.inTable;
         message = (
           <>
-            A certificate has been validated, hash:{" "}
-            <strong>{event.payload.certificate_hash}</strong>
+            <td>
+              <CopyableHash hash={event.payload.certificate_hash} />
+            </td>
+            <td>
+              <IconBadge tooltip="Valid Certificate" variant="success" icon="mithril" />
+            </td>
           </>
         );
         break;
@@ -108,7 +124,7 @@ export default function CertificateVerifier({
 
     setVerificationEvents((existingEvents) => [
       ...existingEvents,
-      { id: nextVerifyEventId++, message: message },
+      { id: nextVerifyEventId++, position: position, message: message },
     ]);
   }
 
@@ -138,15 +154,39 @@ export default function CertificateVerifier({
             {/*don't remove: this span is needed for a css trick to ensure scroll start at top */}
             <span />
             <div>
-              {verificationEvents.map((evt) => (
-                <div key={evt.id}>{evt.message}</div>
-              ))}
+              {verificationEvents
+                .filter((evt) => evt.position === eventPosition.beforeTable)
+                .map((evt) => (
+                  <div key={evt.id}>{evt.message}</div>
+                ))}
+              <Table className="my-2" responsive striped>
+                <thead>
+                  <tr>
+                    <th>Certificate hash</th>
+                    <th>Valid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {verificationEvents
+                    .filter((evt) => evt.position === eventPosition.inTable)
+                    .map((evt) => (
+                      <tr key={evt.id}>{evt.message}</tr>
+                    ))}
+                </tbody>
+              </Table>
+              {verificationEvents
+                .filter((evt) => evt.position === eventPosition.afterTable)
+                .map((evt) => (
+                  <div key={evt.id}>{evt.message}</div>
+                ))}
               {validationError !== undefined && (
-                <div>
-                  <i className="text-danger bi bi-x-circle-fill"></i> Invalid certificate chain:
-                  <br />
-                  {validationError.message}
-                </div>
+                <tr>
+                  <td colSpan={2}>
+                    <i className="text-danger bi bi-x-circle-fill"></i> Invalid certificate chain:
+                    <br />
+                    {validationError.message}
+                  </td>
+                </tr>
               )}
             </div>
           </div>
