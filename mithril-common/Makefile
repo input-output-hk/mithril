@@ -24,6 +24,9 @@ check:
 doc:
 	${CARGO} doc --no-deps --open --features full
 
+bench:
+	${CARGO} bench --features full --verbose
+
 # Compute the powerset of all the given features and save it to a file
 .feature-sets:
 	powerset() { [ $$# -eq 0 ] && echo || (shift; powerset "$$@") | while read r ; do echo "$$1 $$r"; echo "$$r"; done };\

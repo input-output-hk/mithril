@@ -15,6 +15,11 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [[bench]]
 name = "digester"
 harness = false
+required-features = ["full"]
+
+[[bench]]
+name = "merkle_tree"
+harness = false
 
 [dependencies]
 anyhow = "1.0.79"
