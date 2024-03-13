@@ -267,7 +267,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(CardanoTransactionParser::default());
+        let transaction_parser = Arc::new(CardanoTransactionParser::new(slog_scope::logger()));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));

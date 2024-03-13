@@ -746,7 +746,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
-        let transaction_parser = CardanoTransactionParser::default();
+        let transaction_parser = CardanoTransactionParser::new(self.get_logger().await?);
 
         Ok(Arc::new(transaction_parser))
     }
