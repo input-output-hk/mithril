@@ -194,9 +194,10 @@ export default function CertifyCardanoTransactionsModal({
                       <CertificateVerifier
                         client={client}
                         certificate={certificate}
-                        showSpinner={false}
                         onStepChange={(step) => setCertificateVerifierStep(step)}
                         onChainValidationError={() => setIsCertificateChainValid(false)}
+                        showCertificateLinks
+                        hideSpinner
                       />
                     )}
                   </Tab.Pane>

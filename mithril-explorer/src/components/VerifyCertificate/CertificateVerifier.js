@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Spinner, Table } from "react-bootstrap";
 import { formatProcessDuration } from "../../utils";
 import CopyableHash from "../CopyableHash";
+import CopyButton from "../CopyButton";
 import IconBadge from "../IconBadge";
 import LocalDateTime from "../LocalDateTime";
 
@@ -28,12 +29,32 @@ const eventPosition = {
   afterTable: 3,
 };
 
+function CertificateHash({ hash, onClick, showLink, linkVariant = "dark" }) {
+  function clicked(event) {
+    event.preventDefault();
+    onClick(hash);
+  }
+
+  return showLink ? (
+    <>
+      <a href="#" target="_blank" className={`link-${linkVariant}`} onClick={clicked}>
+        {hash}
+      </a>{" "}
+      <CopyButton textToCopy={hash} />
+    </>
+  ) : (
+    <CopyableHash hash={hash} />
+  );
+}
+
 export default function CertificateVerifier({
   client,
   certificate,
-  showSpinner = true,
+  hideSpinner = false,
+  showCertificateLinks = false,
   onStepChange = (step) => {},
   onChainValidationError = (error) => {},
+  onCertificateClick = (hash) => {},
 }) {
   const [currentStep, setCurrentStep] = useState(certificateValidationSteps.ready);
   const [validationError, setValidationError] = useState(undefined);
@@ -99,16 +120,7 @@ export default function CertificateVerifier({
         break;
       case certificateChainValidationEvents.certificateValidated:
         position = eventPosition.inTable;
-        message = (
-          <>
-            <td>
-              <CopyableHash hash={event.payload.certificate_hash} />
-            </td>
-            <td>
-              <IconBadge tooltip="Valid Certificate" variant="success" icon="mithril" />
-            </td>
-          </>
-        );
+        message = { certificateHash: event.payload.certificate_hash };
         break;
       case certificateChainValidationEvents.done:
         message = (
@@ -133,7 +145,15 @@ export default function CertificateVerifier({
       {Object.entries(certificate).length > 0 && (
         <div>
           <h4>Certificate Details</h4>
-          <div>Certificate hash: {certificate.hash}</div>
+          <div>
+            Certificate hash:{" "}
+            <CertificateHash
+              hash={certificate.hash}
+              onClick={() => onCertificateClick(certificate.hash)}
+              showLink={showCertificateLinks}
+              linkVariant="primary"
+            />
+          </div>
           <div>Epoch: {certificate.beacon.epoch}</div>
           <div className="d-flex justify-content-between">
             <div>
@@ -142,7 +162,7 @@ export default function CertificateVerifier({
             {currentStep === certificateValidationSteps.validationInProgress && (
               <div className="d-flex align-items-center">
                 <div className="ms-1 pe-1">Verifying the certificate chain...</div>
-                {showSpinner && <Spinner animation="border" variant="primary" />}
+                {!hideSpinner && <Spinner animation="border" variant="primary" />}
               </div>
             )}
             {currentStep === certificateValidationSteps.done && (
@@ -170,7 +190,18 @@ export default function CertificateVerifier({
                   {verificationEvents
                     .filter((evt) => evt.position === eventPosition.inTable)
                     .map((evt) => (
-                      <tr key={evt.id}>{evt.message}</tr>
+                      <tr key={evt.id}>
+                        <td>
+                          <CertificateHash
+                            hash={evt.message.certificateHash}
+                            onClick={() => onCertificateClick(evt.message.certificateHash)}
+                            showLink={showCertificateLinks}
+                          />
+                        </td>
+                        <td>
+                          <IconBadge tooltip="Valid Certificate" variant="success" icon="mithril" />
+                        </td>
+                      </tr>
                     ))}
                 </tbody>
               </Table>
