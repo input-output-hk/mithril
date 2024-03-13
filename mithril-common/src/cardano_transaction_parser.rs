@@ -88,21 +88,17 @@ struct Block {
 }
 
 impl Block {
-    fn try_convert(
-        multi_era_block: MultiEraBlock,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Self> {
+    fn convert(multi_era_block: MultiEraBlock, immutable_file_number: ImmutableFileNumber) -> Self {
         let mut transactions = Vec::new();
         for tx in &multi_era_block.txs() {
             transactions.push(tx.hash().to_string());
         }
-        let block = Block {
+
+        Block {
             block_number: multi_era_block.number(),
             immutable_file_number,
             transactions,
-        };
-
-        Ok(block)
+        }
     }
 }
 
@@ -170,12 +166,7 @@ impl CardanoTransactionParser {
             )
         })?;
 
-        Block::try_convert(multi_era_block, immutable_file.number).with_context(|| {
-            format!(
-                "CardanoTransactionParser could not read data from block in immutable file: {:?}",
-                immutable_file.path
-            )
-        })
+        Ok(Block::convert(multi_era_block, immutable_file.number))
     }
 
     fn cardano_blocks_reader(immutable_file: &ImmutableFile) -> StdResult<Reader> {
