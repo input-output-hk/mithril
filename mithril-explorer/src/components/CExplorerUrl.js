@@ -1,7 +1,7 @@
 import React from "react";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import Image from "next/image";
-import { CopyButton } from "./CopyButton";
+import CopyButton from "./CopyButton";
 
 export function CExplorerUrl({ text, url, textClass, showCopyButton = false }) {
   return (

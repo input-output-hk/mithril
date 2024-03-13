@@ -1,7 +1,7 @@
 import React from "react";
 import { Button, OverlayTrigger, Tooltip } from "react-bootstrap";
 
-export function CopyButton({ textToCopy }) {
+export default function CopyButton({ textToCopy }) {
   function copyToClipboard() {
     if (window.isSecureContext && textToCopy) {
       navigator.clipboard.writeText(textToCopy).then(() => {});
