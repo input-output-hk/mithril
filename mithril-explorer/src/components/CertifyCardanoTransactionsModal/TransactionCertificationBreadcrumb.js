@@ -4,13 +4,37 @@ import { validationSteps } from "./index";
 
 export default function TransactionCertificationBreadcrumb({
   currentStep,
-  isSuccess,
+  // Note: validity values are only relevant after their respective steps
+  isProofValid,
+  isCertificateChainValid,
   onStepClick = (step) => {},
 }) {
+  function variantForActiveStep(currentStep, step) {
+    if (currentStep < step) {
+      return "light";
+    } else if (step === currentStep) {
+      return "primary";
+    }
+
+    let altVariant = "";
+    switch (step) {
+      case validationSteps.fetchingProof:
+        altVariant = "light";
+        break;
+      case validationSteps.validatingProof:
+        altVariant = isProofValid ? "light" : "danger";
+        break;
+      case validationSteps.validatingCertificateChain:
+        altVariant = isProofValid && isCertificateChainValid ? "light" : "danger";
+        break;
+    }
+    return altVariant;
+  }
+
   function variantForDoneStep(currentStep) {
     let variant = "light";
     if (currentStep === validationSteps.done) {
-      variant = isSuccess ? "success" : "danger";
+      variant = isProofValid && isCertificateChainValid ? "success" : "danger";
     }
     return variant;
   }
@@ -37,8 +61,9 @@ export default function TransactionCertificationBreadcrumb({
           action
           key={step}
           eventKey={step}
+          disabled={step > validationSteps.validatingProof && !isProofValid}
           onClick={() => onStepClick(step)}
-          variant={currentStep === step ? "primary" : "light"}>
+          variant={variantForActiveStep(currentStep, step)}>
           {text} {currentStep === step && <Spinner size="sm" />}
         </ListGroup.Item>
       ))}

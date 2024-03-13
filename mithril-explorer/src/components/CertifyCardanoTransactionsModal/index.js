@@ -39,6 +39,7 @@ export default function CertifyCardanoTransactionsModal({
   useEffect(() => {
     setShowLoadingWarning(false);
     setIsProofValid(false);
+    setIsCertificateChainValid(true);
     setCertificate(undefined);
     setCurrentStep(validationSteps.ready);
 
@@ -167,7 +168,8 @@ export default function CertifyCardanoTransactionsModal({
               <Col>
                 <TransactionCertificationBreadcrumb
                   currentStep={currentStep}
-                  isSuccess={isProofValid}
+                  isProofValid={isProofValid}
+                  isCertificateChainValid={isCertificateChainValid}
                   onStepClick={handleStepClick}
                 />
                 {showLoadingWarning && (
