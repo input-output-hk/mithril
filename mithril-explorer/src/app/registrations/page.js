@@ -192,23 +192,27 @@ export default function Registrations() {
         </Table>
       </Row>
       <Row>
-        <div>
-          {Number.isInteger(registrationEpoch) && (
-            <ButtonGroup>
-              <LinkButton href={navigateToPreviousUrl}>
-                Previous Epoch ({registrationEpoch - 1})
-              </LinkButton>
+        {Number.isInteger(registrationEpoch) && (
+          <>
+            <Col xs={12} sm={12} md={3} lg={2} className="d-grid mb-1">
               <LinkButton
                 href={navigateToCurrentUrl}
                 disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
-                Current Epoch ({currentEpoch})
+                Current Cardano Epoch ({currentEpoch})
               </LinkButton>
-              <LinkButton href={navigateToNextUrl} disabled={currentEpoch <= registrationEpoch}>
-                Next Epoch ({registrationEpoch + 1})
-              </LinkButton>
-            </ButtonGroup>
-          )}
-        </div>
+            </Col>
+            <Col xs={12} sm={12} md={6} lg={4} className="d-grid mb-1">
+              <ButtonGroup>
+                <LinkButton href={navigateToPreviousUrl}>
+                  Previous Registration Epoch ({registrationEpoch - 1})
+                </LinkButton>
+                <LinkButton href={navigateToNextUrl} disabled={currentEpoch <= registrationEpoch}>
+                  Next Registration Epoch ({registrationEpoch + 1})
+                </LinkButton>
+              </ButtonGroup>
+            </Col>
+          </>
+        )}
       </Row>
       {isLoading ? (
         <Spinner animation="grow" />
