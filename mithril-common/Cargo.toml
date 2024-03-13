@@ -21,6 +21,10 @@ required-features = ["full"]
 name = "merkle_tree"
 harness = false
 
+[[bench]]
+name = "merkle_map"
+harness = false
+
 [dependencies]
 anyhow = "1.0.79"
 async-trait = "0.1.77"

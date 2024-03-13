@@ -233,10 +233,19 @@ where
     /// Important: keys must be inserted in order to guarantee
     /// that the same set of key/values results in the same computation for the root.
     pub fn insert(&mut self, key: K, value: MKHashMapNode<K>) -> StdResult<()> {
-        let key_max = self.inner_map_values.keys().max();
-        if key_max > Some(&key) {
-            return Err(anyhow!("MKHashMap keys must be inserted in order"));
+        if let Some(existing_value) = self.inner_map_values.get(&key) {
+            if existing_value.compute_root()? != value.compute_root()? {
+                return Err(anyhow!(
+                    "MKHashMap values should be replaced by entry with same root"
+                ));
+            }
+        } else {
+            let key_max = self.inner_map_values.keys().max();
+            if key_max > Some(&key) {
+                return Err(anyhow!("MKHashMap keys must be inserted in order"));
+            }
         }
+
         self.inner_map_values.insert(key.clone(), value.clone());
         let mktree_node_value: MKTreeNode = value.try_into()?;
         let mktree_node_key: MKTreeNode = key.into();
@@ -250,6 +259,11 @@ where
     // TODO: optimize search ? maybe inverted sort ? Maybe filter the leaves to search in the corresponding entries ?
     pub fn contains(&self, leaf: &MKTreeNode) -> Option<(&K, &MKHashMapNode<K>)> {
         self.inner_map_values.iter().find(|(_, v)| v.contains(leaf))
+    }
+
+    /// Get the value of the merkelized hash map
+    pub fn get(&self, key: &K) -> Option<&MKHashMapNode<K>> {
+        self.inner_map_values.get(key)
     }
 
     /// Get an iterator for the key and values of the merkelized hash map
@@ -431,6 +445,43 @@ mod tests {
 
         assert_eq!(mk_hash_map_full_root, mk_hash_map_nodes_root);
         assert_eq!(mk_hash_map_full_root, mk_hash_map_proofs_root);
+    }
+
+    #[test]
+    fn test_mk_hash_map_should_accept_replacement_with_same_root_value() {
+        let entries = generate_merkle_trees(1000, 10);
+        let merkle_tree_entries = &entries
+            .into_iter()
+            .map(|(range, mktree)| (range.to_owned(), mktree.into()))
+            .collect::<Vec<_>>();
+        let mut mk_hash_map = MKHashMap::new(merkle_tree_entries.as_slice()).unwrap();
+        let block_range_replacement = BlockRange::new(0, 10);
+        let same_root_value = MKHashMapNode::TreeNode(
+            mk_hash_map
+                .get(&block_range_replacement)
+                .unwrap()
+                .compute_root()
+                .unwrap(),
+        );
+        mk_hash_map
+            .insert(block_range_replacement, same_root_value)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_mk_hash_map_should_reject_replacement_with_different_root_value() {
+        let entries = generate_merkle_trees(1000, 10);
+        let merkle_tree_entries = &entries
+            .into_iter()
+            .map(|(range, mktree)| (range.to_owned(), mktree.into()))
+            .collect::<Vec<_>>();
+        let mut mk_hash_map = MKHashMap::new(merkle_tree_entries.as_slice()).unwrap();
+        let block_range_replacement = BlockRange::new(0, 10);
+        let value_replacement: MKTreeNode = "test-123".to_string().into();
+        let different_root_value = MKHashMapNode::TreeNode(value_replacement);
+        mk_hash_map
+            .insert(block_range_replacement, different_root_value)
+            .expect_err("the MKHashMap should reject replacement with different root value");
     }
 
     #[test]
