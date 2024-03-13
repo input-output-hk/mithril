@@ -32,6 +32,7 @@ export default function CertifyCardanoTransactionsModal({
   const [transactionsProofs, setTransactionsProofs] = useState({});
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [isProofValid, setIsProofValid] = useState(false);
+  const [isCertificateChainValid, setIsCertificateChainValid] = useState(true);
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
   const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
 
@@ -193,13 +194,14 @@ export default function CertifyCardanoTransactionsModal({
                         certificate={certificate}
                         showSpinner={false}
                         onStepChange={(step) => setCertificateVerifierStep(step)}
+                        onChainValidationError={() => setIsCertificateChainValid(false)}
                       />
                     )}
                   </Tab.Pane>
                   <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
                     {currentStep === validationSteps.done && (
                       <TransactionCertificationResult
-                        isSuccess={isProofValid}
+                        isSuccess={isProofValid && isCertificateChainValid}
                         certificate={certificate}
                         certifiedTransactions={transactionsProofs.transactions_hashes}
                         nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
