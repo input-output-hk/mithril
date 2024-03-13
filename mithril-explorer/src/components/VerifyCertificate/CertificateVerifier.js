@@ -183,7 +183,7 @@ export default function CertificateVerifier({
                 <thead>
                   <tr>
                     <th>Certificate hash</th>
-                    <th>Valid</th>
+                    <th>Checked</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -199,7 +199,7 @@ export default function CertificateVerifier({
                           />
                         </td>
                         <td>
-                          <IconBadge tooltip="Valid Certificate" variant="success" icon="mithril" />
+                          <IconBadge tooltip="yes" variant="success" icon="check-circle-fill" />
                         </td>
                       </tr>
                     ))}
