@@ -10,6 +10,7 @@ import TransactionCertificationBreadcrumb from "./TransactionCertificationBreadc
 import TransactionCertificationResult from "./TransactionCertificationResult";
 import FetchingProofPane from "./FetchingProofPane";
 import ValidatingProofPane from "./ValidatingProofPane";
+import CertificateModal from "../CertificateModal";
 
 export const validationSteps = {
   ready: 1,
@@ -26,6 +27,7 @@ export default function CertifyCardanoTransactionsModal({
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [client, setClient] = useState(undefined);
   const [certificate, setCertificate] = useState(undefined);
+  const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const [certificateVerifierStep, setCertificateVerifierStep] = useState(
     certificateValidationSteps.ready,
   );
@@ -140,6 +142,13 @@ export default function CertifyCardanoTransactionsModal({
     }
   }
 
+  function handleCertificateClick(hash) {
+    // Only allow to open the submodal when the work is done
+    if (currentStep === validationSteps.done) {
+      setSelectedCertificateHash(hash);
+    }
+  }
+
   function closeIfNotRunning() {
     if (currentStep !== validationSteps.done) {
       setShowLoadingWarning(true);
@@ -180,7 +189,9 @@ export default function CertifyCardanoTransactionsModal({
                 )}
               </Col>
             </Row>
-            <Row>
+            {/*Little hack: hide the modal content if the certificate modal is shown so this modal content*/}
+            {/*never overflow behind the certificate modal.*/}
+            <Row className={selectedCertificateHash ? "d-none" : ""}>
               <Col>
                 <Tab.Content>
                   <Tab.Pane eventKey={getTabForStep(validationSteps.fetchingProof)}>
@@ -196,6 +207,7 @@ export default function CertifyCardanoTransactionsModal({
                         certificate={certificate}
                         onStepChange={(step) => setCertificateVerifierStep(step)}
                         onChainValidationError={() => setIsCertificateChainValid(false)}
+                        onCertificateClick={handleCertificateClick}
                         showCertificateLinks
                         hideSpinner
                       />
@@ -218,6 +230,12 @@ export default function CertifyCardanoTransactionsModal({
         )}
       </Modal.Body>
       <Modal.Footer></Modal.Footer>
+
+      <CertificateModal
+        hash={selectedCertificateHash}
+        onHashChange={(hash) => setSelectedCertificateHash(hash)}
+        hideButtons
+      />
     </Modal>
   );
 }
