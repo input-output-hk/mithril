@@ -2,7 +2,7 @@ use std::path::Path;
 
 use crate::{
     digesters::{ImmutableDigester, ImmutableDigesterError},
-    entities::Beacon,
+    entities::CardanoDbBeacon,
 };
 use async_trait::async_trait;
 use tokio::sync::RwLock;
@@ -39,7 +39,7 @@ impl ImmutableDigester for DumbImmutableDigester {
     async fn compute_digest(
         &self,
         dirpath: &Path,
-        beacon: &Beacon,
+        beacon: &CardanoDbBeacon,
     ) -> Result<String, ImmutableDigesterError> {
         if self.is_success {
             Ok(self.digest.read().await.clone())

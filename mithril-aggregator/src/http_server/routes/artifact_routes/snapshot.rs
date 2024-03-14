@@ -228,7 +228,7 @@ mod tests {
         services::{MockMessageService, MockSignedEntityService},
     };
     use mithril_common::{
-        entities::{Beacon, SignedEntityType},
+        entities::{CardanoDbBeacon, SignedEntityType},
         messages::ToMessageAdapter,
         test_utils::{apispec::APISpec, fake_data},
     };
@@ -257,7 +257,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshots_get_ok() {
         let signed_entities = create_signed_entities(
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
             fake_data::snapshots(5),
         );
         let message = ToSnapshotListMessageAdapter::adapt(signed_entities);
@@ -324,7 +324,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_digest_get_ok() {
         let signed_entity = create_signed_entities(
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
             fake_data::snapshots(1),
         )
         .first()
@@ -425,7 +425,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_local_download_returns_302_found_when_the_snapshot_exists() {
         let signed_entity = create_signed_entities(
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
             fake_data::snapshots(1),
         )
         .first()

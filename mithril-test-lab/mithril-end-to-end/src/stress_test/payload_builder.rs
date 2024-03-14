@@ -4,7 +4,7 @@ use anyhow::Context;
 use mithril_common::{
     digesters::{CardanoImmutableDigester, DummyImmutableDb, ImmutableDigester},
     entities::{
-        Beacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+        CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
         SignedEntityType, Signer, SingleSignatures,
     },
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
@@ -99,10 +99,10 @@ pub async fn compute_immutable_files_signatures(
     epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
-) -> StdResult<(Beacon, Vec<SingleSignatures>)> {
+) -> StdResult<(CardanoDbBeacon, Vec<SingleSignatures>)> {
     spin_while_waiting!(
         {
-            let beacon = Beacon::new(
+            let beacon = CardanoDbBeacon::new(
                 "devnet".to_string(),
                 *epoch,
                 // Minus one because the last immutable isn't "finished"

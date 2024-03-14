@@ -352,7 +352,7 @@ mod tests {
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
-        entities::{Beacon, Epoch},
+        entities::{CardanoDbBeacon, Epoch},
         era::adapters::EraReaderAdapterType,
     };
 
@@ -394,7 +394,7 @@ mod tests {
         assert!(!stores_dir.exists());
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |_config| {
-                Ok(Arc::new(FakeObserver::new(Some(Beacon {
+                Ok(Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
                     epoch: Epoch(1),
                     immutable_file_number: 1,
                     network: "devnet".to_string(),

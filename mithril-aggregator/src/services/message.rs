@@ -194,7 +194,7 @@ mod tests {
 
     use mithril_common::{
         entities::{
-            Beacon, CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntity,
+            CardanoDbBeacon, CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntity,
             SignedEntityType, Snapshot,
         },
         messages::ToMessageAdapter,
@@ -234,9 +234,9 @@ mod tests {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
         let service = dep_builder.get_message_service().await.unwrap();
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let genesis_beacon = Beacon {
+        let genesis_beacon = CardanoDbBeacon {
             epoch: beacon.epoch - 1,
             ..beacon.clone()
         };
@@ -263,9 +263,9 @@ mod tests {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
         let service = dep_builder.get_message_service().await.unwrap();
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let genesis_beacon = Beacon {
+        let genesis_beacon = CardanoDbBeacon {
             epoch: beacon.epoch - 1,
             ..beacon.clone()
         };

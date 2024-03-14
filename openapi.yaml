@@ -626,8 +626,8 @@ components:
           format: double
       example: { "k": 857, "m": 6172, "phi_f": 0.2 }
 
-    Beacon:
-      description: Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
+    CardanoDbBeacon:
+      description: A point in the Cardano chain at which a Mithril certificate of the Cardano Database should be produced
       type: object
       additionalProperties: true
       required:
@@ -667,7 +667,7 @@ components:
         - next_signers
       properties:
         beacon:
-          $ref: "#/components/schemas/Beacon"
+          $ref: "#/components/schemas/CardanoDbBeacon"
         entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         protocol:
@@ -1094,7 +1094,7 @@ components:
           type: string
           format: bytes
         beacon:
-          $ref: "#/components/schemas/Beacon"
+          $ref: "#/components/schemas/CardanoDbBeacon"
         metadata:
           $ref: "#/components/schemas/CertificateListItemMessageMetadata"
         protocol_message:
@@ -1210,7 +1210,7 @@ components:
           type: string
           format: bytes
         beacon:
-          $ref: "#/components/schemas/Beacon"
+          $ref: "#/components/schemas/CardanoDbBeacon"
         metadata:
           $ref: "#/components/schemas/CertificateMetadata"
         protocol_message:
@@ -1326,7 +1326,7 @@ components:
           type: string
           format: bytes
         beacon:
-          $ref: "#/components/schemas/Beacon"
+          $ref: "#/components/schemas/CardanoDbBeacon"
         certificate_hash:
           description: Hash of the associated certificate
           type: string
@@ -1417,7 +1417,7 @@ components:
           type: string
           format: bytes
         beacon:
-          $ref: "#/components/schemas/Beacon"
+          $ref: "#/components/schemas/CardanoDbBeacon"
         size:
           description: Size of the snapshot file in Bytes
           type: integer
@@ -1573,7 +1573,7 @@ components:
             type: string
             format: bytes
           beacon:
-            $ref: "#/components/schemas/Beacon"
+            $ref: "#/components/schemas/CardanoDbBeacon"
           created_at:
             description: Date and time at which the Cardano transactions set was created
             type: string
@@ -1616,7 +1616,7 @@ components:
           type: string
           format: bytes
         beacon:
-          $ref: "#/components/schemas/Beacon"
+          $ref: "#/components/schemas/CardanoDbBeacon"
         created_at:
           description: Date and time at which the Cardano transactions set was created
           type: string

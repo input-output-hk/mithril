@@ -2,7 +2,7 @@ mod test_extensions;
 
 use mithril_aggregator::Configuration;
 use mithril_common::{
-    entities::{Beacon, ProtocolParameters},
+    entities::{CardanoDbBeacon, ProtocolParameters},
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
@@ -20,7 +20,7 @@ async fn genesis_to_signing() {
         ..Configuration::new_sample()
     };
     let mut tester =
-        RuntimeTester::build(Beacon::new("net".to_string(), 1, 1), configuration).await;
+        RuntimeTester::build(CardanoDbBeacon::new("net".to_string(), 1, 1), configuration).await;
 
     comment!("Create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
@@ -37,7 +37,7 @@ async fn genesis_to_signing() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new_genesis(
-            Beacon::new("devnet".to_string(), 1, 1),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
             fixture.compute_and_encode_avk()
         )
     );

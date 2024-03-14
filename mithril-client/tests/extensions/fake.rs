@@ -199,7 +199,7 @@ mod file {
     use super::*;
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
     use mithril_common::digesters::DummyImmutableDb;
-    use mithril_common::entities::{Beacon, CompressionAlgorithm};
+    use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm};
     use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
     use std::path::{Path, PathBuf};
@@ -215,7 +215,7 @@ mod file {
             immutable_db: &DummyImmutableDb,
             work_dir: &Path,
         ) -> TestHttpServer {
-            let beacon = Beacon {
+            let beacon = CardanoDbBeacon {
                 immutable_file_number: immutable_db.last_immutable_number().unwrap(),
                 ..fake_data::beacon()
             };

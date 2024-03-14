@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use mithril_common::{
     chain_observer::ChainObserver,
     digesters::ImmutableFileObserver,
-    entities::{Beacon, Epoch},
+    entities::{CardanoDbBeacon, Epoch},
     CardanoNetwork, StdResult,
 };
 use thiserror::Error;
@@ -28,7 +28,7 @@ pub trait TickerService: Send + Sync {
     async fn get_current_epoch(&self) -> StdResult<Epoch>;
 
     /// Return the current Beacon used for CardanoImmutableFileDigest message type.
-    async fn get_current_immutable_beacon(&self) -> StdResult<Beacon>;
+    async fn get_current_immutable_beacon(&self) -> StdResult<CardanoDbBeacon>;
 }
 
 /// ## MithrilTickerService
@@ -69,7 +69,7 @@ impl TickerService for MithrilTickerService {
         Ok(epoch)
     }
 
-    async fn get_current_immutable_beacon(&self) -> StdResult<Beacon> {
+    async fn get_current_immutable_beacon(&self) -> StdResult<CardanoDbBeacon> {
         let epoch = self.get_current_epoch().await?;
         let immutable_file_number = self
             .immutable_observer
@@ -81,7 +81,7 @@ impl TickerService for MithrilTickerService {
                 )
             })?;
 
-        Ok(Beacon::new(
+        Ok(CardanoDbBeacon::new(
             self.network.to_string(),
             *epoch,
             immutable_file_number,
@@ -127,7 +127,7 @@ mod tests {
         let beacon = ticker_service.get_current_immutable_beacon().await.unwrap();
 
         assert_eq!(
-            Beacon {
+            CardanoDbBeacon {
                 epoch: Epoch(10),
                 immutable_file_number: 99,
                 network: "devnet".to_string()

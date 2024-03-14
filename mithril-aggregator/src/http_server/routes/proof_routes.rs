@@ -116,12 +116,14 @@ mod tests {
     use super::*;
     use std::vec;
 
-    use mithril_common::{entities::Beacon, test_utils::apispec::APISpec};
+    use mithril_common::{
+        entities::{
+            CardanoDbBeacon, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
+        },
+        test_utils::apispec::APISpec,
+    };
 
     use anyhow::anyhow;
-    use mithril_common::entities::{
-        CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
-    };
     use serde_json::Value::Null;
     use warp::{
         http::{Method, StatusCode},
@@ -157,9 +159,9 @@ mod tests {
 
         let cardano_transactions_snapshot = {
             let merkle_root = String::new();
-            let beacon = Beacon {
+            let beacon = CardanoDbBeacon {
                 immutable_file_number: 2309,
-                ..Beacon::default()
+                ..CardanoDbBeacon::default()
             };
             CardanoTransactionsSnapshot::new(merkle_root, beacon)
         };

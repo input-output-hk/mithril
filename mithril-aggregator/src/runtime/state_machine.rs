@@ -4,7 +4,7 @@ use crate::{
 };
 
 use anyhow::Context;
-use mithril_common::entities::{Beacon, SignedEntityType};
+use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -12,17 +12,17 @@ use tokio::time::{sleep, Duration};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
-    current_beacon: Option<Beacon>,
+    current_beacon: Option<CardanoDbBeacon>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReadyState {
-    current_beacon: Beacon,
+    current_beacon: CardanoDbBeacon,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
-    current_beacon: Beacon,
+    current_beacon: CardanoDbBeacon,
     open_message: OpenMessage,
 }
 
@@ -180,7 +180,7 @@ impl AggregatorRuntime {
                 });
             }
             AggregatorState::Ready(state) => {
-                let chain_beacon: Beacon =
+                let chain_beacon: CardanoDbBeacon =
                     self.runner.get_beacon_from_chain().await.with_context(|| {
                         "AggregatorRuntime in the state READY can not get current beacon from chain"
                     })?;
@@ -220,7 +220,7 @@ impl AggregatorRuntime {
                 }
             }
             AggregatorState::Signing(state) => {
-                let chain_beacon: Beacon =
+                let chain_beacon: CardanoDbBeacon =
                     self.runner.get_beacon_from_chain().await.with_context(|| {
                         "AggregatorRuntime in the state SIGNING can not get current beacon from chain"
                     })?;
@@ -272,8 +272,8 @@ impl AggregatorRuntime {
     /// the certificate chain is valid.
     async fn try_transition_from_idle_to_ready(
         &mut self,
-        maybe_current_beacon: Option<Beacon>,
-        new_beacon: Beacon,
+        maybe_current_beacon: Option<CardanoDbBeacon>,
+        new_beacon: CardanoDbBeacon,
     ) -> Result<(), RuntimeError> {
         trace!("trying transition from IDLE to READY state");
 
@@ -373,7 +373,7 @@ impl AggregatorRuntime {
     /// beacon is detected.
     async fn transition_from_ready_to_signing(
         &mut self,
-        new_beacon: Beacon,
+        new_beacon: CardanoDbBeacon,
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
@@ -536,7 +536,7 @@ mod tests {
     pub async fn ready_new_epoch_detected() {
         let mut runner = MockAggregatorRunner::new();
         let beacon = fake_data::beacon();
-        let new_beacon = Beacon {
+        let new_beacon = CardanoDbBeacon {
             epoch: beacon.epoch + 1,
             ..beacon.clone()
         };
@@ -560,7 +560,7 @@ mod tests {
     pub async fn ready_open_message_not_exist() {
         let mut runner = MockAggregatorRunner::new();
         let beacon = fake_data::beacon();
-        let next_beacon = Beacon {
+        let next_beacon = CardanoDbBeacon {
             immutable_file_number: beacon.immutable_file_number + 1,
             ..beacon.clone()
         };

@@ -315,7 +315,7 @@ mod tests {
     #[cfg(feature = "fs")]
     mod fs_only {
         use crate::cardano_transaction_parser::DumbTransactionParser;
-        use crate::entities::{Beacon, CardanoTransaction};
+        use crate::entities::{CardanoDbBeacon, CardanoTransaction};
         use crate::signable_builder::{
             CardanoTransactionsSignableBuilder, MockTransactionStore, SignableBuilder,
         };
@@ -390,9 +390,9 @@ mod tests {
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
-                .compute_protocol_message(Beacon {
+                .compute_protocol_message(CardanoDbBeacon {
                     immutable_file_number,
-                    ..Beacon::default()
+                    ..CardanoDbBeacon::default()
                 })
                 .await
                 .unwrap()

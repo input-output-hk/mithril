@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    Beacon, CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
+    CardanoDbBeacon, CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
     SignedEntityType, SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
@@ -285,7 +285,7 @@ impl Configuration {
     /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
     pub fn list_allowed_signed_entity_types(
         &self,
-        beacon: &Beacon,
+        beacon: &CardanoDbBeacon,
     ) -> StdResult<Vec<SignedEntityType>> {
         let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
         let signed_entity_types = allowed_discriminants

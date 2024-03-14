@@ -1,7 +1,7 @@
 mod test_extensions;
 use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
-    entities::{Beacon, Epoch, ProtocolParameters},
+    entities::{CardanoDbBeacon, Epoch, ProtocolParameters},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
@@ -24,7 +24,7 @@ async fn testing_eras() {
         ..Configuration::new_sample()
     };
     let mut tester =
-        RuntimeTester::build(Beacon::new("net".to_string(), 1, 1), configuration).await;
+        RuntimeTester::build(CardanoDbBeacon::new("net".to_string(), 1, 1), configuration).await;
     tester.era_reader_adapter.set_markers(vec![
         EraMarker::new("unsupported", Some(Epoch(0))),
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),

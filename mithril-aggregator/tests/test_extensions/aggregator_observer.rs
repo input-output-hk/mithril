@@ -5,7 +5,7 @@ use mithril_aggregator::{
     services::{CertifierService, TickerService},
 };
 use mithril_common::{
-    entities::{Beacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants},
+    entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants},
     BeaconProvider, StdResult,
 };
 use std::sync::Arc;
@@ -32,8 +32,8 @@ impl AggregatorObserver {
         self.ticker_service.get_current_epoch().await.unwrap()
     }
 
-    /// Get the current [Beacon] known to the aggregator
-    pub async fn current_beacon(&self) -> Beacon {
+    /// Get the current [CardanoDbBeacon] known to the aggregator
+    pub async fn current_beacon(&self) -> CardanoDbBeacon {
         self.ticker_service
             .get_current_immutable_beacon()
             .await

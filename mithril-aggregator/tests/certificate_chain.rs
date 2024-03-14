@@ -3,8 +3,8 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
-        StakeDistribution, StakeDistributionParty,
+        CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -23,7 +23,7 @@ async fn certificate_chain() {
         ..Configuration::new_sample()
     };
     let mut tester =
-        RuntimeTester::build(Beacon::new("net".to_string(), 1, 1), configuration).await;
+        RuntimeTester::build(CardanoDbBeacon::new("net".to_string(), 1, 1), configuration).await;
     let observer = tester.observer.clone();
 
     comment!("Create signers & declare stake distribution");
@@ -47,7 +47,7 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new_genesis(
-            Beacon::new("devnet".to_string(), 1, 1),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
             initial_fixture.compute_and_encode_avk()
         )
     );
@@ -73,11 +73,15 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 1, 2),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 2),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
         )
     );
 
@@ -96,11 +100,19 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 1, 3),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 3),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 3)),
-            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                3
+            )),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
         )
     );
 
@@ -121,11 +133,19 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 1, 4),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 4),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 4)),
-            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                4
+            )),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
         )
     );
 
@@ -185,11 +205,15 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 2, 4),
+            CardanoDbBeacon::new("devnet".to_string(), 2, 4),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(2)),
-            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
         )
     );
 
@@ -216,7 +240,7 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 3, 5),
+            CardanoDbBeacon::new("devnet".to_string(), 3, 5),
             StakeDistributionParty::from_signers(initial_fixture.signers_with_stake()).as_slice(),
             initial_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(3)),
@@ -247,7 +271,7 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 4, 6),
+            CardanoDbBeacon::new("devnet".to_string(), 4, 6),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(4)),
@@ -278,10 +302,14 @@ async fn certificate_chain() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 4, 7),
+            CardanoDbBeacon::new("devnet".to_string(), 4, 7),
             StakeDistributionParty::from_signers(next_fixture.signers_with_stake()).as_slice(),
             next_fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 4, 7)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                "devnet".to_string(),
+                4,
+                7
+            )),
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
         )
     );

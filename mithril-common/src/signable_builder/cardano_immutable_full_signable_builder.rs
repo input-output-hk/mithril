@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     digesters::ImmutableDigester,
-    entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey},
+    entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -36,8 +36,11 @@ impl CardanoImmutableFilesFullSignableBuilder {
 }
 
 #[async_trait]
-impl SignableBuilder<Beacon> for CardanoImmutableFilesFullSignableBuilder {
-    async fn compute_protocol_message(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
+impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuilder {
+    async fn compute_protocol_message(
+        &self,
+        beacon: CardanoDbBeacon,
+    ) -> StdResult<ProtocolMessage> {
         debug!(self.logger, "SignableBuilder::compute_signable({beacon:?})");
         let digest = self
             .immutable_digester
@@ -64,7 +67,7 @@ mod tests {
     use super::*;
 
     use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
-    use crate::entities::Beacon;
+    use crate::entities::CardanoDbBeacon;
     use async_trait::async_trait;
     use slog::Drain;
 
@@ -76,7 +79,7 @@ mod tests {
         async fn compute_digest(
             &self,
             _dirpath: &Path,
-            beacon: &Beacon,
+            beacon: &CardanoDbBeacon,
         ) -> Result<String, ImmutableDigesterError> {
             Ok(format!("immutable {}", beacon.immutable_file_number))
         }
@@ -97,7 +100,7 @@ mod tests {
             create_logger(),
         );
         let protocol_message = signable_builder
-            .compute_protocol_message(Beacon::default())
+            .compute_protocol_message(CardanoDbBeacon::default())
             .await
             .unwrap();
 

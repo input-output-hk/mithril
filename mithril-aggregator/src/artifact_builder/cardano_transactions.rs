@@ -4,7 +4,8 @@ use super::ArtifactBuilder;
 use anyhow::{anyhow, Context};
 use mithril_common::{
     entities::{
-        Beacon, CardanoTransactionsSnapshot, Certificate, ProtocolMessagePartKey, SignedEntityType,
+        CardanoDbBeacon, CardanoTransactionsSnapshot, Certificate, ProtocolMessagePartKey,
+        SignedEntityType,
     },
     StdResult,
 };
@@ -20,10 +21,12 @@ impl CardanoTransactionsArtifactBuilder {
 }
 
 #[async_trait]
-impl ArtifactBuilder<Beacon, CardanoTransactionsSnapshot> for CardanoTransactionsArtifactBuilder {
+impl ArtifactBuilder<CardanoDbBeacon, CardanoTransactionsSnapshot>
+    for CardanoTransactionsArtifactBuilder
+{
     async fn compute_artifact(
         &self,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         certificate: &Certificate,
     ) -> StdResult<CardanoTransactionsSnapshot> {
         let merkle_root = certificate
@@ -89,7 +92,7 @@ mod tests {
 
         let cardano_transaction_artifact_builder = CardanoTransactionsArtifactBuilder::new();
         cardano_transaction_artifact_builder
-            .compute_artifact(Beacon::default(), &certificate)
+            .compute_artifact(CardanoDbBeacon::default(), &certificate)
             .await
             .expect_err("The artifact building must fail since there is no CardanoTransactionsMerkleRoot part in its message.");
     }

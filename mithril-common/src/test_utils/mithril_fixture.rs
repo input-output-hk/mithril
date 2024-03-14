@@ -14,7 +14,7 @@ use crate::{
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
-        Beacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
+        CardanoDbBeacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
         ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
         StakeDistributionParty,
     },
@@ -170,7 +170,7 @@ impl MithrilFixture {
     }
 
     /// Create a genesis certificate using the fixture signers for the given beacon
-    pub fn create_genesis_certificate(&self, beacon: &Beacon) -> Certificate {
+    pub fn create_genesis_certificate(&self, beacon: &CardanoDbBeacon) -> Certificate {
         let genesis_avk = self.compute_avk();
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));

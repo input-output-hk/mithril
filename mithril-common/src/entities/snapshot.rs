@@ -1,4 +1,4 @@
-use crate::{entities::Beacon, signable_builder::Artifact};
+use crate::{entities::CardanoDbBeacon, signable_builder::Artifact};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
@@ -10,7 +10,7 @@ pub struct Snapshot {
     pub digest: String,
 
     /// Mithril beacon on the Cardano chain
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Size of the snapshot file in Bytes
     pub size: u64,
@@ -66,7 +66,7 @@ impl Snapshot {
     /// Snapshot factory
     pub fn new(
         digest: String,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         size: u64,
         locations: Vec<String>,
         compression_algorithm: CompressionAlgorithm,

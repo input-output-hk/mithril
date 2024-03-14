@@ -6,18 +6,18 @@ use thiserror::Error;
 
 use crate::StdResult;
 use crate::{
-    chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::Beacon,
+    chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::CardanoDbBeacon,
     CardanoNetwork,
 };
 
-/// Provide the current [Beacon] of a cardano node.
+/// Provide the current [CardanoDbBeacon] of a cardano node.
 #[async_trait]
 pub trait BeaconProvider
 where
     Self: Sync + Send,
 {
-    /// Get the current [Beacon] of the cardano node.
-    async fn get_current_beacon(&self) -> StdResult<Beacon>;
+    /// Get the current [CardanoDbBeacon] of the cardano node.
+    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
 }
 
 /// [BeaconProvider] related errors.
@@ -52,7 +52,7 @@ impl BeaconProviderImpl {
 
 #[async_trait]
 impl BeaconProvider for BeaconProviderImpl {
-    async fn get_current_beacon(&self) -> StdResult<Beacon> {
+    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon> {
         let epoch = self
             .chain_observer
             .get_current_epoch()
@@ -71,7 +71,7 @@ impl BeaconProvider for BeaconProviderImpl {
                 )
             })?;
 
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             network: self.network.to_string(),
             epoch,
             immutable_file_number,

@@ -194,7 +194,7 @@ mod test {
     use anyhow::Context;
     use mithril_common::{
         entities::{
-            Beacon, Certificate, Epoch, ImmutableFileNumber,
+            CardanoDbBeacon, Certificate, Epoch, ImmutableFileNumber,
             SignedEntityType::{
                 CardanoImmutableFilesFull, CardanoStakeDistribution, CardanoTransactions,
                 MithrilStakeDistribution,
@@ -230,7 +230,7 @@ mod test {
     ) -> Certificate {
         let certificate = CertificateRecord::dummy_genesis(
             certificate_hash,
-            Beacon::new("testnet".to_string(), epoch, immutable_file_number),
+            CardanoDbBeacon::new("testnet".to_string(), epoch, immutable_file_number),
         );
 
         certificate.into()
@@ -245,7 +245,7 @@ mod test {
         let certificate = CertificateRecord::dummy(
             certificate_hash,
             previous_hash,
-            Beacon::new("testnet".to_string(), epoch, immutable_file_number),
+            CardanoDbBeacon::new("testnet".to_string(), epoch, immutable_file_number),
         );
 
         certificate.into()

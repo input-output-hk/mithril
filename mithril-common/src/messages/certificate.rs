@@ -5,7 +5,7 @@ use std::fmt::{Debug, Formatter};
 #[cfg(any(test, feature = "test_tools"))]
 use crate::entities::ProtocolMessagePartKey;
 use crate::entities::{
-    Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
+    CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
 };
 use crate::messages::CertificateMetadataMessagePart;
 
@@ -29,7 +29,7 @@ pub struct CertificateMessage {
 
     /// Mithril beacon on the Cardano chain
     /// aka BEACON(p,n)
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -73,7 +73,7 @@ impl CertificateMessage {
             Self {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
-                beacon: Beacon::new("testnet".to_string(), 10, 100),
+                beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
@@ -233,7 +233,7 @@ mod tests {
         CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: Beacon::new("testnet".to_string(), 10, 100),
+            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
             metadata: CertificateMetadataMessagePart {
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),

@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{Beacon, ProtocolParameters, SignedEntityType};
+use crate::entities::{CardanoDbBeacon, ProtocolParameters, SignedEntityType};
 use crate::messages::SignerMessagePart;
 
 /// Structure to transport [crate::entities::CertificatePending] data.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificatePendingMessage {
     /// Current Beacon
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Signed entity type
     #[serde(rename = "entity_type")]
@@ -33,7 +33,7 @@ impl CertificatePendingMessage {
         /// Provide a dummy instance for test.
         pub fn dummy() -> Self {
             Self {
-                beacon: Beacon::default(),
+                beacon: CardanoDbBeacon::default(),
                 signed_entity_type: SignedEntityType::dummy(),
                 protocol_parameters: ProtocolParameters {
                     k: 5,
@@ -59,7 +59,7 @@ mod tests {
     use super::*;
 
     fn golden_message() -> CertificatePendingMessage {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             network: "preview".to_string(),
             epoch: Epoch(86),
             immutable_file_number: 1728,

@@ -4,7 +4,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_common::{
     entities::{
-        Beacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer,
+        CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer,
         SingleSignatures,
     },
     test_utils::fake_data,
@@ -39,7 +39,7 @@ impl FakeAggregator {
         *settings = false;
     }
 
-    async fn get_beacon(&self) -> Result<Beacon, AggregatorClientError> {
+    async fn get_beacon(&self) -> Result<CardanoDbBeacon, AggregatorClientError> {
         let beacon = self
             .beacon_provider
             .get_current_beacon()
@@ -130,7 +130,7 @@ mod tests {
     async fn init() -> (Arc<FakeObserver>, FakeAggregator) {
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(Beacon {
+        let chain_observer = Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
             epoch: Epoch(1),
             immutable_file_number: 1,
             network: "devnet".to_string(),

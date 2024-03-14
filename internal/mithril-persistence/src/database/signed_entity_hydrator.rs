@@ -1,6 +1,8 @@
 //! Signed Entity helpers for persistence
 
-use mithril_common::entities::{Beacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants};
+use mithril_common::entities::{
+    CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
+};
 
 use crate::sqlite::HydrationError;
 
@@ -34,7 +36,7 @@ impl SignedEntityTypeHydrator {
                 SignedEntityType::CardanoStakeDistribution(epoch)
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
+                let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
                     ))
@@ -42,7 +44,7 @@ impl SignedEntityTypeHydrator {
                 SignedEntityType::CardanoImmutableFilesFull(beacon)
             }
             SignedEntityTypeDiscriminants::CardanoTransactions => {
-                let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
+                let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
                     ))

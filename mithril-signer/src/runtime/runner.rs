@@ -8,7 +8,7 @@ use mockall::automock;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    Beacon, CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage,
+    CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage,
     ProtocolMessagePartKey, ProtocolParameters, SignedEntityType, Signer, SignerWithStake,
     SingleSignatures,
 };
@@ -29,7 +29,7 @@ pub trait Runner: Send + Sync {
     async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
     /// Fetch the current beacon from the Cardano node.
-    async fn get_current_beacon(&self) -> StdResult<Beacon>;
+    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
 
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
@@ -131,7 +131,7 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_current_beacon(&self) -> StdResult<Beacon> {
+    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon> {
         debug!("RUNNER: get_current_epoch");
 
         self.services
@@ -501,7 +501,7 @@ mod tests {
 
         #[async_trait]
         impl BeaconProvider for FakeBeaconProvider {
-            async fn get_current_beacon(&self) -> StdResult<Beacon>;
+            async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
         }
     }
 

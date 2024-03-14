@@ -12,7 +12,7 @@ use mithril_common::{
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
-        Beacon, Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
+        CardanoDbBeacon, Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
         SignedEntityTypeDiscriminants, Snapshot, StakeDistribution,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
@@ -79,7 +79,7 @@ fn build_logger() -> slog_scope::GlobalLoggerGuard {
 }
 
 impl RuntimeTester {
-    pub async fn build(start_beacon: Beacon, configuration: Configuration) -> Self {
+    pub async fn build(start_beacon: CardanoDbBeacon, configuration: Configuration) -> Self {
         let logger = build_logger();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
