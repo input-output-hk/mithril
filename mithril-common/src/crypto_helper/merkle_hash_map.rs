@@ -358,6 +358,21 @@ where
     }
 }
 
+impl<K> Clone for MKHashMap<K>
+where
+    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
+{
+    fn clone(&self) -> Self {
+        // Cloning should never fail so uwnrap is safe
+        let mut clone = Self::new(&[]).unwrap();
+        for (k, v) in self.inner_map_values.iter() {
+            clone.insert(k.to_owned(), v.to_owned()).unwrap();
+        }
+
+        clone
+    }
+}
+
 impl<'a, K> From<&'a MKHashMap<K>> for &'a MKTree
 where
     K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
@@ -569,7 +584,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mk_hash_map_should_compress_correctlty() {
+    fn test_mk_hash_map_should_compress_correctly() {
         let entries = generate_merkle_trees(100000, 100);
         let merkle_tree_node_entries = &entries
             .into_iter()
@@ -581,6 +596,22 @@ mod tests {
         let mk_hash_proof_compressed = mk_hash_map_compressed.compute_root().unwrap();
 
         assert_eq!(mk_hash_root, mk_hash_proof_compressed);
+    }
+
+    #[test]
+    fn test_mk_hash_map_should_clone_correctly() {
+        let entries = generate_merkle_trees(100000, 100);
+        let merkle_tree_node_entries = &entries
+            .into_iter()
+            .map(|(range, mktree)| (range.to_owned(), mktree.into()))
+            .collect::<Vec<_>>();
+        let mk_hash_map = MKHashMap::new(merkle_tree_node_entries.as_slice()).unwrap();
+        let mk_hash_map_clone = mk_hash_map.clone();
+
+        assert_eq!(
+            mk_hash_map.compute_root().unwrap(),
+            mk_hash_map_clone.compute_root().unwrap(),
+        );
     }
 
     #[test]
