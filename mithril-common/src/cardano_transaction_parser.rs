@@ -299,13 +299,16 @@ mod tests {
             immutable_file_number: 4831,
             ..Beacon::default()
         };
-        let cardano_transaction_parser =
-            CardanoTransactionParser::new(create_file_logger(&filepath), true);
+        // We create a block to drop the logger and force a flush before we read the log file.
+        {
+            let cardano_transaction_parser =
+                CardanoTransactionParser::new(create_file_logger(&filepath), true);
 
-        cardano_transaction_parser
-            .parse(db_path, &beacon)
-            .await
-            .unwrap();
+            cardano_transaction_parser
+                .parse(db_path, &beacon)
+                .await
+                .unwrap();
+        }
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();
         assert!(log_file.contains("The cbor encoded block could not be parsed"));
