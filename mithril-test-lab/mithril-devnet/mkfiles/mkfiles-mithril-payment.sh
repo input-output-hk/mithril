@@ -153,8 +153,18 @@ cat >> payment-mithril.sh <<EOF
 # Run payment iterations
 for (( j=1; j<=\${PAYMENT_ITERATIONS}; j++ ))
 do
+    set +e
     process_payment_iteration \$j
+    set -e
 done
+
+# Check that at least one transaction has been successfully submitted
+TOTAL_TX_SUBMITTED=\$(cat ${TX_ID_OUTPUT_FILE} | wc -l)
+if [ \$TOTAL_TX_SUBMITTED -eq 0 ]; then
+    echo ">>>>>> Error: No transaction was successfully submitted!"
+    exit 1
+fi
+
 EOF
 
 chmod u+x payment-mithril.sh
