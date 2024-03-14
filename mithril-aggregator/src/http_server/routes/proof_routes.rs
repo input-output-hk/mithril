@@ -37,6 +37,11 @@ fn proof_cardano_transaction(
 }
 
 mod handlers {
+    use mithril_common::{
+        entities::{CardanoTransactionsSnapshot, SignedEntity},
+        messages::CardanoTransactionsProofsMessage,
+        StdResult,
+    };
     use reqwest::StatusCode;
     use slog_scope::{debug, warn};
     use std::{convert::Infallible, sync::Arc};
@@ -72,23 +77,9 @@ mod handlers {
             "proof_cardano_transaction::error"
         ) {
             Some(signed_entity) => {
-                let transactions_set_proofs = unwrap_to_internal_server_error!(
-                    prover_service
-                        .compute_transactions_proofs(
-                            &signed_entity.artifact.beacon,
-                            transaction_hashes.as_slice(),
-                        )
-                        .await,
-                    "proof_cardano_transaction::error"
-                );
-
                 let message = unwrap_to_internal_server_error!(
-                    ToCardanoTransactionsProofsMessageAdapter::try_adapt(
-                        &signed_entity.certificate_id,
-                        transactions_set_proofs,
-                        transaction_hashes,
-                    ),
-                    "proof_cardano_transaction::error"
+                    build_response_message(prover_service, signed_entity, transaction_hashes).await,
+                    "proof_cardano_transaction"
                 );
                 Ok(reply::json(&message, StatusCode::OK))
             }
@@ -98,6 +89,27 @@ mod handlers {
             }
         }
     }
+
+    pub async fn build_response_message(
+        prover_service: Arc<dyn ProverService>,
+        signed_entity: SignedEntity<CardanoTransactionsSnapshot>,
+        transaction_hashes: Vec<String>,
+    ) -> StdResult<CardanoTransactionsProofsMessage> {
+        let transactions_set_proofs = prover_service
+            .compute_transactions_proofs(
+                &signed_entity.artifact.beacon,
+                transaction_hashes.as_slice(),
+            )
+            .await?;
+        let message = ToCardanoTransactionsProofsMessageAdapter::try_adapt(
+            &signed_entity.certificate_id,
+            transactions_set_proofs,
+            transaction_hashes,
+            signed_entity.artifact.beacon.immutable_file_number,
+        )?;
+
+        Ok(message)
+    }
 }
 
 #[cfg(test)]
@@ -105,7 +117,7 @@ mod tests {
     use super::*;
     use std::vec;
 
-    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::{entities::Beacon, test_utils::apispec::APISpec};
 
     use anyhow::anyhow;
     use mithril_common::entities::{
@@ -134,6 +146,42 @@ mod tests {
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
             .and(routes(dependency_manager).with(cors))
+    }
+
+    #[tokio::test]
+    async fn build_response_message_return_immutable_file_number_from_artifact_beacon() {
+        // Arrange
+        let mut mock_prover_service = MockProverService::new();
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
+
+        let cardano_transactions_snapshot = {
+            let merkle_root = String::new();
+            let beacon = Beacon {
+                immutable_file_number: 2309,
+                ..Beacon::default()
+            };
+            CardanoTransactionsSnapshot::new(merkle_root, beacon)
+        };
+
+        let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
+            artifact: cardano_transactions_snapshot,
+            ..SignedEntity::<CardanoTransactionsSnapshot>::dummy()
+        };
+
+        // Action
+        let transaction_hashes = vec![];
+        let message = handlers::build_response_message(
+            Arc::new(mock_prover_service),
+            signed_entity,
+            transaction_hashes,
+        )
+        .await
+        .unwrap();
+
+        // Assert
+        assert_eq!(message.latest_immutable_file_number, 2309)
     }
 
     #[tokio::test]
