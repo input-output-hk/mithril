@@ -14,6 +14,7 @@ impl ToCardanoTransactionsProofsMessageAdapter {
         certificate_hash: &str,
         transactions_set_proofs: Vec<CardanoTransactionsSetProof>,
         transaction_hashes_to_certify: Vec<TransactionHash>,
+        latest_immutable_file_number: u64,
     ) -> StdResult<CardanoTransactionsProofsMessage> {
         let transactions_hashes_not_certified = compute_not_certified_transactions(
             &transactions_set_proofs,
@@ -24,6 +25,7 @@ impl ToCardanoTransactionsProofsMessageAdapter {
             certificate_hash,
             try_adapt_set_proof_message(transactions_set_proofs)?,
             transactions_hashes_not_certified,
+            latest_immutable_file_number,
         ))
     }
 }
@@ -86,10 +88,12 @@ mod tests {
         }
 
         let certificate_hash = "certificate_hash";
+        let latest_immutable_file_number = 1234;
         let message = ToCardanoTransactionsProofsMessageAdapter::try_adapt(
             certificate_hash,
             transactions_set_proofs.clone(),
             transaction_hashes.to_vec(),
+            latest_immutable_file_number,
         )
         .unwrap();
         let transactions_set_proofs = transactions_set_proofs
@@ -100,6 +104,7 @@ mod tests {
             certificate_hash,
             transactions_set_proofs,
             transactions_hashes_non_certified.to_vec(),
+            latest_immutable_file_number,
         );
         assert_eq!(expected_message, message);
     }

@@ -24,6 +24,9 @@ pub struct CardanoTransactionsProofsMessage {
 
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
+
+    /// Latest immutable file number associated to the Cardano Transactions
+    pub latest_immutable_file_number: u64,
 }
 
 #[cfg_attr(
@@ -108,11 +111,13 @@ impl CardanoTransactionsProofsMessage {
         certificate_hash: &str,
         certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
         non_certified_transactions: Vec<TransactionHash>,
+        latest_immutable_file_number: u64,
     ) -> Self {
         Self {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions,
             non_certified_transactions,
+            latest_immutable_file_number,
         }
     }
 
@@ -180,6 +185,7 @@ mod tests {
                 proof: "invalid".to_string(),
             }],
             vec![],
+            99999,
         );
 
         let error = txs_proofs
@@ -197,7 +203,7 @@ mod tests {
 
     #[test]
     fn verify_no_certified_transaction_fail() {
-        let txs_proofs = CardanoTransactionsProofsMessage::new("whatever", vec![], vec![]);
+        let txs_proofs = CardanoTransactionsProofsMessage::new("whatever", vec![], vec![], 99999);
 
         let error = txs_proofs
             .verify()
@@ -224,6 +230,7 @@ mod tests {
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
+            99999,
         );
 
         let verified_txs = txs_proofs
@@ -243,6 +250,7 @@ mod tests {
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
+            99999,
         );
 
         let error = txs_proofs
@@ -278,6 +286,7 @@ mod tests {
                 .map(|p| p.try_into().unwrap())
                 .collect(),
             vec![],
+            99999,
         );
 
         let error = txs_proofs
