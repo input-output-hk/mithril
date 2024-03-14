@@ -80,12 +80,16 @@ export default function CertifyCardanoTransactionsModal({
   useEffect(() => {
     if (currentStep === validationSteps.validatingProof && certificate !== undefined) {
       verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate)
-        .then(() =>
-          // Artificial wait to give the user a feel of the workload under-hood
-          setTimeout(() => {
-            setCurrentStep(validationSteps.validatingCertificateChain);
-          }, 250),
-        )
+        .then((proofValid) => {
+          if (proofValid) {
+            // Artificial wait to give the user a feel of the workload under-hood
+            return setTimeout(() => {
+              setCurrentStep(validationSteps.validatingCertificateChain);
+            }, 250);
+          } else {
+            setCurrentStep(validationSteps.done);
+          }
+        })
         .catch((err) => handleError(err));
     }
   }, [client, currentStep, transactionsProofs, certificate]);
@@ -111,10 +115,11 @@ export default function CertifyCardanoTransactionsModal({
         transactionsProofs,
         certificate,
       );
+    const isProofValid =
+      (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
 
-    if ((await client.verify_message_match_certificate(protocolMessage, certificate)) === true) {
-      setIsProofValid(true);
-    }
+    setIsProofValid(isProofValid);
+    return isProofValid;
   }
 
   function handleError(error) {
