@@ -10,7 +10,7 @@ use slog::{debug, Logger};
 
 use crate::{
     cardano_transaction_parser::TransactionParser,
-    crypto_helper::{MKHashMap, MKTree, MKTreeNode},
+    crypto_helper::{MKMap, MKTree, MKTreeNode},
     entities::{
         Beacon, BlockRange, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
         TransactionHash,
@@ -82,7 +82,7 @@ impl CardanoTransactionsSignableBuilder {
                 .or_default()
                 .push(transaction.transaction_hash.to_owned());
         }
-        let mk_hash_map = MKHashMap::new(
+        let mk_hash_map = MKMap::new(
             transactions_by_block_ranges
                 .into_iter()
                 .try_fold(

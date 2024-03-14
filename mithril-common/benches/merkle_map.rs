@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::{
-    crypto_helper::{MKHashMap, MKHashMapProof, MKTree},
+    crypto_helper::{MKMap, MKMapProof, MKTree},
     entities::BlockRange,
     signable_builder,
 };
@@ -32,8 +32,8 @@ fn generate_merkle_trees_by_block_range_iterator(
 
 fn generate_merkle_map(
     mk_trees_by_block_range_iterator: impl Iterator<Item = (BlockRange, MKTree)>,
-) -> MKHashMap<BlockRange> {
-    let mut mk_map = MKHashMap::new(&[]).unwrap();
+) -> MKMap<BlockRange> {
+    let mut mk_map = MKMap::new(&[]).unwrap();
     for (block_range, mk_tree) in mk_trees_by_block_range_iterator {
         mk_map.insert(block_range, mk_tree.into()).unwrap();
     }
@@ -42,8 +42,8 @@ fn generate_merkle_map(
 
 fn generate_merkle_map_compressed(
     mk_trees_by_block_range_iterator: impl Iterator<Item = (BlockRange, MKTree)>,
-) -> MKHashMap<BlockRange> {
-    let mut mk_map = MKHashMap::new(&[]).unwrap();
+) -> MKMap<BlockRange> {
+    let mut mk_map = MKMap::new(&[]).unwrap();
     for (block_range, mk_tree) in mk_trees_by_block_range_iterator {
         mk_map
             .insert(block_range, mk_tree.compute_root().unwrap().into())
@@ -54,8 +54,8 @@ fn generate_merkle_map_compressed(
 
 fn generate_merkle_map_proof(
     mk_trees_by_block_range_iterator: impl Iterator<Item = (BlockRange, MKTree)>,
-    mk_map_compressed: &MKHashMap<BlockRange>,
-) -> MKHashMapProof<BlockRange> {
+    mk_map_compressed: &MKMap<BlockRange>,
+) -> MKMapProof<BlockRange> {
     let (mk_map_key_to_prove, mk_map_tree_to_prove) =
         &mk_trees_by_block_range_iterator.take(1).collect::<Vec<_>>()[0];
     let leaves_to_prove = mk_map_tree_to_prove

@@ -6,7 +6,7 @@ use std::{
 };
 
 use crate::{
-    crypto_helper::{MKHashMapKey, MKTreeNode},
+    crypto_helper::{MKMapKey, MKTreeNode},
     StdResult,
 };
 
@@ -88,7 +88,7 @@ impl From<BlockRange> for MKTreeNode {
     }
 }
 
-impl MKHashMapKey for BlockRange {}
+impl MKMapKey for BlockRange {}
 
 #[cfg(test)]
 mod tests {

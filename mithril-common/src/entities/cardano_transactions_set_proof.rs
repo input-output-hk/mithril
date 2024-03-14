@@ -1,4 +1,4 @@
-use crate::crypto_helper::{MKHashMapProof, ProtocolMkProof};
+use crate::crypto_helper::{MKMapProof, ProtocolMkProof};
 use crate::entities::TransactionHash;
 use crate::messages::CardanoTransactionsSetProofMessagePart;
 use crate::{StdError, StdResult};
@@ -19,7 +19,7 @@ impl CardanoTransactionsSetProof {
     /// CardanoTransactionsSetProof factory
     pub fn new(
         transactions_hashes: Vec<TransactionHash>,
-        transactions_proof: MKHashMapProof<BlockRange>,
+        transactions_proof: MKMapProof<BlockRange>,
     ) -> Self {
         Self {
             transactions_hashes,
@@ -50,7 +50,7 @@ impl CardanoTransactionsSetProof {
     cfg_test_tools! {
         /// Retrieve a dummy proof (for test only)
         pub fn dummy() -> Self {
-            use crate::crypto_helper::{MKHashMap, MKTree};
+            use crate::crypto_helper::{MKMap, MKTree};
 
             let transaction_hashes_by_block_range = vec![
                 (
@@ -70,7 +70,7 @@ impl CardanoTransactionsSetProof {
                 .iter()
                 .flat_map(|(_, h)| h.to_owned())
                 .collect::<Vec<TransactionHash>>();
-            let mk_hash_map = MKHashMap::new(
+            let mk_hash_map = MKMap::new(
                 transaction_hashes_by_block_range
                     .into_iter()
                     .map(|(block_range, transactions)| {
