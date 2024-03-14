@@ -86,7 +86,9 @@ export default function TransactionCertificationResult({
     <>
       {isSuccess ? (
         <Alert variant="success" className="mb-2">
-          <Alert.Heading>Mithril certified the transactions</Alert.Heading>
+          <Alert.Heading>
+            <i className="mi mi-logo"></i> Mithril certified the transactions
+          </Alert.Heading>
         </Alert>
       ) : (
         <Alert variant="danger" className="mb-2">
