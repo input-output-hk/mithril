@@ -90,7 +90,10 @@ export default function TransactionCertificationResult({
         </Alert>
       ) : (
         <Alert variant="danger" className="mb-2">
-          <Alert.Heading>Mithril could not certify the transactions</Alert.Heading>
+          <Alert.Heading>
+            <i className="text-danger bi bi-shield-slash"></i> Mithril could not certify the
+            transactions
+          </Alert.Heading>
           <p className="mb-1">
             Either the transactions proof is invalid or all the transactions are not certified.
           </p>

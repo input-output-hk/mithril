@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Spinner, Table } from "react-bootstrap";
+import { Alert, Spinner, Table } from "react-bootstrap";
 import { formatProcessDuration } from "@/utils";
 import CopyableHash from "#/CopyableHash";
 import CopyButton from "#/CopyButton";
@@ -89,7 +89,7 @@ export default function CertificateVerifier({
 
           verifyCertificateChain(client, certificate.hash)
             .catch((err) => {
-              console.error("Certificate Chain verification error", err);
+              console.error("Certificate Chain verification error:\n", err);
               setValidationError(err);
             })
             .finally(() => setCurrentStep(certificateValidationSteps.done));
@@ -211,13 +211,12 @@ export default function CertificateVerifier({
                   <div key={evt.id}>{evt.message}</div>
                 ))}
               {validationError !== undefined && (
-                <tr>
-                  <td colSpan={2}>
-                    <i className="text-danger bi bi-x-circle-fill"></i> Invalid certificate chain:
-                    <br />
-                    {validationError.message}
-                  </td>
-                </tr>
+                <Alert variant="danger" className="mt-2">
+                  <Alert.Heading>
+                    <i className="text-danger bi bi-shield-slash"></i> Invalid certificate chain
+                  </Alert.Heading>
+                  <div className={styles.error}>{validationError.toString()}</div>
+                </Alert>
               )}
             </div>
           </div>
