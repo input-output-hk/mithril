@@ -32,6 +32,8 @@ In the `./icons` folder add or modify a svg.
 
 If you add a new icon you need to reference and associate it with a codepoint in the `./fantasticonrc.js`
 configuration file.
+The codepoint must be part of the [unicode private use area](https://www.unicode.org/charts/PDF/UE000.pdf), as
+such it must be an integer between 57344 and 63743 (hex: E000-F8FF).
 
 Then rebuild the font:
 
