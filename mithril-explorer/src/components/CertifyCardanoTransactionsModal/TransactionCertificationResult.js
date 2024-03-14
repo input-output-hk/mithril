@@ -97,7 +97,7 @@ export default function TransactionCertificationResult({
             transactions
           </Alert.Heading>
           <p className="mb-1">
-            Either the transactions proof is invalid or all the transactions are not certified.
+            Either the transactions proof is invalid or none of the transactions is certified.
           </p>
           <p className="mb-0 fst-italic">
             <i className="bi bi-info-circle"></i> Mithril may still have to certify those
