@@ -12,12 +12,15 @@ use crate::{StdError, StdResult};
 
 use super::{MKProof, MKTree, MKTreeNode};
 
+/// The trait implemented by the keys of a MKHashMap
+pub trait MKHashMapKey:
+    PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>
+{
+}
+
 /// A MKHashMap node
 #[derive(Clone)]
-pub enum MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+pub enum MKHashMapNode<K: MKHashMapKey> {
     /// A MKHashMap node
     HashMap(Rc<MKHashMap<K>>),
 
@@ -34,10 +37,7 @@ where
     TreeNode(MKTreeNode),
 }
 
-impl<K> MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> MKHashMapNode<K> {
     /// Get the root of the merkelized hash map node
     pub fn compute_root(&self) -> StdResult<MKTreeNode> {
         match self {
@@ -66,55 +66,37 @@ where
     }
 }
 
-impl<K> From<MKHashMap<K>> for MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> From<MKHashMap<K>> for MKHashMapNode<K> {
     fn from(other: MKHashMap<K>) -> Self {
         MKHashMapNode::HashMap(Rc::new(other))
     }
 }
 
-impl<K> From<MKHashMapProof<K>> for MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> From<MKHashMapProof<K>> for MKHashMapNode<K> {
     fn from(other: MKHashMapProof<K>) -> Self {
         MKHashMapNode::HashMapProof(other)
     }
 }
 
-impl<K> From<MKTree> for MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> From<MKTree> for MKHashMapNode<K> {
     fn from(other: MKTree) -> Self {
         MKHashMapNode::Tree(Rc::new(other))
     }
 }
 
-impl<K> From<MKProof> for MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> From<MKProof> for MKHashMapNode<K> {
     fn from(other: MKProof) -> Self {
         MKHashMapNode::Proof(other)
     }
 }
 
-impl<K> From<MKTreeNode> for MKHashMapNode<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> From<MKTreeNode> for MKHashMapNode<K> {
     fn from(other: MKTreeNode) -> Self {
         MKHashMapNode::TreeNode(other)
     }
 }
 
-impl<K> TryFrom<MKHashMapNode<K>> for MKTreeNode
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> TryFrom<MKHashMapNode<K>> for MKTreeNode {
     type Error = StdError;
     fn try_from(other: MKHashMapNode<K>) -> Result<Self, Self::Error> {
         other.compute_root()
@@ -123,18 +105,12 @@ where
 
 /// A MKHashMapProof that proves membership of an entry in the merkelized hash map
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-pub struct MKHashMapProof<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+pub struct MKHashMapProof<K: MKHashMapKey> {
     master_proof: MKProof,
     sub_proofs: Vec<(K, MKHashMapProof<K>)>,
 }
 
-impl<K> MKHashMapProof<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> MKHashMapProof<K> {
     /// MKHashMapProof factory
     pub fn new(master_proof: MKProof, sub_proofs: BTreeMap<K, MKHashMapProof<K>>) -> Self {
         let sub_proofs = sub_proofs.into_iter().collect();
@@ -150,7 +126,6 @@ where
     }
 
     /// Verify the merkelized hash map proof
-    // TODO: parallelize proof verification? Is it compatible with WASM?
     pub fn verify(&self) -> StdResult<()> {
         for (_key, proof) in &self.sub_proofs {
             proof
@@ -191,28 +166,19 @@ where
     }
 }
 
-impl<K> From<MKProof> for MKHashMapProof<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> From<MKProof> for MKHashMapProof<K> {
     fn from(other: MKProof) -> Self {
         MKHashMapProof::new(other, BTreeMap::default())
     }
 }
 
 /// A MKHashMap, where the keys and values are merkelized and provable
-pub struct MKHashMap<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+pub struct MKHashMap<K: MKHashMapKey> {
     inner_map_values: BTreeMap<K, MKHashMapNode<K>>,
     inner_merkle_tree: MKTree,
 }
 
-impl<K> MKHashMap<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> MKHashMap<K> {
     /// MKHashMap factory
     pub fn new(entries: &[(K, MKHashMapNode<K>)]) -> StdResult<Self> {
         let inner_map_values = BTreeMap::default();
@@ -358,10 +324,7 @@ where
     }
 }
 
-impl<K> Clone for MKHashMap<K>
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> Clone for MKHashMap<K> {
     fn clone(&self) -> Self {
         // Cloning should never fail so uwnrap is safe
         let mut clone = Self::new(&[]).unwrap();
@@ -373,19 +336,13 @@ where
     }
 }
 
-impl<'a, K> From<&'a MKHashMap<K>> for &'a MKTree
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<'a, K: MKHashMapKey> From<&'a MKHashMap<K>> for &'a MKTree {
     fn from(other: &'a MKHashMap<K>) -> Self {
         other.merkle_tree()
     }
 }
 
-impl<K> TryFrom<MKHashMap<K>> for MKTreeNode
-where
-    K: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode>,
-{
+impl<K: MKHashMapKey> TryFrom<MKHashMap<K>> for MKTreeNode {
     type Error = StdError;
     fn try_from(other: MKHashMap<K>) -> Result<Self, Self::Error> {
         other.compute_root()

@@ -27,7 +27,7 @@ pub use era::{
     EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
 };
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
-pub use merkle_hash_map::{MKHashMap, MKHashMapNode, MKHashMapProof};
+pub use merkle_hash_map::{MKHashMap, MKHashMapKey, MKHashMapNode, MKHashMapProof};
 pub use merkle_tree::{MKProof, MKTree, MKTreeNode, MKTreeStore};
 pub use types::*;
 

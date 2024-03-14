@@ -5,7 +5,10 @@ use std::{
     ops::{Deref, Range},
 };
 
-use crate::{crypto_helper::MKTreeNode, StdResult};
+use crate::{
+    crypto_helper::{MKHashMapKey, MKTreeNode},
+    StdResult,
+};
 
 /// BlockNumber is the block number of a Cardano transaction.
 pub type BlockNumber = u64;
@@ -84,6 +87,8 @@ impl From<BlockRange> for MKTreeNode {
         MKTreeNode::new(bytes)
     }
 }
+
+impl MKHashMapKey for BlockRange {}
 
 #[cfg(test)]
 mod tests {
