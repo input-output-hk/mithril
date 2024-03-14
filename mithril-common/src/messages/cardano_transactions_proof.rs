@@ -53,6 +53,7 @@ pub struct VerifiedCardanoTransactions {
     certificate_hash: String,
     merkle_root: String,
     certified_transactions: Vec<TransactionHash>,
+    latest_immutable_file_number: u64,
 }
 
 impl VerifiedCardanoTransactions {
@@ -167,6 +168,7 @@ impl CardanoTransactionsProofsMessage {
                 .iter()
                 .flat_map(|c| c.transactions_hashes.clone())
                 .collect(),
+            latest_immutable_file_number: self.latest_immutable_file_number,
         })
     }
 }
@@ -225,6 +227,7 @@ mod tests {
             certificate_hash: "whatever".to_string(),
             merkle_root: set_proof.merkle_root(),
             certified_transactions: set_proof.transactions_hashes().to_vec(),
+            latest_immutable_file_number: 99999,
         };
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
