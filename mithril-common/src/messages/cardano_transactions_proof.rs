@@ -74,6 +74,11 @@ impl VerifiedCardanoTransactions {
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
             self.merkle_root.clone(),
         );
+        // TODO: uncommment once tests are created.
+        // message.set_message_part(
+        //     ProtocolMessagePartKey::LatestImmutableFileNumber,
+        //     self.latest_immutable_file_number.to_string(),
+        // );
     }
 }
 
