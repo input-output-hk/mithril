@@ -105,16 +105,18 @@ impl Block {
 /// Cardano transaction parser
 pub struct CardanoTransactionParser {
     logger: Logger,
+    /// When set to true, no error is returned in case of unparsable block, and an error log is written instead.
+    /// This can occur when the crate 'pallas-hardano' doesn't support some non final encoding for a Cardano era.
+    /// This situation should only happen on the test networks and not on the mainnet.
     allow_unparsable_block: bool,
 }
 
 impl CardanoTransactionParser {
     /// Factory
-    pub fn new(logger: Logger) -> Self {
+    pub fn new(logger: Logger, allow_unparsable_block: bool) -> Self {
         Self {
             logger,
-            // TODO: should be configurable, and should be 'false' by default
-            allow_unparsable_block: true,
+            allow_unparsable_block,
         }
     }
 
@@ -138,19 +140,12 @@ impl CardanoTransactionParser {
                 Ok(convert_to_block) => {
                     blocks.push(convert_to_block);
                 }
-                // TODO: no error are returned due to the crate 'pallas-hardano'
-                // that doesn't support all encoding versions (test networks doesn't work)
-                Err(e) if self.allow_unparsable_block => {
+                Err(err) if self.allow_unparsable_block => {
                     error!(
                         self.logger,
-                        "pallas-hardano does not support this block format"
+                        "The cbor encoded block could not be parsed";
+                        "error" => ?err, "immutable_file_number" => immutable_file.number
                     );
-                    error!(self.logger, "error='{e}'.");
-                    let mut potential_source = e.source();
-                    while let Some(error) = potential_source {
-                        error!(self.logger, "cause='{}'.", error);
-                        potential_source = error.source();
-                    }
                 }
                 Err(e) => return Err(e),
             }
@@ -267,7 +262,7 @@ mod tests {
         };
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()));
+            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
             .parse(db_path, &beacon)
@@ -284,9 +279,8 @@ mod tests {
             immutable_file_number: 4831,
             ..Beacon::default()
         };
-        let mut cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()));
-        cardano_transaction_parser.allow_unparsable_block = false; // TODO should be the default value
+        let cardano_transaction_parser =
+            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let result = cardano_transaction_parser.parse(db_path, &beacon).await;
 
@@ -305,9 +299,8 @@ mod tests {
             immutable_file_number: 4831,
             ..Beacon::default()
         };
-        let mut cardano_transaction_parser =
-            CardanoTransactionParser::new(create_file_logger(&filepath));
-        cardano_transaction_parser.allow_unparsable_block = true;
+        let cardano_transaction_parser =
+            CardanoTransactionParser::new(create_file_logger(&filepath), true);
 
         cardano_transaction_parser
             .parse(db_path, &beacon)
@@ -315,7 +308,7 @@ mod tests {
             .unwrap();
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();
-        assert!(log_file.contains("pallas-hardano does not support this block format"));
+        assert!(log_file.contains("The cbor encoded block could not be parsed"));
     }
 
     #[tokio::test]
@@ -331,7 +324,7 @@ mod tests {
         };
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()));
+            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
             .parse(db_path, &beacon)

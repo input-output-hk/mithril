@@ -267,7 +267,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(CardanoTransactionParser::new(slog_scope::logger()));
+        // TODO: 'allow_unparsable_block' parameter should be configurable and its default value set to false
+        let allow_unparsable_block = true;
+        let transaction_parser = Arc::new(CardanoTransactionParser::new(
+            slog_scope::logger(),
+            allow_unparsable_block,
+        ));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
