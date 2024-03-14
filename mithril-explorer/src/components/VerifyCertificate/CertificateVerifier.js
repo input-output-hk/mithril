@@ -20,7 +20,6 @@ const certificateChainValidationEvents = {
   started: "CertificateChainValidationStarted",
   certificateValidated: "CertificateValidated",
   done: "CertificateChainValidated",
-  unknown: "Unknown",
 };
 
 const eventPosition = {
@@ -79,26 +78,20 @@ export default function CertificateVerifier({
   }, [validationError, onChainValidationError]);
 
   useEffect(() => {
-    switch (currentStep) {
-      case certificateValidationSteps.ready:
-        setVerificationEvents([]);
-        setValidationError(undefined);
+    if (currentStep === certificateValidationSteps.ready) {
+      setVerificationEvents([]);
+      setValidationError(undefined);
 
-        if (client && certificate) {
-          setCurrentStep(certificateValidationSteps.validationInProgress);
+      if (client && certificate) {
+        setCurrentStep(certificateValidationSteps.validationInProgress);
 
-          verifyCertificateChain(client, certificate.hash)
-            .catch((err) => {
-              console.error("Certificate Chain verification error:\n", err);
-              setValidationError(err);
-            })
-            .finally(() => setCurrentStep(certificateValidationSteps.done));
-        }
-        break;
-      case certificateValidationSteps.validationInProgress:
-      case certificateValidationSteps.done:
-      default:
-        break;
+        verifyCertificateChain(client, certificate.hash)
+          .catch((err) => {
+            console.error("Certificate Chain verification error:\n", err);
+            setValidationError(err);
+          })
+          .finally(() => setCurrentStep(certificateValidationSteps.done));
+      }
     }
   }, [currentStep, client, certificate]);
 

@@ -42,5 +42,5 @@ make icons-font
 You can then use the icon in the js, ie if your icon name is `shield`:
 
 ```jsx
-<i className={`bi mithril mithril-shield`}></i>
+<i className={`bi mi mi-shield`}></i>
 ```
