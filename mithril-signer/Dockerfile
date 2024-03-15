@@ -48,15 +48,15 @@ COPY --from=rustbuilder /app/target/release/mithril-signer /app/bin/mithril-sign
 # Copy the config files
 COPY --from=rustbuilder /app/mithril-signer/config /app/config
 
+# Install cardano-cli
+RUN wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL
+RUN (tar xzf cardano-bin.tar.gz ./bin/cardano-cli && mv /bin/cardano-cli /app/bin) || (tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin)
+RUN /app/bin/cardano-cli --version
+RUN rm -f cardano-bin.tar.gz
+
 #Workdir
 WORKDIR /app/
 RUN chown -R appuser /app/
-
-# Install cardano-cli
-RUN wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL
-RUN tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin
-RUN /app/bin/cardano-cli --version
-RUN rm -f cardano-bin.tar.gz
 
 # Use an unprivileged user
 USER appuser
