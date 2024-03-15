@@ -21,7 +21,7 @@ CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 
-# Is semver on the first argument strictly lower than equal to the second argument?
+# Is semver on the first argument strictly lower than the second argument?
 version_lt() {
   VERSION_LHS=\$1
   VERSION_RHS=\$2
@@ -32,23 +32,26 @@ version_lt() {
   fi
 }
 
+# Is semver on the first argument lower or equal to the second argument?
+version_lte() {
+  VERSION_LHS=\$1
+  VERSION_RHS=\$2
+  if [ "\${VERSION_LHS}" == "\${VERSION_RHS}" ]; then
+    echo "true"
+  else
+    version_lt $VERSION_LHS $VERSION_RHS
+  fi
+}
+
 # Stake addresses registration certs
 for ADDR in ${USER_ADDRS}; do
-  if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
-    #KEY_REGISTRATION_DEPOSIT_ANOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq -r .enactState.curPParams.keyDeposit)
+  if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") == "false" ] && [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
     KEY_REGISTRATION_DEPOSIT_ANOUNT=0
-    if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
-      # Conway specific creation of registration certificate
-      ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
-      --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
-      --out-file addresses/\${ADDR}-stake.reg.cert \
-      --key-reg-deposit-amt \$KEY_REGISTRATION_DEPOSIT_ANOUNT 
-    else
-      # Legacy creation of registration certificate
-      ./cardano-cli stake-address registration-certificate \
-      --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
-      --out-file addresses/\${ADDR}-stake.reg.cert
-    fi
+    # Conway specific creation of registration certificate
+    ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
+    --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
+    --out-file addresses/\${ADDR}-stake.reg.cert \
+    --key-reg-deposit-amt \$KEY_REGISTRATION_DEPOSIT_ANOUNT
   else
     # Legacy creation of registration certificate
     ./cardano-cli stake-address registration-certificate \
@@ -62,14 +65,14 @@ EOF
 # User N will delegate to pool N
 for N in ${POOL_NODES_N}; do
   cat >> delegate.sh <<EOF
-    if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
+    if [ \$(version_lte "${CARDANO_NODE_VERSION_RELEASE}" "8.1.2") == "false" ]; then
       # Stake address delegation certs
       ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
           --stake-verification-key-file addresses/user${N}-stake.vkey \
           --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
           --out-file addresses/user${N}-stake.deleg.cert
     else
-      # Stake address delegation certs
+      # Legacy stake address delegation certs
       ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address delegation-certificate \
           --stake-verification-key-file addresses/user${N}-stake.vkey \
           --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
