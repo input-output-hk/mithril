@@ -69,7 +69,7 @@ fi
 if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   echo ">> Downloading cardano-cli & cardano-node..."
   curl -sL ${CARDANO_BINARY_URL} --output cardano-bin.tar.gz
-  tar xzf cardano-bin.tar.gz ./cardano-cli ./cardano-node 
+  tar xzf cardano-bin.tar.gz ./bin/cardano-cli ./bin/cardano-node && mv ./bin/cardano-{cli,node} . && rm -rf ./bin  || tar xzf cardano-bin.tar.gz ./cardano-cli ./cardano-node
   rm -f cardano-bin.tar.gz
 fi
 
