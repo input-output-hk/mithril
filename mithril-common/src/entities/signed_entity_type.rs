@@ -89,6 +89,7 @@ impl SignedEntityType {
         }
     }
 
+    //bbb// Only compatible with a "global beacon"
     /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
     pub fn from_beacon(
         discriminant: &SignedEntityTypeDiscriminants,

@@ -6,6 +6,7 @@ use super::SignedEntityType;
 /// CertificatePending represents a pending certificate in the process of production
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificatePending {
+    //bbb// can be problematic (especially for the message), but the signer only needs the epoch
     /// Current Beacon
     pub beacon: CardanoDbBeacon,
 
