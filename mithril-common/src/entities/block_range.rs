@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
+    fmt::{Display, Formatter, Result},
     ops::{Deref, Range},
 };
 
@@ -43,6 +44,12 @@ impl BlockRange {
                 end: self.inner_range.end.max(other.inner_range.end),
             },
         })
+    }
+}
+
+impl Display for BlockRange {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "[{},{}[", self.inner_range.start, self.inner_range.end)
     }
 }
 
