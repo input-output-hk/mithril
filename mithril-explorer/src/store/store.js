@@ -5,8 +5,8 @@ import {
   initialState as settingsInitialState,
   settingsSlice,
 } from "./settingsSlice";
-import default_available_aggregators from "../aggregators-list";
-import { checkUrl } from "../utils";
+import default_available_aggregators from "@/aggregators-list";
+import { checkUrl } from "@/utils";
 
 const SAVED_STATE_KEY = "Explorer_State";
 

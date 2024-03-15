@@ -7,7 +7,7 @@ import ProtocolParameters from "#/ProtocolParameters";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { checkUrl } from "@/utils";
 
-export default function EpochSettings(props) {
+export default function EpochSettings() {
   const [epochSettings, setEpochSettings] = useState({});
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const epochSettingsEndpoint = useSelector(

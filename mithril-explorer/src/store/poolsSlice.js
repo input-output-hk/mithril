@@ -1,5 +1,5 @@
 import { createAsyncThunk, createSelector, createSlice } from "@reduxjs/toolkit";
-import aggregator_api from "../aggregator-api";
+import aggregator_api from "@/aggregator-api";
 
 // Delete all caches older than 6 hours
 const cacheRefreshIntervalInMilliseconds = 6 * 3600 * 1000;

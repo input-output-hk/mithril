@@ -2,15 +2,15 @@ import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import React, { useEffect, useState } from "react";
 import { Alert, Col, Modal, Row, Tab } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import { fetchGenesisVerificationKey } from "../../utils";
+import { fetchGenesisVerificationKey } from "@/utils";
+import CertificateModal from "#/CertificateModal";
 import CertificateVerifier, {
   certificateValidationSteps,
-} from "../VerifyCertificate/CertificateVerifier";
+} from "#/VerifyCertificate/CertificateVerifier";
 import TransactionCertificationBreadcrumb from "./TransactionCertificationBreadcrumb";
 import TransactionCertificationResult from "./TransactionCertificationResult";
 import FetchingProofPane from "./FetchingProofPane";
 import ValidatingProofPane from "./ValidatingProofPane";
-import CertificateModal from "../CertificateModal";
 
 export const validationSteps = {
   ready: 1,
