@@ -29,11 +29,16 @@ pub enum CardanoDbUnpackerError {
         archive_size: f64,
     },
 
-    /// The directory where the files from cardano db are expanded already exists.
+    /// The directory where the files from cardano db are expanded does not exist.
+    /// An error is raised because the directory should already exist.
+    #[error("Unpack directory '{0}' does not exist.")]
+    UnpackDirectoryDoesNotExist(PathBuf),
+
+    /// The directory where the files from cardano db is not empty.
     /// An error is raised because it lets the user a chance to preserve a
     /// previous work.
-    #[error("Unpack directory '{0}' already exists, please move or delete it.")]
-    UnpackDirectoryAlreadyExists(PathBuf),
+    #[error("Unpack directory '{0}' is not empty.")]
+    UnpackDirectoryIsNotEmpty(PathBuf),
 
     /// Cannot write in the given directory.
     #[error("Unpack directory '{0}' is not writable, please check own or parents' permissions and ownership.")]
@@ -48,17 +53,19 @@ impl CardanoDbUnpacker {
         size: u64,
         compression_algorithm: CompressionAlgorithm,
     ) -> MithrilResult<()> {
-        if pathdir.exists() {
+        if !pathdir.exists() {
             return Err(
-                CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(pathdir.to_owned()).into(),
+                CardanoDbUnpackerError::UnpackDirectoryDoesNotExist(pathdir.to_owned()).into(),
             );
         }
-        create_dir_all(pathdir).map_err(|e| {
-            CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
-        })?;
+
+        if pathdir.read_dir()?.next().is_some() {
+            return Err(
+                CardanoDbUnpackerError::UnpackDirectoryIsNotEmpty(pathdir.to_owned()).into(),
+            );
+        }
+
         let free_space = fs2::available_space(pathdir)? as f64;
-        // `remove_dir` doesn't remove intermediate directories that could have been created by `create_dir_all`
-        remove_dir(pathdir)?;
 
         if free_space < compression_algorithm.free_space_snapshot_ratio() * size as f64 {
             return Err(CardanoDbUnpackerError::NotEnoughSpace {
@@ -77,6 +84,7 @@ impl CardanoDbUnpacker {
 mod test {
     use super::*;
     use mithril_common::test_utils::TempDir;
+    use std::fs::File;
 
     fn create_temporary_empty_directory(name: &str) -> PathBuf {
         TempDir::create("client-cli", name)
@@ -91,8 +99,8 @@ mod test {
     }
 
     #[test]
-    fn should_return_error_if_unpack_directory_already_exists() {
-        let pathdir = create_temporary_empty_directory("existing_directory");
+    fn should_return_error_if_unpack_directory_does_not_exist() {
+        let pathdir = create_temporary_empty_directory("does_not_exist").join("target_directory");
 
         let error =
             CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
@@ -101,7 +109,7 @@ mod test {
         assert!(
             matches!(
                 error.downcast_ref::<CardanoDbUnpackerError>(),
-                Some(CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(_))
+                Some(CardanoDbUnpackerError::UnpackDirectoryDoesNotExist(_))
             ),
             "Unexpected error: {:?}",
             error
@@ -135,6 +143,26 @@ mod test {
         );
     }
 
+    #[test]
+    fn should_return_error_if_unpack_directory_is_not_empty() {
+        let pathdir = create_temporary_empty_directory("not_empty_directory").join("target_directory");
+        std::fs::create_dir_all(&pathdir).unwrap();
+        File::create(pathdir.join("file.txt")).unwrap();
+
+        let error =
+            CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
+                .expect_err("check_prerequisites should fail");
+
+        assert!(
+            matches!(
+                error.downcast_ref::<CardanoDbUnpackerError>(),
+                Some(CardanoDbUnpackerError::UnpackDirectoryIsNotEmpty(_))
+            ),
+            "Unexpected error: {:?}",
+            error
+        );
+    }
+    
     #[test]
     fn should_return_error_if_not_enough_available_space() {
         let pathdir =
