@@ -1,6 +1,6 @@
 use human_bytes::human_bytes;
 use std::{
-    fs::{create_dir_all, remove_dir},
+    fs::{create_dir_all, remove_dir, File},
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -95,7 +95,6 @@ impl CardanoDbUnpacker {
 mod test {
     use super::*;
     use mithril_common::test_utils::TempDir;
-    use std::fs::File;
 
     fn create_temporary_empty_directory(name: &str) -> PathBuf {
         TempDir::create("client-cli", name)
