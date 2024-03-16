@@ -95,7 +95,7 @@ impl CardanoDbUnpacker {
 mod test {
     use super::*;
     use mithril_common::test_utils::TempDir;
-    use std::fs::{create_dir_all};
+    use std::fs::create_dir_all;
 
     fn create_temporary_empty_directory(name: &str) -> PathBuf {
         TempDir::create("client-cli", name)
@@ -157,7 +157,7 @@ mod test {
     #[test]
     fn should_return_error_if_unpack_directory_is_not_empty() {
         let pathdir = create_temporary_empty_directory("not_empty_directory").join("target_directory");
-        std::fs::create_dir_all(&pathdir).unwrap();
+        create_dir_all(&pathdir).unwrap();
         File::create(pathdir.join("file.txt")).unwrap();
 
         let error =
