@@ -1,6 +1,6 @@
 use human_bytes::human_bytes;
 use std::{
-    fs::{create_dir_all, remove_dir, File},
+    fs::File,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
@@ -67,7 +67,7 @@ impl CardanoDbUnpacker {
 
         // Check if the directory is writable by creating a temporary file
         let temp_file_path = pathdir.join("temp_file");
-        std::fs::File::create(&temp_file_path).map_err(|e| {
+        File::create(&temp_file_path).map_err(|e| {
             CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
         })?;
 
@@ -95,6 +95,7 @@ impl CardanoDbUnpacker {
 mod test {
     use super::*;
     use mithril_common::test_utils::TempDir;
+    use std::fs::{create_dir_all};
 
     fn create_temporary_empty_directory(name: &str) -> PathBuf {
         TempDir::create("client-cli", name)
