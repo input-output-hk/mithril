@@ -65,6 +65,17 @@ impl CardanoDbUnpacker {
             );
         }
 
+        // Check if the directory is writable by creating a temporary file
+        let temp_file_path = pathdir.join("temp_file");
+        std::fs::File::create(&temp_file_path).map_err(|e| {
+            CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
+        })?;
+
+        // Delete the temporary file
+        std::fs::remove_file(temp_file_path).map_err(|e| {
+            CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
+        })?;
+
         let free_space = fs2::available_space(pathdir)? as f64;
 
         if free_space < compression_algorithm.free_space_snapshot_ratio() * size as f64 {
