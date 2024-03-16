@@ -66,7 +66,7 @@ mod test {
 
     #[test]
     fn check_disk_space_error_should_return_error_if_error_is_not_error_not_enough_space() {
-        let error = CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(PathBuf::new());
+        let error = CardanoDbUnpackerError::UnpackDirectoryDoesNotExist(PathBuf::new());
 
         let error = CardanoDbUtils::check_disk_space_error(anyhow!(error))
             .expect_err("check_disk_space_error should fail");
@@ -74,7 +74,7 @@ mod test {
         assert!(
             matches!(
                 error.downcast_ref::<CardanoDbUnpackerError>(),
-                Some(CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(_))
+                Some(CardanoDbUnpackerError::UnpackDirectoryDoesNotExist(_))
             ),
             "Unexpected error: {:?}",
             error
