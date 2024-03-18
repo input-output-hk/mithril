@@ -283,6 +283,7 @@ impl PallasChainObserver {
         Ok(chain_point)
     }
 
+    /// Fetches the current era using the provided `statequery` client.
     async fn do_get_current_era_state_query(&self, statequery: &mut Client) -> StdResult<u16> {
         let era = queries_v16::get_current_era(statequery)
             .await
@@ -785,5 +786,29 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let genesis_config = client_res.expect("Client failed");
         assert_eq!(genesis_config, get_fake_genesis_config());
+    }
+
+    #[tokio::test]
+    async fn get_current_era() {
+        let socket_path = create_temp_dir("get_current_era").join("node.socket");
+        let server = setup_server(socket_path.clone(), 1).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut client = observer.get_client().await.unwrap();
+            let statequery = client.statequery();
+            statequery.acquire(None).await.unwrap();
+            let era = observer
+                .do_get_current_era_state_query(statequery)
+                .await
+                .unwrap();
+            observer.post_process_statequery(&mut client).await.unwrap();
+            client.abort().await;
+            era
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let era = client_res.expect("Client failed");
+        assert_eq!(era, 4);
     }
 }
