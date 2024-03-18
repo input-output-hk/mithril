@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Accordion, Card, CardGroup, ListGroup } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import CopyableHash from "../CopyableHash";
-import PoolTicker from "../PoolTicker";
-import RawJsonButton from "../RawJsonButton";
-import SignedEntityType from "../SignedEntityType";
-import VerifiedBadge from "../VerifiedBadge";
-import { selectedAggregator } from "../../store/settingsSlice";
+import CopyableHash from "#/CopyableHash";
+import PoolTicker from "#/PoolTicker";
+import RawJsonButton from "#/RawJsonButton";
+import SignedEntityType from "#/SignedEntityType";
+import VerifiedBadge from "#/VerifiedBadge";
+import { selectedAggregator } from "@/store/settingsSlice";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});

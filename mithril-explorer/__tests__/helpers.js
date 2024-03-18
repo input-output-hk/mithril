@@ -1,4 +1,4 @@
-import { saveToLocalStorage, storeBuilder } from "../src/store/store";
+import { saveToLocalStorage, storeBuilder } from "@/store/store";
 import * as mockRouter from "next-router-mock";
 
 const baseLocation = "http://localhost";

@@ -2,26 +2,30 @@ import React, { useEffect, useState } from "react";
 import { Accordion, Badge, Button, Col, Container, Modal, Row, Table } from "react-bootstrap";
 import { Bar } from "react-chartjs-2";
 import { useSelector } from "react-redux";
-import { computeStakeShapesDataset } from "../../charts";
-import { selectedAggregator } from "../../store/settingsSlice";
-import RawJsonButton from "../RawJsonButton";
-import Stake from "../Stake";
-import ProtocolParameters from "../ProtocolParameters";
-import SignerTable from "../SignerTable";
-import VerifyCertificateModal from "../VerifyCertificate/VerifyCertificateModal";
+import { computeStakeShapesDataset } from "@/charts";
+import { selectedAggregator } from "@/store/settingsSlice";
+import RawJsonButton from "#/RawJsonButton";
+import Stake from "#/Stake";
+import ProtocolParameters from "#/ProtocolParameters";
+import SignerTable from "#/SignerTable";
+import VerifyCertificateModal from "#/VerifyCertificate/VerifyCertificateModal";
 
-export default function CertificateModal(props) {
+export default function CertificateModal({
+  hash,
+  hideButtons = false,
+  onHashChange = (hash) => {},
+}) {
   const [certificate, setCertificate] = useState({});
   const [charts, setCharts] = useState({
     stakesBreakdown: {},
   });
   const [showVerifyCertificateModal, setShowVerifyCertificateModal] = useState(false);
   const certificateEndpoint = useSelector(
-    (state) => `${selectedAggregator(state)}/certificate/${props.hash}`,
+    (state) => `${selectedAggregator(state)}/certificate/${hash}`,
   );
 
   useEffect(() => {
-    if (!props.hash) {
+    if (!hash) {
       return;
     }
 
@@ -37,19 +41,19 @@ export default function CertificateModal(props) {
         setCertificate({});
         console.error("Fetch certificate error:", error);
       });
-  }, [certificateEndpoint, props.hash]);
+  }, [certificateEndpoint, hash]);
 
   function showPrevious() {
-    props.onHashChange(certificate.previous_hash);
+    onHashChange(certificate.previous_hash);
   }
 
   function close() {
-    props.onHashChange(undefined);
+    onHashChange(undefined);
   }
 
   return (
     <Modal
-      show={props.hash !== undefined}
+      show={hash !== undefined}
       onHide={close}
       size="xl"
       aria-labelledby="contained-modal-title-vcenter"
@@ -161,28 +165,32 @@ export default function CertificateModal(props) {
         )}
       </Modal.Body>
       <Modal.Footer>
-        <Button
-          size="sm"
-          onClick={() => setShowVerifyCertificateModal(true)}
-          className="text-break">
-          Verify certificate
-        </Button>
+        {!hideButtons && (
+          <Button
+            size="sm"
+            onClick={() => setShowVerifyCertificateModal(true)}
+            className="text-break">
+            Verify certificate
+          </Button>
+        )}
         {certificate.genesis_signature !== "" ? (
           <Badge bg="warning">Genesis</Badge>
         ) : (
-          <>
+          !hideButtons && (
             <Button size="sm" onClick={showPrevious} className="text-break">
               Previous hash: {certificate.previous_hash}
             </Button>
-          </>
+          )
         )}
         <RawJsonButton href={certificateEndpoint} size="sm" />
       </Modal.Footer>
-      <VerifyCertificateModal
-        show={showVerifyCertificateModal}
-        onClose={() => setShowVerifyCertificateModal(false)}
-        certificateHash={certificate.hash}
-      />
+      {!hideButtons && (
+        <VerifyCertificateModal
+          show={showVerifyCertificateModal}
+          onClose={() => setShowVerifyCertificateModal(false)}
+          certificateHash={certificate.hash}
+        />
+      )}
     </Modal>
   );
 }

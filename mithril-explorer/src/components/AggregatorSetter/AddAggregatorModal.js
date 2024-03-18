@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { Button, Form, FormGroup, Modal } from "react-bootstrap";
 import { useDispatch } from "react-redux";
-import { selectAggregator } from "../../store/settingsSlice";
-import { checkUrl } from "../../utils";
+import { Button, Form, FormGroup, Modal } from "react-bootstrap";
+import { selectAggregator } from "@/store/settingsSlice";
+import { checkUrl } from "@/utils";
 
 export default function AddAggregatorModal(props) {
   const [value, setValue] = useState("");

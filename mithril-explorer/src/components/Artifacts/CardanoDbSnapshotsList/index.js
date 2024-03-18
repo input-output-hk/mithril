@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
-import CertificateModal from "../../CertificateModal";
-import RawJsonButton from "../../RawJsonButton";
 import { useSelector } from "react-redux";
-import { selectedAggregator } from "../../../store/settingsSlice";
-import LocalDateTime from "../../LocalDateTime";
-import { formatBytes } from "../../../utils";
+import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
+import CertificateModal from "#/CertificateModal";
+import RawJsonButton from "#/RawJsonButton";
+import LocalDateTime from "#/LocalDateTime";
+import { selectedAggregator } from "@/store/settingsSlice";
+import { formatBytes } from "@/utils";
 
 export default function CardanoDbSnapshotsList(props) {
   const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Button, Col, Form, InputGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
-import { removeSelectedAggregator, selectAggregator } from "../../store/settingsSlice";
+import { Button, Col, Form, InputGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { removeSelectedAggregator, selectAggregator } from "@/store/settingsSlice";
 import AddAggregatorModal from "./AddAggregatorModal";
 
 export default function AggregatorSetter(props) {

@@ -1,6 +1,6 @@
 import React from "react";
 import { OverlayTrigger, Tooltip } from "react-bootstrap";
-import { formatCurrency, formatStake, toAda } from "../utils";
+import { formatCurrency, formatStake, toAda } from "@/utils";
 
 export default function Stake({ lovelace }) {
   return (

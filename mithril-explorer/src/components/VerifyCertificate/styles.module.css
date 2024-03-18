@@ -11,3 +11,7 @@
 .events > span {
   flex: 1 1 0;
 }
+
+.error {
+  white-space: pre-wrap;
+}

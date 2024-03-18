@@ -2,10 +2,10 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { initStore } from "./helpers";
 import { Provider } from "react-redux";
-import { poolsSlice } from "../src/store/poolsSlice";
-import PoolTicker from "../src/components/PoolTicker";
-import { getCExplorerUrlForPool } from "../src/utils";
-import { settingsSlice } from "../src/store/settingsSlice";
+import PoolTicker from "#/PoolTicker";
+import { settingsSlice } from "@/store/settingsSlice";
+import { poolsSlice } from "@/store/poolsSlice";
+import { getCExplorerUrl } from "@/utils";
 
 function renderPoolTickerComponent(partyId, default_state = undefined) {
   const store = initStore(default_state);
@@ -17,6 +17,11 @@ function renderPoolTickerComponent(partyId, default_state = undefined) {
     ),
     store,
   ];
+}
+
+function getCExplorerUrlForPool(network, partyId) {
+  const cExplorerUrl = getCExplorerUrl(network);
+  return cExplorerUrl ? `${cExplorerUrl}/pool/${partyId}` : undefined;
 }
 
 describe("PoolTicker", () => {

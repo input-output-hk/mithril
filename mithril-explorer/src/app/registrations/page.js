@@ -7,8 +7,8 @@ import {
   computeSignersWeightDataset,
   computeStakeShapesDataset,
   setChartJsDefaults,
-} from "../../charts";
-import { checkUrl } from "../../utils";
+} from "@/charts";
+import { checkUrl } from "@/utils";
 import { Alert, ButtonGroup, Col, Row, Spinner, Stack, Table } from "react-bootstrap";
 import {
   ArcElement,
@@ -21,12 +21,12 @@ import {
   Tooltip,
 } from "chart.js";
 import { Bar, Pie } from "react-chartjs-2";
-import { aggregatorSearchParam } from "../../constants";
-import { updatePoolsForAggregator } from "../../store/poolsSlice";
-import LinkButton from "../../components/LinkButton";
-import Stake from "../../components/Stake";
-import RawJsonButton from "../../components/RawJsonButton";
-import SignerTable from "../../components/SignerTable";
+import { aggregatorSearchParam } from "@/constants";
+import { updatePoolsForAggregator } from "@/store/poolsSlice";
+import LinkButton from "#/LinkButton";
+import Stake from "#/Stake";
+import RawJsonButton from "#/RawJsonButton";
+import SignerTable from "#/SignerTable";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
@@ -192,23 +192,27 @@ export default function Registrations() {
         </Table>
       </Row>
       <Row>
-        <div>
-          {Number.isInteger(registrationEpoch) && (
-            <ButtonGroup>
-              <LinkButton href={navigateToPreviousUrl}>
-                Previous Epoch ({registrationEpoch - 1})
-              </LinkButton>
+        {Number.isInteger(registrationEpoch) && (
+          <>
+            <Col xs={12} sm={12} md={3} lg={2} className="d-grid mb-1">
               <LinkButton
                 href={navigateToCurrentUrl}
                 disabled={currentEpoch === undefined || currentEpoch === registrationEpoch}>
-                Current Epoch ({currentEpoch})
+                Current Cardano Epoch ({currentEpoch})
               </LinkButton>
-              <LinkButton href={navigateToNextUrl} disabled={currentEpoch <= registrationEpoch}>
-                Next Epoch ({registrationEpoch + 1})
-              </LinkButton>
-            </ButtonGroup>
-          )}
-        </div>
+            </Col>
+            <Col xs={12} sm={12} md={6} lg={4} className="d-grid mb-1">
+              <ButtonGroup>
+                <LinkButton href={navigateToPreviousUrl}>
+                  Previous Registration Epoch ({registrationEpoch - 1})
+                </LinkButton>
+                <LinkButton href={navigateToNextUrl} disabled={currentEpoch <= registrationEpoch}>
+                  Next Registration Epoch ({registrationEpoch + 1})
+                </LinkButton>
+              </ButtonGroup>
+            </Col>
+          </>
+        )}
       </Row>
       {isLoading ? (
         <Spinner animation="grow" />

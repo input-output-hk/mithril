@@ -1,13 +1,15 @@
 import Image from "next/image";
-import { Providers } from "../store/provider";
+import Link from "next/link";
 import React, { Suspense } from "react";
-import styles from "./explorer.module.css";
+import { Providers } from "@/store/provider";
 
 // These styles apply to every route in the application
-import "./global.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
-import Link from "next/link";
+import "./global.css";
+import "./mithril-icons.css";
+
+import styles from "./explorer.module.css";
 
 export const metadata = {
   title: "Mithril Explorer",
@@ -18,7 +20,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <link rel="icon" href="/explorer/logo.svg?v=1" type="image/svg+xml" />
+        <link rel="icon" href="/explorer/favicon.svg?v=2" type="image/svg+xml" />
 
         <Suspense>
           <Providers>

@@ -27,6 +27,10 @@ dev: build
 	@echo "\033[1mServing dev build at: http://localhost:3000/explorer \033[0m"
 	npm run dev
 
+icons-font:
+	npm run icons-font
+	npm exec -- prettier ./src/app/mithril-icons.css --write
+
 test: package-lock.json
 	npm run test:ci
 
@@ -61,6 +65,7 @@ upgrade: clean install
 		@testing-library/react@latest \
 		eslint@latest \
 		eslint-config-next@latest \
+		fantasticon@latest \
 		jest@latest \
 		jest-environment-jsdom@latest \
 		next-router-mock@latest \

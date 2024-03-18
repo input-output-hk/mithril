@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <svg
-        width="720"
         zoomAndPan="magnify"
-        viewBox="0 0 540 540"
-        height="720"
+        viewBox="0 0 487.5 487.5"
         preserveAspectRatio="xMidYMid"
         version="1.0"
         id="svg97"
-        xmlns="http://www.w3.org/2000/svg"
->
-    <style>
+        xmlns="http://www.w3.org/2000/svg">
+    <!-- Adapt the favicon automatically to the user color scheme -->
+    <style id="style1">
         g {
         fill: black;
         stroke: white;
@@ -24,10 +22,8 @@
         }
         }
     </style>
-    <defs
-            id="defs57"/>
-    <g
-            id="layer1">
+    <defs id="defs57"/>
+    <g id="layer1" transform="translate(-26.390007,-25.62134)">
         <path
                 id="path59"
                 style="display:inline"

@@ -1,4 +1,4 @@
-import { formatPartyId } from "../src/utils";
+import { formatPartyId } from "@/utils";
 
 describe("Stake formatting", () => {
   it.each([

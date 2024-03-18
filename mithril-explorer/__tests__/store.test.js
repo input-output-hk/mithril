@@ -1,14 +1,14 @@
-import default_available_aggregators from "../src/aggregators-list";
-import { signedEntityType } from "../src/constants";
-import { poolsSlice } from "../src/store/poolsSlice";
+import default_available_aggregators from "@/aggregators-list";
+import { signedEntityType } from "@/constants";
+import { poolsSlice } from "@/store/poolsSlice";
 import {
   removeSelectedAggregator,
   selectAggregator,
   settingsSlice,
   setUpdateInterval,
   toggleAutoUpdate,
-} from "../src/store/settingsSlice";
-import { saveToLocalStorage, storeBuilder } from "../src/store/store";
+} from "@/store/settingsSlice";
+import { saveToLocalStorage, storeBuilder } from "@/store/store";
 import { waitFor } from "@testing-library/react";
 import { initStore } from "./helpers";
 

@@ -1,9 +1,10 @@
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
-import { useEffect, useState } from "react";
-import LocalDateTime from "../LocalDateTime";
-import { Spinner } from "react-bootstrap";
-import { useSelector } from "react-redux";
-import { fetchGenesisVerificationKey, formatProcessDuration } from "../../utils";
+import React, { useEffect, useState } from "react";
+import { Alert, Spinner, Table } from "react-bootstrap";
+import { formatProcessDuration } from "@/utils";
+import CopyableHash from "#/CopyableHash";
+import CopyButton from "#/CopyButton";
+import IconBadge from "#/IconBadge";
+import LocalDateTime from "#/LocalDateTime";
 
 import styles from "./styles.module.css";
 
@@ -21,15 +22,41 @@ const certificateChainValidationEvents = {
   done: "CertificateChainValidated",
 };
 
+const eventPosition = {
+  beforeTable: 1,
+  inTable: 2,
+  afterTable: 3,
+};
+
+function CertificateHash({ hash, onClick, showLink, linkVariant = "dark" }) {
+  function clicked(event) {
+    event.preventDefault();
+    onClick(hash);
+  }
+
+  return showLink ? (
+    <>
+      <a href="#" target="_blank" className={`link-${linkVariant}`} onClick={clicked}>
+        {hash}
+      </a>{" "}
+      <CopyButton textToCopy={hash} />
+    </>
+  ) : (
+    <CopyableHash hash={hash} />
+  );
+}
+
 export default function CertificateVerifier({
-  certificateHash,
-  showSpinner = true,
+  client,
+  certificate,
+  hideSpinner = false,
+  showCertificateLinks = false,
   onStepChange = (step) => {},
-  onCertificateChange = (certificate) => {},
+  onChainValidationError = (error) => {},
+  onCertificateClick = (hash) => {},
 }) {
-  const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const [currentStep, setCurrentStep] = useState(certificateValidationSteps.ready);
-  const [certificate, setCertificate] = useState({});
+  const [validationError, setValidationError] = useState(undefined);
   const [verificationDuration, setVerificationDuration] = useState(null);
   const [verificationEvents, setVerificationEvents] = useState([]);
 
@@ -41,61 +68,59 @@ export default function CertificateVerifier({
   }, []);
 
   useEffect(() => {
-    onCertificateChange(certificate);
-  }, [certificate, onCertificateChange]);
-
-  useEffect(() => {
     onStepChange(currentStep);
   }, [currentStep, onStepChange]);
 
   useEffect(() => {
-    // Reset state if any
-    setCertificate({});
-    setVerificationEvents([]);
-    setCurrentStep(certificateValidationSteps.ready);
-
-    if (certificateHash) {
-      setCurrentStep(certificateValidationSteps.validationInProgress);
-
-      verifyCertificateChain(currentAggregator, certificateHash)
-        .catch((err) => console.error("Certificate Chain verification error", err))
-        .finally(() => {
-          setCurrentStep(certificateValidationSteps.done);
-        });
+    if (validationError) {
+      onChainValidationError(validationError);
     }
-  }, [currentAggregator, certificateHash]);
+  }, [validationError, onChainValidationError]);
 
-  async function verifyCertificateChain(aggregator, certificate_hash) {
-    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const client = new MithrilClient(aggregator, genesisVerificationKey);
+  useEffect(() => {
+    if (currentStep === certificateValidationSteps.ready) {
+      setVerificationEvents([]);
+      setValidationError(undefined);
 
-    if (certificate_hash !== null && certificate_hash !== undefined) {
-      let startTime = performance.now();
-      const certificate = await client.get_mithril_certificate(certificate_hash);
-      setCertificate(certificate);
-      await client.verify_certificate_chain(certificate_hash);
-      setVerificationDuration(formatProcessDuration(startTime));
+      if (client && certificate) {
+        setCurrentStep(certificateValidationSteps.validationInProgress);
+
+        verifyCertificateChain(client, certificate.hash)
+          .catch((err) => {
+            console.error("Certificate Chain verification error:\n", err);
+            setValidationError(err);
+          })
+          .finally(() => setCurrentStep(certificateValidationSteps.done));
+      }
     }
+  }, [currentStep, client, certificate]);
+
+  async function verifyCertificateChain(client, certificateHash) {
+    let startTime = performance.now();
+    await client.verify_certificate_chain(certificateHash);
+    setVerificationDuration(formatProcessDuration(startTime));
   }
 
   function clientEventListener(e) {
     const event = e.data;
     let message = <></>;
+    let position = eventPosition.afterTable;
 
     switch (event.type) {
       case certificateChainValidationEvents.started:
+        position = eventPosition.beforeTable;
         message = <>The certificate chain validation has started...</>;
         break;
       case certificateChainValidationEvents.certificateValidated:
-        message = (
-          <>
-            A certificate has been validated, hash:{" "}
-            <strong>{event.payload.certificate_hash}</strong>
-          </>
-        );
+        position = eventPosition.inTable;
+        message = { certificateHash: event.payload.certificate_hash };
         break;
       case certificateChainValidationEvents.done:
-        message = <>The certificate chain is valid ✅</>;
+        message = (
+          <>
+            The certificate chain is valid <i className="text-success bi bi-check-circle-fill"></i>
+          </>
+        );
         break;
       default:
         message = <>{event}</>;
@@ -104,7 +129,7 @@ export default function CertificateVerifier({
 
     setVerificationEvents((existingEvents) => [
       ...existingEvents,
-      { id: nextVerifyEventId++, message: message },
+      { id: nextVerifyEventId++, position: position, message: message },
     ]);
   }
 
@@ -113,7 +138,16 @@ export default function CertificateVerifier({
       {Object.entries(certificate).length > 0 && (
         <div>
           <h4>Certificate Details</h4>
-          <div>Certificate hash: {certificate.hash}</div>
+          <div>
+            Certificate hash:{" "}
+            <CertificateHash
+              hash={certificate.hash}
+              onClick={() => onCertificateClick(certificate.hash)}
+              showLink={showCertificateLinks}
+              linkVariant="primary"
+            />
+          </div>
+          <div>Epoch: {certificate.beacon.epoch}</div>
           <div className="d-flex justify-content-between">
             <div>
               Sealed at: <LocalDateTime datetime={certificate.metadata.sealed_at} />
@@ -121,7 +155,7 @@ export default function CertificateVerifier({
             {currentStep === certificateValidationSteps.validationInProgress && (
               <div className="d-flex align-items-center">
                 <div className="ms-1 pe-1">Verifying the certificate chain...</div>
-                {showSpinner && <Spinner animation="border" variant="primary" />}
+                {!hideSpinner && <Spinner animation="border" variant="primary" />}
               </div>
             )}
             {currentStep === certificateValidationSteps.done && (
@@ -133,9 +167,50 @@ export default function CertificateVerifier({
             {/*don't remove: this span is needed for a css trick to ensure scroll start at top */}
             <span />
             <div>
-              {verificationEvents.map((evt) => (
-                <div key={evt.id}>{evt.message}</div>
-              ))}
+              {verificationEvents
+                .filter((evt) => evt.position === eventPosition.beforeTable)
+                .map((evt) => (
+                  <div key={evt.id}>{evt.message}</div>
+                ))}
+              <Table className="my-2" responsive striped>
+                <thead>
+                  <tr>
+                    <th>Certificate hash</th>
+                    <th>Checked</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {verificationEvents
+                    .filter((evt) => evt.position === eventPosition.inTable)
+                    .map((evt) => (
+                      <tr key={evt.id}>
+                        <td>
+                          <CertificateHash
+                            hash={evt.message.certificateHash}
+                            onClick={() => onCertificateClick(evt.message.certificateHash)}
+                            showLink={showCertificateLinks}
+                          />
+                        </td>
+                        <td>
+                          <IconBadge tooltip="yes" variant="success" icon="check-circle-fill" />
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </Table>
+              {verificationEvents
+                .filter((evt) => evt.position === eventPosition.afterTable)
+                .map((evt) => (
+                  <div key={evt.id}>{evt.message}</div>
+                ))}
+              {validationError !== undefined && (
+                <Alert variant="danger" className="mt-2">
+                  <Alert.Heading>
+                    <i className="text-danger bi bi-shield-slash"></i> Invalid certificate chain
+                  </Alert.Heading>
+                  <div className={styles.error}>{validationError.toString()}</div>
+                </Alert>
+              )}
             </div>
           </div>
         </div>

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Badge, Button, Card, Col, Container, Form, ListGroup, Row, Stack } from "react-bootstrap";
-import RawJsonButton from "../../RawJsonButton";
 import { useSelector } from "react-redux";
-import { selectedAggregator } from "../../../store/settingsSlice";
-import LocalDateTime from "../../LocalDateTime";
-import CardanoTransactionsFormInput from "../../CardanoTransactionsFormInput";
-import CertificateModal from "../../CertificateModal";
-import CertifyCardanoTransactionsModal from "../../CertifyCardanoTransactionsModal";
+import { Badge, Button, Card, Col, Container, Form, ListGroup, Row, Stack } from "react-bootstrap";
+import RawJsonButton from "#/RawJsonButton";
+import LocalDateTime from "#/LocalDateTime";
+import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
+import CertificateModal from "#/CertificateModal";
+import CertifyCardanoTransactionsModal from "#/CertifyCardanoTransactionsModal";
+import { selectedAggregator } from "@/store/settingsSlice";
 
 export default function CardanoTransactionsSnapshotsList(props) {
   const [cardanoTransactionsSnapshots, setCardanoTransactionsSnapshots] = useState([]);

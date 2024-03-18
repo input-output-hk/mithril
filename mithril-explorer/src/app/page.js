@@ -16,30 +16,32 @@ import {
   Tooltip,
 } from "chart.js";
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
-import EpochSettings from "../components/EpochSettings";
-import PendingCertificate from "../components/PendingCertificate";
-import CardanoDbSnapshotsList from "../components/Artifacts/CardanoDbSnapshotsList";
-import CardanoTransactionsSnapshotsList from "../components/Artifacts/CardanoTransactionsSnapshotsList";
-import CertificatesList from "../components/Artifacts/CertificatesList";
-import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
-import { aggregatorSearchParam, signedEntityType } from "../constants";
-import { setChartJsDefaults } from "../charts";
+import EpochSettings from "#/EpochSettings";
+import PendingCertificate from "#/PendingCertificate";
+import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
+import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
+import CertificatesList from "#/Artifacts/CertificatesList";
+import MithrilStakeDistributionsList from "#/Artifacts/MithrilStakeDistributionsList";
+import { aggregatorSearchParam, signedEntityType } from "@/constants";
+import { setChartJsDefaults } from "@/charts";
 import {
   selectAggregator,
   selectedAggregator as currentlySelectedAggregator,
   selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
-} from "../store/settingsSlice";
-import { updatePoolsForAggregator } from "../store/poolsSlice";
+} from "@/store/settingsSlice";
+import { updatePoolsForAggregator } from "@/store/poolsSlice";
 
 // Disable SSR for the following components since they use data from the store that are not
 // available server sides (because those data can be read from the local storage).
-const AggregatorSetter = dynamic(() => import("../components/AggregatorSetter"), { ssr: false });
-const IntervalSetter = dynamic(() => import("../components/IntervalSetter"), {
+const AggregatorSetter = dynamic(() => import("#/AggregatorSetter"), { ssr: false });
+const IntervalSetter = dynamic(() => import("#/IntervalSetter"), {
   ssr: false,
 });
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
+
+const defaultTab = signedEntityType.CardanoImmutableFilesFull;
 
 export default function Explorer() {
   const searchParams = useSearchParams();
@@ -48,6 +50,7 @@ export default function Explorer() {
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
+  const [currentTab, setCurrentTab] = useState(defaultTab);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
   const selectedAggregatorSignedEntities = useSelector((state) =>
     currentAggregatorSignedEntities(state),
@@ -58,6 +61,12 @@ export default function Explorer() {
       selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
     );
   }, [selectedAggregatorSignedEntities]);
+
+  useEffect(() => {
+    if (!enableCardanoTransactionTab && currentTab === signedEntityType.CardanoTransactions) {
+      setCurrentTab(defaultTab);
+    }
+  }, [currentTab, enableCardanoTransactionTab]);
 
   // Global mithril client wasm init
   useEffect(() => {
@@ -110,7 +119,7 @@ export default function Explorer() {
           <PendingCertificate />
         </Col>
       </Row>
-      <Tabs defaultActiveKey={signedEntityType.CardanoImmutableFilesFull}>
+      <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />
         </Tab>

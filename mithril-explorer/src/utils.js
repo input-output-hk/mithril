@@ -57,8 +57,8 @@ function formatBytes(bytes, decimals = 2) {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
 }
 
-function getCExplorerUrlForPool(network, partyId) {
-  const urlWithoutNetwork = `cexplorer.io/pool/${partyId}`;
+function getCExplorerUrl(network) {
+  const urlWithoutNetwork = "cexplorer.io";
   let url = undefined;
 
   switch (network) {
@@ -70,6 +70,9 @@ function getCExplorerUrlForPool(network, partyId) {
       break;
     case "preview":
       url = `https://preview.${urlWithoutNetwork}`;
+      break;
+    case "sanchonet":
+      url = `https://sancho.${urlWithoutNetwork}`;
       break;
     default:
       break;
@@ -106,7 +109,7 @@ module.exports = {
   formatCurrency,
   formatBytes,
   formatPartyId,
-  getCExplorerUrlForPool,
+  getCExplorerUrl,
   formatProcessDuration,
   computeAggregatorNetworkFromUrl,
   fetchGenesisVerificationKey,

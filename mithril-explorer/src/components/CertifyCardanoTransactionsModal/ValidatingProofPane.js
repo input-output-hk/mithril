@@ -1,6 +1,6 @@
 import React from "react";
 import { Table } from "react-bootstrap";
-import IconBadge from "../IconBadge";
+import IconBadge from "#/IconBadge";
 
 export default function ValidatingProofPane({ isProofValid }) {
   return (
@@ -20,7 +20,7 @@ export default function ValidatingProofPane({ isProofValid }) {
                 <td>{verification}</td>
                 <td>
                   {isProofValid ? (
-                    <IconBadge variant="success" tooltip="yes" icon="check-circle" />
+                    <IconBadge variant="success" tooltip="yes" icon="check-circle-fill" />
                   ) : (
                     <IconBadge variant="danger" tooltip="no" icon="x-circle" />
                   )}
