@@ -278,8 +278,6 @@ impl PallasChainObserver {
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to get chain point")?;
 
-        println!("Chain point: {:?}", chain_point);
-
         Ok(chain_point)
     }
 
