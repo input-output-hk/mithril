@@ -98,7 +98,7 @@ The best way to contribute right now is to provide feedback. Start by giving a l
 
 Should you have any questions, ideas or issues, we would like to hear from you:
 
-* #moria on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
+* #ask-mithril on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
 * Create a GitHub [Discussion](https://github.com/input-output-hk/mithril/discussions)
 * Create a GitHub [Issue](https://github.com/input-output-hk/mithril/issues/new)
 * Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag

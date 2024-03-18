@@ -13,7 +13,7 @@ tags: [era, era activation, era markers, era switch, hard fork]
 
 **Epic**: `Implement eras behavior switch #707](Implement eras behavior switch` [#707](https://github.com/input-output-hk/mithril/issues/707)
 
-:warning: The Era Switch is not deployed yet to the `pre-release-preview` and `release-preprod` network. A special announcement will be made on the **moria** Discord channel when a new release candidate distribution is ready.
+:warning: The Era Switch is not deployed yet to the `pre-release-preview` and `release-preprod` network. A special announcement will be made on the **ask-mithril** Discord channel when a new release candidate distribution is ready.
 
 In order to guarantee that any breaking change of the Mithril nodes does not break the Certificate Chain and the that new snapshots are consistently produced, the Mithril team has developped an Era Switch Behavior. This mechanism enables to embed new features in the signer and aggregator nodes prior ro releasing them. Also the activation of these new features will take place in a coordinated manner: all the eligible nodes will hot switch to a new era at the same Cardano epoch transition. To do so, the nodes rely on a transaction that is stored on the Cardano chain that provides era markers with the associated activations epochs for the eras.
 
