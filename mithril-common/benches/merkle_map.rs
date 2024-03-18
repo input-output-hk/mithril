@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapNode, MKMapProof, MKTree},
+    crypto_helper::{MKMap, MKMapNode, MKMapProof, MKMapValue, MKTree},
     entities::BlockRange,
 };
 
@@ -53,7 +53,7 @@ fn generate_block_ranges_nodes_iterator(
 
 fn generate_merkle_map_compressed(
     block_ranges_nodes_iterator: impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)>,
-) -> MKMap<BlockRange> {
+) -> MKMap<BlockRange, MKMapNode<BlockRange>> {
     let mut mk_map = MKMap::new(&[]).unwrap();
     for (block_range, mk_tree) in block_ranges_nodes_iterator {
         mk_map
@@ -65,7 +65,7 @@ fn generate_merkle_map_compressed(
 
 fn generate_merkle_map_proof(
     block_ranges_nodes_iterator: impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)>,
-    mk_map_compressed: &MKMap<BlockRange>,
+    mk_map_compressed: &MKMap<BlockRange, MKMapNode<BlockRange>>,
 ) -> MKMapProof<BlockRange> {
     let (mk_map_key_to_prove, mk_map_node_to_prove) =
         &block_ranges_nodes_iterator.take(1).collect::<Vec<_>>()[0];

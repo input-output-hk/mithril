@@ -4,7 +4,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
-    crypto_helper::{MKMap, MKTree, MKTreeNode},
+    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
     entities::{Beacon, BlockRange, CardanoTransactionsSetProof, TransactionHash},
     signable_builder::{TransactionRetriever, BLOCK_RANGE_LENGTH},
     StdResult,
@@ -68,7 +68,7 @@ impl ProverService for MithrilProverService {
                 .into_iter()
                 .try_fold(
                     vec![],
-                    |mut acc, (block_range, transactions)| -> StdResult<Vec<_>> {
+                    |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
                         acc.push((block_range, MKTree::new(&transactions)?.into()));
                         Ok(acc)
                     },

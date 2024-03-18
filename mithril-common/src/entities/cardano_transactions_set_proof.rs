@@ -50,7 +50,7 @@ impl CardanoTransactionsSetProof {
     cfg_test_tools! {
         /// Retrieve a dummy proof (for test only)
         pub fn dummy() -> Self {
-            use crate::crypto_helper::{MKMap, MKTree};
+            use crate::crypto_helper::{MKMap, MKTree, MKMapNode};
 
             let transaction_hashes_by_block_range = vec![
                 (
@@ -70,7 +70,8 @@ impl CardanoTransactionsSetProof {
                 .iter()
                 .flat_map(|(_, h)| h.to_owned())
                 .collect::<Vec<TransactionHash>>();
-            let mk_hash_map = MKMap::new(
+
+            let mk_hash_map: MKMap<_, MKMapNode<_>> = MKMap::new(
                 transaction_hashes_by_block_range
                     .into_iter()
                     .map(|(block_range, transactions)| {
