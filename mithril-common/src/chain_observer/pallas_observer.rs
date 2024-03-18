@@ -602,7 +602,11 @@ mod tests {
         TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
     }
 
-    /// Sets up a mock server.
+    /// Sets up a mock server for related tests.
+    ///
+    /// Use the `intersections` parameter to define exactly how many
+    /// local state queries should be intersepted by the `mock_server`
+    /// and avoid any panic errors.
     async fn setup_server(socket_path: PathBuf, intersections: u32) -> tokio::task::JoinHandle<()> {
         tokio::spawn({
             async move {
