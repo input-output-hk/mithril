@@ -123,6 +123,16 @@ impl Certificate {
     pub fn match_message(&self, message: &ProtocolMessage) -> bool {
         message.compute_hash() == self.signed_message
     }
+
+    /// Get the certificate signed entity type.
+    pub fn signed_entity_type(&self) -> SignedEntityType {
+        match &self.signature {
+            CertificateSignature::GenesisSignature(_) => {
+                SignedEntityType::MithrilStakeDistribution(self.epoch)
+            }
+            CertificateSignature::MultiSignature(entity_type, _) => entity_type.clone(),
+        }
+    }
 }
 
 //bbb// todo: review both PartialEq & PartialOrd implementations, they should not relies on the

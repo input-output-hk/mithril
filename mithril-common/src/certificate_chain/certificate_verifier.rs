@@ -269,6 +269,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             "certificate_hash" => &certificate.hash,
             "certificate_previous_hash" => &certificate.previous_hash,
             "certificate_epoch" => ?certificate.epoch,
+            "certificate_signed_entity_type" => ?certificate.signed_entity_type(),
         );
 
         certificate

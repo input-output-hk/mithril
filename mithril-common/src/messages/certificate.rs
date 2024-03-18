@@ -1,6 +1,7 @@
-use anyhow::{anyhow, Context};
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
+
+use anyhow::Context;
+use serde::{Deserialize, Serialize};
 
 #[cfg(any(test, feature = "test_tools"))]
 use crate::entities::ProtocolMessagePartKey;
@@ -9,7 +10,6 @@ use crate::entities::{
     SignedEntityType,
 };
 use crate::messages::CertificateMetadataMessagePart;
-
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::StdError;
@@ -32,6 +32,11 @@ pub struct CertificateMessage {
     /// aka BEACON(p,n)
     pub beacon: CardanoDbBeacon,
 
+    /// The signed entity type of the message.
+    ///
+    /// Only available if the message is a MultiSignature.
+    pub signed_entity_type: SignedEntityType,
+
     /// Certificate metadata
     /// aka METADATA(p,n)
     pub metadata: CertificateMetadataMessagePart,
@@ -48,11 +53,6 @@ pub struct CertificateMessage {
     /// The AVK used to sign during the current epoch
     /// aka AVK(n-2)
     pub aggregate_verification_key: String,
-
-    /// The signed entity type of the message.
-    ///
-    /// Only available if the message is a MultiSignature.
-    pub signed_entity_type: Option<SignedEntityType>,
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
@@ -82,11 +82,11 @@ impl CertificateMessage {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
                 beacon: beacon.clone(),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
                 aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
-                signed_entity_type: Some(SignedEntityType::MithrilStakeDistribution(beacon.epoch)),
                 multi_signature: fake_keys::multi_signature()[0].to_owned(),
                 genesis_signature: String::new(),
             }
@@ -160,12 +160,8 @@ impl TryFrom<CertificateMessage> for Certificate {
                 "Can not convert message to certificate: can not decode the aggregate verification key"
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
-                //bbb// Instead of an error should we lie on the signed entity by constructing a
-                // "CardanoImmutableFilesFull" signed entity.
                 CertificateSignature::MultiSignature(
-                    certificate_message.signed_entity_type.ok_or(
-                        anyhow!("Can not convert message to certificate: missing signed entity type for a multi-signature Certificate")
-                    )?,
+                    certificate_message.signed_entity_type,
                     certificate_message
                         .multi_signature
                         .try_into()
@@ -193,6 +189,7 @@ impl TryFrom<Certificate> for CertificateMessage {
     type Error = StdError;
 
     fn try_from(certificate: Certificate) -> Result<Self, Self::Error> {
+        let signed_entity_type = certificate.signed_entity_type();
         let metadata = CertificateMetadataMessagePart {
             protocol_version: certificate.metadata.protocol_version,
             protocol_parameters: certificate.metadata.protocol_parameters,
@@ -201,12 +198,11 @@ impl TryFrom<Certificate> for CertificateMessage {
             signers: certificate.metadata.signers,
         };
 
-        let (signed_entity_type, multi_signature, genesis_signature) = match certificate.signature {
+        let (multi_signature, genesis_signature) = match certificate.signature {
             CertificateSignature::GenesisSignature(signature) => {
-                (None, String::new(), signature.to_bytes_hex())
+                (String::new(), signature.to_bytes_hex())
             }
-            CertificateSignature::MultiSignature(signed_entity_type, signature) => (
-                Some(signed_entity_type),
+            CertificateSignature::MultiSignature(_, signature) => (
                 signature.to_json_hex().with_context(|| {
                     "Can not convert certificate to message: can not encode the multi-signature"
                 })?,
@@ -223,6 +219,7 @@ impl TryFrom<Certificate> for CertificateMessage {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
             beacon,
+            signed_entity_type,
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
@@ -232,7 +229,6 @@ impl TryFrom<Certificate> for CertificateMessage {
                 .with_context(|| {
                     "Can not convert certificate to message: can not encode aggregate verification key"
                 })?,
-            signed_entity_type,
             multi_signature,
             genesis_signature,
         };
@@ -243,9 +239,11 @@ impl TryFrom<Certificate> for CertificateMessage {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::entities::{ProtocolParameters, StakeDistributionParty};
     use chrono::{DateTime, Utc};
+
+    use crate::entities::{ProtocolParameters, StakeDistributionParty};
+
+    use super::*;
 
     fn golden_message() -> CertificateMessage {
         let mut protocol_message = ProtocolMessage::new();
@@ -257,10 +255,12 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
+        let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
         CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+            beacon: beacon.clone(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
             metadata: CertificateMetadataMessagePart {
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
@@ -284,7 +284,6 @@ mod tests {
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
-            signed_entity_type: None,
             multi_signature: "multi_signature".to_string(),
             genesis_signature: "genesis_signature".to_string(),
         }
@@ -301,6 +300,7 @@ mod tests {
                 "epoch": 10,
                 "immutable_file_number": 100
             },
+            "signed_entity_type": { "MithrilStakeDistribution": 10 },
             "metadata": {
                 "version": "0.1.0",
                 "parameters": {
