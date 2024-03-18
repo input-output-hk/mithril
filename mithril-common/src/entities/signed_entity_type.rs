@@ -1,6 +1,8 @@
 use crate::StdResult;
 use anyhow::anyhow;
+use digest::Update;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::time::Duration;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
@@ -107,6 +109,21 @@ impl SignedEntityType {
             }
             SignedEntityTypeDiscriminants::CardanoTransactions => {
                 Self::CardanoTransactions(beacon.to_owned())
+            }
+        }
+    }
+
+    pub(crate) fn feed_hash(&self, hasher: &mut Sha256) {
+        match self {
+            SignedEntityType::MithrilStakeDistribution(epoch)
+            | SignedEntityType::CardanoStakeDistribution(epoch) => {
+                hasher.update(&epoch.to_be_bytes())
+            }
+            SignedEntityType::CardanoImmutableFilesFull(db_beacon)
+            | SignedEntityType::CardanoTransactions(db_beacon) => {
+                hasher.update(db_beacon.network.as_bytes());
+                hasher.update(&db_beacon.epoch.to_be_bytes());
+                hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
         }
     }

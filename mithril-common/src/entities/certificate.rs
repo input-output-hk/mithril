@@ -1,7 +1,7 @@
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
-use crate::entities::{CardanoDbBeacon, CertificateMetadata, ProtocolMessage};
+use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
@@ -16,7 +16,7 @@ pub enum CertificateSignature {
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
-    MultiSignature(ProtocolMultiSignature),
+    MultiSignature(SignedEntityType, ProtocolMultiSignature),
 }
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
@@ -33,15 +33,14 @@ pub struct Certificate {
     /// aka H(FC(n))
     pub previous_hash: String,
 
-    /// Mithril beacon on the Cardano chain
-    /// aka BEACON(p,n)
-    pub beacon: CardanoDbBeacon,
+    /// Cardano chain epoch number
+    pub epoch: Epoch,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
     pub metadata: CertificateMetadata,
 
-    /// Structured message that is used to created the signed message
+    /// Structured message that is used to create the signed message
     /// aka MSG(p,n) U AVK(n-1)
     pub protocol_message: ProtocolMessage,
 
@@ -60,9 +59,9 @@ pub struct Certificate {
 
 impl Certificate {
     /// Certificate factory
-    pub fn new(
-        previous_hash: String,
-        beacon: CardanoDbBeacon,
+    pub fn new<T: Into<String>>(
+        previous_hash: T,
+        epoch: Epoch,
         metadata: CertificateMetadata,
         protocol_message: ProtocolMessage,
         aggregate_verification_key: ProtocolAggregateVerificationKey,
@@ -71,8 +70,8 @@ impl Certificate {
         let signed_message = protocol_message.compute_hash();
         let mut certificate = Certificate {
             hash: "".to_string(),
-            previous_hash,
-            beacon,
+            previous_hash: previous_hash.into(),
+            epoch,
             metadata,
             protocol_message,
             signed_message,
@@ -87,7 +86,7 @@ impl Certificate {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.previous_hash.as_bytes());
-        hasher.update(self.beacon.compute_hash().as_bytes());
+        hasher.update(self.epoch.to_be_bytes());
         hasher.update(self.metadata.compute_hash().as_bytes());
         hasher.update(self.protocol_message.compute_hash().as_bytes());
         hasher.update(self.signed_message.as_bytes());
@@ -101,7 +100,8 @@ impl Certificate {
             CertificateSignature::GenesisSignature(signature) => {
                 hasher.update(signature.to_bytes_hex());
             }
-            CertificateSignature::MultiSignature(signature) => {
+            CertificateSignature::MultiSignature(signed_entity_type, signature) => {
+                signed_entity_type.feed_hash(&mut hasher);
                 hasher.update(&signature.to_json_hex().unwrap());
             }
         };
@@ -125,16 +125,18 @@ impl Certificate {
     }
 }
 
+//bbb// todo: review both PartialEq & PartialOrd implementations, they should not relies on the
+// epoch but maybe the initiated at and/or sealed at metadata ?
 impl PartialEq for Certificate {
     fn eq(&self, other: &Self) -> bool {
-        self.beacon.eq(&other.beacon) && self.hash.eq(&other.hash)
+        self.epoch.eq(&other.epoch) && self.hash.eq(&other.hash)
     }
 }
 
 impl PartialOrd for Certificate {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Order by beacon first then per hash
-        match self.beacon.partial_cmp(&other.beacon) {
+        // Order by epoch first then per hash
+        match self.epoch.partial_cmp(&other.epoch) {
             Some(Ordering::Equal) => self.hash.partial_cmp(&other.hash),
             Some(other) => Some(other),
             // Beacons may be not comparable (most likely because the network isn't the same) in
@@ -151,7 +153,7 @@ impl Debug for Certificate {
         debug
             .field("hash", &self.hash)
             .field("previous_hash", &self.previous_hash)
-            .field("beacon", &format_args!("{:?}", self.beacon))
+            .field("epoch", &format_args!("{:?}", self.epoch))
             .field("metadata", &format_args!("{:?}", self.metadata))
             .field(
                 "protocol_message",
@@ -175,6 +177,7 @@ impl Debug for Certificate {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::SignedEntityType::CardanoStakeDistribution;
     use crate::{
         entities::{
             certificate_metadata::StakeDistributionParty, ProtocolMessagePartKey,
@@ -214,18 +217,21 @@ mod tests {
     #[test]
     fn test_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "5a2604a4feed7d304d1dd86858b8adbf450d8167f25d43c0858a9d93c5ca73f0";
+            "100484e858fa3fb4136729c768a5dcb0f08a341192055484804e50f24d58d791";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
             .with_timezone(&Utc);
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(10));
 
         let certificate = Certificate::new(
             "previous_hash".to_string(),
-            CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+            Epoch(10),
             CertificateMetadata::new(
-                "0.1.0".to_string(),
+                "testnet",
+                100,
+                "0.1.0",
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,
                 sealed_at,
@@ -236,6 +242,7 @@ mod tests {
                 .try_into()
                 .unwrap(),
             CertificateSignature::MultiSignature(
+                signed_entity_type.clone(),
                 fake_keys::multi_signature()[0].try_into().unwrap(),
             ),
         );
@@ -254,7 +261,7 @@ mod tests {
         assert_ne!(
             HASH_EXPECTED,
             Certificate {
-                beacon: CardanoDbBeacon::new("testnet-modified".to_string(), 10, 100),
+                epoch: certificate.epoch + 10,
                 ..certificate.clone()
             }
             .compute_hash(),
@@ -304,6 +311,19 @@ mod tests {
             HASH_EXPECTED,
             Certificate {
                 signature: CertificateSignature::MultiSignature(
+                    CardanoStakeDistribution(Epoch(100)),
+                    fake_keys::multi_signature()[0].try_into().unwrap()
+                ),
+                ..certificate.clone()
+            }
+            .compute_hash(),
+        );
+
+        assert_ne!(
+            HASH_EXPECTED,
+            Certificate {
+                signature: CertificateSignature::MultiSignature(
+                    signed_entity_type,
                     fake_keys::multi_signature()[1].try_into().unwrap()
                 ),
                 ..certificate.clone()
@@ -315,7 +335,7 @@ mod tests {
     #[test]
     fn test_genesis_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "fd3efd4bf091db9115b11552067deb2a2798160f22726db805bef70b9e7a547b";
+            "6930e6f461f46c27273ae95c8803a8ccfdad8e52262a3ff40ab14878c79f1650";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
@@ -323,9 +343,11 @@ mod tests {
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
 
         let genesis_certificate = Certificate::new(
-            "previous_hash".to_string(),
-            CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+            "previous_hash",
+            Epoch(10),
             CertificateMetadata::new(
+                "testnet",
+                100,
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,

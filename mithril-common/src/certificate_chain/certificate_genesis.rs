@@ -14,7 +14,7 @@ use crate::{
         CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters,
     },
-    StdResult,
+    era_deprecate, StdResult,
 };
 
 /// [CertificateGenesisProducer] related errors.
@@ -62,6 +62,7 @@ impl CertificateGenesisProducer {
             .sign(genesis_protocol_message.compute_hash().as_bytes()))
     }
 
+    era_deprecate!("Supersede beacon param with an epoch & network params");
     /// Create a Genesis Certificate
     pub fn create_genesis_certificate(
         protocol_parameters: ProtocolParameters,
@@ -74,6 +75,8 @@ impl CertificateGenesisProducer {
         let sealed_at = Utc::now();
         let signers = vec![];
         let metadata = CertificateMetadata::new(
+            beacon.network,
+            beacon.immutable_file_number,
             protocol_version,
             protocol_parameters,
             initiated_at,
@@ -84,7 +87,7 @@ impl CertificateGenesisProducer {
         let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
         Ok(Certificate::new(
             previous_hash,
-            beacon,
+            beacon.epoch,
             metadata,
             genesis_protocol_message,
             genesis_avk,

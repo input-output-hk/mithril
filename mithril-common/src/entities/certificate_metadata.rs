@@ -1,7 +1,11 @@
-use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+use crate::entities::{
+    ImmutableFileNumber, ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution,
+};
+use crate::era_deprecate;
 
 use super::{PartyId, Stake};
 
@@ -40,9 +44,16 @@ impl StakeDistributionParty {
     }
 }
 
+era_deprecate!("Remove immutable file number as it's here only for message retrocompatibility");
 /// CertificateMetadata represents the metadata associated to a Certificate
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct CertificateMetadata {
+    /// Cardano network
+    pub network: String,
+
+    /// Number of the last included immutable files for the digest computation
+    pub immutable_file_number: ImmutableFileNumber,
+
     /// Protocol Version (semver)
     /// Useful to achieve backward compatibility of the certificates (including of the multi signature)
     /// part of METADATA(p,n)
@@ -69,15 +80,19 @@ pub struct CertificateMetadata {
 
 impl CertificateMetadata {
     /// CertificateMetadata factory
-    pub fn new(
-        protocol_version: ProtocolVersion,
+    pub fn new<T: Into<String>, U: Into<ProtocolVersion>>(
+        network: T,
+        immutable_file_number: ImmutableFileNumber,
+        protocol_version: U,
         protocol_parameters: ProtocolParameters,
         initiated_at: DateTime<Utc>,
         sealed_at: DateTime<Utc>,
         signers: Vec<StakeDistributionParty>,
     ) -> CertificateMetadata {
         CertificateMetadata {
-            protocol_version,
+            network: network.into(),
+            immutable_file_number,
+            protocol_version: protocol_version.into(),
             protocol_parameters,
             initiated_at,
             sealed_at,
@@ -97,6 +112,8 @@ impl CertificateMetadata {
     /// Computes the hash of the certificate metadata
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
+        hasher.update(self.network.as_bytes());
+        hasher.update(self.immutable_file_number.to_be_bytes());
         hasher.update(self.protocol_version.as_bytes());
         hasher.update(self.protocol_parameters.compute_hash().as_bytes());
         hasher.update(
@@ -122,8 +139,9 @@ impl CertificateMetadata {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::{Duration, TimeZone, Timelike};
+
+    use super::*;
 
     fn get_parties() -> Vec<StakeDistributionParty> {
         vec![
@@ -140,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_certificate_metadata_compute_hash() {
-        let hash_expected = "11dd856403cc74ee6c307560b8b2393863299f79656bdabd0c4905aef621c688";
+        let hash_expected = "ba2e4b067e4672d2c4ba4f70fca44d70ac7cc0caa5f7432ad91361f3acfab79c";
 
         let initiated_at = Utc
             .with_ymd_and_hms(2024, 2, 12, 13, 11, 47)
@@ -148,52 +166,60 @@ mod tests {
             .with_nanosecond(123043)
             .unwrap();
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
+        let metadata = CertificateMetadata::new(
+            "devnet",
+            1,
+            "0.1.0".to_string(),
+            ProtocolParameters::new(1000, 100, 0.123),
+            initiated_at,
+            sealed_at,
+            get_parties(),
+        );
 
-        assert_eq!(
+        assert_eq!(hash_expected, metadata.compute_hash());
+
+        assert_ne!(
             hash_expected,
-            CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at,
-                sealed_at,
-                get_parties(),
-            )
-            .compute_hash()
+            CertificateMetadata {
+                network: "modified".into(),
+                ..metadata.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             hash_expected,
-            CertificateMetadata::new(
-                "0.1.0-modified".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at,
-                sealed_at,
-                get_parties(),
-            )
-            .compute_hash()
+            CertificateMetadata {
+                immutable_file_number: metadata.immutable_file_number + 10,
+                ..metadata.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             hash_expected,
-            CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(2000, 100, 0.123),
-                initiated_at,
-                sealed_at,
-                get_parties(),
-            )
-            .compute_hash()
+            CertificateMetadata {
+                protocol_version: "0.1.0-modified".to_string(),
+                ..metadata.clone()
+            }
+            .compute_hash(),
         );
 
         assert_ne!(
             hash_expected,
-            CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at - Duration::try_seconds(78).unwrap(),
-                sealed_at,
-                get_parties(),
-            )
+            CertificateMetadata {
+                protocol_parameters: ProtocolParameters::new(2000, 100, 0.123),
+                ..metadata.clone()
+            }
+            .compute_hash(),
+        );
+
+        assert_ne!(
+            hash_expected,
+            CertificateMetadata {
+                initiated_at: metadata.initiated_at - Duration::try_seconds(78).unwrap(),
+                ..metadata.clone()
+            }
             .compute_hash()
         );
 
@@ -202,14 +228,11 @@ mod tests {
 
         assert_ne!(
             hash_expected,
-            CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at,
-                sealed_at + Duration::try_seconds(207).unwrap(),
-                signers_with_different_party_id,
-            )
-            .compute_hash()
+            CertificateMetadata {
+                sealed_at: metadata.sealed_at - Duration::try_seconds(78).unwrap(),
+                ..metadata.clone()
+            }
+            .compute_hash(),
         );
 
         let mut signers = get_parties();
@@ -217,14 +240,11 @@ mod tests {
 
         assert_ne!(
             hash_expected,
-            CertificateMetadata::new(
-                "0.1.0".to_string(),
-                ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at,
-                sealed_at,
+            CertificateMetadata {
                 signers,
-            )
-            .compute_hash()
+                ..metadata.clone()
+            }
+            .compute_hash(),
         );
     }
 }

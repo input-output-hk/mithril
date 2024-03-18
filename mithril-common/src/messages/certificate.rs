@@ -1,4 +1,4 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
@@ -6,6 +6,7 @@ use std::fmt::{Debug, Formatter};
 use crate::entities::ProtocolMessagePartKey;
 use crate::entities::{
     CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
+    SignedEntityType,
 };
 use crate::messages::CertificateMetadataMessagePart;
 
@@ -35,7 +36,7 @@ pub struct CertificateMessage {
     /// aka METADATA(p,n)
     pub metadata: CertificateMetadataMessagePart,
 
-    /// Structured message that is used to created the signed message
+    /// Structured message that is used to create the signed message
     /// aka MSG(p,n) U AVK(n-1)
     pub protocol_message: ProtocolMessage,
 
@@ -47,6 +48,11 @@ pub struct CertificateMessage {
     /// The AVK used to sign during the current epoch
     /// aka AVK(n-2)
     pub aggregate_verification_key: String,
+
+    /// The signed entity type of the message.
+    ///
+    /// Only available if the message is a MultiSignature.
+    pub signed_entity_type: Option<SignedEntityType>,
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
@@ -70,14 +76,17 @@ impl CertificateMessage {
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
                 fake_keys::aggregate_verification_key()[1].to_owned(),
             );
+            let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
+
             Self {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
-                beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+                beacon: beacon.clone(),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
                 aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
+                signed_entity_type: Some(SignedEntityType::MithrilStakeDistribution(beacon.epoch)),
                 multi_signature: fake_keys::multi_signature()[0].to_owned(),
                 genesis_signature: String::new(),
             }
@@ -98,6 +107,10 @@ impl Debug for CertificateMessage {
             .field("hash", &self.hash)
             .field("previous_hash", &self.previous_hash)
             .field("beacon", &format_args!("{:?}", self.beacon))
+            .field(
+                "signed_entity_type",
+                &format_args!("{:?}", self.signed_entity_type),
+            )
             .field("metadata", &format_args!("{:?}", self.metadata))
             .field(
                 "protocol_message",
@@ -124,6 +137,8 @@ impl TryFrom<CertificateMessage> for Certificate {
 
     fn try_from(certificate_message: CertificateMessage) -> Result<Self, Self::Error> {
         let metadata = CertificateMetadata {
+            network: certificate_message.beacon.network,
+            immutable_file_number: certificate_message.beacon.immutable_file_number,
             protocol_version: certificate_message.metadata.protocol_version,
             protocol_parameters: certificate_message.metadata.protocol_parameters,
             initiated_at: certificate_message.metadata.initiated_at,
@@ -134,7 +149,7 @@ impl TryFrom<CertificateMessage> for Certificate {
         let certificate = Certificate {
             hash: certificate_message.hash,
             previous_hash: certificate_message.previous_hash,
-            beacon: certificate_message.beacon,
+            epoch: certificate_message.beacon.epoch,
             metadata,
             protocol_message: certificate_message.protocol_message,
             signed_message: certificate_message.signed_message,
@@ -145,7 +160,12 @@ impl TryFrom<CertificateMessage> for Certificate {
                 "Can not convert message to certificate: can not decode the aggregate verification key"
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
+                //bbb// Instead of an error should we lie on the signed entity by constructing a
+                // "CardanoImmutableFilesFull" signed entity.
                 CertificateSignature::MultiSignature(
+                    certificate_message.signed_entity_type.ok_or(
+                        anyhow!("Can not convert message to certificate: missing signed entity type for a multi-signature Certificate")
+                    )?,
                     certificate_message
                         .multi_signature
                         .try_into()
@@ -181,22 +201,28 @@ impl TryFrom<Certificate> for CertificateMessage {
             signers: certificate.metadata.signers,
         };
 
-        let (multi_signature, genesis_signature) = match certificate.signature {
+        let (signed_entity_type, multi_signature, genesis_signature) = match certificate.signature {
             CertificateSignature::GenesisSignature(signature) => {
-                (String::new(), signature.to_bytes_hex())
+                (None, String::new(), signature.to_bytes_hex())
             }
-            CertificateSignature::MultiSignature(signature) => (
+            CertificateSignature::MultiSignature(signed_entity_type, signature) => (
+                Some(signed_entity_type),
                 signature.to_json_hex().with_context(|| {
                     "Can not convert certificate to message: can not encode the multi-signature"
                 })?,
                 String::new(),
             ),
         };
+        let beacon = CardanoDbBeacon::new(
+            certificate.metadata.network,
+            *certificate.epoch,
+            certificate.metadata.immutable_file_number,
+        );
 
         let message = CertificateMessage {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
-            beacon: certificate.beacon,
+            beacon,
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
@@ -206,6 +232,7 @@ impl TryFrom<Certificate> for CertificateMessage {
                 .with_context(|| {
                     "Can not convert certificate to message: can not encode aggregate verification key"
                 })?,
+            signed_entity_type,
             multi_signature,
             genesis_signature,
         };
@@ -257,6 +284,7 @@ mod tests {
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
+            signed_entity_type: None,
             multi_signature: "multi_signature".to_string(),
             genesis_signature: "genesis_signature".to_string(),
         }
@@ -307,7 +335,7 @@ mod tests {
             "genesis_signature": "genesis_signature"
         }"#;
         let message: CertificateMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a CertificateMessage instance.",
+            "This JSON is expected to be successfully parsed into a CertificateMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

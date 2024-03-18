@@ -9,6 +9,7 @@ use crate::{
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
 
+use crate::entities::{CardanoDbBeacon, SignedEntityType};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use std::{cmp::min, collections::HashMap, fs, path::PathBuf, sync::Arc};
@@ -217,8 +218,8 @@ pub fn setup_certificate_chain(
             let avk = avk_for_signers(&fixture.signers_fixture());
             let next_avk = avk_for_signers(&next_fixture.signers_fixture());
             let mut fake_certificate = fake_data::certificate(certificate_hash);
-            fake_certificate.beacon.epoch = epoch;
-            fake_certificate.beacon.immutable_file_number = immutable_file_number;
+            fake_certificate.epoch = epoch;
+            fake_certificate.metadata.immutable_file_number = immutable_file_number;
             fake_certificate
                 .protocol_message
                 .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
@@ -229,6 +230,11 @@ pub fn setup_certificate_chain(
             fake_certificate.aggregate_verification_key = avk;
             fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
             fake_certificate.previous_hash = "".to_string();
+            let beacon = CardanoDbBeacon::new(
+                fake_certificate.metadata.network.clone(),
+                *fake_certificate.epoch,
+                fake_certificate.metadata.immutable_file_number,
+            );
             match i {
                 0 => {
                     let genesis_protocol_message =
@@ -239,7 +245,7 @@ pub fn setup_certificate_chain(
                         .unwrap();
                     fake_certificate = CertificateGenesisProducer::create_genesis_certificate(
                         fake_certificate.metadata.protocol_parameters,
-                        fake_certificate.beacon,
+                        beacon.clone(),
                         next_avk,
                         genesis_signature,
                     )
@@ -262,8 +268,10 @@ pub fn setup_certificate_chain(
                             fake_certificate.signed_message.as_bytes(),
                         )
                         .unwrap();
-                    fake_certificate.signature =
-                        CertificateSignature::MultiSignature(multi_signature.into());
+                    fake_certificate.signature = CertificateSignature::MultiSignature(
+                        SignedEntityType::CardanoImmutableFilesFull(beacon),
+                        multi_signature.into(),
+                    );
                 }
             }
             fake_certificate

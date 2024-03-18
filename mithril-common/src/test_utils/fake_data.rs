@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use semver::Version;
 
+use crate::crypto_helper::ProtocolMultiSignature;
 use crate::{
     crypto_helper,
     entities::{
@@ -120,6 +121,8 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         .unwrap()
         .with_timezone(&Utc);
     let metadata = CertificateMetadata::new(
+        &beacon.network,
+        beacon.immutable_file_number,
         protocol_version,
         protocol_parameters,
         initiated_at,
@@ -142,17 +145,21 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     let aggregate_verification_key = fake_keys::aggregate_verification_key()[1]
         .try_into()
         .unwrap();
-    let multi_signature = fake_keys::multi_signature()[0].try_into().unwrap();
+    let multi_signature: ProtocolMultiSignature =
+        fake_keys::multi_signature()[0].try_into().unwrap();
 
     entities::Certificate {
         hash: certificate_hash,
         previous_hash,
-        beacon,
+        epoch: beacon.epoch,
         metadata,
         protocol_message,
         signed_message: "".to_string(),
         aggregate_verification_key,
-        signature: CertificateSignature::MultiSignature(multi_signature),
+        signature: CertificateSignature::MultiSignature(
+            SignedEntityType::CardanoImmutableFilesFull(beacon),
+            multi_signature,
+        ),
     }
 }
 

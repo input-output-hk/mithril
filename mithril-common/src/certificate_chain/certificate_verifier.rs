@@ -198,11 +198,11 @@ impl MithrilCertificateVerifier {
         let valid_certificate_has_different_epoch_as_previous =
             |next_aggregate_verification_key: &str| -> bool {
                 next_aggregate_verification_key == current_certificate_avk
-                    && previous_certificate.beacon.epoch != certificate.beacon.epoch
+                    && previous_certificate.epoch != certificate.epoch
             };
         let valid_certificate_has_same_epoch_as_previous = || -> bool {
             previous_certificate_avk == current_certificate_avk
-                && previous_certificate.beacon.epoch == certificate.beacon.epoch
+                && previous_certificate.epoch == certificate.epoch
         };
 
         match previous_certificate
@@ -268,7 +268,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             "Verifying certificate";
             "certificate_hash" => &certificate.hash,
             "certificate_previous_hash" => &certificate.previous_hash,
-            "certificate_beacon" => ?certificate.beacon
+            "certificate_epoch" => ?certificate.epoch,
         );
 
         certificate
@@ -288,7 +288,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
                         .await?;
                     Ok(None)
                 }
-                CertificateSignature::MultiSignature(signature) => {
+                CertificateSignature::MultiSignature(_, signature) => {
                     self.verify_standard_certificate(certificate, signature)
                         .await
                 }
