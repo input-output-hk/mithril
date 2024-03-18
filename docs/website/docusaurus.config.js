@@ -171,7 +171,7 @@ const config = {
             title: 'Community',
             items: [
               {
-                label: 'Discord (#moria)',
+                label: 'Discord (#ask-mithril)',
                 href: 'https://discord.gg/5kaErDKDRq',
               },
               {
