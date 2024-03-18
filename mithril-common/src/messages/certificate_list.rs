@@ -38,6 +38,7 @@ pub struct CertificateListItemMessageMetadata {
     pub total_signers: usize,
 }
 
+///bbb/// todo: add signed_entity_type
 /// Message structure of a certificate list item
 #[derive(Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificateListItemMessage {

@@ -400,6 +400,8 @@ impl CertifierService for MithrilCertifierService {
             SignedEntityType::CardanoTransactions(beacon) => beacon.clone(),
         };
         let metadata = CertificateMetadata::new(
+            beacon.network,
+            beacon.immutable_file_number,
             protocol_version,
             epoch_service.current_protocol_parameters()?.clone(),
             initiated_at,
@@ -421,11 +423,11 @@ impl CertifierService for MithrilCertifierService {
 
         let certificate = Certificate::new(
             parent_certificate_hash,
-            beacon,
+            beacon.epoch,
             metadata,
             open_message.protocol_message.clone(),
             epoch_service.current_aggregate_verification_key()?.clone(),
-            CertificateSignature::MultiSignature(multi_signature),
+            CertificateSignature::MultiSignature(signed_entity_type.clone(), multi_signature),
         );
 
         self.certificate_verifier
@@ -475,9 +477,9 @@ impl CertifierService for MithrilCertifierService {
             .await?
             .first()
         {
-            if epoch.has_gap_with(&certificate.beacon.epoch) {
+            if epoch.has_gap_with(&certificate.epoch) {
                 return Err(CertifierServiceError::CertificateEpochGap {
-                    certificate_epoch: certificate.beacon.epoch,
+                    certificate_epoch: certificate.epoch,
                     current_epoch: epoch,
                 }
                 .into());
@@ -938,7 +940,7 @@ mod tests {
         let builder = MithrilFixtureBuilder::default();
         let certifier_service = setup_certifier_service(&builder.build(), &[], None).await;
         let certificate = fake_data::genesis_certificate("whatever");
-        let epoch = certificate.beacon.epoch + 2;
+        let epoch = certificate.epoch + 2;
         certifier_service
             .certificate_repository
             .create_certificate(certificate)
@@ -963,7 +965,7 @@ mod tests {
         let builder = MithrilFixtureBuilder::default();
         let certifier_service = setup_certifier_service(&builder.build(), &[], None).await;
         let certificate = fake_data::genesis_certificate("whatever");
-        let epoch = certificate.beacon.epoch + 1;
+        let epoch = certificate.epoch + 1;
         certifier_service
             .certificate_repository
             .create_certificate(certificate)

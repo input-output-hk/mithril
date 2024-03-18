@@ -1,8 +1,11 @@
-use crate::database::provider::{CertificateRepository, SignedEntityStorer};
-use anyhow::{anyhow, Context};
-use mithril_common::{entities::Certificate, StdResult};
-use slog_scope::{debug, info, trace};
 use std::{collections::HashMap, sync::Arc};
+
+use anyhow::{anyhow, Context};
+use slog_scope::{debug, info, trace};
+
+use mithril_common::{entities::Certificate, StdResult};
+
+use crate::database::provider::{CertificateRepository, SignedEntityStorer};
 
 /// Tools to recompute all the certificates hashes in a aggregator database.
 pub struct CertificatesHashMigrator {
@@ -83,14 +86,14 @@ impl CertificatesHashMigrator {
                 if certificate.is_genesis() {
                     trace!(
                         "🔧 Certificate Hash Migrator: new hash computed for genesis certificate {:?}",
-                        certificate.beacon;
+                        certificate.signed_entity_type();
                         "old_hash" => &certificate.hash,
                         "new_hash" => &new_hash,
                     );
                 } else {
                     trace!(
                         "🔧 Certificate Hash Migrator: new hash computed for certificate {:?}",
-                        certificate.beacon;
+                        certificate.signed_entity_type();
                         "old_hash" => &certificate.hash,
                         "new_hash" => &new_hash,
                         "old_previous_hash" => &old_previous_hash,
@@ -187,25 +190,24 @@ impl CertificatesHashMigrator {
 
 #[cfg(test)]
 mod test {
-    use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRecord,
-        CertificateRepository, SignedEntityRecord, SignedEntityStoreAdapter, SignedEntityStorer,
-    };
+    use std::{collections::HashMap, sync::Arc};
+
     use anyhow::Context;
+    use sqlite::Connection;
+
     use mithril_common::{
         entities::{
-            CardanoDbBeacon, Certificate, Epoch, ImmutableFileNumber,
-            SignedEntityType::{
-                CardanoImmutableFilesFull, CardanoStakeDistribution, CardanoTransactions,
-                MithrilStakeDistribution,
-            },
+            Certificate, Epoch, ImmutableFileNumber, SignedEntityType::MithrilStakeDistribution,
             SignedEntityTypeDiscriminants,
         },
         StdResult,
     };
     use mithril_persistence::sqlite::SqliteConnection;
-    use sqlite::Connection;
-    use std::{collections::HashMap, sync::Arc};
+
+    use crate::database::provider::{
+        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRecord,
+        CertificateRepository, SignedEntityRecord, SignedEntityStoreAdapter, SignedEntityStorer,
+    };
 
     use super::CertificatesHashMigrator;
 
@@ -228,10 +230,8 @@ mod test {
         epoch: u64,
         immutable_file_number: ImmutableFileNumber,
     ) -> Certificate {
-        let certificate = CertificateRecord::dummy_genesis(
-            certificate_hash,
-            CardanoDbBeacon::new("testnet".to_string(), epoch, immutable_file_number),
-        );
+        let certificate =
+            CertificateRecord::dummy_genesis(certificate_hash, Epoch(epoch), immutable_file_number);
 
         certificate.into()
     }
@@ -245,7 +245,8 @@ mod test {
         let certificate = CertificateRecord::dummy(
             certificate_hash,
             previous_hash,
-            CardanoDbBeacon::new("testnet".to_string(), epoch, immutable_file_number),
+            Epoch(epoch),
+            immutable_file_number,
         );
 
         certificate.into()
@@ -273,21 +274,8 @@ mod test {
 
             let signed_entity_maybe = match discriminant_maybe {
                 None => None,
-                Some(discriminant) => {
-                    let signed_entity_type = match *discriminant {
-                        SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                            MithrilStakeDistribution(certificate.beacon.epoch)
-                        }
-                        SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                            CardanoStakeDistribution(certificate.beacon.epoch)
-                        }
-                        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                            CardanoImmutableFilesFull(certificate.beacon.clone())
-                        }
-                        SignedEntityTypeDiscriminants::CardanoTransactions => {
-                            CardanoTransactions(certificate.beacon.clone())
-                        }
-                    };
+                Some(_discriminant) => {
+                    let signed_entity_type = certificate.signed_entity_type();
                     // Note: we don't need to have real artifacts for those tests
                     let artifact = format!("{signed_entity_type:?}");
 
@@ -489,7 +477,7 @@ mod test {
                         (
                             cert.hash,
                             cert.previous_hash,
-                            cert.beacon,
+                            cert.epoch,
                             signed_entity.map(|s| (s.signed_entity_type, s.certificate_id)),
                         )
                     })

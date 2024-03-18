@@ -9,7 +9,7 @@ use crate::{
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
 
-use crate::entities::{CardanoDbBeacon, SignedEntityType};
+use crate::entities::SignedEntityType;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use std::{cmp::min, collections::HashMap, fs, path::PathBuf, sync::Arc};
@@ -230,11 +230,7 @@ pub fn setup_certificate_chain(
             fake_certificate.aggregate_verification_key = avk;
             fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
             fake_certificate.previous_hash = "".to_string();
-            let beacon = CardanoDbBeacon::new(
-                fake_certificate.metadata.network.clone(),
-                *fake_certificate.epoch,
-                fake_certificate.metadata.immutable_file_number,
-            );
+            let beacon = fake_certificate.as_cardano_db_beacon();
             match i {
                 0 => {
                     let genesis_protocol_message =

@@ -1,10 +1,13 @@
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
-use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
+use crate::entities::{
+    CardanoDbBeacon, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType,
+};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
+use crate::era_deprecate;
 use sha2::{Digest, Sha256};
 
 /// The signature of a [Certificate]
@@ -127,11 +130,21 @@ impl Certificate {
     /// Get the certificate signed entity type.
     pub fn signed_entity_type(&self) -> SignedEntityType {
         match &self.signature {
-            CertificateSignature::GenesisSignature(_) => {
-                SignedEntityType::MithrilStakeDistribution(self.epoch)
-            }
+            CertificateSignature::GenesisSignature(_) => SignedEntityType::genesis(self.epoch),
             CertificateSignature::MultiSignature(entity_type, _) => entity_type.clone(),
         }
+    }
+
+    era_deprecate!(
+        "remove this method when the immutable_file_number is removed from the metadata"
+    );
+    /// Deduce a [CardanoDbBeacon] from this certificate values.
+    pub fn as_cardano_db_beacon(&self) -> CardanoDbBeacon {
+        CardanoDbBeacon::new(
+            self.metadata.network.clone(),
+            *self.epoch,
+            self.metadata.immutable_file_number,
+        )
     }
 }
 

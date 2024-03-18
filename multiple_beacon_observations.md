@@ -40,6 +40,9 @@ is difficult.
   The pain will mostly come from the `CertificateMessage`: we will need to keep the immutable file number in its
 associated `Certificate`  in order to reconstruct the (to be removed) beacon in the message.
 
+* **Major** The immutable file number is used alongside the epoch to deduce the 'master certificate' of an epoch. We
+  need to be able to do that without it.
+
 ## Opportunities
 
 * We can rename the legacy beacon to `CardanoDbBeacon` to explicit its role.

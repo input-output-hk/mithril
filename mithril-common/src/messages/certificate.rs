@@ -189,6 +189,7 @@ impl TryFrom<Certificate> for CertificateMessage {
     type Error = StdError;
 
     fn try_from(certificate: Certificate) -> Result<Self, Self::Error> {
+        let beacon = certificate.as_cardano_db_beacon();
         let signed_entity_type = certificate.signed_entity_type();
         let metadata = CertificateMetadataMessagePart {
             protocol_version: certificate.metadata.protocol_version,
@@ -209,11 +210,6 @@ impl TryFrom<Certificate> for CertificateMessage {
                 String::new(),
             ),
         };
-        let beacon = CardanoDbBeacon::new(
-            certificate.metadata.network,
-            *certificate.epoch,
-            certificate.metadata.immutable_file_number,
-        );
 
         let message = CertificateMessage {
             hash: certificate.hash,

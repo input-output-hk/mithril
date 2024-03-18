@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use sqlite::{ConnectionThreadSafe, Value};
 use std::{iter::repeat, sync::Arc};
 
+use mithril_common::entities::{ImmutableFileNumber, SignedEntityType};
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{
@@ -11,6 +12,7 @@ use mithril_common::{
         HexEncodedAgregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
         ProtocolVersion, StakeDistributionParty,
     },
+    era_deprecate,
     messages::{
         CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateMessage,
         CertificateMetadataMessagePart,
@@ -24,6 +26,7 @@ use mithril_persistence::sqlite::{
 #[cfg(test)]
 use mithril_common::test_utils::fake_keys;
 
+era_deprecate!("Remove immutable_file_number");
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
 pub struct CertificateRecord {
@@ -47,8 +50,14 @@ pub struct CertificateRecord {
     /// Epoch of creation of the certificate.
     pub epoch: Epoch,
 
-    /// Beacon used to produce the signed message
-    pub beacon: CardanoDbBeacon,
+    /// Cardano network of the certificate.
+    pub network: String,
+
+    /// Immutable file number at the time the certificate was created
+    pub immutable_file_number: ImmutableFileNumber,
+
+    /// Signed entity type of the message
+    pub signed_entity_type: SignedEntityType,
 
     /// Protocol Version (semver)
     pub protocol_version: ProtocolVersion,
@@ -71,23 +80,35 @@ pub struct CertificateRecord {
 
 impl CertificateRecord {
     #[cfg(test)]
-    pub fn dummy_genesis(id: &str, beacon: CardanoDbBeacon) -> Self {
-        let mut record = Self::dummy(id, "", beacon);
+    pub fn dummy_genesis(
+        id: &str,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> Self {
+        let mut record = Self::dummy(id, "", epoch, immutable_file_number);
         record.parent_certificate_id = None;
         record.signature = fake_keys::genesis_signature()[0].to_owned();
+        record.signed_entity_type = SignedEntityType::genesis(epoch);
         record
     }
 
     #[cfg(test)]
-    pub fn dummy(id: &str, parent_id: &str, beacon: CardanoDbBeacon) -> Self {
+    pub fn dummy(
+        id: &str,
+        parent_id: &str,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> Self {
         Self {
             certificate_id: id.to_string(),
             parent_certificate_id: Some(parent_id.to_string()),
             message: "message".to_string(),
             signature: fake_keys::multi_signature()[0].to_owned(),
             aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
-            epoch: beacon.epoch,
-            beacon,
+            epoch,
+            network: "dummy".to_string(),
+            immutable_file_number,
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
             protocol_version: "protocol_version".to_string(),
             protocol_parameters: Default::default(),
             protocol_message: Default::default(),
@@ -100,13 +121,26 @@ impl CertificateRecord {
                 .with_timezone(&Utc),
         }
     }
+
+    era_deprecate!(
+        "remove this method when the immutable_file_number is removed from the metadata"
+    );
+    /// Deduce a [CardanoDbBeacon] from this record values.
+    fn as_cardano_db_beacon(&self) -> CardanoDbBeacon {
+        CardanoDbBeacon::new(
+            self.network.clone(),
+            *self.epoch,
+            self.immutable_file_number,
+        )
+    }
 }
 
 impl From<Certificate> for CertificateRecord {
     fn from(other: Certificate) -> Self {
+        let signed_entity_type = other.signed_entity_type();
         let (signature, parent_certificate_id) = match other.signature {
             CertificateSignature::GenesisSignature(signature) => (signature.to_bytes_hex(), None),
-            CertificateSignature::MultiSignature(signature) => {
+            CertificateSignature::MultiSignature(_, signature) => {
                 (signature.to_json_hex().unwrap(), Some(other.previous_hash))
             }
         };
@@ -117,8 +151,10 @@ impl From<Certificate> for CertificateRecord {
             message: other.signed_message,
             signature,
             aggregate_verification_key: other.aggregate_verification_key.to_json_hex().unwrap(),
-            epoch: other.beacon.epoch,
-            beacon: other.beacon,
+            epoch: other.epoch,
+            network: other.metadata.network,
+            immutable_file_number: other.metadata.immutable_file_number,
+            signed_entity_type,
             protocol_version: other.metadata.protocol_version,
             protocol_parameters: other.metadata.protocol_parameters,
             protocol_message: other.protocol_message,
@@ -132,6 +168,8 @@ impl From<Certificate> for CertificateRecord {
 impl From<CertificateRecord> for Certificate {
     fn from(other: CertificateRecord) -> Self {
         let certificate_metadata = CertificateMetadata::new(
+            other.network,
+            other.immutable_file_number,
             other.protocol_version,
             other.protocol_parameters,
             other.initiated_at,
@@ -145,14 +183,17 @@ impl From<CertificateRecord> for Certificate {
             ),
             Some(parent_certificate_id) => (
                 parent_certificate_id,
-                CertificateSignature::MultiSignature(other.signature.try_into().unwrap()),
+                CertificateSignature::MultiSignature(
+                    other.signed_entity_type,
+                    other.signature.try_into().unwrap(),
+                ),
             ),
         };
 
         Certificate {
             hash: other.certificate_id,
             previous_hash,
-            beacon: other.beacon,
+            epoch: other.epoch,
             metadata: certificate_metadata,
             signed_message: other.protocol_message.compute_hash(),
             protocol_message: other.protocol_message,
@@ -164,6 +205,7 @@ impl From<CertificateRecord> for Certificate {
 
 impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
+        let beacon = value.as_cardano_db_beacon();
         let metadata = CertificateMetadataMessagePart {
             protocol_version: value.protocol_version,
             protocol_parameters: value.protocol_parameters,
@@ -180,11 +222,12 @@ impl From<CertificateRecord> for CertificateMessage {
         CertificateMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
-            beacon: value.beacon,
+            beacon,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
             aggregate_verification_key: value.aggregate_verification_key,
+            signed_entity_type: value.signed_entity_type,
             multi_signature,
             genesis_signature,
         }
@@ -193,6 +236,7 @@ impl From<CertificateRecord> for CertificateMessage {
 
 impl From<CertificateRecord> for CertificateListItemMessage {
     fn from(value: CertificateRecord) -> Self {
+        let beacon = value.as_cardano_db_beacon();
         let metadata = CertificateListItemMessageMetadata {
             protocol_version: value.protocol_version,
             protocol_parameters: value.protocol_parameters,
@@ -204,7 +248,7 @@ impl From<CertificateRecord> for CertificateListItemMessage {
         CertificateListItemMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
-            beacon: value.beacon,
+            beacon,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
@@ -243,7 +287,9 @@ impl SqLiteEntity for CertificateRecord {
                     "Could not cast i64 ({epoch_int}) to u64. Error: '{e}'"
                 ))
             })?),
-            beacon: serde_json::from_str(beacon_string).map_err(
+            network: "".to_string(),
+            immutable_file_number: 0,
+            signed_entity_type: serde_json::from_str(beacon_string).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
                         "Could not turn string '{beacon_string}' to Beacon. Error: {e}"
@@ -438,7 +484,9 @@ protocol_message, signers, initiated_at, sealed_at)";
                     Value::String(certificate_record.signature.to_owned()),
                     Value::String(certificate_record.aggregate_verification_key.to_owned()),
                     Value::Integer(certificate_record.epoch.try_into().unwrap()),
-                    Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
+                    Value::String(
+                        serde_json::to_string(&certificate_record.signed_entity_type).unwrap(),
+                    ),
                     Value::String(certificate_record.protocol_version.to_owned()),
                     Value::String(
                         serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
@@ -742,7 +790,7 @@ mod tests {
                     (6, Value::Integer(*certificate_record.epoch as i64)),
                     (
                         7,
-                        serde_json::to_string(&certificate_record.beacon)
+                        serde_json::to_string(&certificate_record.signed_entity_type)
                             .unwrap()
                             .into(),
                     ),
@@ -869,10 +917,7 @@ mod tests {
     #[test]
     fn converting_certificate_record_to_certificate_should_not_recompute_hash() {
         let expected_hash = "my_hash";
-        let record = CertificateRecord::dummy_genesis(
-            expected_hash,
-            CardanoDbBeacon::new(String::new(), 1, 1),
-        );
+        let record = CertificateRecord::dummy_genesis(expected_hash, Epoch(1), 1);
         let certificate: Certificate = record.into();
 
         assert_eq!(expected_hash, &certificate.hash);
@@ -935,7 +980,9 @@ mod tests {
                 Value::String(certificate_record.signature),
                 Value::String(certificate_record.aggregate_verification_key),
                 Value::Integer(*certificate_record.epoch as i64),
-                Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
+                Value::String(
+                    serde_json::to_string(&certificate_record.signed_entity_type).unwrap()
+                ),
                 Value::String(certificate_record.protocol_version),
                 Value::String(
                     serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
@@ -982,7 +1029,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
                         Value::String(certificate_record.signature),
                         Value::String(certificate_record.aggregate_verification_key),
                         Value::Integer(*certificate_record.epoch as i64),
-                        Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
+                        Value::String(
+                            serde_json::to_string(&certificate_record.signed_entity_type).unwrap(),
+                        ),
                         Value::String(certificate_record.protocol_version),
                         Value::String(
                             serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
@@ -1013,7 +1062,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
             provider.get_by_epoch(&Epoch(1)).unwrap().collect();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
-            .filter_map(|c| (c.beacon.epoch == Epoch(1)).then_some(c.to_owned().into()))
+            .filter_map(|c| (c.epoch == Epoch(1)).then_some(c.to_owned().into()))
             .rev()
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
@@ -1022,7 +1071,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
             provider.get_by_epoch(&Epoch(3)).unwrap().collect();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
-            .filter_map(|c| (c.beacon.epoch == Epoch(3)).then_some(c.to_owned().into()))
+            .filter_map(|c| (c.epoch == Epoch(3)).then_some(c.to_owned().into()))
             .rev()
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
@@ -1169,8 +1218,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
     async fn get_master_certificate_one_cert_in_current_epoch_recorded_returns_that_one() {
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
-        let certificate =
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1));
+        let certificate = CertificateRecord::dummy_genesis("1", Epoch(1), 1);
         let expected_certificate: Certificate = certificate.clone().into();
         insert_certificate_records(&connection, vec![certificate]).await;
 
@@ -1190,9 +1238,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
         ];
         let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1213,9 +1261,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
         ];
         let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1236,10 +1284,10 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
-            CertificateRecord::dummy("4", "1", CardanoDbBeacon::new(String::new(), 2, 4)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy("4", "1", Epoch(2), 4),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1260,12 +1308,12 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
-            CertificateRecord::dummy("4", "1", CardanoDbBeacon::new(String::new(), 2, 4)),
-            CertificateRecord::dummy("5", "4", CardanoDbBeacon::new(String::new(), 2, 5)),
-            CertificateRecord::dummy("6", "4", CardanoDbBeacon::new(String::new(), 2, 6)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy("4", "1", Epoch(2), 4),
+            CertificateRecord::dummy("5", "4", Epoch(2), 5),
+            CertificateRecord::dummy("6", "4", Epoch(2), 6),
         ];
         let expected_certificate: Certificate = certificates.get(3).unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1285,9 +1333,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
         ];
         insert_certificate_records(&connection, certificates).await;
 
@@ -1306,10 +1354,10 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
-            CertificateRecord::dummy_genesis("4", CardanoDbBeacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_genesis("4", Epoch(1), 3),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1330,12 +1378,12 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("4", "1", CardanoDbBeacon::new(String::new(), 2, 4)),
-            CertificateRecord::dummy("5", "1", CardanoDbBeacon::new(String::new(), 2, 5)),
-            CertificateRecord::dummy_genesis("6", CardanoDbBeacon::new(String::new(), 2, 5)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 2),
+            CertificateRecord::dummy("4", "1", Epoch(2), 4),
+            CertificateRecord::dummy("5", "1", Epoch(2), 5),
+            CertificateRecord::dummy_genesis("6", Epoch(2), 5),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1356,10 +1404,10 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
-            CertificateRecord::dummy_genesis("4", CardanoDbBeacon::new(String::new(), 2, 3)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_genesis("4", Epoch(2), 3),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates).await;
@@ -1378,7 +1426,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
     async fn get_master_certificate_for_epoch() {
         let (certificates, _) = setup_certificate_chain(3, 1);
         let expected_certificate_id = &certificates[2].hash;
-        let epoch = &certificates[2].beacon.epoch;
+        let epoch = &certificates[2].epoch;
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         {
@@ -1449,9 +1497,9 @@ protocol_message, signers, initiated_at, sealed_at) values \
         let connection = deps.get_sqlite_connection().await.unwrap();
         let repository = CertificateRepository::new(connection.clone());
         let records = vec![
-            CertificateRecord::dummy_genesis("1", CardanoDbBeacon::new(String::new(), 1, 1)),
-            CertificateRecord::dummy("2", "1", CardanoDbBeacon::new(String::new(), 1, 2)),
-            CertificateRecord::dummy("3", "1", CardanoDbBeacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy("3", "1", Epoch(1), 3),
         ];
         insert_certificate_records(&connection, records.clone()).await;
         let certificates: Vec<Certificate> = records.into_iter().map(|c| c.into()).collect();
@@ -1461,7 +1509,7 @@ protocol_message, signers, initiated_at, sealed_at) values \
             .delete_certificates(
                 &certificates
                     .iter()
-                    .filter(|r| r.beacon.immutable_file_number > 1)
+                    .filter(|r| r.metadata.immutable_file_number > 1)
                     .collect::<Vec<_>>(),
             )
             .await
