@@ -19,7 +19,7 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "next_aggregate_verification_key")]
     NextAggregateVerificationKey,
 
-    /// Latest immutable file number associated to the Cardano Transactions
+    /// The ProtocolMessage part key associated to the latest immutable file number signed
     #[serde(rename = "latest_immutable_file_number")]
     LatestImmutableFileNumber,
 }

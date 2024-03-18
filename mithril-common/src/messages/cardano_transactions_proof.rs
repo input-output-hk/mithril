@@ -25,7 +25,7 @@ pub struct CardanoTransactionsProofsMessage {
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
 
-    /// Latest immutable file number associated to the Cardano Transactions
+    /// Latest immutable file number that has been certified
     pub latest_immutable_file_number: u64,
 }
 
