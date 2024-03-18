@@ -1,3 +1,4 @@
+use mithril_common::entities::{CardanoTransactionsSnapshot, SignedEntity};
 use mithril_common::messages::CardanoTransactionsSetProofMessagePart;
 use mithril_common::{
     entities::{CardanoTransactionsSetProof, TransactionHash},
@@ -11,10 +12,9 @@ pub struct ToCardanoTransactionsProofsMessageAdapter;
 impl ToCardanoTransactionsProofsMessageAdapter {
     /// Turn an entity instance into message.
     pub fn try_adapt(
-        certificate_hash: &str,
+        signed_entity: SignedEntity<CardanoTransactionsSnapshot>,
         transactions_set_proofs: Vec<CardanoTransactionsSetProof>,
         transaction_hashes_to_certify: Vec<TransactionHash>,
-        latest_immutable_file_number: u64,
     ) -> StdResult<CardanoTransactionsProofsMessage> {
         let transactions_hashes_not_certified = compute_not_certified_transactions(
             &transactions_set_proofs,
@@ -22,10 +22,10 @@ impl ToCardanoTransactionsProofsMessageAdapter {
         );
 
         Ok(CardanoTransactionsProofsMessage::new(
-            certificate_hash,
+            &signed_entity.certificate_id,
             try_adapt_set_proof_message(transactions_set_proofs)?,
             transactions_hashes_not_certified,
-            latest_immutable_file_number,
+            signed_entity.artifact.beacon.immutable_file_number,
         ))
     }
 }
@@ -78,33 +78,33 @@ mod tests {
         let transactions_hashes_certified = &transaction_hashes[0..5];
         let transactions_hashes_non_certified = &transaction_hashes[5..];
 
-        let mut transactions_set_proofs = Vec::new();
-        for transaction_hashes_in_chunk in transactions_hashes_certified.chunks(2) {
-            let mk_proof = MKProof::from_leaves(transaction_hashes_in_chunk).unwrap();
-            transactions_set_proofs.push(CardanoTransactionsSetProof::new(
-                transaction_hashes_in_chunk.to_vec(),
-                mk_proof,
-            ))
-        }
+        let transactions_set_proofs = transactions_hashes_certified
+            .chunks(2)
+            .map(|transaction_hashes_in_chunk| {
+                let mk_proof = MKProof::from_leaves(transaction_hashes_in_chunk).unwrap();
+                CardanoTransactionsSetProof::new(transaction_hashes_in_chunk.to_vec(), mk_proof)
+            })
+            .collect::<Vec<_>>();
 
-        let certificate_hash = "certificate_hash";
-        let latest_immutable_file_number = 1234;
+        let signed_entity = SignedEntity::<CardanoTransactionsSnapshot>::dummy();
+
         let message = ToCardanoTransactionsProofsMessageAdapter::try_adapt(
-            certificate_hash,
+            signed_entity.clone(),
             transactions_set_proofs.clone(),
             transaction_hashes.to_vec(),
-            latest_immutable_file_number,
         )
         .unwrap();
-        let transactions_set_proofs = transactions_set_proofs
+
+        let transactions_set_proof_message_part = transactions_set_proofs
             .into_iter()
             .map(|p| p.try_into().unwrap())
             .collect();
+
         let expected_message = CardanoTransactionsProofsMessage::new(
-            certificate_hash,
-            transactions_set_proofs,
+            &signed_entity.certificate_id,
+            transactions_set_proof_message_part,
             transactions_hashes_non_certified.to_vec(),
-            latest_immutable_file_number,
+            signed_entity.artifact.beacon.immutable_file_number,
         );
         assert_eq!(expected_message, message);
     }

@@ -102,10 +102,9 @@ mod handlers {
             )
             .await?;
         let message = ToCardanoTransactionsProofsMessageAdapter::try_adapt(
-            &signed_entity.certificate_id,
+            signed_entity,
             transactions_set_proofs,
             transaction_hashes,
-            signed_entity.artifact.beacon.immutable_file_number,
         )?;
 
         Ok(message)
