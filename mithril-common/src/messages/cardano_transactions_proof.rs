@@ -24,6 +24,9 @@ pub struct CardanoTransactionsProofsMessage {
 
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
+
+    /// Latest immutable file number that has been certified
+    pub latest_immutable_file_number: u64,
 }
 
 #[cfg_attr(
@@ -50,6 +53,7 @@ pub struct VerifiedCardanoTransactions {
     certificate_hash: String,
     merkle_root: String,
     certified_transactions: Vec<TransactionHash>,
+    latest_immutable_file_number: u64,
 }
 
 impl VerifiedCardanoTransactions {
@@ -69,6 +73,11 @@ impl VerifiedCardanoTransactions {
         message.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
             self.merkle_root.clone(),
+        );
+
+        message.set_message_part(
+            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            self.latest_immutable_file_number.to_string(),
         );
     }
 }
@@ -108,11 +117,13 @@ impl CardanoTransactionsProofsMessage {
         certificate_hash: &str,
         certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
         non_certified_transactions: Vec<TransactionHash>,
+        latest_immutable_file_number: u64,
     ) -> Self {
         Self {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions,
             non_certified_transactions,
+            latest_immutable_file_number,
         }
     }
 
@@ -162,14 +173,26 @@ impl CardanoTransactionsProofsMessage {
                 .iter()
                 .flat_map(|c| c.transactions_hashes.clone())
                 .collect(),
+            latest_immutable_file_number: self.latest_immutable_file_number,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::{path::Path, sync::Arc};
+
+    use slog::Logger;
+
     use super::*;
-    use crate::crypto_helper::MKProof;
+    use crate::{
+        cardano_transaction_parser::DumbTransactionParser,
+        crypto_helper::MKProof,
+        entities::{Beacon, CardanoTransaction},
+        signable_builder::{
+            CardanoTransactionsSignableBuilder, MockTransactionStore, SignableBuilder,
+        },
+    };
 
     #[test]
     fn verify_malformed_proofs_fail() {
@@ -180,6 +203,7 @@ mod tests {
                 proof: "invalid".to_string(),
             }],
             vec![],
+            99999,
         );
 
         let error = txs_proofs
@@ -197,7 +221,7 @@ mod tests {
 
     #[test]
     fn verify_no_certified_transaction_fail() {
-        let txs_proofs = CardanoTransactionsProofsMessage::new("whatever", vec![], vec![]);
+        let txs_proofs = CardanoTransactionsProofsMessage::new("whatever", vec![], vec![], 99999);
 
         let error = txs_proofs
             .verify()
@@ -219,11 +243,13 @@ mod tests {
             certificate_hash: "whatever".to_string(),
             merkle_root: set_proof.merkle_root(),
             certified_transactions: set_proof.transactions_hashes().to_vec(),
+            latest_immutable_file_number: 99999,
         };
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
+            99999,
         );
 
         let verified_txs = txs_proofs
@@ -243,6 +269,7 @@ mod tests {
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
+            99999,
         );
 
         let error = txs_proofs
@@ -278,6 +305,7 @@ mod tests {
                 .map(|p| p.try_into().unwrap())
                 .collect(),
             vec![],
+            99999,
         );
 
         let error = txs_proofs
@@ -292,5 +320,77 @@ mod tests {
             "Expected 'NonMatchingMerkleRoot' error but got '{:?}'",
             error
         );
+    }
+
+    #[tokio::test]
+    async fn verify_hashes_from_verified_cardano_transaction_and_from_signable_builder_are_equals()
+    {
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-123", 1, 1),
+            CardanoTransaction::new("tx-hash-456", 2, 1),
+        ];
+
+        assert_eq!(
+            from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
+            from_signable_builder(&transactions, 99999)
+                .await
+                .compute_hash()
+        );
+
+        assert_ne!(
+            from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
+            from_signable_builder(&transactions, 123456)
+                .await
+                .compute_hash()
+        );
+    }
+
+    fn from_verified_cardano_transaction(
+        transactions: &[CardanoTransaction],
+        immutable_file_number: u64,
+    ) -> ProtocolMessage {
+        let transactions_hashes = transactions
+            .iter()
+            .map(|t| t.transaction_hash.clone())
+            .collect::<Vec<_>>();
+
+        let proof = MKProof::from_leaves(transactions).unwrap();
+        let set_proof = CardanoTransactionsSetProof::new(transactions_hashes, proof);
+
+        let verified_transactions_fake = VerifiedCardanoTransactions {
+            certificate_hash: "whatever".to_string(),
+            merkle_root: set_proof.merkle_root(),
+            certified_transactions: set_proof.transactions_hashes().to_vec(),
+            latest_immutable_file_number: immutable_file_number,
+        };
+
+        let mut message = ProtocolMessage::new();
+        verified_transactions_fake.fill_protocol_message(&mut message);
+
+        message
+    }
+
+    async fn from_signable_builder(
+        transactions: &[CardanoTransaction],
+        immutable_file_number: u64,
+    ) -> ProtocolMessage {
+        let mut mock_transaction_store = MockTransactionStore::new();
+        mock_transaction_store
+            .expect_store_transactions()
+            .returning(|_| Ok(()));
+
+        let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
+            Arc::new(DumbTransactionParser::new(transactions.to_vec())),
+            Arc::new(mock_transaction_store),
+            Path::new("/tmp"),
+            Logger::root(slog::Discard, slog::o!()),
+        );
+        cardano_transaction_signable_builder
+            .compute_protocol_message(Beacon {
+                immutable_file_number,
+                ..Beacon::default()
+            })
+            .await
+            .unwrap()
     }
 }

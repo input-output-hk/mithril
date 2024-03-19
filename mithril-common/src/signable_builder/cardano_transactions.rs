@@ -96,6 +96,10 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
             mk_root.to_hex(),
         );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            beacon.immutable_file_number.to_string(),
+        );
 
         Ok(protocol_message)
     }
@@ -183,17 +187,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_signable() {
-        let beacon = Beacon::default();
+        // Arrange
+        let beacon = Beacon {
+            immutable_file_number: 14,
+            ..Beacon::default()
+        };
         let transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 1, 1),
-            CardanoTransaction::new("tx-hash-456", 2, 1),
-            CardanoTransaction::new("tx-hash-789", 3, 1),
+            CardanoTransaction::new("tx-hash-123", 1, 11),
+            CardanoTransaction::new("tx-hash-456", 2, 12),
+            CardanoTransaction::new("tx-hash-789", 3, 13),
         ];
         let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
         let mut mock_transaction_store = MockTransactionStore::new();
         mock_transaction_store
             .expect_store_transactions()
-            .times(1)
             .returning(|_| Ok(()));
         let transaction_store = Arc::new(mock_transaction_store);
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
@@ -202,18 +209,50 @@ mod tests {
             Path::new("/tmp"),
             create_logger(),
         );
-        let mk_root = cardano_transactions_signable_builder
-            .compute_merkle_root(&transactions)
-            .unwrap();
+
+        // Action
         let signable = cardano_transactions_signable_builder
             .compute_protocol_message(beacon.clone())
             .await
+            .unwrap();
+
+        // Assert
+        let mk_root = cardano_transactions_signable_builder
+            .compute_merkle_root(&transactions)
             .unwrap();
         let mut signable_expected = ProtocolMessage::new();
         signable_expected.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
             mk_root.to_hex(),
         );
+        signable_expected.set_message_part(
+            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            "14".to_string(),
+        );
         assert_eq!(signable_expected, signable);
+    }
+
+    #[tokio::test]
+    async fn test_compute_signable_with_no_transaction_return_error() {
+        let beacon = Beacon::default();
+        let transactions = vec![];
+        let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
+        let mut mock_transaction_store = MockTransactionStore::new();
+        mock_transaction_store
+            .expect_store_transactions()
+            .returning(|_| Ok(()));
+        let transaction_store = Arc::new(mock_transaction_store);
+        let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
+            transaction_parser,
+            transaction_store,
+            Path::new("/tmp"),
+            create_logger(),
+        );
+
+        let result = cardano_transactions_signable_builder
+            .compute_protocol_message(beacon.clone())
+            .await;
+
+        assert!(result.is_err());
     }
 }

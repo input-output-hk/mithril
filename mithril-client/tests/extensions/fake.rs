@@ -163,6 +163,7 @@ mod proof {
                     proof: ProtocolMkProof::new(proof.clone()).to_json_hex().unwrap(),
                 }],
                 non_certified_transactions: vec![],
+                latest_immutable_file_number: 9999,
             })
             .unwrap();
 
@@ -174,6 +175,10 @@ mod proof {
                 cert.protocol_message.set_message_part(
                     ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
                     proof.root().to_hex(),
+                );
+                cert.protocol_message.set_message_part(
+                    ProtocolMessagePartKey::LatestImmutableFileNumber,
+                    9999.to_string(),
                 );
                 cert.signed_message = cert.protocol_message.compute_hash();
                 cert
