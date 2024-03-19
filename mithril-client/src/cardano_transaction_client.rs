@@ -239,8 +239,12 @@ mod tests {
         let mut aggregator_client = MockAggregatorHTTPClient::new();
         let certificate_hash = "cert-hash-123".to_string();
         let set_proof = CardanoTransactionsSetProof::dummy();
-        let transactions_proofs =
-            CardanoTransactionsProofs::new(&certificate_hash, vec![set_proof.clone()], vec![]);
+        let transactions_proofs = CardanoTransactionsProofs::new(
+            &certificate_hash,
+            vec![set_proof.clone()],
+            vec![],
+            99999,
+        );
         let expected_transactions_proofs = transactions_proofs.clone();
         aggregator_client
             .expect_get_content()

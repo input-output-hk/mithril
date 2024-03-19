@@ -4,6 +4,17 @@ mkdir -p ${ARTIFACTS_DIR_TEMP}
 # Step 1: Bootstrap the devnet artifacts
 # Adapted from https://github.com/IntersectMBO/cardano-node/blob/master/scripts/babbage/mkfiles.sh
 
+# Is semver on the first argument strictly lower than equal to the second argument?
+version_lt() {
+  VERSION_LHS=$1
+  VERSION_RHS=$2
+  if [ "${VERSION_LHS}" != "${VERSION_RHS}" ] && [ "${VERSION_LHS}" = "`echo -e "${VERSION_LHS}\n${VERSION_RHS}" | sort -V | head -n1`" ]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
 UNAME=$(uname -s) SED=
 case $UNAME in
   Darwin )      SED="gsed";;
@@ -72,9 +83,15 @@ $CARDANO_CLI byron genesis genesis \
 cp $SCRIPT_DIRECTORY/configuration/babbage/alonzo-babbage-test-genesis.json "${ARTIFACTS_DIR_TEMP}/genesis.alonzo.spec.json"
 cp $SCRIPT_DIRECTORY/configuration/babbage/conway-babbage-test-genesis.json "${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json"
 
-if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
+if [ "${CARDANO_NODE_VERSION_RELEASE}" = "8.1.2" ]; then
   # Fix 8.1.2, to avoid the following error: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: example/genesis.conway.spec.json Error: Error in $: key "genDelegs" not found'
   mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"genDelegs":{}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
+fi
+
+if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
+  # Fix >=8.8.0, to avoid the following errors: 'Command failed: genesis create-staked  Error: Error: Error while decoding Shelley genesis at: ./temp/genesis.conway.spec.json Error: Error in $.poolVotingThresholds: key "motionNoConfidence" not found
+  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"poolVotingThresholds": {"motionNoConfidence": 0.51, "committeeNormal": 0.51, "committeeNoConfidence": 0.51, "hardForkInitiation": 0.51, "ppSecurityGroup": 0.51}, "dRepVotingThresholds": {"motionNoConfidence": 0.51, "committeeNormal": 0.51, "committeeNoConfidence": 0.51, "updateToConstitution": 0.51, "hardForkInitiation": 0.51, "ppNetworkGroup": 0.51, "ppEconomicGroup": 0.51, "ppTechnicalGroup": 0.51, "ppGovGroup": 0.51, "treasuryWithdrawal": 0.51}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
+  cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
 fi
 
 cp $SCRIPT_DIRECTORY/configuration/byron/configuration.yaml "${ARTIFACTS_DIR_TEMP}/"
@@ -188,18 +205,6 @@ for ADDR in ${USER_ADDRS}; do
       --stake-verification-key-file addresses/${ADDR}-stake.vkey \
       --testnet-magic ${NETWORK_MAGIC} \
       --out-file addresses/${ADDR}-stake.addr
-
-  # Stake addresses registration certs
-  ./cardano-cli stake-address registration-certificate \
-      --stake-verification-key-file addresses/${ADDR}-stake.vkey \
-      --out-file addresses/${ADDR}-stake.reg.cert
+  
 done
 
-# User N will delegate to pool N
-for N in ${POOL_NODES_N}; do
-  # Stake address delegation certs
-  ./cardano-cli stake-address delegation-certificate \
-      --stake-verification-key-file addresses/user${N}-stake.vkey \
-      --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
-      --out-file addresses/user${N}-stake.deleg.cert
-done

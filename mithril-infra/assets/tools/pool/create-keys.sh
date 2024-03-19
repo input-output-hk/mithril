@@ -62,9 +62,20 @@ CARDANO_CLI_CMD node issue-op-cert \
 --out-file ${POOL_ARTIFACTS_DIR}/opcert.cert
 
 ### Create a registration certificate
-CARDANO_CLI_CMD stake-address registration-certificate \
---stake-verification-key-file ${POOL_ARTIFACTS_DIR}/stake.vkey \
---out-file ${POOL_ARTIFACTS_DIR}/stake.cert
+if [ "${CARDANO_ERA}" == "conway"]; then
+    KEY_REGISTRATION_DEPOSIT_ANOUNT=$(CARDANO_CLI_CMD ${CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq -r .enactState.curPParams.keyDeposit)
+    # Conway specific creation of registration certificate
+    CARDANO_CLI_CMD stake-address registration-certificate \
+    --stake-verification-key-file ${POOL_ARTIFACTS_DIR}/stake.vkey \
+    --out-file ${POOL_ARTIFACTS_DIR}/stake.cert \
+    --key-reg-deposit-amt $KEY_REGISTRATION_DEPOSIT_ANOUNT
+else
+    # Legacy creation of registration certificate
+    CARDANO_CLI_CMD stake-address registration-certificate \
+    --stake-verification-key-file ${POOL_ARTIFACTS_DIR}/stake.vkey \
+    --out-file ${POOL_ARTIFACTS_DIR}/stake.cert
+fi
+
 
 ### Compute Pool Id
 POOL_ID=$(CARDANO_CLI_CMD stake-pool id --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey)
