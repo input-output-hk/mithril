@@ -122,6 +122,9 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         &self,
         leaves: &[T],
     ) -> StdResult<MKMapProof<K>> {
+        if leaves.is_empty() {
+            return Err(anyhow!("MKMap could not compute proof for empty leaves"));
+        }
         let leaves_by_keys: HashMap<K, Vec<MKTreeNode>> = leaves
             .iter()
             .filter_map(|leaf| match self.contains(&leaf.to_owned().into()) {
@@ -535,6 +538,20 @@ mod tests {
             mk_map.compute_root().unwrap(),
             mk_map_clone.compute_root().unwrap(),
         );
+    }
+
+    #[test]
+    fn test_mk_map_should_not_compute_proof_for_no_leaves() {
+        let entries = generate_merkle_trees(100000, 100);
+        let mktree_nodes_to_certify: &[MKTreeNode] = &[];
+        let merkle_tree_node_entries = &entries
+            .into_iter()
+            .map(|(range, mktree)| (range.to_owned(), mktree.into()))
+            .collect::<Vec<(_, MKMapNode<_>)>>();
+        let mk_map_full = MKMap::new(merkle_tree_node_entries.as_slice()).unwrap();
+        mk_map_full
+            .compute_proof(mktree_nodes_to_certify)
+            .expect_err("MKMap should not compute proof for no leaves");
     }
 
     #[test]
