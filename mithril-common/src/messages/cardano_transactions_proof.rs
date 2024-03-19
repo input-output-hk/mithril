@@ -190,7 +190,8 @@ mod tests {
         crypto_helper::MKProof,
         entities::{Beacon, CardanoTransaction},
         signable_builder::{
-            CardanoTransactionsSignableBuilder, MockTransactionStore, SignableBuilder,
+            CardanoTransactionsSignableBuilder, MockTransactionRetriever, MockTransactionStore,
+            SignableBuilder,
         },
     };
 
@@ -355,7 +356,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         let proof = MKProof::from_leaves(transactions).unwrap();
-        let set_proof = CardanoTransactionsSetProof::new(transactions_hashes, proof);
+        let set_proof = CardanoTransactionsSetProof::new(transactions_hashes, proof.into());
 
         let verified_transactions_fake = VerifiedCardanoTransactions {
             certificate_hash: "whatever".to_string(),
@@ -378,10 +379,12 @@ mod tests {
         mock_transaction_store
             .expect_store_transactions()
             .returning(|_| Ok(()));
+        let mock_transaction_retriever = MockTransactionRetriever::new();
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(DumbTransactionParser::new(transactions.to_vec())),
             Arc::new(mock_transaction_store),
+            Arc::new(mock_transaction_retriever),
             Path::new("/tmp"),
             Logger::root(slog::Discard, slog::o!()),
         );
