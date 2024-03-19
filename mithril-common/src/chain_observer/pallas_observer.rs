@@ -8,7 +8,7 @@ use pallas_network::{
     miniprotocols::{
         localstate::{
             queries_v16::{
-                self, Addr, Addrs, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
+                self, Addr, Addrs, Genesis, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
                 TransactionOutput, UTxOByAddress,
             },
             Client,
@@ -271,6 +271,40 @@ impl PallasChainObserver {
             .with_context(|| "PallasChainObserver failed to convert kes period")?)
     }
 
+    /// Fetches the current chain point using the provided `statequery` client.
+    async fn do_get_chain_point_state_query(&self, statequery: &mut Client) -> StdResult<Point> {
+        let chain_point = queries_v16::get_chain_point(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get chain point")?;
+
+        Ok(chain_point)
+    }
+
+    /// Fetches the current era using the provided `statequery` client.
+    async fn do_get_current_era_state_query(&self, statequery: &mut Client) -> StdResult<u16> {
+        let era = queries_v16::get_current_era(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get current era")?;
+
+        Ok(era)
+    }
+
+    /// Fetches the current genesis config using the provided `statequery` client.
+    async fn do_get_genesis_config_state_query(
+        &self,
+        statequery: &mut Client,
+    ) -> StdResult<Vec<Genesis>> {
+        let era = self.do_get_current_era_state_query(statequery).await?;
+        let genesis_config = queries_v16::get_genesis_config(statequery, era)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get genesis config")?;
+
+        Ok(genesis_config)
+    }
+
     /// Fetches chain point and genesis config through the local statequery.
     /// The KES period is calculated afterwards.
     async fn get_kes_period(
@@ -285,20 +319,9 @@ impl PallasChainObserver {
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to acquire statequery")?;
 
-        let chain_point = queries_v16::get_chain_point(statequery)
-            .await
-            .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver failed to get chain point")?;
+        let chain_point = self.do_get_chain_point_state_query(statequery).await?;
 
-        let era = queries_v16::get_current_era(statequery)
-            .await
-            .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver failed to get current era")?;
-
-        let genesis_config = queries_v16::get_genesis_config(statequery, era)
-            .await
-            .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver failed to get genesis config")?;
+        let genesis_config = self.do_get_genesis_config_state_query(statequery).await?;
 
         let config = genesis_config
             .first()
@@ -579,8 +602,12 @@ mod tests {
         TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
     }
 
-    /// Sets up a mock server.
-    async fn setup_server(socket_path: PathBuf) -> tokio::task::JoinHandle<()> {
+    /// Sets up a mock server for related tests.
+    ///
+    /// Use the `intersections` parameter to define exactly how many
+    /// local state queries should be intersepted by the `mock_server`
+    /// and avoid any panic errors.
+    async fn setup_server(socket_path: PathBuf, intersections: u32) -> tokio::task::JoinHandle<()> {
         tokio::spawn({
             async move {
                 if socket_path.exists() {
@@ -595,14 +622,10 @@ mod tests {
                 server.statequery().recv_while_idle().await.unwrap();
                 server.statequery().send_acquired().await.unwrap();
 
-                let result = mock_server(&mut server).await;
-                server.statequery().send_result(result).await.unwrap();
-
-                let result = mock_server(&mut server).await;
-                server.statequery().send_result(result).await.unwrap();
-
-                let result = mock_server(&mut server).await;
-                server.statequery().send_result(result).await.unwrap();
+                for _ in 0..intersections {
+                    let result = mock_server(&mut server).await;
+                    server.statequery().send_result(result).await.unwrap();
+                }
             }
         })
     }
@@ -610,7 +633,7 @@ mod tests {
     #[tokio::test]
     async fn get_current_epoch() {
         let socket_path = create_temp_dir("get_current_epoch").join("node.socket");
-        let server = setup_server(socket_path.clone()).await;
+        let server = setup_server(socket_path.clone(), 2).await;
         let client = tokio::spawn(async move {
             let observer =
                 PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
@@ -625,7 +648,7 @@ mod tests {
     #[tokio::test]
     async fn get_current_datums() {
         let socket_path = create_temp_dir("get_current_datums").join("node.socket");
-        let server = setup_server(socket_path.clone()).await;
+        let server = setup_server(socket_path.clone(), 2).await;
         let client = tokio::spawn(async move {
             let observer =
                 PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
@@ -642,7 +665,7 @@ mod tests {
     #[tokio::test]
     async fn get_current_stake_distribution() {
         let socket_path = create_temp_dir("get_current_stake_distribution").join("node.socket");
-        let server = setup_server(socket_path.clone()).await;
+        let server = setup_server(socket_path.clone(), 2).await;
         let client = tokio::spawn(async move {
             let observer =
                 super::PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
@@ -672,7 +695,7 @@ mod tests {
     #[tokio::test]
     async fn get_current_kes_period() {
         let socket_path = create_temp_dir("get_current_kes_period").join("node.socket");
-        let server = setup_server(socket_path.clone()).await;
+        let server = setup_server(socket_path.clone(), 3).await;
         let client = tokio::spawn(async move {
             let observer =
                 PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
@@ -717,5 +740,77 @@ mod tests {
             .unwrap();
 
         assert_eq!(413, current_kes_period);
+    }
+
+    #[tokio::test]
+    async fn get_chain_point() {
+        let socket_path = create_temp_dir("get_chain_point").join("node.socket");
+        let server = setup_server(socket_path.clone(), 1).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut client = observer.get_client().await.unwrap();
+            let statequery = client.statequery();
+            statequery.acquire(None).await.unwrap();
+            let chain_point = observer
+                .do_get_chain_point_state_query(statequery)
+                .await
+                .unwrap();
+            observer.post_process_statequery(&mut client).await.unwrap();
+            client.abort().await;
+            chain_point
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let chain_point = client_res.expect("Client failed");
+        assert_eq!(chain_point, Point::Specific(52851885, vec![1, 2, 3]));
+    }
+
+    #[tokio::test]
+    async fn get_genesis_config() {
+        let socket_path = create_temp_dir("get_genesis_config").join("node.socket");
+        let server = setup_server(socket_path.clone(), 2).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut client = observer.get_client().await.unwrap();
+            let statequery = client.statequery();
+            statequery.acquire(None).await.unwrap();
+            let genesis_config = observer
+                .do_get_genesis_config_state_query(statequery)
+                .await
+                .unwrap();
+            observer.post_process_statequery(&mut client).await.unwrap();
+            client.abort().await;
+            genesis_config
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let genesis_config = client_res.expect("Client failed");
+        assert_eq!(genesis_config, get_fake_genesis_config());
+    }
+
+    #[tokio::test]
+    async fn get_current_era() {
+        let socket_path = create_temp_dir("get_current_era").join("node.socket");
+        let server = setup_server(socket_path.clone(), 1).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut client = observer.get_client().await.unwrap();
+            let statequery = client.statequery();
+            statequery.acquire(None).await.unwrap();
+            let era = observer
+                .do_get_current_era_state_query(statequery)
+                .await
+                .unwrap();
+            observer.post_process_statequery(&mut client).await.unwrap();
+            client.abort().await;
+            era
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let era = client_res.expect("Client failed");
+        assert_eq!(era, 4);
     }
 }
