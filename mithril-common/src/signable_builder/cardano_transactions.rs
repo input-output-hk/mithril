@@ -73,9 +73,10 @@ impl CardanoTransactionsSignableBuilder {
         let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
         for transaction in transactions {
-            let block_range_start =
-                transaction.block_number / BLOCK_RANGE_LENGTH * BLOCK_RANGE_LENGTH;
-            let block_range_end = block_range_start + BLOCK_RANGE_LENGTH;
+            let block_range_end = transaction
+                .block_number
+                .next_multiple_of(BLOCK_RANGE_LENGTH);
+            let block_range_start = block_range_end - BLOCK_RANGE_LENGTH;
             let block_range = BlockRange::new(block_range_start, block_range_end);
             transactions_by_block_ranges
                 .entry(block_range)
