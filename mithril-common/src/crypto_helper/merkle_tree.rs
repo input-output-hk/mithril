@@ -114,9 +114,7 @@ impl Merge for MergeMKTreeNode {
     type Item = Arc<MKTreeNode>;
 
     fn merge(lhs: &Self::Item, rhs: &Self::Item) -> MMRResult<Self::Item> {
-        Ok(Arc::new(
-            Arc::unwrap_or_clone(lhs.to_owned()) + Arc::unwrap_or_clone(rhs.to_owned()),
-        ))
+        Ok(Arc::new((**lhs).clone() + (**rhs).clone()))
     }
 }
 
@@ -153,7 +151,7 @@ impl MKProof {
             .all(|leaf| {
                 self.inner_leaves
                     .iter()
-                    .any(|(_, l)| &Arc::unwrap_or_clone(l.to_owned()) == leaf)
+                    .any(|(_, l)| ((**l).clone()) == *leaf)
             })
             .then_some(())
             .ok_or(anyhow!("Leaves not found in the MKProof"))
@@ -274,7 +272,7 @@ impl MKTree {
             .map(|(leaf, position)| (position, leaf))
             .collect::<BTreeMap<_, _>>()
             .into_values()
-            .map(|leaf| Arc::unwrap_or_clone(leaf.to_owned()))
+            .map(|leaf| (**leaf).clone())
             .collect()
     }
 
@@ -285,7 +283,7 @@ impl MKTree {
 
     /// Generate root of the Merkle tree
     pub fn compute_root(&self) -> StdResult<MKTreeNode> {
-        Ok(Arc::unwrap_or_clone(self.inner_tree.get_root()?))
+        Ok((*self.inner_tree.get_root()?).clone())
     }
 
     /// Generate Merkle proof of memberships in the tree
