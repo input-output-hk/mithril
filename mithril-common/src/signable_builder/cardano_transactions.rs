@@ -22,10 +22,6 @@ use crate::{
 #[cfg(test)]
 use mockall::automock;
 
-/// The length of the block range
-/// Important: this value should be updated with extreme care (probably with an era change) in order to avoid signing disruptions.
-pub const BLOCK_RANGE_LENGTH: u64 = 15;
-
 /// Cardano transactions store
 #[cfg_attr(test, automock)]
 #[async_trait]
@@ -73,11 +69,7 @@ impl CardanoTransactionsSignableBuilder {
         let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
         for transaction in transactions {
-            let block_range_end = transaction
-                .block_number
-                .next_multiple_of(BLOCK_RANGE_LENGTH);
-            let block_range_start = block_range_end - BLOCK_RANGE_LENGTH;
-            let block_range = BlockRange::new(block_range_start, block_range_end);
+            let block_range = BlockRange::from_block_number(transaction.block_number);
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
@@ -133,6 +125,8 @@ impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
                 .await?;
         }
 
+        // We temporarily retrieve all the transactions from the database after we have recorded them.
+        // This avoids order side effects.
         let transactions = self.transaction_retriever.get_up_to(&beacon).await?;
         let mk_root = self.compute_merkle_root(&transactions)?;
 

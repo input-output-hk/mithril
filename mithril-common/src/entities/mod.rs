@@ -23,7 +23,7 @@ mod snapshot;
 mod type_alias;
 
 pub use beacon::{Beacon, BeaconComparison, BeaconComparisonError};
-pub use block_range::{BlockNumber, BlockRange};
+pub use block_range::{BlockNumber, BlockRange, BlockRangeLength};
 pub use cardano_network::CardanoNetwork;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;

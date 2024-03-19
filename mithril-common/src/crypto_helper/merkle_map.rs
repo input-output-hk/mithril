@@ -596,7 +596,7 @@ mod tests {
                 (
                     entries
                         .iter()
-                        .fold(BlockRange::new(0, 0), |mut acc, (range, _)| {
+                        .fold(BlockRange::new(0, 0), |acc, (range, _)| {
                             acc.try_add(range).unwrap()
                         }),
                     MKMapNode::Map(Rc::new(MKMap::new(entries).unwrap())),
