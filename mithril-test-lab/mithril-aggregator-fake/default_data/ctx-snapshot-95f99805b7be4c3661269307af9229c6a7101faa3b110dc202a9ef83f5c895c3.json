@@ -1,0 +1,11 @@
+{
+  "merkle_root": "aaea30a12561768248a351690ffd6fbd8f1c0e12ec3b8e0b0c45580da9e9435f",
+  "beacon": {
+    "network": "devnet",
+    "epoch": 29,
+    "immutable_file_number": 7
+  },
+  "hash": "95f99805b7be4c3661269307af9229c6a7101faa3b110dc202a9ef83f5c895c3",
+  "certificate_hash": "61b1898206d65c768947211a9dab021f5ce4c4a01a69e5e905503a1fed810449",
+  "created_at": "2024-03-19T16:32:49.476885667Z"
+}
