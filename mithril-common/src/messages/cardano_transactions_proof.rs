@@ -264,7 +264,7 @@ mod tests {
     fn verify_invalid_proofs() {
         let set_proof = CardanoTransactionsSetProof::new(
             vec!["invalid1".to_string()],
-            MKProof::from_leaves(&["invalid2"]).unwrap().into(),
+            MKProof::from_leaves(&["invalid2"]).unwrap(),
         );
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
@@ -292,11 +292,11 @@ mod tests {
         let set_proofs = vec![
             CardanoTransactionsSetProof::new(
                 vec!["tx-1".to_string()],
-                MKProof::from_leaves(&["tx-1"]).unwrap().into(),
+                MKProof::from_leaves(&["tx-1"]).unwrap(),
             ),
             CardanoTransactionsSetProof::new(
                 vec!["tx-2".to_string()],
-                MKProof::from_leaves(&["tx-2"]).unwrap().into(),
+                MKProof::from_leaves(&["tx-2"]).unwrap(),
             ),
         ];
         let txs_proofs = CardanoTransactionsProofsMessage::new(
@@ -356,7 +356,7 @@ mod tests {
             .collect::<Vec<_>>();
 
         let proof = MKProof::from_leaves(transactions).unwrap();
-        let set_proof = CardanoTransactionsSetProof::new(transactions_hashes, proof.into());
+        let set_proof = CardanoTransactionsSetProof::new(transactions_hashes, proof);
 
         let verified_transactions_fake = VerifiedCardanoTransactions {
             certificate_hash: "whatever".to_string(),

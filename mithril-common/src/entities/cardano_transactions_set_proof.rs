@@ -17,13 +17,13 @@ pub struct CardanoTransactionsSetProof {
 
 impl CardanoTransactionsSetProof {
     /// CardanoTransactionsSetProof factory
-    pub fn new(
+    pub fn new<T: Into<MKMapProof<BlockRange>>>(
         transactions_hashes: Vec<TransactionHash>,
-        transactions_proof: MKMapProof<BlockRange>,
+        transactions_proof: T,
     ) -> Self {
         Self {
             transactions_hashes,
-            transactions_proof: ProtocolMkProof::new(transactions_proof),
+            transactions_proof: ProtocolMkProof::new(transactions_proof.into()),
         }
     }
 

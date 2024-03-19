@@ -82,10 +82,7 @@ mod tests {
             .chunks(2)
             .map(|transaction_hashes_in_chunk| {
                 let mk_proof = MKProof::from_leaves(transaction_hashes_in_chunk).unwrap();
-                CardanoTransactionsSetProof::new(
-                    transaction_hashes_in_chunk.to_vec(),
-                    mk_proof.into(),
-                )
+                CardanoTransactionsSetProof::new(transaction_hashes_in_chunk.to_vec(), mk_proof)
             })
             .collect::<Vec<_>>();
 
