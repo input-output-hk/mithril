@@ -63,6 +63,8 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
                     "MKMap values should be replaced by entry with same root"
                 ));
             }
+            self.inner_map_values.insert(key.clone(), value.clone());
+            return Ok(());
         } else {
             let key_max = self.inner_map_values.keys().max();
             if key_max > Some(&key) {
@@ -253,16 +255,18 @@ impl<K: MKMapKey> From<MKProof> for MKMapProof<K> {
     }
 }
 
-/// A MKMap node
+/// A merkelized map node that is used to represent multi layered merkelized map
+/// The MKMapNode can be either a MKMap (Merkle map), a MKTree (full Merkle tree) or a MKTreeNode (Merkle tree node, e.g the root of a Merkle tree)
+/// Both MKMap and MKTree can generate proofs of membership for elements that they contain, which allows for recursive proof generation for the multiple layers
 #[derive(Clone)]
 pub enum MKMapNode<K: MKMapKey> {
-    /// A MKMap node
+    /// A Merkle map
     Map(Rc<MKMap<K, Self>>),
 
-    /// A MKTree node
+    /// A full Merkle tree
     Tree(Rc<MKTree>),
 
-    /// A MKTreeNode node
+    /// A Merkle tree node
     TreeNode(MKTreeNode),
 }
 
@@ -357,23 +361,25 @@ mod tests {
     ) -> Vec<(BlockRange, MKTree)> {
         (0..total_leaves / block_range_length)
             .map(|block_range_index| {
-                let block_range = BlockRange::new(
-                    block_range_index * block_range_length,
-                    (block_range_index + 1) * block_range_length,
-                );
-                let leaves = <Range<u64> as Clone>::clone(&block_range)
-                    .map(|leaf_index| leaf_index.to_string())
-                    .collect::<Vec<_>>();
-                let merkle_tree_block_range = MKTree::new(&leaves).unwrap();
-
+                let block_range =
+                    BlockRange::from_block_number_and_length(block_range_index, block_range_length)
+                        .unwrap();
+                let merkle_tree_block_range = generate_merkle_tree(&block_range);
                 (block_range, merkle_tree_block_range)
             })
             .collect::<Vec<_>>()
     }
 
+    fn generate_merkle_tree(block_range: &BlockRange) -> MKTree {
+        let leaves = <Range<u64> as Clone>::clone(block_range)
+            .map(|leaf_index| leaf_index.to_string())
+            .collect::<Vec<_>>();
+        MKTree::new(&leaves).unwrap()
+    }
+
     #[test]
-    fn test_mk_map_should_compute_consistent_root() {
-        let entries = generate_merkle_trees(100000, 100);
+    fn test_mk_map_should_compute_same_root_when_replacing_entry_with_equivalent() {
+        let entries = generate_merkle_trees(10, 3);
         let merkle_tree_node_entries = &entries
             .iter()
             .map(|(range, mktree)| {
@@ -387,7 +393,6 @@ mod tests {
             .into_iter()
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
             .collect::<Vec<(_, MKMapNode<_>)>>();
-
         let mk_map_nodes = MKMap::new(merkle_tree_node_entries.as_slice()).unwrap();
         let mk_map_full = MKMap::new(merkle_tree_full_entries.as_slice()).unwrap();
 
@@ -399,13 +404,21 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_accept_replacement_with_same_root_value() {
-        let entries = generate_merkle_trees(1000, 10);
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
         let merkle_tree_entries = &entries
             .into_iter()
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
             .collect::<Vec<(_, MKMapNode<_>)>>();
         let mut mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
-        let block_range_replacement = BlockRange::new(0, 10);
+        let mk_map_root_expected = mk_map.compute_root().unwrap();
+        let block_range_replacement = BlockRange::new(0, 3);
         let same_root_value = MKMapNode::TreeNode(
             mk_map
                 .get(&block_range_replacement)
@@ -413,22 +426,33 @@ mod tests {
                 .compute_root()
                 .unwrap(),
         );
+
         mk_map
             .insert(block_range_replacement, same_root_value)
             .unwrap();
+
+        assert_eq!(mk_map_root_expected, mk_map.compute_root().unwrap())
     }
 
     #[test]
     fn test_mk_map_should_reject_replacement_with_different_root_value() {
-        let entries = generate_merkle_trees(1000, 10);
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
         let merkle_tree_entries = &entries
             .into_iter()
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
             .collect::<Vec<_>>();
         let mut mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
-        let block_range_replacement = BlockRange::new(0, 10);
+        let block_range_replacement = BlockRange::new(0, 3);
         let value_replacement: MKTreeNode = "test-123".to_string().into();
         let different_root_value = MKMapNode::TreeNode(value_replacement);
+
         mk_map
             .insert(block_range_replacement, different_root_value)
             .expect_err("the MKMap should reject replacement with different root value");
@@ -436,7 +460,14 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_reject_out_of_order_insertion() {
-        let entries = generate_merkle_trees(1000, 10);
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
         let merkle_tree_entries = &entries
             .iter()
             .map(|(range, mktree)| {
@@ -451,6 +482,7 @@ mod tests {
             BlockRange::new(0, 25),
             MKMapNode::TreeNode("test-123".into()),
         );
+
         mk_map
             .insert(out_of_order_entry.0, out_of_order_entry.1)
             .expect_err("the MKMap should reject out of order insertion");
@@ -458,7 +490,14 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_list_keys_correctly() {
-        let entries = generate_merkle_trees(100000, 100);
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
         let merkle_tree_entries = &entries
             .iter()
             .map(|(range, mktree)| {
@@ -469,6 +508,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
+
         let keys = mk_map
             .iter()
             .map(|(k, _v)| k.to_owned())
@@ -484,7 +524,14 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_list_values_correctly() {
-        let entries = generate_merkle_trees(100000, 100);
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
         let merkle_tree_entries = &entries
             .iter()
             .map(|(range, mktree)| {
@@ -495,6 +542,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
+
         let values = mk_map
             .iter()
             .map(|(_k, v)| v.to_owned())
@@ -513,8 +561,15 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_find_value_correctly() {
-        let entries = generate_merkle_trees(100000, 100);
-        let mktree_node_to_certify = entries[2].1.leaves()[10].clone();
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
+        let mktree_node_to_certify = entries[2].1.leaves()[1].clone();
         let merkle_tree_entries = &entries
             .into_iter()
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
@@ -525,13 +580,21 @@ mod tests {
     }
 
     #[test]
-    fn test_mk_map_should_clone_correctly() {
-        let entries = generate_merkle_trees(100000, 100);
+    fn test_mk_map_should_clone_and_compute_same_root() {
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
         let merkle_tree_node_entries = &entries
             .into_iter()
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
             .collect::<Vec<(_, MKMapNode<_>)>>();
         let mk_map = MKMap::new(merkle_tree_node_entries.as_slice()).unwrap();
+
         let mk_map_clone = mk_map.clone();
 
         assert_eq!(
@@ -542,13 +605,14 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_not_compute_proof_for_no_leaves() {
-        let entries = generate_merkle_trees(100000, 100);
+        let entries = generate_merkle_trees(10, 3);
         let mktree_nodes_to_certify: &[MKTreeNode] = &[];
         let merkle_tree_node_entries = &entries
             .into_iter()
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
             .collect::<Vec<(_, MKMapNode<_>)>>();
         let mk_map_full = MKMap::new(merkle_tree_node_entries.as_slice()).unwrap();
+
         mk_map_full
             .compute_proof(mktree_nodes_to_certify)
             .expect_err("MKMap should not compute proof for no leaves");
@@ -556,12 +620,12 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_compute_and_verify_valid_proof() {
-        let entries = generate_merkle_trees(100000, 100);
+        let entries = generate_merkle_trees(10, 3);
         let mktree_nodes_to_certify = [
             entries[0].1.leaves()[0].clone(),
-            entries[2].1.leaves()[0].clone(),
-            entries[2].1.leaves()[5].clone(),
-            entries[3].1.leaves()[10].clone(),
+            entries[1].1.leaves()[0].clone(),
+            entries[1].1.leaves()[1].clone(),
+            entries[2].1.leaves()[1].clone(),
         ];
         let merkle_tree_node_entries = &entries
             .into_iter()
@@ -579,11 +643,11 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_compute_and_verify_valid_proof_recursively() {
-        let entries = generate_merkle_trees(100000, 100);
+        let entries = generate_merkle_trees(100, 3);
         let mktree_nodes_to_certify = [
             entries[0].1.leaves()[0].clone(),
-            entries[2].1.leaves()[5].clone(),
-            entries[3].1.leaves()[10].clone(),
+            entries[2].1.leaves()[1].clone(),
+            entries[3].1.leaves()[2].clone(),
             entries[20].1.leaves()[0].clone(),
             entries[30].1.leaves()[0].clone(),
         ];

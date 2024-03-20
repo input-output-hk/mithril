@@ -62,7 +62,7 @@ impl BlockRange {
     }
 
     /// Create a BlockRange from a block number and a range length
-    fn from_block_number_and_length(
+    pub(crate) fn from_block_number_and_length(
         number: BlockNumber,
         length: BlockRangeLength,
     ) -> StdResult<Self> {
