@@ -44,7 +44,7 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 :::info
 
-This step is **optional**. It is designed to get SPOs acquainted with setting up Mithril on their infrastructure: it is **strongly recommended** to complete it before moving forward to **Step 3**.
+This step is **optional**. It's intended to familiarize SPOs with setting up Mithril on their infrastructure. It's **strongly recommended** to complete it before proceeding to **Step 3**.
 
 :::
 
