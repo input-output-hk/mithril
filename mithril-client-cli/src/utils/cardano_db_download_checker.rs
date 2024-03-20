@@ -1,6 +1,6 @@
-use std::ops::Not;
 use std::{
     fs,
+    ops::Not,
     path::{Path, PathBuf},
 };
 
@@ -34,7 +34,7 @@ pub enum CardanoDbDownloadCheckerError {
     /// The directory where the files from cardano db are expanded is not empty.
     /// An error is raised to let the user handle what it wants to do with those
     /// files.
-    #[error("Unpack directory '{0}' is not empty, please clean up it's content.")]
+    #[error("Unpack directory '{0}' is not empty, please clean up its content.")]
     UnpackDirectoryNotEmpty(PathBuf),
 
     /// Cannot write in the given directory.
@@ -45,7 +45,7 @@ pub enum CardanoDbDownloadCheckerError {
 impl CardanoDbDownloadChecker {
     /// Ensure that the given path exist, create it otherwise
     pub fn ensure_dir_exist(pathdir: &Path) -> MithrilResult<()> {
-        if !pathdir.exists() {
+        if pathdir.exists().not() {
             fs::create_dir_all(pathdir).map_err(|e| {
                 CardanoDbDownloadCheckerError::UnpackDirectoryIsNotWritable(
                     pathdir.to_owned(),
@@ -64,12 +64,12 @@ impl CardanoDbDownloadChecker {
         size: u64,
         compression_algorithm: CompressionAlgorithm,
     ) -> MithrilResult<()> {
-        Self::check_path_is_dir_and_writable(pathdir)?;
+        Self::check_path_is_an_empty_dir(pathdir)?;
         Self::check_dir_writable(pathdir)?;
         Self::check_disk_space(pathdir, size, compression_algorithm)
     }
 
-    fn check_path_is_dir_and_writable(pathdir: &Path) -> MithrilResult<()> {
+    fn check_path_is_an_empty_dir(pathdir: &Path) -> MithrilResult<()> {
         if pathdir.is_dir().not() {
             anyhow::bail!("Given path is not a directory: {}", pathdir.display());
         }
@@ -158,7 +158,6 @@ mod test {
             create_temporary_empty_directory("fail_if_pathdir_is_file").join("target_directory");
         fs::File::create(&pathdir).unwrap();
 
-        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
         CardanoDbDownloadChecker::check_prerequisites(
             &pathdir,
             12,
@@ -168,26 +167,11 @@ mod test {
     }
 
     #[test]
-    fn return_ok_if_unpack_directory_does_not_exist() {
-        let pathdir =
-            create_temporary_empty_directory("directory_does_not_exist").join("target_directory");
-
-        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
-        CardanoDbDownloadChecker::check_prerequisites(
-            &pathdir,
-            12,
-            CompressionAlgorithm::default(),
-        )
-        .expect("check_prerequisites should not fail");
-    }
-
-    #[test]
     fn return_ok_if_unpack_directory_exist_and_empty() {
         let pathdir =
             create_temporary_empty_directory("existing_directory").join("target_directory");
         fs::create_dir_all(&pathdir).unwrap();
 
-        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
         CardanoDbDownloadChecker::check_prerequisites(
             &pathdir,
             12,
@@ -202,7 +186,6 @@ mod test {
         fs::create_dir_all(&pathdir).unwrap();
         fs::File::create(pathdir.join("file.txt")).unwrap();
 
-        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
         let error = CardanoDbDownloadChecker::check_prerequisites(
             &pathdir,
             12,
@@ -224,9 +207,9 @@ mod test {
     fn return_error_if_not_enough_available_space() {
         let pathdir =
             create_temporary_empty_directory("enough_available_space").join("target_directory");
+        fs::create_dir_all(&pathdir).unwrap();
         let archive_size = u64::MAX;
 
-        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
         let error = CardanoDbDownloadChecker::check_prerequisites(
             &pathdir,
             archive_size,
