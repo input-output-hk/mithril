@@ -65,7 +65,12 @@ impl CardanoTransactionsSignableBuilder {
         }
     }
 
-    fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
+    // Note: Code duplicated from aggregator Prover service as is.
+    // This will be not be the case when we use the cached intermediate merkle roots.
+    fn compute_merkle_map_from_transactions(
+        &self,
+        transactions: &[CardanoTransaction],
+    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
         let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
         for transaction in transactions {
@@ -80,18 +85,22 @@ impl CardanoTransactionsSignableBuilder {
                 .into_iter()
                 .try_fold(
                     vec![],
-                    |mut acc,
-                     (block_range, transactions)|
-                     -> StdResult<Vec<(BlockRange, MKMapNode<BlockRange>)>> {
+                    |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
                         acc.push((block_range, MKTree::new(&transactions)?.into()));
                         Ok(acc)
                     },
                 )?
                 .as_slice(),
         )
-        .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKHashMap")?;
+        .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
 
-        let mk_root = mk_hash_map.compute_root().with_context(|| {
+        Ok(mk_hash_map)
+    }
+
+    fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
+        let mk_map = self.compute_merkle_map_from_transactions(transactions)?;
+
+        let mk_root = mk_map.compute_root().with_context(|| {
             "CardanoTransactionsSignableBuilder failed to compute MKHashMap root"
         })?;
 

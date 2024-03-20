@@ -5,7 +5,9 @@ use async_trait::async_trait;
 
 use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
-    entities::{Beacon, BlockRange, CardanoTransactionsSetProof, TransactionHash},
+    entities::{
+        Beacon, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
+    },
     signable_builder::TransactionRetriever,
     StdResult,
 };
@@ -37,24 +39,15 @@ impl MithrilProverService {
             transaction_retriever,
         }
     }
-}
 
-#[async_trait]
-impl ProverService for MithrilProverService {
-    async fn compute_transactions_proofs(
+    fn compute_merkle_map_from_transactions(
         &self,
-        up_to: &Beacon,
-        transaction_hashes: &[TransactionHash],
-    ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
-        let transactions = self.transaction_retriever.get_up_to(up_to).await?;
-        let mut transactions_to_certify = vec![];
+        transactions: &[CardanoTransaction],
+    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
         let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
-        for transaction in &transactions {
+        for transaction in transactions {
             let block_range = BlockRange::from_block_number(transaction.block_number);
-            if transaction_hashes.contains(&transaction.transaction_hash) {
-                transactions_to_certify.push((block_range.clone(), transaction));
-            }
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
@@ -72,26 +65,47 @@ impl ProverService for MithrilProverService {
                 )?
                 .as_slice(),
         )
-        .with_context(|| "ProverService failed to compute MKHashMap")?;
+        .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
 
+        Ok(mk_hash_map)
+    }
+}
+
+#[async_trait]
+impl ProverService for MithrilProverService {
+    async fn compute_transactions_proofs(
+        &self,
+        up_to: &Beacon,
+        transaction_hashes: &[TransactionHash],
+    ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
+        let transactions = self.transaction_retriever.get_up_to(up_to).await?;
+        let mk_map = self.compute_merkle_map_from_transactions(&transactions)?;
+        let transactions_to_prove = transactions
+            .iter()
+            .filter_map(|transaction| {
+                let block_range = BlockRange::from_block_number(transaction.block_number);
+                transaction_hashes
+                    .contains(&transaction.transaction_hash)
+                    .then(|| (block_range, transaction.to_owned()))
+            })
+            .collect::<Vec<_>>();
         let mut transaction_hashes_certified = vec![];
-        for (_block_range, transaction) in transactions_to_certify {
+        for (_block_range, transaction) in transactions_to_prove {
             let mk_tree_node_transaction_hash: MKTreeNode =
                 transaction.transaction_hash.to_owned().into();
-            if mk_hash_map
+            if mk_map
                 .compute_proof(&[mk_tree_node_transaction_hash])
                 .is_ok()
             {
                 transaction_hashes_certified.push(transaction.transaction_hash.to_string());
             }
         }
-
         if !transaction_hashes_certified.is_empty() {
             let mk_leaves: Vec<MKTreeNode> = transaction_hashes_certified
                 .iter()
                 .map(|h| h.to_owned().into())
                 .collect();
-            let mk_proof = mk_hash_map.compute_proof(&mk_leaves)?;
+            let mk_proof = mk_map.compute_proof(&mk_leaves)?;
             let transactions_set_proof_batch =
                 CardanoTransactionsSetProof::new(transaction_hashes_certified, mk_proof);
 
