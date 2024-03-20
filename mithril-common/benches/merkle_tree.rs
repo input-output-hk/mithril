@@ -1,6 +1,7 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode};
 
+// Shortcuts for magnitudes: K for thousand, M for million
 const K: usize = 1_000;
 const M: usize = 1_000 * K;
 const TOTAL_LEAVES_BENCHES: &[usize] = &[K, 10 * K, 100 * K, M, 10 * M];
@@ -70,6 +71,9 @@ fn verify_merkle_tree_proof_benches(c: &mut Criterion) {
 criterion_group!(
     name=benches;
     config = Criterion::default().sample_size(10);
-    targets=create_merkle_tree_root_benches,create_merkle_tree_proof_benches,verify_merkle_tree_proof_benches
+    targets=
+      create_merkle_tree_root_benches,
+      create_merkle_tree_proof_benches,
+      verify_merkle_tree_proof_benches
 );
 criterion_main!(benches);
