@@ -3,7 +3,7 @@ use futures::Future;
 use indicatif::{MultiProgress, ProgressBar};
 use std::time::Duration;
 
-use super::CardanoDbUnpackerError;
+use super::CardanoDbDownloadCheckerError;
 use mithril_client::{MithrilError, MithrilResult};
 
 /// Utility functions for to the CardanoDb commands
@@ -12,11 +12,11 @@ pub struct CardanoDbUtils;
 impl CardanoDbUtils {
     /// Handle the error return by `check_prerequisites`
     pub fn check_disk_space_error(error: MithrilError) -> MithrilResult<String> {
-        if let Some(CardanoDbUnpackerError::NotEnoughSpace {
+        if let Some(CardanoDbDownloadCheckerError::NotEnoughSpace {
             left_space: _,
             pathdir: _,
             archive_size: _,
-        }) = error.downcast_ref::<CardanoDbUnpackerError>()
+        }) = error.downcast_ref::<CardanoDbDownloadCheckerError>()
         {
             Ok(format!("Warning: {}", error))
         } else {
@@ -51,7 +51,7 @@ mod test {
 
     #[test]
     fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space() {
-        let not_enough_space_error = CardanoDbUnpackerError::NotEnoughSpace {
+        let not_enough_space_error = CardanoDbDownloadCheckerError::NotEnoughSpace {
             left_space: 1_f64,
             pathdir: PathBuf::new(),
             archive_size: 2_f64,
@@ -66,15 +66,15 @@ mod test {
 
     #[test]
     fn check_disk_space_error_should_return_error_if_error_is_not_error_not_enough_space() {
-        let error = CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(PathBuf::new());
+        let error = CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(PathBuf::new());
 
         let error = CardanoDbUtils::check_disk_space_error(anyhow!(error))
             .expect_err("check_disk_space_error should fail");
 
         assert!(
             matches!(
-                error.downcast_ref::<CardanoDbUnpackerError>(),
-                Some(CardanoDbUnpackerError::UnpackDirectoryAlreadyExists(_))
+                error.downcast_ref::<CardanoDbDownloadCheckerError>(),
+                Some(CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(_))
             ),
             "Unexpected error: {:?}",
             error
