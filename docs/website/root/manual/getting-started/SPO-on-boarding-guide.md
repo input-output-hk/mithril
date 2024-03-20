@@ -11,20 +11,15 @@ import CompiledBinaries from '../../compiled-binaries.md'
 
 Welcome to Mithril! Here is a description of the journey you will need to follow as an SPO to prepare for running a Mithril signer on `mainnet`. We assume that you are already an active SPO on the Cardano `mainnet` and have experience using the `pre-production` testnet.
 
-<!---
-This diagram randomly crashes. We replace it with a screenshot until aif xi s available
-TODO: revert this modification when it is possible
 ```mermaid
 timeline
 section Preview testing environment
 SPO Pioneer Program : Optional : SPOs test Mithril pre-releases with IOG : Run Mithril signer in `pre-release-preview` network : Naive or Production deployment : ~2-3 days
 section Pre-production testing environment
-SPO beta mainnet preparation : Mandatory : SPOs validate that Mithril is working in the test environment : Run Mithril signer in `release-preprod` network : Production deployment : ~10-15 days
+SPO beta mainnet preparation : Optional : SPOs validate that Mithril is working in the test environment : Run Mithril signer in `release-preprod` network : Production deployment : ~10-15 days
 section Cardano mainnet
 SPO beta mainnet deployment : Mandatory : SPOs run Mithril in their mainnet infrastructure : Run Mithril signer in `release-mainnet` network : Production deployment : ~10-15 days
 ```
--->
-![SPO On-boarding Timeline](images/spo-onboarding-timeline.png)
 
 ## Step 1: Participate in the Pioneer Program
 
@@ -47,9 +42,9 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 ## Step 2: Get Mithril ready for `mainnet`
 
-:::warning
+:::info
 
-This step is **mandatory**. You must complete it before moving forward to **Step 3**.
+This step is **optional**. It's intended to familiarize SPOs with setting up Mithril on their infrastructure. It's **strongly recommended** to complete it before proceeding to **Step 3**.
 
 :::
 
@@ -68,7 +63,7 @@ Each **Mithril network** has its own configuration, which can be found in the [C
 
 :::warning
 
-This step is **mandatory**. You must have completed **Step 2** before.
+This step is **mandatory**. It is **strongly recommended** to complete **Step 2** beforehand.
 
 :::
 
