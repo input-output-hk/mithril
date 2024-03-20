@@ -101,7 +101,7 @@ Note that this guide works on a Linux machine only.
 
 * Install a recent version of `jq` (version 1.6+). You can install it by running `apt install jq`.
 
-* Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version 5.2+). You can install it by running `apt install squid`.
+* Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version 6.8+).
 
 ## Set up the Mithril signer node
 
