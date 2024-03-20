@@ -10,13 +10,12 @@ use thiserror::Error;
 
 use mithril_client::{common::CompressionAlgorithm, MithrilError, MithrilResult};
 
-/// Check and unpack a downloaded archive in a given directory.
-#[derive(Default)]
-pub struct CardanoDbUnpacker;
+/// Checks to apply before downloading a Cardano Db archive to a given directory.
+pub struct CardanoDbDownloadChecker;
 
-/// Errors tied with the CardanoDbUnpacker.
+/// Errors tied with the [CardanoDbDownloadChecker].
 #[derive(Debug, Error)]
-pub enum CardanoDbUnpackerError {
+pub enum CardanoDbDownloadCheckerError {
     /// Not enough space on the disk. There should be at least the ratio given for the
     /// used algorithm (see [CompressionAlgorithm::free_space_snapshot_ratio]) times
     /// the size of the archive to download to ensure it could be unpacked safely.
@@ -43,12 +42,15 @@ pub enum CardanoDbUnpackerError {
     UnpackDirectoryIsNotWritable(PathBuf, #[source] MithrilError),
 }
 
-impl CardanoDbUnpacker {
+impl CardanoDbDownloadChecker {
     /// Ensure that the given path exist, create it otherwise
     pub fn ensure_dir_exist(pathdir: &Path) -> MithrilResult<()> {
         if !pathdir.exists() {
             fs::create_dir_all(pathdir).map_err(|e| {
-                CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
+                CardanoDbDownloadCheckerError::UnpackDirectoryIsNotWritable(
+                    pathdir.to_owned(),
+                    e.into(),
+                )
             })?;
         }
 
@@ -82,7 +84,9 @@ impl CardanoDbUnpacker {
             .next()
             .is_some()
         {
-            return Err(CardanoDbUnpackerError::UnpackDirectoryNotEmpty(pathdir.to_owned()).into());
+            return Err(
+                CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(pathdir.to_owned()).into(),
+            );
         }
 
         Ok(())
@@ -92,12 +96,18 @@ impl CardanoDbUnpacker {
         // Check if the directory is writable by creating a temporary file
         let temp_file_path = pathdir.join("temp_file");
         fs::File::create(&temp_file_path).map_err(|e| {
-            CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
+            CardanoDbDownloadCheckerError::UnpackDirectoryIsNotWritable(
+                pathdir.to_owned(),
+                e.into(),
+            )
         })?;
 
         // Delete the temporary file
         fs::remove_file(temp_file_path).map_err(|e| {
-            CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(pathdir.to_owned(), e.into())
+            CardanoDbDownloadCheckerError::UnpackDirectoryIsNotWritable(
+                pathdir.to_owned(),
+                e.into(),
+            )
         })?;
 
         Ok(())
@@ -110,7 +120,7 @@ impl CardanoDbUnpacker {
     ) -> MithrilResult<()> {
         let free_space = fs2::available_space(pathdir)? as f64;
         if free_space < compression_algorithm.free_space_snapshot_ratio() * size as f64 {
-            return Err(CardanoDbUnpackerError::NotEnoughSpace {
+            return Err(CardanoDbDownloadCheckerError::NotEnoughSpace {
                 left_space: free_space,
                 pathdir: pathdir.to_owned(),
                 archive_size: size as f64,
@@ -136,7 +146,8 @@ mod test {
         let pathdir =
             create_temporary_empty_directory("directory_does_not_exist").join("target_directory");
 
-        CardanoDbUnpacker::ensure_dir_exist(&pathdir).expect("ensure_dir_exist should not fail");
+        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir)
+            .expect("ensure_dir_exist should not fail");
 
         assert!(pathdir.exists());
     }
@@ -147,9 +158,13 @@ mod test {
             create_temporary_empty_directory("fail_if_pathdir_is_file").join("target_directory");
         fs::File::create(&pathdir).unwrap();
 
-        CardanoDbUnpacker::ensure_dir_exist(&pathdir).unwrap();
-        CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
-            .expect_err("check_prerequisites should fail");
+        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
+        CardanoDbDownloadChecker::check_prerequisites(
+            &pathdir,
+            12,
+            CompressionAlgorithm::default(),
+        )
+        .expect_err("check_prerequisites should fail");
     }
 
     #[test]
@@ -157,9 +172,13 @@ mod test {
         let pathdir =
             create_temporary_empty_directory("directory_does_not_exist").join("target_directory");
 
-        CardanoDbUnpacker::ensure_dir_exist(&pathdir).unwrap();
-        CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
-            .expect("check_prerequisites should not fail");
+        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
+        CardanoDbDownloadChecker::check_prerequisites(
+            &pathdir,
+            12,
+            CompressionAlgorithm::default(),
+        )
+        .expect("check_prerequisites should not fail");
     }
 
     #[test]
@@ -168,9 +187,13 @@ mod test {
             create_temporary_empty_directory("existing_directory").join("target_directory");
         fs::create_dir_all(&pathdir).unwrap();
 
-        CardanoDbUnpacker::ensure_dir_exist(&pathdir).unwrap();
-        CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
-            .expect("check_prerequisites should not fail");
+        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
+        CardanoDbDownloadChecker::check_prerequisites(
+            &pathdir,
+            12,
+            CompressionAlgorithm::default(),
+        )
+        .expect("check_prerequisites should not fail");
     }
 
     #[test]
@@ -179,15 +202,18 @@ mod test {
         fs::create_dir_all(&pathdir).unwrap();
         fs::File::create(pathdir.join("file.txt")).unwrap();
 
-        CardanoDbUnpacker::ensure_dir_exist(&pathdir).unwrap();
-        let error =
-            CardanoDbUnpacker::check_prerequisites(&pathdir, 12, CompressionAlgorithm::default())
-                .expect_err("check_prerequisites should fail");
+        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
+        let error = CardanoDbDownloadChecker::check_prerequisites(
+            &pathdir,
+            12,
+            CompressionAlgorithm::default(),
+        )
+        .expect_err("check_prerequisites should fail");
 
         assert!(
             matches!(
-                error.downcast_ref::<CardanoDbUnpackerError>(),
-                Some(CardanoDbUnpackerError::UnpackDirectoryNotEmpty(_))
+                error.downcast_ref::<CardanoDbDownloadCheckerError>(),
+                Some(CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(_))
             ),
             "Unexpected error: {:?}",
             error
@@ -200,8 +226,8 @@ mod test {
             create_temporary_empty_directory("enough_available_space").join("target_directory");
         let archive_size = u64::MAX;
 
-        CardanoDbUnpacker::ensure_dir_exist(&pathdir).unwrap();
-        let error = CardanoDbUnpacker::check_prerequisites(
+        CardanoDbDownloadChecker::ensure_dir_exist(&pathdir).unwrap();
+        let error = CardanoDbDownloadChecker::check_prerequisites(
             &pathdir,
             archive_size,
             CompressionAlgorithm::default(),
@@ -210,8 +236,8 @@ mod test {
 
         assert!(
             matches!(
-                error.downcast_ref::<CardanoDbUnpackerError>(),
-                Some(CardanoDbUnpackerError::NotEnoughSpace {
+                error.downcast_ref::<CardanoDbDownloadCheckerError>(),
+                Some(CardanoDbDownloadCheckerError::NotEnoughSpace {
                     left_space: _,
                     pathdir: _,
                     archive_size: _
@@ -240,13 +266,16 @@ mod test {
             let targetdir = pathdir.join("target_directory");
             make_readonly(&pathdir);
 
-            let error = CardanoDbUnpacker::ensure_dir_exist(&targetdir)
+            let error = CardanoDbDownloadChecker::ensure_dir_exist(&targetdir)
                 .expect_err("ensure_dir_exist should fail");
 
             assert!(
                 matches!(
-                    error.downcast_ref::<CardanoDbUnpackerError>(),
-                    Some(CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(_, _))
+                    error.downcast_ref::<CardanoDbDownloadCheckerError>(),
+                    Some(CardanoDbDownloadCheckerError::UnpackDirectoryIsNotWritable(
+                        _,
+                        _
+                    ))
                 ),
                 "Unexpected error: {:?}",
                 error
@@ -262,7 +291,7 @@ mod test {
             fs::create_dir(&pathdir).unwrap();
             make_readonly(&pathdir);
 
-            let error = CardanoDbUnpacker::check_prerequisites(
+            let error = CardanoDbDownloadChecker::check_prerequisites(
                 &pathdir,
                 12,
                 CompressionAlgorithm::default(),
@@ -271,8 +300,11 @@ mod test {
 
             assert!(
                 matches!(
-                    error.downcast_ref::<CardanoDbUnpackerError>(),
-                    Some(CardanoDbUnpackerError::UnpackDirectoryIsNotWritable(_, _))
+                    error.downcast_ref::<CardanoDbDownloadCheckerError>(),
+                    Some(CardanoDbDownloadCheckerError::UnpackDirectoryIsNotWritable(
+                        _,
+                        _
+                    ))
                 ),
                 "Unexpected error: {:?}",
                 error

@@ -14,7 +14,7 @@ use crate::{
     commands::client_builder,
     configuration::ConfigParameters,
     utils::{
-        CardanoDbUnpacker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
+        CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
 };
@@ -131,13 +131,13 @@ impl CardanoDbDownloadCommand {
     fn check_local_disk_info(
         step_number: u16,
         progress_printer: &ProgressPrinter,
-        db_dir: &PathBuf,
+        db_dir: &Path,
         cardano_db: &Snapshot,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
 
-        CardanoDbUnpacker::ensure_dir_exist(db_dir)?;
-        if let Err(e) = CardanoDbUnpacker::check_prerequisites(
+        CardanoDbDownloadChecker::ensure_dir_exist(db_dir)?;
+        if let Err(e) = CardanoDbDownloadChecker::check_prerequisites(
             db_dir,
             cardano_db.size,
             cardano_db.compression_algorithm.unwrap_or_default(),
