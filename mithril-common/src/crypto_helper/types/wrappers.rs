@@ -3,7 +3,8 @@ use hex::{FromHex, ToHex};
 use kes_summed_ed25519::kes::Sum6KesSig;
 use mithril_stm::stm::{StmAggrSig, StmAggrVerificationKey, StmSig, StmVerificationKeyPoP};
 
-use crate::crypto_helper::{MKProof, OpCert, ProtocolKey, ProtocolKeyCodec, D};
+use crate::crypto_helper::{MKMapProof, MKProof, OpCert, ProtocolKey, ProtocolKeyCodec, D};
+use crate::entities::BlockRange;
 use crate::StdResult;
 
 /// Wrapper of [MithrilStm:StmVerificationKeyPoP](type@StmVerificationKeyPoP) to add serialization
@@ -36,7 +37,7 @@ pub type ProtocolGenesisSecretKey = ProtocolKey<ed25519_dalek::SigningKey>;
 pub type ProtocolAggregateVerificationKey = ProtocolKey<StmAggrVerificationKey<D>>;
 
 /// Wrapper of [MKProof] to add serialization utilities.
-pub type ProtocolMkProof = ProtocolKey<MKProof>;
+pub type ProtocolMkProof = ProtocolKey<MKMapProof<BlockRange>>;
 
 impl ProtocolGenesisSignature {
     /// Create an instance from a bytes hex representation

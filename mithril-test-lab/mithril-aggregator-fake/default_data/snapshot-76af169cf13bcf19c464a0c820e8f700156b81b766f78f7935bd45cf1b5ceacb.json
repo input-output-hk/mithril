@@ -1,0 +1,16 @@
+{
+  "digest": "76af169cf13bcf19c464a0c820e8f700156b81b766f78f7935bd45cf1b5ceacb",
+  "beacon": {
+    "network": "devnet",
+    "epoch": 29,
+    "immutable_file_number": 7
+  },
+  "certificate_hash": "e7d3e9957f102c65de9c63aaf5833a79e554c0568f669d18dce9ab32791d0311",
+  "size": 460130,
+  "created_at": "2024-03-19T16:32:48.843756149Z",
+  "locations": [
+    "http://0.0.0.0:8080/aggregator/artifact/snapshot/76af169cf13bcf19c464a0c820e8f700156b81b766f78f7935bd45cf1b5ceacb/download"
+  ],
+  "compression_algorithm": "zstandard",
+  "cardano_node_version": "8.9.0"
+}

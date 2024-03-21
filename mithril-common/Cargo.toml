@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.3.19"
+version = "0.3.20"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -14,6 +14,15 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bench]]
 name = "digester"
+harness = false
+required-features = ["fs"]
+
+[[bench]]
+name = "merkle_tree"
+harness = false
+
+[[bench]]
+name = "merkle_map"
 harness = false
 
 [dependencies]
@@ -91,7 +100,7 @@ reqwest = { version = "0.11.23", features = ["json"] }
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-tokio = { version = "1.35.1", features = ["macros", "time"] }
+tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.1.3" }

@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -9,8 +10,11 @@ use slog::{debug, Logger};
 
 use crate::{
     cardano_transaction_parser::TransactionParser,
-    crypto_helper::{MKTree, MKTreeNode, MKTreeStore},
-    entities::{Beacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey},
+    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
+    entities::{
+        Beacon, BlockRange, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
+        TransactionHash,
+    },
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -50,14 +54,44 @@ impl CardanoTransactionsSignableBuilder {
         }
     }
 
+    // Note: Code duplicated from aggregator Prover service as is.
+    // This will be not be the case when we use the cached intermediate merkle roots.
+    fn compute_merkle_map_from_transactions(
+        &self,
+        transactions: &[CardanoTransaction],
+    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
+        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
+            HashMap::new();
+        for transaction in transactions {
+            let block_range = BlockRange::from_block_number(transaction.block_number);
+            transactions_by_block_ranges
+                .entry(block_range)
+                .or_default()
+                .push(transaction.transaction_hash.to_owned());
+        }
+        let mk_hash_map = MKMap::new(
+            transactions_by_block_ranges
+                .into_iter()
+                .try_fold(
+                    vec![],
+                    |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
+                        acc.push((block_range, MKTree::new(&transactions)?.into()));
+                        Ok(acc)
+                    },
+                )?
+                .as_slice(),
+        )
+        .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
+
+        Ok(mk_hash_map)
+    }
+
     fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
-        let store = MKTreeStore::default();
-        let leaves = transactions.iter().map(|tx| tx.into()).collect::<Vec<_>>();
-        let mk_tree = MKTree::new(&leaves, &store)
-            .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree")?;
-        let mk_root = mk_tree
-            .compute_root()
-            .with_context(|| "CardanoTransactionsSignableBuilder failed to compute MKTree root")?;
+        let mk_map = self.compute_merkle_map_from_transactions(transactions)?;
+
+        let mk_root = mk_map.compute_root().with_context(|| {
+            "CardanoTransactionsSignableBuilder failed to compute MKHashMap root"
+        })?;
 
         Ok(mk_root)
     }

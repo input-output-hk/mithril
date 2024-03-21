@@ -1,11 +1,13 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
-    crypto_helper::{MKTree, MKTreeNode, MKTreeStore},
-    entities::{Beacon, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash},
+    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
+    entities::{
+        Beacon, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
+    },
     StdResult,
 };
 
@@ -44,6 +46,36 @@ impl MithrilProverService {
             transaction_retriever,
         }
     }
+
+    fn compute_merkle_map_from_transactions(
+        &self,
+        transactions: &[CardanoTransaction],
+    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
+        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
+            HashMap::new();
+        for transaction in transactions {
+            let block_range = BlockRange::from_block_number(transaction.block_number);
+            transactions_by_block_ranges
+                .entry(block_range)
+                .or_default()
+                .push(transaction.transaction_hash.to_owned());
+        }
+        let mk_hash_map = MKMap::new(
+            transactions_by_block_ranges
+                .into_iter()
+                .try_fold(
+                    vec![],
+                    |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
+                        acc.push((block_range, MKTree::new(&transactions)?.into()));
+                        Ok(acc)
+                    },
+                )?
+                .as_slice(),
+        )
+        .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
+
+        Ok(mk_hash_map)
+    }
 }
 
 #[async_trait]
@@ -54,26 +86,33 @@ impl ProverService for MithrilProverService {
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         let transactions = self.transaction_retriever.get_up_to(up_to).await?;
-        let mk_leaves_all: Vec<MKTreeNode> =
-            transactions.iter().map(|t| t.to_owned().into()).collect();
-        let store = MKTreeStore::default();
-        let mktree = MKTree::new(&mk_leaves_all, &store)
-            .with_context(|| "MKTree creation should not fail")?;
-
+        let mk_map = self.compute_merkle_map_from_transactions(&transactions)?;
+        let transactions_to_prove = transactions
+            .iter()
+            .filter_map(|transaction| {
+                let block_range = BlockRange::from_block_number(transaction.block_number);
+                transaction_hashes
+                    .contains(&transaction.transaction_hash)
+                    .then(|| (block_range, transaction.to_owned()))
+            })
+            .collect::<Vec<_>>();
         let mut transaction_hashes_certified = vec![];
-        for transaction_hash in transaction_hashes {
-            let mk_leaf = transaction_hash.to_string().into();
-            if mktree.compute_proof(&[mk_leaf]).is_ok() {
-                transaction_hashes_certified.push(transaction_hash.to_string());
+        for (_block_range, transaction) in transactions_to_prove {
+            let mk_tree_node_transaction_hash: MKTreeNode =
+                transaction.transaction_hash.to_owned().into();
+            if mk_map
+                .compute_proof(&[mk_tree_node_transaction_hash])
+                .is_ok()
+            {
+                transaction_hashes_certified.push(transaction.transaction_hash.to_string());
             }
         }
-
         if !transaction_hashes_certified.is_empty() {
             let mk_leaves: Vec<MKTreeNode> = transaction_hashes_certified
                 .iter()
                 .map(|h| h.to_owned().into())
                 .collect();
-            let mk_proof = mktree.compute_proof(&mk_leaves)?;
+            let mk_proof = mk_map.compute_proof(&mk_leaves)?;
             let transactions_set_proof_batch =
                 CardanoTransactionsSetProof::new(transaction_hashes_certified, mk_proof);
 
@@ -170,9 +209,6 @@ mod tests {
         );
         transactions_set_proof[0].verify().unwrap();
     }
-
-    // this one can't be done right now because we don't have a merkle tree of merkle tree yet
-    // todo: compute_proof_for_multiple_set_with_multiple_transactions
 
     #[tokio::test]
     async fn cant_compute_proof_if_retriever_fail() {
