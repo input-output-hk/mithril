@@ -38,5 +38,7 @@ check-all-features-set: .feature-sets
 		echo "Clippy common with feature '$$features_set''"; \
 		${CARGO} clippy -p mithril-common --features "$$features_set"; \
 	done
+	echo "Clippy common without features"; \
+	${CARGO} clippy -p mithril-common
 
 	rm .features-sets
