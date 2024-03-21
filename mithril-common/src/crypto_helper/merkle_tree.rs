@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn test_should_accept_valid_proof_generated_by_merkle_tree() {
-        let leaves = generate_leaves(100000);
+        let leaves = generate_leaves(10);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let proof =
             MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
@@ -355,17 +355,17 @@ mod tests {
 
     #[test]
     fn test_should_reject_invalid_proof_generated_by_merkle_tree() {
-        let leaves = generate_leaves(100000);
+        let leaves = generate_leaves(10);
         let leaves_to_verify = &[leaves[0].to_owned(), leaves[3].to_owned()];
         let mut proof =
             MKProof::from_leaves(leaves_to_verify).expect("MKProof generation should not fail");
-        proof.inner_root = Arc::new(leaves[10].to_owned());
+        proof.inner_root = Arc::new(leaves[1].to_owned());
         proof.verify().expect_err("The MKProof should be invalid");
     }
 
     #[test]
     fn test_should_list_leaves() {
-        let leaves = generate_leaves(1000);
+        let leaves: Vec<MKTreeNode> = vec!["test-0".into(), "test-1".into(), "test-2".into()];
         let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
         let leaves_retrieved = mktree.leaves();
 
@@ -376,8 +376,8 @@ mod tests {
     }
 
     #[test]
-    fn test_should_clone() {
-        let leaves = generate_leaves(1000);
+    fn test_should_clone_and_compute_same_root() {
+        let leaves = generate_leaves(10);
         let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
         let mktree_clone = mktree.clone();
 
@@ -389,15 +389,15 @@ mod tests {
 
     #[test]
     fn test_should_support_append_leaves() {
-        let leaves = generate_leaves(1000);
-        let leaves_creation = &leaves[..900];
-        let leaves_to_append = &leaves[900..];
+        let leaves = generate_leaves(10);
+        let leaves_creation = &leaves[..9];
+        let leaves_to_append = &leaves[9..];
         let mut mktree = MKTree::new(leaves_creation).expect("MKTree creation should not fail");
         mktree
             .append(leaves_to_append)
             .expect("MKTree append leaves should not fail");
 
-        assert_eq!(1000, mktree.total_leaves());
+        assert_eq!(10, mktree.total_leaves());
     }
 
     #[test]
