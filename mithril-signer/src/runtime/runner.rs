@@ -463,7 +463,7 @@ mod tests {
         signable_builder::{
             CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
             MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-            TransactionRetriever, TransactionStore,
+            TransactionStore,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,
@@ -491,16 +491,6 @@ mod tests {
         {
             async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
 
-        }
-    }
-
-    mock! {
-        TransactionRetrieverImpl { }
-
-        #[async_trait]
-        impl TransactionRetriever for TransactionRetrieverImpl
-        {
-            async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
         }
     }
 
@@ -549,11 +539,9 @@ mod tests {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
         let transaction_store = Arc::new(MockTransactionStoreImpl::new());
-        let transaction_retriever = Arc::new(MockTransactionRetrieverImpl::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_parser.clone(),
             transaction_store.clone(),
-            transaction_retriever.clone(),
             Path::new(""),
             slog_scope::logger(),
         ));

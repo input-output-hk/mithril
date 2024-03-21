@@ -1,6 +1,6 @@
 use mithril_common::{
     entities::{Beacon, BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
-    signable_builder::{TransactionRetriever, TransactionStore},
+    signable_builder::TransactionStore,
     StdResult,
 };
 use mithril_persistence::sqlite::{
@@ -12,6 +12,8 @@ use anyhow::Context;
 use async_trait::async_trait;
 use sqlite::{Row, Value};
 use std::{iter::repeat, sync::Arc};
+
+use crate::services::TransactionsRetriever;
 
 /// Cardano Transaction record is the representation of a cardano transaction.
 #[derive(Debug, PartialEq, Clone)]
@@ -280,7 +282,7 @@ impl TransactionStore for CardanoTransactionRepository {
 }
 
 #[async_trait]
-impl TransactionRetriever for CardanoTransactionRepository {
+impl TransactionsRetriever for CardanoTransactionRepository {
     async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>> {
         self.get_transactions_up_to(beacon).await.map(|v| {
             v.into_iter()

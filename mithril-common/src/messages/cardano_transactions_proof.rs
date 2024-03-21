@@ -190,8 +190,7 @@ mod tests {
         crypto_helper::MKProof,
         entities::{Beacon, CardanoTransaction},
         signable_builder::{
-            CardanoTransactionsSignableBuilder, MockTransactionRetriever, MockTransactionStore,
-            SignableBuilder,
+            CardanoTransactionsSignableBuilder, MockTransactionStore, SignableBuilder,
         },
     };
 
@@ -381,17 +380,10 @@ mod tests {
             .expect_store_transactions()
             .returning(|_| Ok(()))
             .times(1);
-        let transaction_retrieved = transactions.to_vec();
-        let mut mock_transaction_retriever = MockTransactionRetriever::new();
-        mock_transaction_retriever
-            .expect_get_up_to()
-            .return_once(|_| Ok(transaction_retrieved))
-            .times(1);
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(DumbTransactionParser::new(transactions.to_vec())),
             Arc::new(mock_transaction_store),
-            Arc::new(mock_transaction_retriever),
             Path::new("/tmp"),
             Logger::root(slog::Discard, slog::o!()),
         );

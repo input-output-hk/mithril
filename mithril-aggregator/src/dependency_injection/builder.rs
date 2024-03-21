@@ -33,7 +33,7 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-        SignableBuilderService, TransactionRetriever, TransactionStore,
+        SignableBuilderService, TransactionStore,
     },
     BeaconProvider, BeaconProviderImpl,
 };
@@ -136,9 +136,6 @@ pub struct DependenciesBuilder {
     /// Cardano transactions store.
     pub transaction_store: Option<Arc<dyn TransactionStore>>,
 
-    /// Cardano transactions retriever.
-    pub transaction_retriever: Option<Arc<dyn TransactionRetriever>>,
-
     /// Cardano transactions parser.
     pub transaction_parser: Option<Arc<dyn TransactionParser>>,
 
@@ -239,7 +236,6 @@ impl DependenciesBuilder {
             transaction_parser: None,
             transaction_repository: None,
             transaction_store: None,
-            transaction_retriever: None,
             immutable_digester: None,
             immutable_file_observer: None,
             immutable_cache_provider: None,
@@ -747,21 +743,6 @@ impl DependenciesBuilder {
         Ok(self.transaction_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_transaction_retriever(&mut self) -> Result<Arc<dyn TransactionRetriever>> {
-        let transaction_retriever = self.get_transaction_repository().await?;
-
-        Ok(transaction_retriever as Arc<dyn TransactionRetriever>)
-    }
-
-    /// Transaction retriever.
-    pub async fn get_transaction_retriever(&mut self) -> Result<Arc<dyn TransactionRetriever>> {
-        if self.transaction_retriever.is_none() {
-            self.transaction_retriever = Some(self.build_transaction_retriever().await?);
-        }
-
-        Ok(self.transaction_retriever.as_ref().cloned().unwrap())
-    }
-
     async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
         // TODO: 'allow_unparsable_block' parameter should be configurable and its default value set to false
         let allow_unparsable_block = true;
@@ -1104,7 +1085,6 @@ impl DependenciesBuilder {
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             self.get_transaction_parser().await?,
             self.get_transaction_store().await?,
-            self.get_transaction_retriever().await?,
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
