@@ -350,13 +350,14 @@ mod tests {
         transactions: &[CardanoTransaction],
         immutable_file_number: u64,
     ) -> ProtocolMessage {
-        let transactions_hashes = transactions
-            .iter()
-            .map(|t| t.transaction_hash.clone())
-            .collect::<Vec<_>>();
-
-        let proof = MKProof::from_leaves(transactions).unwrap();
-        let set_proof = CardanoTransactionsSetProof::new(transactions_hashes, proof);
+        let set_proof = CardanoTransactionsSetProof::from_leaves(
+            transactions
+                .iter()
+                .map(|t| (t.block_number, t.transaction_hash.clone()))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        )
+        .unwrap();
 
         let verified_transactions_fake = VerifiedCardanoTransactions {
             certificate_hash: "whatever".to_string(),
@@ -378,8 +379,14 @@ mod tests {
         let mut mock_transaction_store = MockTransactionStore::new();
         mock_transaction_store
             .expect_store_transactions()
-            .returning(|_| Ok(()));
-        let mock_transaction_retriever = MockTransactionRetriever::new();
+            .returning(|_| Ok(()))
+            .times(1);
+        let transaction_retrieved = transactions.to_vec();
+        let mut mock_transaction_retriever = MockTransactionRetriever::new();
+        mock_transaction_retriever
+            .expect_get_up_to()
+            .return_once(|_| Ok(transaction_retrieved))
+            .times(1);
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(DumbTransactionParser::new(transactions.to_vec())),

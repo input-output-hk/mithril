@@ -299,7 +299,12 @@ mod tests {
             .expect_store_transactions()
             .returning(|_| Ok(()));
         let transaction_store = Arc::new(mock_transaction_store);
-        let mock_transaction_retriever = MockTransactionRetriever::new();
+        let transactions_retrieved = transactions.clone();
+        let mut mock_transaction_retriever = MockTransactionRetriever::new();
+        mock_transaction_retriever
+            .expect_get_up_to()
+            .return_once(|_| Ok(transactions_retrieved))
+            .times(1);
         let transaction_retriever = Arc::new(mock_transaction_retriever);
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             transaction_parser,
