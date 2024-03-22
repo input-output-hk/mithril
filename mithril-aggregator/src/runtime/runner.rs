@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog_scope::{debug, warn};
-use std::{path::Path, path::PathBuf, sync::Arc};
+use std::sync::Arc;
+use std::time::Duration;
 
 use mithril_common::entities::{
     CardanoDbBeacon, Certificate, CertificatePending, Epoch, ProtocolMessage,
@@ -20,23 +21,16 @@ use mockall::automock;
 #[derive(Debug, Clone)]
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
-    pub interval: u64,
+    pub interval: Duration,
 
     /// Cardano network
     pub network: CardanoNetwork,
-
-    /// DB directory to snapshot
-    pub db_directory: PathBuf,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: u64, network: CardanoNetwork, db_directory: &Path) -> Self {
-        Self {
-            interval,
-            network,
-            db_directory: db_directory.to_path_buf(),
-        }
+    pub fn new(interval: Duration, network: CardanoNetwork) -> Self {
+        Self { interval, network }
     }
 }
 

@@ -92,6 +92,13 @@ impl TimePoint {
         }
     }
 
+    cfg_test_tools! {
+        /// Create a dummy TimePoint
+        pub fn dummy() -> Self {
+            Self::new(10, 100)
+        }
+    }
+
     /// This method returns a BeaconOrdering between self and the other beacon.
     ///
     /// This method should be called using the newest beacon available as it will fails if

@@ -1,6 +1,7 @@
 use crate::{
     entities::OpenMessage,
     runtime::{AggregatorRunnerTrait, RuntimeError},
+    AggregatorConfig,
 };
 
 use anyhow::Context;
@@ -8,7 +9,7 @@ use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::sleep;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
@@ -56,11 +57,11 @@ impl Display for AggregatorState {
 /// [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood)
 /// for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
+    /// Configuration
+    config: AggregatorConfig,
+
     /// the internal state of the automate
     state: AggregatorState,
-
-    /// time between each state machine execution
-    state_sleep: Duration,
 
     /// specific runner for this state machine
     runner: Arc<dyn AggregatorRunnerTrait>,
@@ -69,7 +70,7 @@ pub struct AggregatorRuntime {
 impl AggregatorRuntime {
     /// Create a new instance of the state machine.
     pub async fn new(
-        state_sleep: Duration,
+        aggregator_config: AggregatorConfig,
         init_state: Option<AggregatorState>,
         runner: Arc<dyn AggregatorRunnerTrait>,
     ) -> Result<Self, RuntimeError> {
@@ -85,8 +86,8 @@ impl AggregatorRuntime {
             })
         };
 
-        Ok::<Self, RuntimeError>(Self {
-            state_sleep,
+        Ok(Self {
+            config: aggregator_config,
             state,
             runner,
         })
@@ -150,9 +151,9 @@ impl AggregatorRuntime {
 
             info!(
                 "… Cycle finished, Sleeping for {} ms",
-                self.state_sleep.as_millis()
+                self.config.interval.as_millis()
             );
-            sleep(self.state_sleep).await;
+            sleep(self.config.interval).await;
         }
     }
 
@@ -399,6 +400,7 @@ mod tests {
     use crate::entities::OpenMessage;
     use anyhow::anyhow;
     use mockall::predicate;
+    use std::time::Duration;
 
     use mithril_common::entities::{Epoch, SignedEntityType};
     use mithril_common::test_utils::fake_data;
@@ -410,9 +412,13 @@ mod tests {
         init_state: Option<AggregatorState>,
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
-        AggregatorRuntime::new(Duration::from_millis(100), init_state, Arc::new(runner))
-            .await
-            .unwrap()
+        AggregatorRuntime::new(
+            AggregatorConfig::new(Duration::from_millis(20), fake_data::network()),
+            init_state,
+            Arc::new(runner),
+        )
+        .await
+        .unwrap()
     }
 
     #[tokio::test]

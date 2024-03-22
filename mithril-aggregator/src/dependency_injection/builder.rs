@@ -1241,14 +1241,13 @@ impl DependenciesBuilder {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         let config = AggregatorConfig::new(
-            self.configuration.run_interval,
+            Duration::from_millis(self.configuration.run_interval),
             self.configuration.get_network().with_context(|| {
                 "Dependencies Builder can not get Cardano network while creating aggregator runner"
             })?,
-            &self.configuration.db_directory.clone(),
         );
         let runtime = AggregatorRuntime::new(
-            Duration::from_millis(config.interval),
+            config,
             None,
             Arc::new(AggregatorRunner::new(dependency_container)),
         )

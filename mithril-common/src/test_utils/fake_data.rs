@@ -16,12 +16,16 @@ use crate::{
 
 use super::fake_keys;
 
+/// Fake network
+pub fn network() -> crate::CardanoNetwork {
+    crate::CardanoNetwork::DevNet(10)
+}
+
 /// Fake Beacon
 pub fn beacon() -> entities::CardanoDbBeacon {
-    let network = "testnet".to_string();
-    let immutable_file_number = 100;
-    let epoch = 10;
-    entities::CardanoDbBeacon::new(network, epoch, immutable_file_number)
+    let network = network().to_string();
+    let time_point = entities::TimePoint::dummy();
+    entities::CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number)
 }
 
 /// Fake Digest
