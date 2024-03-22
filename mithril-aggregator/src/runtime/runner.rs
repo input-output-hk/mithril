@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use mithril_common::entities::{
     CardanoDbBeacon, Certificate, CertificatePending, Epoch, ProtocolMessage,
-    ProtocolMessagePartKey, SignedEntityType, Signer,
+    ProtocolMessagePartKey, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
@@ -39,7 +39,7 @@ impl AggregatorConfig {
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
-    async fn get_beacon_from_chain(&self) -> StdResult<CardanoDbBeacon>;
+    async fn get_time_point_from_chain(&self) -> StdResult<TimePoint>;
 
     /// Retrieves the current open message for a given signed entity type.
     async fn get_current_open_message_for_signed_entity_type(
@@ -50,17 +50,17 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Retrieves the current non certified open message.
     async fn get_current_non_certified_open_message(
         &self,
-        current_beacon: &CardanoDbBeacon,
+        current_beacon: &TimePoint,
     ) -> StdResult<Option<OpenMessage>>;
 
     /// Check if a certificate chain is valid.
-    async fn is_certificate_chain_valid(&self, beacon: &CardanoDbBeacon) -> StdResult<()>;
+    async fn is_certificate_chain_valid(&self, time_point: &TimePoint) -> StdResult<()>;
 
     /// Read the stake distribution from the blockchain and store it.
-    async fn update_stake_distribution(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()>;
+    async fn update_stake_distribution(&self, new_time_point: &TimePoint) -> StdResult<()>;
 
     /// Open the signer registration round of an epoch.
-    async fn open_signer_registration_round(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()>;
+    async fn open_signer_registration_round(&self, new_time_point: &TimePoint) -> StdResult<()>;
 
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
@@ -83,7 +83,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Create a new pending certificate.
     async fn create_new_pending_certificate(
         &self,
-        beacon: CardanoDbBeacon,
+        time_point: TimePoint,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending>;
 
@@ -110,7 +110,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> StdResult<()>;
 
     /// Update the EraChecker with EraReader information.
-    async fn update_era_checker(&self, beacon: &CardanoDbBeacon) -> StdResult<()>;
+    async fn update_era_checker(&self, time_point: &TimePoint) -> StdResult<()>;
 
     /// Ask services to update themselves for the new epoch
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
@@ -143,15 +143,16 @@ impl AggregatorRunner {
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current beacon from the chain
-    async fn get_beacon_from_chain(&self) -> StdResult<CardanoDbBeacon> {
+    async fn get_time_point_from_chain(&self) -> StdResult<TimePoint> {
         debug!("RUNNER: get beacon from chain");
+        //bbb// transform beacon_provider into a time_point_provider
         let beacon = self
             .dependencies
             .beacon_provider
             .get_current_beacon()
             .await?;
 
-        Ok(beacon)
+        Ok(TimePoint::new(*beacon.epoch, beacon.immutable_file_number))
     }
 
     async fn get_current_open_message_for_signed_entity_type(
@@ -172,13 +173,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn get_current_non_certified_open_message(
         &self,
-        current_beacon: &CardanoDbBeacon,
+        current_time_point: &TimePoint,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_non_certified_open_message"; "beacon" => #?current_beacon);
+        debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
             .dependencies
             .config
-            .list_allowed_signed_entity_types(current_beacon)
+            .list_allowed_signed_entity_types(current_time_point)
             .with_context(|| {
                 "AggregatorRunner can not create the list of allowed signed entity types"
             })?;
@@ -206,28 +207,28 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(None)
     }
 
-    async fn is_certificate_chain_valid(&self, beacon: &CardanoDbBeacon) -> StdResult<()> {
+    async fn is_certificate_chain_valid(&self, time_point: &TimePoint) -> StdResult<()> {
         debug!("RUNNER: is_certificate_chain_valid");
         self.dependencies
             .certifier_service
-            .verify_certificate_chain(beacon.epoch)
+            .verify_certificate_chain(time_point.epoch)
             .await?;
 
         Ok(())
     }
 
-    async fn update_stake_distribution(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()> {
-        debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
+    async fn update_stake_distribution(&self, new_time_point: &TimePoint) -> StdResult<()> {
+        debug!("RUNNER: update stake distribution"; "time_point" => #?new_time_point);
         self.dependencies
             .stake_distribution_service
             .update_stake_distribution()
             .await
-            .with_context(|| format!("AggregatorRunner could not update stake distribution for beacon: '{new_beacon}'"))
+            .with_context(|| format!("AggregatorRunner could not update stake distribution for time_point: '{new_time_point}'"))
     }
 
-    async fn open_signer_registration_round(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()> {
-        debug!("RUNNER: open signer registration round"; "beacon" => #?new_beacon);
-        let registration_epoch = new_beacon.epoch.offset_to_recording_epoch();
+    async fn open_signer_registration_round(&self, new_time_point: &TimePoint) -> StdResult<()> {
+        debug!("RUNNER: open signer registration round"; "time_point" => #?new_time_point);
+        let registration_epoch = new_time_point.epoch.offset_to_recording_epoch();
 
         let stakes = self
             .dependencies
@@ -307,7 +308,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn create_new_pending_certificate(
         &self,
-        beacon: CardanoDbBeacon,
+        time_point: TimePoint,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
         debug!("RUNNER: create new pending certificate");
@@ -320,14 +321,19 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             epoch_service
                 .current_protocol_parameters()
                 .with_context(|| {
-                    format!("no current protocol parameters found for beacon {beacon:?}")
+                    format!("no current protocol parameters found for beacon {time_point:?}")
                 })?;
-        let next_protocol_parameters = epoch_service
-            .next_protocol_parameters()
-            .with_context(|| format!("no next protocol parameters found for beacon {beacon:?}"))?;
+        let next_protocol_parameters =
+            epoch_service.next_protocol_parameters().with_context(|| {
+                format!("no next protocol parameters found for beacon {time_point:?}")
+            })?;
 
         let pending_certificate = CertificatePending::new(
-            beacon,
+            CardanoDbBeacon::new(
+                &self.dependencies.config.network,
+                *time_point.epoch,
+                time_point.immutable_file_number,
+            ),
             signed_entity_type.to_owned(),
             protocol_parameters.clone(),
             next_protocol_parameters.clone(),
@@ -401,16 +407,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn update_era_checker(&self, beacon: &CardanoDbBeacon) -> StdResult<()> {
+    async fn update_era_checker(&self, time_point: &TimePoint) -> StdResult<()> {
         let token = self
             .dependencies
             .era_reader
-            .read_era_epoch_token(beacon.epoch)
+            .read_era_epoch_token(time_point.epoch)
             .await
             .with_context(|| {
                 format!(
                     "EraReader can not get era epoch token for current epoch: '{}'",
-                    beacon.epoch
+                    time_point.epoch
                 )
             })?;
 
@@ -485,6 +491,7 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
+    use mithril_common::entities::TimePoint;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -537,15 +544,19 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_beacon_from_chain() {
-        let expected_beacon = CardanoDbBeacon::new("private".to_string(), 2, 17);
+    async fn test_get_time_point_from_chain() {
+        let expected = TimePoint::new(2, 17);
         let mut dependencies = initialize_dependencies().await;
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         immutable_file_observer
-            .shall_return(Some(expected_beacon.immutable_file_number))
+            .shall_return(Some(expected.immutable_file_number))
             .await;
         let beacon_provider = Arc::new(BeaconProviderImpl::new(
-            Arc::new(FakeObserver::new(Some(expected_beacon.clone()))),
+            Arc::new(FakeObserver::new(Some(CardanoDbBeacon::new(
+                "private",
+                *expected.epoch,
+                expected.immutable_file_number,
+            )))),
             immutable_file_observer,
             CardanoNetwork::TestNet(42),
         ));
@@ -553,8 +564,8 @@ pub mod tests {
         let runner = AggregatorRunner::new(Arc::new(dependencies));
 
         // Retrieves the expected beacon
-        let res = runner.get_beacon_from_chain().await;
-        assert_eq!(expected_beacon, res.unwrap());
+        let res = runner.get_time_point_from_chain().await;
+        assert_eq!(expected, res.unwrap());
     }
 
     #[tokio::test]
@@ -568,7 +579,7 @@ pub mod tests {
         ));
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
+        let beacon = runner.get_time_point_from_chain().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let expected = fixture.stake_distribution();
 
@@ -609,8 +620,8 @@ pub mod tests {
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
 
-        let beacon = fake_data::beacon();
-        let recording_epoch = beacon.epoch.offset_to_recording_epoch();
+        let time_point = TimePoint::dummy();
+        let recording_epoch = time_point.epoch.offset_to_recording_epoch();
         let stake_distribution: StakeDistribution =
             StakeDistribution::from([("a".to_string(), 5), ("b".to_string(), 10)]);
 
@@ -620,7 +631,7 @@ pub mod tests {
             .expect("Save Stake distribution should not fail");
 
         runner
-            .open_signer_registration_round(&beacon)
+            .open_signer_registration_round(&time_point)
             .await
             .expect("opening signer registration should not return an error");
 
@@ -648,9 +659,9 @@ pub mod tests {
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
 
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         runner
-            .open_signer_registration_round(&beacon)
+            .open_signer_registration_round(&time_point)
             .await
             .expect("opening signer registration should not return an error");
 
@@ -702,7 +713,7 @@ pub mod tests {
         let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
+        let time_point = runner.get_time_point_from_chain().await.unwrap();
         let signed_entity_type = SignedEntityType::dummy();
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -715,16 +726,20 @@ pub mod tests {
             &protocol_parameters.clone(),
         )
         .await;
-        runner.inform_new_epoch(beacon.epoch).await.unwrap();
+        runner.inform_new_epoch(time_point.epoch).await.unwrap();
 
         let mut certificate = runner
-            .create_new_pending_certificate(beacon.clone(), &signed_entity_type)
+            .create_new_pending_certificate(time_point.clone(), &signed_entity_type)
             .await
             .unwrap();
         certificate.signers.sort_by_key(|s| s.party_id.clone());
         certificate.next_signers.sort_by_key(|s| s.party_id.clone());
         let mut expected = CertificatePending::new(
-            beacon,
+            CardanoDbBeacon::new(
+                &runner.dependencies.config.network,
+                *time_point.epoch,
+                time_point.immutable_file_number,
+            ),
             signed_entity_type,
             protocol_parameters.clone(),
             protocol_parameters,
@@ -793,7 +808,10 @@ pub mod tests {
         let runner = AggregatorRunner::new(Arc::new(deps));
         beacon.epoch += 1;
 
-        runner.update_era_checker(&beacon).await.unwrap();
+        runner
+            .update_era_checker(&TimePoint::new(*beacon.epoch, beacon.immutable_file_number))
+            .await
+            .unwrap();
         assert_eq!(beacon.epoch, era_checker.current_epoch());
     }
 
@@ -878,9 +896,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists(
     ) {
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
             is_certified: false,
             ..OpenMessage::dummy()
         };
@@ -917,7 +935,7 @@ pub mod tests {
         runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&beacon)
+            .get_current_non_certified_open_message(&time_point)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -926,9 +944,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists_and_not_expired(
     ) {
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
             is_certified: false,
             is_expired: false,
             ..OpenMessage::dummy()
@@ -952,7 +970,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&beacon)
+            .get_current_non_certified_open_message(&time_point)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -961,9 +979,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified(
     ) {
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
             is_certified: true,
             is_expired: false,
             ..OpenMessage::dummy()
@@ -997,7 +1015,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&beacon)
+            .get_current_non_certified_open_message(&time_point)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -1006,9 +1024,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified(
     ) {
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
             is_certified: true,
             is_expired: false,
             ..OpenMessage::dummy()
@@ -1065,7 +1083,7 @@ pub mod tests {
         runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&beacon)
+            .get_current_non_certified_open_message(&time_point)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
@@ -1074,9 +1092,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
     ) {
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         let open_message_already_certified_mithril_stake_distribution = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
             is_certified: true,
             is_expired: false,
             ..OpenMessage::dummy()
@@ -1113,7 +1131,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&beacon)
+            .get_current_non_certified_open_message(&time_point)
             .await
             .unwrap();
         assert!(open_message_returned.is_none());
@@ -1122,7 +1140,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_all_open_message_already_expired(
     ) {
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::dummy();
         let open_message_expired_cardano_immutable_files = OpenMessage {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
             is_certified: false,
@@ -1148,7 +1166,7 @@ pub mod tests {
         let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&beacon)
+            .get_current_non_certified_open_message(&time_point)
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);

@@ -6,7 +6,7 @@ use sha2::Sha256;
 use std::time::Duration;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
-use super::{CardanoDbBeacon, Epoch};
+use super::{CardanoDbBeacon, Epoch, TimePoint};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -96,25 +96,30 @@ impl SignedEntityType {
         }
     }
 
-    //bbb// Only compatible with a "global beacon"
+    //bbb// See if we can remove network from CardanoDbBeacon
     /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
-    pub fn from_beacon(
+    pub fn from_time_point(
         discriminant: &SignedEntityTypeDiscriminants,
-        beacon: &CardanoDbBeacon,
+        network: &str,
+        time_point: &TimePoint,
     ) -> Self {
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Self::MithrilStakeDistribution(beacon.epoch)
+                Self::MithrilStakeDistribution(time_point.epoch)
             }
             SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Self::CardanoStakeDistribution(beacon.epoch)
+                Self::CardanoStakeDistribution(time_point.epoch)
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                Self::CardanoImmutableFilesFull(beacon.to_owned())
+                Self::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                    network,
+                    *time_point.epoch,
+                    time_point.immutable_file_number,
+                ))
             }
-            SignedEntityTypeDiscriminants::CardanoTransactions => {
-                Self::CardanoTransactions(beacon.to_owned())
-            }
+            SignedEntityTypeDiscriminants::CardanoTransactions => Self::CardanoTransactions(
+                CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number),
+            ),
         }
     }
 
