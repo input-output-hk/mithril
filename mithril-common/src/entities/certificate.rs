@@ -140,6 +140,7 @@ impl Certificate {
     );
     /// Deduce a [CardanoDbBeacon] from this certificate values.
     pub fn as_cardano_db_beacon(&self) -> CardanoDbBeacon {
+        #[allow(deprecated)]
         CardanoDbBeacon::new(
             self.metadata.network.clone(),
             *self.epoch,
@@ -240,7 +241,7 @@ mod tests {
     #[test]
     fn test_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "100484e858fa3fb4136729c768a5dcb0f08a341192055484804e50f24d58d791";
+            "5e341ceeb91cc9957fca96d586e0ff2c66a8d6ec6b90bf84929c060c717094da";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
@@ -358,7 +359,7 @@ mod tests {
     #[test]
     fn test_genesis_certificate_compute_hash() {
         const HASH_EXPECTED: &str =
-            "6930e6f461f46c27273ae95c8803a8ccfdad8e52262a3ff40ab14878c79f1650";
+            "6160fca853402c0ea89a0a9ceb5d97462ffd81c558c53feef01dcc0827f5bd19";
 
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()

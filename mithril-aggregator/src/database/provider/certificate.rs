@@ -24,7 +24,7 @@ use mithril_persistence::sqlite::{
 };
 
 #[cfg(test)]
-use mithril_common::test_utils::fake_keys;
+use mithril_common::test_utils::{fake_data, fake_keys};
 use mithril_persistence::database::SignedEntityTypeHydrator;
 
 era_deprecate!("Remove immutable_file_number");
@@ -79,26 +79,65 @@ pub struct CertificateRecord {
     pub sealed_at: DateTime<Utc>,
 }
 
+#[cfg(test)]
 impl CertificateRecord {
-    #[cfg(test)]
     pub fn dummy_genesis(
         id: &str,
         epoch: Epoch,
         immutable_file_number: ImmutableFileNumber,
     ) -> Self {
-        let mut record = Self::dummy(id, "", epoch, immutable_file_number);
-        record.parent_certificate_id = None;
-        record.signature = fake_keys::genesis_signature()[0].to_owned();
-        record.signed_entity_type = SignedEntityType::genesis(epoch);
-        record
+        Self {
+            parent_certificate_id: None,
+            signature: fake_keys::genesis_signature()[0].to_owned(),
+            ..Self::dummy(
+                id,
+                "",
+                epoch,
+                immutable_file_number,
+                SignedEntityType::genesis(epoch),
+            )
+        }
+    }
+    pub fn dummy_db_snapshot(
+        id: &str,
+        parent_id: &str,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> Self {
+        Self::dummy(
+            id,
+            parent_id,
+            epoch,
+            immutable_file_number,
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                fake_data::network().to_string(),
+                *epoch,
+                immutable_file_number,
+            )),
+        )
     }
 
-    #[cfg(test)]
+    pub fn dummy_msd(
+        id: &str,
+        parent_id: &str,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> Self {
+        Self::dummy(
+            id,
+            parent_id,
+            epoch,
+            immutable_file_number,
+            SignedEntityType::MithrilStakeDistribution(epoch),
+        )
+    }
+
     pub fn dummy(
         id: &str,
         parent_id: &str,
         epoch: Epoch,
         immutable_file_number: ImmutableFileNumber,
+        signed_entity_type: SignedEntityType,
     ) -> Self {
         Self {
             certificate_id: id.to_string(),
@@ -107,9 +146,9 @@ impl CertificateRecord {
             signature: fake_keys::multi_signature()[0].to_owned(),
             aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
             epoch,
-            network: "dummy".to_string(),
+            network: fake_data::network().to_string(),
             immutable_file_number,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+            signed_entity_type,
             protocol_version: "protocol_version".to_string(),
             protocol_parameters: Default::default(),
             protocol_message: Default::default(),
@@ -122,7 +161,9 @@ impl CertificateRecord {
                 .with_timezone(&Utc),
         }
     }
+}
 
+impl CertificateRecord {
     era_deprecate!(
         "remove this method when the immutable_file_number is removed from the metadata"
     );
@@ -146,6 +187,7 @@ impl From<Certificate> for CertificateRecord {
             }
         };
 
+        #[allow(deprecated)]
         CertificateRecord {
             certificate_id: other.hash,
             parent_certificate_id,
@@ -1270,8 +1312,8 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
         let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -1293,8 +1335,8 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
         let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -1316,9 +1358,9 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
-            CertificateRecord::dummy("4", "1", Epoch(2), 4),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -1340,11 +1382,11 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
-            CertificateRecord::dummy("4", "1", Epoch(2), 4),
-            CertificateRecord::dummy("5", "4", Epoch(2), 5),
-            CertificateRecord::dummy("6", "4", Epoch(2), 6),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
+            CertificateRecord::dummy_db_snapshot("5", "4", Epoch(2), 5),
+            CertificateRecord::dummy_db_snapshot("6", "4", Epoch(2), 6),
         ];
         let expected_certificate: Certificate = certificates.get(3).unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -1365,8 +1407,8 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
         insert_certificate_records(&connection, certificates);
 
@@ -1386,8 +1428,8 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_genesis("4", Epoch(1), 3),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
@@ -1410,10 +1452,10 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 2),
-            CertificateRecord::dummy("4", "1", Epoch(2), 4),
-            CertificateRecord::dummy("5", "1", Epoch(2), 5),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
+            CertificateRecord::dummy_db_snapshot("5", "1", Epoch(2), 5),
             CertificateRecord::dummy_genesis("6", Epoch(2), 5),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
@@ -1436,8 +1478,8 @@ mod tests {
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_genesis("4", Epoch(2), 3),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
@@ -1523,8 +1565,8 @@ mod tests {
         let repository = CertificateRepository::new(connection.clone());
         let records = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
-            CertificateRecord::dummy("2", "1", Epoch(1), 2),
-            CertificateRecord::dummy("3", "1", Epoch(1), 3),
+            CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
+            CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
         insert_certificate_records(&connection, records.clone());
         let certificates: Vec<Certificate> = records.into_iter().map(|c| c.into()).collect();
@@ -1534,7 +1576,7 @@ mod tests {
             .delete_certificates(
                 &certificates
                     .iter()
-                    .filter(|r| r.metadata.immutable_file_number > 1)
+                    .filter(|r| r.hash != "1")
                     .collect::<Vec<_>>(),
             )
             .await

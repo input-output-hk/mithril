@@ -9,7 +9,7 @@ use crate::{
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
 
-use crate::entities::SignedEntityType;
+use crate::entities::{CertificateMetadata, SignedEntityType};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use std::{cmp::min, collections::HashMap, fs, path::PathBuf, sync::Arc};
@@ -217,19 +217,30 @@ pub fn setup_certificate_chain(
             let next_fixture = fixture_per_epoch.get(&(epoch + 1)).unwrap();
             let avk = avk_for_signers(&fixture.signers_fixture());
             let next_avk = avk_for_signers(&next_fixture.signers_fixture());
-            let mut fake_certificate = fake_data::certificate(certificate_hash);
-            fake_certificate.epoch = epoch;
-            fake_certificate.metadata.immutable_file_number = immutable_file_number;
-            fake_certificate
-                .protocol_message
-                .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-            fake_certificate.protocol_message.set_message_part(
-                ProtocolMessagePartKey::NextAggregateVerificationKey,
-                next_avk.to_json_hex().unwrap(),
-            );
-            fake_certificate.aggregate_verification_key = avk;
-            fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
-            fake_certificate.previous_hash = "".to_string();
+            let mut fake_certificate = {
+                let mut base_certificate = fake_data::certificate(certificate_hash);
+                base_certificate
+                    .protocol_message
+                    .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+                base_certificate.protocol_message.set_message_part(
+                    ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    next_avk.to_json_hex().unwrap(),
+                );
+
+                Certificate {
+                    epoch,
+                    aggregate_verification_key: avk,
+                    previous_hash: "".to_string(),
+                    signed_message: base_certificate.protocol_message.compute_hash(),
+                    #[allow(deprecated)]
+                    metadata: CertificateMetadata {
+                        immutable_file_number,
+                        ..base_certificate.metadata
+                    },
+                    ..base_certificate
+                }
+            };
+
             let beacon = fake_certificate.as_cardano_db_beacon();
             match i {
                 0 => {

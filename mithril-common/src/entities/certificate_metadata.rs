@@ -52,6 +52,10 @@ pub struct CertificateMetadata {
     pub network: String,
 
     /// Number of the last included immutable files for the digest computation
+    #[deprecated(
+        since = "0.3.21",
+        note = "Exist only for retro-compatibility, will be removed in the future"
+    )]
     pub immutable_file_number: ImmutableFileNumber,
 
     /// Protocol Version (semver)
@@ -89,6 +93,7 @@ impl CertificateMetadata {
         sealed_at: DateTime<Utc>,
         signers: Vec<StakeDistributionParty>,
     ) -> CertificateMetadata {
+        #[allow(deprecated)]
         CertificateMetadata {
             network: network.into(),
             immutable_file_number,
@@ -113,7 +118,6 @@ impl CertificateMetadata {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.network.as_bytes());
-        hasher.update(self.immutable_file_number.to_be_bytes());
         hasher.update(self.protocol_version.as_bytes());
         hasher.update(self.protocol_parameters.compute_hash().as_bytes());
         hasher.update(
@@ -157,8 +161,9 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_certificate_metadata_compute_hash() {
-        let hash_expected = "ba2e4b067e4672d2c4ba4f70fca44d70ac7cc0caa5f7432ad91361f3acfab79c";
+        let hash_expected = "f16631f048b33746aa0141cf607ee53ddb76308725e6912530cc41cc54834206";
 
         let initiated_at = Utc
             .with_ymd_and_hms(2024, 2, 12, 13, 11, 47)
@@ -178,10 +183,11 @@ mod tests {
 
         assert_eq!(hash_expected, metadata.compute_hash());
 
-        assert_ne!(
+        // immutable_file_number shouldn't impact the hash since its deprecated
+        assert_eq!(
             hash_expected,
             CertificateMetadata {
-                network: "modified".into(),
+                immutable_file_number: metadata.immutable_file_number + 10,
                 ..metadata.clone()
             }
             .compute_hash(),
@@ -190,7 +196,7 @@ mod tests {
         assert_ne!(
             hash_expected,
             CertificateMetadata {
-                immutable_file_number: metadata.immutable_file_number + 10,
+                network: "modified".into(),
                 ..metadata.clone()
             }
             .compute_hash(),

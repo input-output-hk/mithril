@@ -197,9 +197,10 @@ mod test {
 
     use mithril_common::{
         entities::{
-            Certificate, Epoch, ImmutableFileNumber, SignedEntityType::MithrilStakeDistribution,
-            SignedEntityTypeDiscriminants,
+            Certificate, ImmutableFileNumber, SignedEntityType,
+            SignedEntityTypeDiscriminants as Type, TimePoint,
         },
+        test_utils::fake_data,
         StdResult,
     };
     use mithril_persistence::sqlite::SqliteConnection;
@@ -225,43 +226,89 @@ mod test {
         connection
     }
 
-    pub fn dummy_genesis(
-        certificate_hash: &str,
-        epoch: u64,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> Certificate {
-        let certificate =
-            CertificateRecord::dummy_genesis(certificate_hash, Epoch(epoch), immutable_file_number);
-
-        certificate.into()
+    fn time_at(epoch: u64, immutable_file_number: ImmutableFileNumber) -> TimePoint {
+        TimePoint::new(epoch, immutable_file_number)
     }
 
-    pub fn dummy_certificate(
-        certificate_hash: &str,
-        previous_hash: &str,
-        epoch: u64,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> Certificate {
-        let certificate = CertificateRecord::dummy(
+    fn dummy_genesis(certificate_hash: &str, time_point: TimePoint) -> Certificate {
+        let certificate = CertificateRecord::dummy_genesis(
             certificate_hash,
-            previous_hash,
-            Epoch(epoch),
-            immutable_file_number,
+            time_point.epoch,
+            time_point.immutable_file_number,
         );
 
         certificate.into()
     }
 
+    fn dummy_certificate(
+        certificate_hash: &str,
+        previous_hash: &str,
+        time_point: TimePoint,
+        signed_entity_type: Type,
+    ) -> Certificate {
+        let certificate = CertificateRecord::dummy(
+            certificate_hash,
+            previous_hash,
+            time_point.epoch,
+            time_point.immutable_file_number,
+            SignedEntityType::from_time_point(
+                &signed_entity_type,
+                &fake_data::network().to_string(),
+                &time_point,
+            ),
+        );
+
+        certificate.into()
+    }
+
+    fn signed_entity_for_certificate(certificate: &Certificate) -> Option<SignedEntityRecord> {
+        match certificate.is_genesis() {
+            true => None,
+            false => {
+                let signed_entity_type = certificate.signed_entity_type();
+                // Note: we don't need to have real artifacts for those tests
+                let artifact = format!("{signed_entity_type:?}");
+                let id = match &signed_entity_type {
+                    SignedEntityType::MithrilStakeDistribution(epoch) => {
+                        format!("mithril-stake-distribution-{epoch}")
+                    }
+                    SignedEntityType::CardanoStakeDistribution(epoch) => {
+                        format!("cardano-stake-distribution-{epoch}")
+                    }
+                    SignedEntityType::CardanoImmutableFilesFull(beacon) => {
+                        format!("snapshot-{}-{}", beacon.epoch, beacon.immutable_file_number)
+                    }
+                    SignedEntityType::CardanoTransactions(beacon) => {
+                        format!(
+                            "cardano-transactions-{}-{}",
+                            beacon.epoch, beacon.immutable_file_number
+                        )
+                    }
+                };
+
+                let signed_entity_record = SignedEntityRecord {
+                    signed_entity_id: format!("signed-entity-{id}",),
+                    certificate_id: certificate.hash.clone(),
+                    signed_entity_type,
+                    artifact,
+                    created_at: Default::default(),
+                };
+
+                Some(signed_entity_record)
+            }
+        }
+    }
+
     async fn fill_certificates_and_signed_entities_in_db(
         connection: Arc<SqliteConnection>,
-        certificates_and_signed_entity: &[(Certificate, Option<SignedEntityTypeDiscriminants>)],
+        certificates: &[Certificate],
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let certificate_repository: CertificateRepository =
             CertificateRepository::new(connection.clone());
         let signed_entity_store = SignedEntityStoreAdapter::new(connection.clone());
         let mut result = vec![];
 
-        for (certificate, discriminant_maybe) in certificates_and_signed_entity {
+        for certificate in certificates.iter().cloned() {
             certificate_repository
                 .create_certificate(certificate.clone())
                 .await
@@ -272,31 +319,13 @@ mod test {
                     )
                 })?;
 
-            let signed_entity_maybe = match discriminant_maybe {
-                None => None,
-                Some(_discriminant) => {
-                    let signed_entity_type = certificate.signed_entity_type();
-                    // Note: we don't need to have real artifacts for those tests
-                    let artifact = format!("{signed_entity_type:?}");
-
-                    let signed_entity_record = SignedEntityRecord {
-                        signed_entity_id: format!("signed-entity-{}", &certificate.hash),
-                        certificate_id: certificate.hash.clone(),
-                        signed_entity_type,
-                        artifact,
-                        created_at: Default::default(),
-                    };
-
-                    signed_entity_store
-                        .store_signed_entity(&signed_entity_record)
-                        .await
-                        .with_context(|| {
-                            "Certificates Hash Migrator can not store signed entity"
-                        })?;
-
-                    Some(signed_entity_record)
-                }
-            };
+            let signed_entity_maybe = signed_entity_for_certificate(&certificate);
+            if let Some(record) = &signed_entity_maybe {
+                signed_entity_store
+                    .store_signed_entity(record)
+                    .await
+                    .with_context(|| "Certificates Hash Migrator can not store signed entity")?;
+            }
 
             result.push((certificate.clone(), signed_entity_maybe));
         }
@@ -334,76 +363,50 @@ mod test {
     }
 
     #[test]
-    fn recompute_hash_test_tool() {
-        let cert_and_signed_entities = vec![
-            (dummy_genesis("genesis", 1, 1), None),
-            (
-                dummy_certificate("cert1", "genesis", 1, 2),
-                Some(SignedEntityRecord {
-                    signed_entity_id: "signed_entity_id".to_string(),
-                    signed_entity_type: MithrilStakeDistribution(Epoch(1)),
-                    certificate_id: "cert1".to_string(),
-                    artifact: "".to_string(),
-                    created_at: Default::default(),
-                }),
+    fn ensure_test_framework_recompute_correct_hashes() {
+        let old_certificates: Vec<(Certificate, Option<SignedEntityRecord>)> = vec![
+            dummy_genesis("genesis", time_at(1, 1)),
+            dummy_certificate(
+                "cert1",
+                "genesis",
+                time_at(1, 2),
+                Type::MithrilStakeDistribution,
             ),
-            (
-                dummy_certificate("cert2", "cert1", 2, 3),
-                Some(SignedEntityRecord {
-                    signed_entity_id: "signed_entity_id".to_string(),
-                    signed_entity_type: MithrilStakeDistribution(Epoch(2)),
-                    certificate_id: "cert2".to_string(),
-                    artifact: "".to_string(),
-                    created_at: Default::default(),
-                }),
+            dummy_certificate(
+                "cert2",
+                "cert1",
+                time_at(2, 3),
+                Type::MithrilStakeDistribution,
             ),
-        ];
-        let expected = vec![
-            (
-                dummy_genesis(
-                    "65d30b2281cc9ad99c759cbe7eae5ed28cc9ce309b2b3d699ced3c516d2082f7",
-                    1,
-                    1,
-                ),
-                None,
-            ),
-            (
-                dummy_certificate(
-                    "39dae0f74a92297bca7cbe8b5c8f72110a746b3729a8dc0dbe1dc1105272cfc2",
-                    "65d30b2281cc9ad99c759cbe7eae5ed28cc9ce309b2b3d699ced3c516d2082f7",
-                    1,
-                    2,
-                ),
-                Some(SignedEntityRecord {
-                    signed_entity_id: "signed_entity_id".to_string(),
-                    signed_entity_type: MithrilStakeDistribution(Epoch(1)),
-                    certificate_id:
-                        "39dae0f74a92297bca7cbe8b5c8f72110a746b3729a8dc0dbe1dc1105272cfc2"
-                            .to_string(),
-                    artifact: "".to_string(),
-                    created_at: Default::default(),
-                }),
-            ),
-            (
-                dummy_certificate(
-                    "beff3b3c936f0d9e0d1cba206d3f1d2e79c299473aa3b8e63878e2bbcf600514",
-                    "39dae0f74a92297bca7cbe8b5c8f72110a746b3729a8dc0dbe1dc1105272cfc2",
-                    2,
-                    3,
-                ),
-                Some(SignedEntityRecord {
-                    signed_entity_id: "signed_entity_id".to_string(),
-                    signed_entity_type: MithrilStakeDistribution(Epoch(2)),
-                    certificate_id:
-                        "beff3b3c936f0d9e0d1cba206d3f1d2e79c299473aa3b8e63878e2bbcf600514"
-                            .to_string(),
-                    artifact: "".to_string(),
-                    created_at: Default::default(),
-                }),
-            ),
-        ];
+        ]
+        .into_iter()
+        .map(|cert| (cert.clone(), signed_entity_for_certificate(&cert)))
+        .collect();
 
-        assert_eq!(expected, recompute_hashes(cert_and_signed_entities));
+        let expected: Vec<(Certificate, Option<SignedEntityRecord>)> = vec![
+            dummy_genesis(
+                "328b1ac75ef18fe09ff542ea1997ee512cd62c886a260463034e551255ad39e0",
+                time_at(1, 1),
+            ),
+            dummy_certificate(
+                "007286af724bb132dab1f13f9cda8a86d0cd82173f0b4a91124cc7bff63b1562",
+                "328b1ac75ef18fe09ff542ea1997ee512cd62c886a260463034e551255ad39e0",
+                time_at(1, 2),
+                Type::MithrilStakeDistribution,
+            ),
+            dummy_certificate(
+                "98fb51c4588293acec548c4d35e499fe77e6eb2eb75c67d64a1026a6f88bad7b",
+                "007286af724bb132dab1f13f9cda8a86d0cd82173f0b4a91124cc7bff63b1562",
+                time_at(2, 3),
+                Type::MithrilStakeDistribution,
+            ),
+        ]
+        .into_iter()
+        .map(|cert| (cert.clone(), signed_entity_for_certificate(&cert)))
+        .collect();
+        let recomputed = recompute_hashes(old_certificates);
+
+        assert_eq!(expected, recomputed);
     }
 
     async fn get_certificates_and_signed_entities(
@@ -419,7 +422,7 @@ mod test {
             .await?;
 
         for certificate in certificates {
-            if certificate.previous_hash.is_empty() {
+            if certificate.is_genesis() {
                 result.push((certificate, None));
             } else {
                 let record = signed_entity_store
@@ -435,23 +438,20 @@ mod test {
 
     async fn run_migration_test(
         sqlite_connection: Arc<SqliteConnection>,
-        certificates_and_signed_entity: Vec<(Certificate, Option<SignedEntityTypeDiscriminants>)>,
+        certificates: Vec<Certificate>,
     ) {
         // Arrange
-        let old_certificates_and_signed_entities = fill_certificates_and_signed_entities_in_db(
-            sqlite_connection.clone(),
-            &certificates_and_signed_entity,
-        )
-        .await
-        .unwrap();
+        let old_certificates =
+            fill_certificates_and_signed_entities_in_db(sqlite_connection.clone(), &certificates)
+                .await
+                .unwrap();
 
         // Note: data retrieved from the database will be in the earliest to the oldest order, the
         // reverse of our insert order.
-        let expected_certificates_and_signed_entities =
-            recompute_hashes(old_certificates_and_signed_entities)
-                .into_iter()
-                .rev()
-                .collect();
+        let expected_certificates_and_signed_entities = recompute_hashes(old_certificates)
+            .into_iter()
+            .rev()
+            .collect();
 
         // Act
         let migrator = CertificatesHashMigrator::new(
@@ -492,7 +492,7 @@ mod test {
     #[tokio::test]
     async fn migrate_genesis_certificate() {
         let connection = Arc::new(connection_without_foreign_key_support());
-        run_migration_test(connection, vec![(dummy_genesis("old_hash", 1, 1), None)]).await;
+        run_migration_test(connection, vec![dummy_genesis("old_hash", time_at(1, 1))]).await;
     }
 
     #[tokio::test]
@@ -501,10 +501,12 @@ mod test {
         run_migration_test(
             connection,
             vec![
-                (dummy_genesis("old_genesis", 1, 1), None),
-                (
-                    dummy_certificate("old_hash_1", "old_genesis", 1, 2),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_genesis("old_genesis", time_at(1, 1)),
+                dummy_certificate(
+                    "old_hash_1",
+                    "old_genesis",
+                    time_at(1, 2),
+                    Type::MithrilStakeDistribution,
                 ),
             ],
         )
@@ -518,30 +520,42 @@ mod test {
         run_migration_test(
             connection,
             vec![
-                (dummy_genesis("old_genesis", 1, 1), None),
-                (
-                    dummy_certificate("old_hash_1", "old_genesis", 1, 2),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_genesis("old_genesis", time_at(1, 1)),
+                dummy_certificate(
+                    "old_hash_1",
+                    "old_genesis",
+                    time_at(1, 2),
+                    Type::MithrilStakeDistribution,
                 ),
-                (
-                    dummy_certificate("old_hash_2", "old_genesis", 1, 3),
-                    Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull),
+                dummy_certificate(
+                    "old_hash_2",
+                    "old_genesis",
+                    time_at(1, 3),
+                    Type::CardanoImmutableFilesFull,
                 ),
-                (
-                    dummy_certificate("old_hash_3", "old_hash_2", 2, 3),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_certificate(
+                    "old_hash_3",
+                    "old_hash_2",
+                    time_at(2, 3),
+                    Type::MithrilStakeDistribution,
                 ),
-                (
-                    dummy_certificate("old_hash_4", "old_hash_3", 2, 4),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_certificate(
+                    "old_hash_4",
+                    "old_hash_3",
+                    time_at(2, 4),
+                    Type::CardanoImmutableFilesFull,
                 ),
-                (
-                    dummy_certificate("old_hash_5", "old_hash_3", 3, 5),
-                    Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull),
+                dummy_certificate(
+                    "old_hash_5",
+                    "old_hash_3",
+                    time_at(3, 5),
+                    Type::CardanoImmutableFilesFull,
                 ),
-                (
-                    dummy_certificate("old_hash_6", "old_hash_5", 4, 6),
-                    Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull),
+                dummy_certificate(
+                    "old_hash_6",
+                    "old_hash_5",
+                    time_at(4, 6),
+                    Type::CardanoImmutableFilesFull,
                 ),
             ],
         )
@@ -554,28 +568,38 @@ mod test {
         run_migration_test(
             connection,
             vec![
-                (dummy_genesis("old_genesis", 1, 1), None),
-                (
-                    dummy_certificate("old_hash_1", "old_genesis", 1, 2),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_genesis("old_genesis", time_at(1, 1)),
+                dummy_certificate(
+                    "old_hash_1",
+                    "old_genesis",
+                    time_at(1, 2),
+                    Type::MithrilStakeDistribution,
                 ),
-                (
-                    dummy_certificate("old_hash_2", "old_genesis", 1, 3),
-                    Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull),
+                dummy_certificate(
+                    "old_hash_2",
+                    "old_genesis",
+                    time_at(1, 3),
+                    Type::CardanoImmutableFilesFull,
                 ),
-                (dummy_genesis("old_genesis_2", 3, 5), None),
-                (
-                    dummy_certificate("old_hash_3", "old_genesis_2", 4, 6),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_genesis("old_genesis_2", time_at(3, 5)),
+                dummy_certificate(
+                    "old_hash_3",
+                    "old_genesis_2",
+                    time_at(4, 6),
+                    Type::MithrilStakeDistribution,
                 ),
-                (
-                    dummy_certificate("old_hash_4", "old_hash_3", 5, 7),
-                    Some(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull),
+                dummy_certificate(
+                    "old_hash_4",
+                    "old_hash_3",
+                    time_at(5, 7),
+                    Type::CardanoImmutableFilesFull,
                 ),
-                (dummy_genesis("old_genesis_3", 5, 7), None),
-                (
-                    dummy_certificate("old_hash_5", "old_genesis_3", 5, 8),
-                    Some(SignedEntityTypeDiscriminants::MithrilStakeDistribution),
+                dummy_genesis("old_genesis_3", time_at(5, 7)),
+                dummy_certificate(
+                    "old_hash_5",
+                    "old_genesis_3",
+                    time_at(5, 8),
+                    Type::MithrilStakeDistribution,
                 ),
             ],
         )
@@ -586,11 +610,11 @@ mod test {
     async fn should_not_fail_if_some_hash_dont_change() {
         let connection = Arc::new(connection_without_foreign_key_support());
         let certificate = {
-            let mut cert = dummy_genesis("whatever", 1, 2);
+            let mut cert = dummy_genesis("whatever", time_at(1, 2));
             cert.hash = cert.compute_hash();
             cert
         };
-        fill_certificates_and_signed_entities_in_db(connection.clone(), &[(certificate, None)])
+        fill_certificates_and_signed_entities_in_db(connection.clone(), &[certificate])
             .await
             .unwrap();
 
