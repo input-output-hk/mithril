@@ -8,11 +8,15 @@ use libp2p::{
     swarm::{self, DialError, NetworkBehaviour},
     tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
 };
-use mithril_common::{messages::RegisterSignatureMessage, StdResult};
+use mithril_common::{
+    messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    StdResult,
+};
+use serde::{Deserialize, Serialize};
 use slog_scope::{debug, info};
 use std::{collections::HashMap, time::Duration};
 
-use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME};
+use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME, MITHRIL_SIGNERS_TOPIC_NAME};
 
 /// The idle connection timeout for a P2P connection
 const P2P_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -54,6 +58,16 @@ pub enum PeerEvent {
 /// The topic name of a P2P pubsub
 pub type TopicName = String;
 
+/// The broadcast message received from a Gossip sub event
+#[derive(Serialize, Deserialize)]
+pub enum BroadcastMessage {
+    /// A signer registration message received from the Gossip sub
+    RegisterSigner(RegisterSignerMessage),
+
+    /// A signature registration message received from the Gossip sub
+    RegisterSignature(RegisterSignatureMessage),
+}
+
 /// A peer in the P2P network
 pub struct Peer {
     topics: HashMap<TopicName, gossipsub::IdentTopic>,
@@ -75,10 +89,16 @@ impl Peer {
     }
 
     fn build_topics() -> HashMap<TopicName, gossipsub::IdentTopic> {
-        HashMap::from([(
-            MITHRIL_SIGNATURES_TOPIC_NAME.into(),
-            gossipsub::IdentTopic::new(MITHRIL_SIGNATURES_TOPIC_NAME),
-        )])
+        HashMap::from([
+            (
+                MITHRIL_SIGNATURES_TOPIC_NAME.into(),
+                gossipsub::IdentTopic::new(MITHRIL_SIGNATURES_TOPIC_NAME),
+            ),
+            (
+                MITHRIL_SIGNERS_TOPIC_NAME.into(),
+                gossipsub::IdentTopic::new(MITHRIL_SIGNERS_TOPIC_NAME),
+            ),
+        ])
     }
 
     /// Start the peer
@@ -137,11 +157,11 @@ impl Peer {
         Ok(self)
     }
 
-    /// Convert a peer event to a signature message
-    pub fn convert_peer_event_to_signature_message(
+    /// Convert a peer event to a broadcast message
+    pub fn convert_peer_event_to_message(
         &mut self,
         event: PeerEvent,
-    ) -> StdResult<Option<RegisterSignatureMessage>> {
+    ) -> StdResult<Option<BroadcastMessage>> {
         match event {
             PeerEvent::Behaviour {
                 event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
@@ -190,28 +210,57 @@ impl Peer {
         &mut self,
         message: &RegisterSignatureMessage,
     ) -> StdResult<gossipsub::MessageId> {
+        self.publish_broadcast_message(
+            &BroadcastMessage::RegisterSignature(message.to_owned()),
+            MITHRIL_SIGNATURES_TOPIC_NAME,
+        )
+    }
+
+    /// Publish a broadcast message on the P2P pubsub
+    pub fn publish_broadcast_message(
+        &mut self,
+        message: &BroadcastMessage,
+        topic_name: &str,
+    ) -> StdResult<gossipsub::MessageId> {
         let topic = self
             .topics
-            .get(MITHRIL_SIGNATURES_TOPIC_NAME)
+            .get(topic_name)
             .ok_or(PeerError::MissingTopic())
             .with_context(|| {
-                format!(
-                    "Can not publish signature on invalid topic: {MITHRIL_SIGNATURES_TOPIC_NAME}"
-                )
+                format!("Can not publish broadcast message on invalid topic: {topic_name}")
             })?
             .to_owned();
-        let data = serde_json::to_vec(message)
-            .with_context(|| "Can not publish signature with invalid format")?;
+        let data = serde_json::to_vec(message).with_context(|| {
+            format!("Can not publish broadcast message with invalid format on topic {topic_name}")
+        })?;
 
         let message_id = self
             .swarm
             .as_mut()
             .map(|swarm| swarm.behaviour_mut().gossipsub.publish(topic, data))
             .transpose()
-            .with_context(|| "Can not publish signature on P2P pubsub")?
+            .with_context(|| {
+                format!("Can not publish broadcast message on {topic_name} P2P pubsub")
+            })?
             .ok_or(PeerError::UnavailableSwarm())
-            .with_context(|| "Can not publish signature without swarm")?;
+            .with_context(|| {
+                format!(
+                    "Can not publish broadcast message on {topic_name} P2P pubsub without swarm"
+                )
+            })?;
+
         Ok(message_id.to_owned())
+    }
+
+    /// Publish a signer registration on the P2P pubsub
+    pub fn publish_signer(
+        &mut self,
+        message: &RegisterSignerMessage,
+    ) -> StdResult<gossipsub::MessageId> {
+        self.publish_broadcast_message(
+            &BroadcastMessage::RegisterSigner(message.to_owned()),
+            MITHRIL_SIGNERS_TOPIC_NAME,
+        )
     }
 
     /// Connect to a remote peer
