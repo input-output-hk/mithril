@@ -250,6 +250,7 @@ impl From<CertificateRecord> for CertificateListItemMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
             beacon,
+            signed_entity_type: value.signed_entity_type,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,

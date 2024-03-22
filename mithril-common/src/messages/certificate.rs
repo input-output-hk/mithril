@@ -33,8 +33,6 @@ pub struct CertificateMessage {
     pub beacon: CardanoDbBeacon,
 
     /// The signed entity type of the message.
-    ///
-    /// Only available if the message is a MultiSignature.
     pub signed_entity_type: SignedEntityType,
 
     /// Certificate metadata
@@ -76,13 +74,13 @@ impl CertificateMessage {
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
                 fake_keys::aggregate_verification_key()[1].to_owned(),
             );
-            let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
+            let epoch = crate::entities::Epoch(10);
 
             Self {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
-                beacon: beacon.clone(),
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+                beacon:  CardanoDbBeacon::new("testnet".to_string(), *epoch, 100),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
