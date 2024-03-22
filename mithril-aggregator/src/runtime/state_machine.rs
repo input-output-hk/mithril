@@ -472,13 +472,7 @@ mod tests {
         )
         .await;
         let err = runtime.cycle().await.unwrap_err();
-        assert!(matches!(
-            err,
-            RuntimeError::KeepState {
-                message: _,
-                nested_error: _
-            }
-        ));
+        assert!(matches!(err, RuntimeError::KeepState { .. }));
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
@@ -695,10 +689,7 @@ mod tests {
             .expect_err("cycle should have returned an error");
 
         match err {
-            RuntimeError::KeepState {
-                message: _,
-                nested_error: _,
-            } => (),
+            RuntimeError::KeepState { .. } => (),
             _ => panic!("KeepState error expected, got {err:?}."),
         };
 
@@ -738,10 +729,7 @@ mod tests {
             .expect_err("cycle should have returned an error");
 
         match err {
-            RuntimeError::ReInit {
-                message: _,
-                nested_error: _,
-            } => (),
+            RuntimeError::ReInit { .. } => (),
             _ => panic!("ReInit error expected, got {err:?}."),
         };
 
