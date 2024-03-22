@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 #[cfg(any(test, feature = "test_tools"))]
 use crate::entities::ProtocolMessagePartKey;
 use crate::entities::{
-    CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
-    SignedEntityType,
+    CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
+    ProtocolMessage, SignedEntityType,
 };
 use crate::messages::CertificateMetadataMessagePart;
 #[cfg(any(test, feature = "test_tools"))]
@@ -28,12 +28,16 @@ pub struct CertificateMessage {
     /// aka H(FC(n))
     pub previous_hash: String,
 
-    /// Mithril beacon on the Cardano chain
-    /// aka BEACON(p,n)
-    pub beacon: CardanoDbBeacon,
+    /// Epoch of the Cardano chain
+    pub epoch: Epoch,
 
     /// The signed entity type of the message.
     pub signed_entity_type: SignedEntityType,
+
+    /// Mithril beacon on the Cardano chain
+    /// aka BEACON(p,n)
+    #[deprecated(since = "0.3.21", note = "use epoch and/or signed_entity_type instead")]
+    pub beacon: CardanoDbBeacon,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -74,13 +78,15 @@ impl CertificateMessage {
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
                 fake_keys::aggregate_verification_key()[1].to_owned(),
             );
-            let epoch = crate::entities::Epoch(10);
+            let epoch = Epoch(10);
 
+            #[allow(deprecated)]
             Self {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
-                beacon:  CardanoDbBeacon::new("testnet".to_string(), *epoch, 100),
+                epoch,
                 signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+                beacon: CardanoDbBeacon::new("testnet".to_string(), *epoch, 100),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
@@ -104,7 +110,7 @@ impl Debug for CertificateMessage {
         debug
             .field("hash", &self.hash)
             .field("previous_hash", &self.previous_hash)
-            .field("beacon", &format_args!("{:?}", self.beacon))
+            .field("epoch", &format_args!("{:?}", self.epoch))
             .field(
                 "signed_entity_type",
                 &format_args!("{:?}", self.signed_entity_type),
@@ -134,6 +140,7 @@ impl TryFrom<CertificateMessage> for Certificate {
     type Error = StdError;
 
     fn try_from(certificate_message: CertificateMessage) -> Result<Self, Self::Error> {
+        #[allow(deprecated)]
         let metadata = CertificateMetadata {
             network: certificate_message.beacon.network,
             immutable_file_number: certificate_message.beacon.immutable_file_number,
@@ -147,7 +154,7 @@ impl TryFrom<CertificateMessage> for Certificate {
         let certificate = Certificate {
             hash: certificate_message.hash,
             previous_hash: certificate_message.previous_hash,
-            epoch: certificate_message.beacon.epoch,
+            epoch: certificate_message.epoch,
             metadata,
             protocol_message: certificate_message.protocol_message,
             signed_message: certificate_message.signed_message,
@@ -190,6 +197,7 @@ impl TryFrom<Certificate> for CertificateMessage {
         let beacon = certificate.as_cardano_db_beacon();
         let signed_entity_type = certificate.signed_entity_type();
         let metadata = CertificateMetadataMessagePart {
+            network: certificate.metadata.network,
             protocol_version: certificate.metadata.protocol_version,
             protocol_parameters: certificate.metadata.protocol_parameters,
             initiated_at: certificate.metadata.initiated_at,
@@ -209,11 +217,13 @@ impl TryFrom<Certificate> for CertificateMessage {
             ),
         };
 
+        #[allow(deprecated)]
         let message = CertificateMessage {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
-            beacon,
+            epoch: certificate.epoch,
             signed_entity_type,
+            beacon,
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
@@ -249,13 +259,17 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
-        let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
+        let beacon = CardanoDbBeacon::new("testnet", 10, 100);
+
+        #[allow(deprecated)]
         CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: beacon.clone(),
+            epoch: beacon.epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            beacon: beacon.clone(),
             metadata: CertificateMetadataMessagePart {
+                network: beacon.network,
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
@@ -289,13 +303,15 @@ mod tests {
         let json = r#"{
             "hash": "hash",
             "previous_hash": "previous_hash",
+            "epoch": 10,
+            "signed_entity_type": { "MithrilStakeDistribution": 10 },
             "beacon": {
                 "network": "testnet",
                 "epoch": 10,
                 "immutable_file_number": 100
             },
-            "signed_entity_type": { "MithrilStakeDistribution": 10 },
             "metadata": {
+                "network": "testnet",
                 "version": "0.1.0",
                 "parameters": {
                     "k": 1000,

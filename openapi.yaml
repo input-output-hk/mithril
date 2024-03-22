@@ -1008,12 +1008,16 @@ components:
       type: object
       additionalProperties: false
       required:
+        - network
         - version
         - parameters
         - initiated_at
         - sealed_at
         - total_signers
       properties:
+        network:
+          description: Cardano network
+          type: string
         version:
           description: Version of the protocol
           type: string
@@ -1034,6 +1038,7 @@ components:
           format: int64
       example:
         {
+          "network": "mainnet",
           "version": "0.1.0",
           "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
           "initiated_at": "2022-07-17T18:51:23.192811338Z",
@@ -1051,6 +1056,7 @@ components:
           {
             "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
             "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
+            "epoch": 329,
             "beacon":
               {
                 "network": "mainnet",
@@ -1063,6 +1069,7 @@ components:
               },
             "metadata":
               {
+                "network": "mainnet",
                 "version": "0.1.0",
                 "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
                 "initiated_at": "2022-07-17T18:51:23.192811338Z",
@@ -1089,6 +1096,7 @@ components:
       required:
         - hash
         - previous_hash
+        - epoch
         - beacon
         - signed_entity_type
         - metadata
@@ -1104,8 +1112,12 @@ components:
           description: Hash of the previous certificate
           type: string
           format: bytes
+        epoch:
+          $ref: "#/components/schemas/Epoch"
         beacon:
-          $ref: "#/components/schemas/CardanoDbBeacon"
+          deprecated: true
+          allOf:
+            - $ref: "#/components/schemas/CardanoDbBeacon"
         signed_entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         metadata:
@@ -1124,6 +1136,7 @@ components:
         {
           "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
           "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
+          "epoch": 32,
           "beacon":
             {
               "network": "mainnet",
@@ -1136,6 +1149,7 @@ components:
             },
           "metadata":
             {
+              "network": "mainnet",
               "version": "0.1.0",
               "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
               "initiated_at": "2022-07-17T18:51:23.192811338Z",
@@ -1159,12 +1173,16 @@ components:
       type: object
       additionalProperties: false
       required:
+        - network
         - version
         - parameters
         - initiated_at
         - sealed_at
         - signers
       properties:
+        network:
+          description: Cardano network
+          type: string
         version:
           description: Version of the protocol
           type: string
@@ -1186,6 +1204,7 @@ components:
             $ref: "#/components/schemas/StakeDistributionParty"
       example:
         {
+          "network": "mainnet",
           "version": "0.1.0",
           "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
           "initiated_at": "2022-07-17T18:51:23.192811338Z",
@@ -1210,6 +1229,7 @@ components:
       required:
         - hash
         - previous_hash
+        - epoch
         - beacon
         - signed_entity_type
         - metadata
@@ -1227,8 +1247,12 @@ components:
           description: Hash of the previous certificate
           type: string
           format: bytes
+        epoch:
+          $ref: "#/components/schemas/Epoch"
         beacon:
-          $ref: "#/components/schemas/CardanoDbBeacon"
+          deprecated: true
+          allOf:
+            - $ref: "#/components/schemas/CardanoDbBeacon"
         signed_entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         metadata:
@@ -1255,6 +1279,7 @@ components:
         {
           "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
           "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
+          "epoch": 329,
           "beacon":
             {
               "network": "mainnet",
@@ -1267,6 +1292,7 @@ components:
             },
           "metadata":
             {
+              "network": "mainnet",
               "version": "0.1.0",
               "parameters": { "k": 5, "m": 100, "phi_f": 0.65 },
               "initiated_at": "2022-07-17T18:51:23.192811338Z",

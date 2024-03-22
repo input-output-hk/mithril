@@ -1,7 +1,10 @@
 use anyhow::Context;
-#[cfg(feature = "fs")]
-use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::protocol::SignerBuilder;
+#[cfg(feature = "fs")]
+use mithril_common::{
+    digesters::{CardanoImmutableDigester, ImmutableDigester},
+    entities::SignedEntityType,
+};
 use slog::{o, Logger};
 #[cfg(feature = "fs")]
 use std::path::Path;
@@ -67,11 +70,22 @@ impl MessageBuilder {
             unpacked_snapshot_directory: &Path,
         ) -> MithrilResult<ProtocolMessage> {
             let digester = self.get_immutable_digester();
+            let beacon =
+                match &snapshot_certificate.signed_entity_type {
+                SignedEntityType::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
+                other => {
+                    Err(anyhow::anyhow!(
+                            "Can't compute message: Given certificate `{}` does not certify a snapshot, certificate signed entity: {:?}",
+                            snapshot_certificate.hash,
+                            other
+                        )
+                    )},
+            }?;
 
             let mut message = snapshot_certificate.protocol_message.clone();
 
             let digest = digester
-                .compute_digest(unpacked_snapshot_directory, &snapshot_certificate.beacon)
+                .compute_digest(unpacked_snapshot_directory, beacon)
                 .await
                 .with_context(|| {
                     format!(

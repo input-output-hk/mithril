@@ -208,6 +208,7 @@ impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
         let beacon = value.as_cardano_db_beacon();
         let metadata = CertificateMetadataMessagePart {
+            network: value.network,
             protocol_version: value.protocol_version,
             protocol_parameters: value.protocol_parameters,
             initiated_at: value.initiated_at,
@@ -220,15 +221,17 @@ impl From<CertificateRecord> for CertificateMessage {
             (value.signature, String::new())
         };
 
+        #[allow(deprecated)]
         CertificateMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
+            epoch: value.epoch,
+            signed_entity_type: value.signed_entity_type,
             beacon,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
             aggregate_verification_key: value.aggregate_verification_key,
-            signed_entity_type: value.signed_entity_type,
             multi_signature,
             genesis_signature,
         }
@@ -239,6 +242,7 @@ impl From<CertificateRecord> for CertificateListItemMessage {
     fn from(value: CertificateRecord) -> Self {
         let beacon = value.as_cardano_db_beacon();
         let metadata = CertificateListItemMessageMetadata {
+            network: value.network,
             protocol_version: value.protocol_version,
             protocol_parameters: value.protocol_parameters,
             initiated_at: value.initiated_at,
@@ -246,11 +250,13 @@ impl From<CertificateRecord> for CertificateListItemMessage {
             total_signers: value.signers.len(),
         };
 
+        #[allow(deprecated)]
         CertificateListItemMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
-            beacon,
+            epoch: value.epoch,
             signed_entity_type: value.signed_entity_type,
+            beacon,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
