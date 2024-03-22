@@ -21,7 +21,9 @@ impl ToCertificatePendingMessageAdapter {
             immutable_file_number,
         );
 
+        #[allow(deprecated)]
         CertificatePendingMessage {
+            epoch: beacon.epoch,
             beacon,
             signed_entity_type: certificate_pending.signed_entity_type,
             protocol_parameters: certificate_pending.protocol_parameters,
@@ -67,7 +69,7 @@ mod tests {
             10,
         );
 
-        assert_eq!(epoch, message.beacon.epoch);
+        assert_eq!(epoch, message.epoch);
     }
 
     #[test]

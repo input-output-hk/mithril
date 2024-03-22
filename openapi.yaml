@@ -659,6 +659,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - epoch
         - beacon
         - entity_type
         - protocol
@@ -666,8 +667,12 @@ components:
         - signers
         - next_signers
       properties:
+        epoch:
+          $ref: "#/components/schemas/Epoch"
         beacon:
-          $ref: "#/components/schemas/CardanoDbBeacon"
+          deprecated: true
+          allOf:
+            - $ref: "#/components/schemas/CardanoDbBeacon"
         entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         protocol:
@@ -684,6 +689,7 @@ components:
             $ref: "#/components/schemas/Signer"
       example:
         {
+          "epoch": 329,
           "beacon":
             {
               "network": "mainnet",
