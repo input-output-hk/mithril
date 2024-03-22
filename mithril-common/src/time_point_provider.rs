@@ -5,61 +5,55 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::StdResult;
-use crate::{
-    chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::CardanoDbBeacon,
-    CardanoNetwork,
-};
+use crate::{chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::TimePoint};
 
-/// Provide the current [CardanoDbBeacon] of a cardano node.
+/// Provide the current [TimePoint] of a cardano node.
 #[async_trait]
-pub trait BeaconProvider
+pub trait TimePointProvider
 where
     Self: Sync + Send,
 {
-    /// Get the current [CardanoDbBeacon] of the cardano node.
-    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
+    /// Get the current [TimePoint] of the cardano node.
+    async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 }
 
-/// [BeaconProvider] related errors.
+/// [TimePointProvider] related errors.
 #[derive(Error, Debug)]
-pub enum BeaconProviderError {
+pub enum TimePointProviderError {
     /// Raised reading the current epoch succeeded but yield no result.
     #[error("No epoch yield by the chain observer, is your cardano node ready ?")]
     NoEpoch(),
 }
 
-/// A [BeaconProvider] using a [ChainObserver] and a [ImmutableFileObserver].
-pub struct BeaconProviderImpl {
+/// A [TimePointProvider] using a [ChainObserver] and a [ImmutableFileObserver].
+pub struct TimePointProviderImpl {
     chain_observer: Arc<dyn ChainObserver>,
     immutable_observer: Arc<dyn ImmutableFileObserver>,
-    network: CardanoNetwork,
 }
 
-impl BeaconProviderImpl {
-    /// [BeaconProviderImpl] factory.
+impl TimePointProviderImpl {
+    /// [TimePointProviderImpl] factory.
     pub fn new(
         chain_observer: Arc<dyn ChainObserver>,
         immutable_observer: Arc<dyn ImmutableFileObserver>,
-        network: CardanoNetwork,
     ) -> Self {
         Self {
             chain_observer,
             immutable_observer,
-            network,
         }
     }
 }
 
 #[async_trait]
-impl BeaconProvider for BeaconProviderImpl {
-    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon> {
+impl TimePointProvider for TimePointProviderImpl {
+    async fn get_current_time_point(&self) -> StdResult<TimePoint> {
         let epoch = self
             .chain_observer
             .get_current_epoch()
             .await
             .map_err(|e| anyhow!(e))
             .with_context(|| "Beacon Provider can not get current epoch")?
-            .ok_or(BeaconProviderError::NoEpoch())?;
+            .ok_or(TimePointProviderError::NoEpoch())?;
 
         let immutable_file_number = self
             .immutable_observer
@@ -71,13 +65,10 @@ impl BeaconProvider for BeaconProviderImpl {
                 )
             })?;
 
-        let beacon = CardanoDbBeacon {
-            network: self.network.to_string(),
+        Ok(TimePoint {
             epoch,
             immutable_file_number,
-        };
-
-        Ok(beacon)
+        })
     }
 }
 
@@ -115,29 +106,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_beacon_ok() {
-        let beacon_provider = BeaconProviderImpl::new(
+    async fn test_happy_path() {
+        let time_point_provider = TimePointProviderImpl::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(DumbImmutableFileObserver::default()),
-            CardanoNetwork::TestNet(42),
         );
-        let beacon = beacon_provider.get_current_beacon().await.unwrap();
+        let time_point = time_point_provider.get_current_time_point().await.unwrap();
 
-        assert_eq!(42, beacon.epoch);
-        assert_eq!(500, beacon.immutable_file_number);
+        assert_eq!(TimePoint::new(42, 500), time_point);
     }
 
     #[tokio::test]
-    async fn test_beacon_error() {
+    async fn test_error_from_dependency() {
         let immutable_observer = DumbImmutableFileObserver::default();
         immutable_observer.shall_return(None).await;
-        let beacon_provider = BeaconProviderImpl::new(
+        let time_point_provider = TimePointProviderImpl::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(immutable_observer),
-            CardanoNetwork::TestNet(42),
         );
 
-        let result = beacon_provider.get_current_beacon().await;
+        let result = time_point_provider.get_current_time_point().await;
         assert!(result.is_err());
     }
 }

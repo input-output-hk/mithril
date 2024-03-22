@@ -199,7 +199,7 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// Increase the immutable file number of the beacon, returns the new number.
+    /// Increase the immutable file number of the simulated db, returns the new number.
     pub async fn increase_immutable_number(&mut self) -> StdResult<ImmutableFileNumber> {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
         self.update_digester_digest().await;
@@ -210,7 +210,7 @@ impl RuntimeTester {
             Ok(new_immutable_number)
         } else {
             Err(anyhow!(
-                "beacon_provider immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"))
+                "immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"))
         }
     }
 

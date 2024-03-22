@@ -110,7 +110,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> StdResult<()>;
 
     /// Update the EraChecker with EraReader information.
-    async fn update_era_checker(&self, time_point: &TimePoint) -> StdResult<()>;
+    async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Ask services to update themselves for the new epoch
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
@@ -144,15 +144,14 @@ impl AggregatorRunner {
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current beacon from the chain
     async fn get_time_point_from_chain(&self) -> StdResult<TimePoint> {
-        debug!("RUNNER: get beacon from chain");
-        //bbb// transform beacon_provider into a time_point_provider
-        let beacon = self
+        debug!("RUNNER: get time point from chain");
+        let time_point = self
             .dependencies
-            .beacon_provider
-            .get_current_beacon()
+            .time_point_provider
+            .get_current_time_point()
             .await?;
 
-        Ok(TimePoint::new(*beacon.epoch, beacon.immutable_file_number))
+        Ok(time_point)
     }
 
     async fn get_current_open_message_for_signed_entity_type(
@@ -407,16 +406,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn update_era_checker(&self, time_point: &TimePoint) -> StdResult<()> {
+    async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {
         let token = self
             .dependencies
             .era_reader
-            .read_era_epoch_token(time_point.epoch)
+            .read_era_epoch_token(epoch)
             .await
             .with_context(|| {
                 format!(
                     "EraReader can not get era epoch token for current epoch: '{}'",
-                    time_point.epoch
+                    epoch
                 )
             })?;
 
@@ -501,7 +500,7 @@ pub mod tests {
         },
         signable_builder::SignableBuilderService,
         test_utils::{fake_data, MithrilFixtureBuilder},
-        BeaconProviderImpl, CardanoNetwork, StdResult,
+        StdResult, TimePointProviderImpl,
     };
     use mithril_persistence::store::StakeStorer;
     use mockall::{mock, predicate::eq};
@@ -551,16 +550,15 @@ pub mod tests {
         immutable_file_observer
             .shall_return(Some(expected.immutable_file_number))
             .await;
-        let beacon_provider = Arc::new(BeaconProviderImpl::new(
+        let time_point_provider = Arc::new(TimePointProviderImpl::new(
             Arc::new(FakeObserver::new(Some(CardanoDbBeacon::new(
                 "private",
                 *expected.epoch,
                 expected.immutable_file_number,
             )))),
             immutable_file_observer,
-            CardanoNetwork::TestNet(42),
         ));
-        dependencies.beacon_provider = beacon_provider;
+        dependencies.time_point_provider = time_point_provider;
         let runner = AggregatorRunner::new(Arc::new(dependencies));
 
         // Retrieves the expected beacon
@@ -800,19 +798,16 @@ pub mod tests {
     #[tokio::test]
     async fn test_update_era_checker() {
         let deps = initialize_dependencies().await;
-        let beacon_provider = deps.beacon_provider.clone();
+        let time_point_provider = deps.time_point_provider.clone();
         let era_checker = deps.era_checker.clone();
-        let mut beacon = beacon_provider.get_current_beacon().await.unwrap();
+        let mut time_point = time_point_provider.get_current_time_point().await.unwrap();
 
-        assert_eq!(beacon.epoch, era_checker.current_epoch());
+        assert_eq!(time_point.epoch, era_checker.current_epoch());
         let runner = AggregatorRunner::new(Arc::new(deps));
-        beacon.epoch += 1;
+        time_point.epoch += 1;
 
-        runner
-            .update_era_checker(&TimePoint::new(*beacon.epoch, beacon.immutable_file_number))
-            .await
-            .unwrap();
-        assert_eq!(beacon.epoch, era_checker.current_epoch());
+        runner.update_era_checker(time_point.epoch).await.unwrap();
+        assert_eq!(time_point.epoch, era_checker.current_epoch());
     }
 
     #[tokio::test]

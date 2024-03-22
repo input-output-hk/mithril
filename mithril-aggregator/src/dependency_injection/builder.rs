@@ -35,7 +35,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService, TransactionStore,
     },
-    BeaconProvider, BeaconProviderImpl,
+    TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
     database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
@@ -128,7 +128,7 @@ pub struct DependenciesBuilder {
     pub chain_observer: Option<Arc<dyn ChainObserver>>,
 
     /// Beacon provider service.
-    pub beacon_provider: Option<Arc<dyn BeaconProvider>>,
+    pub time_point_provider: Option<Arc<dyn TimePointProvider>>,
 
     /// Cardano transactions repository.
     pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
@@ -232,7 +232,7 @@ impl DependenciesBuilder {
             protocol_parameters_store: None,
             cardano_cli_runner: None,
             chain_observer: None,
-            beacon_provider: None,
+            time_point_provider: None,
             transaction_parser: None,
             transaction_repository: None,
             transaction_store: None,
@@ -631,25 +631,22 @@ impl DependenciesBuilder {
         Ok(self.cardano_cli_runner.as_ref().cloned().unwrap())
     }
 
-    async fn build_beacon_provider(&mut self) -> Result<Arc<dyn BeaconProvider>> {
-        let beacon_provider = BeaconProviderImpl::new(
+    async fn build_time_point_provider(&mut self) -> Result<Arc<dyn TimePointProvider>> {
+        let time_point_provider = TimePointProviderImpl::new(
             self.get_chain_observer().await?,
             self.get_immutable_file_observer().await?,
-            self.configuration.get_network().with_context(|| {
-                "Dependencies Builder can not get Cardano network while building beacon provider"
-            })?,
         );
 
-        Ok(Arc::new(beacon_provider))
+        Ok(Arc::new(time_point_provider))
     }
 
-    /// Return a [BeaconProvider] instance.
-    pub async fn get_beacon_provider(&mut self) -> Result<Arc<dyn BeaconProvider>> {
-        if self.beacon_provider.is_none() {
-            self.beacon_provider = Some(self.build_beacon_provider().await?);
+    /// Return a [TimePointProvider] instance.
+    pub async fn get_time_point_provider(&mut self) -> Result<Arc<dyn TimePointProvider>> {
+        if self.time_point_provider.is_none() {
+            self.time_point_provider = Some(self.build_time_point_provider().await?);
         }
 
-        Ok(self.beacon_provider.as_ref().cloned().unwrap())
+        Ok(self.time_point_provider.as_ref().cloned().unwrap())
     }
 
     async fn build_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
@@ -918,9 +915,9 @@ impl DependenciesBuilder {
 
     async fn build_era_checker(&mut self) -> Result<Arc<EraChecker>> {
         let current_epoch = self
-            .get_beacon_provider()
+            .get_time_point_provider()
             .await?
-            .get_current_beacon()
+            .get_current_time_point()
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "Error while building EraChecker".to_string(),
@@ -1199,7 +1196,7 @@ impl DependenciesBuilder {
             verification_key_store: self.get_verification_key_store().await?,
             protocol_parameters_store: self.get_protocol_parameters_store().await?,
             chain_observer: self.get_chain_observer().await?,
-            beacon_provider: self.get_beacon_provider().await?,
+            time_point_provider: self.get_time_point_provider().await?,
             immutable_file_observer: self.get_immutable_file_observer().await?,
             digester: self.get_immutable_digester().await?,
             snapshotter: self.get_snapshotter().await?,
@@ -1271,8 +1268,13 @@ impl DependenciesBuilder {
 
     /// Create dependencies for genesis commands
     pub async fn create_genesis_container(&mut self) -> Result<GenesisToolsDependency> {
+        let network = self.configuration.get_network().with_context(|| {
+            "Dependencies Builder can not get Cardano network while building genesis container"
+        })?;
+
         let dependencies = GenesisToolsDependency {
-            beacon_provider: self.get_beacon_provider().await?,
+            network,
+            time_point_provider: self.get_time_point_provider().await?,
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,

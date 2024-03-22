@@ -6,22 +6,24 @@ use mithril_aggregator::{
 };
 use mithril_common::{
     entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants},
-    BeaconProvider, StdResult,
+    CardanoNetwork, StdResult, TimePointProvider,
 };
 use std::sync::Arc;
 
 // An observer that allow to inspect currently available open messages.
 pub struct AggregatorObserver {
-    beacon_provider: Arc<dyn BeaconProvider>,
+    network: CardanoNetwork,
+    time_point_provider: Arc<dyn TimePointProvider>,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
 }
 
 impl AggregatorObserver {
-    // [OpenMessageObserver] factory
+    // [AggregatorObserver] factory
     pub async fn new(deps_builder: &mut DependenciesBuilder) -> Self {
         Self {
-            beacon_provider: deps_builder.get_beacon_provider().await.unwrap(),
+            network: deps_builder.configuration.get_network().unwrap(),
+            time_point_provider: deps_builder.get_time_point_provider().await.unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
         }
@@ -70,18 +72,23 @@ impl AggregatorObserver {
         &self,
         discriminant: SignedEntityTypeDiscriminants,
     ) -> StdResult<SignedEntityType> {
-        let beacon = self
-            .beacon_provider
-            .get_current_beacon()
+        let time_point = self
+            .time_point_provider
+            .get_current_time_point()
             .await
             .with_context(|| "Querying the current beacon should not fail")?;
+        let beacon = CardanoDbBeacon::new(
+            self.network.to_string(),
+            *time_point.epoch,
+            time_point.immutable_file_number,
+        );
 
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Ok(SignedEntityType::MithrilStakeDistribution(beacon.epoch))
+                Ok(SignedEntityType::MithrilStakeDistribution(time_point.epoch))
             }
             SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Ok(SignedEntityType::CardanoStakeDistribution(beacon.epoch))
+                Ok(SignedEntityType::CardanoStakeDistribution(time_point.epoch))
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 Ok(SignedEntityType::CardanoImmutableFilesFull(beacon))

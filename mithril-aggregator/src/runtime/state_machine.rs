@@ -280,28 +280,31 @@ impl AggregatorRuntime {
     async fn try_transition_from_idle_to_ready(
         &mut self,
         maybe_current_beacon: Option<TimePoint>,
-        new_beacon: TimePoint,
+        new_time_point: TimePoint,
     ) -> Result<(), RuntimeError> {
         trace!("trying transition from IDLE to READY state");
 
-        if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
+        if maybe_current_beacon.is_none()
+            || maybe_current_beacon.unwrap().epoch < new_time_point.epoch
         {
             self.runner.close_signer_registration_round().await?;
             self.runner
-                .update_era_checker(&new_beacon)
+                .update_era_checker(new_time_point.epoch)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.inform_new_epoch(new_beacon.epoch).await?;
-            self.runner.update_stake_distribution(&new_beacon).await?;
+            self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner
-                .open_signer_registration_round(&new_beacon)
+                .update_stake_distribution(&new_time_point)
+                .await?;
+            self.runner
+                .open_signer_registration_round(&new_time_point)
                 .await?;
             self.runner.update_protocol_parameters().await?;
             self.runner.precompute_epoch_data().await?;
         }
 
         self.runner
-            .is_certificate_chain_valid(&new_beacon)
+            .is_certificate_chain_valid(&new_time_point)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: "certificate chain is invalid".to_string(),
@@ -453,7 +456,7 @@ mod tests {
             .returning(|_| Err(anyhow!("error")));
         runner
             .expect_update_era_checker()
-            .with(predicate::eq(TimePoint::dummy()))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -509,7 +512,7 @@ mod tests {
             .returning(|_| Ok(()));
         runner
             .expect_update_era_checker()
-            .with(predicate::eq(TimePoint::dummy()))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -784,7 +787,7 @@ mod tests {
             .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_update_era_checker()
-            .with(predicate::eq(TimePoint::dummy()))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Err(anyhow!("ERROR")));
         runner
