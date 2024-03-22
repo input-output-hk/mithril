@@ -8,10 +8,10 @@ use crate::DependencyContainer;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
-use reqwest::StatusCode;
 use slog_scope::warn;
 use std::sync::Arc;
 use warp::http::Method;
+use warp::http::StatusCode;
 use warp::reject::Reject;
 use warp::{Filter, Rejection, Reply};
 

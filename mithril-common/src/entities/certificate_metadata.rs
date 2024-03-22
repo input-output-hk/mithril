@@ -147,7 +147,7 @@ mod tests {
             .unwrap()
             .with_nanosecond(123043)
             .unwrap();
-        let sealed_at = initiated_at + Duration::seconds(100);
+        let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
 
         assert_eq!(
             hash_expected,
@@ -190,7 +190,7 @@ mod tests {
             CertificateMetadata::new(
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at - Duration::seconds(78),
+                initiated_at - Duration::try_seconds(78).unwrap(),
                 sealed_at,
                 get_parties(),
             )
@@ -206,7 +206,7 @@ mod tests {
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,
-                sealed_at + Duration::seconds(207),
+                sealed_at + Duration::try_seconds(207).unwrap(),
                 signers_with_different_party_id,
             )
             .compute_hash()

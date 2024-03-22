@@ -27,7 +27,7 @@ mod handlers {
     use std::{convert::Infallible, sync::Arc};
 
     use mithril_common::messages::SnapshotDownloadMessage;
-    use reqwest::StatusCode;
+    use warp::http::StatusCode;
 
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::http_server::routes::reply;

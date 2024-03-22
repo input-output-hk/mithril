@@ -219,7 +219,7 @@ mod tests {
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
             .with_timezone(&Utc);
-        let sealed_at = initiated_at + Duration::seconds(100);
+        let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
 
         let certificate = Certificate::new(
             "previous_hash".to_string(),
@@ -320,7 +320,7 @@ mod tests {
         let initiated_at = DateTime::parse_from_rfc3339("2024-02-12T13:11:47.0123043Z")
             .unwrap()
             .with_timezone(&Utc);
-        let sealed_at = initiated_at + Duration::seconds(100);
+        let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
 
         let genesis_certificate = Certificate::new(
             "previous_hash".to_string(),

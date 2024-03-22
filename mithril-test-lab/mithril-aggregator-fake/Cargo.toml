@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-fake"
-version = "0.2.4"
+version = "0.2.5"
 description = "Mithril Fake Aggregator for client testing"
 authors = { workspace = true }
 documentation = { workspace = true }
@@ -29,7 +29,7 @@ mithril-common = { "path" = "../../mithril-common", features = [
     "test_tools",
     "random",
 ] }
-reqwest = "0.11.23"
+reqwest = "0.12.0"
 warp = "0.3.6"
 
 [build-dependencies]

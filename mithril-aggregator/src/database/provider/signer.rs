@@ -583,7 +583,7 @@ mod tests {
         }
 
         for mut signer_record in signer_records_fake {
-            signer_record.updated_at += Duration::hours(1);
+            signer_record.updated_at += Duration::try_hours(1).unwrap();
             let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
             assert_eq!(signer_record, signer_record_saved);
         }
@@ -605,7 +605,7 @@ mod tests {
 
         for mut signer_record in signer_records_fake {
             signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
-            signer_record.updated_at += Duration::hours(1);
+            signer_record.updated_at += Duration::try_hours(1).unwrap();
             let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
             assert_eq!(signer_record, signer_record_saved);
         }
@@ -626,7 +626,7 @@ mod tests {
 
         for signer_record in signer_records_fake.iter_mut() {
             signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
-            signer_record.updated_at += Duration::hours(1);
+            signer_record.updated_at += Duration::try_hours(1).unwrap();
         }
         let mut saved_records = provider.persist_many(signer_records_fake.clone()).unwrap();
         saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));

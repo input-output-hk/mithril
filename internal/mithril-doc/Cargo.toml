@@ -1,6 +1,6 @@
 [package]
 name = "mithril-doc"
-version = "0.1.1"
+version = "0.1.2"
 description = "An internal crate to generate documentation."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -11,7 +11,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [dependencies]
 clap = { version = "4.4.6", features = ["derive", "env"] }
-config = "0.13.3"
+config = "0.14.0"
 mithril-doc-derive = { path = "../mithril-doc-derive" }
 
 [dev-dependencies]

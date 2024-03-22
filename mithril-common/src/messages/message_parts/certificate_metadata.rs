@@ -43,7 +43,7 @@ impl CertificateMetadataMessagePart {
             protocol_version: "0.1.0".to_string(),
             protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
             initiated_at,
-            sealed_at: initiated_at + Duration::seconds(100),
+            sealed_at: initiated_at + Duration::try_seconds(100).unwrap(),
             signers: vec![
                 StakeDistributionParty {
                     party_id: "1".to_string(),

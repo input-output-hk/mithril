@@ -127,7 +127,7 @@ mod tests {
 
     async fn into_response(response: reqwest::Response) -> Response<Bytes> {
         Response::builder()
-            .status(response.status())
+            .status(StatusCode::from_u16(response.status().into()).unwrap())
             .body(response.bytes().await.unwrap())
             .unwrap()
     }
