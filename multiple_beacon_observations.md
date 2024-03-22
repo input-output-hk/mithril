@@ -30,10 +30,11 @@ We could then convert this "global beacon" into specialized beacon depending on 
 manipulate.
 </strike>
 
-* **Minor**: The `CertificatePending` use a legacy beacon, but only the epoch of the beacon is used by the signers.
+* **Minor**: <strike>The `CertificatePending` use a legacy beacon, but only the epoch of the beacon is used by the signers.
   
   We could keep it in the message for retro-compatibility (until an era?) and simplify our internal type to only have
 the epoch.
+</strike> 
 
 * **Major**: <strike>Updating the certificate to support new cases such as the last signed block while keepint retro-compatibility
 is difficult.
