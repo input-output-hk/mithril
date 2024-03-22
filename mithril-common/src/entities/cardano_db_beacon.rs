@@ -1,10 +1,9 @@
 use crate::entities::{Epoch, ImmutableFileNumber};
-use crate::signable_builder::Beacon as Beaconable;
+use crate::signable_builder::Beacon;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
-use thiserror::Error;
 
 /// A point in the Cardano chain at which a Mithril certificate of the Cardano Database should be
 /// produced.
@@ -20,55 +19,7 @@ pub struct CardanoDbBeacon {
     pub immutable_file_number: ImmutableFileNumber,
 }
 
-impl Beaconable for CardanoDbBeacon {}
-
-/// A BeaconComparison is the result of the comparison between a beacon and an oldest beacon.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum BeaconComparison {
-    /// The current beacon has a newer epoch than the older beacon.
-    GreaterEpoch,
-    /// The current beacon has a newer immutable file number than the older beacon.
-    GreaterImmutableFileNumber,
-    /// The current beacon has both a newer epoch and newer immutable file number than the older beacon.
-    BothGreater,
-    /// The current beacon has an equal epoch and immutable file number as the older beacon.
-    Equal,
-}
-
-impl BeaconComparison {
-    /// Returns true if this comparison result isn't equal.
-    pub fn is_new_beacon(&self) -> bool {
-        matches!(
-            self,
-            BeaconComparison::GreaterImmutableFileNumber
-                | BeaconComparison::GreaterEpoch
-                | BeaconComparison::BothGreater
-        )
-    }
-
-    /// Returns true if this comparison have a greater epoch but an equal immutable file number.
-    pub fn is_new_epoch(&self) -> bool {
-        matches!(
-            self,
-            BeaconComparison::GreaterEpoch | BeaconComparison::BothGreater
-        )
-    }
-}
-
-/// [CardanoDbBeacon::compare_to_older] related errors.
-#[derive(Error, Debug, PartialEq, Eq)]
-pub enum BeaconComparisonError {
-    /// Error raised when a comparison between beacons from different networks is made.
-    #[error("can't compare: those beacons are issued by different network: {0} != {1}")]
-    NetworkNotMatch(String, String),
-
-    /// Error raised the newest beacon has oldest data than the "oldest" beacon (meaning something
-    /// wrong is happening).
-    #[error(
-        "compare failed: the 'oldest' have both a newest epoch and immutable file number than the newest beacon: newest [{0:?}] / oldest [{1:?}]"
-    )]
-    BeaconOlderThanPreviousBeacon(CardanoDbBeacon, CardanoDbBeacon),
-}
+impl Beacon for CardanoDbBeacon {}
 
 impl PartialOrd for CardanoDbBeacon {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -89,7 +40,7 @@ impl Display for CardanoDbBeacon {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Beacon (network: {}, epoch: {}, immutable_file_number: {})",
+            "CardanoDbBeacon (network: {}, epoch: {}, immutable_file_number: {})",
             self.network, self.epoch, self.immutable_file_number
         )
     }
@@ -116,44 +67,6 @@ impl CardanoDbBeacon {
         hasher.update(self.epoch.to_be_bytes());
         hasher.update(self.immutable_file_number.to_be_bytes());
         hex::encode(hasher.finalize())
-    }
-
-    /// This method returns a BeaconOrdering between self and the other beacon.
-    ///
-    /// This method should be called using the newest beacon available as it will fails if
-    /// the current beacon have data older than the other beacon.
-    pub fn compare_to_older(
-        &self,
-        other: &CardanoDbBeacon,
-    ) -> Result<BeaconComparison, BeaconComparisonError> {
-        if self.network != other.network {
-            return Err(BeaconComparisonError::NetworkNotMatch(
-                self.network.clone(),
-                other.network.clone(),
-            ));
-        }
-
-        match (
-            self.epoch.cmp(&other.epoch),
-            self.immutable_file_number.cmp(&other.immutable_file_number),
-        ) {
-            (Ordering::Greater, Ordering::Greater) => Ok(BeaconComparison::BothGreater),
-            (Ordering::Greater, Ordering::Equal) => Ok(BeaconComparison::GreaterEpoch),
-            (Ordering::Equal, Ordering::Greater) => {
-                Ok(BeaconComparison::GreaterImmutableFileNumber)
-            }
-            (Ordering::Equal, Ordering::Equal) => Ok(BeaconComparison::Equal),
-            // Those cases should not be possible
-            (Ordering::Less, Ordering::Less) => Err(
-                BeaconComparisonError::BeaconOlderThanPreviousBeacon(self.clone(), other.clone()),
-            ),
-            (Ordering::Less, Ordering::Greater) | (Ordering::Less, Ordering::Equal) => Err(
-                BeaconComparisonError::BeaconOlderThanPreviousBeacon(self.clone(), other.clone()),
-            ),
-            (Ordering::Greater, Ordering::Less) | (Ordering::Equal, Ordering::Less) => Err(
-                BeaconComparisonError::BeaconOlderThanPreviousBeacon(self.clone(), other.clone()),
-            ),
-        }
     }
 }
 
@@ -235,124 +148,6 @@ mod tests {
         };
 
         assert_eq!(Some(Ordering::Less), beacon1.partial_cmp(&beacon2));
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_different_network() {
-        let beacon1: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
-        let beacon2: CardanoDbBeacon = CardanoDbBeacon::new("B".to_string(), 0, 0);
-
-        assert_eq!(
-            BeaconComparisonError::NetworkNotMatch("A".to_string(), "B".to_string()),
-            beacon1.compare_to_older(&beacon2).unwrap_err()
-        );
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_lower_epoch_greater_immutable() {
-        // put this case in the doc
-        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 1, 0);
-        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 1);
-
-        assert_eq!(
-            BeaconComparisonError::BeaconOlderThanPreviousBeacon(
-                current_beacon.clone(),
-                previous_beacon.clone()
-            ),
-            current_beacon
-                .compare_to_older(&previous_beacon)
-                .unwrap_err()
-        );
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_equal() {
-        let beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
-
-        assert_eq!(
-            Ok(BeaconComparison::Equal),
-            beacon.compare_to_older(&beacon)
-        );
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_same_epoch_less_immutable() {
-        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 1);
-        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
-
-        assert_eq!(
-            BeaconComparisonError::BeaconOlderThanPreviousBeacon(
-                current_beacon.clone(),
-                previous_beacon.clone()
-            ),
-            current_beacon
-                .compare_to_older(&previous_beacon)
-                .unwrap_err()
-        );
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_same_epoch_greater_immutable() {
-        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
-        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 1);
-
-        assert_eq!(
-            Ok(BeaconComparison::GreaterImmutableFileNumber),
-            current_beacon.compare_to_older(&previous_beacon)
-        )
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_epochs_greater() {
-        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 99);
-        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 1, 99);
-
-        assert_eq!(
-            Ok(BeaconComparison::GreaterEpoch),
-            current_beacon.compare_to_older(&previous_beacon)
-        );
-    }
-
-    #[test]
-    fn test_beacon_compare_to_older_epochs_less() {
-        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 1, 99);
-        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 99);
-
-        assert_eq!(
-            BeaconComparisonError::BeaconOlderThanPreviousBeacon(
-                current_beacon.clone(),
-                previous_beacon.clone()
-            ),
-            current_beacon
-                .compare_to_older(&previous_beacon)
-                .unwrap_err()
-        );
-    }
-
-    #[test]
-    fn test_beacon_ordering_is_new_beacon() {
-        assert_eq!(
-            (true, true, true, false),
-            (
-                BeaconComparison::GreaterEpoch.is_new_beacon(),
-                BeaconComparison::GreaterImmutableFileNumber.is_new_beacon(),
-                BeaconComparison::BothGreater.is_new_beacon(),
-                BeaconComparison::Equal.is_new_beacon(),
-            )
-        );
-    }
-
-    #[test]
-    fn test_beacon_ordering_is_new_epoch() {
-        assert_eq!(
-            (true, false, true, false),
-            (
-                BeaconComparison::GreaterEpoch.is_new_epoch(),
-                BeaconComparison::GreaterImmutableFileNumber.is_new_epoch(),
-                BeaconComparison::BothGreater.is_new_epoch(),
-                BeaconComparison::Equal.is_new_epoch(),
-            )
-        );
     }
 
     #[test]

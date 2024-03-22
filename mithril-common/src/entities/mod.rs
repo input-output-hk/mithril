@@ -24,7 +24,7 @@ mod time_point;
 mod type_alias;
 
 pub use block_range::{BlockNumber, BlockRange, BlockRangeLength};
-pub use cardano_db_beacon::{BeaconComparison, BeaconComparisonError, CardanoDbBeacon};
+pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;
