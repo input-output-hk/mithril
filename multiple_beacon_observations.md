@@ -22,31 +22,32 @@ Distribution or a Cardano Stake distribution, you won't know if you don't query 
 
 ## Blockers
 
-* **Major**: Our state machines use the beacon to know if they have to act, they also use it to retrieve or open a new OpenMessage.
+* **Major**: <strike>Our state machines use the beacon to know if they have to act, they also use it to retrieve or open a new OpenMessage.
    
   As such the state machines needs to have their own beacon type that contains every values that evolve with time that
 we manipulate.
 We could then convert this "global beacon" into specialized beacon depending on the current signed entity type that we
 manipulate.
+</strike>
 
 * **Minor**: The `CertificatePending` use a legacy beacon, but only the epoch of the beacon is used by the signers.
   
   We could keep it in the message for retro-compatibility (until an era?) and simplify our internal type to only have
 the epoch.
 
-* **Major**: Updating the certificate to support new cases such as the last signed block while keepint retro-compatibility
+* **Major**: <strike>Updating the certificate to support new cases such as the last signed block while keepint retro-compatibility
 is difficult.
   
   The pain will mostly come from the `CertificateMessage`: we will need to keep the immutable file number in its
-associated `Certificate`  in order to reconstruct the (to be removed) beacon in the message.
+associated `Certificate` in order to reconstruct the (to be removed) beacon in the message.
+</strike>
 
-* **Major** The immutable file number is used alongside the epoch to deduce the 'master certificate' of an epoch. We
+* **Major** <strike>The immutable file number is used alongside the epoch to deduce the 'master certificate' of an epoch. We
   need to be able to do that without it.
+</strike>
 
 ## Opportunities
 
 * We can rename the legacy beacon to `CardanoDbBeacon` to explicit its role.
 * We could remove the network from the legacy beacon and instead add it to the certificate metadata.
-* We could remove the beacon from the certificate and instead put the signed entity type (note: we should then add the
-epoch to the certificate since not all SignedEntityType will have one).
 
