@@ -10,7 +10,7 @@ use crate::{StdError, StdResult};
 cfg_fs_random! {
     use serde::Deserialize;
     use anyhow::Context;
-    use minicbor::{Decode, Decoder, decode};
+    use pallas_codec::minicbor::{Decode, Decoder, decode};
     use pallas_primitives::{alonzo::PlutusData, ToCanonicalJson};
 
     /// [Datum] represents an inline datum from UTxO.

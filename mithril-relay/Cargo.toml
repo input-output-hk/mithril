@@ -13,7 +13,7 @@ repository = { workspace = true }
 [dependencies]
 anyhow = "1.0.79"
 clap = { version = "4.4.18", features = ["derive", "env"] }
-config = "0.13.4"
+config = "0.14.0"
 libp2p = { version = "0.53.2", features = [
     "tokio",
     "gossipsub",
@@ -29,7 +29,7 @@ libp2p = { version = "0.53.2", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-reqwest = { version = "0.11.23", features = ["json"] }
+reqwest = { version = "0.12.0", features = ["json"] }
 serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 serde_yaml = "0.9.31"

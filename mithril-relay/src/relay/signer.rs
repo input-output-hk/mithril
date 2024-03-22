@@ -138,10 +138,11 @@ mod middlewares {
 
 mod handlers {
     use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
-    use reqwest::{Error, Response, StatusCode};
+    use reqwest::{Error, Response};
     use slog_scope::debug;
     use std::convert::Infallible;
     use tokio::sync::mpsc::UnboundedSender;
+    use warp::http::StatusCode;
 
     pub async fn register_signer_handler(
         register_signer_message: RegisterSignerMessage,
@@ -199,9 +200,8 @@ mod handlers {
         response: Result<Response, Error>,
     ) -> Result<impl warp::Reply, Infallible> {
         match response {
-            Ok(response) => {
-                let status = response.status().to_owned();
-                match response.text().await {
+            Ok(response) => match StatusCode::from_u16(response.status().into()) {
+                Ok(status) => match response.text().await {
                     Ok(content) => {
                         debug!(
                             "SignerRelay: received response with status '{status}' and content {content:?}"
@@ -216,8 +216,15 @@ mod handlers {
                             StatusCode::INTERNAL_SERVER_ERROR,
                         )))
                     }
+                },
+                Err(err) => {
+                    debug!("SignerRelay: failed to parse the returned status '{err:?}'");
+                    Ok(Box::new(warp::reply::with_status(
+                        format!("{err:?}"),
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                    )))
                 }
-            }
+            },
             Err(err) => {
                 debug!("SignerRelay: received error '{err:?}'");
                 Ok(Box::new(warp::reply::with_status(

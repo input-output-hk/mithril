@@ -22,7 +22,7 @@ serde = { version = "1.0.196", features = ["derive"] }
 serde_json = "1.0.113"
 sha2 = "0.10.8"
 slog = "2.7.0"
-sqlite = { version = "0.33.0", features = ["bundled"] }
+sqlite = { version = "0.34.0", features = ["bundled"] }
 thiserror = "1.0.56"
 tokio = { version = "1.35.1", features = ["sync"] }
 
