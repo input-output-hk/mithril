@@ -8,9 +8,8 @@ use mockall::automock;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage,
-    ProtocolMessagePartKey, ProtocolParameters, SignedEntityType, Signer, SignerWithStake,
-    SingleSignatures,
+    CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, ProtocolMessagePartKey,
+    ProtocolParameters, SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -28,8 +27,8 @@ pub trait Runner: Send + Sync {
     /// Fetch the current pending certificate if any.
     async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
-    /// Fetch the current beacon from the Cardano node.
-    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
+    /// Fetch the current time point from the Cardano node.
+    async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
@@ -131,14 +130,16 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon> {
-        debug!("RUNNER: get_current_epoch");
+    async fn get_current_time_point(&self) -> StdResult<TimePoint> {
+        debug!("RUNNER: get_current_time_point");
 
-        self.services
+        let beacon = self
+            .services
             .beacon_provider
             .get_current_beacon()
             .await
-            .with_context(|| "Runner can not get current beacon")
+            .with_context(|| "Runner can not get current beacon")?;
+        Ok(TimePoint::new(*beacon.epoch, beacon.immutable_file_number))
     }
 
     async fn register_signer_to_aggregator(
@@ -455,7 +456,7 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{CardanoTransaction, Epoch, StakeDistribution},
+        entities::{CardanoDbBeacon, CardanoTransaction, Epoch, StakeDistribution},
         era::{
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
@@ -608,19 +609,20 @@ mod tests {
     #[tokio::test]
     async fn test_get_current_beacon() {
         let mut services = init_services().await;
-        let expected = fake_data::beacon();
+        let beacon = fake_data::beacon();
+        let expected = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
         let mut beacon_provider = MockFakeBeaconProvider::new();
         beacon_provider
             .expect_get_current_beacon()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(move || Ok(beacon.to_owned()));
         services.beacon_provider = Arc::new(beacon_provider);
         let runner = init_runner(Some(services), None).await;
 
         assert_eq!(
             expected,
             runner
-                .get_current_beacon()
+                .get_current_time_point()
                 .await
                 .expect("Get current beacon should not fail.")
         );

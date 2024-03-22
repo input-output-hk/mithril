@@ -5,8 +5,7 @@ use tokio::{sync::Mutex, time::sleep};
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
     entities::{
-        CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, SignedEntityType,
-        SignerWithStake,
+        CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake, TimePoint,
     },
 };
 
@@ -152,10 +151,10 @@ impl StateMachine {
                 *state = self.transition_from_init_to_unregistered().await?;
             }
             SignerState::Unregistered { epoch } => {
-                if let Some(new_beacon) = self.has_epoch_changed(*epoch).await? {
+                if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
                     info!("→ Epoch has changed, transiting to UNREGISTERED");
                     *state = self
-                        .transition_from_unregistered_to_unregistered(new_beacon)
+                        .transition_from_unregistered_to_unregistered(new_epoch)
                         .await?;
                 } else if let Some(epoch_settings) = self
                     .runner
@@ -264,12 +263,12 @@ impl StateMachine {
 
     /// Return the new epoch if the epoch is different than the given one.
     async fn has_epoch_changed(&self, epoch: Epoch) -> Result<Option<Epoch>, RuntimeError> {
-        let current_beacon = self
-            .get_current_beacon("checking if epoch has changed")
+        let current_time_point = self
+            .get_current_time_point("checking if epoch has changed")
             .await?;
 
-        if current_beacon.epoch > epoch {
-            Ok(Some(current_beacon.epoch))
+        if current_time_point.epoch > epoch {
+            Ok(Some(current_time_point.epoch))
         } else {
             Ok(None)
         }
@@ -286,12 +285,15 @@ impl StateMachine {
     }
 
     async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
-        let current_beacon = self.get_current_beacon("init → unregistered").await?;
-        self.update_era_checker(current_beacon.epoch, "init → unregistered")
+        let current_epoch = self
+            .get_current_time_point("init → unregistered")
+            .await?
+            .epoch;
+        self.update_era_checker(current_epoch, "init → unregistered")
             .await?;
 
         Ok(SignerState::Unregistered {
-            epoch: current_beacon.epoch,
+            epoch: current_epoch,
         })
     }
 
@@ -330,11 +332,14 @@ impl StateMachine {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
 
-        let beacon = self.get_current_beacon("unregistered → registered").await?;
-        self.runner.update_stake_distribution(beacon.epoch)
+        let epoch = self
+            .get_current_time_point("unregistered → registered")
+            .await?
+            .epoch;
+        self.runner.update_stake_distribution(epoch)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch),
+                message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", epoch),
                 nested_error: Some(e) })?;
 
         self.runner. register_signer_to_aggregator(
@@ -343,20 +348,18 @@ impl StateMachine {
         )
         .await.map_err(|e| {
             if e.downcast_ref::<ProtocolInitializerError>().is_some(){
-                RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch), nested_error: Some(e) }
+                RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
             }else{
-                RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch), nested_error: Some(e) }
+                RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
             }
         })?;
 
         self.metrics_service
             .signer_registration_success_since_startup_counter_increment();
         self.metrics_service
-            .signer_registration_success_last_epoch_gauge_set(beacon.epoch);
+            .signer_registration_success_last_epoch_gauge_set(epoch);
 
-        Ok(SignerState::Registered {
-            epoch: beacon.epoch,
-        })
+        Ok(SignerState::Registered { epoch })
     }
 
     /// Launch the transition process from the `Registered` to the `Signed` state.
@@ -364,15 +367,15 @@ impl StateMachine {
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<SignerState, RuntimeError> {
-        let current_beacon = &pending_certificate.beacon;
+        let current_epoch = pending_certificate.beacon.epoch;
         let (retrieval_epoch, next_retrieval_epoch) = (
-            current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
-            current_beacon.epoch.offset_to_next_signer_retrieval_epoch(),
+            current_epoch.offset_to_signer_retrieval_epoch()?,
+            current_epoch.offset_to_next_signer_retrieval_epoch(),
         );
 
         debug!(
             " > transition_from_registered_to_signed";
-            "current_epoch" => ?current_beacon.epoch,
+            "current_epoch" => ?current_epoch,
             "retrieval_epoch" => ?retrieval_epoch,
             "next_retrieval_epoch" => ?next_retrieval_epoch,
         );
@@ -385,7 +388,7 @@ impl StateMachine {
             .associate_signers_with_stake(retrieval_epoch, &pending_certificate.signers)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate current signers with stakes during 'registered → signed' phase (current beacon {current_beacon:?}, retrieval epoch {retrieval_epoch:?})"),
+                message: format!("Could not associate current signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, retrieval epoch {retrieval_epoch:?})"),
                 nested_error: Some(e)
             })?;
         let next_signers: Vec<SignerWithStake> = self
@@ -393,7 +396,7 @@ impl StateMachine {
             .associate_signers_with_stake(next_retrieval_epoch, &pending_certificate.next_signers)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate next signers with stakes during 'registered → signed' phase (current beacon {current_beacon:?}, next retrieval epoch {next_retrieval_epoch:?})"),
+                message: format!("Could not associate next signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, next retrieval epoch {next_retrieval_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
@@ -402,45 +405,47 @@ impl StateMachine {
             .compute_message(&pending_certificate.signed_entity_type, &next_signers)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not compute message during 'registered → signed' phase (current beacon {current_beacon:?})"),
+                message: format!("Could not compute message during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
         let single_signatures = self
             .runner
-            .compute_single_signature( current_beacon.epoch, &message, &signers)
+            .compute_single_signature(current_epoch, &message, &signers)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not compute single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
+                message: format!("Could not compute single signature during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
         self.runner.send_single_signature(&pending_certificate.signed_entity_type, single_signatures).await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not send single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
+                message: format!("Could not send single signature during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
         self.metrics_service
             .signature_registration_success_since_startup_counter_increment();
         self.metrics_service
-            .signature_registration_success_last_epoch_gauge_set(current_beacon.epoch);
+            .signature_registration_success_last_epoch_gauge_set(current_epoch);
 
         Ok(SignerState::Signed {
-            epoch: current_beacon.epoch,
+            epoch: current_epoch,
             signed_entity_type: pending_certificate.signed_entity_type.to_owned(),
         })
     }
 
-    async fn get_current_beacon(&self, context: &str) -> Result<CardanoDbBeacon, RuntimeError> {
-        let current_beacon =
+    async fn get_current_time_point(&self, context: &str) -> Result<TimePoint, RuntimeError> {
+        let current_time_point =
             self.runner
-                .get_current_beacon()
+                .get_current_time_point()
                 .await
                 .map_err(|e| RuntimeError::KeepState {
-                    message: format!("Could not retrieve current beacon in context '{context}'."),
+                    message: format!(
+                        "Could not retrieve current time point in context '{context}'."
+                    ),
                     nested_error: Some(e),
                 })?;
 
-        Ok(current_beacon)
+        Ok(current_time_point)
     }
 
     async fn update_era_checker(&self, epoch: Epoch, context: &str) -> Result<(), RuntimeError> {
@@ -458,8 +463,10 @@ impl StateMachine {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::Epoch;
-    use mithril_common::{entities::ProtocolMessage, test_utils::fake_data};
+    use mithril_common::{
+        entities::{CardanoDbBeacon, Epoch, ProtocolMessage},
+        test_utils::fake_data,
+    };
 
     use super::*;
     use crate::runtime::runner::MockSignerRunner;
@@ -482,9 +489,9 @@ mod tests {
             .once()
             .returning(|| Ok(None));
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         let state_machine = init_state_machine(
             SignerState::Unregistered {
                 epoch: fake_data::beacon().epoch,
@@ -498,7 +505,7 @@ mod tests {
 
         assert_eq!(
             SignerState::Unregistered {
-                epoch: fake_data::beacon().epoch
+                epoch: TimePoint::dummy().epoch
             },
             state_machine.get_state().await
         );
@@ -517,10 +524,11 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(move || Ok(Some(epoch_settings.to_owned())));
-        runner.expect_get_current_beacon().once().returning(|| {
-            let mut beacon = fake_data::beacon();
-            beacon.epoch = Epoch(4);
-            Ok(beacon)
+        runner.expect_get_current_time_point().once().returning(|| {
+            Ok(TimePoint {
+                epoch: Epoch(4),
+                ..TimePoint::dummy()
+            })
         });
         let state_machine =
             init_state_machine(SignerState::Unregistered { epoch: known_epoch }, runner);
@@ -543,9 +551,9 @@ mod tests {
             .once()
             .returning(|| Ok(Some(fake_data::epoch_settings())));
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .times(2)
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_update_stake_distribution()
             .once()
@@ -580,9 +588,9 @@ mod tests {
     async fn registered_to_unregistered() {
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_update_era_checker()
             .once()
@@ -596,7 +604,7 @@ mod tests {
             .expect("Cycling the state machine should not fail");
         assert_eq!(
             SignerState::Unregistered {
-                epoch: fake_data::beacon().epoch
+                epoch: TimePoint::dummy().epoch
             },
             state_machine.get_state().await
         );
@@ -604,22 +612,27 @@ mod tests {
 
     #[tokio::test]
     async fn registered_to_registered() {
-        let beacon = CardanoDbBeacon {
+        let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
-            ..Default::default()
         };
         let state = SignerState::Registered {
-            epoch: beacon.epoch,
+            epoch: time_point.epoch,
         };
 
-        let mut certificate_pending = fake_data::certificate_pending();
-        certificate_pending.beacon = beacon.clone();
+        let certificate_pending = CertificatePending {
+            beacon: CardanoDbBeacon::new(
+                "whatever",
+                *time_point.epoch,
+                time_point.immutable_file_number,
+            ),
+            ..fake_data::certificate_pending()
+        };
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(move || Ok(beacon.to_owned()));
+            .returning(move || Ok(time_point.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -642,23 +655,28 @@ mod tests {
 
     #[tokio::test]
     async fn registered_to_signed() {
-        let beacon = CardanoDbBeacon {
+        let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
-            ..Default::default()
         };
         let state = SignerState::Registered {
-            epoch: beacon.epoch,
+            epoch: time_point.epoch,
         };
 
-        let mut certificate_pending = fake_data::certificate_pending();
-        certificate_pending.beacon = beacon.clone();
+        let certificate_pending = CertificatePending {
+            beacon: CardanoDbBeacon::new(
+                "whatever",
+                *time_point.epoch,
+                time_point.immutable_file_number,
+            ),
+            ..fake_data::certificate_pending()
+        };
         let signed_entity_type = certificate_pending.signed_entity_type.to_owned();
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(move || Ok(beacon.clone()));
+            .returning(move || Ok(time_point.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -700,27 +718,32 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_registered() {
-        let beacon = CardanoDbBeacon {
+        let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
-            ..Default::default()
         };
-        let beacon_clone = beacon.clone();
+        let time_point_clone = time_point.clone();
+        let beacon = CardanoDbBeacon::new(
+            "whatever",
+            *time_point.epoch,
+            time_point.immutable_file_number,
+        );
         let state = SignerState::Signed {
-            epoch: beacon.epoch,
+            epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
         };
 
-        let mut certificate_pending = fake_data::certificate_pending();
-        certificate_pending.beacon = beacon.clone();
-        certificate_pending.signed_entity_type =
-            SignedEntityType::MithrilStakeDistribution(Epoch(10));
+        let certificate_pending = CertificatePending {
+            beacon,
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(10)),
+            ..fake_data::certificate_pending()
+        };
 
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
-            .times(1)
-            .returning(move || Ok(beacon_clone.to_owned()));
+            .expect_get_current_time_point()
+            .once()
+            .returning(move || Ok(time_point_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -734,7 +757,7 @@ mod tests {
 
         assert_eq!(
             SignerState::Registered {
-                epoch: beacon.epoch
+                epoch: time_point.epoch
             },
             state_machine.get_state().await
         );
@@ -742,25 +765,24 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_unregistered() {
-        let beacon = CardanoDbBeacon {
+        let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
-            ..Default::default()
         };
-        let new_beacon = CardanoDbBeacon {
+        let new_time_point = TimePoint {
             epoch: Epoch(10),
-            ..beacon.clone()
+            ..time_point.clone()
         };
         let state = SignerState::Signed {
-            epoch: beacon.epoch,
+            epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::dummy(),
         };
 
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(move || Ok(new_beacon.to_owned()));
+            .returning(move || Ok(new_time_point.to_owned()));
         runner
             .expect_update_era_checker()
             .once()
@@ -780,25 +802,21 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_signed_no_pending_certificate() {
-        let beacon = CardanoDbBeacon {
+        let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
-            ..Default::default()
         };
-        let beacon_clone = beacon.clone();
+        let time_point_clone = time_point.clone();
         let state = SignerState::Signed {
-            epoch: beacon.epoch,
+            epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::dummy(),
         };
 
-        let mut certificate_pending = fake_data::certificate_pending();
-        certificate_pending.beacon = beacon.clone();
-
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(move || Ok(beacon_clone.to_owned()));
+            .returning(move || Ok(time_point_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -812,7 +830,7 @@ mod tests {
 
         assert_eq!(
             SignerState::Signed {
-                epoch: beacon.epoch,
+                epoch: time_point.epoch,
                 signed_entity_type: SignedEntityType::dummy(),
             },
             state_machine.get_state().await
@@ -821,25 +839,30 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_signed_unsigned_pending_certificate() {
-        let beacon = CardanoDbBeacon {
+        let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
-            ..Default::default()
         };
-        let beacon_clone = beacon.clone();
+        let time_point_clone = time_point.clone();
         let state = SignerState::Signed {
-            epoch: beacon.epoch,
+            epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::dummy(),
         };
 
-        let mut certificate_pending = fake_data::certificate_pending();
-        certificate_pending.beacon = beacon.clone();
+        let certificate_pending = CertificatePending {
+            beacon: CardanoDbBeacon::new(
+                "whatever",
+                *time_point.epoch,
+                time_point.immutable_file_number,
+            ),
+            ..fake_data::certificate_pending()
+        };
 
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_current_beacon()
+            .expect_get_current_time_point()
             .once()
-            .returning(move || Ok(beacon_clone.to_owned()));
+            .returning(move || Ok(time_point_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -853,7 +876,7 @@ mod tests {
 
         assert_eq!(
             SignerState::Signed {
-                epoch: beacon.epoch,
+                epoch: time_point.epoch,
                 signed_entity_type: SignedEntityType::dummy(),
             },
             state_machine.get_state().await
