@@ -1051,6 +1051,10 @@ components:
                 "epoch": 329,
                 "immutable_file_number": 7060000
               },
+            signed_entity_type:
+              {
+                "MithrilStakeDistribution": 246
+              },
             "metadata":
               {
                 "version": "0.1.0",
@@ -1080,6 +1084,7 @@ components:
         - hash
         - previous_hash
         - beacon
+        - signed_entity_type
         - metadata
         - protocol_message
         - signed_message
@@ -1095,6 +1100,8 @@ components:
           format: bytes
         beacon:
           $ref: "#/components/schemas/CardanoDbBeacon"
+        signed_entity_type:
+          $ref: "#/components/schemas/SignedEntityType"
         metadata:
           $ref: "#/components/schemas/CertificateListItemMessageMetadata"
         protocol_message:
@@ -1116,6 +1123,10 @@ components:
               "network": "mainnet",
               "epoch": 329,
               "immutable_file_number": 7060000
+            },
+          signed_entity_type:
+            {
+              "MithrilStakeDistribution": 246
             },
           "metadata":
             {
@@ -1194,6 +1205,7 @@ components:
         - hash
         - previous_hash
         - beacon
+        - signed_entity_type
         - metadata
         - protocol_message
         - signed_message
@@ -1211,6 +1223,8 @@ components:
           format: bytes
         beacon:
           $ref: "#/components/schemas/CardanoDbBeacon"
+        signed_entity_type:
+          $ref: "#/components/schemas/SignedEntityType"
         metadata:
           $ref: "#/components/schemas/CertificateMetadata"
         protocol_message:
@@ -1240,6 +1254,10 @@ components:
               "network": "mainnet",
               "epoch": 329,
               "immutable_file_number": 7060000
+            },
+          signed_entity_type:
+            {
+              "MithrilStakeDistribution": 246
             },
           "metadata":
             {
