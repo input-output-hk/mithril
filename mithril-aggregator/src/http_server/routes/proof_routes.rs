@@ -42,9 +42,9 @@ mod handlers {
         messages::CardanoTransactionsProofsMessage,
         StdResult,
     };
-    use reqwest::StatusCode;
     use slog_scope::{debug, warn};
     use std::{convert::Infallible, sync::Arc};
+    use warp::http::StatusCode;
 
     use crate::{
         http_server::routes::reply,

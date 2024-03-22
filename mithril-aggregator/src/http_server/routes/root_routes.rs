@@ -38,8 +38,8 @@ fn root(
 
 mod handlers {
     use mithril_common::api_version::APIVersionProvider;
-    use reqwest::StatusCode;
     use slog_scope::{debug, warn};
+    use warp::http::StatusCode;
 
     use crate::{
         http_server::routes::{
@@ -84,11 +84,11 @@ mod tests {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::{initialize_dependencies, DependencyContainer};
     use mithril_common::test_utils::apispec::APISpec;
-    use reqwest::StatusCode;
     use serde_json::Value::Null;
     use std::collections::BTreeSet;
     use std::sync::Arc;
     use warp::http::Method;
+    use warp::http::StatusCode;
     use warp::test::request;
     use warp::Filter;
 
