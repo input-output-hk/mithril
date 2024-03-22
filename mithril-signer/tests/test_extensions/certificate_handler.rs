@@ -83,7 +83,7 @@ impl AggregatorClient for FakeAggregator {
             time_point.immutable_file_number,
         );
         let mut certificate_pending = CertificatePending {
-            beacon: beacon.clone(),
+            epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
             ..fake_data::certificate_pending()
         };
@@ -219,7 +219,7 @@ mod tests {
 
         assert_eq!(0, cert.signers.len());
         assert_eq!(0, cert.next_signers.len());
-        assert_eq!(1, cert.beacon.epoch);
+        assert_eq!(1, cert.epoch);
 
         let epoch = chain_observer.next_epoch().await.unwrap();
 
@@ -231,7 +231,7 @@ mod tests {
 
         assert_eq!(0, cert.signers.len());
         assert_eq!(3, cert.next_signers.len());
-        assert_eq!(2, cert.beacon.epoch);
+        assert_eq!(2, cert.epoch);
 
         for signer in fake_data::signers(2) {
             fake_aggregator
@@ -250,6 +250,6 @@ mod tests {
 
         assert_eq!(3, cert.signers.len());
         assert_eq!(2, cert.next_signers.len());
-        assert_eq!(3, cert.beacon.epoch);
+        assert_eq!(3, cert.epoch);
     }
 }

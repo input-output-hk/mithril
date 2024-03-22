@@ -684,5 +684,19 @@ pragma foreign_key_check;
 pragma foreign_keys=true;
 "#,
         ),
+        // Migration 23
+        // Alter `pending_certificate` table to use only an Epoch instead of a full beacon.
+        SqlMigration::new(
+            23,
+            r#"
+create table if not exists pending_certificate (key_hash text primary key, key json not null, value json not null);
+update pending_certificate
+    set value = 
+        json_remove(
+            json_insert(value, '$.epoch', json_extract(value, '$.beacon.epoch')),
+            '$.beacon'
+        );
+        "#,
+        ),
     ]
 }

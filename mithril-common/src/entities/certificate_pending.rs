@@ -1,14 +1,12 @@
-use crate::entities::{CardanoDbBeacon, PartyId, ProtocolParameters, Signer};
 use serde::{Deserialize, Serialize};
 
-use super::SignedEntityType;
+use crate::entities::{Epoch, PartyId, ProtocolParameters, SignedEntityType, Signer};
 
 /// CertificatePending represents a pending certificate in the process of production
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificatePending {
-    //bbb// can be problematic (especially for the message), but the signer only needs the epoch
-    /// Current Beacon
-    pub beacon: CardanoDbBeacon,
+    /// Current Epoch
+    pub epoch: Epoch,
 
     /// Signed entity type
     #[serde(rename = "entity_type")]
@@ -32,7 +30,7 @@ pub struct CertificatePending {
 impl CertificatePending {
     /// CertificatePending factory
     pub fn new(
-        beacon: CardanoDbBeacon,
+        epoch: Epoch,
         signed_entity_type: SignedEntityType,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
@@ -40,7 +38,7 @@ impl CertificatePending {
         next_signers: Vec<Signer>,
     ) -> CertificatePending {
         CertificatePending {
-            beacon,
+            epoch,
             signed_entity_type,
             protocol_parameters,
             next_protocol_parameters,
@@ -57,9 +55,9 @@ impl CertificatePending {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use crate::test_utils::fake_data;
+
+    use super::*;
 
     #[test]
     fn certificate_pending_get_signers() {

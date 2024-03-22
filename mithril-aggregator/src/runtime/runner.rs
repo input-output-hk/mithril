@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    CardanoDbBeacon, Certificate, CertificatePending, Epoch, ProtocolMessage,
-    ProtocolMessagePartKey, SignedEntityType, Signer, TimePoint,
+    Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+    SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
@@ -328,11 +328,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             })?;
 
         let pending_certificate = CertificatePending::new(
-            CardanoDbBeacon::new(
-                &self.dependencies.config.network,
-                *time_point.epoch,
-                time_point.immutable_file_number,
-            ),
+            time_point.epoch,
             signed_entity_type.to_owned(),
             protocol_parameters.clone(),
             next_protocol_parameters.clone(),
@@ -733,11 +729,7 @@ pub mod tests {
         certificate.signers.sort_by_key(|s| s.party_id.clone());
         certificate.next_signers.sort_by_key(|s| s.party_id.clone());
         let mut expected = CertificatePending::new(
-            CardanoDbBeacon::new(
-                &runner.dependencies.config.network,
-                *time_point.epoch,
-                time_point.immutable_file_number,
-            ),
+            time_point.epoch,
             signed_entity_type,
             protocol_parameters.clone(),
             protocol_parameters,

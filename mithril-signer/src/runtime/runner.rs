@@ -255,7 +255,6 @@ impl Runner for SignerRunner {
                 .protocol_initializer_store
                 .get_protocol_initializer(
                     pending_certificate
-                        .beacon
                         .epoch
                         .offset_to_signer_retrieval_epoch()?,
                 )
@@ -263,7 +262,7 @@ impl Runner for SignerRunner {
             {
                 debug!(
                     " > got protocol initializer for this epoch ({})",
-                    pending_certificate.beacon.epoch
+                    pending_certificate.epoch
                 );
 
                 if signer.verification_key == protocol_initializer.verification_key().into() {
@@ -275,7 +274,7 @@ impl Runner for SignerRunner {
             } else {
                 warn!(
                     " > NO protocol initializer found for this epoch ({})",
-                    pending_certificate.beacon.epoch
+                    pending_certificate.epoch
                 );
             }
         } else {
@@ -724,7 +723,7 @@ mod tests {
     #[tokio::test]
     async fn test_can_i_sign() {
         let mut pending_certificate = fake_data::certificate_pending();
-        let epoch = pending_certificate.beacon.epoch;
+        let epoch = pending_certificate.epoch;
         let signer = &mut pending_certificate.signers[0];
         let mut services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();

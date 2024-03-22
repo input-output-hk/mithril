@@ -367,7 +367,7 @@ impl StateMachine {
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<SignerState, RuntimeError> {
-        let current_epoch = pending_certificate.beacon.epoch;
+        let current_epoch = pending_certificate.epoch;
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_epoch.offset_to_signer_retrieval_epoch()?,
             current_epoch.offset_to_next_signer_retrieval_epoch(),
@@ -621,11 +621,7 @@ mod tests {
         };
 
         let certificate_pending = CertificatePending {
-            beacon: CardanoDbBeacon::new(
-                "whatever",
-                *time_point.epoch,
-                time_point.immutable_file_number,
-            ),
+            epoch: time_point.epoch,
             ..fake_data::certificate_pending()
         };
         let mut runner = MockSignerRunner::new();
@@ -664,11 +660,7 @@ mod tests {
         };
 
         let certificate_pending = CertificatePending {
-            beacon: CardanoDbBeacon::new(
-                "whatever",
-                *time_point.epoch,
-                time_point.immutable_file_number,
-            ),
+            epoch: time_point.epoch,
             ..fake_data::certificate_pending()
         };
         let signed_entity_type = certificate_pending.signed_entity_type.to_owned();
@@ -730,11 +722,11 @@ mod tests {
         );
         let state = SignerState::Signed {
             epoch: time_point.epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
         };
 
         let certificate_pending = CertificatePending {
-            beacon,
+            epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(10)),
             ..fake_data::certificate_pending()
         };
@@ -850,11 +842,7 @@ mod tests {
         };
 
         let certificate_pending = CertificatePending {
-            beacon: CardanoDbBeacon::new(
-                "whatever",
-                *time_point.epoch,
-                time_point.immutable_file_number,
-            ),
+            epoch: time_point.epoch,
             ..fake_data::certificate_pending()
         };
 

@@ -1,18 +1,28 @@
+use mithril_common::entities::{CardanoDbBeacon, ImmutableFileNumber};
 use mithril_common::{
     entities::{CertificatePending, Signer},
-    messages::{CertificatePendingMessage, SignerMessagePart, ToMessageAdapter},
+    messages::{CertificatePendingMessage, SignerMessagePart},
+    CardanoNetwork,
 };
 
 /// Adapter to turn [CertificatePending] instances into [CertificatePendingMessage].
 pub struct ToCertificatePendingMessageAdapter;
 
-impl ToMessageAdapter<CertificatePending, CertificatePendingMessage>
-    for ToCertificatePendingMessageAdapter
-{
+impl ToCertificatePendingMessageAdapter {
     /// Method to trigger the conversion
-    fn adapt(certificate_pending: CertificatePending) -> CertificatePendingMessage {
+    pub fn adapt(
+        certificate_pending: CertificatePending,
+        network: CardanoNetwork,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> CertificatePendingMessage {
+        let beacon = CardanoDbBeacon::new(
+            network.to_string(),
+            *certificate_pending.epoch,
+            immutable_file_number,
+        );
+
         CertificatePendingMessage {
-            beacon: certificate_pending.beacon,
+            beacon,
             signed_entity_type: certificate_pending.signed_entity_type,
             protocol_parameters: certificate_pending.protocol_parameters,
             next_protocol_parameters: certificate_pending.next_protocol_parameters,
@@ -50,8 +60,12 @@ mod tests {
     #[test]
     fn adapt_ok() {
         let certificate_pending = fake_data::certificate_pending();
-        let epoch = certificate_pending.beacon.epoch;
-        let message = ToCertificatePendingMessageAdapter::adapt(certificate_pending);
+        let epoch = certificate_pending.epoch;
+        let message = ToCertificatePendingMessageAdapter::adapt(
+            certificate_pending,
+            fake_data::network(),
+            10,
+        );
 
         assert_eq!(epoch, message.beacon.epoch);
     }
@@ -66,7 +80,11 @@ mod tests {
             next_signers,
             ..fake_data::certificate_pending()
         };
-        let message = ToCertificatePendingMessageAdapter::adapt(certificate_pending);
+        let message = ToCertificatePendingMessageAdapter::adapt(
+            certificate_pending,
+            fake_data::network(),
+            10,
+        );
 
         assert_eq!(2, message.signers.len());
         assert_eq!(3, message.next_signers.len());

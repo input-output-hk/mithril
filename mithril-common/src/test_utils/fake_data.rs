@@ -65,8 +65,8 @@ pub fn epoch_settings() -> entities::EpochSettings {
 
 /// Fake CertificatePending
 pub fn certificate_pending() -> entities::CertificatePending {
-    // Beacon
-    let beacon = beacon();
+    // Epoch
+    let epoch = beacon().epoch;
 
     // Signed entity type
     let signed_entity_type = SignedEntityType::dummy();
@@ -82,7 +82,7 @@ pub fn certificate_pending() -> entities::CertificatePending {
 
     // Certificate pending
     entities::CertificatePending::new(
-        beacon,
+        epoch,
         signed_entity_type,
         protocol_parameters,
         next_protocol_parameters,
