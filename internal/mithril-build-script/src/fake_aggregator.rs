@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::fs;
+use std::fs::File;
 use std::path::Path;
+
+use serde_json;
 
 pub type ArtifactId = String;
 pub type FileContent = String;
@@ -29,11 +32,6 @@ pub struct FakeAggregatorData {
 
 impl FakeAggregatorData {
     pub fn load_from_folder(folder: &Path) -> Self {
-        fn extract_artifact_id(filename: &str, prefix: &str) -> String {
-            let id_with_extension = filename.strip_prefix(prefix).unwrap();
-            id_with_extension.strip_suffix(".json").unwrap().to_string()
-        }
-
         let mut data = FakeAggregatorData::default();
 
         for entry in list_json_files_in_folder(folder) {
@@ -49,41 +47,32 @@ impl FakeAggregatorData {
                 "epoch-settings.json" => {
                     data.epoch_settings = file_content;
                 }
-                "mithril-stake-distributions.json" => {
+                "mithril-stake-distributions-list.json" => {
                     data.msds_list = file_content;
                 }
-                "snapshots.json" => {
+                "snapshots-list.json" => {
                     data.snapshots_list = file_content;
                 }
-                "certificates.json" => {
+                "certificates-list.json" => {
                     data.certificates_list = file_content;
                 }
-                "ctx-snapshots.json" => {
+                "ctx-snapshots-list.json" => {
                     data.ctx_snapshots_list = file_content;
                 }
-                _ if filename.starts_with("mithril-stake-distribution-") => {
-                    data.individual_msds.insert(
-                        extract_artifact_id(&filename, "mithril-stake-distribution-"),
-                        file_content,
-                    );
+                "mithril-stake-distributions.json" => {
+                    data.individual_msds = Self::read_artifacts_json_file(&entry.path());
                 }
-                _ if filename.starts_with("snapshot-") => {
-                    data.individual_snapshots
-                        .insert(extract_artifact_id(&filename, "snapshot-"), file_content);
+                "snapshots.json" => {
+                    data.individual_snapshots = Self::read_artifacts_json_file(&entry.path());
                 }
-                _ if filename.starts_with("certificate-") => {
-                    data.individual_certificates
-                        .insert(extract_artifact_id(&filename, "certificate-"), file_content);
+                "certificates.json" => {
+                    data.individual_certificates = Self::read_artifacts_json_file(&entry.path());
                 }
-                _ if filename.starts_with("ctx-snapshot-") => {
-                    data.individual_ctx_snapshots.insert(
-                        extract_artifact_id(&filename, "ctx-snapshot-"),
-                        file_content,
-                    );
+                "ctx-snapshots.json" => {
+                    data.individual_ctx_snapshots = Self::read_artifacts_json_file(&entry.path());
                 }
-                _ if filename.starts_with("ctx-proof-") => {
-                    data.ctx_proofs
-                        .insert(extract_artifact_id(&filename, "ctx-proof-"), file_content);
+                "ctx-proofs.json" => {
+                    data.ctx_proofs = Self::read_artifacts_json_file(&entry.path());
                 }
                 // unknown file
                 _ => {}
@@ -177,9 +166,31 @@ impl FakeAggregatorData {
             )
         )
     }
+
+    fn read_artifacts_json_file(json_file: &Path) -> BTreeMap<ArtifactId, FileContent> {
+        let file = File::open(json_file).unwrap();
+        let parsed_json: serde_json::Value = serde_json::from_reader(&file).unwrap();
+
+        let json_object = parsed_json.as_object().unwrap();
+        let res: Result<Vec<_>, _> = json_object
+            .iter()
+            .map(|(key, value)| extract_artifact_id_and_content(key, value))
+            .collect();
+
+        let tree = BTreeMap::from_iter(res.unwrap());
+        tree
+    }
 }
 
-pub fn list_json_files_in_folder(folder: &Path) -> impl Iterator<Item = std::fs::DirEntry> + '_ {
+fn extract_artifact_id_and_content(
+    key: &String,
+    value: &serde_json::Value,
+) -> Result<(ArtifactId, FileContent), String> {
+    let json_content = serde_json::to_string(value).map_err(|e| e.to_string())?;
+    Ok((key.to_owned(), json_content))
+}
+
+pub fn list_json_files_in_folder(folder: &Path) -> impl Iterator<Item = fs::DirEntry> + '_ {
     crate::list_files_in_folder(folder)
         .filter(|e| e.file_name().to_string_lossy().ends_with(".json"))
 }
@@ -253,6 +264,8 @@ pub fn generate_ids_array(array_name: &str, ids: BTreeSet<ArtifactId>) -> String
 
 #[cfg(test)]
 mod tests {
+    use crate::get_temp_dir;
+
     use super::*;
 
     #[test]
@@ -311,5 +324,25 @@ fn b() {}
                 false
             )
         )
+    }
+
+    #[test]
+    fn read_artifacts_json_file() {
+        let dir = get_temp_dir("read_artifacts_json_file");
+        let file = dir.join("test.json");
+        let json_content = r#"{
+    "hash1": { "name": "artifact1" },
+    "hash2": { "name": "artifact2" }
+}"#;
+        let expected = BTreeMap::from([
+            ("hash1".to_string(), r#"{"name":"artifact1"}"#.to_string()),
+            ("hash2".to_string(), r#"{"name":"artifact2"}"#.to_string()),
+        ]);
+
+        fs::write(&file, json_content).unwrap();
+
+        let id_per_json = FakeAggregatorData::read_artifacts_json_file(&file);
+
+        assert_eq!(expected, id_per_json);
     }
 }

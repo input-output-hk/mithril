@@ -72,23 +72,8 @@ pub fn get_open_api_versions_mapping() -> HashMap<OpenAPIFileName, semver::Versi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::get_temp_dir;
     use std::path::Path;
-
-    // Note: adding `mithril-common` as a dev-dependency would lead to a circular dependency, so
-    // we can't use its `TempDir` api.
-    fn get_temp_dir(dir_name: &str) -> PathBuf {
-        let dir = std::env::temp_dir()
-            .join("mithril_test")
-            .join("build_script")
-            .join(dir_name);
-
-        if dir.exists() {
-            fs::remove_dir_all(&dir).unwrap();
-        }
-        fs::create_dir_all(&dir).unwrap();
-
-        dir
-    }
 
     fn write_minimal_open_api_file(version: &str, path: &Path) {
         fs::write(
