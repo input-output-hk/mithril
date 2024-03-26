@@ -106,7 +106,7 @@ mod tests {
     use mithril_common::entities::SignerWithStake;
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        entities::{Beacon, Epoch, SignedEntityType},
+        entities::{CardanoDbBeacon, Epoch, SignedEntityType},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use std::sync::Arc;
@@ -181,7 +181,7 @@ mod tests {
 
         let mut open_message = OpenMessage {
             epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(Beacon {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon {
                 epoch,
                 ..fake_data::beacon()
             }),

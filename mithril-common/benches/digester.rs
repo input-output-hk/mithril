@@ -4,7 +4,7 @@ use mithril_common::{
     digesters::{
         cache::MemoryImmutableFileDigestCacheProvider, CardanoImmutableDigester, ImmutableDigester,
     },
-    entities::{Beacon, ImmutableFileNumber},
+    entities::{CardanoDbBeacon, ImmutableFileNumber},
 };
 use slog::Drain;
 use std::{
@@ -63,7 +63,7 @@ async fn compute_digest(
     digester
         .compute_digest(
             &db_dir(),
-            &Beacon::new("devnet".to_string(), 1, number_of_immutables),
+            &CardanoDbBeacon::new("devnet".to_string(), 1, number_of_immutables),
         )
         .await
         .expect("digest computation should not fail");

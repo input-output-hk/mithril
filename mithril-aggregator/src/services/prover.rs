@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
     entities::{
-        Beacon, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
+        BlockRange, CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof,
+        TransactionHash,
     },
     StdResult,
 };
@@ -21,7 +22,7 @@ pub trait ProverService: Sync + Send {
     /// Compute the cryptographic proofs for the given transactions
     async fn compute_transactions_proofs(
         &self,
-        up_to: &Beacon,
+        up_to: &CardanoDbBeacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 }
@@ -31,7 +32,7 @@ pub trait ProverService: Sync + Send {
 #[async_trait]
 pub trait TransactionsRetriever: Sync + Send {
     /// Get transactions up to given beacon using chronological order
-    async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>>;
+    async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>>;
 }
 
 /// Mithril prover
@@ -82,7 +83,7 @@ impl MithrilProverService {
 impl ProverService for MithrilProverService {
     async fn compute_transactions_proofs(
         &self,
-        up_to: &Beacon,
+        up_to: &CardanoDbBeacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         let transactions = self.transaction_retriever.get_up_to(up_to).await?;

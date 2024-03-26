@@ -45,7 +45,7 @@ cfg_unstable! {
 
     pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;
 
-    /// A snapshot that allow to know up to which [point of time][common::Beacon] Mithril have certified Cardano transactions.
+    /// A snapshot that allow to know up to which [point of time][common::CardanoDbBeacon] Mithril have certified Cardano transactions.
     ///
     pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTransactionSnapshot;
 
@@ -57,7 +57,7 @@ cfg_unstable! {
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
-        Beacon, CompressionAlgorithm, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+        CardanoDbBeacon, CompressionAlgorithm, Epoch, ProtocolMessage, ProtocolMessagePartKey,
         ProtocolParameters,
     };
     cfg_unstable! {

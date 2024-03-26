@@ -5,7 +5,8 @@ use tokio::{sync::Mutex, time::sleep};
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
     entities::{
-        Beacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake,
+        CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, SignedEntityType,
+        SignerWithStake,
     },
 };
 
@@ -429,7 +430,7 @@ impl StateMachine {
         })
     }
 
-    async fn get_current_beacon(&self, context: &str) -> Result<Beacon, RuntimeError> {
+    async fn get_current_beacon(&self, context: &str) -> Result<CardanoDbBeacon, RuntimeError> {
         let current_beacon =
             self.runner
                 .get_current_beacon()
@@ -603,7 +604,7 @@ mod tests {
 
     #[tokio::test]
     async fn registered_to_registered() {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 99,
             epoch: Epoch(9),
             ..Default::default()
@@ -641,7 +642,7 @@ mod tests {
 
     #[tokio::test]
     async fn registered_to_signed() {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 99,
             epoch: Epoch(9),
             ..Default::default()
@@ -699,7 +700,7 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_registered() {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 99,
             epoch: Epoch(9),
             ..Default::default()
@@ -741,12 +742,12 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_unregistered() {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 99,
             epoch: Epoch(9),
             ..Default::default()
         };
-        let new_beacon = Beacon {
+        let new_beacon = CardanoDbBeacon {
             epoch: Epoch(10),
             ..beacon.clone()
         };
@@ -779,7 +780,7 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_signed_no_pending_certificate() {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 99,
             epoch: Epoch(9),
             ..Default::default()
@@ -820,7 +821,7 @@ mod tests {
 
     #[tokio::test]
     async fn signed_to_signed_unsigned_pending_certificate() {
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 99,
             epoch: Epoch(9),
             ..Default::default()

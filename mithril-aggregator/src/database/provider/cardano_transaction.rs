@@ -1,5 +1,7 @@
 use mithril_common::{
-    entities::{Beacon, BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
+    entities::{
+        BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber, TransactionHash,
+    },
     signable_builder::TransactionStore,
     StdResult,
 };
@@ -103,7 +105,10 @@ impl<'client> CardanoTransactionProvider<'client> {
         )
     }
 
-    pub(crate) fn get_transaction_up_to_beacon_condition(&self, beacon: &Beacon) -> WhereCondition {
+    pub(crate) fn get_transaction_up_to_beacon_condition(
+        &self,
+        beacon: &CardanoDbBeacon,
+    ) -> WhereCondition {
         WhereCondition::new(
             "immutable_file_number <= ?*",
             vec![Value::Integer(beacon.immutable_file_number as i64)],
@@ -216,7 +221,7 @@ impl CardanoTransactionRepository {
     /// chronological order.
     pub async fn get_transactions_up_to(
         &self,
-        beacon: &Beacon,
+        beacon: &CardanoDbBeacon,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = CardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_transaction_up_to_beacon_condition(beacon);
@@ -283,7 +288,7 @@ impl TransactionStore for CardanoTransactionRepository {
 
 #[async_trait]
 impl TransactionsRetriever for CardanoTransactionRepository {
-    async fn get_up_to(&self, beacon: &Beacon) -> StdResult<Vec<CardanoTransaction>> {
+    async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
         self.get_transactions_up_to(beacon).await.map(|v| {
             v.into_iter()
                 .map(|record| record.into())
@@ -345,9 +350,9 @@ mod tests {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = CardanoTransactionProvider::new(&connection);
         let (expr, params) = provider
-            .get_transaction_up_to_beacon_condition(&Beacon {
+            .get_transaction_up_to_beacon_condition(&CardanoDbBeacon {
                 immutable_file_number: 2309,
-                ..Beacon::default()
+                ..CardanoDbBeacon::default()
             })
             .expand();
 
@@ -546,14 +551,14 @@ mod tests {
             .unwrap();
 
         let transaction_result = repository
-            .get_up_to(&Beacon::new("".to_string(), 1, 34))
+            .get_up_to(&CardanoDbBeacon::new("".to_string(), 1, 34))
             .await
             .unwrap();
 
         assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
 
         let transaction_result = repository
-            .get_up_to(&Beacon::new("".to_string(), 1, 300))
+            .get_up_to(&CardanoDbBeacon::new("".to_string(), 1, 300))
             .await
             .unwrap();
 
@@ -563,7 +568,7 @@ mod tests {
         );
 
         let transaction_result = repository
-            .get_up_to(&Beacon::new("".to_string(), 1, 19))
+            .get_up_to(&CardanoDbBeacon::new("".to_string(), 1, 19))
             .await
             .unwrap();
 

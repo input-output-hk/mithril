@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
-use super::{Beacon, Epoch};
+use super::{CardanoDbBeacon, Epoch};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -35,10 +35,10 @@ pub enum SignedEntityType {
     CardanoStakeDistribution(Epoch),
 
     /// Full Cardano Immutable Files
-    CardanoImmutableFilesFull(Beacon),
+    CardanoImmutableFilesFull(CardanoDbBeacon),
 
     /// Cardano Transactions
-    CardanoTransactions(Beacon),
+    CardanoTransactions(CardanoDbBeacon),
 }
 
 impl SignedEntityType {
@@ -90,7 +90,10 @@ impl SignedEntityType {
     }
 
     /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
-    pub fn from_beacon(discriminant: &SignedEntityTypeDiscriminants, beacon: &Beacon) -> Self {
+    pub fn from_beacon(
+        discriminant: &SignedEntityTypeDiscriminants,
+        beacon: &CardanoDbBeacon,
+    ) -> Self {
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
                 Self::MithrilStakeDistribution(beacon.epoch)

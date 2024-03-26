@@ -16,15 +16,15 @@ use crate::{
 use super::fake_keys;
 
 /// Fake Beacon
-pub fn beacon() -> entities::Beacon {
+pub fn beacon() -> entities::CardanoDbBeacon {
     let network = "testnet".to_string();
     let immutable_file_number = 100;
     let epoch = 10;
-    entities::Beacon::new(network, epoch, immutable_file_number)
+    entities::CardanoDbBeacon::new(network, epoch, immutable_file_number)
 }
 
 /// Fake Digest
-pub fn digest(beacon: &entities::Beacon) -> Vec<u8> {
+pub fn digest(beacon: &entities::CardanoDbBeacon) -> Vec<u8> {
     format!(
         "digest-{}-{}-{}",
         beacon.network, beacon.epoch, beacon.immutable_file_number
@@ -225,7 +225,7 @@ pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransac
         .map(|idx| {
             entities::CardanoTransactionsSnapshot::new(
                 format!("merkleroot-{idx}"),
-                entities::Beacon {
+                entities::CardanoDbBeacon {
                     immutable_file_number: idx,
                     ..beacon()
                 },

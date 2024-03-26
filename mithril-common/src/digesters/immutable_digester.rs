@@ -1,6 +1,6 @@
 use crate::{
     digesters::ImmutableFileListingError,
-    entities::{Beacon, ImmutableFileNumber},
+    entities::{CardanoDbBeacon, ImmutableFileNumber},
 };
 use async_trait::async_trait;
 use std::{
@@ -16,7 +16,7 @@ use thiserror::Error;
 /// mod test {
 ///     use async_trait::async_trait;
 ///     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-///     use mithril_common::entities::Beacon;
+///     use mithril_common::entities::CardanoDbBeacon;
 ///     use mockall::mock;
 ///     use std::path::Path;
 ///
@@ -28,7 +28,7 @@ use thiserror::Error;
 ///             async fn compute_digest(
 ///               &self,
 ///               dirpath: &Path,
-///               beacon: &Beacon,
+///               beacon: &CardanoDbBeacon,
 ///             ) -> Result<String, ImmutableDigesterError>;
 ///         }
 ///     }
@@ -52,7 +52,7 @@ pub trait ImmutableDigester: Sync + Send {
     async fn compute_digest(
         &self,
         dirpath: &Path,
-        beacon: &Beacon,
+        beacon: &CardanoDbBeacon,
     ) -> Result<String, ImmutableDigesterError>;
 }
 

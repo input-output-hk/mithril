@@ -7,7 +7,7 @@ use mithril_common::{
         ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
         ProtocolGenesisVerifier,
     },
-    entities::{Beacon, ProtocolParameters},
+    entities::{CardanoDbBeacon, ProtocolParameters},
     protocol::SignerBuilder,
     BeaconProvider, StdResult,
 };
@@ -37,7 +37,7 @@ pub struct GenesisToolsDependency {
 
 pub struct GenesisTools {
     protocol_parameters: ProtocolParameters,
-    beacon: Beacon,
+    beacon: CardanoDbBeacon,
     genesis_avk: ProtocolAggregateVerificationKey,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
@@ -47,7 +47,7 @@ pub struct GenesisTools {
 impl GenesisTools {
     pub fn new(
         protocol_parameters: ProtocolParameters,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         certificate_verifier: Arc<dyn CertificateVerifier>,

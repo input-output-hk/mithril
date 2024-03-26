@@ -2,7 +2,7 @@ use crate::signable_builder::Artifact;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::Beacon;
+use super::CardanoDbBeacon;
 
 /// Snapshot of a set of Cardano transactions
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -14,12 +14,12 @@ pub struct CardanoTransactionsSnapshot {
     pub merkle_root: String,
 
     /// Beacon of the Cardano transactions set
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 }
 
 impl CardanoTransactionsSnapshot {
     /// Creates a new [CardanoTransactionsSnapshot]
-    pub fn new(merkle_root: String, beacon: Beacon) -> Self {
+    pub fn new(merkle_root: String, beacon: CardanoDbBeacon) -> Self {
         let mut cardano_transactions_snapshot = Self {
             merkle_root,
             beacon,
@@ -56,13 +56,13 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), Beacon::default())
+            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), CardanoDbBeacon::default())
                 .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-456".to_string(), Beacon::default())
+            CardanoTransactionsSnapshot::new("mk-root-456".to_string(), CardanoDbBeacon::default())
                 .compute_hash()
         );
     }

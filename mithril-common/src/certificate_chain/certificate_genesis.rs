@@ -11,7 +11,7 @@ use crate::{
         PROTOCOL_VERSION,
     },
     entities::{
-        Beacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
+        CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
         ProtocolMessagePartKey, ProtocolParameters,
     },
     StdResult,
@@ -65,7 +65,7 @@ impl CertificateGenesisProducer {
     /// Create a Genesis Certificate
     pub fn create_genesis_certificate(
         protocol_parameters: ProtocolParameters,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_signature: ProtocolGenesisSignature,
     ) -> StdResult<Certificate> {

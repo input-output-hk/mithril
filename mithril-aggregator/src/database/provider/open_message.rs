@@ -626,7 +626,7 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::Beacon;
+    use mithril_common::entities::CardanoDbBeacon;
     use mithril_persistence::sqlite::SourceAlias;
     use sqlite::Connection;
 
@@ -769,7 +769,7 @@ else json_group_array( \
     fn provider_message_type_condition() {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             network: "whatever".to_string(),
             epoch: Epoch(4),
             immutable_file_number: 400,
@@ -830,7 +830,7 @@ else json_group_array( \
         let (expr, params) = provider
             .get_insert_condition(
                 epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon::new(
+                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
                     "testnet".to_string(),
                     2,
                     4,
@@ -911,7 +911,7 @@ else json_group_array( \
     async fn repository_get_open_message() {
         let connection = get_connection().await;
         let repository = OpenMessageRepository::new(connection.clone());
-        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
 
         for signed_entity_type in [
             SignedEntityType::MithrilStakeDistribution(beacon.epoch),
@@ -938,7 +938,7 @@ else json_group_array( \
         let open_message = repository
             .create_open_message(
                 epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
                 &ProtocolMessage::new(),
             )
             .await
@@ -946,7 +946,7 @@ else json_group_array( \
 
         assert_eq!(Epoch(1), open_message.epoch);
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
             open_message.signed_entity_type
         );
 
@@ -979,7 +979,7 @@ else json_group_array( \
         let open_message = repository
             .create_open_message(
                 epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
                 &ProtocolMessage::new(),
             )
             .await
@@ -999,9 +999,9 @@ else json_group_array( \
     async fn repository_clean_open_message() {
         let connection = get_connection().await;
         let repository = OpenMessageRepository::new(connection.clone());
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             epoch: Epoch(1),
-            ..Beacon::default()
+            ..CardanoDbBeacon::default()
         };
         let _ = repository
             .create_open_message(
@@ -1014,7 +1014,7 @@ else json_group_array( \
         let _ = repository
             .create_open_message(
                 beacon.epoch,
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon {
+                &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon {
                     epoch: Epoch(2),
                     ..beacon
                 }),

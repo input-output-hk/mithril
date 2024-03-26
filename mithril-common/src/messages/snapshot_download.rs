@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{Beacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
 
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -9,7 +9,7 @@ pub struct SnapshotDownloadMessage {
     pub digest: String,
 
     /// Mithril beacon on the Cardano chain
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Size of the snapshot file in Bytes
     pub size: u64,
@@ -29,7 +29,7 @@ impl SnapshotDownloadMessage {
     pub fn dummy() -> Self {
         Self {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: Beacon {
+            beacon: CardanoDbBeacon {
                 network: "preview".to_string(),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
@@ -49,7 +49,7 @@ mod tests {
     fn golden_message_v1() -> SnapshotDownloadMessage {
         SnapshotDownloadMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: Beacon {
+            beacon: CardanoDbBeacon {
                 network: "preview".to_string(),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,

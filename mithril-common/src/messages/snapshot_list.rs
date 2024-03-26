@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{Beacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
 
 /// Message structure of a snapshot list
 pub type SnapshotListMessage = Vec<SnapshotListItemMessage>;
@@ -13,7 +13,7 @@ pub struct SnapshotListItemMessage {
     pub digest: String,
 
     /// Mithril beacon on the Cardano chain
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
@@ -41,7 +41,7 @@ impl SnapshotListItemMessage {
     pub fn dummy() -> Self {
         Self {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: Beacon {
+            beacon: CardanoDbBeacon {
                 network: "preview".to_string(),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
@@ -66,7 +66,7 @@ mod tests {
     fn golden_message_v1() -> SnapshotListMessage {
         vec![SnapshotListItemMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: Beacon {
+            beacon: CardanoDbBeacon {
                 network: "preview".to_string(),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
@@ -86,7 +86,7 @@ mod tests {
     fn golden_message_v2() -> SnapshotListMessage {
         vec![SnapshotListItemMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: Beacon {
+            beacon: CardanoDbBeacon {
                 network: "preview".to_string(),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
@@ -106,7 +106,7 @@ mod tests {
     fn golden_message_v3() -> SnapshotListMessage {
         vec![SnapshotListItemMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: Beacon {
+            beacon: CardanoDbBeacon {
                 network: "preview".to_string(),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,

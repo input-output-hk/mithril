@@ -4,8 +4,8 @@ use slog_scope::{debug, warn};
 use std::{path::Path, path::PathBuf, sync::Arc};
 
 use mithril_common::entities::{
-    Beacon, Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityType, Signer,
+    CardanoDbBeacon, Certificate, CertificatePending, Epoch, ProtocolMessage,
+    ProtocolMessagePartKey, SignedEntityType, Signer,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
@@ -45,7 +45,7 @@ impl AggregatorConfig {
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
-    async fn get_beacon_from_chain(&self) -> StdResult<Beacon>;
+    async fn get_beacon_from_chain(&self) -> StdResult<CardanoDbBeacon>;
 
     /// Retrieves the current open message for a given signed entity type.
     async fn get_current_open_message_for_signed_entity_type(
@@ -56,17 +56,17 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Retrieves the current non certified open message.
     async fn get_current_non_certified_open_message(
         &self,
-        current_beacon: &Beacon,
+        current_beacon: &CardanoDbBeacon,
     ) -> StdResult<Option<OpenMessage>>;
 
     /// Check if a certificate chain is valid.
-    async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()>;
+    async fn is_certificate_chain_valid(&self, beacon: &CardanoDbBeacon) -> StdResult<()>;
 
     /// Read the stake distribution from the blockchain and store it.
-    async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()>;
+    async fn update_stake_distribution(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()>;
 
     /// Open the signer registration round of an epoch.
-    async fn open_signer_registration_round(&self, new_beacon: &Beacon) -> StdResult<()>;
+    async fn open_signer_registration_round(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()>;
 
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
@@ -89,7 +89,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Create a new pending certificate.
     async fn create_new_pending_certificate(
         &self,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending>;
 
@@ -116,7 +116,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> StdResult<()>;
 
     /// Update the EraChecker with EraReader information.
-    async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()>;
+    async fn update_era_checker(&self, beacon: &CardanoDbBeacon) -> StdResult<()>;
 
     /// Ask services to update themselves for the new epoch
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
@@ -149,7 +149,7 @@ impl AggregatorRunner {
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current beacon from the chain
-    async fn get_beacon_from_chain(&self) -> StdResult<Beacon> {
+    async fn get_beacon_from_chain(&self) -> StdResult<CardanoDbBeacon> {
         debug!("RUNNER: get beacon from chain");
         let beacon = self
             .dependencies
@@ -178,7 +178,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn get_current_non_certified_open_message(
         &self,
-        current_beacon: &Beacon,
+        current_beacon: &CardanoDbBeacon,
     ) -> StdResult<Option<OpenMessage>> {
         debug!("RUNNER: get_current_non_certified_open_message"; "beacon" => #?current_beacon);
         let signed_entity_types = self
@@ -212,7 +212,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(None)
     }
 
-    async fn is_certificate_chain_valid(&self, beacon: &Beacon) -> StdResult<()> {
+    async fn is_certificate_chain_valid(&self, beacon: &CardanoDbBeacon) -> StdResult<()> {
         debug!("RUNNER: is_certificate_chain_valid");
         self.dependencies
             .certifier_service
@@ -222,7 +222,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn update_stake_distribution(&self, new_beacon: &Beacon) -> StdResult<()> {
+    async fn update_stake_distribution(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()> {
         debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
         self.dependencies
             .stake_distribution_service
@@ -231,7 +231,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .with_context(|| format!("AggregatorRunner could not update stake distribution for beacon: '{new_beacon}'"))
     }
 
-    async fn open_signer_registration_round(&self, new_beacon: &Beacon) -> StdResult<()> {
+    async fn open_signer_registration_round(&self, new_beacon: &CardanoDbBeacon) -> StdResult<()> {
         debug!("RUNNER: open signer registration round"; "beacon" => #?new_beacon);
         let registration_epoch = new_beacon.epoch.offset_to_recording_epoch();
 
@@ -313,7 +313,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn create_new_pending_certificate(
         &self,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
         debug!("RUNNER: create new pending certificate");
@@ -407,7 +407,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn update_era_checker(&self, beacon: &Beacon) -> StdResult<()> {
+    async fn update_era_checker(&self, beacon: &CardanoDbBeacon) -> StdResult<()> {
         let token = self
             .dependencies
             .era_reader
@@ -495,7 +495,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            Beacon, CertificatePending, ProtocolMessage, SignedEntityType, Signer,
+            CardanoDbBeacon, CertificatePending, ProtocolMessage, SignedEntityType, Signer,
             StakeDistribution,
         },
         signable_builder::SignableBuilderService,
@@ -544,7 +544,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_get_beacon_from_chain() {
-        let expected_beacon = Beacon::new("private".to_string(), 2, 17);
+        let expected_beacon = CardanoDbBeacon::new("private".to_string(), 2, 17);
         let mut dependencies = initialize_dependencies().await;
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         immutable_file_observer

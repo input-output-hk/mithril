@@ -2,7 +2,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::Beacon;
+use crate::entities::CardanoDbBeacon;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 
@@ -13,7 +13,7 @@ pub struct CardanoTransactionSnapshotMessage {
     pub merkle_root: String,
 
     /// Beacon of the Cardano transactions snapshot
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Hash of the Cardano Transactions snapshot
     pub hash: String,

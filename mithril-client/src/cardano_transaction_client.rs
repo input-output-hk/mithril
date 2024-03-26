@@ -159,7 +159,7 @@ impl CardanoTransactionClient {
 #[cfg(test)]
 mod tests {
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
-    use crate::common::Beacon;
+    use crate::common::CardanoDbBeacon;
     use crate::{
         CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
         CardanoTransactionsSetProof,
@@ -174,7 +174,7 @@ mod tests {
         vec![
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-123".to_string(),
-                beacon: Beacon::new("network".to_string(), 1, 1),
+                beacon: CardanoDbBeacon::new("network".to_string(), 1, 1),
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -183,7 +183,7 @@ mod tests {
             },
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-456".to_string(),
-                beacon: Beacon::new("network".to_string(), 1, 2),
+                beacon: CardanoDbBeacon::new("network".to_string(), 1, 2),
                 hash: "hash-456".to_string(),
                 certificate_hash: "cert-hash-456".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -213,7 +213,7 @@ mod tests {
         let mut http_client = MockAggregatorHTTPClient::new();
         let message = CardanoTransactionSnapshot {
             merkle_root: "mk-123".to_string(),
-            beacon: Beacon::new("network".to_string(), 1, 1),
+            beacon: CardanoDbBeacon::new("network".to_string(), 1, 1),
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")

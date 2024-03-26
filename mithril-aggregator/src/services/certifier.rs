@@ -12,8 +12,8 @@ use mithril_common::{
     certificate_chain::CertificateVerifier,
     crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION},
     entities::{
-        Beacon, Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
-        SignedEntityType, SingleSignatures, StakeDistributionParty,
+        CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
+        ProtocolMessage, SignedEntityType, SingleSignatures, StakeDistributionParty,
     },
     StdResult,
 };
@@ -391,7 +391,7 @@ impl CertifierService for MithrilCertifierService {
                     .get_current_immutable_beacon()
                     .await
                     .with_context(|| "Could not retrieve current beacon to create certificate")?;
-                Beacon {
+                CardanoDbBeacon {
                     epoch: *epoch,
                     ..beacon
                 }
@@ -506,7 +506,7 @@ mod tests {
     };
     use chrono::{DateTime, Days};
     use mithril_common::{
-        entities::{Beacon, ProtocolMessagePartKey},
+        entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
     };
 
@@ -568,7 +568,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_clean_epoch_when_inform_epoch() {
-        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epoch = beacon.epoch;
@@ -589,7 +589,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_mark_open_message_expired_when_exists() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
@@ -621,7 +621,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_mark_open_message_expired_when_does_not_expire() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
@@ -648,7 +648,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_mark_open_message_expired_when_has_not_expired_yet() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
@@ -675,7 +675,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_register_valid_single_signature() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
@@ -708,7 +708,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_register_invalid_single_signature() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let mut protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
@@ -740,7 +740,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_register_single_signature_for_certified_open_message() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
@@ -772,7 +772,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_register_single_signature_for_expired_open_message() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
@@ -804,7 +804,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_create_certificate_when_multi_signature_produced() {
-        let beacon = Beacon::new("devnet".to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
@@ -817,7 +817,7 @@ mod tests {
             .await
             .unwrap();
 
-        let genesis_beacon = Beacon {
+        let genesis_beacon = CardanoDbBeacon {
             epoch: beacon.epoch - 1,
             ..beacon.clone()
         };
@@ -877,7 +877,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_create_certificate_for_open_message_not_created() {
-        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -890,7 +890,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_not_create_certificate_for_open_message_already_certified() {
-        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epoch = beacon.epoch;
@@ -914,7 +914,7 @@ mod tests {
         mock_multi_signer
             .expect_create_multi_signature()
             .return_once(move |_| Ok(None));
-        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+        let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=5).map(Epoch).collect::<Vec<_>>();

@@ -1,7 +1,7 @@
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
-use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
+use crate::entities::{CardanoDbBeacon, CertificateMetadata, ProtocolMessage};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
@@ -35,7 +35,7 @@ pub struct Certificate {
 
     /// Mithril beacon on the Cardano chain
     /// aka BEACON(p,n)
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -62,7 +62,7 @@ impl Certificate {
     /// Certificate factory
     pub fn new(
         previous_hash: String,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         metadata: CertificateMetadata,
         protocol_message: ProtocolMessage,
         aggregate_verification_key: ProtocolAggregateVerificationKey,
@@ -223,7 +223,7 @@ mod tests {
 
         let certificate = Certificate::new(
             "previous_hash".to_string(),
-            Beacon::new("testnet".to_string(), 10, 100),
+            CardanoDbBeacon::new("testnet".to_string(), 10, 100),
             CertificateMetadata::new(
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
@@ -254,7 +254,7 @@ mod tests {
         assert_ne!(
             HASH_EXPECTED,
             Certificate {
-                beacon: Beacon::new("testnet-modified".to_string(), 10, 100),
+                beacon: CardanoDbBeacon::new("testnet-modified".to_string(), 10, 100),
                 ..certificate.clone()
             }
             .compute_hash(),
@@ -324,7 +324,7 @@ mod tests {
 
         let genesis_certificate = Certificate::new(
             "previous_hash".to_string(),
-            Beacon::new("testnet".to_string(), 10, 100),
+            CardanoDbBeacon::new("testnet".to_string(), 10, 100),
             CertificateMetadata::new(
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),

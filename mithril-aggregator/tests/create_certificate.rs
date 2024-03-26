@@ -3,8 +3,8 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
-        StakeDistributionParty,
+        CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, StakeDistributionParty,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -22,8 +22,11 @@ async fn create_certificate() {
         data_stores_directory: get_test_dir("create_certificate"),
         ..Configuration::new_sample()
     };
-    let mut tester =
-        RuntimeTester::build(Beacon::new("devnet".to_string(), 1, 1), configuration).await;
+    let mut tester = RuntimeTester::build(
+        CardanoDbBeacon::new("devnet".to_string(), 1, 1),
+        configuration,
+    )
+    .await;
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
@@ -39,7 +42,7 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new_genesis(
-            Beacon::new("devnet".to_string(), 1, 1),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
             fixture.compute_and_encode_avk()
         )
     );
@@ -72,11 +75,15 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 1, 2),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 2),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
         )
     );
 
@@ -101,14 +108,22 @@ async fn create_certificate() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            Beacon::new("devnet".to_string(), 1, 3),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 3),
             &signers_for_immutables
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 3)),
-            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                3
+            )),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
         )
     );
 

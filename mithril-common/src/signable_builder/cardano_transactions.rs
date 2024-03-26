@@ -12,7 +12,7 @@ use crate::{
     cardano_transaction_parser::TransactionParser,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
     entities::{
-        Beacon, BlockRange, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
+        BlockRange, CardanoDbBeacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
         TransactionHash,
     },
     signable_builder::SignableBuilder,
@@ -98,9 +98,12 @@ impl CardanoTransactionsSignableBuilder {
 }
 
 #[async_trait]
-impl SignableBuilder<Beacon> for CardanoTransactionsSignableBuilder {
+impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
     // TODO: return a protocol message computed from the transactions when it's ready to be implemented
-    async fn compute_protocol_message(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
+    async fn compute_protocol_message(
+        &self,
+        beacon: CardanoDbBeacon,
+    ) -> StdResult<ProtocolMessage> {
         debug!(
             self.logger,
             "Compute protocol message for CardanoTransactions at beacon: {beacon}"
@@ -222,9 +225,9 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable() {
         // Arrange
-        let beacon = Beacon {
+        let beacon = CardanoDbBeacon {
             immutable_file_number: 14,
-            ..Beacon::default()
+            ..CardanoDbBeacon::default()
         };
         let transactions = vec![
             CardanoTransaction::new("tx-hash-123", 1, 11),
@@ -268,7 +271,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_signable_with_no_transaction_return_error() {
-        let beacon = Beacon::default();
+        let beacon = CardanoDbBeacon::default();
         let transactions = vec![];
         let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
         let mut mock_transaction_store = MockTransactionStore::new();

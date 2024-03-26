@@ -5,7 +5,7 @@ use tokio::sync::oneshot;
 
 use mithril_common::{
     digesters::{DummyImmutableDb, DummyImmutablesDbBuilder},
-    entities::{Beacon, Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
+    entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
     test_utils::MithrilFixture,
     StdResult,
 };
@@ -225,7 +225,7 @@ async fn main_scenario(
     wait::for_pending_certificate(
         &parameters.aggregator,
         Duration::from_secs(60),
-        &SignedEntityType::CardanoImmutableFilesFull(Beacon::new(
+        &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
             "devnet".to_string(),
             *current_epoch.deref(),
             parameters.immutable_db.last_immutable_number().unwrap() - 1,

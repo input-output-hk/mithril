@@ -8,7 +8,8 @@ use std::sync::Arc;
 use mithril_common::{
     crypto_helper::ProtocolParameters,
     entities::{
-        Beacon, Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
+        CardanoDbBeacon, Epoch, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants,
+        Snapshot,
     },
     messages::{
         CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
@@ -147,7 +148,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotMessage {
         #[derive(Deserialize)]
         struct TmpCardanoTransaction {
             merkle_root: String,
-            beacon: Beacon,
+            beacon: CardanoDbBeacon,
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
@@ -170,7 +171,7 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotListItemMessage {
         #[derive(Deserialize)]
         struct TmpCardanoTransaction {
             merkle_root: String,
-            beacon: Beacon,
+            beacon: CardanoDbBeacon,
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
@@ -634,7 +635,7 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
 mod tests {
     use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
     use mithril_common::entities::MithrilStakeDistribution;
-    use mithril_common::{entities::Beacon, test_utils::fake_data};
+    use mithril_common::{entities::CardanoDbBeacon, test_utils::fake_data};
     use sqlite::Connection;
 
     use super::*;
@@ -950,7 +951,8 @@ mod tests {
             .iter()
             .filter_map(|se| {
                 (se.signed_entity_type.index()
-                    == SignedEntityType::CardanoImmutableFilesFull(Beacon::default()).index())
+                    == SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default())
+                        .index())
                 .then_some(se.to_owned())
             })
             .collect();

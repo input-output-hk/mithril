@@ -13,8 +13,8 @@ use crate::{
 use super::ArtifactBuilder;
 use mithril_common::{
     entities::{
-        Beacon, Certificate, CompressionAlgorithm, ProtocolMessage, ProtocolMessagePartKey,
-        Snapshot,
+        CardanoDbBeacon, Certificate, CompressionAlgorithm, ProtocolMessage,
+        ProtocolMessagePartKey, Snapshot,
     },
     StdResult,
 };
@@ -25,7 +25,7 @@ use mithril_common::{
 pub enum CardanoImmutableFilesFullArtifactError {
     /// Protocol message part is missing
     #[error("Missing protocol message for beacon: '{0}'.")]
-    MissingProtocolMessage(Beacon),
+    MissingProtocolMessage(CardanoDbBeacon),
 }
 
 /// A [CardanoImmutableFilesFullArtifact] builder
@@ -54,7 +54,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
     async fn create_snapshot_archive(
         &self,
-        beacon: &Beacon,
+        beacon: &CardanoDbBeacon,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OngoingSnapshot> {
         debug!("CardanoImmutableFilesFullArtifactBuilder: create snapshot archive");
@@ -135,10 +135,10 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 }
 
 #[async_trait]
-impl ArtifactBuilder<Beacon, Snapshot> for CardanoImmutableFilesFullArtifactBuilder {
+impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArtifactBuilder {
     async fn compute_artifact(
         &self,
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         certificate: &Certificate,
     ) -> StdResult<Snapshot> {
         let ongoing_snapshot = self
@@ -244,7 +244,7 @@ mod tests {
 
     #[tokio::test]
     async fn snapshot_archive_name_after_beacon_values() {
-        let beacon = Beacon::new("network".to_string(), 20, 145);
+        let beacon = CardanoDbBeacon::new("network".to_string(), 20, 145);
         let mut message = ProtocolMessage::new();
         message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -293,7 +293,7 @@ mod tests {
                 );
 
             let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-                .create_snapshot_archive(&Beacon::default(), &message)
+                .create_snapshot_archive(&CardanoDbBeacon::default(), &message)
                 .await
                 .expect("create_snapshot_archive should not fail");
             let file_name = ongoing_snapshot

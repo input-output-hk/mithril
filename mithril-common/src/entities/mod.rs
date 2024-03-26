@@ -1,7 +1,7 @@
 //! The entities used by, and exchanged between, the aggregator, signers and client.
 
-mod beacon;
 mod block_range;
+mod cardano_db_beacon;
 mod cardano_network;
 mod cardano_transaction;
 mod cardano_transactions_set_proof;
@@ -22,8 +22,8 @@ mod single_signatures;
 mod snapshot;
 mod type_alias;
 
-pub use beacon::{Beacon, BeaconComparison, BeaconComparisonError};
 pub use block_range::{BlockNumber, BlockRange, BlockRangeLength};
+pub use cardano_db_beacon::{BeaconComparison, BeaconComparisonError, CardanoDbBeacon};
 pub use cardano_network::CardanoNetwork;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;

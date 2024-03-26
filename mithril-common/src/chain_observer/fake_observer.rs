@@ -13,10 +13,10 @@ pub struct FakeObserver {
     /// [get_current_stake_distribution]: ChainObserver::get_current_stake_distribution
     pub signers: RwLock<Vec<SignerWithStake>>,
 
-    /// A [Beacon], used by [get_current_epoch]
+    /// A [CardanoDbBeacon], used by [get_current_epoch]
     ///
     /// [get_current_epoch]: ChainObserver::get_current_epoch
-    pub current_beacon: RwLock<Option<Beacon>>,
+    pub current_beacon: RwLock<Option<CardanoDbBeacon>>,
 
     /// A list of [TxDatum], used by [get_current_datums]
     ///
@@ -26,7 +26,7 @@ pub struct FakeObserver {
 
 impl FakeObserver {
     /// FakeObserver factory
-    pub fn new(current_beacon: Option<Beacon>) -> Self {
+    pub fn new(current_beacon: Option<CardanoDbBeacon>) -> Self {
         Self {
             signers: RwLock::new(vec![]),
             current_beacon: RwLock::new(current_beacon),
@@ -37,7 +37,7 @@ impl FakeObserver {
     /// Increase by one the epoch of the [current_beacon][`FakeObserver::current_beacon`].
     pub async fn next_epoch(&self) -> Option<Epoch> {
         let mut current_beacon = self.current_beacon.write().await;
-        *current_beacon = current_beacon.as_ref().map(|beacon| Beacon {
+        *current_beacon = current_beacon.as_ref().map(|beacon| CardanoDbBeacon {
             epoch: beacon.epoch + 1,
             ..beacon.clone()
         });

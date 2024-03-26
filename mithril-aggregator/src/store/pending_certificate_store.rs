@@ -64,7 +64,7 @@ impl CertificatePendingStore {
 mod test {
     use super::*;
 
-    use mithril_common::entities::{Beacon, SignedEntityType};
+    use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::store::adapter::DumbStoreAdapter;
 
@@ -72,7 +72,7 @@ mod test {
         let mut adapter: DumbStoreAdapter<String, CertificatePending> = DumbStoreAdapter::new();
 
         if is_populated {
-            let beacon = Beacon::new("testnet".to_string(), 0, 0);
+            let beacon = CardanoDbBeacon::new("testnet".to_string(), 0, 0);
             let certificate_pending = CertificatePending::new(
                 beacon.clone(),
                 SignedEntityType::dummy(),
@@ -108,7 +108,7 @@ mod test {
     #[tokio::test]
     async fn save_certificate_pending_once() {
         let store = get_certificate_pending_store(false).await;
-        let beacon = Beacon::new("testnet".to_string(), 0, 1);
+        let beacon = CardanoDbBeacon::new("testnet".to_string(), 0, 1);
         let signed_entity_type = SignedEntityType::dummy();
         let certificate_pending = CertificatePending::new(
             beacon,
@@ -134,7 +134,7 @@ mod test {
     #[tokio::test]
     async fn remove_certificate_pending() {
         let store = get_certificate_pending_store(true).await;
-        let beacon = Beacon::new("testnet".to_string(), 0, 0);
+        let beacon = CardanoDbBeacon::new("testnet".to_string(), 0, 0);
         let certificate_pending = store.remove().await.unwrap().unwrap();
 
         assert_eq!(beacon, certificate_pending.beacon);

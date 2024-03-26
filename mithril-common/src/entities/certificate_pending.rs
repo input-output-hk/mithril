@@ -1,4 +1,4 @@
-use crate::entities::{Beacon, PartyId, ProtocolParameters, Signer};
+use crate::entities::{CardanoDbBeacon, PartyId, ProtocolParameters, Signer};
 use serde::{Deserialize, Serialize};
 
 use super::SignedEntityType;
@@ -7,7 +7,7 @@ use super::SignedEntityType;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificatePending {
     /// Current Beacon
-    pub beacon: Beacon,
+    pub beacon: CardanoDbBeacon,
 
     /// Signed entity type
     #[serde(rename = "entity_type")]
@@ -31,7 +31,7 @@ pub struct CertificatePending {
 impl CertificatePending {
     /// CertificatePending factory
     pub fn new(
-        beacon: Beacon,
+        beacon: CardanoDbBeacon,
         signed_entity_type: SignedEntityType,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,

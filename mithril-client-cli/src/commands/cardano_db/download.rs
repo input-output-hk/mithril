@@ -334,7 +334,7 @@ impl Source for CardanoDbDownloadCommand {
 #[cfg(test)]
 mod tests {
     use mithril_client::{
-        common::{Beacon, ProtocolMessagePartKey},
+        common::{CardanoDbBeacon, ProtocolMessagePartKey},
         MithrilCertificateMetadata,
     };
     use mithril_common::test_utils::TempDir;
@@ -354,7 +354,7 @@ mod tests {
         MithrilCertificate {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: Beacon::new("testnet".to_string(), 10, 100),
+            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),

@@ -6,9 +6,10 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
-/// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
+/// A point in the Cardano chain at which a Mithril certificate of the Cardano Database should be
+/// produced.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash)]
-pub struct Beacon {
+pub struct CardanoDbBeacon {
     /// Cardano network
     pub network: String,
 
@@ -19,7 +20,7 @@ pub struct Beacon {
     pub immutable_file_number: ImmutableFileNumber,
 }
 
-impl Beaconable for Beacon {}
+impl Beaconable for CardanoDbBeacon {}
 
 /// A BeaconComparison is the result of the comparison between a beacon and an oldest beacon.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -54,7 +55,7 @@ impl BeaconComparison {
     }
 }
 
-/// [Beacon::compare_to_older] related errors.
+/// [CardanoDbBeacon::compare_to_older] related errors.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum BeaconComparisonError {
     /// Error raised when a comparison between beacons from different networks is made.
@@ -66,10 +67,10 @@ pub enum BeaconComparisonError {
     #[error(
         "compare failed: the 'oldest' have both a newest epoch and immutable file number than the newest beacon: newest [{0:?}] / oldest [{1:?}]"
     )]
-    BeaconOlderThanPreviousBeacon(Beacon, Beacon),
+    BeaconOlderThanPreviousBeacon(CardanoDbBeacon, CardanoDbBeacon),
 }
 
-impl PartialOrd for Beacon {
+impl PartialOrd for CardanoDbBeacon {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match self.network.partial_cmp(&other.network) {
             Some(Ordering::Equal) => {}
@@ -84,7 +85,7 @@ impl PartialOrd for Beacon {
     }
 }
 
-impl Display for Beacon {
+impl Display for CardanoDbBeacon {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -94,17 +95,21 @@ impl Display for Beacon {
     }
 }
 
-impl Beacon {
-    /// Beacon factory
-    pub fn new(network: String, epoch: u64, immutable_file_number: ImmutableFileNumber) -> Beacon {
-        Beacon {
-            network,
+impl CardanoDbBeacon {
+    /// CardanoDbBeacon factory
+    pub fn new<T: Into<String>>(
+        network: T,
+        epoch: u64,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> CardanoDbBeacon {
+        CardanoDbBeacon {
+            network: network.into(),
             epoch: Epoch(epoch),
             immutable_file_number,
         }
     }
 
-    /// Computes the hash of a Beacon
+    /// Computes the hash of a CardanoDbBeacon
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.network.as_bytes());
@@ -119,7 +124,7 @@ impl Beacon {
     /// the current beacon have data older than the other beacon.
     pub fn compare_to_older(
         &self,
-        other: &Beacon,
+        other: &CardanoDbBeacon,
     ) -> Result<BeaconComparison, BeaconComparisonError> {
         if self.network != other.network {
             return Err(BeaconComparisonError::NetworkNotMatch(
@@ -159,12 +164,12 @@ mod tests {
 
     #[test]
     fn test_beacon_partial_ord_different_network() {
-        let beacon1: Beacon = Beacon {
+        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 0,
         };
-        let beacon2: Beacon = Beacon {
+        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
             network: "B".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 0,
@@ -175,7 +180,7 @@ mod tests {
 
     #[test]
     fn test_beacon_partial_ord_equal() {
-        let beacon1: Beacon = Beacon {
+        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 0,
@@ -186,12 +191,12 @@ mod tests {
 
     #[test]
     fn test_beacon_partial_ord_same_epoch_less() {
-        let beacon1: Beacon = Beacon {
+        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 0,
         };
-        let beacon2: Beacon = Beacon {
+        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 1,
@@ -202,12 +207,12 @@ mod tests {
 
     #[test]
     fn test_beacon_partial_ord_same_epoch_greater() {
-        let beacon1: Beacon = Beacon {
+        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 1,
         };
-        let beacon2: Beacon = Beacon {
+        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 0,
@@ -218,12 +223,12 @@ mod tests {
 
     #[test]
     fn test_beacon_partial_ord_cmp_epochs_less() {
-        let beacon1: Beacon = Beacon {
+        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 99,
         };
-        let beacon2: Beacon = Beacon {
+        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
             network: "A".to_string(),
             epoch: Epoch(1),
             immutable_file_number: 99,
@@ -234,8 +239,8 @@ mod tests {
 
     #[test]
     fn test_beacon_compare_to_older_different_network() {
-        let beacon1: Beacon = Beacon::new("A".to_string(), 0, 0);
-        let beacon2: Beacon = Beacon::new("B".to_string(), 0, 0);
+        let beacon1: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
+        let beacon2: CardanoDbBeacon = CardanoDbBeacon::new("B".to_string(), 0, 0);
 
         assert_eq!(
             BeaconComparisonError::NetworkNotMatch("A".to_string(), "B".to_string()),
@@ -246,8 +251,8 @@ mod tests {
     #[test]
     fn test_beacon_compare_to_older_lower_epoch_greater_immutable() {
         // put this case in the doc
-        let previous_beacon: Beacon = Beacon::new("A".to_string(), 1, 0);
-        let current_beacon: Beacon = Beacon::new("A".to_string(), 0, 1);
+        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 1, 0);
+        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 1);
 
         assert_eq!(
             BeaconComparisonError::BeaconOlderThanPreviousBeacon(
@@ -262,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_beacon_compare_to_older_equal() {
-        let beacon: Beacon = Beacon::new("A".to_string(), 0, 0);
+        let beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
 
         assert_eq!(
             Ok(BeaconComparison::Equal),
@@ -272,8 +277,8 @@ mod tests {
 
     #[test]
     fn test_beacon_compare_to_older_same_epoch_less_immutable() {
-        let previous_beacon: Beacon = Beacon::new("A".to_string(), 0, 1);
-        let current_beacon: Beacon = Beacon::new("A".to_string(), 0, 0);
+        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 1);
+        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
 
         assert_eq!(
             BeaconComparisonError::BeaconOlderThanPreviousBeacon(
@@ -288,8 +293,8 @@ mod tests {
 
     #[test]
     fn test_beacon_compare_to_older_same_epoch_greater_immutable() {
-        let previous_beacon: Beacon = Beacon::new("A".to_string(), 0, 0);
-        let current_beacon: Beacon = Beacon::new("A".to_string(), 0, 1);
+        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 0);
+        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 1);
 
         assert_eq!(
             Ok(BeaconComparison::GreaterImmutableFileNumber),
@@ -299,8 +304,8 @@ mod tests {
 
     #[test]
     fn test_beacon_compare_to_older_epochs_greater() {
-        let previous_beacon: Beacon = Beacon::new("A".to_string(), 0, 99);
-        let current_beacon: Beacon = Beacon::new("A".to_string(), 1, 99);
+        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 99);
+        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 1, 99);
 
         assert_eq!(
             Ok(BeaconComparison::GreaterEpoch),
@@ -310,8 +315,8 @@ mod tests {
 
     #[test]
     fn test_beacon_compare_to_older_epochs_less() {
-        let previous_beacon: Beacon = Beacon::new("A".to_string(), 1, 99);
-        let current_beacon: Beacon = Beacon::new("A".to_string(), 0, 99);
+        let previous_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 1, 99);
+        let current_beacon: CardanoDbBeacon = CardanoDbBeacon::new("A".to_string(), 0, 99);
 
         assert_eq!(
             BeaconComparisonError::BeaconOlderThanPreviousBeacon(
@@ -356,19 +361,19 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            Beacon::new("testnet".to_string(), 10, 100).compute_hash()
+            CardanoDbBeacon::new("testnet".to_string(), 10, 100).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Beacon::new("mainnet".to_string(), 10, 100).compute_hash()
+            CardanoDbBeacon::new("mainnet".to_string(), 10, 100).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Beacon::new("testnet".to_string(), 20, 100).compute_hash()
+            CardanoDbBeacon::new("testnet".to_string(), 20, 100).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Beacon::new("testnet".to_string(), 10, 200).compute_hash()
+            CardanoDbBeacon::new("testnet".to_string(), 10, 200).compute_hash()
         );
     }
 }
