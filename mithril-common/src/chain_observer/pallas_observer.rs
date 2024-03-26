@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use bech32::{self, Bech32, Hrp};
 use pallas_addresses::Address;
 use pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 use pallas_network::{
@@ -25,7 +24,7 @@ use std::{
 
 use crate::{
     chain_observer::{interface::*, ChainAddress, TxDatum},
-    crypto_helper::{KESPeriod, OpCert},
+    crypto_helper::{encode_bech32, KESPeriod, OpCert},
     entities::{Epoch, StakeDistribution},
     CardanoNetwork, StdResult,
 };
@@ -202,15 +201,9 @@ impl PallasChainObserver {
 
     /// Returns the stake pool hash from the given bytestring.
     fn get_stake_pool_hash(&self, key: &Bytes) -> Result<String, ChainObserverError> {
-        let hrp = Hrp::parse("pool")
-            .map_err(|err| anyhow!(err))
-            .with_context(|| {
-                "PallasChainObserver failed to prepare human readable part of stake pool hash"
-            })?;
-        let pool_id_bech32 = bech32::encode::<Bech32>(hrp, key)
+        let pool_id_bech32 = encode_bech32("pool", key)
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to encode stake pool hash")?;
-
         Ok(pool_id_bech32)
     }
 

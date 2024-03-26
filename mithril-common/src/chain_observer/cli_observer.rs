@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use bech32::{self, Bech32, Hrp};
 use hex::FromHex;
 use nom::IResult;
 use rand_core::RngCore;
@@ -12,7 +11,7 @@ use tokio::process::Command;
 
 use crate::chain_observer::interface::{ChainObserver, ChainObserverError};
 use crate::chain_observer::{ChainAddress, TxDatum};
-use crate::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
+use crate::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
 use crate::entities::{Epoch, StakeDistribution};
 use crate::{CardanoNetwork, StdResult};
 
@@ -365,13 +364,12 @@ impl CardanoCliChainObserver {
 
         for (k, v) in pools_data.iter() {
             let pool_id_hex = k;
-            let hrp = Hrp::parse("pool").map_err(|e| ChainObserverError::General(e.into()))?;
-            let pool_id_bech32 = bech32::encode::<Bech32>(
-                hrp,
+            let pool_id_bech32 = encode_bech32(
+                "pool",
                 &Vec::from_hex(pool_id_hex.as_bytes())
                     .map_err(|e| ChainObserverError::General(e.into()))?,
             )
-            .map_err(|e| ChainObserverError::General(e.into()))?;
+            .map_err(ChainObserverError::General)?;
             let stakes = v
                 .get("stakeMark")
                 .ok_or(ChainObserverError::InvalidContent(anyhow!(
