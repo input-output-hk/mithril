@@ -61,6 +61,22 @@ The **Mithril signer** uses your Cardano `operational certificate` and `KES secr
 * Verification of your `PoolId` ownership and the associated stake used by the Mithril protocol
 * Verification of your Mithril `signer secret key` ownership, which allows you to participate in the multi-signature process for certificate production on the Mithril network
 
+## Mithril signer footprint
+
+The **Mithril signer** has been designed to have the lowest footprint possible in terms of CPU, memory, disk i/o and storage.
+Thus, there are no extra requirements on the recommended hardware than for running a Cardano stake pool, as detailed in this [guide](https://developers.cardano.org/docs/operate-a-stake-pool/hardware-requirements).
+
+:::info
+
+Here are some figures about the Mithril signer node running on the `mainnet` Cardano network:
+- It is **idle** most of the time at `<50MB` memory usage and `<1%` CPU.
+- It sends to the aggregator a **new signature** roughly every `4 hours` and a **new registration** every `5 days` (`<1MB` per day).
+- When signing for the **first time**, the digest cache needs to be built with a spike of `50-70%` CPU on one core for `~1 hour`.
+- Also, the full Cardano database will be **read from disk once** during this cache building process.
+- Only **stake distributions**, **Mithril keys** and some **digest cache** are stored on the disk (`<100MB`).
+
+:::
+
 ## Pre-requisites
 
 :::info
@@ -391,6 +407,48 @@ Finally, monitor the logs of the service:
 ```bash
 tail /var/log/syslog
 ```
+
+### Activate Prometheus endpoint
+
+The Mithril signer node can expose basic metrics on a Prometheus endpoint, which is not activated by default.
+
+In order to expose metrics on the endpoint, you need to append the following environment variable to your environment file. In that case, the metrics server will listen on the `9090` port:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+ENABLE_METRICS_SERVER=true
+EOF`
+```
+
+You can also specify custom listen IP address and port for the metrics server:
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+ENABLE_METRICS_SERVER=true
+METRICS_SERVER_IP=**YOUR_METRICS_SERVER_IP**
+METRICS_SERVER_PORT=**YOUR_METRICS_SERVER_PORT**
+EOF`
+```
+
+:::tip
+
+Here is an example that reproduces the default configuration for the prometheus server:
+
+```bash
+sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
+ENABLE_METRICS_SERVER=true
+METRICS_SERVER_IP=0.0.0.0
+METRICS_SERVER_PORT=9090
+EOF`
+```
+
+:::
+
+
+:::info
+
+When activated, the metrics endpoint will be accessible to the location `http://**YOUR_METRICS_SERVER_IP**:**YOUR_METRICS_SERVER_PORT**/metrics`, which translates to [`http://0.0.0.0:9090/metrics`](http://0.0.0.0:9090/metrics) with the default configuration.
+
+:::
 
 ### Rotating the KES keys
 

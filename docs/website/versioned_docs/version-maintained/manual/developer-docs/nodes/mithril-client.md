@@ -126,7 +126,8 @@ This program shows, downloads and verifies certified blockchain artifacts.
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  snapshot                    Snapshot management
+  snapshot                    Deprecated, use `cardano-db` instead
+  cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
   help                        Print this message or the help of the given subcommand(s)
@@ -150,7 +151,6 @@ Options:
           Print help
   -V, --version
           Print version
-
 ```
 
 Run in release mode with the default configuration:
@@ -237,14 +237,14 @@ Now you can use the `mithril_client` functions:
 # 1- Help
 mithril_client help
 
-# 2- List snapshots
-mithril_client snapshot list
+# 2- List cardano db snapshots
+mithril_client cardano-db snapshot list
 
-# 3- Show detailed information about a snapshot
-mithril_client snapshot show $SNAPSHOT_DIGEST
+# 3- Show detailed information about a cardano db snapshot
+mithril_client cardano-db snapshot show $CARDANO_DB_DIGEST
 
-# 4- Download the given snapshot and verify the certificate
-mithril_client snapshot download $SNAPSHOT_DIGEST
+# 4- Download the given cardano db and verify the certificate
+mithril_client cardano-db download $CARDANO_DB_DIGEST
 
 # 5- List Mithril stake distributions
 mithril_client mithril-stake-distribution list
@@ -252,11 +252,11 @@ mithril_client mithril-stake-distribution list
 # 6- Download and verify the given Mithril stake distribution
 mithril_client mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_ARTIFACT_HASH
 
-# 7- List Cardano transaction commitments
-mithril_client --unstable cardano-transaction commitment list
+# 7- List Cardano transaction snapshots
+mithril_client --unstable cardano-transaction snapshot list
 
-# 8- Show detailed information about a Cardano transaction commitment
-mithril_client --unstable cardano-transaction commitment show $CARDANO_TRANSACTION_COMMITMENT_HASH
+# 8- Show detailed information about a Cardano transaction snapshot
+mithril_client --unstable cardano-transaction snapshot show $CARDANO_TRANSACTION_SNAPSHOT_HASH
 
 # 9- Certify that given list of transactions hashes are included in the Cardano transactions set
 mithril_client --unstable cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
@@ -280,14 +280,28 @@ make docker-run
 
 Here are the subcommands available:
 
-### Snapshot
+### Cardano DB (previously: Snapshot)
 
 | Subcommand | Performed action |
 |------------|------------------|
-| **download** | Downloads and restores a snapshot|
+| **download** | Downloads and restores a cardano-db snapshot|
 | **help** | Prints this message or the help for the given subcommand(s)|
-| **list** | Lists available snapshots|
-| **show** | Shows information about a snapshot|
+| **snapshot list** | Lists available cardano-db snapshots|
+| **snapshot show** | Shows information about a cardano-db snapshot|
+
+### Snapshot
+
+:::warning
+The `snapshot` commands are now **deprecated** and has been superseded by the `cardano-db` commands.
+The `snapshot` commands  will be removed in the near future.
+:::
+
+| Subcommand | Performed action |
+|------------|------------------|
+| **download** | Downloads and restores a cardano-db snapshot|
+| **help** | Prints this message or the help for the given subcommand(s)|
+| **list** | Lists available cardano-db snapshots|
+| **show** | Shows information about a cardano-db snapshot|
 
 ### Mithril stake distribution
 
@@ -302,8 +316,8 @@ Here are the subcommands available:
 | Subcommand | Performed action |
 |------------|------------------|
 | **certify** | Certifies that given list of transactions hashes are included in the Cardano transactions set|
-| **commitment list** | Lists available Cardano transactions commitments|
-| **commitment show** | Shows information about a Cardano transactions commitment|
+| **snapshot list** | Lists available Cardano transactions snapshots|
+| **snapshot show** | Shows information about a Cardano transactions snapshot|
 | **help** | Prints this message or the help for the given subcommand(s)|
 
 ## Configuration parameters
@@ -328,25 +342,25 @@ Here is a list of the available parameters:
 | `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
 | `log_output` | `--log-output` | `-o` | - | Redirect the logs to a file | - | `./mithril-client.log` | - |
 
-`snapshot show` command:
+`cardano-db snapshot show` or `snapshot show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
+| `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`snapshot list` command:
+`cardano-db snapshot list` or `snapshot list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`snapshot download` command:
+`cardano-db download` or `snapshot download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Snapshot digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
-| `download_dir` | `--download-dir` | - | - | Directory where the snapshot will be downloaded | . | - | - |
+| `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
+| `download_dir` | `--download-dir` | - | - | Directory where the Cardano DB will be downloaded | . | - | - |
 | `json` | `--json` | - | - | Enable JSON output for progress logs | - | - | - |
 
 `mithril-stake-distribution list` command:
@@ -362,14 +376,14 @@ Here is a list of the available parameters:
 | `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
 | `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
 
-`cardano-transaction commitment show` command:
+`cardano-transaction snapshot show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `hash` | `--hash` | - | `HASH` | Cardano transaction commitment hash or `latest` for the latest Cardano transaction commitment | - | - | :heavy_check_mark: |
+| `hash` | `--hash` | - | `HASH` | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-transaction commitment list` command:
+`cardano-transaction snapshot list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|

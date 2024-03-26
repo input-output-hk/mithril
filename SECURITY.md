@@ -97,7 +97,7 @@ form](https://github.com/input-output-hk/mithril/security/advisories/new).
 
 This Security Vulnerability Disclosure Policy may be updated or
 revised as necessary. Please check the latest version of this policy
-on the [Mithril repository](https://github.com/input-output-hk/mithril/blob/master/SECURITY.md).
+on the [Mithril repository](https://github.com/input-output-hk/mithril/blob/main/SECURITY.md).
 
 ## Conclusion
 
