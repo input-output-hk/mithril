@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use bech32::{self, ToBase32, Variant};
+use bech32::{self, Bech32, Hrp};
 use hex::FromHex;
 use nom::IResult;
 use rand_core::RngCore;
@@ -365,12 +365,11 @@ impl CardanoCliChainObserver {
 
         for (k, v) in pools_data.iter() {
             let pool_id_hex = k;
-            let pool_id_bech32 = bech32::encode(
-                "pool",
-                Vec::from_hex(pool_id_hex.as_bytes())
-                    .map_err(|e| ChainObserverError::General(e.into()))?
-                    .to_base32(),
-                Variant::Bech32,
+            let hrp = Hrp::parse("pool").map_err(|e| ChainObserverError::General(e.into()))?;
+            let pool_id_bech32 = bech32::encode::<Bech32>(
+                hrp,
+                &Vec::from_hex(pool_id_hex.as_bytes())
+                    .map_err(|e| ChainObserverError::General(e.into()))?,
             )
             .map_err(|e| ChainObserverError::General(e.into()))?;
             let stakes = v

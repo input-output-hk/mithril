@@ -4,7 +4,7 @@ use super::SerDeShelleyFileFormat;
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
 use crate::crypto_helper::ProtocolPartyId;
 
-use bech32::{self, ToBase32, Variant};
+use bech32::{self, Bech32, Hrp};
 use blake2::{digest::consts::U28, Blake2b, Digest};
 use ed25519_dalek::{
     Signature as EdSignature, Signer, SigningKey as EdSecretKey, Verifier,
@@ -117,8 +117,8 @@ impl OpCert {
         hasher.update(self.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
         pool_id.copy_from_slice(hasher.finalize().as_bytes());
-        bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
-            .map_err(|_| OpCertError::PoolAddressEncoding)
+        let hrp = Hrp::parse("pool").map_err(|_| OpCertError::PoolAddressEncoding)?;
+        bech32::encode::<Bech32>(hrp, &pool_id).map_err(|_| OpCertError::PoolAddressEncoding)
     }
 
     /// Compute protocol party id as hash
