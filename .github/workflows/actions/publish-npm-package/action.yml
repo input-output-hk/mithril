@@ -117,5 +117,5 @@ runs:
       npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
       npm whoami
       cd ${{ inputs.package }}/pkg
-      npm dist-tag add @${{ inputs.scope }}/${{ inputs.package }}@{{ steps.check_version.outputs.package_version }} latest
-      npm dist-tag rm @${{ inputs.scope }}/${{ inputs.package }}@{{ steps.check_version.outputs.package_version }} next
+      npm dist-tag add @${{ inputs.scope }}/${{ inputs.package }}@${{ steps.check_version.outputs.package_version }} latest
+      npm dist-tag rm @${{ inputs.scope }}/${{ inputs.package }}@${{ steps.check_version.outputs.package_version }} next
