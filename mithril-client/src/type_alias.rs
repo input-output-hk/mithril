@@ -45,7 +45,7 @@ cfg_unstable! {
 
     pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;
 
-    /// A snapshot that allow to know up to which [point of time][common::Beacon] Mithril have certified Cardano transactions.
+    /// A snapshot that allow to know up to which [point of time][common::CardanoDbBeacon] Mithril have certified Cardano transactions.
     ///
     pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTransactionSnapshot;
 
