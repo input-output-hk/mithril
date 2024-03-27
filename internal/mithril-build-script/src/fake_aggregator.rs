@@ -177,8 +177,7 @@ impl FakeAggregatorData {
             .map(|(key, value)| extract_artifact_id_and_content(key, value))
             .collect();
 
-        let tree = BTreeMap::from_iter(res.unwrap());
-        tree
+        BTreeMap::from_iter(res.unwrap())
     }
 }
 

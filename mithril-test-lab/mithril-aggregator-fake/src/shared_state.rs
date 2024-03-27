@@ -5,7 +5,6 @@ use std::{
 };
 
 use anyhow::{anyhow, Context};
-use serde_json::Value;
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
 
@@ -57,12 +56,11 @@ impl AppState {
     pub fn from_directory(data_dir: &Path) -> StdResult<Self> {
         let reader = DataDir::new(data_dir)?;
         let epoch_settings = reader.read_file("epoch-settings")?;
-        let (certificate_list, mut certificates) = reader.read_files("certificate", "hash")?;
-        reader.read_certificate_chain(&certificate_list, &mut certificates)?;
-        let (snapshot_list, snapshots) = reader.read_files("snapshot", "digest")?;
-        let (msd_list, msds) = reader.read_files("mithril-stake-distribution", "hash")?;
-        let (ctx_snapshot_list, ctx_snapshots) = reader.read_files("ctx-snapshot", "hash")?;
-        let (_, ctx_proofs) = reader.read_files("ctx-proof", "transaction_hash")?;
+        let (certificate_list, certificates) = reader.read_files("certificate")?;
+        let (snapshot_list, snapshots) = reader.read_files("snapshot")?;
+        let (msd_list, msds) = reader.read_files("mithril-stake-distribution")?;
+        let (ctx_snapshot_list, ctx_snapshots) = reader.read_files("ctx-snapshot")?;
+        let (_, ctx_proofs) = reader.read_files("ctx-proof")?;
 
         let instance = Self {
             epoch_settings,
@@ -173,103 +171,43 @@ impl DataDir {
         Ok(file_content)
     }
 
-    fn read_list_file(&self, entity: &str) -> StdResult<(String, Value)> {
-        let list_file = {
-            let list_file_name = format!("{entity}s.json");
-
-            self.data_dir.to_owned().join(list_file_name)
-        };
-        trace!("Reading JSON list file '{}'.", list_file.display());
-        let list = std::fs::read_to_string(&list_file)
-            .with_context(|| format!("Error while reading file '{}'.", list_file.display()))?;
-        let list_json: Value = serde_json::from_str(&list)
-            .with_context(|| format!("Could not parse JSON in file '{}'.", list_file.display()))?;
-
-        Ok((list, list_json))
+    fn read_list_file(&self, entity: &str) -> StdResult<String> {
+        self.read_file(&format!("{entity}s-list"))
     }
 
-    fn read_entity_file(&self, entity: &str, id: &str) -> StdResult<(String, Value)> {
-        let filename = format!("{entity}-{id}.json");
-        let path = self.data_dir.to_owned().join(filename);
-        trace!("Reading {entity} JSON file '{}'.", path.display());
-        let content = std::fs::read_to_string(&path)
-            .with_context(|| format!("Could not read entity file '{}'.", path.display()))?;
-        let value: Value = serde_json::from_str(&content).with_context(|| {
-            format!(
-                "Entity file '{}' does not seem to hold valid JSON content.",
-                path.display()
-            )
-        })?;
+    fn extract_entity_content(
+        entity: &str,
+        key: &String,
+        value: &serde_json::Value,
+    ) -> StdResult<(String, String)> {
+        let json_content = serde_json::to_string(value)
+            .with_context(|| format!("Could not serialize '{entity}-{key}' as JSON."))?;
+        Ok((key.to_owned(), json_content))
+    }
 
-        Ok((content, value))
+    fn read_entities_file(&self, entity: &str) -> StdResult<BTreeMap<String, String>> {
+        let file_content = self.read_file(&format!("{entity}s"))?;
+        let parsed_json: serde_json::Value = serde_json::from_str(&file_content)
+            .with_context(|| format!("Could not parse JSON in file '{entity}s.json'."))?;
+        let json_object = parsed_json.as_object().with_context(|| {
+            format!("Collection file for entity {entity} is not a JSON hashmap.")
+        })?;
+        let res: Result<Vec<_>, _> = json_object
+            .iter()
+            .map(|(key, value)| Self::extract_entity_content(entity, key, value))
+            .collect();
+
+        Ok(BTreeMap::from_iter(res?))
     }
 
     /// Read related entity JSON files in the given directory.
-    pub fn read_files(
-        &self,
-        entity: &str,
-        field_id: &str,
-    ) -> StdResult<(String, BTreeMap<String, String>)> {
-        debug!("Read data files, entity='{entity}', field='{field_id}'.");
+    pub fn read_files(&self, entity: &str) -> StdResult<(String, BTreeMap<String, String>)> {
+        debug!("Read data files, entity='{entity}'.");
 
-        let (list, list_json) = self.read_list_file(entity)?;
-        let ids: Vec<String> = list_json
-            .as_array()
-            .ok_or_else(|| {
-                anyhow!(format!(
-                    "List file for entity {entity} is not a JSON array."
-                ))
-            })?
-            .iter()
-            .map(|v| {
-                v[field_id].as_str().map(|s| s.to_owned()).ok_or_else(|| {
-                    anyhow!(format!(
-                        "Field '{field_id}' for type '{entity}' did not return a string (value: '{}').",
-                        v.to_string()
-                    ))
-                })
-            })
-            .collect::<StdResult<Vec<String>>>()?;
-
-        let mut collection: BTreeMap<String, String> = BTreeMap::new();
-
-        for id in &ids {
-            let (content, _value) = self.read_entity_file(entity, id)?;
-            collection.insert(id.to_owned(), content);
-        }
+        let list = self.read_list_file(entity)?;
+        let collection = self.read_entities_file(entity)?;
 
         Ok((list, collection))
-    }
-
-    pub fn read_certificate_chain(
-        &self,
-        certificate_list: &str,
-        certificates: &mut BTreeMap<String, String>,
-    ) -> StdResult<()> {
-        trace!("fetching certificate chain");
-        let list = serde_json::from_str::<Value>(certificate_list)?
-            .as_array()
-            .map(|v| v.to_owned())
-            .ok_or_else(|| anyhow!("Could not cast certificates.json as JSON array."))?;
-        let mut previous_hash = list[0]["previous_hash"]
-                .as_str()
-                .map(|v| v.to_owned())
-                .ok_or_else(|| anyhow!("Field 'previous_hash' does not exist in the first certificate of the certificatd list."))?;
-
-        while previous_hash.is_empty() {
-            let (certificate, value) = self.read_entity_file("certificate", &previous_hash)?;
-            let _ = certificates.insert(previous_hash.clone(), certificate);
-            previous_hash = value["previous_hash"]
-                .as_str()
-                .map(|v| v.to_owned())
-                .ok_or_else(|| {
-                    anyhow!(
-                        "field 'previous_hash' does not exist in certificate id='{previous_hash}'."
-                    )
-                })?;
-        }
-
-        Ok(())
     }
 }
 
