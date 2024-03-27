@@ -1,128 +1,192 @@
 [
   {
-    "digest": "6d474724a506a653ef93f6847cab9e5c69915ded543c9d2964e7dcc29cca01e7",
+    "digest": "d144a7f1067b48c1c54ebbfcbf066314e6714b3ab93893711855f60c62959b62",
+    "beacon": {
+      "network": "devnet",
+      "epoch": 22,
+      "immutable_file_number": 5
+    },
+    "certificate_hash": "a45e00171c5c869b3e373f863ad04f597c202a277f6169848008dbcd694c2bec",
+    "size": 355435,
+    "created_at": "2024-03-27T17:04:26.988430347Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/d144a7f1067b48c1c54ebbfcbf066314e6714b3ab93893711855f60c62959b62/download"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "8.9.0"
+  },
+  {
+    "digest": "3277cbe6e06e47fe23b9dacf805af372b57dd4efd7de0ec657906efde010ae2e",
+    "beacon": {
+      "network": "devnet",
+      "epoch": 21,
+      "immutable_file_number": 5
+    },
+    "certificate_hash": "17b4a907ec31042c8a57ee9d843d954762881fc1692bf3881c1627b913ab1bd4",
+    "size": 341492,
+    "created_at": "2024-03-27T17:04:24.624758109Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/3277cbe6e06e47fe23b9dacf805af372b57dd4efd7de0ec657906efde010ae2e/download"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "8.9.0"
+  },
+  {
+    "digest": "e5ef5a3fe71172402f93ab52eaaf05199b8d599a024a2acc8762e1e2d6a1bad9",
+    "beacon": {
+      "network": "devnet",
+      "epoch": 20,
+      "immutable_file_number": 5
+    },
+    "certificate_hash": "0b997af292ba1c336c40daaa789fc1e16ace0f33d1d2e25729df6acf2c75ab2e",
+    "size": 326618,
+    "created_at": "2024-03-27T17:04:22.243946443Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/e5ef5a3fe71172402f93ab52eaaf05199b8d599a024a2acc8762e1e2d6a1bad9/download"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "8.9.0"
+  },
+  {
+    "digest": "7dcf4af8cbe8decf1487b42f4db72d17dd02137c058a0d835ea8c2765a57ac80",
+    "beacon": {
+      "network": "devnet",
+      "epoch": 19,
+      "immutable_file_number": 4
+    },
+    "certificate_hash": "ae781c782969123cd8963b345d77e53b36145384272c0ed1d93ec77ec604ef8a",
+    "size": 310626,
+    "created_at": "2024-03-27T17:04:19.748714070Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/7dcf4af8cbe8decf1487b42f4db72d17dd02137c058a0d835ea8c2765a57ac80/download"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "8.9.0"
+  },
+  {
+    "digest": "8b79e34ab37ee8df2519033c642e1926517c1bca8884fa0b62828e3991cf29d5",
     "beacon": {
       "network": "devnet",
       "epoch": 18,
       "immutable_file_number": 4
     },
-    "certificate_hash": "7a4dda1719003904286dbcf306d90e257c10f19aca885521d967b2c912107331",
-    "size": 283579,
-    "created_at": "2024-03-26T16:31:52.129834937Z",
+    "certificate_hash": "65218ce4362e2e24b29a2ad811b82114c68e761a729f0b09b0afcba882e502fb",
+    "size": 297312,
+    "created_at": "2024-03-27T17:04:17.409801522Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/6d474724a506a653ef93f6847cab9e5c69915ded543c9d2964e7dcc29cca01e7/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/8b79e34ab37ee8df2519033c642e1926517c1bca8884fa0b62828e3991cf29d5/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "02e3f09033e2112c6040dd3319be4d59baa4d54c2c69768d590c9f7396782c87",
+    "digest": "39f14a6a78f06ca236f08f27a3fa5bc922f11dc63d0b28b3b6eeb1f359118d23",
     "beacon": {
       "network": "devnet",
       "epoch": 17,
       "immutable_file_number": 4
     },
-    "certificate_hash": "c4df07043710c6756fd898428beb1aaf662eab7a186dd6400d9b74bc724e8d66",
-    "size": 269801,
-    "created_at": "2024-03-26T16:31:49.787775292Z",
+    "certificate_hash": "a52614f36c95479044d50d90f6f58bb710af2adf2336a17914696d20257b86a2",
+    "size": 281181,
+    "created_at": "2024-03-27T17:04:14.619764028Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/02e3f09033e2112c6040dd3319be4d59baa4d54c2c69768d590c9f7396782c87/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/39f14a6a78f06ca236f08f27a3fa5bc922f11dc63d0b28b3b6eeb1f359118d23/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "e3ea33473e727bc813071379694d7a384fe84ce59d7953a6e123d60a0818b384",
+    "digest": "4aa6a0e40398d6963f2c40acf0a98fc924aa78250b39d4e5f993ae2f4b3e0b78",
     "beacon": {
       "network": "devnet",
       "epoch": 16,
       "immutable_file_number": 3
     },
-    "certificate_hash": "ee642e8e05cec502be436eefc183d63b76d5c41e3bf8258f13fffc44c84c1fb7",
-    "size": 253243,
-    "created_at": "2024-03-26T16:31:47.302030443Z",
+    "certificate_hash": "3319f7a1a4a8ebce66252b66bec7f9dcae5215cbc41d62775978d2380fea12cc",
+    "size": 266452,
+    "created_at": "2024-03-27T17:04:12.293354096Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/e3ea33473e727bc813071379694d7a384fe84ce59d7953a6e123d60a0818b384/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/4aa6a0e40398d6963f2c40acf0a98fc924aa78250b39d4e5f993ae2f4b3e0b78/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "76ecb8ae67f62aa5c683372265a8e562683b07b07a07c028e5d4d0e555e81d33",
+    "digest": "5b79b426c5ebd700dcaf0784ecd54470b5ba98de3f9c5a0414073ff62597c950",
     "beacon": {
       "network": "devnet",
       "epoch": 15,
       "immutable_file_number": 3
     },
-    "certificate_hash": "25a6979d975d4978c91269ef6f483b5554d9d507f669374c36ac56b0ca255b27",
-    "size": 240096,
-    "created_at": "2024-03-26T16:31:44.828541868Z",
+    "certificate_hash": "6fac39b03b56fd096bac0f025456bac1272280ad78487303c5cf1080a0897e51",
+    "size": 252743,
+    "created_at": "2024-03-27T17:04:09.965704256Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/76ecb8ae67f62aa5c683372265a8e562683b07b07a07c028e5d4d0e555e81d33/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/5b79b426c5ebd700dcaf0784ecd54470b5ba98de3f9c5a0414073ff62597c950/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "d19b144a7d52cab280c515c67b9b92404726025e4f8afd6fffd1bfc2abbfd7de",
+    "digest": "09a91691ab4b77dca71e0125a466707758668d12ab65ed172cffd549a3550d12",
     "beacon": {
       "network": "devnet",
       "epoch": 14,
       "immutable_file_number": 3
     },
-    "certificate_hash": "26144f27bd09d659afa0ffec762d3ac0c3ccbeebc0ca1a7ec2d23124a490e620",
-    "size": 226983,
-    "created_at": "2024-03-26T16:31:42.801315024Z",
+    "certificate_hash": "0f8b4dc2b3145c4f8f36d84373c670180e777ca47afdc5dc1dc15b7ab6533865",
+    "size": 238711,
+    "created_at": "2024-03-27T17:04:07.779555488Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/d19b144a7d52cab280c515c67b9b92404726025e4f8afd6fffd1bfc2abbfd7de/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/09a91691ab4b77dca71e0125a466707758668d12ab65ed172cffd549a3550d12/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "44a2bdc4e89e540a908e863da5872e6369f3de854532a95b60128777aca8e21c",
+    "digest": "5332cafbcc1066ff07eac0a3c30817543926f6369aeb565cd05b3ee718f47d30",
     "beacon": {
       "network": "devnet",
       "epoch": 13,
       "immutable_file_number": 3
     },
-    "certificate_hash": "ca81111391c3670a68b45c2647ed318f38e03810e0c9a2347096f4fb98d4360a",
-    "size": 216382,
-    "created_at": "2024-03-26T16:31:41.237628797Z",
+    "certificate_hash": "62cdafc93c11e833ca4f63b20c2681649a04342334fc0b956385ee6187547799",
+    "size": 228563,
+    "created_at": "2024-03-27T17:04:06.217843342Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/44a2bdc4e89e540a908e863da5872e6369f3de854532a95b60128777aca8e21c/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/5332cafbcc1066ff07eac0a3c30817543926f6369aeb565cd05b3ee718f47d30/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "a07ac04911ba0e34b60e3d829cb57bfcc362057e2c6b4e7eafb5aa3dab60c87f",
+    "digest": "28cca95ff9432765590e418a1f52fde2b87ecb561c6a05e4bb620f59f73e970a",
     "beacon": {
       "network": "devnet",
       "epoch": 13,
       "immutable_file_number": 2
     },
-    "certificate_hash": "5cd1737ebc2d4412efa3297c81e726b504dda9c3ab09630b8884073f7f5e5394",
-    "size": 208789,
-    "created_at": "2024-03-26T16:31:40.149303449Z",
+    "certificate_hash": "8a88bd85234083c95bc83260ac053b8fdf4c88589df25dd446b4b25ca911123f",
+    "size": 223388,
+    "created_at": "2024-03-27T17:04:05.440021703Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/a07ac04911ba0e34b60e3d829cb57bfcc362057e2c6b4e7eafb5aa3dab60c87f/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/28cca95ff9432765590e418a1f52fde2b87ecb561c6a05e4bb620f59f73e970a/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
   },
   {
-    "digest": "d4ecb16c20d9b26f3309d0c138611e289ad0c464c9799c5adfbe4d2017c5bb96",
+    "digest": "3fb3a3088967516dc7bf1b0e74ece640446002f8e387238dcc596e9c0bca2471",
     "beacon": {
       "network": "devnet",
       "epoch": 12,
       "immutable_file_number": 2
     },
-    "certificate_hash": "15ce72682f49d81aba54088c100fed64cc39369238e8791cd5782650e688339b",
-    "size": 193896,
-    "created_at": "2024-03-26T16:31:37.820868631Z",
+    "certificate_hash": "41dd2dd21866bf8519815b6b08f6fd438e5fb227643d568a196cfa0d46466842",
+    "size": 207237,
+    "created_at": "2024-03-27T17:04:02.953457067Z",
     "locations": [
-      "http://0.0.0.0:8080/aggregator/artifact/snapshot/d4ecb16c20d9b26f3309d0c138611e289ad0c464c9799c5adfbe4d2017c5bb96/download"
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/3fb3a3088967516dc7bf1b0e74ece640446002f8e387238dcc596e9c0bca2471/download"
     ],
     "compression_algorithm": "zstandard",
     "cardano_node_version": "8.9.0"
