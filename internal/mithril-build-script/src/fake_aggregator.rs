@@ -186,7 +186,7 @@ fn extract_artifact_id_and_content(
     key: &String,
     value: &serde_json::Value,
 ) -> Result<(ArtifactId, FileContent), String> {
-    let json_content = serde_json::to_string(value).map_err(|e| e.to_string())?;
+    let json_content = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     Ok((key.to_owned(), json_content))
 }
 
@@ -327,22 +327,36 @@ fn b() {}
     }
 
     #[test]
-    fn read_artifacts_json_file() {
+    fn parse_artifacts_json_into_btree_of_key_and_pretty_sub_json() {
         let dir = get_temp_dir("read_artifacts_json_file");
         let file = dir.join("test.json");
-        let json_content = r#"{
+        fs::write(
+            &file,
+            r#"{
     "hash1": { "name": "artifact1" },
     "hash2": { "name": "artifact2" }
-}"#;
-        let expected = BTreeMap::from([
-            ("hash1".to_string(), r#"{"name":"artifact1"}"#.to_string()),
-            ("hash2".to_string(), r#"{"name":"artifact2"}"#.to_string()),
-        ]);
-
-        fs::write(&file, json_content).unwrap();
+}"#,
+        )
+        .unwrap();
 
         let id_per_json = FakeAggregatorData::read_artifacts_json_file(&file);
 
+        let expected = BTreeMap::from([
+            (
+                "hash1".to_string(),
+                r#"{
+  "name": "artifact1"
+}"#
+                .to_string(),
+            ),
+            (
+                "hash2".to_string(),
+                r#"{
+  "name": "artifact2"
+}"#
+                .to_string(),
+            ),
+        ]);
         assert_eq!(expected, id_per_json);
     }
 }
