@@ -450,6 +450,12 @@ When activated, the metrics endpoint will be accessible to the location `http://
 
 :::
 
+::: info
+
+Additionally, a **Grafana template** has been created to easily setup a dashboard for this Prometheus endpoint (ID 20776): https://grafana.com/grafana/dashboards/20776-mithril-signer/
+
+:::
+
 ### Rotating the KES keys
 
 :::danger
