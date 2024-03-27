@@ -81,12 +81,41 @@
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
 <a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::entities::{HexEncodedKey, HexEncodedKeySlice};
 
 <span class="kw">use </span>hex::{FromHex, ToHex};
 <span class="kw">use </span>serde::de::DeserializeOwned;
 <span class="kw">use </span>serde::Serialize;
 <span class="kw">use </span>thiserror::Error;
+
+<span class="kw">use </span>anyhow::anyhow;
+<span class="kw">use </span>bech32::{<span class="self">self</span>, Bech32, Hrp};
+
+<span class="kw">use </span><span class="kw">crate</span>::StdResult;
 
 <span class="doccomment">/// Error raised when the encoding or decoding fails
 </span><span class="attr">#[derive(Error, Debug)]
@@ -139,11 +168,18 @@
     })
 }
 
+<span class="doccomment">/// Encode to bech32 given Human Readable Part (hrp) and data
+</span><span class="kw">pub fn </span>encode_bech32(human_readable_part: <span class="kw-2">&amp;</span>str, data: <span class="kw-2">&amp;</span>[u8]) -&gt; StdResult&lt;String&gt; {
+    <span class="kw">let </span>human_readable_part = Hrp::parse(human_readable_part).map_err(|e| <span class="macro">anyhow!</span>(e))<span class="question-mark">?</span>;
+    bech32::encode::&lt;Bech32&gt;(human_readable_part, data).map_err(|e| <span class="macro">anyhow!</span>(e))
+}
+
 <span class="attr">#[cfg(test)]
 </span><span class="kw">pub mod </span>tests {
+    <span class="kw">use </span>hex::FromHex;
     <span class="kw">use </span>serde::{Deserialize, Serialize};
 
-    <span class="kw">use super</span>::{key_decode_hex, key_encode_hex};
+    <span class="kw">use super</span>::{encode_bech32, key_decode_hex, key_encode_hex};
 
     <span class="attr">#[derive(Debug, PartialEq, Serialize, Deserialize)]
     </span><span class="kw">struct </span>TestSerialize {
@@ -160,6 +196,18 @@
         <span class="kw">let </span>test_to_serialize_restored =
             key_decode_hex(<span class="kw-2">&amp;</span>test_to_serialize_hex).expect(<span class="string">"unexpected hex decoding error"</span>);
         <span class="macro">assert_eq!</span>(test_to_serialize, test_to_serialize_restored);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>test_bech32_encode() {
+        <span class="kw">let </span>hrp = <span class="string">"pool"</span>;
+        <span class="kw">let </span>data =
+            Vec::from_hex(<span class="string">"edfa208d441511f9595ba80e8f3a7b07b6a80cbc9dda9d8e9d1dc039"</span>).unwrap();
+        <span class="kw">let </span>encoded_data = encode_bech32(hrp, <span class="kw-2">&amp;</span>data).unwrap();
+        <span class="kw">let </span>expected_encoded_data =
+            <span class="string">"pool1ahazpr2yz5gljk2m4q8g7wnmq7m2sr9unhdfmr5arhqrjnntwdz"</span>.to_string();
+
+        <span class="macro">assert_eq!</span>(expected_encoded_data, encoded_data);
     }
 }
 </code></pre></div></section></main></body></html>

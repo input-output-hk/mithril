@@ -814,11 +814,8 @@
 <a href="#812" id="812">812</a>
 <a href="#813" id="813">813</a>
 <a href="#814" id="814">814</a>
-<a href="#815" id="815">815</a>
-<a href="#816" id="816">816</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>anyhow::{anyhow, Context};
 <span class="kw">use </span>async_trait::async_trait;
-<span class="kw">use </span>bech32::{<span class="self">self</span>, ToBase32, Variant};
 <span class="kw">use </span>pallas_addresses::Address;
 <span class="kw">use </span>pallas_codec::utils::{Bytes, CborWrap, TagWrap};
 <span class="kw">use </span>pallas_network::{
@@ -843,7 +840,7 @@
 
 <span class="kw">use crate</span>::{
     chain_observer::{interface::<span class="kw-2">*</span>, ChainAddress, TxDatum},
-    crypto_helper::{KESPeriod, OpCert},
+    crypto_helper::{encode_bech32, KESPeriod, OpCert},
     entities::{Epoch, StakeDistribution},
     CardanoNetwork, StdResult,
 };
@@ -1020,11 +1017,10 @@
 
     <span class="doccomment">/// Returns the stake pool hash from the given bytestring.
     </span><span class="kw">fn </span>get_stake_pool_hash(<span class="kw-2">&amp;</span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;String, ChainObserverError&gt; {
-        <span class="kw">let </span>pool_hash = bech32::encode(<span class="string">"pool"</span>, key.to_base32(), Variant::Bech32)
+        <span class="kw">let </span>pool_id_bech32 = encode_bech32(<span class="string">"pool"</span>, key)
             .map_err(|err| <span class="macro">anyhow!</span>(err))
             .with_context(|| <span class="string">"PallasChainObserver failed to encode stake pool hash"</span>)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(pool_hash)
+        <span class="prelude-val">Ok</span>(pool_id_bech32)
     }
 
     <span class="doccomment">/// Fetches the current stake distribution using the provided `statequery` client.
