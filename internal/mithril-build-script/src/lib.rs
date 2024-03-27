@@ -63,6 +63,23 @@ pub(crate) fn list_files_in_folder(folder: &Path) -> impl Iterator<Item = fs::Di
 }
 
 #[cfg(test)]
+// Note: adding `mithril-common` as a dev-dependency would lead to a circular dependency, so
+// we can't use its `TempDir` api.
+pub(crate) fn get_temp_dir(dir_name: &str) -> PathBuf {
+    let dir = std::env::temp_dir()
+        .join("mithril_test")
+        .join("build_script")
+        .join(dir_name);
+
+    if dir.exists() {
+        fs::remove_dir_all(&dir).unwrap();
+    }
+    fs::create_dir_all(&dir).unwrap();
+
+    dir
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
 
