@@ -162,21 +162,17 @@ join_artifacts_files() {
     local -r name=${1:?"No artifact name given to join_artifacts_files function."};
     local -r src="${DATA_DIR:?}/${name}"
     local -r dest="$DATA_DIR"/"$name"s.json
-    local buffer=""
-    local separator=""
+    local buffer="{}"
 
     echo "Joining ${name} artifacts into ${dest} …"
 
     local key=""
-    buffer+="{"
     for filename in "$src/"*; do
         key=$(basename "${filename%.*}")
-        buffer+=$(echo "$separator\"$key\": " | cat - "$filename")
-        separator=","
+        buffer=$(echo $buffer | jq --slurpfile file "$filename" ". += {\"${key}\": \$file[0]}")
     done
-    buffer+="}"
 
-    echo ${buffer} | jq > "$dest"
+    echo "${buffer}" > "$dest"
     rm -rf "$src"
 }
 
