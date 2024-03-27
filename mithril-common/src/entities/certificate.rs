@@ -4,7 +4,6 @@ use crate::crypto_helper::{
 use crate::entities::{
     CardanoDbBeacon, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType,
 };
-use std::cmp::Ordering;
 use std::fmt::{Debug, Formatter};
 
 use crate::era_deprecate;
@@ -149,24 +148,9 @@ impl Certificate {
     }
 }
 
-//bbb// todo: review both PartialEq & PartialOrd implementations, they should not relies on the
-// epoch but maybe the initiated at and/or sealed at metadata ?
 impl PartialEq for Certificate {
     fn eq(&self, other: &Self) -> bool {
         self.epoch.eq(&other.epoch) && self.hash.eq(&other.hash)
-    }
-}
-
-impl PartialOrd for Certificate {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // Order by epoch first then per hash
-        match self.epoch.partial_cmp(&other.epoch) {
-            Some(Ordering::Equal) => self.hash.partial_cmp(&other.hash),
-            Some(other) => Some(other),
-            // Beacons may be not comparable (most likely because the network isn't the same) in
-            // that case we can still order per hash
-            None => self.hash.partial_cmp(&other.hash),
-        }
     }
 }
 
