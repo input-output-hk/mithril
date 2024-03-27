@@ -315,11 +315,60 @@
 <a href="#313" id="313">313</a>
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a>
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a>
+<a href="#361" id="361">361</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::BTreeMap;
 <span class="kw">use </span>std::collections::BTreeSet;
 <span class="kw">use </span>std::fmt::Write <span class="kw">as _</span>;
 <span class="kw">use </span>std::fs;
+<span class="kw">use </span>std::fs::File;
 <span class="kw">use </span>std::path::Path;
+
+<span class="kw">use </span>serde_json;
 
 <span class="kw">pub type </span>ArtifactId = String;
 <span class="kw">pub type </span>FileContent = String;
@@ -346,11 +395,6 @@
 
 <span class="kw">impl </span>FakeAggregatorData {
     <span class="kw">pub fn </span>load_from_folder(folder: <span class="kw-2">&amp;</span>Path) -&gt; <span class="self">Self </span>{
-        <span class="kw">fn </span>extract_artifact_id(filename: <span class="kw-2">&amp;</span>str, prefix: <span class="kw-2">&amp;</span>str) -&gt; String {
-            <span class="kw">let </span>id_with_extension = filename.strip_prefix(prefix).unwrap();
-            id_with_extension.strip_suffix(<span class="string">".json"</span>).unwrap().to_string()
-        }
-
         <span class="kw">let </span><span class="kw-2">mut </span>data = FakeAggregatorData::default();
 
         <span class="kw">for </span>entry <span class="kw">in </span>list_json_files_in_folder(folder) {
@@ -366,41 +410,32 @@
                 <span class="string">"epoch-settings.json" </span>=&gt; {
                     data.epoch_settings = file_content;
                 }
-                <span class="string">"mithril-stake-distributions.json" </span>=&gt; {
+                <span class="string">"mithril-stake-distributions-list.json" </span>=&gt; {
                     data.msds_list = file_content;
                 }
-                <span class="string">"snapshots.json" </span>=&gt; {
+                <span class="string">"snapshots-list.json" </span>=&gt; {
                     data.snapshots_list = file_content;
                 }
-                <span class="string">"certificates.json" </span>=&gt; {
+                <span class="string">"certificates-list.json" </span>=&gt; {
                     data.certificates_list = file_content;
                 }
-                <span class="string">"ctx-snapshots.json" </span>=&gt; {
+                <span class="string">"ctx-snapshots-list.json" </span>=&gt; {
                     data.ctx_snapshots_list = file_content;
                 }
-                <span class="kw">_ if </span>filename.starts_with(<span class="string">"mithril-stake-distribution-"</span>) =&gt; {
-                    data.individual_msds.insert(
-                        extract_artifact_id(<span class="kw-2">&amp;</span>filename, <span class="string">"mithril-stake-distribution-"</span>),
-                        file_content,
-                    );
+                <span class="string">"mithril-stake-distributions.json" </span>=&gt; {
+                    data.individual_msds = <span class="self">Self</span>::read_artifacts_json_file(<span class="kw-2">&amp;</span>entry.path());
                 }
-                <span class="kw">_ if </span>filename.starts_with(<span class="string">"snapshot-"</span>) =&gt; {
-                    data.individual_snapshots
-                        .insert(extract_artifact_id(<span class="kw-2">&amp;</span>filename, <span class="string">"snapshot-"</span>), file_content);
+                <span class="string">"snapshots.json" </span>=&gt; {
+                    data.individual_snapshots = <span class="self">Self</span>::read_artifacts_json_file(<span class="kw-2">&amp;</span>entry.path());
                 }
-                <span class="kw">_ if </span>filename.starts_with(<span class="string">"certificate-"</span>) =&gt; {
-                    data.individual_certificates
-                        .insert(extract_artifact_id(<span class="kw-2">&amp;</span>filename, <span class="string">"certificate-"</span>), file_content);
+                <span class="string">"certificates.json" </span>=&gt; {
+                    data.individual_certificates = <span class="self">Self</span>::read_artifacts_json_file(<span class="kw-2">&amp;</span>entry.path());
                 }
-                <span class="kw">_ if </span>filename.starts_with(<span class="string">"ctx-snapshot-"</span>) =&gt; {
-                    data.individual_ctx_snapshots.insert(
-                        extract_artifact_id(<span class="kw-2">&amp;</span>filename, <span class="string">"ctx-snapshot-"</span>),
-                        file_content,
-                    );
+                <span class="string">"ctx-snapshots.json" </span>=&gt; {
+                    data.individual_ctx_snapshots = <span class="self">Self</span>::read_artifacts_json_file(<span class="kw-2">&amp;</span>entry.path());
                 }
-                <span class="kw">_ if </span>filename.starts_with(<span class="string">"ctx-proof-"</span>) =&gt; {
-                    data.ctx_proofs
-                        .insert(extract_artifact_id(<span class="kw-2">&amp;</span>filename, <span class="string">"ctx-proof-"</span>), file_content);
+                <span class="string">"ctx-proofs.json" </span>=&gt; {
+                    data.ctx_proofs = <span class="self">Self</span>::read_artifacts_json_file(<span class="kw-2">&amp;</span>entry.path());
                 }
                 <span class="comment">// unknown file
                 </span><span class="kw">_ </span>=&gt; {}
@@ -494,9 +529,30 @@
             </span>)
         )
     }
+
+    <span class="kw">fn </span>read_artifacts_json_file(json_file: <span class="kw-2">&amp;</span>Path) -&gt; BTreeMap&lt;ArtifactId, FileContent&gt; {
+        <span class="kw">let </span>file = File::open(json_file).unwrap();
+        <span class="kw">let </span>parsed_json: serde_json::Value = serde_json::from_reader(<span class="kw-2">&amp;</span>file).unwrap();
+
+        <span class="kw">let </span>json_object = parsed_json.as_object().unwrap();
+        <span class="kw">let </span>res: <span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt; = json_object
+            .iter()
+            .map(|(key, value)| extract_artifact_id_and_content(key, value))
+            .collect();
+
+        BTreeMap::from_iter(res.unwrap())
+    }
 }
 
-<span class="kw">pub fn </span>list_json_files_in_folder(folder: <span class="kw-2">&amp;</span>Path) -&gt; <span class="kw">impl </span>Iterator&lt;Item = std::fs::DirEntry&gt; + <span class="lifetime">'_ </span>{
+<span class="kw">fn </span>extract_artifact_id_and_content(
+    key: <span class="kw-2">&amp;</span>String,
+    value: <span class="kw-2">&amp;</span>serde_json::Value,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(ArtifactId, FileContent), String&gt; {
+    <span class="kw">let </span>json_content = serde_json::to_string_pretty(value).map_err(|e| e.to_string())<span class="question-mark">?</span>;
+    <span class="prelude-val">Ok</span>((key.to_owned(), json_content))
+}
+
+<span class="kw">pub fn </span>list_json_files_in_folder(folder: <span class="kw-2">&amp;</span>Path) -&gt; <span class="kw">impl </span>Iterator&lt;Item = fs::DirEntry&gt; + <span class="lifetime">'_ </span>{
     <span class="kw">crate</span>::list_files_in_folder(folder)
         .filter(|e| e.file_name().to_string_lossy().ends_with(<span class="string">".json"</span>))
 }
@@ -570,6 +626,8 @@
 
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>tests {
+    <span class="kw">use </span><span class="kw">crate</span>::get_temp_dir;
+
     <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
     <span class="attr">#[test]
@@ -628,6 +686,40 @@ fn b() {}
                 <span class="bool-val">false
             </span>)
         )
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>parse_artifacts_json_into_btree_of_key_and_pretty_sub_json() {
+        <span class="kw">let </span>dir = get_temp_dir(<span class="string">"read_artifacts_json_file"</span>);
+        <span class="kw">let </span>file = dir.join(<span class="string">"test.json"</span>);
+        fs::write(
+            <span class="kw-2">&amp;</span>file,
+            <span class="string">r#"{
+    "hash1": { "name": "artifact1" },
+    "hash2": { "name": "artifact2" }
+}"#</span>,
+        )
+        .unwrap();
+
+        <span class="kw">let </span>id_per_json = FakeAggregatorData::read_artifacts_json_file(<span class="kw-2">&amp;</span>file);
+
+        <span class="kw">let </span>expected = BTreeMap::from([
+            (
+                <span class="string">"hash1"</span>.to_string(),
+                <span class="string">r#"{
+  "name": "artifact1"
+}"#
+                </span>.to_string(),
+            ),
+            (
+                <span class="string">"hash2"</span>.to_string(),
+                <span class="string">r#"{
+  "name": "artifact2"
+}"#
+                </span>.to_string(),
+            ),
+        ]);
+        <span class="macro">assert_eq!</span>(expected, id_per_json);
     }
 }
 </code></pre></div></section></main></body></html>
