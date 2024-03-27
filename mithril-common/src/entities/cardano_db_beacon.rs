@@ -9,6 +9,7 @@ use std::fmt::{Display, Formatter};
 /// produced.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash)]
 pub struct CardanoDbBeacon {
+    // todo: remove network (we only need it as metadata of the certificates)
     /// Cardano network
     pub network: String,
 

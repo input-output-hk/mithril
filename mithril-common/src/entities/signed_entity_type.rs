@@ -96,7 +96,6 @@ impl SignedEntityType {
         }
     }
 
-    //bbb// See if we can remove network from CardanoDbBeacon
     /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
     pub fn from_time_point(
         discriminant: &SignedEntityTypeDiscriminants,
