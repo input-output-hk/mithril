@@ -12,7 +12,7 @@ check_requirements() {
 display_help() {
     if [ -n "${1-""}" ]; then echo "ERROR: ${1}"; echo; fi
     echo "HELP"
-    echo $0
+    echo "$0"
     echo
     echo "Import and save data from a given Mithril Aggregator."
     echo
@@ -31,7 +31,7 @@ error() {
 
 clean_directory() {
     echo "Cleaning data directory…"
-    rm "$DATA_DIR/"*.json || true
+    rm "${DATA_DIR:?}/"*.json || true
 }
 
 # $1=URL $2=artifact_name $3=target_dir (default to $DATA_DIR)
@@ -57,16 +57,16 @@ download_artifacts() {
     echo -n "Downloading ${artifact} data: "
     tput sc;
 
-    for field in $(jq -r .[].${json_field} < $DATA_DIR/${artifact}s-list.json);
+    for field in $(jq -r ".[].${json_field}" < "$DATA_DIR/${artifact}s-list.json");
     do
         tput rc;
         download_data "${url}/${field}" "${field}" "$artifact_dir"
 
         if [ true = "$download_missing_certificate" ]; then
-            download_missing_certificate $(jq -r ".certificate_hash" "$DATA_DIR/${artifact}/${field}.json");
+            download_missing_certificate "$(jq -r ".certificate_hash" "$DATA_DIR/${artifact}/${field}.json")";
         fi
 
-        let "nb=nb+1"
+        ((nb=nb+1))
         echo -n "$nb   "
     done
     echo " ✅";
@@ -83,13 +83,14 @@ download_missing_certificate() {
 }
 
 download_certificate_chain() {
-    local parent_hash=$(jq -r .[0].hash $DATA_DIR/certificates-list.json);
+    local parent_hash="";
     local certificate_hash;
     local -i nb=0
 
     echo -n "Downloading certificate chain: "
     tput sc;
 
+    parent_hash=$(jq -r ".[0].hash" "$DATA_DIR/certificates-list.json");
     until [ -z "$parent_hash" ];
     do
         tput rc;
@@ -97,7 +98,8 @@ download_certificate_chain() {
         certificate_hash=$parent_hash;
         download_data "${BASE_URL}/certificate/${certificate_hash}" "${certificate_hash}" "$DATA_DIR/certificate"
         parent_hash=$(jq -r .previous_hash "$DATA_DIR/certificate/${certificate_hash}.json");
-        let "nb=nb+1"
+
+        ((nb=nb+1))
         echo -n "$nb   "
     done
     echo " ✅";
@@ -105,7 +107,7 @@ download_certificate_chain() {
 
 # $@=list of transactions_hashes
 download_ctx_proof() {
-    local -r ctx_hashes=${@:?"No cardano transaction hashes given to download_ctx_proof function."};
+    local -r ctx_hashes=${*:?"No cardano transaction hashes given to download_ctx_proof function."};
     local -i nb=0
     local -r artifact_dir="$DATA_DIR/ctx-proof"
 
@@ -118,9 +120,9 @@ download_ctx_proof() {
     do
         tput rc;
         download_data "${BASE_URL}/proof/cardano-transaction?transaction_hashes=${cardano_transaction_hash}" "${cardano_transaction_hash}" "${artifact_dir}"
-        download_missing_certificate $(jq -r ".certificate_hash" "$DATA_DIR/ctx-proof/${cardano_transaction_hash}.json");
+        download_missing_certificate "$(jq -r ".certificate_hash" "$DATA_DIR/ctx-proof/${cardano_transaction_hash}.json")";
 
-        let "nb=nb+1"
+        ((nb=nb+1))
         echo -n "$nb   "
     done
     echo " ✅";
@@ -128,28 +130,28 @@ download_ctx_proof() {
 
 # $@=list of transactions_hashes
 write_ctx_proof_hashes_list() {
-    local -r ctx_hashes=${@:?"No cardano transaction hashes given to write_ctx_proof_hashes_list function."};
+    local -r ctx_hashes=${*:?"No cardano transaction hashes given to write_ctx_proof_hashes_list function."};
     local -i nb=0
 
-    echo -n "Writting cardano transaction proof ids to a file: "
+    echo -n "Writing cardano transaction proof ids to a file: "
     tput sc;
 
-    echo "[" > $DATA_DIR/ctx-proofs-list.json
+    echo "[" > "$DATA_DIR/ctx-proofs-list.json"
 
     local separator=" "
     for cardano_transaction_hash in $ctx_hashes;
     do
         tput rc;
-        cat >> $DATA_DIR/ctx-proofs-list.json  <<EOF
+        cat >> "$DATA_DIR/ctx-proofs-list.json"  <<EOF
 $separator { "transaction_hash": "$cardano_transaction_hash" }
 EOF
 
     separator=","
 
-        let "nb=nb+1"
+        ((nb=nb+1))
         echo -n "$nb   "
     done
-    echo "]" >> $DATA_DIR/ctx-proofs-list.json
+    echo "]" >> "$DATA_DIR/ctx-proofs-list.json"
 
     echo " ✅";
 }
@@ -165,10 +167,10 @@ join_artifacts_files() {
 
     echo "Joining ${name} artifacts into ${dest} …"
 
+    local key=""
     buffer+="{"
     for filename in "$src/"*; do
-        local key=$(basename "${filename%.*}")
-
+        key=$(basename "${filename%.*}")
         buffer+=$(echo "$separator\"$key\": " | cat - "$filename")
         separator=","
     done
@@ -187,16 +189,16 @@ declare -r DATA_DIR=$1;
 shift
 declare -r BASE_URL=$1;
 shift
-declare -r CARDANO_TRANSACTIONS_HASHES=$@;
+declare -r CARDANO_TRANSACTIONS_HASHES=$*;
 
 echo "-- MITHRIL AGGREGATOR FAKE - DATA IMPORTER --"
-echo "data_dir:" $DATA_DIR
-echo "base_url:" $BASE_URL
-echo "tx_hashes:" $CARDANO_TRANSACTIONS_HASHES
+echo "data_dir:" "$DATA_DIR"
+echo "base_url:" "$BASE_URL"
+echo "tx_hashes:" "$CARDANO_TRANSACTIONS_HASHES"
 echo
 
 if [ ! -d "$DATA_DIR" ]; then error "Specified directory '${DATA_DIR}' is not a directory."; fi
-wget --quiet --server-response --spider $BASE_URL 2>/dev/null || error "Could not reach URL '${BASE_URL}'.";
+wget --quiet --server-response --spider "$BASE_URL" 2>/dev/null || error "Could not reach URL '${BASE_URL}'.";
 
 export DATA_DIR URL;
 
@@ -220,8 +222,8 @@ download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-snapshots-list"
 download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-snapshot" "hash"
 
 if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
-    download_ctx_proof $CARDANO_TRANSACTIONS_HASHES
-    write_ctx_proof_hashes_list $CARDANO_TRANSACTIONS_HASHES
+    download_ctx_proof "$CARDANO_TRANSACTIONS_HASHES"
+    write_ctx_proof_hashes_list "$CARDANO_TRANSACTIONS_HASHES"
     join_artifacts_files "ctx-proof"
 fi
 
