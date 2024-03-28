@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificateMetadataMessagePart {
     /// Cardano network
+    /// part of METADATA(p,n)
     pub network: String,
 
     /// Protocol Version (semver)

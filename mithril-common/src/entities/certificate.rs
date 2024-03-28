@@ -17,7 +17,7 @@ pub enum CertificateSignature {
     GenesisSignature(ProtocolGenesisSignature),
 
     /// STM multi signature created from a quorum of single signatures from the signers
-    /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
+    /// aka (BEACON(p,n), MULTI_SIG(H(MSG(p,n) || AVK(n-1))))
     MultiSignature(SignedEntityType, ProtocolMultiSignature),
 }
 

@@ -32,10 +32,10 @@ pub struct CertificateMessage {
     pub epoch: Epoch,
 
     /// The signed entity type of the message.
+    /// aka BEACON(p,n)
     pub signed_entity_type: SignedEntityType,
 
     /// Mithril beacon on the Cardano chain
-    /// aka BEACON(p,n)
     #[deprecated(since = "0.3.21", note = "use epoch and/or signed_entity_type instead")]
     pub beacon: CardanoDbBeacon,
 
