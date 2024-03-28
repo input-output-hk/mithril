@@ -486,13 +486,12 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::TimePoint;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{
-            CardanoDbBeacon, CertificatePending, ProtocolMessage, SignedEntityType, Signer,
-            StakeDistribution,
+            CertificatePending, ProtocolMessage, SignedEntityType, Signer, StakeDistribution,
+            TimePoint,
         },
         signable_builder::SignableBuilderService,
         test_utils::{fake_data, MithrilFixtureBuilder},
@@ -547,11 +546,7 @@ pub mod tests {
             .shall_return(Some(expected.immutable_file_number))
             .await;
         let time_point_provider = Arc::new(TimePointProviderImpl::new(
-            Arc::new(FakeObserver::new(Some(CardanoDbBeacon::new(
-                "private",
-                *expected.epoch,
-                expected.immutable_file_number,
-            )))),
+            Arc::new(FakeObserver::new(Some(expected.clone()))),
             immutable_file_observer,
         ));
         dependencies.time_point_provider = time_point_provider;

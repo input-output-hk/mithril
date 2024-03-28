@@ -133,13 +133,16 @@ impl Runner for SignerRunner {
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
         debug!("RUNNER: get_current_time_point");
 
-        let beacon = self
+        let time_point = self
             .services
             .time_point_provider
             .get_current_time_point()
             .await
-            .with_context(|| "Runner can not get current beacon")?;
-        Ok(TimePoint::new(*beacon.epoch, beacon.immutable_file_number))
+            .with_context(|| "Runner can not get current time point")?;
+        Ok(TimePoint::new(
+            *time_point.epoch,
+            time_point.immutable_file_number,
+        ))
     }
 
     async fn register_signer_to_aggregator(
@@ -497,10 +500,10 @@ mod tests {
     const DIGESTER_RESULT: &str = "a digest";
 
     mock! {
-        pub FakeBeaconProvider { }
+        pub FakeTimePointProvider { }
 
         #[async_trait]
-        impl TimePointProvider for FakeBeaconProvider {
+        impl TimePointProvider for FakeTimePointProvider {
             async fn get_current_time_point(&self) -> StdResult<TimePoint>;
         }
     }
@@ -611,10 +614,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_beacon() {
+    async fn test_get_current_time_point() {
         let mut services = init_services().await;
         let expected = TimePoint::dummy();
-        let mut time_point_provider = MockFakeBeaconProvider::new();
+        let mut time_point_provider = MockFakeTimePointProvider::new();
         time_point_provider
             .expect_get_current_time_point()
             .once()
@@ -627,7 +630,7 @@ mod tests {
             runner
                 .get_current_time_point()
                 .await
-                .expect("Get current beacon should not fail.")
+                .expect("Get current time point should not fail.")
         );
     }
 
@@ -689,7 +692,7 @@ mod tests {
             .unwrap();
         let runner = init_runner(Some(services), None).await;
         let epoch = chain_observer
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .clone()
@@ -789,7 +792,7 @@ mod tests {
             .time_point_provider
             .get_current_time_point()
             .await
-            .expect("get_current_beacon should not fail");
+            .expect("get_current_time_point should not fail");
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
             "whatever",
             *current_time_point.epoch,
@@ -838,11 +841,11 @@ mod tests {
     #[tokio::test]
     async fn test_compute_single_signature() {
         let mut services = init_services().await;
-        let current_beacon = services
+        let current_time_point = services
             .time_point_provider
             .get_current_time_point()
             .await
-            .expect("get_current_beacon should not fail");
+            .expect("get_current_time_point should not fail");
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
@@ -853,7 +856,7 @@ mod tests {
         services
             .protocol_initializer_store
             .save_protocol_initializer(
-                current_beacon
+                current_time_point
                     .epoch
                     .offset_to_signer_retrieval_epoch()
                     .expect("offset_to_signer_retrieval_epoch should not fail"),
@@ -879,7 +882,7 @@ mod tests {
 
         let runner = init_runner(Some(services), None).await;
         let single_signature = runner
-            .compute_single_signature(current_beacon.epoch, &message, &signers)
+            .compute_single_signature(current_time_point.epoch, &message, &signers)
             .await
             .expect("compute_message should not fail");
         assert_eq!(expected, single_signature);

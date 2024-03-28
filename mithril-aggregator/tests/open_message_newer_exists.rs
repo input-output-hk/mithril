@@ -4,7 +4,7 @@ use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
         CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, StakeDistributionParty,
+        SignedEntityTypeDiscriminants, StakeDistributionParty, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -22,11 +22,7 @@ async fn open_message_newer_exists() {
         data_stores_directory: get_test_dir("open_message_newer_exists"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(
-        CardanoDbBeacon::new("devnet".to_string(), 1, 1),
-        configuration,
-    )
-    .await;
+    let mut tester = RuntimeTester::build(TimePoint::new(1, 1), configuration).await;
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()

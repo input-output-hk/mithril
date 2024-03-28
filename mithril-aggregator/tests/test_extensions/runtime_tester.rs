@@ -6,19 +6,19 @@ use mithril_aggregator::{
     Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
-use mithril_common::StdResult;
 use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
-        CardanoDbBeacon, Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
-        SignedEntityTypeDiscriminants, Snapshot, StakeDistribution,
+        Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
+        SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
+    StdResult,
 };
 use slog::Drain;
 use slog_scope::debug;
@@ -79,14 +79,14 @@ fn build_logger() -> slog_scope::GlobalLoggerGuard {
 }
 
 impl RuntimeTester {
-    pub async fn build(start_beacon: CardanoDbBeacon, configuration: Configuration) -> Self {
+    pub async fn build(start_time_point: TimePoint, configuration: Configuration) -> Self {
         let logger = build_logger();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
-            .shall_return(Some(start_beacon.immutable_file_number))
+            .shall_return(Some(start_time_point.immutable_file_number))
             .await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(start_beacon)));
+        let chain_observer = Arc::new(FakeObserver::new(Some(start_time_point)));
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
@@ -235,7 +235,7 @@ impl RuntimeTester {
     pub async fn register_signers(&mut self, signers: &[SignerFixture]) -> StdResult<()> {
         let registration_epoch = self
             .chain_observer
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .as_ref()

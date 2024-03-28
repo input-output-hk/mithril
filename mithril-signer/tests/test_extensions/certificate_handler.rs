@@ -137,10 +137,9 @@ mod tests {
     async fn init() -> (Arc<FakeObserver>, FakeAggregator) {
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
+        let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
-            network: "devnet".to_string(),
         })));
         let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),

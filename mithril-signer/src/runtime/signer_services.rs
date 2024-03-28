@@ -351,13 +351,13 @@ mod tests {
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
-        entities::{CardanoDbBeacon, Epoch},
+        entities::{Epoch, TimePoint},
         era::adapters::EraReaderAdapterType,
+        test_utils::TempDir,
     };
 
     use super::*;
 
-    use mithril_common::test_utils::TempDir;
     use std::path::PathBuf;
 
     fn get_test_dir(test_name: &str) -> PathBuf {
@@ -393,10 +393,9 @@ mod tests {
         assert!(!stores_dir.exists());
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |_config| {
-                Ok(Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
+                Ok(Arc::new(FakeObserver::new(Some(TimePoint {
                     epoch: Epoch(1),
                     immutable_file_number: 1,
-                    network: "devnet".to_string(),
                 }))))
             };
         let immutable_file_observer_builder: fn(

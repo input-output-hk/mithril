@@ -10,7 +10,7 @@ use mithril_common::{
     cardano_transaction_parser::DumbTransactionParser,
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
-    entities::{CardanoDbBeacon, Epoch, SignerWithStake},
+    entities::{Epoch, SignerWithStake, TimePoint},
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -94,10 +94,9 @@ impl StateMachineTester {
 
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
+        let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
-            network: "devnet".to_string(),
         })));
         let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),
@@ -375,7 +374,7 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let epoch = self
             .chain_observer
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .as_ref()
