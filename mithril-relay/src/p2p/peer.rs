@@ -1,12 +1,12 @@
 #![allow(missing_docs)]
 use anyhow::{anyhow, Context};
 use libp2p::{
-    core::upgrade::Version,
+    core::{muxing::StreamMuxerBox, transport::dummy::DummyTransport},
     futures::StreamExt,
     gossipsub::{self, ValidationMode},
     noise, ping,
     swarm::{self, DialError, NetworkBehaviour},
-    tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
+    tls, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder,
 };
 use mithril_common::{
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
@@ -104,19 +104,21 @@ impl Peer {
     /// Start the peer
     pub async fn start(mut self) -> StdResult<Self> {
         debug!("Peer: starting...");
-        let mut swarm = libp2p::SwarmBuilder::with_new_identity()
+        let mut swarm = SwarmBuilder::with_new_identity()
             .with_tokio()
-            .with_other_transport(|key| {
-                let noise_config = noise::Config::new(key).unwrap();
-                let yamux_config = yamux::Config::default();
-                let base_transport =
-                    tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
-                base_transport
-                    .upgrade(Version::V1Lazy)
-                    .authenticate(noise_config)
-                    .multiplex(yamux_config)
-            })?
+            .with_tcp(
+                Default::default(),
+                (tls::Config::new, noise::Config::new),
+                yamux::Config::default,
+            )?
+            .with_quic()
+            .with_other_transport(|_key| DummyTransport::<(PeerId, StreamMuxerBox)>::new())?
             .with_dns()?
+            .with_websocket(
+                (tls::Config::new, noise::Config::new),
+                yamux::Config::default,
+            )
+            .await?
             .with_behaviour(|key| {
                 let gossipsub_config = gossipsub::ConfigBuilder::default()
                     .max_transmit_size(262144)
