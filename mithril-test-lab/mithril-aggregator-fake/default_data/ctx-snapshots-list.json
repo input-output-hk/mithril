@@ -1,123 +1,68 @@
 [
   {
-    "merkle_root": "c0a36e846527439ddc648664943d2d75191f3420cec34acb69682bf1bb5fc09e",
-    "beacon": {
-      "network": "devnet",
-      "epoch": 22,
-      "immutable_file_number": 5
-    },
-    "hash": "396b04d7aa989ca66b9548b3d6149f8e6ba960102897a93f8285e13ac70469b0",
-    "certificate_hash": "c1e96c01d12ff66d937dcf7dfdd3b6fd349dc914b93445d2112392f592a93f30",
-    "created_at": "2024-03-27T17:04:27.452956815Z"
-  },
-  {
-    "merkle_root": "c0a36e846527439ddc648664943d2d75191f3420cec34acb69682bf1bb5fc09e",
-    "beacon": {
-      "network": "devnet",
-      "epoch": 21,
-      "immutable_file_number": 5
-    },
-    "hash": "2b62f03f5a7328c8149fc20559a37da15a17e53505bd70c1a063ef5dc22744a6",
-    "certificate_hash": "88e0cdfb0704f5d75a5f7455c2893d13953e68ac3f87b47d40b7b50809255e80",
-    "created_at": "2024-03-27T17:04:25.089788014Z"
-  },
-  {
-    "merkle_root": "c0a36e846527439ddc648664943d2d75191f3420cec34acb69682bf1bb5fc09e",
-    "beacon": {
-      "network": "devnet",
-      "epoch": 20,
-      "immutable_file_number": 5
-    },
-    "hash": "04bd4d31cba9ff8b20b1b60a94198f350b33403177644ffd6f3f7cbaa4c3dbcb",
-    "certificate_hash": "1f7c0ec32a9fd7c42ad93d9a0cfa01b2dbcc545f110d56fd46ce9889515ca306",
-    "created_at": "2024-03-27T17:04:22.871264258Z"
-  },
-  {
-    "merkle_root": "c0a36e846527439ddc648664943d2d75191f3420cec34acb69682bf1bb5fc09e",
-    "beacon": {
-      "network": "devnet",
-      "epoch": 19,
-      "immutable_file_number": 4
-    },
-    "hash": "4b57a7b8ac28b34528bb6403bf3c8f89fe5306fb506b06ae0883e1acf6f6678b",
-    "certificate_hash": "ce95a3474299820315092aa5b27943daf64a9702a44bd31f66683b977b8200ef",
-    "created_at": "2024-03-27T17:04:20.211174412Z"
-  },
-  {
-    "merkle_root": "c0a36e846527439ddc648664943d2d75191f3420cec34acb69682bf1bb5fc09e",
+    "merkle_root": "c08b32476f9ad4b33c3fd3e9bb0fce8059e46a56d66bef1a7b5ccae84d99f40e",
     "beacon": {
       "network": "devnet",
       "epoch": 18,
       "immutable_file_number": 4
     },
-    "hash": "e2c379006ea0e87f5a86642aa4cedba7c1d8ae2ff04ea8b9ffddac25e041d6bb",
-    "certificate_hash": "8bbad2714b27bf732c7fdce6ffaa98eaa2b73b7c426c9ba5750e0bb61bb41f3d",
-    "created_at": "2024-03-27T17:04:17.875668924Z"
+    "hash": "4a6b4c30845a20ee6444043287daa4dbee57e58cec4549720ad1fb1f09f2f944",
+    "certificate_hash": "f270510cedec74d3111db7320ad8fb2819f869673e9b2987c70d5165779b0640",
+    "created_at": "2024-03-28T10:24:24.872276690Z"
   },
   {
-    "merkle_root": "c0a36e846527439ddc648664943d2d75191f3420cec34acb69682bf1bb5fc09e",
+    "merkle_root": "c08b32476f9ad4b33c3fd3e9bb0fce8059e46a56d66bef1a7b5ccae84d99f40e",
     "beacon": {
       "network": "devnet",
       "epoch": 17,
       "immutable_file_number": 4
     },
-    "hash": "3e973cc378b1a7b9d7881d0d05326df2902203a5d60430cfd024f930935a52d9",
-    "certificate_hash": "604fd965dae124815bba6f007f6f6eccbcde146fa74e57a2475d226ea97f5756",
-    "created_at": "2024-03-27T17:04:15.081702326Z"
+    "hash": "af3f8d0364665db785ae5906277dbfa021cdbcb8f35a7d8926dfcf2ea6744472",
+    "certificate_hash": "b2d89b19ccec1774ca8ab32bcec21de4193c91b62ba6ab06be66dc83a0d94aae",
+    "created_at": "2024-03-28T10:24:22.533308445Z"
   },
   {
-    "merkle_root": "b8d35f67aebea6bb7655d5634e91c8f6f1174158ddd8845ae1ecbe823d31d9cb",
+    "merkle_root": "eb0376c1a24da164d574aeabc491cd3d6dc5e4f43a1a3e4f327b6075d9a5e4c8",
     "beacon": {
       "network": "devnet",
       "epoch": 16,
       "immutable_file_number": 3
     },
-    "hash": "74ab492c6cf3553b11c31ecf75f0625437e2d74858ffc6f52053597b211bf070",
-    "certificate_hash": "7222dbae78bfa537682f27b385b2e8e3c0f219a48a8552ce8511cbeaf96a90c4",
-    "created_at": "2024-03-27T17:04:12.602875760Z"
+    "hash": "d2c6c9634915e8b720f4bbea64f4a15e2c9377bafb50769477fbfea09a2a1f45",
+    "certificate_hash": "c69d4b50881b8567b74178f535cb7915dce556d63bbda5ff704f7b2adf807cf3",
+    "created_at": "2024-03-28T10:24:20.042824023Z"
   },
   {
-    "merkle_root": "b8d35f67aebea6bb7655d5634e91c8f6f1174158ddd8845ae1ecbe823d31d9cb",
+    "merkle_root": "eb0376c1a24da164d574aeabc491cd3d6dc5e4f43a1a3e4f327b6075d9a5e4c8",
     "beacon": {
       "network": "devnet",
       "epoch": 15,
       "immutable_file_number": 3
     },
-    "hash": "bf206d0acb6b3fba6f1e2f0c5f31cbfa006f0afa26b00b3ae40ebea7e244a99f",
-    "certificate_hash": "2b503d8ffb3d16db479a73380fed897b617de278d3dcdf9f552ac73c028791fc",
-    "created_at": "2024-03-27T17:04:10.427999497Z"
+    "hash": "e2899b325d6e98bfb1de932098ef9b290bb85460374319c928257bd2bf45bd7a",
+    "certificate_hash": "e43ee379b96b2fd22f73a13ef225079d7b350b5f9a1a8664bfcd183a8e4302ae",
+    "created_at": "2024-03-28T10:24:17.707645786Z"
   },
   {
-    "merkle_root": "b8d35f67aebea6bb7655d5634e91c8f6f1174158ddd8845ae1ecbe823d31d9cb",
+    "merkle_root": "eb0376c1a24da164d574aeabc491cd3d6dc5e4f43a1a3e4f327b6075d9a5e4c8",
     "beacon": {
       "network": "devnet",
       "epoch": 14,
       "immutable_file_number": 3
     },
-    "hash": "8719da6e41d0fd65ae2e863695dc8bcff1ab0a4c60020c28efa1fcf9330add45",
-    "certificate_hash": "d08c3428ebaca83e2d1030b91d5262c724d04d97f6072bd6f1f90e7dc16904dd",
-    "created_at": "2024-03-27T17:04:08.241867793Z"
+    "hash": "af83a0407b2c876693a4d6f71d2d049a49ad1d32b79f127d9033063bb4014a77",
+    "certificate_hash": "a76bb13c95816956dc5287e5ab5a060323b900efa8c7572b44e4bac34f8490a4",
+    "created_at": "2024-03-28T10:24:15.226671180Z"
   },
   {
-    "merkle_root": "b8d35f67aebea6bb7655d5634e91c8f6f1174158ddd8845ae1ecbe823d31d9cb",
-    "beacon": {
-      "network": "devnet",
-      "epoch": 13,
-      "immutable_file_number": 3
-    },
-    "hash": "8d0637fc42db0c9abf4ffc5254af3d4003bf9fec81845af6ad2cd18004cdba48",
-    "certificate_hash": "83655892b154cd753f5509a7463de50e5d08f714613b5e004851ad4179ad0028",
-    "created_at": "2024-03-27T17:04:06.528060332Z"
-  },
-  {
-    "merkle_root": "fb07714790c05db8866f43e12a13bbec5d39b6656ca23350fd0cf4b6f2a49de6",
+    "merkle_root": "a739481a2446b8c8f86bac86ab5028a406db62d97bf082c39c2d0f0c6494b071",
     "beacon": {
       "network": "devnet",
       "epoch": 12,
       "immutable_file_number": 2
     },
-    "hash": "98cd92c5bdd58d3c3b7111acae6ee6556f2965b40876329464aaa6d3e4a3bfdb",
-    "certificate_hash": "bc68be2915800386d52d0759b7f90aff91ed97f168daabdc636d98ce26142f17",
-    "created_at": "2024-03-27T17:04:03.418968047Z"
+    "hash": "05d3f9b0942b79f93285e99bb3759489d1c1829d87758994f441b359d3de86f7",
+    "certificate_hash": "02ff567cb009a7c08f6322651f244e65c286a29005defc1812eecdf41cb48b1e",
+    "created_at": "2024-03-28T10:24:10.405376944Z"
   }
 ]
