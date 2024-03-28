@@ -384,7 +384,7 @@ impl CertifierService for MithrilCertifierService {
         let beacon = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(epoch)
             | SignedEntityType::CardanoStakeDistribution(epoch) => {
-                // Note: certificate should contains a signed entity instead of a beacon, this is
+                // Note: certificate should contain a signed entity instead of a beacon, this is
                 // a workaround to get what's missing even if it's not 100% accurate.
                 let beacon = self
                     .ticker_service

@@ -127,7 +127,7 @@ pub struct DependenciesBuilder {
     /// Chain observer service.
     pub chain_observer: Option<Arc<dyn ChainObserver>>,
 
-    /// Beacon provider service.
+    /// Time point provider service.
     pub time_point_provider: Option<Arc<dyn TimePointProvider>>,
 
     /// Cardano transactions repository.
@@ -187,7 +187,7 @@ pub struct DependenciesBuilder {
     /// Stake Distribution Service
     pub stake_distribution_service: Option<Arc<dyn StakeDistributionService>>,
 
-    /// Ticker Service (TODO: remove BeaconProvider)
+    /// Ticker Service (TODO: remove TimePointProvider)
     pub ticker_service: Option<Arc<dyn TickerService>>,
 
     /// Signer Store

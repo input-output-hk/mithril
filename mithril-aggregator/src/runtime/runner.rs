@@ -38,7 +38,7 @@ impl AggregatorConfig {
 /// It exposes all the methods needed by the state machine.
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
-    /// Return the current beacon from the chain
+    /// Return the current [TimePoint] from the chain
     async fn get_time_point_from_chain(&self) -> StdResult<TimePoint>;
 
     /// Retrieves the current open message for a given signed entity type.
@@ -47,10 +47,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>>;
 
-    /// Retrieves the current non certified open message.
+    /// Retrieves the current non-certified open message.
     async fn get_current_non_certified_open_message(
         &self,
-        current_beacon: &TimePoint,
+        current_time_point: &TimePoint,
     ) -> StdResult<Option<OpenMessage>>;
 
     /// Check if a certificate chain is valid.
@@ -142,7 +142,7 @@ impl AggregatorRunner {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
-    /// Return the current beacon from the chain
+    /// Return the current time point from the chain
     async fn get_time_point_from_chain(&self) -> StdResult<TimePoint> {
         debug!("RUNNER: get time point from chain");
         let time_point = self
@@ -320,11 +320,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             epoch_service
                 .current_protocol_parameters()
                 .with_context(|| {
-                    format!("no current protocol parameters found for beacon {time_point:?}")
+                    format!("no current protocol parameters found for time point {time_point:?}")
                 })?;
         let next_protocol_parameters =
             epoch_service.next_protocol_parameters().with_context(|| {
-                format!("no next protocol parameters found for beacon {time_point:?}")
+                format!("no next protocol parameters found for time point {time_point:?}")
             })?;
 
         let pending_certificate = CertificatePending::new(
@@ -552,7 +552,7 @@ pub mod tests {
         dependencies.time_point_provider = time_point_provider;
         let runner = AggregatorRunner::new(Arc::new(dependencies));
 
-        // Retrieves the expected beacon
+        // Retrieves the expected time point
         let res = runner.get_time_point_from_chain().await;
         assert_eq!(expected, res.unwrap());
     }
@@ -568,7 +568,7 @@ pub mod tests {
         ));
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(deps.clone());
-        let beacon = runner.get_time_point_from_chain().await.unwrap();
+        let time_point = runner.get_time_point_from_chain().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let expected = fixture.stake_distribution();
 
@@ -576,19 +576,19 @@ pub mod tests {
             .set_signers(fixture.signers_with_stake())
             .await;
         runner
-            .update_stake_distribution(&beacon)
+            .update_stake_distribution(&time_point)
             .await
             .expect("updating stake distribution should not return an error");
 
         let saved_stake_distribution = deps
             .stake_store
-            .get_stakes(beacon.epoch.offset_to_recording_epoch())
+            .get_stakes(time_point.epoch.offset_to_recording_epoch())
             .await
             .unwrap()
             .unwrap_or_else(|| {
                 panic!(
                     "I should have a stake distribution for the epoch {:?}",
-                    beacon.epoch
+                    time_point.epoch
                 )
             });
 

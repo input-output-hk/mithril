@@ -118,7 +118,7 @@ mod handlers {
         };
 
         let epoch_str = match time_point_provider.get_current_time_point().await {
-            Ok(beacon) => format!("{}", beacon.epoch),
+            Ok(time_point) => format!("{}", time_point.epoch),
             Err(e) => {
                 warn!("Could not read epoch to add in event: {e}");
                 String::new()

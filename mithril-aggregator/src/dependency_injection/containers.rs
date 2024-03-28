@@ -82,7 +82,7 @@ pub struct DependencyContainer {
     /// Chain observer service.
     pub chain_observer: Arc<dyn ChainObserver>,
 
-    /// Beacon provider service.
+    /// Time point provider service.
     pub time_point_provider: Arc<dyn TimePointProvider>,
 
     /// Cardano transactions store.
