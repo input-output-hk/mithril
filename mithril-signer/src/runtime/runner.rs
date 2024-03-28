@@ -696,7 +696,7 @@ mod tests {
             .read()
             .await
             .clone()
-            .expect("chain_observer should have a current_beacon")
+            .expect("chain_observer should have a current_time_point")
             .epoch;
 
         let pending_certificate = certificate_handler

@@ -494,7 +494,7 @@ mod tests {
             .returning(|| Ok(TimePoint::dummy()));
         let state_machine = init_state_machine(
             SignerState::Unregistered {
-                epoch: fake_data::beacon().epoch,
+                epoch: TimePoint::dummy().epoch,
             },
             runner,
         );
@@ -565,7 +565,7 @@ mod tests {
 
         let state_machine = init_state_machine(
             SignerState::Unregistered {
-                epoch: fake_data::beacon().epoch,
+                epoch: TimePoint::dummy().epoch,
             },
             runner,
         );
