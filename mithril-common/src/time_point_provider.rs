@@ -52,7 +52,7 @@ impl TimePointProvider for TimePointProviderImpl {
             .get_current_epoch()
             .await
             .map_err(|e| anyhow!(e))
-            .with_context(|| "Beacon Provider can not get current epoch")?
+            .with_context(|| "TimePoint Provider can not get current epoch")?
             .ok_or(TimePointProviderError::NoEpoch())?;
 
         let immutable_file_number = self
@@ -61,7 +61,7 @@ impl TimePointProvider for TimePointProviderImpl {
             .await
             .with_context(|| {
                 format!(
-                    "Beacon Provider can not get last immutable file number for epoch: '{epoch}'"
+                    "TimePoint Provider can not get last immutable file number for epoch: '{epoch}'"
                 )
             })?;
 
@@ -100,7 +100,7 @@ mod tests {
             &self,
         ) -> Result<Option<StakeDistribution>, ChainObserverError> {
             Err(ChainObserverError::General(anyhow!(
-                "this should not be called in the BeaconProvider"
+                "this should not be called in the TimePointProvider"
             )))
         }
     }
