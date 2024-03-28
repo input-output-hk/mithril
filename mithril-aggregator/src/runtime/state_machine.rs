@@ -188,13 +188,7 @@ impl AggregatorRuntime {
                         "AggregatorRuntime in the state READY can not get current time point from chain"
                     })?;
 
-                if last_time_point
-                    .compare_to_older(&state.current_time_point)
-                    .map_err(|e|
-                            RuntimeError::keep_state(
-                                &format!("TimePoint in the state ({:?}) is newer than the time point read on chain '{:?})", state.current_time_point, last_time_point), Some(e.into())))?
-                    .is_new_epoch()
-                {
+                if state.current_time_point.epoch < last_time_point.epoch {
                     // transition READY > IDLE
                     info!("→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
                     self.state = AggregatorState::Idle(IdleState {
@@ -203,7 +197,8 @@ impl AggregatorRuntime {
                 } else if let Some(open_message) = self
                     .runner
                     .get_current_non_certified_open_message(&last_time_point)
-                    .await.with_context(|| "AggregatorRuntime can not get the current open message")?
+                    .await
+                    .with_context(|| "AggregatorRuntime can not get the current open message")?
                 {
                     // transition READY > SIGNING
                     info!("→ transitioning to SIGNING");
