@@ -56,6 +56,7 @@ macro_rules! assert_last_certificate_eq {
 }
 
 pub struct RuntimeTester {
+    pub network: String,
     pub snapshot_uploader: Arc<DumbSnapshotUploader>,
     pub chain_observer: Arc<FakeObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
@@ -81,6 +82,7 @@ fn build_logger() -> slog_scope::GlobalLoggerGuard {
 impl RuntimeTester {
     pub async fn build(start_time_point: TimePoint, configuration: Configuration) -> Self {
         let logger = build_logger();
+        let network = configuration.network.clone();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
@@ -110,6 +112,7 @@ impl RuntimeTester {
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
 
         Self {
+            network,
             snapshot_uploader,
             chain_observer,
             immutable_file_observer,
@@ -182,8 +185,12 @@ impl RuntimeTester {
         &mut self,
         fixture: &MithrilFixture,
     ) -> StdResult<()> {
-        let beacon = self.observer.current_beacon().await;
-        let genesis_certificate = fixture.create_genesis_certificate(&beacon);
+        let time_point = self.observer.current_time_point().await;
+        let genesis_certificate = fixture.create_genesis_certificate(
+            &self.network,
+            time_point.epoch,
+            time_point.immutable_file_number,
+        );
         debug!("genesis_certificate: {:?}", genesis_certificate);
         self.dependencies
             .certificate_repository
@@ -204,7 +211,11 @@ impl RuntimeTester {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
         self.update_digester_digest().await;
 
-        let updated_number = self.observer.current_beacon().await.immutable_file_number;
+        let updated_number = self
+            .observer
+            .current_time_point()
+            .await
+            .immutable_file_number;
 
         if new_immutable_number == updated_number {
             Ok(new_immutable_number)
@@ -327,11 +338,11 @@ impl RuntimeTester {
         &mut self,
         new_stake_distribution: StakeDistribution,
     ) -> StdResult<MithrilFixture> {
-        let beacon = self.observer.current_beacon().await;
+        let epoch = self.observer.current_time_point().await.epoch;
         let protocol_parameters = self
             .dependencies
             .protocol_parameters_store
-            .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch())
+            .get_protocol_parameters(epoch.offset_to_recording_epoch())
             .await
             .with_context(|| "Querying the recording epoch protocol_parameters should not fail")?
             .ok_or(anyhow!(
@@ -355,12 +366,12 @@ impl RuntimeTester {
 
     /// Update the digester result using the current beacon
     pub async fn update_digester_digest(&mut self) {
-        let beacon = self.observer.current_beacon().await;
+        let time_point = self.observer.current_time_point().await;
 
         self.digester
             .update_digest(format!(
                 "n{}-e{}-i{}",
-                beacon.network, beacon.epoch, beacon.immutable_file_number
+                self.network, time_point.epoch, time_point.immutable_file_number
             ))
             .await;
     }

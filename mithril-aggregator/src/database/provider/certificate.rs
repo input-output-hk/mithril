@@ -98,6 +98,7 @@ impl CertificateRecord {
             )
         }
     }
+
     pub fn dummy_db_snapshot(
         id: &str,
         parent_id: &str,

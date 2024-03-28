@@ -506,7 +506,10 @@ mod tests {
     use super::*;
 
     impl MithrilCertifierService {
-        async fn from_deps(mut dependency_builder: DependenciesBuilder) -> Self {
+        async fn from_deps(
+            network: CardanoNetwork,
+            mut dependency_builder: DependenciesBuilder,
+        ) -> Self {
             let connection = dependency_builder.get_sqlite_connection().await.unwrap();
             let open_message_repository = Arc::new(OpenMessageRepository::new(connection.clone()));
             let single_signature_repository =
@@ -520,7 +523,7 @@ mod tests {
             let logger = dependency_builder.get_logger().await.unwrap();
 
             Self::new(
-                fake_data::network(),
+                network,
                 open_message_repository,
                 single_signature_repository,
                 certificate_repository,
@@ -535,7 +538,8 @@ mod tests {
     }
 
     /// Note: If current_epoch is provided the [EpochService] will be automatically initialized
-    async fn setup_certifier_service(
+    async fn setup_certifier_service_with_network(
+        network: CardanoNetwork,
         fixture: &MithrilFixture,
         epochs_with_signers: &[Epoch],
         current_epoch: Option<Epoch>,
@@ -557,7 +561,21 @@ mod tests {
             .init_state_from_fixture(fixture, epochs_with_signers)
             .await;
 
-        MithrilCertifierService::from_deps(dependency_builder).await
+        MithrilCertifierService::from_deps(network, dependency_builder).await
+    }
+
+    async fn setup_certifier_service(
+        fixture: &MithrilFixture,
+        epochs_with_signers: &[Epoch],
+        current_epoch: Option<Epoch>,
+    ) -> MithrilCertifierService {
+        setup_certifier_service_with_network(
+            fake_data::network(),
+            fixture,
+            epochs_with_signers,
+            current_epoch,
+        )
+        .await
     }
 
     #[tokio::test]
@@ -798,24 +816,27 @@ mod tests {
 
     #[tokio::test]
     async fn should_create_certificate_when_multi_signature_produced() {
-        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
+        let network = fake_data::network();
+        let beacon = CardanoDbBeacon::new(network.to_string(), 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let certifier_service =
-            setup_certifier_service(&fixture, &epochs_with_signers, Some(beacon.epoch)).await;
+        let certifier_service = setup_certifier_service_with_network(
+            network,
+            &fixture,
+            &epochs_with_signers,
+            Some(beacon.epoch),
+        )
+        .await;
 
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
             .await
             .unwrap();
 
-        let genesis_beacon = CardanoDbBeacon {
-            epoch: beacon.epoch - 1,
-            ..beacon.clone()
-        };
-        let genesis_certificate = fixture.create_genesis_certificate(&genesis_beacon);
+        let genesis_certificate =
+            fixture.create_genesis_certificate(network.to_string(), beacon.epoch - 1, 1);
         certifier_service
             .certificate_repository
             .create_certificate(genesis_certificate)

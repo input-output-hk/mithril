@@ -252,7 +252,9 @@ pub fn setup_certificate_chain(
                         .unwrap();
                     fake_certificate = CertificateGenesisProducer::create_genesis_certificate(
                         fake_certificate.metadata.protocol_parameters,
-                        beacon.clone(),
+                        beacon.network,
+                        beacon.epoch,
+                        beacon.immutable_file_number,
                         next_avk,
                         genesis_signature,
                     )

@@ -7,7 +7,7 @@ use mithril_common::{
         ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
         ProtocolGenesisVerifier,
     },
-    entities::{CardanoDbBeacon, ProtocolParameters, TimePoint},
+    entities::{ProtocolParameters, TimePoint},
     protocol::SignerBuilder,
     CardanoNetwork, StdResult, TimePointProvider,
 };
@@ -184,11 +184,9 @@ impl GenesisTools {
     ) -> StdResult<()> {
         let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
             self.protocol_parameters.clone(),
-            CardanoDbBeacon::new(
-                self.network.to_string(),
-                *self.time_point.epoch,
-                self.time_point.immutable_file_number,
-            ),
+            self.network.to_string(),
+            self.time_point.epoch,
+            self.time_point.immutable_file_number,
             self.genesis_avk.clone(),
             genesis_signature,
         )?;

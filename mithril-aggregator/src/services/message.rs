@@ -192,9 +192,10 @@ impl MessageService for MithrilMessageService {
 mod tests {
     use std::sync::Arc;
 
+    use mithril_common::entities::Certificate;
     use mithril_common::{
         entities::{
-            CardanoDbBeacon, CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntity,
+            CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, SignedEntity,
             SignedEntityType, Snapshot,
         },
         messages::ToMessageAdapter,
@@ -233,64 +234,47 @@ mod tests {
         // setup
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
+        let repository = dep_builder.get_certificate_repository().await.unwrap();
         let service = dep_builder.get_message_service().await.unwrap();
-        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let genesis_beacon = CardanoDbBeacon {
-            epoch: beacon.epoch - 1,
-            ..beacon.clone()
-        };
-        let genesis_certificate = fixture.create_genesis_certificate(&genesis_beacon);
-        dep_builder
-            .get_certificate_repository()
-            .await
-            .unwrap()
+        let genesis_certificate = fixture.create_genesis_certificate("whatever", Epoch(2), 1);
+        repository
             .create_certificate(genesis_certificate.clone())
             .await
             .unwrap();
 
         // test
-        let certficate_message = service
+        let certificate_message = service
             .get_certificate_message(&genesis_certificate.hash)
             .await
             .unwrap()
             .expect("There should be a certificate.");
-        assert_eq!(genesis_certificate.hash, certficate_message.hash);
+        assert_eq!(genesis_certificate.hash, certificate_message.hash);
     }
 
     #[tokio::test]
     async fn get_last_certificates() {
         let configuration = Configuration::new_sample();
         let mut dep_builder = DependenciesBuilder::new(configuration);
+        let repository = dep_builder.get_certificate_repository().await.unwrap();
         let service = dep_builder.get_message_service().await.unwrap();
-        let beacon = CardanoDbBeacon::new("devnet".to_string(), 3, 1);
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let genesis_beacon = CardanoDbBeacon {
-            epoch: beacon.epoch - 1,
-            ..beacon.clone()
-        };
-        let genesis_certificate = fixture.create_genesis_certificate(&genesis_beacon);
-        dep_builder
-            .get_certificate_repository()
-            .await
-            .unwrap()
-            .create_certificate(genesis_certificate.clone())
-            .await
-            .unwrap();
-        let genesis_certificate = fixture.create_genesis_certificate(&beacon);
-        dep_builder
-            .get_certificate_repository()
-            .await
-            .unwrap()
-            .create_certificate(genesis_certificate.clone())
+
+        let certificates: Vec<Certificate> = [2, 3]
+            .into_iter()
+            .map(|epoch| fixture.create_genesis_certificate("whatever", Epoch(epoch), 1))
+            .collect();
+        let last_certificate_hash = certificates[1].hash.clone();
+        repository
+            .create_many_certificates(certificates.clone())
             .await
             .unwrap();
 
         // test
-        let certficate_messages = service.get_certificate_list_message(5).await.unwrap();
+        let certificate_messages = service.get_certificate_list_message(5).await.unwrap();
 
-        assert_eq!(2, certficate_messages.len());
-        assert_eq!(genesis_certificate.hash, certficate_messages[0].hash);
+        assert_eq!(2, certificate_messages.len());
+        assert_eq!(last_certificate_hash, certificate_messages[0].hash);
     }
 
     #[tokio::test]
