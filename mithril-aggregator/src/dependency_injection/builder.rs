@@ -1323,6 +1323,9 @@ impl DependenciesBuilder {
 
     /// Create [CertifierService] service
     pub async fn build_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
+        let cardano_network = self.configuration.get_network().with_context(|| {
+            "Dependencies Builder can not get Cardano network while building the chain observer"
+        })?;
         let open_message_repository = self.get_open_message_repository().await?;
         let single_signature_repository = Arc::new(SingleSignatureRepository::new(
             self.get_sqlite_connection().await?,
@@ -1336,6 +1339,7 @@ impl DependenciesBuilder {
         let logger = self.get_logger().await?;
 
         Ok(Arc::new(MithrilCertifierService::new(
+            cardano_network,
             open_message_repository,
             single_signature_repository,
             certificate_repository,
