@@ -1,28 +1,29 @@
 use crate::{
     entities::OpenMessage,
     runtime::{AggregatorRunnerTrait, RuntimeError},
+    AggregatorConfig,
 };
 
 use anyhow::Context;
-use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
+use mithril_common::entities::{SignedEntityType, TimePoint};
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::sleep;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
-    current_beacon: Option<CardanoDbBeacon>,
+    current_time_point: Option<TimePoint>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReadyState {
-    current_beacon: CardanoDbBeacon,
+    current_time_point: TimePoint,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
-    current_beacon: CardanoDbBeacon,
+    current_time_point: TimePoint,
     open_message: OpenMessage,
 }
 
@@ -39,13 +40,13 @@ impl Display for AggregatorState {
             AggregatorState::Idle(state) => write!(
                 f,
                 "Idle - {}",
-                match &state.current_beacon {
-                    None => "No Beacon".to_string(),
-                    Some(b) => b.to_string(),
+                match &state.current_time_point {
+                    None => "No TimePoint".to_string(),
+                    Some(time_point) => time_point.to_string(),
                 }
             ),
-            AggregatorState::Ready(state) => write!(f, "Ready - {}", state.current_beacon),
-            AggregatorState::Signing(state) => write!(f, "Signing - {}", state.current_beacon),
+            AggregatorState::Ready(state) => write!(f, "Ready - {}", state.current_time_point),
+            AggregatorState::Signing(state) => write!(f, "Signing - {}", state.current_time_point),
         }
     }
 }
@@ -56,11 +57,11 @@ impl Display for AggregatorState {
 /// [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood)
 /// for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
+    /// Configuration
+    config: AggregatorConfig,
+
     /// the internal state of the automate
     state: AggregatorState,
-
-    /// time between each state machine execution
-    state_sleep: Duration,
 
     /// specific runner for this state machine
     runner: Arc<dyn AggregatorRunnerTrait>,
@@ -69,7 +70,7 @@ pub struct AggregatorRuntime {
 impl AggregatorRuntime {
     /// Create a new instance of the state machine.
     pub async fn new(
-        state_sleep: Duration,
+        aggregator_config: AggregatorConfig,
         init_state: Option<AggregatorState>,
         runner: Arc<dyn AggregatorRunnerTrait>,
     ) -> Result<Self, RuntimeError> {
@@ -79,14 +80,14 @@ impl AggregatorRuntime {
             trace!("got initial state from caller");
             init_state
         } else {
-            trace!("idle state, no current beacon");
+            trace!("idle state, no current time point");
             AggregatorState::Idle(IdleState {
-                current_beacon: None,
+                current_time_point: None,
             })
         };
 
-        Ok::<Self, RuntimeError>(Self {
-            state_sleep,
+        Ok(Self {
+            config: aggregator_config,
             state,
             runner,
         })
@@ -142,7 +143,7 @@ impl AggregatorRuntime {
                                 .unwrap_or("None".into())
                         );
                         self.state = AggregatorState::Idle(IdleState {
-                            current_beacon: None,
+                            current_time_point: None,
                         });
                     }
                 }
@@ -150,9 +151,9 @@ impl AggregatorRuntime {
 
             info!(
                 "… Cycle finished, Sleeping for {} ms",
-                self.state_sleep.as_millis()
+                self.config.interval.as_millis()
             );
-            sleep(self.state_sleep).await;
+            sleep(self.config.interval).await;
         }
     }
 
@@ -163,66 +164,63 @@ impl AggregatorRuntime {
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
-                let chain_beacon =
-                    self.runner.get_beacon_from_chain().await.with_context(|| {
-                        "AggregatorRuntime in the state IDLE can not get current beacon from chain"
-                    })?;
+                let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
+                    || "AggregatorRuntime in the state IDLE can not get current time point from chain",
+                )?;
 
-                info!(
-                    "→ new Beacon settings found, trying to transition to READY";
-                    "new_beacon" => ?chain_beacon
-                );
+                info!("→ trying to transition to READY"; "last_time_point" => ?last_time_point);
 
-                self.try_transition_from_idle_to_ready(state.current_beacon, chain_beacon.clone())
-                    .await?;
+                self.try_transition_from_idle_to_ready(
+                    state.current_time_point,
+                    last_time_point.clone(),
+                )
+                .await?;
                 self.state = AggregatorState::Ready(ReadyState {
-                    current_beacon: chain_beacon,
+                    current_time_point: last_time_point,
                 });
             }
             AggregatorState::Ready(state) => {
-                let chain_beacon: CardanoDbBeacon =
-                    self.runner.get_beacon_from_chain().await.with_context(|| {
-                        "AggregatorRuntime in the state READY can not get current beacon from chain"
+                let last_time_point: TimePoint = self
+                    .runner
+                    .get_time_point_from_chain()
+                    .await
+                    .with_context(|| {
+                        "AggregatorRuntime in the state READY can not get current time point from chain"
                     })?;
 
-                if chain_beacon
-                    .compare_to_older(&state.current_beacon)
-                    .map_err(|e|
-                            RuntimeError::keep_state(
-                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
-                    .is_new_epoch()
-                {
+                if state.current_time_point.epoch < last_time_point.epoch {
                     // transition READY > IDLE
-                    info!("→ Epoch has changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
+                    info!("→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
                     self.state = AggregatorState::Idle(IdleState {
-                        current_beacon: Some(state.current_beacon),
+                        current_time_point: Some(state.current_time_point),
                     });
                 } else if let Some(open_message) = self
                     .runner
-                    .get_current_non_certified_open_message(&chain_beacon)
-                    .await.with_context(|| "AggregatorRuntime can not get the current open message")?
+                    .get_current_non_certified_open_message(&last_time_point)
+                    .await
+                    .with_context(|| "AggregatorRuntime can not get the current open message")?
                 {
                     // transition READY > SIGNING
                     info!("→ transitioning to SIGNING");
                     let new_state = self
-                        .transition_from_ready_to_signing(chain_beacon.clone(), open_message.clone())
+                        .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
                         .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
                     self.state = AggregatorState::Signing(new_state);
                 } else {
                     // READY > READY
                     info!(
-                        " ⋅ a certificate already exists for this beacon, waiting…";
-                        "beacon" => ?state.current_beacon
+                        " ⋅ no open message to certify, waiting…";
+                        "time_point" => ?state.current_time_point
                     );
                     self.state = AggregatorState::Ready(ReadyState {
-                        current_beacon: chain_beacon,
+                        current_time_point: last_time_point,
                     });
                 }
             }
             AggregatorState::Signing(state) => {
-                let chain_beacon: CardanoDbBeacon =
-                    self.runner.get_beacon_from_chain().await.with_context(|| {
-                        "AggregatorRuntime in the state SIGNING can not get current beacon from chain"
+                let last_time_point: TimePoint =
+                    self.runner.get_time_point_from_chain().await.with_context(|| {
+                        "AggregatorRuntime in the state SIGNING can not get current time point from chain"
                     })?;
                 let current_open_message = self
                     .runner
@@ -236,14 +234,15 @@ impl AggregatorRuntime {
                     .map(|om| om.is_expired)
                     .unwrap_or(false);
                 let exists_newer_open_message = {
-                    let new_signed_entity_type = SignedEntityType::from_beacon(
+                    let new_signed_entity_type = SignedEntityType::from_time_point(
                         &state.open_message.signed_entity_type.clone().into(),
-                        &chain_beacon,
+                        &self.config.network.to_string(),
+                        &last_time_point,
                     );
                     new_signed_entity_type != state.open_message.signed_entity_type
                 };
 
-                if state.current_beacon.epoch < chain_beacon.epoch {
+                if state.current_time_point.epoch < last_time_point.epoch {
                     // SIGNING > IDLE
                     info!("→ Epoch changed, transitioning to IDLE");
                     let new_state = self.transition_from_signing_to_idle(state).await?;
@@ -272,29 +271,32 @@ impl AggregatorRuntime {
     /// the certificate chain is valid.
     async fn try_transition_from_idle_to_ready(
         &mut self,
-        maybe_current_beacon: Option<CardanoDbBeacon>,
-        new_beacon: CardanoDbBeacon,
+        maybe_current_time_point: Option<TimePoint>,
+        new_time_point: TimePoint,
     ) -> Result<(), RuntimeError> {
         trace!("trying transition from IDLE to READY state");
 
-        if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
+        if maybe_current_time_point.is_none()
+            || maybe_current_time_point.unwrap().epoch < new_time_point.epoch
         {
             self.runner.close_signer_registration_round().await?;
             self.runner
-                .update_era_checker(&new_beacon)
+                .update_era_checker(new_time_point.epoch)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.inform_new_epoch(new_beacon.epoch).await?;
-            self.runner.update_stake_distribution(&new_beacon).await?;
+            self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner
-                .open_signer_registration_round(&new_beacon)
+                .update_stake_distribution(&new_time_point)
+                .await?;
+            self.runner
+                .open_signer_registration_round(&new_time_point)
                 .await?;
             self.runner.update_protocol_parameters().await?;
             self.runner.precompute_epoch_data().await?;
         }
 
         self.runner
-            .is_certificate_chain_valid(&new_beacon)
+            .is_certificate_chain_valid(&new_time_point)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: "certificate chain is invalid".to_string(),
@@ -337,7 +339,7 @@ impl AggregatorRuntime {
             })?;
 
         Ok(ReadyState {
-            current_beacon: state.current_beacon,
+            current_time_point: state.current_time_point,
         })
     }
 
@@ -351,7 +353,7 @@ impl AggregatorRuntime {
         self.runner.drop_pending_certificate().await?;
 
         Ok(IdleState {
-            current_beacon: Some(state.current_beacon),
+            current_time_point: Some(state.current_time_point),
         })
     }
 
@@ -365,28 +367,31 @@ impl AggregatorRuntime {
         self.runner.drop_pending_certificate().await?;
 
         Ok(ReadyState {
-            current_beacon: state.current_beacon,
+            current_time_point: state.current_time_point,
         })
     }
 
     /// Perform a transition from `READY` state to `SIGNING` state when a new
-    /// beacon is detected.
+    /// open message is opened.
     async fn transition_from_ready_to_signing(
         &mut self,
-        new_beacon: CardanoDbBeacon,
+        new_time_point: TimePoint,
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
 
         let certificate_pending = self
             .runner
-            .create_new_pending_certificate(new_beacon.clone(), &open_message.signed_entity_type)
+            .create_new_pending_certificate(
+                new_time_point.clone(),
+                &open_message.signed_entity_type,
+            )
             .await?;
         self.runner
             .save_pending_certificate(certificate_pending.clone())
             .await?;
         let state = SigningState {
-            current_beacon: new_beacon,
+            current_time_point: new_time_point,
             open_message,
         };
 
@@ -399,6 +404,7 @@ mod tests {
     use crate::entities::OpenMessage;
     use anyhow::anyhow;
     use mockall::predicate;
+    use std::time::Duration;
 
     use mithril_common::entities::{Epoch, SignedEntityType};
     use mithril_common::test_utils::fake_data;
@@ -410,21 +416,25 @@ mod tests {
         init_state: Option<AggregatorState>,
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
-        AggregatorRuntime::new(Duration::from_millis(100), init_state, Arc::new(runner))
-            .await
-            .unwrap()
+        AggregatorRuntime::new(
+            AggregatorConfig::new(Duration::from_millis(20), fake_data::network()),
+            init_state,
+            Arc::new(runner),
+        )
+        .await
+        .unwrap()
     }
 
     #[tokio::test]
     pub async fn idle_check_certificate_chain_is_not_valid() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_update_stake_distribution()
-            .with(predicate::eq(fake_data::beacon()))
+            .with(predicate::eq(TimePoint::dummy()))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -441,12 +451,12 @@ mod tests {
             .returning(|_| Err(anyhow!("error")));
         runner
             .expect_update_era_checker()
-            .with(predicate::eq(fake_data::beacon()))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Ok(()));
         runner
             .expect_inform_new_epoch()
-            .with(predicate::eq(fake_data::beacon().epoch))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -460,19 +470,13 @@ mod tests {
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
-                current_beacon: None,
+                current_time_point: None,
             })),
             runner,
         )
         .await;
         let err = runtime.cycle().await.unwrap_err();
-        assert!(matches!(
-            err,
-            RuntimeError::KeepState {
-                message: _,
-                nested_error: _
-            }
-        ));
+        assert!(matches!(err, RuntimeError::KeepState { .. }));
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
@@ -481,12 +485,12 @@ mod tests {
     pub async fn idle_check_certificate_chain_is_valid() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_update_stake_distribution()
-            .with(predicate::eq(fake_data::beacon()))
+            .with(predicate::eq(TimePoint::dummy()))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -503,12 +507,12 @@ mod tests {
             .returning(|_| Ok(()));
         runner
             .expect_update_era_checker()
-            .with(predicate::eq(fake_data::beacon()))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Ok(()));
         runner
             .expect_inform_new_epoch()
-            .with(predicate::eq(fake_data::beacon().epoch))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Ok(()));
         runner
@@ -522,7 +526,7 @@ mod tests {
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
-                current_beacon: None,
+                current_time_point: None,
             })),
             runner,
         )
@@ -535,18 +539,18 @@ mod tests {
     #[tokio::test]
     pub async fn ready_new_epoch_detected() {
         let mut runner = MockAggregatorRunner::new();
-        let beacon = fake_data::beacon();
-        let new_beacon = CardanoDbBeacon {
-            epoch: beacon.epoch + 1,
-            ..beacon.clone()
+        let time_point = TimePoint::dummy();
+        let new_time_point = TimePoint {
+            epoch: time_point.epoch + 1,
+            ..time_point.clone()
         };
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(move || Ok(new_beacon.clone()));
+            .returning(move || Ok(new_time_point.clone()));
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
-                current_beacon: beacon,
+                current_time_point: time_point,
             })),
             runner,
         )
@@ -559,23 +563,23 @@ mod tests {
     #[tokio::test]
     pub async fn ready_open_message_not_exist() {
         let mut runner = MockAggregatorRunner::new();
-        let beacon = fake_data::beacon();
-        let next_beacon = CardanoDbBeacon {
-            immutable_file_number: beacon.immutable_file_number + 1,
-            ..beacon.clone()
+        let time_point = TimePoint::dummy();
+        let next_time_point = TimePoint {
+            immutable_file_number: time_point.immutable_file_number + 1,
+            ..time_point.clone()
         };
-        let expected_beacon = next_beacon.clone();
+        let expected_time_point = next_time_point.clone();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(move || Ok(next_beacon.clone()));
+            .returning(move || Ok(next_time_point.clone()));
         runner
             .expect_get_current_non_certified_open_message()
             .once()
             .returning(|_| Ok(None));
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
-                current_beacon: beacon.clone(),
+                current_time_point: time_point.clone(),
             })),
             runner,
         )
@@ -585,19 +589,19 @@ mod tests {
         assert_eq!("ready".to_string(), runtime.get_state());
         assert_eq!(
             AggregatorState::Ready(ReadyState {
-                current_beacon: expected_beacon,
+                current_time_point: expected_time_point,
             }),
             runtime.state
         );
     }
 
     #[tokio::test]
-    pub async fn ready_certificate_does_not_exist_for_beacon() {
+    pub async fn ready_certificate_does_not_exist_for_time_point() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_get_current_non_certified_open_message()
             .once()
@@ -619,7 +623,7 @@ mod tests {
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
-                current_beacon: fake_data::beacon(),
+                current_time_point: TimePoint::dummy(),
             })),
             runner,
         )
@@ -633,9 +637,9 @@ mod tests {
     async fn signing_changing_open_message_to_ready() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_get_current_open_message_for_signed_entity_type()
             .once()
@@ -651,7 +655,7 @@ mod tests {
             .returning(|| Ok(Some(fake_data::certificate_pending())));
 
         let state = SigningState {
-            current_beacon: fake_data::beacon(),
+            current_time_point: TimePoint::dummy(),
             open_message: OpenMessage {
                 signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(2)),
                 ..OpenMessage::dummy()
@@ -667,9 +671,9 @@ mod tests {
     async fn signing_certificate_is_not_created() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_get_current_open_message_for_signed_entity_type()
             .once()
@@ -679,7 +683,7 @@ mod tests {
             .once()
             .returning(|_| Ok(None));
         let state = SigningState {
-            current_beacon: fake_data::beacon(),
+            current_time_point: TimePoint::dummy(),
             open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
@@ -689,10 +693,7 @@ mod tests {
             .expect_err("cycle should have returned an error");
 
         match err {
-            RuntimeError::KeepState {
-                message: _,
-                nested_error: _,
-            } => (),
+            RuntimeError::KeepState { .. } => (),
             _ => panic!("KeepState error expected, got {err:?}."),
         };
 
@@ -703,9 +704,9 @@ mod tests {
     async fn signing_artifact_not_created() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_get_current_open_message_for_signed_entity_type()
             .once()
@@ -722,7 +723,7 @@ mod tests {
             .once()
             .returning(|_, _| Err(anyhow!("whatever")));
         let state = SigningState {
-            current_beacon: fake_data::beacon(),
+            current_time_point: TimePoint::dummy(),
             open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
@@ -732,10 +733,7 @@ mod tests {
             .expect_err("cycle should have returned an error");
 
         match err {
-            RuntimeError::ReInit {
-                message: _,
-                nested_error: _,
-            } => (),
+            RuntimeError::ReInit { .. } => (),
             _ => panic!("ReInit error expected, got {err:?}."),
         };
 
@@ -746,9 +744,9 @@ mod tests {
     async fn signing_certificate_is_created() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_get_current_open_message_for_signed_entity_type()
             .once()
@@ -766,7 +764,7 @@ mod tests {
             .returning(|_, _| Ok(()));
 
         let state = SigningState {
-            current_beacon: fake_data::beacon(),
+            current_time_point: TimePoint::dummy(),
             open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
@@ -779,12 +777,12 @@ mod tests {
     pub async fn critical_error() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_get_beacon_from_chain()
+            .expect_get_time_point_from_chain()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
+            .returning(|| Ok(TimePoint::dummy()));
         runner
             .expect_update_era_checker()
-            .with(predicate::eq(fake_data::beacon()))
+            .with(predicate::eq(TimePoint::dummy().epoch))
             .once()
             .returning(|_| Err(anyhow!("ERROR")));
         runner
@@ -794,7 +792,7 @@ mod tests {
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
-                current_beacon: None,
+                current_time_point: None,
             })),
             runner,
         )

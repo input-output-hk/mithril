@@ -13,10 +13,10 @@ pub struct FakeObserver {
     /// [get_current_stake_distribution]: ChainObserver::get_current_stake_distribution
     pub signers: RwLock<Vec<SignerWithStake>>,
 
-    /// A [CardanoDbBeacon], used by [get_current_epoch]
+    /// A [TimePoint], used by [get_current_epoch]
     ///
     /// [get_current_epoch]: ChainObserver::get_current_epoch
-    pub current_beacon: RwLock<Option<CardanoDbBeacon>>,
+    pub current_time_point: RwLock<Option<TimePoint>>,
 
     /// A list of [TxDatum], used by [get_current_datums]
     ///
@@ -26,33 +26,33 @@ pub struct FakeObserver {
 
 impl FakeObserver {
     /// FakeObserver factory
-    pub fn new(current_beacon: Option<CardanoDbBeacon>) -> Self {
+    pub fn new(current_time_point: Option<TimePoint>) -> Self {
         Self {
             signers: RwLock::new(vec![]),
-            current_beacon: RwLock::new(current_beacon),
+            current_time_point: RwLock::new(current_time_point),
             datums: RwLock::new(vec![]),
         }
     }
 
-    /// Increase by one the epoch of the [current_beacon][`FakeObserver::current_beacon`].
+    /// Increase by one the epoch of the [current_time_point][`FakeObserver::current_time_point`].
     pub async fn next_epoch(&self) -> Option<Epoch> {
-        let mut current_beacon = self.current_beacon.write().await;
-        *current_beacon = current_beacon.as_ref().map(|beacon| CardanoDbBeacon {
-            epoch: beacon.epoch + 1,
-            ..beacon.clone()
+        let mut current_time_point = self.current_time_point.write().await;
+        *current_time_point = current_time_point.as_ref().map(|time_point| TimePoint {
+            epoch: time_point.epoch + 1,
+            ..time_point.clone()
         });
 
-        current_beacon.as_ref().map(|b| b.epoch)
+        current_time_point.as_ref().map(|b| b.epoch)
     }
 
-    /// Set the signers that will used to compute the result of
+    /// Set the signers that will use to compute the result of
     /// [get_current_stake_distribution][ChainObserver::get_current_stake_distribution].
     pub async fn set_signers(&self, new_signers: Vec<SignerWithStake>) {
         let mut signers = self.signers.write().await;
         *signers = new_signers;
     }
 
-    /// Set the datums that will used to compute the result of
+    /// Set the datums that will use to compute the result of
     /// [get_current_datums][ChainObserver::get_current_datums].
     pub async fn set_datums(&self, new_datums: Vec<TxDatum>) {
         let mut datums = self.datums.write().await;
@@ -62,7 +62,7 @@ impl FakeObserver {
 
 impl Default for FakeObserver {
     fn default() -> Self {
-        let mut observer = Self::new(Some(fake_data::beacon()));
+        let mut observer = Self::new(Some(TimePoint::dummy()));
         observer.signers = RwLock::new(fake_data::signers_with_stakes(2));
 
         observer
@@ -81,11 +81,11 @@ impl ChainObserver for FakeObserver {
 
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         Ok(self
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .as_ref()
-            .map(|beacon| beacon.epoch))
+            .map(|time_point| time_point.epoch))
     }
 
     async fn get_current_stake_distribution(
@@ -117,11 +117,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_current_epoch() {
-        let beacon = fake_data::beacon();
-        let fake_observer = FakeObserver::new(Some(beacon.clone()));
+        let time_point = TimePoint::dummy();
+        let fake_observer = FakeObserver::new(Some(time_point.clone()));
         let current_epoch = fake_observer.get_current_epoch().await.unwrap();
 
-        assert_eq!(Some(beacon.epoch), current_epoch);
+        assert_eq!(Some(time_point.epoch), current_epoch);
     }
 
     #[tokio::test]

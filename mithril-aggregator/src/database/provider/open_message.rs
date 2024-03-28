@@ -103,16 +103,7 @@ impl SqLiteEntity for OpenMessageRecord {
         let epoch_setting_id = row.read::<i64, _>(1);
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
-
-        // TODO: We need to check first that the cell can be read as a string first
-        // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
-        // If it fails, we fallback on readign the cell as an integer (e.g. when beacon json is '5').
-        // Maybe there is a better way of doing this.
-        let beacon_str = match row.try_read::<&str, _>(2) {
-            Ok(value) => value.to_string(),
-            Err(_) => (row.read::<i64, _>(2)).to_string(),
-        };
-
+        let beacon_str = super::read_signed_entity_type_beacon_column(&row, 2);
         let signed_entity_type_id = usize::try_from(row.read::<i64, _>(3)).map_err(|e| {
             panic!(
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"

@@ -9,7 +9,7 @@ use crate::{
     VerificationKeyStorer,
 };
 
-use mithril_common::{api_version::APIVersionProvider, BeaconProvider};
+use mithril_common::{api_version::APIVersionProvider, TimePointProvider};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -49,11 +49,11 @@ pub fn with_event_transmitter(
     warp::any().map(move || dependency_manager.event_transmitter.clone())
 }
 
-/// With round_opener middleware
-pub fn with_beacon_provider(
+/// With time point provider middleware
+pub fn with_time_point_provider(
     dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<dyn BeaconProvider>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.beacon_provider.clone())
+) -> impl Filter<Extract = (Arc<dyn TimePointProvider>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.time_point_provider.clone())
 }
 
 /// With certifier service middleware

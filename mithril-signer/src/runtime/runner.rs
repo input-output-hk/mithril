@@ -8,9 +8,8 @@ use mockall::automock;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage,
-    ProtocolMessagePartKey, ProtocolParameters, SignedEntityType, Signer, SignerWithStake,
-    SingleSignatures,
+    CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, ProtocolMessagePartKey,
+    ProtocolParameters, SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -28,8 +27,8 @@ pub trait Runner: Send + Sync {
     /// Fetch the current pending certificate if any.
     async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
-    /// Fetch the current beacon from the Cardano node.
-    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
+    /// Fetch the current time point from the Cardano node.
+    async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
@@ -131,14 +130,19 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon> {
-        debug!("RUNNER: get_current_epoch");
+    async fn get_current_time_point(&self) -> StdResult<TimePoint> {
+        debug!("RUNNER: get_current_time_point");
 
-        self.services
-            .beacon_provider
-            .get_current_beacon()
+        let time_point = self
+            .services
+            .time_point_provider
+            .get_current_time_point()
             .await
-            .with_context(|| "Runner can not get current beacon")
+            .with_context(|| "Runner can not get current time point")?;
+        Ok(TimePoint::new(
+            *time_point.epoch,
+            time_point.immutable_file_number,
+        ))
     }
 
     async fn register_signer_to_aggregator(
@@ -254,7 +258,6 @@ impl Runner for SignerRunner {
                 .protocol_initializer_store
                 .get_protocol_initializer(
                     pending_certificate
-                        .beacon
                         .epoch
                         .offset_to_signer_retrieval_epoch()?,
                 )
@@ -262,7 +265,7 @@ impl Runner for SignerRunner {
             {
                 debug!(
                     " > got protocol initializer for this epoch ({})",
-                    pending_certificate.beacon.epoch
+                    pending_certificate.epoch
                 );
 
                 if signer.verification_key == protocol_initializer.verification_key().into() {
@@ -274,7 +277,7 @@ impl Runner for SignerRunner {
             } else {
                 warn!(
                     " > NO protocol initializer found for this epoch ({})",
-                    pending_certificate.beacon.epoch
+                    pending_certificate.epoch
                 );
             }
         } else {
@@ -455,7 +458,7 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{CardanoTransaction, Epoch, StakeDistribution},
+        entities::{CardanoDbBeacon, CardanoTransaction, Epoch, StakeDistribution},
         era::{
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
@@ -466,7 +469,7 @@ mod tests {
             TransactionStore,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
-        BeaconProvider, BeaconProviderImpl, CardanoNetwork,
+        TimePointProvider, TimePointProviderImpl,
     };
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
@@ -497,11 +500,11 @@ mod tests {
     const DIGESTER_RESULT: &str = "a digest";
 
     mock! {
-        pub FakeBeaconProvider { }
+        pub FakeTimePointProvider { }
 
         #[async_trait]
-        impl BeaconProvider for FakeBeaconProvider {
-            async fn get_current_beacon(&self) -> StdResult<CardanoDbBeacon>;
+        impl TimePointProvider for FakeTimePointProvider {
+            async fn get_current_time_point(&self) -> StdResult<TimePoint>;
         }
     }
 
@@ -512,14 +515,19 @@ mod tests {
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
-        let beacon_provider = Arc::new(BeaconProviderImpl::new(
+        let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),
             Arc::new(DumbImmutableFileObserver::default()),
-            CardanoNetwork::TestNet(42),
         ));
         let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
+            .read_era_epoch_token(
+                time_point_provider
+                    .get_current_time_point()
+                    .await
+                    .unwrap()
+                    .epoch,
+            )
             .await
             .unwrap();
         let era_checker = Arc::new(EraChecker::new(
@@ -558,7 +566,7 @@ mod tests {
             chain_observer,
             digester,
             single_signer: Arc::new(MithrilSingleSigner::new(party_id)),
-            beacon_provider,
+            time_point_provider,
             protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
                 Box::new(adapter),
                 None,
@@ -606,23 +614,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_beacon() {
+    async fn test_get_current_time_point() {
         let mut services = init_services().await;
-        let expected = fake_data::beacon();
-        let mut beacon_provider = MockFakeBeaconProvider::new();
-        beacon_provider
-            .expect_get_current_beacon()
+        let expected = TimePoint::dummy();
+        let mut time_point_provider = MockFakeTimePointProvider::new();
+        time_point_provider
+            .expect_get_current_time_point()
             .once()
-            .returning(|| Ok(fake_data::beacon()));
-        services.beacon_provider = Arc::new(beacon_provider);
+            .returning(move || Ok(TimePoint::dummy()));
+        services.time_point_provider = Arc::new(time_point_provider);
         let runner = init_runner(Some(services), None).await;
 
         assert_eq!(
             expected,
             runner
-                .get_current_beacon()
+                .get_current_time_point()
                 .await
-                .expect("Get current beacon should not fail.")
+                .expect("Get current time point should not fail.")
         );
     }
 
@@ -666,8 +674,8 @@ mod tests {
         let chain_observer = Arc::new(FakeObserver::default());
         services.chain_observer = chain_observer.clone();
         let epoch = services
-            .beacon_provider
-            .get_current_beacon()
+            .time_point_provider
+            .get_current_time_point()
             .await
             .unwrap()
             .epoch
@@ -684,11 +692,11 @@ mod tests {
             .unwrap();
         let runner = init_runner(Some(services), None).await;
         let epoch = chain_observer
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .clone()
-            .expect("chain_observer should have a current_beacon")
+            .expect("chain_observer should have a current_time_point")
             .epoch;
 
         let pending_certificate = certificate_handler
@@ -718,7 +726,7 @@ mod tests {
     #[tokio::test]
     async fn test_can_i_sign() {
         let mut pending_certificate = fake_data::certificate_pending();
-        let epoch = pending_certificate.beacon.epoch;
+        let epoch = pending_certificate.epoch;
         let signer = &mut pending_certificate.signers[0];
         let mut services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();
@@ -780,13 +788,16 @@ mod tests {
     #[tokio::test]
     async fn test_compute_message() {
         let mut services = init_services().await;
-        let current_beacon = services
-            .beacon_provider
-            .get_current_beacon()
+        let current_time_point = services
+            .time_point_provider
+            .get_current_time_point()
             .await
-            .expect("get_current_beacon should not fail");
-        let signed_entity_type =
-            SignedEntityType::CardanoImmutableFilesFull(current_beacon.clone());
+            .expect("get_current_time_point should not fail");
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+            "whatever",
+            *current_time_point.epoch,
+            current_time_point.immutable_file_number,
+        ));
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
@@ -797,7 +808,9 @@ mod tests {
         services
             .protocol_initializer_store
             .save_protocol_initializer(
-                current_beacon.epoch.offset_to_next_signer_retrieval_epoch(),
+                current_time_point
+                    .epoch
+                    .offset_to_next_signer_retrieval_epoch(),
                 protocol_initializer.clone(),
             )
             .await
@@ -828,11 +841,11 @@ mod tests {
     #[tokio::test]
     async fn test_compute_single_signature() {
         let mut services = init_services().await;
-        let current_beacon = services
-            .beacon_provider
-            .get_current_beacon()
+        let current_time_point = services
+            .time_point_provider
+            .get_current_time_point()
             .await
-            .expect("get_current_beacon should not fail");
+            .expect("get_current_time_point should not fail");
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
@@ -843,7 +856,7 @@ mod tests {
         services
             .protocol_initializer_store
             .save_protocol_initializer(
-                current_beacon
+                current_time_point
                     .epoch
                     .offset_to_signer_retrieval_epoch()
                     .expect("offset_to_signer_retrieval_epoch should not fail"),
@@ -869,7 +882,7 @@ mod tests {
 
         let runner = init_runner(Some(services), None).await;
         let single_signature = runner
-            .compute_single_signature(current_beacon.epoch, &message, &signers)
+            .compute_single_signature(current_time_point.epoch, &message, &signers)
             .await
             .expect("compute_message should not fail");
         assert_eq!(expected, single_signature);
@@ -898,15 +911,15 @@ mod tests {
     #[tokio::test]
     async fn test_update_era_checker() {
         let services = init_services().await;
-        let beacon_provider = services.beacon_provider.clone();
+        let time_point_provider = services.time_point_provider.clone();
         let era_checker = services.era_checker.clone();
-        let mut beacon = beacon_provider.get_current_beacon().await.unwrap();
+        let mut time_point = time_point_provider.get_current_time_point().await.unwrap();
 
-        assert_eq!(beacon.epoch, era_checker.current_epoch());
+        assert_eq!(time_point.epoch, era_checker.current_epoch());
         let runner = init_runner(Some(services), None).await;
-        beacon.epoch += 1;
-        runner.update_era_checker(beacon.epoch).await.unwrap();
+        time_point.epoch += 1;
+        runner.update_era_checker(time_point.epoch).await.unwrap();
 
-        assert_eq!(beacon.epoch, era_checker.current_epoch());
+        assert_eq!(time_point.epoch, era_checker.current_epoch());
     }
 }

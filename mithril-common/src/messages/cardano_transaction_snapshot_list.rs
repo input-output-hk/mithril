@@ -46,14 +46,12 @@ impl CardanoTransactionSnapshotListItemMessage {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::fake_data;
-
     use super::*;
 
     fn golden_message() -> CardanoTransactionSnapshotListMessage {
         vec![CardanoTransactionSnapshotListItemMessage {
             merkle_root: "mkroot-123".to_string(),
-            beacon: fake_data::beacon(),
+            beacon: CardanoDbBeacon::new("testnet", 10, 100),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")

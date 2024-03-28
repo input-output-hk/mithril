@@ -13,8 +13,7 @@ use crate::{
 use super::ArtifactBuilder;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, Certificate, CompressionAlgorithm, ProtocolMessage,
-        ProtocolMessagePartKey, Snapshot,
+        CardanoDbBeacon, Certificate, CompressionAlgorithm, ProtocolMessagePartKey, Snapshot,
     },
     StdResult,
 };
@@ -55,16 +54,11 @@ impl CardanoImmutableFilesFullArtifactBuilder {
     async fn create_snapshot_archive(
         &self,
         beacon: &CardanoDbBeacon,
-        protocol_message: &ProtocolMessage,
+        snapshot_digest: &str,
     ) -> StdResult<OngoingSnapshot> {
         debug!("CardanoImmutableFilesFullArtifactBuilder: create snapshot archive");
 
         let snapshotter = self.snapshotter.clone();
-        let snapshot_digest = protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| {
-                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(beacon.clone())
-            })?;
         let snapshot_name = format!(
             "{}-e{}-i{}.{}.{}",
             beacon.network,
@@ -107,23 +101,16 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
     async fn create_snapshot(
         &self,
-        certificate: &Certificate,
+        beacon: CardanoDbBeacon,
         ongoing_snapshot: &OngoingSnapshot,
+        snapshot_digest: String,
         remote_locations: Vec<String>,
     ) -> StdResult<Snapshot> {
         debug!("CardanoImmutableFilesFullArtifactBuilder: create snapshot");
-        let snapshot_digest = certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| {
-                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(
-                    certificate.beacon.clone(),
-                )
-            })?
-            .to_owned();
+
         let snapshot = Snapshot::new(
             snapshot_digest,
-            certificate.beacon.to_owned(),
+            beacon,
             *ongoing_snapshot.get_file_size(),
             remote_locations,
             self.compression_algorithm,
@@ -141,8 +128,16 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
         beacon: CardanoDbBeacon,
         certificate: &Certificate,
     ) -> StdResult<Snapshot> {
+        let snapshot_digest = certificate
+            .protocol_message
+            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+            .ok_or_else(|| {
+                CardanoImmutableFilesFullArtifactError::MissingProtocolMessage(beacon.clone())
+            })?
+            .to_owned();
+
         let ongoing_snapshot = self
-            .create_snapshot_archive(&beacon, &certificate.protocol_message)
+            .create_snapshot_archive(&beacon, &snapshot_digest)
             .await
             .with_context(|| {
                 "Cardano Immutable Files Full Artifact Builder can not create snapshot archive"
@@ -155,7 +150,7 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
             })?;
 
         let snapshot = self
-            .create_snapshot(certificate, &ongoing_snapshot, locations)
+            .create_snapshot(beacon, &ongoing_snapshot, snapshot_digest, locations)
             .await?;
 
         Ok(snapshot)
@@ -194,7 +189,7 @@ mod tests {
                 CompressionAlgorithm::Zstandard,
             );
         let artifact = cardano_immutable_files_full_artifact_builder
-            .compute_artifact(beacon, &certificate)
+            .compute_artifact(beacon.clone(), &certificate)
             .await
             .unwrap();
         let last_ongoing_snapshot = dumb_snapshotter
@@ -208,7 +203,7 @@ mod tests {
             .expect("A snapshot should have been 'uploaded'")];
         let artifact_expected = Snapshot::new(
             snapshot_digest.to_owned(),
-            certificate.beacon.to_owned(),
+            beacon,
             *last_ongoing_snapshot.get_file_size(),
             remote_locations,
             CompressionAlgorithm::Zstandard,
@@ -245,11 +240,7 @@ mod tests {
     #[tokio::test]
     async fn snapshot_archive_name_after_beacon_values() {
         let beacon = CardanoDbBeacon::new("network".to_string(), 20, 145);
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "test+digest".to_string(),
-        );
+        let digest = "test+digest";
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
@@ -260,14 +251,14 @@ mod tests {
             );
 
         let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-            .create_snapshot_archive(&beacon, &message)
+            .create_snapshot_archive(&beacon, digest)
             .await
             .expect("create_snapshot_archive should not fail");
 
         assert_eq!(
             Path::new(&format!(
-                "{}-e{}-i{}.{}.tar.gz",
-                beacon.network, *beacon.epoch, beacon.immutable_file_number, "test+digest"
+                "{}-e{}-i{}.{digest}.tar.gz",
+                beacon.network, *beacon.epoch, beacon.immutable_file_number,
             )),
             ongoing_snapshot.get_file_path()
         );
@@ -275,12 +266,6 @@ mod tests {
 
     #[tokio::test]
     async fn snapshot_archive_name_after_compression_algorithm() {
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "test+digest".to_string(),
-        );
-
         let mut invalid_result: Vec<CompressionAlgorithm> = vec![];
 
         for algorithm in CompressionAlgorithm::list() {
@@ -293,7 +278,7 @@ mod tests {
                 );
 
             let ongoing_snapshot = cardano_immutable_files_full_artifact_builder
-                .create_snapshot_archive(&CardanoDbBeacon::default(), &message)
+                .create_snapshot_archive(&CardanoDbBeacon::default(), "test+digest")
                 .await
                 .expect("create_snapshot_archive should not fail");
             let file_name = ongoing_snapshot

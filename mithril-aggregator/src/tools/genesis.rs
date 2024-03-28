@@ -7,20 +7,23 @@ use mithril_common::{
         ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
         ProtocolGenesisVerifier,
     },
-    entities::{CardanoDbBeacon, ProtocolParameters},
+    entities::{CardanoDbBeacon, ProtocolParameters, TimePoint},
     protocol::SignerBuilder,
-    BeaconProvider, StdResult,
+    CardanoNetwork, StdResult, TimePointProvider,
 };
 
 use crate::database::provider::CertificateRepository;
 use crate::{ProtocolParametersStorer, VerificationKeyStorer};
 
 pub struct GenesisToolsDependency {
+    /// Cardano network
+    pub network: CardanoNetwork,
+
     /// Verification key store
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
-    /// Beacon provider service.
-    pub beacon_provider: Arc<dyn BeaconProvider>,
+    /// Time point provider service.
+    pub time_point_provider: Arc<dyn TimePointProvider>,
 
     /// Genesis signature verifier service.
     pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
@@ -37,7 +40,8 @@ pub struct GenesisToolsDependency {
 
 pub struct GenesisTools {
     protocol_parameters: ProtocolParameters,
-    beacon: CardanoDbBeacon,
+    network: CardanoNetwork,
+    time_point: TimePoint,
     genesis_avk: ProtocolAggregateVerificationKey,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
@@ -47,7 +51,8 @@ pub struct GenesisTools {
 impl GenesisTools {
     pub fn new(
         protocol_parameters: ProtocolParameters,
-        beacon: CardanoDbBeacon,
+        network: CardanoNetwork,
+        time_point: TimePoint,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
@@ -55,7 +60,8 @@ impl GenesisTools {
     ) -> Self {
         Self {
             protocol_parameters,
-            beacon,
+            network,
+            time_point,
             genesis_avk,
             genesis_verifier,
             certificate_verifier,
@@ -64,15 +70,15 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
-        let beacon_provider = dependencies.beacon_provider.clone();
-        let beacon = beacon_provider.get_current_beacon().await?;
+        let time_point_provider = dependencies.time_point_provider.clone();
+        let time_point = time_point_provider.get_current_time_point().await?;
 
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_repository = dependencies.certificate_repository.clone();
         let protocol_parameters_store = dependencies.protocol_parameters_store.clone();
 
-        let protocol_params_epoch = beacon.epoch.offset_to_signer_retrieval_epoch()?;
+        let protocol_params_epoch = time_point.epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_parameters = protocol_parameters_store
             .get_protocol_parameters(protocol_params_epoch)
             .await?
@@ -80,9 +86,9 @@ impl GenesisTools {
                 anyhow!("Missing protocol parameters for epoch {protocol_params_epoch}")
             })?;
 
-        let genesis_avk_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch();
+        let genesis_avk_epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
         let genesis_avk_protocol_parameters = protocol_parameters_store
-            .get_protocol_parameters(beacon.epoch.offset_to_signer_retrieval_epoch()?)
+            .get_protocol_parameters(time_point.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;
         let genesis_signers = dependencies
@@ -100,7 +106,8 @@ impl GenesisTools {
 
         Ok(Self::new(
             protocol_parameters,
-            beacon,
+            dependencies.network,
+            time_point,
             genesis_avk,
             genesis_verifier,
             certificate_verifier,
@@ -177,7 +184,11 @@ impl GenesisTools {
     ) -> StdResult<()> {
         let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
             self.protocol_parameters.clone(),
-            self.beacon.clone(),
+            CardanoDbBeacon::new(
+                self.network.to_string(),
+                *self.time_point.epoch,
+                self.time_point.immutable_file_number,
+            ),
             self.genesis_avk.clone(),
             genesis_signature,
         )?;
@@ -243,7 +254,8 @@ mod tests {
         let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
         let genesis_tools = GenesisTools::new(
             fake_data::protocol_parameters(),
-            fake_data::beacon(),
+            fake_data::network(),
+            TimePoint::dummy(),
             genesis_avk,
             genesis_verifier.clone(),
             certificate_verifier.clone(),

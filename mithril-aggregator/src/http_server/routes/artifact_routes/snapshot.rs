@@ -228,7 +228,7 @@ mod tests {
         services::{MockMessageService, MockSignedEntityService},
     };
     use mithril_common::{
-        entities::{CardanoDbBeacon, SignedEntityType},
+        entities::{CardanoDbBeacon, SignedEntityType, Snapshot},
         messages::ToMessageAdapter,
         test_utils::{apispec::APISpec, fake_data},
     };
@@ -424,13 +424,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_local_download_returns_302_found_when_the_snapshot_exists() {
-        let signed_entity = create_signed_entities(
+        let network = "devnet";
+        let signed_entity = create_signed_entity(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
-            fake_data::snapshots(1),
-        )
-        .first()
-        .unwrap()
-        .to_owned();
+            Snapshot {
+                beacon: CardanoDbBeacon::new(network, 1, 10),
+                ..fake_data::snapshots(1)[0].clone()
+            },
+        );
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_signed_snapshot_by_id()
@@ -453,9 +454,8 @@ mod tests {
             .unwrap()
             .to_string();
         assert!(
-            location.contains(&format!("/{SERVER_BASE_PATH}/snapshot_download/testnet")),
-            "Expected value '/{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {}",
-            location
+            location.contains(&format!("/{SERVER_BASE_PATH}/snapshot_download/{network}")),
+            "Expected value '/{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {location}",
         );
     }
 

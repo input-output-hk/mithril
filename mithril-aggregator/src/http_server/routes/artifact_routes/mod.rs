@@ -8,6 +8,17 @@ pub mod test_utils {
     use mithril_common::entities::{SignedEntity, SignedEntityType};
     use mithril_common::signable_builder::Artifact;
 
+    pub fn create_signed_entity<T>(
+        signed_entity_type: SignedEntityType,
+        record: T,
+    ) -> SignedEntity<T>
+    where
+        T: Artifact,
+    {
+        let mut entities = create_signed_entities(signed_entity_type, vec![record]);
+        entities.pop().unwrap()
+    }
+
     pub fn create_signed_entities<T>(
         signed_entity_type: SignedEntityType,
         records: Vec<T>,

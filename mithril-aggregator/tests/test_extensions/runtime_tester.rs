@@ -6,19 +6,19 @@ use mithril_aggregator::{
     Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
-use mithril_common::StdResult;
 use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::ProtocolGenesisSigner,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
-        CardanoDbBeacon, Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
-        SignedEntityTypeDiscriminants, Snapshot, StakeDistribution,
+        Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
+        SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
         MithrilFixture, MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
     },
+    StdResult,
 };
 use slog::Drain;
 use slog_scope::debug;
@@ -79,14 +79,14 @@ fn build_logger() -> slog_scope::GlobalLoggerGuard {
 }
 
 impl RuntimeTester {
-    pub async fn build(start_beacon: CardanoDbBeacon, configuration: Configuration) -> Self {
+    pub async fn build(start_time_point: TimePoint, configuration: Configuration) -> Self {
         let logger = build_logger();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
-            .shall_return(Some(start_beacon.immutable_file_number))
+            .shall_return(Some(start_time_point.immutable_file_number))
             .await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(start_beacon)));
+        let chain_observer = Arc::new(FakeObserver::new(Some(start_time_point)));
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
@@ -199,7 +199,7 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// Increase the immutable file number of the beacon, returns the new number.
+    /// Increase the immutable file number of the simulated db, returns the new number.
     pub async fn increase_immutable_number(&mut self) -> StdResult<ImmutableFileNumber> {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
         self.update_digester_digest().await;
@@ -210,7 +210,7 @@ impl RuntimeTester {
             Ok(new_immutable_number)
         } else {
             Err(anyhow!(
-                "beacon_provider immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"))
+                "immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"))
         }
     }
 
@@ -235,7 +235,7 @@ impl RuntimeTester {
     pub async fn register_signers(&mut self, signers: &[SignerFixture]) -> StdResult<()> {
         let registration_epoch = self
             .chain_observer
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .as_ref()
@@ -412,8 +412,8 @@ impl RuntimeTester {
             .clone();
 
         let signed_entity = match &certificate.signature {
-            CertificateSignature::GenesisSignature(_) => None,
-            CertificateSignature::MultiSignature(_) => {
+            CertificateSignature::GenesisSignature(..) => None,
+            CertificateSignature::MultiSignature(..) => {
                 let record = self
                     .dependencies
                     .signed_entity_storer
@@ -437,7 +437,7 @@ impl RuntimeTester {
 
         let expected_certificate = match signed_entity_record {
             None if certificate.is_genesis() => ExpectedCertificate::new_genesis(
-                certificate.beacon,
+                certificate.as_cardano_db_beacon(),
                 certificate.aggregate_verification_key.try_into().unwrap(),
             ),
             None => {
@@ -449,7 +449,7 @@ impl RuntimeTester {
                     .await?;
 
                 ExpectedCertificate::new(
-                    certificate.beacon,
+                    certificate.as_cardano_db_beacon(),
                     certificate.metadata.signers.as_slice(),
                     certificate.aggregate_verification_key.try_into().unwrap(),
                     record.signed_entity_type,
@@ -486,7 +486,7 @@ impl RuntimeTester {
                         "A genesis certificate should exist with hash {}",
                         certificate_hash
                     ))?;
-                ExpectedCertificate::genesis_identifier(&genesis_certificate.beacon)
+                ExpectedCertificate::genesis_identifier(&genesis_certificate.as_cardano_db_beacon())
             }
         };
 

@@ -10,13 +10,13 @@ use mithril_common::{
     cardano_transaction_parser::DumbTransactionParser,
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
-    entities::{CardanoDbBeacon, Epoch, SignerWithStake},
+    entities::{Epoch, SignerWithStake, TimePoint},
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
-    BeaconProvider, BeaconProviderImpl, StdError,
+    StdError, TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
@@ -94,17 +94,18 @@ impl StateMachineTester {
 
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
+        let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
-            network: "devnet".to_string(),
         })));
-        let beacon_provider = Arc::new(BeaconProviderImpl::new(
+        let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),
             immutable_observer.clone(),
-            config.get_network().unwrap(),
         ));
-        let certificate_handler = Arc::new(FakeAggregator::new(beacon_provider.clone()));
+        let certificate_handler = Arc::new(FakeAggregator::new(
+            config.get_network().unwrap(),
+            time_point_provider.clone(),
+        ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
@@ -125,7 +126,13 @@ impl StateMachineTester {
         ]));
         let era_reader = Arc::new(EraReader::new(era_reader_adapter.clone()));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
+            .read_era_epoch_token(
+                time_point_provider
+                    .get_current_time_point()
+                    .await
+                    .unwrap()
+                    .epoch,
+            )
             .await
             .unwrap();
         let era_checker = Arc::new(EraChecker::new(
@@ -163,7 +170,7 @@ impl StateMachineTester {
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
-            beacon_provider: beacon_provider.clone(),
+            time_point_provider: time_point_provider.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),
             protocol_initializer_store: protocol_initializer_store.clone(),
@@ -367,7 +374,7 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let epoch = self
             .chain_observer
-            .current_beacon
+            .current_time_point
             .read()
             .await
             .as_ref()

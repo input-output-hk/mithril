@@ -1,10 +1,12 @@
 use crate::StdResult;
 use anyhow::anyhow;
+use digest::Update;
 use serde::{Deserialize, Serialize};
+use sha2::Sha256;
 use std::time::Duration;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
-use super::{CardanoDbBeacon, Epoch};
+use super::{CardanoDbBeacon, Epoch, TimePoint};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -45,6 +47,11 @@ impl SignedEntityType {
     /// Retrieve a dummy enty (for test only)
     pub fn dummy() -> Self {
         Self::MithrilStakeDistribution(Epoch(5))
+    }
+
+    /// Create a new signed entity type for a genesis certificate (a [Self::MithrilStakeDistribution])
+    pub fn genesis(epoch: Epoch) -> Self {
+        Self::MithrilStakeDistribution(epoch)
     }
 
     /// Return the epoch from the intern beacon.
@@ -90,22 +97,42 @@ impl SignedEntityType {
     }
 
     /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
-    pub fn from_beacon(
+    pub fn from_time_point(
         discriminant: &SignedEntityTypeDiscriminants,
-        beacon: &CardanoDbBeacon,
+        network: &str,
+        time_point: &TimePoint,
     ) -> Self {
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Self::MithrilStakeDistribution(beacon.epoch)
+                Self::MithrilStakeDistribution(time_point.epoch)
             }
             SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Self::CardanoStakeDistribution(beacon.epoch)
+                Self::CardanoStakeDistribution(time_point.epoch)
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                Self::CardanoImmutableFilesFull(beacon.to_owned())
+                Self::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                    network,
+                    *time_point.epoch,
+                    time_point.immutable_file_number,
+                ))
             }
-            SignedEntityTypeDiscriminants::CardanoTransactions => {
-                Self::CardanoTransactions(beacon.to_owned())
+            SignedEntityTypeDiscriminants::CardanoTransactions => Self::CardanoTransactions(
+                CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number),
+            ),
+        }
+    }
+
+    pub(crate) fn feed_hash(&self, hasher: &mut Sha256) {
+        match self {
+            SignedEntityType::MithrilStakeDistribution(epoch)
+            | SignedEntityType::CardanoStakeDistribution(epoch) => {
+                hasher.update(&epoch.to_be_bytes())
+            }
+            SignedEntityType::CardanoImmutableFilesFull(db_beacon)
+            | SignedEntityType::CardanoTransactions(db_beacon) => {
+                hasher.update(db_beacon.network.as_bytes());
+                hasher.update(&db_beacon.epoch.to_be_bytes());
+                hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
         }
     }

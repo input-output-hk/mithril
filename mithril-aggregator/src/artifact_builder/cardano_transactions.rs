@@ -71,13 +71,13 @@ mod tests {
             certificate
         };
 
+        let beacon = certificate.as_cardano_db_beacon();
         let cardano_transaction_artifact_builder = CardanoTransactionsArtifactBuilder::new();
         let artifact = cardano_transaction_artifact_builder
-            .compute_artifact(certificate.beacon.clone(), &certificate)
+            .compute_artifact(beacon.clone(), &certificate)
             .await
             .unwrap();
-        let artifact_expected =
-            CardanoTransactionsSnapshot::new("merkleroot".to_string(), certificate.beacon);
+        let artifact_expected = CardanoTransactionsSnapshot::new("merkleroot".to_string(), beacon);
         assert_eq!(artifact_expected, artifact);
     }
 

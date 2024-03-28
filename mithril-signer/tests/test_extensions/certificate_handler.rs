@@ -5,26 +5,28 @@ use async_trait::async_trait;
 use mithril_common::{
     entities::{
         CardanoDbBeacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer,
-        SingleSignatures,
+        SingleSignatures, TimePoint,
     },
     test_utils::fake_data,
-    BeaconProvider, BeaconProviderImpl,
+    CardanoNetwork, TimePointProvider, TimePointProviderImpl,
 };
 use mithril_signer::{AggregatorClient, AggregatorClientError};
 use tokio::sync::RwLock;
 
 pub struct FakeAggregator {
+    network: CardanoNetwork,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
-    beacon_provider: Arc<BeaconProviderImpl>,
+    time_point_provider: Arc<TimePointProviderImpl>,
     withhold_epoch_settings: RwLock<bool>,
 }
 
 impl FakeAggregator {
-    pub fn new(beacon_provider: Arc<BeaconProviderImpl>) -> Self {
+    pub fn new(network: CardanoNetwork, time_point_provider: Arc<TimePointProviderImpl>) -> Self {
         Self {
+            network,
             withhold_epoch_settings: RwLock::new(true),
             registered_signers: RwLock::new(HashMap::new()),
-            beacon_provider,
+            time_point_provider,
         }
     }
 
@@ -39,14 +41,14 @@ impl FakeAggregator {
         *settings = false;
     }
 
-    async fn get_beacon(&self) -> Result<CardanoDbBeacon, AggregatorClientError> {
-        let beacon = self
-            .beacon_provider
-            .get_current_beacon()
+    async fn get_time_point(&self) -> Result<TimePoint, AggregatorClientError> {
+        let time_point = self
+            .time_point_provider
+            .get_current_time_point()
             .await
             .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
 
-        Ok(beacon)
+        Ok(time_point)
     }
 }
 
@@ -58,7 +60,7 @@ impl AggregatorClient for FakeAggregator {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
-            let beacon = self.get_beacon().await?;
+            let beacon = self.get_time_point().await?;
             Ok(Some(EpochSettings {
                 epoch: beacon.epoch,
                 ..Default::default()
@@ -74,20 +76,25 @@ impl AggregatorClient for FakeAggregator {
         if store.is_empty() {
             return Ok(None);
         }
-        let beacon = self.get_beacon().await?;
+        let time_point = self.get_time_point().await?;
+        let beacon = CardanoDbBeacon::new(
+            self.network.to_string(),
+            *time_point.epoch,
+            time_point.immutable_file_number,
+        );
         let mut certificate_pending = CertificatePending {
-            beacon: beacon.clone(),
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+            epoch: time_point.epoch,
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
             ..fake_data::certificate_pending()
         };
 
         let store = self.registered_signers.read().await;
         certificate_pending.signers = store
-            .get(&beacon.epoch.offset_to_signer_retrieval_epoch().unwrap())
+            .get(&time_point.epoch.offset_to_signer_retrieval_epoch().unwrap())
             .cloned()
             .unwrap_or_default();
         certificate_pending.next_signers = store
-            .get(&beacon.epoch.offset_to_next_signer_retrieval_epoch())
+            .get(&time_point.epoch.offset_to_next_signer_retrieval_epoch())
             .cloned()
             .unwrap_or_default();
 
@@ -130,18 +137,19 @@ mod tests {
     async fn init() -> (Arc<FakeObserver>, FakeAggregator) {
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
+        let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
-            network: "devnet".to_string(),
         })));
-        let beacon_provider = Arc::new(BeaconProviderImpl::new(
+        let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),
             immutable_observer.clone(),
-            CardanoNetwork::DevNet(42),
         ));
 
-        (chain_observer, FakeAggregator::new(beacon_provider))
+        (
+            chain_observer,
+            FakeAggregator::new(CardanoNetwork::DevNet(42), time_point_provider),
+        )
     }
 
     #[tokio::test]
@@ -210,7 +218,7 @@ mod tests {
 
         assert_eq!(0, cert.signers.len());
         assert_eq!(0, cert.next_signers.len());
-        assert_eq!(1, cert.beacon.epoch);
+        assert_eq!(1, cert.epoch);
 
         let epoch = chain_observer.next_epoch().await.unwrap();
 
@@ -222,7 +230,7 @@ mod tests {
 
         assert_eq!(0, cert.signers.len());
         assert_eq!(3, cert.next_signers.len());
-        assert_eq!(2, cert.beacon.epoch);
+        assert_eq!(2, cert.epoch);
 
         for signer in fake_data::signers(2) {
             fake_aggregator
@@ -241,6 +249,6 @@ mod tests {
 
         assert_eq!(3, cert.signers.len());
         assert_eq!(2, cert.next_signers.len());
-        assert_eq!(3, cert.beacon.epoch);
+        assert_eq!(3, cert.epoch);
     }
 }
