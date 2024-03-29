@@ -639,7 +639,7 @@ CREATE TABLE IF NOT EXISTS "new_certificate" (
     network                     text     not null,
     immutable_file_number       integer  not null,
     signed_entity_type_id       integer  not null,
-    beacon                      json     not null,
+    signed_entity_beacon        json     not null,
     protocol_version            text     not null,
     protocol_parameters         json     not null,
     protocol_message            json     not null,
@@ -656,7 +656,7 @@ insert into new_certificate
         network,
         immutable_file_number,
         signed_entity_type_id,
-        beacon,
+        signed_entity_beacon,
         protocol_version, protocol_parameters, protocol_message,
         signers, initiated_at, sealed_at)
     select c.certificate_id, c.parent_certificate_id, c.message, c.signature, c.aggregate_verification_key,

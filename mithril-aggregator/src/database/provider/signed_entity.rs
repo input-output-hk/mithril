@@ -215,7 +215,7 @@ impl SqLiteEntity for SignedEntityRecord {
         let signed_entity_id = row.read::<&str, _>(0).to_string();
         let signed_entity_type_id_int = row.read::<i64, _>(1);
         let certificate_id = row.read::<&str, _>(2).to_string();
-        let beacon_str = super::read_signed_entity_type_beacon_column(&row, 3);
+        let beacon_str = super::read_signed_entity_beacon_column(&row, 3);
         let artifact_str = row.read::<&str, _>(4).to_string();
         let created_at = row.read::<&str, _>(5);
 

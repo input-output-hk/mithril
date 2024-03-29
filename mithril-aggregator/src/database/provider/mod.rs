@@ -23,7 +23,7 @@ pub use stake_pool::*;
 #[cfg(test)]
 pub use test_helper::*;
 
-pub(crate) fn read_signed_entity_type_beacon_column<U: sqlite::RowIndex + Clone>(
+pub(crate) fn read_signed_entity_beacon_column<U: sqlite::RowIndex + Clone>(
     row: &sqlite::Row,
     column_index: U,
 ) -> String {

@@ -322,7 +322,7 @@ impl SqLiteEntity for CertificateRecord {
         let network = row.read::<&str, _>(6).to_string();
         let immutable_file_number = row.read::<i64, _>(7);
         let signed_entity_type_id = row.read::<i64, _>(8);
-        let beacon_string = super::read_signed_entity_type_beacon_column(&row, 9);
+        let signed_entity_beacon_string = super::read_signed_entity_beacon_column(&row, 9);
         let protocol_version = row.read::<&str, _>(10).to_string();
         let protocol_parameters_string = row.read::<&str, _>(11);
         let protocol_message_string = row.read::<&str, _>(12);
@@ -353,7 +353,7 @@ impl SqLiteEntity for CertificateRecord {
                         "Could not cast i64 ({signed_entity_type_id}) to u64. Error: '{e}'"
                     ))
                 })?,
-                &beacon_string,
+                &signed_entity_beacon_string,
             )?,
             protocol_version,
             protocol_parameters: serde_json::from_str(protocol_parameters_string).map_err(
@@ -423,7 +423,11 @@ impl SqLiteEntity for CertificateRecord {
             "{:certificate:}.signed_entity_type_id",
             "integer",
         );
-        projection.add_field("beacon", "{:certificate:}.beacon", "text");
+        projection.add_field(
+            "signed_entity_beacon",
+            "{:certificate:}.signed_entity_beacon",
+            "text",
+        );
         projection.add_field(
             "protocol_version",
             "{:certificate:}.protocol_version",
@@ -543,7 +547,7 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
         network, \
         immutable_file_number, \
         signed_entity_type_id, \
-        beacon, \
+        signed_entity_beacon, \
         protocol_version, \
         protocol_parameters, \
         protocol_message, \
@@ -724,7 +728,7 @@ impl<'conn> DeleteCertificateProvider<'conn> {
         WhereCondition::where_in("certificate_id", ids_values)
     }
 
-    /// Delete the certificates with with the given ids.
+    /// Delete the certificates with the given ids.
     pub fn delete_by_ids(&self, ids: &[&str]) -> StdResult<EntityCursor<CertificateRecord>> {
         let filters = self.get_delete_by_ids_condition(ids);
 
@@ -981,7 +985,7 @@ mod tests {
             c.network as network, \
             c.immutable_file_number as immutable_file_number, \
             c.signed_entity_type_id as signed_entity_type_id, \
-            c.beacon as beacon, \
+            c.signed_entity_beacon as signed_entity_beacon, \
             c.protocol_version as protocol_version, \
             c.protocol_parameters as protocol_parameters, \
             c.protocol_message as protocol_message, \
@@ -1029,7 +1033,7 @@ mod tests {
         assert_eq!(
             "(certificate_id, parent_certificate_id, message, signature, \
             aggregate_verification_key, epoch, network, immutable_file_number, \
-            signed_entity_type_id, beacon, protocol_version, \
+            signed_entity_type_id, signed_entity_beacon, protocol_version, \
             protocol_parameters, protocol_message, \
             signers, initiated_at, sealed_at) \
             values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)"
@@ -1079,7 +1083,7 @@ mod tests {
         assert_eq!(
             "(certificate_id, parent_certificate_id, message, signature, \
             aggregate_verification_key, epoch, network, immutable_file_number, \
-            signed_entity_type_id, beacon, protocol_version, \
+            signed_entity_type_id, signed_entity_beacon, protocol_version, \
             protocol_parameters, protocol_message, signers, initiated_at, sealed_at) \
             values \
             (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16), \
