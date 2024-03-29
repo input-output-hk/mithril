@@ -9,7 +9,7 @@ use crate::era_deprecate;
 
 use super::{PartyId, Stake};
 
-/// This represents a stake holder.
+/// This represents a stakeholder.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StakeDistributionParty {
     /// Party identifier as in the stake distribution
@@ -44,7 +44,7 @@ impl StakeDistributionParty {
     }
 }
 
-era_deprecate!("Remove immutable file number as it's here only for message retrocompatibility");
+era_deprecate!("Remove immutable file number as it's here only for message backward-compatibility");
 /// CertificateMetadata represents the metadata associated to a Certificate
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct CertificateMetadata {
