@@ -11,10 +11,10 @@ use crate::{
         PROTOCOL_VERSION,
     },
     entities::{
-        CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
-        ProtocolMessagePartKey, ProtocolParameters,
+        Certificate, CertificateMetadata, CertificateSignature, Epoch, ImmutableFileNumber,
+        ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
     },
-    StdResult,
+    era_deprecate, StdResult,
 };
 
 /// [CertificateGenesisProducer] related errors.
@@ -62,10 +62,13 @@ impl CertificateGenesisProducer {
             .sign(genesis_protocol_message.compute_hash().as_bytes()))
     }
 
+    era_deprecate!("Remove immutable_file_number");
     /// Create a Genesis Certificate
-    pub fn create_genesis_certificate(
+    pub fn create_genesis_certificate<T: Into<String>>(
         protocol_parameters: ProtocolParameters,
-        beacon: CardanoDbBeacon,
+        network: T,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_signature: ProtocolGenesisSignature,
     ) -> StdResult<Certificate> {
@@ -74,6 +77,8 @@ impl CertificateGenesisProducer {
         let sealed_at = Utc::now();
         let signers = vec![];
         let metadata = CertificateMetadata::new(
+            network,
+            immutable_file_number,
             protocol_version,
             protocol_parameters,
             initiated_at,
@@ -84,7 +89,7 @@ impl CertificateGenesisProducer {
         let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
         Ok(Certificate::new(
             previous_hash,
-            beacon,
+            epoch,
             metadata,
             genesis_protocol_message,
             genesis_avk,

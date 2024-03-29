@@ -39,8 +39,12 @@ download_data() {
     local -r url=${1:?"No URL given to download_data function."};
     local -r artifact=${2:?"No artifact type given to download_data function."};
     local -r target_dir=${3:-$DATA_DIR}
+    local -r target_file="$target_dir/${artifact}.json"
 
-    wget -O - --quiet "${url}" | jq > "$target_dir/${artifact}.json";
+    if [ ! -e "$target_file" ]; then
+      mkdir -p "$target_dir"
+      wget -O - --quiet "${url}" | jq > "$target_file";
+    fi
 }
 
 # $1=URL $2=artifact_name $3=JSON field
@@ -51,8 +55,6 @@ download_artifacts() {
     local -r download_missing_certificate=${4:-false};
     local -i nb=0
     local -r artifact_dir="$DATA_DIR/${artifact}"
-
-    mkdir -p "$artifact_dir"
 
     echo -n "Downloading ${artifact} data: "
     tput sc;
@@ -76,10 +78,7 @@ download_artifacts() {
 # $1=certificate_hash
 download_missing_certificate() {
     local -r certificate_hash=${1:?"No certificate hashes given to download_missing_certificate function."};
-
-    if [ ! -e "$DATA_DIR/certificate/${certificate_hash}.json" ]; then
-        download_data "${BASE_URL}/certificate/${certificate_hash}" "${certificate_hash}" "$DATA_DIR/certificate"
-    fi
+    download_data "${BASE_URL}/certificate/${certificate_hash}" "${certificate_hash}" "$DATA_DIR/certificate"
 }
 
 download_certificate_chain() {
@@ -204,10 +203,6 @@ clean_directory;
 echo "Downloading epoch-settings"
 download_data "$BASE_URL/epoch-settings" "epoch-settings"
 
-download_data "$BASE_URL/certificates" "certificates-list"
-download_artifacts "$BASE_URL/certificate" "certificate" "hash"
-download_certificate_chain
-
 download_data "$BASE_URL/artifact/snapshots" "snapshots-list"
 download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest" true
 
@@ -222,6 +217,14 @@ if [ -n "$CARDANO_TRANSACTIONS_HASHES" ]; then
     write_ctx_proof_hashes_list "$CARDANO_TRANSACTIONS_HASHES"
     join_artifacts_files "ctx-proof"
 fi
+
+# Download certificates last to ensure that we take in account the new certificates that were signed while this script run.
+#
+# else there's an edge case were the list have less than 20 items but we downloaded more individual certificates than that
+# (20 is the max number of items for a list endpoint of the aggregator).
+download_data "$BASE_URL/certificates" "certificates-list"
+download_artifacts "$BASE_URL/certificate" "certificate" "hash"
+download_certificate_chain
 
 for artifact_type in "snapshot" "mithril-stake-distribution" "ctx-snapshot" "certificate"; do
   join_artifacts_files "$artifact_type"

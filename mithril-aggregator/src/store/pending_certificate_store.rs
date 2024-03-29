@@ -40,7 +40,7 @@ impl CertificatePendingStore {
             .await
             .store_record(&KEY.to_string(), &certificate)
             .await
-            .with_context(|| format!("Certificate pending store: error while saving pending certificate for epoch '{}'.", certificate.beacon.epoch))
+            .with_context(|| format!("Certificate pending store: error while saving pending certificate for epoch '{}'.", certificate.epoch))
     }
 
     /// Remove and return the current [CertificatePending] if any.
@@ -64,7 +64,7 @@ impl CertificatePendingStore {
 mod test {
     use super::*;
 
-    use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
+    use mithril_common::entities::{Epoch, SignedEntityType};
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::store::adapter::DumbStoreAdapter;
 
@@ -72,9 +72,8 @@ mod test {
         let mut adapter: DumbStoreAdapter<String, CertificatePending> = DumbStoreAdapter::new();
 
         if is_populated {
-            let beacon = CardanoDbBeacon::new("testnet".to_string(), 0, 0);
             let certificate_pending = CertificatePending::new(
-                beacon.clone(),
+                Epoch(0),
                 SignedEntityType::dummy(),
                 fake_data::protocol_parameters(),
                 fake_data::protocol_parameters(),
@@ -108,10 +107,9 @@ mod test {
     #[tokio::test]
     async fn save_certificate_pending_once() {
         let store = get_certificate_pending_store(false).await;
-        let beacon = CardanoDbBeacon::new("testnet".to_string(), 0, 1);
         let signed_entity_type = SignedEntityType::dummy();
         let certificate_pending = CertificatePending::new(
-            beacon,
+            Epoch(2),
             signed_entity_type,
             fake_data::protocol_parameters(),
             fake_data::protocol_parameters(),
@@ -134,10 +132,10 @@ mod test {
     #[tokio::test]
     async fn remove_certificate_pending() {
         let store = get_certificate_pending_store(true).await;
-        let beacon = CardanoDbBeacon::new("testnet".to_string(), 0, 0);
+        let epoch = Epoch(0);
         let certificate_pending = store.remove().await.unwrap().unwrap();
 
-        assert_eq!(beacon, certificate_pending.beacon);
+        assert_eq!(epoch, certificate_pending.epoch);
         assert!(store.get().await.unwrap().is_none());
     }
 }

@@ -337,6 +337,7 @@ mod tests {
         common::{CardanoDbBeacon, ProtocolMessagePartKey},
         MithrilCertificateMetadata,
     };
+    use mithril_common::entities::SignedEntityType;
     use mithril_common::test_utils::TempDir;
 
     use super::*;
@@ -351,10 +352,15 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "whatever".to_string(),
         );
+        let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
+
+        #[allow(deprecated)]
         MithrilCertificate {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+            epoch: beacon.epoch,
+            beacon: beacon.clone(),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),

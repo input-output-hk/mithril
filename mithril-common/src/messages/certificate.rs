@@ -1,14 +1,15 @@
+use std::fmt::{Debug, Formatter};
+
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Formatter};
 
 #[cfg(any(test, feature = "test_tools"))]
 use crate::entities::ProtocolMessagePartKey;
 use crate::entities::{
-    CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, ProtocolMessage,
+    CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
+    ProtocolMessage, SignedEntityType,
 };
 use crate::messages::CertificateMetadataMessagePart;
-
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_keys;
 use crate::StdError;
@@ -27,15 +28,22 @@ pub struct CertificateMessage {
     /// aka H(FC(n))
     pub previous_hash: String,
 
-    /// Mithril beacon on the Cardano chain
+    /// Epoch of the Cardano chain
+    pub epoch: Epoch,
+
+    /// The signed entity type of the message.
     /// aka BEACON(p,n)
+    pub signed_entity_type: SignedEntityType,
+
+    /// Mithril beacon on the Cardano chain
+    #[deprecated(since = "0.3.25", note = "use epoch and/or signed_entity_type instead")]
     pub beacon: CardanoDbBeacon,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
     pub metadata: CertificateMetadataMessagePart,
 
-    /// Structured message that is used to created the signed message
+    /// Structured message that is used to create the signed message
     /// aka MSG(p,n) U AVK(n-1)
     pub protocol_message: ProtocolMessage,
 
@@ -70,10 +78,15 @@ impl CertificateMessage {
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
                 fake_keys::aggregate_verification_key()[1].to_owned(),
             );
+            let epoch = Epoch(10);
+
+            #[allow(deprecated)]
             Self {
                 hash: "hash".to_string(),
                 previous_hash: "previous_hash".to_string(),
-                beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+                epoch,
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+                beacon: CardanoDbBeacon::new("testnet".to_string(), *epoch, 100),
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
@@ -97,7 +110,11 @@ impl Debug for CertificateMessage {
         debug
             .field("hash", &self.hash)
             .field("previous_hash", &self.previous_hash)
-            .field("beacon", &format_args!("{:?}", self.beacon))
+            .field("epoch", &format_args!("{:?}", self.epoch))
+            .field(
+                "signed_entity_type",
+                &format_args!("{:?}", self.signed_entity_type),
+            )
             .field("metadata", &format_args!("{:?}", self.metadata))
             .field(
                 "protocol_message",
@@ -123,7 +140,10 @@ impl TryFrom<CertificateMessage> for Certificate {
     type Error = StdError;
 
     fn try_from(certificate_message: CertificateMessage) -> Result<Self, Self::Error> {
+        #[allow(deprecated)]
         let metadata = CertificateMetadata {
+            network: certificate_message.beacon.network,
+            immutable_file_number: certificate_message.beacon.immutable_file_number,
             protocol_version: certificate_message.metadata.protocol_version,
             protocol_parameters: certificate_message.metadata.protocol_parameters,
             initiated_at: certificate_message.metadata.initiated_at,
@@ -134,7 +154,7 @@ impl TryFrom<CertificateMessage> for Certificate {
         let certificate = Certificate {
             hash: certificate_message.hash,
             previous_hash: certificate_message.previous_hash,
-            beacon: certificate_message.beacon,
+            epoch: certificate_message.epoch,
             metadata,
             protocol_message: certificate_message.protocol_message,
             signed_message: certificate_message.signed_message,
@@ -146,6 +166,7 @@ impl TryFrom<CertificateMessage> for Certificate {
             })?,
             signature: if certificate_message.genesis_signature.is_empty() {
                 CertificateSignature::MultiSignature(
+                    certificate_message.signed_entity_type,
                     certificate_message
                         .multi_signature
                         .try_into()
@@ -173,7 +194,10 @@ impl TryFrom<Certificate> for CertificateMessage {
     type Error = StdError;
 
     fn try_from(certificate: Certificate) -> Result<Self, Self::Error> {
+        let beacon = certificate.as_cardano_db_beacon();
+        let signed_entity_type = certificate.signed_entity_type();
         let metadata = CertificateMetadataMessagePart {
+            network: certificate.metadata.network,
             protocol_version: certificate.metadata.protocol_version,
             protocol_parameters: certificate.metadata.protocol_parameters,
             initiated_at: certificate.metadata.initiated_at,
@@ -185,7 +209,7 @@ impl TryFrom<Certificate> for CertificateMessage {
             CertificateSignature::GenesisSignature(signature) => {
                 (String::new(), signature.to_bytes_hex())
             }
-            CertificateSignature::MultiSignature(signature) => (
+            CertificateSignature::MultiSignature(_, signature) => (
                 signature.to_json_hex().with_context(|| {
                     "Can not convert certificate to message: can not encode the multi-signature"
                 })?,
@@ -193,10 +217,13 @@ impl TryFrom<Certificate> for CertificateMessage {
             ),
         };
 
+        #[allow(deprecated)]
         let message = CertificateMessage {
             hash: certificate.hash,
             previous_hash: certificate.previous_hash,
-            beacon: certificate.beacon,
+            epoch: certificate.epoch,
+            signed_entity_type,
+            beacon,
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
@@ -216,9 +243,11 @@ impl TryFrom<Certificate> for CertificateMessage {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::entities::{ProtocolParameters, StakeDistributionParty};
     use chrono::{DateTime, Utc};
+
+    use crate::entities::{ProtocolParameters, StakeDistributionParty};
+
+    use super::*;
 
     fn golden_message() -> CertificateMessage {
         let mut protocol_message = ProtocolMessage::new();
@@ -230,11 +259,17 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
+        let beacon = CardanoDbBeacon::new("testnet", 10, 100);
+
+        #[allow(deprecated)]
         CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+            epoch: beacon.epoch,
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+            beacon: beacon.clone(),
             metadata: CertificateMetadataMessagePart {
+                network: beacon.network,
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
@@ -268,12 +303,15 @@ mod tests {
         let json = r#"{
             "hash": "hash",
             "previous_hash": "previous_hash",
+            "epoch": 10,
+            "signed_entity_type": { "MithrilStakeDistribution": 10 },
             "beacon": {
                 "network": "testnet",
                 "epoch": 10,
                 "immutable_file_number": 100
             },
             "metadata": {
+                "network": "testnet",
                 "version": "0.1.0",
                 "parameters": {
                     "k": 1000,
@@ -307,7 +345,7 @@ mod tests {
             "genesis_signature": "genesis_signature"
         }"#;
         let message: CertificateMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a CertificateMessage instance.",
+            "This JSON is expected to be successfully parsed into a CertificateMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

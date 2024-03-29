@@ -14,9 +14,9 @@ use crate::{
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
-        CardanoDbBeacon, Certificate, HexEncodedAgregateVerificationKey, PartyId, ProtocolMessage,
-        ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
-        StakeDistributionParty,
+        Certificate, Epoch, HexEncodedAgregateVerificationKey, ImmutableFileNumber, PartyId,
+        ProtocolMessage, ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake,
+        StakeDistribution, StakeDistributionParty,
     },
     protocol::SignerBuilder,
 };
@@ -169,8 +169,14 @@ impl MithrilFixture {
         avk.to_json_hex().unwrap()
     }
 
+    era_deprecate!("Remove immutable_file_number");
     /// Create a genesis certificate using the fixture signers for the given beacon
-    pub fn create_genesis_certificate(&self, beacon: &CardanoDbBeacon) -> Certificate {
+    pub fn create_genesis_certificate<T: Into<String>>(
+        &self,
+        network: T,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> Certificate {
         let genesis_avk = self.compute_avk();
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
@@ -182,7 +188,9 @@ impl MithrilFixture {
 
         CertificateGenesisProducer::create_genesis_certificate(
             self.protocol_parameters.clone(),
-            beacon.clone(),
+            network,
+            epoch,
+            immutable_file_number,
             genesis_avk,
             genesis_signature,
         )

@@ -63,3 +63,23 @@ pub use tools::{
 
 #[cfg(test)]
 pub use dependency_injection::tests::initialize_dependencies;
+
+#[cfg(test)]
+/// Create a [slog scope global logger][slog_scope::GlobalLoggerGuard] to use
+/// when debugging some tests that have logs.
+///
+/// * Remove it after use: it's only mean for debugging, leaving it expose the tests to the two
+/// following points.
+/// * Don't put it in more than one tests at a time since it is set globally meaning that a test that
+/// end will clean up the logger for the test that are still running.
+/// * Don't run more than one test at a time with it: logs from more than one tests will be mixed
+/// together otherwise.
+pub fn global_logger_for_tests() -> slog_scope::GlobalLoggerGuard {
+    use slog::Drain;
+    use std::sync::Arc;
+
+    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()))
+}

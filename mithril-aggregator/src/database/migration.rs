@@ -619,5 +619,85 @@ insert into signed_entity_type (signed_entity_type_id, name)
     values  (3, 'Cardano Transactions');
 "#,
         ),
+        // Migration 22
+        // Certificate table:
+        // * Remove beacon
+        // * Add network, immutable file number, signed_entity_type_id, signed_entity_type columns
+        SqlMigration::new(
+            22,
+            r#"
+-- disable foreign keys since we will delete tables linked using them
+pragma foreign_keys=false;
+
+CREATE TABLE IF NOT EXISTS "new_certificate" (
+    certificate_id              text     not null,
+    parent_certificate_id       text,
+    message                     text     not null,
+    signature                   text     not null,
+    aggregate_verification_key  text     not null,
+    epoch                       integer  not null,
+    network                     text     not null,
+    immutable_file_number       integer  not null,
+    signed_entity_type_id       integer  not null,
+    signed_entity_beacon        json     not null,
+    protocol_version            text     not null,
+    protocol_parameters         json     not null,
+    protocol_message            json     not null,
+    signers                     json     not null,
+    initiated_at                text     not null,
+    sealed_at                   text     not null,
+    primary key (certificate_id),
+    foreign key (parent_certificate_id) references certificate(certificate_id)
+    foreign key (signed_entity_type_id) references signed_entity_type(signed_entity_type_id)
+);
+
+insert into new_certificate
+        ( certificate_id, parent_certificate_id, message, signature, aggregate_verification_key,
+        epoch,
+        network,
+        immutable_file_number,
+        signed_entity_type_id,
+        signed_entity_beacon,
+        protocol_version, protocol_parameters, protocol_message,
+        signers, initiated_at, sealed_at)
+    select c.certificate_id, c.parent_certificate_id, c.message, c.signature, c.aggregate_verification_key,
+        c.epoch,
+        json_extract(c.beacon, '$.network'),
+        json_extract(c.beacon, '$.immutable_file_number'),
+        -- genesis certificate doesn't have a signed_entity, we can just use directly the MithrilStakeDistribution
+        coalesce(s.signed_entity_type_id, 0),
+        -- genesis certificate doesn't have a signed_entity, so we need to deduce it from the old certificate
+        coalesce(s.beacon, c.epoch),
+        c.protocol_version, c.protocol_parameters, c.protocol_message,
+        c.signers, c.initiated_at, c.sealed_at
+    from certificate c
+        left join signed_entity s on s.certificate_id = c.certificate_id
+    order by c.rowid asc;
+
+
+drop table certificate;
+alter table new_certificate rename to certificate;
+
+CREATE INDEX epoch_index on certificate(epoch);
+
+-- reenable foreign keys
+pragma foreign_key_check;
+pragma foreign_keys=true;
+"#,
+        ),
+        // Migration 23
+        // Alter `pending_certificate` table to use only an Epoch instead of a full beacon.
+        SqlMigration::new(
+            23,
+            r#"
+create table if not exists pending_certificate (key_hash text primary key, key json not null, value json not null);
+update pending_certificate
+    set value = 
+        json_remove(
+            json_insert(value, '$.epoch', json_extract(value, '$.beacon.epoch')),
+            '$.beacon'
+        );
+        "#,
+        ),
     ]
 }

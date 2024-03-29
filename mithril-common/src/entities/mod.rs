@@ -20,10 +20,11 @@ mod signed_entity_type;
 mod signer;
 mod single_signatures;
 mod snapshot;
+mod time_point;
 mod type_alias;
 
 pub use block_range::{BlockNumber, BlockRange, BlockRangeLength};
-pub use cardano_db_beacon::{BeaconComparison, BeaconComparisonError, CardanoDbBeacon};
+pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;
@@ -42,4 +43,5 @@ pub use signed_entity_type::*;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::*;
 pub use snapshot::{CompressionAlgorithm, Snapshot};
+pub use time_point::*;
 pub use type_alias::*;

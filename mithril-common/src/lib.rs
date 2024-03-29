@@ -66,11 +66,11 @@ cfg_test_tools! {
 }
 
 cfg_fs! {
-    mod beacon_provider;
+    mod time_point_provider;
     pub mod digesters;
     pub mod cardano_transaction_parser;
 
-    pub use beacon_provider::{BeaconProvider, BeaconProviderImpl};
+    pub use time_point_provider::{TimePointProvider, TimePointProviderImpl};
 }
 
 pub use entities::{CardanoNetwork, MagicId};

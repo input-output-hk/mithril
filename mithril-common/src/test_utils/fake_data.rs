@@ -3,6 +3,7 @@
 use chrono::{DateTime, Utc};
 use semver::Version;
 
+use crate::crypto_helper::ProtocolMultiSignature;
 use crate::{
     crypto_helper,
     entities::{
@@ -15,12 +16,16 @@ use crate::{
 
 use super::fake_keys;
 
+/// Fake network
+pub fn network() -> crate::CardanoNetwork {
+    crate::CardanoNetwork::DevNet(10)
+}
+
 /// Fake Beacon
 pub fn beacon() -> entities::CardanoDbBeacon {
-    let network = "testnet".to_string();
-    let immutable_file_number = 100;
-    let epoch = 10;
-    entities::CardanoDbBeacon::new(network, epoch, immutable_file_number)
+    let network = network().to_string();
+    let time_point = entities::TimePoint::dummy();
+    entities::CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number)
 }
 
 /// Fake Digest
@@ -60,8 +65,8 @@ pub fn epoch_settings() -> entities::EpochSettings {
 
 /// Fake CertificatePending
 pub fn certificate_pending() -> entities::CertificatePending {
-    // Beacon
-    let beacon = beacon();
+    // Epoch
+    let epoch = beacon().epoch;
 
     // Signed entity type
     let signed_entity_type = SignedEntityType::dummy();
@@ -77,7 +82,7 @@ pub fn certificate_pending() -> entities::CertificatePending {
 
     // Certificate pending
     entities::CertificatePending::new(
-        beacon,
+        epoch,
         signed_entity_type,
         protocol_parameters,
         next_protocol_parameters,
@@ -120,6 +125,8 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         .unwrap()
         .with_timezone(&Utc);
     let metadata = CertificateMetadata::new(
+        &beacon.network,
+        beacon.immutable_file_number,
         protocol_version,
         protocol_parameters,
         initiated_at,
@@ -142,17 +149,21 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     let aggregate_verification_key = fake_keys::aggregate_verification_key()[1]
         .try_into()
         .unwrap();
-    let multi_signature = fake_keys::multi_signature()[0].try_into().unwrap();
+    let multi_signature: ProtocolMultiSignature =
+        fake_keys::multi_signature()[0].try_into().unwrap();
 
     entities::Certificate {
         hash: certificate_hash,
         previous_hash,
-        beacon,
+        epoch: beacon.epoch,
         metadata,
         protocol_message,
         signed_message: "".to_string(),
         aggregate_verification_key,
-        signature: CertificateSignature::MultiSignature(multi_signature),
+        signature: CertificateSignature::MultiSignature(
+            SignedEntityType::CardanoImmutableFilesFull(beacon),
+            multi_signature,
+        ),
     }
 }
 

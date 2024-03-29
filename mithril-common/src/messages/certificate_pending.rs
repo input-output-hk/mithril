@@ -1,12 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, ProtocolParameters, SignedEntityType};
+use crate::entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType};
 use crate::messages::SignerMessagePart;
 
 /// Structure to transport [crate::entities::CertificatePending] data.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificatePendingMessage {
+    /// Current Epoch
+    pub epoch: Epoch,
+
     /// Current Beacon
+    #[deprecated(since = "0.3.25", note = "use epoch instead")]
     pub beacon: CardanoDbBeacon,
 
     /// Signed entity type
@@ -32,8 +36,12 @@ impl CertificatePendingMessage {
     cfg_test_tools! {
         /// Provide a dummy instance for test.
         pub fn dummy() -> Self {
+            let beacon = CardanoDbBeacon::default();
+
+            #[allow(deprecated)]
             Self {
-                beacon: CardanoDbBeacon::default(),
+                epoch: beacon.epoch,
+                beacon,
                 signed_entity_type: SignedEntityType::dummy(),
                 protocol_parameters: ProtocolParameters {
                     k: 5,
@@ -64,7 +72,10 @@ mod tests {
             epoch: Epoch(86),
             immutable_file_number: 1728,
         };
+
+        #[allow(deprecated)]
         CertificatePendingMessage {
+            epoch: beacon.epoch,
             beacon: beacon.clone(),
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
             protocol_parameters: ProtocolParameters {
@@ -101,6 +112,7 @@ mod tests {
     #[test]
     fn test_v1() {
         let json = r#"{
+            "epoch": 86,
             "beacon": {
                 "network": "preview",
                 "epoch": 86,

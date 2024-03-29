@@ -33,7 +33,7 @@ pub trait TickerService: Send + Sync {
 
 /// ## MithrilTickerService
 ///
-/// This service is responsible of giving the right time information to other
+/// This service is responsible for giving the right time information to other
 /// services. It reads data either from the Chain or the filesystem to create
 /// beacons for each message type.
 pub struct MithrilTickerService {

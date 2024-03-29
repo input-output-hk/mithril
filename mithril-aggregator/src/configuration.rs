@@ -9,8 +9,8 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    CardanoDbBeacon, CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters,
-    SignedEntityType, SignedEntityTypeDiscriminants,
+    CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters, SignedEntityType,
+    SignedEntityTypeDiscriminants, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -285,12 +285,14 @@ impl Configuration {
     /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
     pub fn list_allowed_signed_entity_types(
         &self,
-        beacon: &CardanoDbBeacon,
+        time_point: &TimePoint,
     ) -> StdResult<Vec<SignedEntityType>> {
         let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
         let signed_entity_types = allowed_discriminants
             .into_iter()
-            .map(|discriminant| SignedEntityType::from_beacon(&discriminant, beacon))
+            .map(|discriminant| {
+                SignedEntityType::from_time_point(&discriminant, &self.network, time_point)
+            })
             .collect();
 
         Ok(signed_entity_types)
@@ -502,16 +504,20 @@ mod test {
 
     #[test]
     fn test_list_allowed_signed_entity_types_without_specific_configuration() {
+        let beacon = fake_data::beacon();
         let config = Configuration {
             signed_entity_types: None,
+            network: beacon.network.clone(),
             ..Configuration::new_sample()
         };
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
 
         let discriminants = config
             .list_allowed_signed_entity_types_discriminants()
             .unwrap();
-        let signed_entity_types = config.list_allowed_signed_entity_types(&beacon).unwrap();
+        let signed_entity_types = config
+            .list_allowed_signed_entity_types(&time_point)
+            .unwrap();
 
         assert_eq!(
             vec![
@@ -531,18 +537,22 @@ mod test {
 
     #[test]
     fn test_list_allowed_signed_entity_types_with_specific_configuration() {
+        let beacon = fake_data::beacon();
         let config = Configuration {
+            network: beacon.network.clone(),
             signed_entity_types: Some(
                 "MithrilStakeDistribution,Unknown, CardanoStakeDistribution".to_string(),
             ),
             ..Configuration::new_sample()
         };
-        let beacon = fake_data::beacon();
+        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
 
         let discriminants = config
             .list_allowed_signed_entity_types_discriminants()
             .unwrap();
-        let signed_entity_types = config.list_allowed_signed_entity_types(&beacon).unwrap();
+        let signed_entity_types = config
+            .list_allowed_signed_entity_types(&time_point)
+            .unwrap();
 
         assert_eq!(
             vec![

@@ -19,7 +19,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
-    BeaconProvider, BeaconProviderImpl, StdResult,
+    StdResult, TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
     database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
@@ -39,7 +39,7 @@ type CertificateHandlerService = Arc<dyn AggregatorClient>;
 type ChainObserverService = Arc<dyn ChainObserver>;
 type DigesterService = Arc<dyn ImmutableDigester>;
 type SingleSignerService = Arc<dyn SingleSigner>;
-type BeaconProviderService = Arc<dyn BeaconProvider>;
+type TimePointProviderService = Arc<dyn TimePointProvider>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
 /// The ServiceBuilder is intended to manage Services instance creation.
@@ -230,12 +230,11 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             let builder = self.chain_observer_builder;
             builder(self.config)?
         };
-        let beacon_provider = {
+        let time_point_provider = {
             let builder = self.immutable_file_observer_builder;
-            Arc::new(BeaconProviderImpl::new(
+            Arc::new(TimePointProviderImpl::new(
                 chain_observer.clone(),
                 builder(self.config)?,
-                self.config.get_network()?.to_owned(),
             ))
         };
 
@@ -244,7 +243,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .build_era_reader_adapter(chain_observer.clone())?,
         ));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(beacon_provider.get_current_beacon().await?.epoch)
+            .read_era_epoch_token(time_point_provider.get_current_time_point().await?.epoch)
             .await?;
         let era_checker = Arc::new(EraChecker::new(
             era_epoch_token.get_current_supported_era()?,
@@ -290,7 +289,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         let services = SignerServices {
-            beacon_provider,
+            time_point_provider,
             certificate_handler,
             chain_observer,
             digester,
@@ -310,8 +309,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
 
 /// This structure groups all the services required by the state machine.
 pub struct SignerServices {
-    /// Beacon provider service
-    pub beacon_provider: BeaconProviderService,
+    /// Time point provider service
+    pub time_point_provider: TimePointProviderService,
 
     /// Stake store service
     pub stake_store: StakeStoreService,
@@ -352,13 +351,13 @@ mod tests {
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
-        entities::{CardanoDbBeacon, Epoch},
+        entities::{Epoch, TimePoint},
         era::adapters::EraReaderAdapterType,
+        test_utils::TempDir,
     };
 
     use super::*;
 
-    use mithril_common::test_utils::TempDir;
     use std::path::PathBuf;
 
     fn get_test_dir(test_name: &str) -> PathBuf {
@@ -394,10 +393,9 @@ mod tests {
         assert!(!stores_dir.exists());
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |_config| {
-                Ok(Arc::new(FakeObserver::new(Some(CardanoDbBeacon {
+                Ok(Arc::new(FakeObserver::new(Some(TimePoint {
                     epoch: Epoch(1),
                     immutable_file_number: 1,
-                    network: "devnet".to_string(),
                 }))))
             };
         let immutable_file_observer_builder: fn(

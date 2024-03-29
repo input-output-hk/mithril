@@ -57,7 +57,7 @@ impl TryFromMessageAdapter<CertificatePendingMessage, CertificatePending>
     /// Adapter method
     fn try_adapt(message: CertificatePendingMessage) -> StdResult<CertificatePending> {
         let certificate = CertificatePending {
-            beacon: message.beacon,
+            epoch: message.epoch,
             signed_entity_type: message.signed_entity_type,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
@@ -86,10 +86,10 @@ mod tests {
     #[test]
     fn adapt_ok() {
         let message = CertificatePendingMessage::dummy();
-        let epoch = message.beacon.epoch;
+        let epoch = message.epoch;
         let certificate_pending = FromPendingCertificateMessageAdapter::try_adapt(message).unwrap();
 
-        assert_eq!(epoch, certificate_pending.beacon.epoch);
+        assert_eq!(epoch, certificate_pending.epoch);
     }
 
     #[test]

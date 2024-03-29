@@ -3,15 +3,20 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::entities::{
-    CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, ProtocolVersion,
+    CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+    ProtocolVersion, SignedEntityType,
 };
 
 /// Message structure of a certificate list
 pub type CertificateListMessage = Vec<CertificateListItemMessage>;
 
 /// CertificateListItemMessage represents the metadata associated to a CertificateListItemMessage
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificateListItemMessageMetadata {
+    /// Cardano network
+    /// part of METADATA(p,n)
+    pub network: String,
+
     /// Protocol Version (semver)
     /// Useful to achieve backward compatibility of the certificates (including of the multi signature)
     /// part of METADATA(p,n)
@@ -39,7 +44,7 @@ pub struct CertificateListItemMessageMetadata {
 }
 
 /// Message structure of a certificate list item
-#[derive(Clone, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct CertificateListItemMessage {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -52,15 +57,22 @@ pub struct CertificateListItemMessage {
     /// aka H(FC(n))
     pub previous_hash: String,
 
-    /// Mithril beacon on the Cardano chain
+    /// Epoch of the Cardano chain
+    pub epoch: Epoch,
+
+    /// The signed entity type of the message.
     /// aka BEACON(p,n)
+    pub signed_entity_type: SignedEntityType,
+
+    /// Mithril beacon on the Cardano chain
+    #[deprecated(since = "0.3.25", note = "use epoch and/or signed_entity_type instead")]
     pub beacon: CardanoDbBeacon,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
     pub metadata: CertificateListItemMessageMetadata,
 
-    /// Structured message that is used to created the signed message
+    /// Structured message that is used to create the signed message
     /// aka MSG(p,n) U AVK(n-1)
     pub protocol_message: ProtocolMessage,
 
@@ -86,11 +98,17 @@ impl CertificateListItemMessage {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
+        let epoch = Epoch(10);
+
+        #[allow(deprecated)]
         Self {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
-            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
+            epoch,
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+            beacon: CardanoDbBeacon::new("testnet", *epoch, 100),
             metadata: CertificateListItemMessageMetadata {
+                network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
                 protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
@@ -115,7 +133,11 @@ impl Debug for CertificateListItemMessage {
         debug
             .field("hash", &self.hash)
             .field("previous_hash", &self.previous_hash)
-            .field("beacon", &format_args!("{:?}", self.beacon))
+            .field("epoch", &format_args!("{:?}", self.epoch))
+            .field(
+                "signed_entity_type",
+                &format_args!("{:?}", self.signed_entity_type),
+            )
             .field("metadata", &format_args!("{:?}", self.metadata))
             .field(
                 "protocol_message",
@@ -149,58 +171,69 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
-        vec![CertificateListItemMessage {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            beacon: CardanoDbBeacon::new("testnet".to_string(), 10, 100),
-            metadata: CertificateListItemMessageMetadata {
-                protocol_version: "0.1.0".to_string(),
-                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                total_signers: 2,
+        let epoch = Epoch(10);
+
+        vec![
+            #[allow(deprecated)]
+            CertificateListItemMessage {
+                hash: "hash".to_string(),
+                previous_hash: "previous_hash".to_string(),
+                epoch,
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+                beacon: CardanoDbBeacon::new("testnet", *epoch, 100),
+                metadata: CertificateListItemMessageMetadata {
+                    network: "testnet".to_string(),
+                    protocol_version: "0.1.0".to_string(),
+                    protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
+                    initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                    sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                    total_signers: 2,
+                },
+                protocol_message: protocol_message.clone(),
+                signed_message: "signed_message".to_string(),
+                aggregate_verification_key: "aggregate_verification_key".to_string(),
             },
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: "aggregate_verification_key".to_string(),
-        }]
+        ]
     }
 
     // Test the retro compatibility with possible future upgrades.
     #[test]
     fn test_v1() {
         let json = r#"[{
-"hash": "hash",
-"previous_hash": "previous_hash",
-"beacon": {
-    "network": "testnet",
-    "epoch": 10,
-    "immutable_file_number": 100
-},
-"metadata": {
-    "version": "0.1.0",
-    "parameters": {
-        "k": 1000,
-        "m": 100,
-        "phi_f": 0.123
-    },
-    "initiated_at": "2024-02-12T13:11:47Z",
-    "sealed_at": "2024-02-12T13:12:57Z",
-    "total_signers": 2
-},
-"protocol_message": {
-    "message_parts": {
-        "snapshot_digest": "snapshot-digest-123",
-        "next_aggregate_verification_key": "next-avk-123"
-    }
-},
-"signed_message": "signed_message",
-"aggregate_verification_key": "aggregate_verification_key"
-}]"#;
+            "hash": "hash",
+            "previous_hash": "previous_hash",
+            "epoch": 10,
+            "signed_entity_type": { "MithrilStakeDistribution": 10 },
+            "beacon": {
+                "network": "testnet",
+                "epoch": 10,
+                "immutable_file_number": 100
+            },
+            "metadata": {
+                "network": "testnet",
+                "version": "0.1.0",
+                "parameters": {
+                    "k": 1000,
+                    "m": 100,
+                    "phi_f": 0.123
+                },
+                "initiated_at": "2024-02-12T13:11:47Z",
+                "sealed_at": "2024-02-12T13:12:57Z",
+                "total_signers": 2
+            },
+            "protocol_message": {
+                "message_parts": {
+                    "snapshot_digest": "snapshot-digest-123",
+                    "next_aggregate_verification_key": "next-avk-123"
+                }
+            },
+            "signed_message": "signed_message",
+            "aggregate_verification_key": "aggregate_verification_key"
+        }]"#;
 
         let message: CertificateListMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be succesfully parsed into a CertificateListMessage instance.",
