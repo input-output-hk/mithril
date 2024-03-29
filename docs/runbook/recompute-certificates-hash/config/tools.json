@@ -13,5 +13,6 @@
     "snapshot_uploader_type": "local",
     "genesis_verification_key": "-",
     "era_adapter_type": "bootstrap",
-    "cardano_node_version": "-"
+    "cardano_node_version": "-",
+    "chain_observer_type": "cardano-cli"
 }

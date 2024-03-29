@@ -8,7 +8,7 @@ export CARDANO_NETWORK=**CARDANO_NETWORK**
 export MITHRIL_DISTRIBUTION_LINUX_PKG=**MITHRIL_DISTRIBUTION_LINUX_PKG**
 ```
 
-Here is an exmaple for the `release-mainnet` network:
+Here is an example for the `release-mainnet` network:
 ```bash
 export MITHRIL_VM=aggregator.release-mainnet.api.mithril.network
 export CARDANO_NETWORK=mainnet
@@ -108,7 +108,7 @@ Then disconnect from the aggregator VM:
 exit
 ```
 
-## Databse rollback procedure
+## Database rollback procedure
 
 If the recomputation fails, you can rollback the database,and try again the process.
 
