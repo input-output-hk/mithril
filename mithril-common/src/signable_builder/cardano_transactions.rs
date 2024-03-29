@@ -159,10 +159,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_merkle_root() {
-        let transaction_1 = CardanoTransaction::new("tx-hash-123", 1, 1);
-        let transaction_2 = CardanoTransaction::new("tx-hash-456", 2, 1);
-        let transaction_3 = CardanoTransaction::new("tx-hash-789", 3, 1);
-        let transaction_4 = CardanoTransaction::new("tx-hash-abc", 4, 1);
+        let transaction_1 = CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash", 1);
+        let transaction_2 = CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 1);
+        let transaction_3 = CardanoTransaction::new("tx-hash-789", 30, 3, "block_hash", 1);
+        let transaction_4 = CardanoTransaction::new("tx-hash-abc", 40, 4, "block_hash", 1);
 
         let transactions_set_reference = vec![
             transaction_1.clone(),
@@ -230,9 +230,9 @@ mod tests {
             ..CardanoDbBeacon::default()
         };
         let transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 1, 11),
-            CardanoTransaction::new("tx-hash-456", 2, 12),
-            CardanoTransaction::new("tx-hash-789", 3, 13),
+            CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash-", 11),
+            CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 12),
+            CardanoTransaction::new("tx-hash-789", 30, 3, "block_hash", 13),
         ];
         let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
         let mut mock_transaction_store = MockTransactionStore::new();

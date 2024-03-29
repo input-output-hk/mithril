@@ -140,8 +140,14 @@ mod tests {
         let mut transactions = vec![];
 
         for i in 1..=total_transactions {
-            let hash = format!("tx-{}", i);
-            transactions.push(CardanoTransaction::new(&hash, 10 * i as u64, i as u64));
+            let hash = format!("tx-{i}");
+            transactions.push(CardanoTransaction::new(
+                &hash,
+                10 * i as u64,
+                100 * i as u64,
+                format!("block_hash-{i}"),
+                i as u64,
+            ));
             hashes.push(hash);
         }
 

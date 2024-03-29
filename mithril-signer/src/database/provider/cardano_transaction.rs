@@ -1,5 +1,8 @@
 use mithril_common::{
-    entities::{BlockNumber, CardanoTransaction, ImmutableFileNumber, TransactionHash},
+    entities::{
+        BlockHash, BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
+        SlotNumber, TransactionHash,
+    },
     signable_builder::TransactionStore,
     StdResult,
 };
@@ -22,6 +25,12 @@ pub struct CardanoTransactionRecord {
     /// Block number of the transaction
     pub block_number: BlockNumber,
 
+    /// Slot number of the transaction
+    pub slot_number: SlotNumber,
+
+    /// Block hash of the transaction
+    pub block_hash: BlockHash,
+
     /// Immutable file number of the transaction
     pub immutable_file_number: ImmutableFileNumber,
 }
@@ -31,7 +40,21 @@ impl From<CardanoTransaction> for CardanoTransactionRecord {
         Self {
             transaction_hash: transaction.transaction_hash,
             block_number: transaction.block_number,
+            slot_number: transaction.slot_number,
+            block_hash: transaction.block_hash,
             immutable_file_number: transaction.immutable_file_number,
+        }
+    }
+}
+
+impl From<CardanoTransactionRecord> for CardanoTransaction {
+    fn from(other: CardanoTransactionRecord) -> CardanoTransaction {
+        CardanoTransaction {
+            transaction_hash: other.transaction_hash,
+            block_number: other.block_number,
+            slot_number: other.slot_number,
+            block_hash: other.block_hash,
+            immutable_file_number: other.immutable_file_number,
         }
     }
 }
@@ -41,17 +64,23 @@ impl SqLiteEntity for CardanoTransactionRecord {
     where
         Self: Sized,
     {
+        // TODO generalize this method
+        fn try_to_u64(field: &str, value: i64) -> Result<u64, HydrationError> {
+            u64::try_from(value)
+            .map_err(|e| HydrationError::InvalidData(format!("Integer field cardano_tx.{field} (value={value}) is incompatible with u64 representation. Error = {e}")))
+        }
+
         let transaction_hash = row.read::<&str, _>(0);
-        let block_number = row.read::<i64, _>(1);
-        let block_number = u64::try_from(block_number)
-            .map_err(|e| HydrationError::InvalidData(format!("Integer field cardano_tx.block_number (value={block_number}) is incompatible with u64 representation. Error = {e}")))?;
-        let immutable_file_number = row.read::<i64, _>(2);
-        let immutable_file_number = u64::try_from(immutable_file_number)
-            .map_err(|e| HydrationError::InvalidData(format!("Integer field cardano_tx.immutable_file_number (value={immutable_file_number}) is incompatible with u64 representation. Error = {e}")))?;
+        let block_number = try_to_u64("block_number", row.read::<i64, _>(1))?;
+        let slot_number = try_to_u64("slot_number", row.read::<i64, _>(2))?;
+        let block_hash = row.read::<&str, _>(3);
+        let immutable_file_number = try_to_u64("immutable_file_number", row.read::<i64, _>(4))?;
 
         Ok(Self {
             transaction_hash: transaction_hash.to_string(),
             block_number,
+            slot_number,
+            block_hash: block_hash.to_string(),
             immutable_file_number,
         })
     }
@@ -64,6 +93,8 @@ impl SqLiteEntity for CardanoTransactionRecord {
                 "text",
             ),
             ("block_number", "{:cardano_tx:}.block_number", "int"),
+            ("slot_number", "{:cardano_tx:}.slot_number", "int"),
+            ("block_hash", "{:cardano_tx:}.block_hash", "text"),
             (
                 "immutable_file_number",
                 "{:cardano_tx:}.immutable_file_number",
@@ -90,6 +121,16 @@ impl<'client> CardanoTransactionProvider<'client> {
             vec![Value::String(transaction_hash.to_owned())],
         )
     }
+
+    pub(crate) fn get_transaction_up_to_beacon_condition(
+        &self,
+        beacon: &CardanoDbBeacon,
+    ) -> WhereCondition {
+        WhereCondition::new(
+            "immutable_file_number <= ?*",
+            vec![Value::Integer(beacon.immutable_file_number as i64)],
+        )
+    }
 }
 
 impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
@@ -103,9 +144,7 @@ impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!(
-            "select {projection} from cardano_tx where {condition} order by transaction_hash desc"
-        )
+        format!("select {projection} from cardano_tx where {condition} order by rowid")
     }
 }
 
@@ -119,41 +158,56 @@ impl<'client> InsertCardanoTransactionProvider<'client> {
     }
 
     fn get_insert_condition(&self, record: &CardanoTransactionRecord) -> StdResult<WhereCondition> {
-        let expression =
-            "(transaction_hash, block_number, immutable_file_number) values (?1, ?2, ?3)";
-        let parameters = vec![
-            Value::String(record.transaction_hash.clone()),
-            Value::Integer(record.block_number.try_into()?),
-            Value::Integer(record.immutable_file_number.try_into()?),
-        ];
+        // let expression =
+        //     "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number) values (?1, ?2, ?3, ?4, ?5)";
+        // let parameters = vec![
+        //     Value::String(record.transaction_hash.clone()),
+        //     Value::Integer(record.block_number.try_into()?),
+        //     Value::Integer(record.slot_number.try_into()?),
+        //     Value::String(record.block_hash.clone()),
+        //     Value::Integer(record.immutable_file_number.try_into()?),
+        // ];
 
-        Ok(WhereCondition::new(expression, parameters))
+        // Ok(WhereCondition::new(expression, parameters))
+        self.get_insert_many_condition(vec![record.clone()])
     }
 
     fn get_insert_many_condition(
         &self,
         transactions_records: Vec<CardanoTransactionRecord>,
-    ) -> WhereCondition {
-        let columns = "(transaction_hash, block_number, immutable_file_number)";
-        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*)")
+    ) -> StdResult<WhereCondition> {
+        fn map_record(record: CardanoTransactionRecord) -> StdResult<Vec<Value>> {
+            Ok(vec![
+                Value::String(record.transaction_hash),
+                Value::Integer(record.block_number.try_into().unwrap()),
+                Value::Integer(record.slot_number.try_into()?),
+                Value::String(record.block_hash.clone()),
+                Value::Integer(record.immutable_file_number.try_into().unwrap()),
+            ])
+        }
+
+        let columns =
+            "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number)";
+        let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
             .take(transactions_records.len())
             .collect();
 
-        let values: Vec<Value> = transactions_records
-            .into_iter()
-            .flat_map(|record| {
-                vec![
-                    Value::String(record.transaction_hash),
-                    Value::Integer(record.block_number.try_into().unwrap()),
-                    Value::Integer(record.immutable_file_number.try_into().unwrap()),
-                ]
-            })
-            .collect();
+        // TODO see if we can find another way to do it
+        let values: StdResult<Vec<Vec<Value>>> =
+            transactions_records.into_iter().map(map_record).collect();
 
-        WhereCondition::new(
+        let values: Vec<Value> = values?.into_iter().flatten().collect();
+
+        // let values = transactions_records
+        //     .into_iter()
+        //     .flat_map(map_record) // Vec<StdResult<Vec<Value>>>
+        //     .flatten()
+        //     .collect::<Vec<Value>>();
+
+        Ok(WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values,
-        )
+        ))
     }
 }
 
@@ -186,29 +240,55 @@ impl CardanoTransactionRepository {
         Self { connection }
     }
 
-    /// Return the [CardanoTransactionRecord] for the given transaction hash.
-    pub async fn get_transaction(
+    /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
+    pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let provider = CardanoTransactionProvider::new(&self.connection);
+        let filters = WhereCondition::default();
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions.collect())
+    }
+
+    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
+    /// chronological order.
+    pub async fn get_transactions_up_to(
         &self,
-        transaction_hash: &TransactionHash,
+        beacon: &CardanoDbBeacon,
+    ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let provider = CardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_up_to_beacon_condition(beacon);
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions.collect())
+    }
+
+    /// Return the [CardanoTransactionRecord] for the given transaction hash.
+    pub async fn get_transaction<T: Into<TransactionHash>>(
+        &self,
+        transaction_hash: T,
     ) -> StdResult<Option<CardanoTransactionRecord>> {
         let provider = CardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_transaction_hash_condition(transaction_hash);
+        let filters = provider.get_transaction_hash_condition(&transaction_hash.into());
         let mut transactions = provider.find(filters)?;
 
         Ok(transactions.next())
     }
 
     /// Create a new [CardanoTransactionRecord] in the database.
-    pub async fn create_transaction(
+    pub async fn create_transaction<T: Into<TransactionHash>, U: Into<BlockHash>>(
         &self,
-        transaction_hash: &TransactionHash,
+        transaction_hash: T,
         block_number: BlockNumber,
+        slot_number: SlotNumber,
+        block_hash: U,
         immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Option<CardanoTransactionRecord>> {
         let provider = InsertCardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_insert_condition(&CardanoTransactionRecord {
-            transaction_hash: transaction_hash.to_owned(),
+            transaction_hash: transaction_hash.into(),
             block_number,
+            slot_number,
+            block_hash: block_hash.into(),
             immutable_file_number,
         })?;
         let mut cursor = provider.find(filters)?;
@@ -222,7 +302,7 @@ impl CardanoTransactionRepository {
         transactions: Vec<CardanoTransactionRecord>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = InsertCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_insert_many_condition(transactions);
+        let filters = provider.get_insert_many_condition(transactions)?;
         let cursor = provider.find(filters)?;
 
         Ok(cursor.collect())
@@ -264,13 +344,14 @@ mod tests {
             .unwrap()
     }
 
+    // TODO Is it really a useful test ?
     #[test]
     fn cardano_transaction_projection() {
         let projection = CardanoTransactionRecord::get_projection();
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
 
         assert_eq!(
-            "cardano_tx.transaction_hash as transaction_hash, cardano_tx.block_number as block_number, cardano_tx.immutable_file_number as immutable_file_number".to_string(),
+            "cardano_tx.transaction_hash as transaction_hash, cardano_tx.block_number as block_number, cardano_tx.slot_number as slot_number, cardano_tx.block_hash as block_hash, cardano_tx.immutable_file_number as immutable_file_number".to_string(),
             projection.expand(aliases)
         )
     }
@@ -295,6 +376,21 @@ mod tests {
     }
 
     #[test]
+    fn provider_transaction_up_to_beacon_condition() {
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
+        let provider = CardanoTransactionProvider::new(&connection);
+        let (expr, params) = provider
+            .get_transaction_up_to_beacon_condition(&CardanoDbBeacon {
+                immutable_file_number: 2309,
+                ..CardanoDbBeacon::default()
+            })
+            .expand();
+
+        assert_eq!("immutable_file_number <= ?1".to_string(), expr);
+        assert_eq!(vec![Value::Integer(2309)], params,);
+    }
+
+    #[test]
     fn insert_provider_condition() {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         let provider = InsertCardanoTransactionProvider::new(&connection);
@@ -303,13 +399,16 @@ mod tests {
                 transaction_hash:
                     "0405a78c637f5c637e3146e293c0045ea80a07fac8f245901e7b491182931650".to_string(),
                 block_number: 10,
+                slot_number: 50,
+                block_hash: "block_hash".to_string(),
                 immutable_file_number: 99,
             })
             .unwrap()
             .expand();
 
+        // TODO Why this assert ?
         assert_eq!(
-            "(transaction_hash, block_number, immutable_file_number) values (?1, ?2, ?3)"
+            "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number) values (?1, ?2, ?3, ?4, ?5)"
                 .to_string(),
             expr
         );
@@ -319,12 +418,15 @@ mod tests {
                     "0405a78c637f5c637e3146e293c0045ea80a07fac8f245901e7b491182931650".to_string()
                 ),
                 Value::Integer(10),
+                Value::Integer(50),
+                Value::String("block_hash".to_string()),
                 Value::Integer(99)
             ],
             params
         );
     }
 
+    // TODO: Is it useful ?
     #[test]
     fn insert_provider_many_condition() {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
@@ -332,30 +434,39 @@ mod tests {
         let (expr, params) = provider
             .get_insert_many_condition(vec![
                 CardanoTransactionRecord {
-                    transaction_hash: "tx-hash-123".to_string(),
+                    transaction_hash: "tx_hash-123".to_string(),
                     block_number: 10,
+                    slot_number: 50,
+                    block_hash: "block_hash-123".to_string(),
                     immutable_file_number: 99,
                 },
                 CardanoTransactionRecord {
-                    transaction_hash: "tx-hash-456".to_string(),
+                    transaction_hash: "tx_hash-456".to_string(),
                     block_number: 11,
+                    slot_number: 51,
+                    block_hash: "block_hash-456".to_string(),
                     immutable_file_number: 100,
                 },
             ])
+            .unwrap()
             .expand();
 
         assert_eq!(
-            "(transaction_hash, block_number, immutable_file_number) values (?1, ?2, ?3), (?4, ?5, ?6)"
+            "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number) values (?1, ?2, ?3, ?4, ?5), (?6, ?7, ?8, ?9, ?10)"
                 .to_string(),
             expr
         );
         assert_eq!(
             vec![
-                Value::String("tx-hash-123".to_string()),
+                Value::String("tx_hash-123".to_string()),
                 Value::Integer(10),
+                Value::Integer(50),
+                Value::String("block_hash-123".to_string()),
                 Value::Integer(99),
-                Value::String("tx-hash-456".to_string()),
+                Value::String("tx_hash-456".to_string()),
                 Value::Integer(11),
+                Value::Integer(51),
+                Value::String("block_hash-456".to_string()),
                 Value::Integer(100)
             ],
             params
@@ -367,11 +478,11 @@ mod tests {
         let connection = get_connection().await;
         let repository = CardanoTransactionRepository::new(connection.clone());
         repository
-            .create_transaction(&"tx-hash-123".to_string(), 10, 99)
+            .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
             .await
             .unwrap();
         repository
-            .create_transaction(&"tx-hash-456".to_string(), 11, 100)
+            .create_transaction("tx-hash-456", 11, 51, "block_hash-456", 100)
             .await
             .unwrap();
         let transaction_result = repository
@@ -383,6 +494,8 @@ mod tests {
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
                 block_number: 10,
+                slot_number: 50,
+                block_hash: "block_hash-123".to_string(),
                 immutable_file_number: 99
             }),
             transaction_result
@@ -394,22 +507,21 @@ mod tests {
         let connection = get_connection().await;
         let repository = CardanoTransactionRepository::new(connection.clone());
         repository
-            .create_transaction(&"tx-hash-123".to_string(), 10, 99)
+            .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
             .await
             .unwrap();
         repository
-            .create_transaction(&"tx-hash-123".to_string(), 11, 100)
+            .create_transaction("tx-hash-123", 11, 51, "block_hash-123-bis", 100)
             .await
             .unwrap();
-        let transaction_result = repository
-            .get_transaction(&"tx-hash-123".to_string())
-            .await
-            .unwrap();
+        let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
 
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
                 block_number: 10,
+                slot_number: 50,
+                block_hash: "block_hash-123".to_string(),
                 immutable_file_number: 99
             }),
             transaction_result
@@ -422,49 +534,62 @@ mod tests {
         let repository = CardanoTransactionRepository::new(connection.clone());
 
         let cardano_transactions = vec![
-            CardanoTransaction {
-                transaction_hash: "tx-hash-123".to_string(),
-                block_number: 10,
-                immutable_file_number: 99,
-            },
-            CardanoTransaction {
-                transaction_hash: "tx-hash-456".to_string(),
-                block_number: 11,
-                immutable_file_number: 100,
-            },
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-123", 99),
+            CardanoTransaction::new("tx-hash-456", 11, 51, "block-hash-456", 100),
         ];
         repository
             .store_transactions(&cardano_transactions)
             .await
             .unwrap();
 
-        let transaction_result = repository
-            .get_transaction(&"tx-hash-123".to_string())
-            .await
-            .unwrap();
+        let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
 
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
                 block_number: 10,
+                slot_number: 50,
+                block_hash: "block-hash-123".to_string(),
                 immutable_file_number: 99
             }),
             transaction_result
         );
 
-        let transaction_result = repository
-            .get_transaction(&"tx-hash-456".to_string())
-            .await
-            .unwrap();
+        let transaction_result = repository.get_transaction("tx-hash-456").await.unwrap();
 
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-456".to_string(),
                 block_number: 11,
+                slot_number: 51,
+                block_hash: "block-hash-456".to_string(),
                 immutable_file_number: 100,
             }),
             transaction_result
         );
+    }
+
+    #[tokio::test]
+    async fn repository_get_all_stored_transactions() {
+        let connection = get_connection().await;
+        let repository = CardanoTransactionRepository::new(connection.clone());
+
+        let cardano_transactions = vec![
+            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 99),
+            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
+        ];
+        repository
+            .store_transactions(&cardano_transactions)
+            .await
+            .unwrap();
+
+        let transactions_result = repository.get_all_transactions().await.unwrap();
+        let transactions_expected: Vec<CardanoTransactionRecord> = cardano_transactions
+            .iter()
+            .map(|tx| tx.clone().into())
+            .collect();
+
+        assert_eq!(transactions_expected, transactions_result);
     }
 
     #[tokio::test]
@@ -473,15 +598,17 @@ mod tests {
         let repository = CardanoTransactionRepository::new(connection.clone());
 
         repository
-            .create_transaction(&"tx-hash-000".to_string(), 1, 9)
+            .create_transaction("tx-hash-000", 1, 5, "block-hash", 9)
             .await
             .unwrap();
 
-        let cardano_transactions = vec![CardanoTransaction {
-            transaction_hash: "tx-hash-123".to_string(),
-            block_number: 10,
-            immutable_file_number: 99,
-        }];
+        let cardano_transactions = vec![CardanoTransaction::new(
+            "tx-hash-123",
+            10,
+            50,
+            "block-hash-123",
+            99,
+        )];
         repository
             .store_transactions(&cardano_transactions)
             .await
@@ -496,6 +623,8 @@ mod tests {
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-000".to_string(),
                 block_number: 1,
+                slot_number: 5,
+                block_hash: "block-hash".to_string(),
                 immutable_file_number: 9
             }),
             transaction_result

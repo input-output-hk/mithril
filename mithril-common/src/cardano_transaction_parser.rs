@@ -2,7 +2,8 @@
 use crate::{
     digesters::ImmutableFile,
     entities::{
-        BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber, TransactionHash,
+        BlockHash, BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
+        SlotNumber, TransactionHash,
     },
     StdResult,
 };
@@ -95,6 +96,8 @@ struct Block {
     pub block_number: BlockNumber,
     pub immutable_file_number: ImmutableFileNumber,
     pub transactions: Vec<TransactionHash>,
+    pub slot_number: SlotNumber,
+    pub block_hash: BlockHash,
 }
 
 impl Block {
@@ -103,11 +106,12 @@ impl Block {
         for tx in &multi_era_block.txs() {
             transactions.push(tx.hash().to_string());
         }
-
         Block {
             block_number: multi_era_block.number(),
             immutable_file_number,
             transactions,
+            slot_number: multi_era_block.slot(),
+            block_hash: multi_era_block.hash().to_string(),
         }
     }
 }
@@ -218,14 +222,15 @@ impl TransactionParser for CardanoTransactionParser {
             let mut block_transactions = blocks
                 .into_iter()
                 .flat_map(|block| {
-                    block
-                        .transactions
-                        .into_iter()
-                        .map(move |transaction_hash| CardanoTransaction {
+                    block.transactions.into_iter().map(move |transaction_hash| {
+                        CardanoTransaction::new(
                             transaction_hash,
-                            block_number: block.block_number,
-                            immutable_file_number: block.immutable_file_number,
-                        })
+                            block.block_number,
+                            block.slot_number,
+                            block.block_hash.clone(),
+                            block.immutable_file_number,
+                        )
+                    })
                 })
                 .collect::<Vec<_>>();
 
