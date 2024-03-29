@@ -648,6 +648,7 @@ CREATE TABLE IF NOT EXISTS "new_certificate" (
     sealed_at                   text     not null,
     primary key (certificate_id),
     foreign key (parent_certificate_id) references certificate(certificate_id)
+    foreign key (signed_entity_type_id) references signed_entity_type(signed_entity_type_id)
 );
 
 insert into new_certificate
