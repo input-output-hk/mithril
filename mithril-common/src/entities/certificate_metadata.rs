@@ -53,7 +53,7 @@ pub struct CertificateMetadata {
 
     /// Number of the last included immutable files for the digest computation
     #[deprecated(
-        since = "0.3.21",
+        since = "0.3.25",
         note = "Exist only for backward-compatibility, will be removed in the future"
     )]
     pub immutable_file_number: ImmutableFileNumber,

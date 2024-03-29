@@ -65,7 +65,7 @@ pub struct CertificateListItemMessage {
     pub signed_entity_type: SignedEntityType,
 
     /// Mithril beacon on the Cardano chain
-    #[deprecated(since = "0.3.21", note = "use epoch and/or signed_entity_type instead")]
+    #[deprecated(since = "0.3.25", note = "use epoch and/or signed_entity_type instead")]
     pub beacon: CardanoDbBeacon,
 
     /// Certificate metadata

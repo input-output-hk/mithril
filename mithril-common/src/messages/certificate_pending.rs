@@ -10,7 +10,7 @@ pub struct CertificatePendingMessage {
     pub epoch: Epoch,
 
     /// Current Beacon
-    #[deprecated(since = "0.3.21", note = "use epoch instead")]
+    #[deprecated(since = "0.3.25", note = "use epoch instead")]
     pub beacon: CardanoDbBeacon,
 
     /// Signed entity type
