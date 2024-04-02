@@ -30,6 +30,14 @@ pub trait TransactionStore: Send + Sync {
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
 }
 
+/// Cardano transactions importer
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait TransactionImporter: Send + Sync {
+    /// Returns all transactions up to the given beacon
+    async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>>;
+}
+
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
     transaction_parser: Arc<dyn TransactionParser>,
@@ -95,11 +103,11 @@ impl CardanoTransactionsSignableBuilder {
 
         Ok(mk_root)
     }
+}
 
-    async fn import_transactions(
-        &self,
-        beacon: &CardanoDbBeacon,
-    ) -> StdResult<Vec<CardanoTransaction>> {
+#[async_trait]
+impl TransactionImporter for CardanoTransactionsSignableBuilder {
+    async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
         let transactions = self.transaction_parser.parse(&self.dirpath, beacon).await?;
         debug!(
             self.logger,
@@ -129,7 +137,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
             "Compute protocol message for CardanoTransactions at beacon: {beacon}"
         );
 
-        let transactions = self.import_transactions(&beacon).await?;
+        let transactions = self.import(&beacon).await?;
         let mk_root = self.compute_merkle_root(&transactions)?;
 
         let mut protocol_message = ProtocolMessage::new();
