@@ -8,11 +8,13 @@ use mithril_relay::{
 };
 use reqwest::StatusCode;
 use slog::{Drain, Level, Logger};
-use slog_scope::info;
+use slog_scope::{error, info};
 
 // Launch a relay that connects to P2P network. The relay is a peer in the P2P
 // network. The relay sends some signer regsitrations that must be received by other
-// relays, then sends some signatures that must be also received by other relays.
+// relays.
+// TODO: this test is not optimal and should be refactored for better performances,
+// handling a variable number of peers and with test extensions to avoid code duplication
 
 fn build_logger(log_level: Level) -> Logger {
     let decorator = slog_term::TermDecorator::new().build();
@@ -24,7 +26,7 @@ fn build_logger(log_level: Level) -> Logger {
 }
 
 #[tokio::test]
-async fn should_receive_signers_registrations_from_signers_when_subscribed_to_pubsub() {
+async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let log_level = Level::Info;
     let _guard = slog_scope::set_global_logger(build_logger(log_level));
 
@@ -97,6 +99,14 @@ async fn should_receive_signers_registrations_from_signers_when_subscribed_to_pu
         }
     }
 
+    let signer_relay_thread = tokio::spawn(async move {
+        loop {
+            if let Err(err) = signer_relay.tick().await {
+                error!("RelaySigner: tick error"; "error" => format!("{err:#?}"));
+            }
+        }
+    });
+
     info!("Test: send a signer registration to the relay via HTTP gateway");
     let mut signer_message_sent = RegisterSignerMessage::dummy();
     signer_message_sent.party_id = format!("{}-new", signer_message_sent.party_id);
@@ -121,9 +131,6 @@ async fn should_receive_signers_registrations_from_signers_when_subscribed_to_pu
     let mut total_peers_has_received_message = 0;
     loop {
         tokio::select! {
-            _event =  signer_relay.tick() => {
-
-            },
             event =  p2p_client1.tick_peer() => {
                 if let Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) = p2p_client1.convert_peer_event_to_message(event.unwrap().unwrap())
                 {
@@ -141,7 +148,6 @@ async fn should_receive_signers_registrations_from_signers_when_subscribed_to_pu
                 }
             }
         }
-        let _ = signer_relay.tick_peer().await.unwrap();
         if total_peers_has_received_message == total_p2p_client {
             info!("Test: All P2P clients have consumed the signer registration");
             break;
@@ -170,9 +176,6 @@ async fn should_receive_signers_registrations_from_signers_when_subscribed_to_pu
     let mut total_peers_has_received_message = 0;
     loop {
         tokio::select! {
-            _event =  signer_relay.tick() => {
-
-            },
             event =  p2p_client1.tick_peer() => {
                 if let Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) = p2p_client1.convert_peer_event_to_message(event.unwrap().unwrap())
                 {
@@ -190,10 +193,11 @@ async fn should_receive_signers_registrations_from_signers_when_subscribed_to_pu
                 }
             }
         }
-        let _ = signer_relay.tick_peer().await.unwrap();
         if total_peers_has_received_message == total_p2p_client {
             info!("Test: All P2P clients have consumed the signature");
             break;
         }
     }
+
+    signer_relay_thread.abort();
 }
