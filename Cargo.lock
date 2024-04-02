@@ -3574,6 +3574,7 @@ dependencies = [
  "pallas-addresses",
  "pallas-codec 0.25.0",
  "pallas-crypto 0.24.0",
+ "pallas-crypto 0.25.0",
  "pallas-hardano",
  "pallas-network",
  "pallas-primitives",
