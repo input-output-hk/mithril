@@ -26,7 +26,7 @@ mod type_alias;
 pub use block_range::{BlockNumber, BlockRange, BlockRangeLength};
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
-pub use cardano_transaction::{CardanoTransaction, TransactionHash};
+pub use cardano_transaction::{BlockHash, CardanoTransaction, SlotNumber, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;
 pub use cardano_transactions_snapshot::CardanoTransactionsSnapshot;
 pub use certificate::{Certificate, CertificateSignature};

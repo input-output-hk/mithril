@@ -37,5 +37,19 @@ create index cardano_tx_immutable_file_number_index on cardano_tx(immutable_file
 vacuum;
 "#,
         ),
+        // Migration 3
+        // Add `slot_number` and `block_hash` columns to `cardano_tx`.
+        SqlMigration::new(
+            3,
+            r#"
+-- remove all data from the cardano tx table since the new columns are mandatory
+delete from cardano_tx;
+
+alter table cardano_tx add column slot_number integer not null;
+alter table cardano_tx add column block_hash text not null;
+
+vacuum;
+        "#,
+        ),
     ]
 }
