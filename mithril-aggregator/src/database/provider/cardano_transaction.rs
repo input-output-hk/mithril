@@ -207,7 +207,7 @@ impl<'client> Provider<'client> for InsertCardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("insert or ignore into cardano_tx {condition} returning {projection}")
+        format!("insert or ignore into cardano_tx {condition} returning {projection}")
     }
 }
 
