@@ -292,6 +292,13 @@ impl CardanoTransactionRepository {
 
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
+    async fn get_at_most_to(
+        &self,
+        _beacon: &CardanoDbBeacon,
+    ) -> StdResult<Option<(ImmutableFileNumber, Vec<CardanoTransaction>)>> {
+        todo!()
+    }
+
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()> {
         let records: Vec<CardanoTransactionRecord> =
             transactions.iter().map(|tx| tx.to_owned().into()).collect();
