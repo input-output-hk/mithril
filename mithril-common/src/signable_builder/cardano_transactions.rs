@@ -95,24 +95,12 @@ impl CardanoTransactionsSignableBuilder {
 
         Ok(mk_root)
     }
-}
 
-#[async_trait]
-impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
-    // TODO: return a protocol message computed from the transactions when it's ready to be implemented
-    async fn compute_protocol_message(
+    async fn import_transactions(
         &self,
-        beacon: CardanoDbBeacon,
-    ) -> StdResult<ProtocolMessage> {
-        debug!(
-            self.logger,
-            "Compute protocol message for CardanoTransactions at beacon: {beacon}"
-        );
-
-        let transactions = self
-            .transaction_parser
-            .parse(&self.dirpath, &beacon)
-            .await?;
+        beacon: &CardanoDbBeacon,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        let transactions = self.transaction_parser.parse(&self.dirpath, beacon).await?;
         debug!(
             self.logger,
             "Retrieved {} Cardano transactions at beacon: {beacon}",
@@ -126,6 +114,22 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
                 .await?;
         }
 
+        Ok(transactions)
+    }
+}
+
+#[async_trait]
+impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
+    async fn compute_protocol_message(
+        &self,
+        beacon: CardanoDbBeacon,
+    ) -> StdResult<ProtocolMessage> {
+        debug!(
+            self.logger,
+            "Compute protocol message for CardanoTransactions at beacon: {beacon}"
+        );
+
+        let transactions = self.import_transactions(&beacon).await?;
         let mk_root = self.compute_merkle_root(&transactions)?;
 
         let mut protocol_message = ProtocolMessage::new();
