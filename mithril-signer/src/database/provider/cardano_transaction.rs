@@ -1,9 +1,9 @@
+use crate::TransactionStore;
 use mithril_common::{
     entities::{
         BlockHash, BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
         SlotNumber, TransactionHash,
     },
-    signable_builder::TransactionStore,
     StdResult,
 };
 use mithril_persistence::sqlite::{

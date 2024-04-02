@@ -1,11 +1,22 @@
 use async_trait::async_trait;
 use mithril_common::cardano_transaction_parser::TransactionParser;
 use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction};
-use mithril_common::signable_builder::{TransactionStore, TransactionsImporter};
+use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+#[cfg(test)]
+use mockall::automock;
+
+/// Cardano transactions store
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait TransactionStore: Send + Sync {
+    /// Store list of transactions
+    async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
+}
 
 /// Import and store [CardanoTransaction].
 pub struct CardanoTransactionsImporter {

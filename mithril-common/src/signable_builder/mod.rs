@@ -15,6 +15,3 @@ cfg_fs! {
     pub use cardano_immutable_full_signable_builder::*;
     pub use cardano_transactions::*;
 }
-
-#[cfg(all(test, feature = "fs"))]
-pub use cardano_transactions::MockTransactionStore;

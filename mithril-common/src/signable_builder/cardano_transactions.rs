@@ -17,14 +17,6 @@ use crate::{
 #[cfg(test)]
 use mockall::automock;
 
-/// Cardano transactions store
-#[cfg_attr(test, automock)]
-#[async_trait]
-pub trait TransactionStore: Send + Sync {
-    /// Store list of transactions
-    async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
-}
-
 /// Cardano transactions importer
 #[cfg_attr(test, automock)]
 #[async_trait]

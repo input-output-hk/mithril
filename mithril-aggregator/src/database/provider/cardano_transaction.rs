@@ -3,7 +3,6 @@ use mithril_common::{
         BlockHash, BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
         SlotNumber, TransactionHash,
     },
-    signable_builder::TransactionStore,
     StdResult,
 };
 use mithril_persistence::sqlite::{
@@ -16,7 +15,7 @@ use async_trait::async_trait;
 use sqlite::{Row, Value};
 use std::{iter::repeat, sync::Arc};
 
-use crate::services::TransactionsRetriever;
+use crate::services::{TransactionStore, TransactionsRetriever};
 
 /// Cardano Transaction record is the representation of a cardano transaction.
 #[derive(Debug, PartialEq, Clone)]
