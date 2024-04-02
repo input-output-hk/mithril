@@ -66,7 +66,7 @@ impl SqLiteEntity for CardanoTransactionRecord {
     where
         Self: Sized,
     {
-        // TODO generalize this method
+        // TODO: generalize this method to other hydrator
         fn try_to_u64(field: &str, value: i64) -> Result<u64, HydrationError> {
             u64::try_from(value)
             .map_err(|e| HydrationError::InvalidData(format!("Integer field cardano_tx.{field} (value={value}) is incompatible with u64 representation. Error = {e}")))
@@ -167,31 +167,29 @@ impl<'client> InsertCardanoTransactionProvider<'client> {
         &self,
         transactions_records: Vec<CardanoTransactionRecord>,
     ) -> StdResult<WhereCondition> {
-        fn map_record(record: CardanoTransactionRecord) -> StdResult<Vec<Value>> {
-            Ok(vec![
-                Value::String(record.transaction_hash),
-                Value::Integer(record.block_number.try_into().unwrap()),
-                Value::Integer(record.slot_number.try_into()?),
-                Value::String(record.block_hash.clone()),
-                Value::Integer(record.immutable_file_number.try_into().unwrap()),
-            ])
-        }
-
         let columns =
             "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
             .take(transactions_records.len())
             .collect();
 
-        // TODO see if we can find another way to do it
-        let values: StdResult<Vec<Vec<Value>>> =
-            transactions_records.into_iter().map(map_record).collect();
-
-        let values: Vec<Value> = values?.into_iter().flatten().collect();
+        let values: StdResult<Vec<Value>> =
+            transactions_records
+                .into_iter()
+                .try_fold(vec![], |mut vec, record| {
+                    vec.append(&mut vec![
+                        Value::String(record.transaction_hash),
+                        Value::Integer(record.block_number.try_into()?),
+                        Value::Integer(record.slot_number.try_into()?),
+                        Value::String(record.block_hash.clone()),
+                        Value::Integer(record.immutable_file_number.try_into()?),
+                    ]);
+                    Ok(vec)
+                });
 
         Ok(WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
-            values,
+            values?,
         ))
     }
 }
@@ -336,7 +334,6 @@ mod tests {
             .unwrap()
     }
 
-    // TODO Is it really a useful test ?
     #[test]
     fn cardano_transaction_projection() {
         let projection = CardanoTransactionRecord::get_projection();
@@ -398,7 +395,6 @@ mod tests {
             .unwrap()
             .expand();
 
-        // TODO Why this assert ?
         assert_eq!(
             "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number) values (?1, ?2, ?3, ?4, ?5)"
                 .to_string(),
@@ -418,7 +414,6 @@ mod tests {
         );
     }
 
-    // TODO: Is it useful ?
     #[test]
     fn insert_provider_many_condition() {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
@@ -477,10 +472,7 @@ mod tests {
             .create_transaction("tx-hash-456", 11, 51, "block_hash-456", 100)
             .await
             .unwrap();
-        let transaction_result = repository
-            .get_transaction(&"tx-hash-123".to_string())
-            .await
-            .unwrap();
+        let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
 
         assert_eq!(
             Some(CardanoTransactionRecord {
@@ -650,10 +642,7 @@ mod tests {
             .await
             .unwrap();
 
-        let transaction_result = repository
-            .get_transaction(&"tx-hash-000".to_string())
-            .await
-            .unwrap();
+        let transaction_result = repository.get_transaction("tx-hash-000").await.unwrap();
 
         assert_eq!(
             Some(CardanoTransactionRecord {

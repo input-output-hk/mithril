@@ -219,7 +219,7 @@ mod tests {
         }
 
         {
-            // In a same block range Transactions in a different order returns a different merkle root.
+            // In a same block range Transactions in a different order return a different merkle root.
             let transactions_set = vec![
                 transaction_1.clone(),
                 transaction_3.clone(),
@@ -250,9 +250,6 @@ mod tests {
             .compute_merkle_root(&[transaction_1.clone(), transaction_2.clone()])
             .unwrap();
 
-        // Transactions in two different block range compute the same merkle root as long as their
-        // order in their block range is the same but the order of appearance of the block range
-        // doesn't matter.
         let mk_root = cardano_transaction_signable_builder
             .compute_merkle_root(&[transaction_2.clone(), transaction_1.clone()])
             .unwrap();
