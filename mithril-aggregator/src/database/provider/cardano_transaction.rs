@@ -160,17 +160,6 @@ impl<'client> InsertCardanoTransactionProvider<'client> {
     }
 
     fn get_insert_condition(&self, record: &CardanoTransactionRecord) -> StdResult<WhereCondition> {
-        // let expression =
-        //     "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number) values (?1, ?2, ?3, ?4, ?5)";
-        // let parameters = vec![
-        //     Value::String(record.transaction_hash.clone()),
-        //     Value::Integer(record.block_number.try_into()?),
-        //     Value::Integer(record.slot_number.try_into()?),
-        //     Value::String(record.block_hash.clone()),
-        //     Value::Integer(record.immutable_file_number.try_into()?),
-        // ];
-
-        // Ok(WhereCondition::new(expression, parameters))
         self.get_insert_many_condition(vec![record.clone()])
     }
 
@@ -200,12 +189,6 @@ impl<'client> InsertCardanoTransactionProvider<'client> {
 
         let values: Vec<Value> = values?.into_iter().flatten().collect();
 
-        // let values = transactions_records
-        //     .into_iter()
-        //     .flat_map(map_record) // Vec<StdResult<Vec<Value>>>
-        //     .flatten()
-        //     .collect::<Vec<Value>>();
-
         Ok(WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values,
@@ -224,7 +207,7 @@ impl<'client> Provider<'client> for InsertCardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("insert or ignore into cardano_tx {condition} returning {projection}")
+        format!("insert or ignore into cardano_tx {condition} returning {projection}")
     }
 }
 

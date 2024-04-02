@@ -158,29 +158,39 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compute_merkle_root() {
-        let transaction_1 = CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash", 1);
-        let transaction_2 = CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 1);
-        let transaction_3 = CardanoTransaction::new("tx-hash-789", 30, 3, "block_hash", 1);
-        let transaction_4 = CardanoTransaction::new("tx-hash-abc", 40, 4, "block_hash", 1);
+    async fn test_compute_merkle_root_in_same_block_range() {
+        let transaction_1 = CardanoTransaction::new("tx-hash-123", 1, 10, "block_hash", 1);
+        let transaction_2 = CardanoTransaction::new("tx-hash-456", 2, 20, "block_hash", 1);
+        let transaction_3 = CardanoTransaction::new("tx-hash-789", 3, 30, "block_hash", 1);
+        let transaction_4 = CardanoTransaction::new("tx-hash-abc", 4, 40, "block_hash", 1);
 
-        let transactions_set_reference = vec![
-            transaction_1.clone(),
-            transaction_2.clone(),
-            transaction_3.clone(),
-        ];
+        for tx in [
+            &transaction_1,
+            &transaction_2,
+            &transaction_3,
+            &transaction_4,
+        ] {
+            assert!(
+                tx.block_number < BlockRange::LENGTH,
+                "all manipulated transactions should be in the same block range"
+            );
+        }
+
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-            Arc::new(DumbTransactionParser::new(
-                transactions_set_reference.clone(),
-            )),
+            Arc::new(DumbTransactionParser::new(vec![])),
             Arc::new(MockTransactionStore::new()),
             Path::new("/tmp"),
             create_logger(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
-            .compute_merkle_root(&transactions_set_reference)
+            .compute_merkle_root(&[
+                transaction_1.clone(),
+                transaction_2.clone(),
+                transaction_3.clone(),
+            ])
             .unwrap();
+
         {
             let transactions_set = vec![transaction_1.clone()];
             let mk_root = cardano_transaction_signable_builder
@@ -209,7 +219,7 @@ mod tests {
         }
 
         {
-            // Transactions in a different order returns a different merkle root.
+            // In a same block range Transactions in a different order returns a different merkle root.
             let transactions_set = vec![
                 transaction_1.clone(),
                 transaction_3.clone(),
@@ -220,6 +230,34 @@ mod tests {
                 .unwrap();
             assert_ne!(merkle_root_reference, mk_root);
         }
+    }
+
+    #[tokio::test]
+    async fn test_compute_merkle_root_order_of_block_range_does_not_matter() {
+        let transaction_1 =
+            CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH - 1, 10, "block_hash", 1);
+        let transaction_2 =
+            CardanoTransaction::new("tx-hash-456", BlockRange::LENGTH + 1, 20, "block_hash", 1);
+
+        let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
+            Arc::new(DumbTransactionParser::new(vec![])),
+            Arc::new(MockTransactionStore::new()),
+            Path::new("/tmp"),
+            create_logger(),
+        );
+
+        let merkle_root_reference = cardano_transaction_signable_builder
+            .compute_merkle_root(&[transaction_1.clone(), transaction_2.clone()])
+            .unwrap();
+
+        // Transactions in two different block range compute the same merkle root as long as their
+        // order in their block range is the same but the order of appearance of the block range
+        // doesn't matter.
+        let mk_root = cardano_transaction_signable_builder
+            .compute_merkle_root(&[transaction_2.clone(), transaction_1.clone()])
+            .unwrap();
+
+        assert_eq!(merkle_root_reference, mk_root);
     }
 
     #[tokio::test]
