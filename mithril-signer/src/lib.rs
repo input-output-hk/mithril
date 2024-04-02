@@ -35,3 +35,16 @@ const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
 /// SQLite file names
 const SQLITE_FILE: &str = "signer.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
+
+#[cfg(test)]
+pub mod test_tools {
+    use slog::Drain;
+    use std::sync::Arc;
+
+    pub fn logger_for_tests() -> slog::Logger {
+        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+        slog::Logger::root(Arc::new(drain), slog::o!())
+    }
+}
