@@ -21,10 +21,10 @@ use mithril_common::{
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
-    database::provider::CardanoTransactionRepository, metrics::*, AggregatorClient, Configuration,
-    MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
-    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
-    StateMachine,
+    database::provider::CardanoTransactionRepository, metrics::*, AggregatorClient,
+    CardanoTransactionsImporter, Configuration, MetricsService, MithrilSingleSigner,
+    ProductionServiceBuilder, ProtocolInitializerStore, ProtocolInitializerStorer, RuntimeError,
+    SignerRunner, SignerServices, SignerState, StateMachine,
 };
 
 use super::FakeAggregator;
@@ -154,10 +154,14 @@ impl StateMachineTester {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
+            slog_scope::logger(),
+        ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_importer,
             slog_scope::logger(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

@@ -57,10 +57,10 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
-        MithrilStakeDistributionService, MithrilTickerService, ProverService, SignedEntityService,
-        StakeDistributionService, TickerService,
+        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
+        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        MithrilSignedEntityService, MithrilStakeDistributionService, MithrilTickerService,
+        ProverService, SignedEntityService, StakeDistributionService, TickerService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -1079,10 +1079,14 @@ impl DependenciesBuilder {
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             self.get_transaction_parser().await?,
             self.get_transaction_store().await?,
             &self.configuration.db_directory,
+            self.get_logger().await?,
+        ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transactions_importer,
             self.get_logger().await?,
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

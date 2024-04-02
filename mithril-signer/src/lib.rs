@@ -7,6 +7,7 @@
 //! for more information on how it works.
 
 mod aggregator_client;
+mod cardano_transactions_importer;
 mod configuration;
 pub mod database;
 mod message_adapters;
@@ -18,6 +19,7 @@ mod single_signer;
 #[cfg(test)]
 pub use aggregator_client::dumb::DumbAggregatorClient;
 pub use aggregator_client::*;
+pub use cardano_transactions_importer::*;
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
