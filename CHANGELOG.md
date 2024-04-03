@@ -5,5 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-As a minor extension, we also keep a semantic version for the `UNRELEASED`
-changes.
+As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (https://mithril.network/doc/adr/3#decision)
+
+## Mithril Distribution [2416.0] - UNRELEASED
+
+- **BREAKING** changes in Mithril client CLI:
+  - Certificate chain structure has been modified to remove coupling with immutable file number.
+  - Client needs to be updated to verify certificate chain.
+
+- Crates versions:
+
+|  Crate  |  Version  |
+|---------- |-------------|
+| N/A | `-` |
+
+## Mithril Distribution [2412.0] - 2024-03-26
+
+- **GitHub release**: https://github.com/input-output-hk/mithril/releases/tag/2412.0
+
+- _DEPRECATED_ the `snapshot` command in the Mithril client CLI: 
+  - Renamed to `cardano-db snapshot`.
+  - Will be **removed** in **2** distributions.
+
+- Support for `Prometheus` endpoint for metrics in signer ([setup guide](https://mithril.network/doc/next/manual/getting-started/run-signer-node#activate-prometheus-endpoint)).
+
+- Full support for chain observer with `Pallas` in signer and aggregator.
+
+- Support for `Cardano node` `8.9.0` in the signer and the aggregator.
+
+- Bug fixes and performance improvements.
+
+- Crates versions:
+
+|  Crate  |  Version  |
+|---------- |-------------|
+| mithril-aggregator | `0.4.49` |
+| mithril-client | `0.6.9` |
+| mithril-client-cli | `0.7.6` |
+| mithril-client-wasm | `0.2.5` |
+| mithril-common | `0.3.21` |
+| mithril-signer | `0.2.116` |
+| mithril-stm | `0.3.17` |
