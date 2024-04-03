@@ -429,7 +429,7 @@ systemctl status mithril-signer.service
 Finally, monitor the logs of the service:
 
 ```bash
-tail /var/log/syslog
+tail -f /var/log/syslog | grep mithril-signer
 ```
 
 ### Activate Prometheus endpoint
@@ -507,19 +507,72 @@ sudo systemctl restart mithril-signer
 
 :::
 
-### Configuring the Squid service
+### Building Squid from source
+
+:::info
+
+- If you have already installed `Squid` via `apt` package manager, we recommend that you delete it before manually building it from source by running the commands: `sudo apt remove squid` and `sudo apt autoremove`.
+
+- The FAQ for compiling `Squid` is available [here](https://wiki.squid-cache.org/SquidFaq/CompilingSquid).
+
+- You will need a C++ compiler that can be installed with `sudo apt install build-essential` command.
+
+:::
+
+On the [Squid page listing released versions](https://www.squid-cache.org/Versions/) identify the latest stable released version (currently `6.8`) and download it:
+
+```bash
+wget https://www.squid-cache.org/Versions/v6/squid-6.8.tar.gz
+```
+
+Uncompress the downloaded archive, and change directory:
+```bash
+tar xzf squid-6.8.tar.gz
+cd squid-6.8
+```
+
+Then, configure the compilation:
+```bash
+./configure \
+    --prefix=/opt/squid \
+    --localstatedir=/opt/squid/var \
+    --libexecdir=/opt/squid/lib/squid \
+    --datadir=/opt/squid/share/squid \
+    --sysconfdir=/etc/squid \
+    --with-default-user=squid \
+    --with-logdir=/opt/squid/var/log/squid \
+    --with-pidfile=/opt/squid/var/run/squid.pid
+```
+
+Compile the sources:
+```bash
+make
+```
+
+And install `squid` binary:
+```bash
+sudo make install
+```
+
+Optionally, verify that the version is correct:
+```bash
+/opt/squid/sbin/squid -v
+```
+
+You should see a result like this:
+```bash
+Squid Cache: Version 6.8
+Service Name: squid
+configure options:  '--prefix=/opt/squid' '--localstatedir=/opt/squid/var' '--libexecdir=/opt/squid/lib/squid' '--datadir=/opt/squid/share/squid' '--sysconfdir=/etc/squid' '--with-default-user=squid' '--with-logdir=/opt/squid/var/log/squid' '--with-pidfile=/opt/squid/var/run/squid.pid'
+```
+
+### Configuring the Squid proxy
 
 :::info
 
 The **Mithril relay** node serves as a forward proxy, relaying traffic between the **Mithril signer** and the **Mithril aggregator**. When appropriately configured, it facilitates the security of the **block-producing** node. You can use `squid` to operate this forward proxy, and this section presents a recommended configuration.
 
 :::
-
-Verify that the service was correctly configured at installation:
-
-```bash
-sudo systemctl status squid
-```
 
 Make a copy of the original configuration:
 
@@ -657,33 +710,78 @@ With this configuration, the proxy will:
 - anonymize completely the traffic and avoid disclosing any information about the block-producing machine
 - deny all other traffic
 
-Restart the service:
-
-```bash
-sudo systemctl restart squid
-```
-
-Ensure it runs properly:
-
-```bash
-sudo systemctl status squid
-```
-
-Finally, monitor service logs:
-
-```bash
-tail /var/log/syslog
-```
-
 :::info
 
-Here is the command to see squid access logs:
+:::
 
+### Installing the service
+
+Create (or re-use) an unpriviledged system user on the machine:
 ```bash
-tail /var/log/squid/access.log
+sudo adduser --system --no-create-home --group squid
 ```
 
-:::
+Change ownership of `/opt/squid/var` directory:
+```bash
+sudo chown squid -R /opt/squid/var/
+sudo chgrp squid -R /opt/squid/var/
+```
+
+Create a `/etc/systemd/system/squid.service` description file for the service:
+```bash
+sudo bash -c 'cat > /etc/systemd/system/squid.service << EOF
+[Unit]
+Description=Squid service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=60
+User=squid
+Group=squid
+ExecStart=/opt/squid/sbin/squid -f /etc/squid/squid.conf
+
+[Install]
+WantedBy=multi-user.target
+EOF'
+```
+
+Reload the service configuration (optional):
+
+```bash
+sudo systemctl daemon-reload
+```
+
+Then, start the service:
+
+```bash
+sudo systemctl start squid
+```
+
+Register the service to start on boot:
+
+```bash
+sudo systemctl enable squid
+```
+
+Monitor the status of the service:
+
+```bash
+systemctl status squid
+```
+
+Finally, monitor the logs of the service:
+
+```bash
+tail -f /var/log/syslog | grep squid
+```
+
+And monitor squid access logs:
+
+```bash
+tail -f /opt/squid/var/log/squid/access.log
+```
 
 ### Firewall configuration
 
