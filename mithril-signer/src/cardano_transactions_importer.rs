@@ -26,6 +26,7 @@ pub trait TransactionStore: Send + Sync {
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
 }
 
+// Todo: see if we can add quickly a parameter to rescan the last "x" immutables
 /// Import and store [CardanoTransaction].
 pub struct CardanoTransactionsImporter {
     transaction_parser: Arc<dyn TransactionParser>,
@@ -54,26 +55,44 @@ impl CardanoTransactionsImporter {
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
-        if let Some((_highest_immutable, stored_transactions)) =
-            self.transaction_store.get_at_most_to(beacon).await?
-        {
-            Ok(stored_transactions)
-        } else {
-            let transactions = self.transaction_parser.parse(&self.dirpath, beacon).await?;
+        let (parse_range, mut stored_transactions) =
+            match self.transaction_store.get_at_most_to(beacon).await? {
+                // Nothing in db - all transactions will be parsed
+                None => (Some((None, beacon.immutable_file_number)), vec![]),
+                // Db up to date - nothing to parse
+                Some((highest_immutable, stored_transactions))
+                    if highest_immutable >= beacon.immutable_file_number =>
+                {
+                    (None, stored_transactions)
+                }
+                // Db partially up to date - parse newest immutables
+                Some((highest_immutable, stored_transactions)) => (
+                    Some((Some(highest_immutable + 1), beacon.immutable_file_number)),
+                    stored_transactions,
+                ),
+            };
+
+        if let Some((from, until)) = parse_range {
+            let mut parsed_transactions = self
+                .transaction_parser
+                .parse(&self.dirpath, from, until)
+                .await?;
             debug!(
                 self.logger,
                 "Retrieved {} Cardano transactions at beacon: {beacon}",
-                transactions.len()
+                parsed_transactions.len()
             );
 
             let transaction_chunk_size = 100;
-            for transactions_in_chunk in transactions.chunks(transaction_chunk_size) {
+            for transactions_in_chunk in parsed_transactions.chunks(transaction_chunk_size) {
                 self.transaction_store
                     .store_transactions(transactions_in_chunk)
                     .await?;
             }
-
-            Ok(transactions)
+            stored_transactions.append(&mut parsed_transactions);
+            Ok(stored_transactions)
+        } else {
+            Ok(stored_transactions)
         }
     }
 }
@@ -93,7 +112,8 @@ mod tests {
             async fn parse(
               &self,
               dirpath: &Path,
-              beacon: &CardanoDbBeacon,
+              from_immutable: Option<ImmutableFileNumber>,
+              until_immutable: ImmutableFileNumber,
             ) -> StdResult<Vec<CardanoTransaction>>;
         }
     }
@@ -120,21 +140,21 @@ mod tests {
     #[tokio::test]
     async fn if_nothing_stored_parse_and_store_all_transactions() {
         let transactions = vec![
-            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 1),
-            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 1),
-            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 2),
-            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 2),
+            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 11),
+            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 11),
+            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
+            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
-        let beacon = CardanoDbBeacon::new("", 1, 3);
+        let beacon = CardanoDbBeacon::new("", 1, 12);
 
         let importer = build_importer(
             &|parser_mock| {
-                let expected_beacon = beacon.clone();
+                let expected_until = beacon.immutable_file_number;
                 let parsed_transactions = transactions.clone();
                 parser_mock
                     .expect_parse()
-                    .withf(move |_, beacon_arg| beacon_arg == &expected_beacon)
-                    .return_once(move |_, _| Ok(parsed_transactions));
+                    .withf(move |_, from, until| from.is_none() && until == &expected_until)
+                    .return_once(move |_, _, _| Ok(parsed_transactions));
             },
             &|store_mock| {
                 let expected_stored_transactions = transactions.clone();
@@ -157,12 +177,12 @@ mod tests {
     #[tokio::test]
     async fn if_all_stored_nothing_is_parsed_and_stored() {
         let transactions = vec![
-            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 1),
-            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 1),
-            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 2),
-            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 2),
+            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 11),
+            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 11),
+            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
+            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
-        let beacon = CardanoDbBeacon::new("", 1, 3);
+        let beacon = CardanoDbBeacon::new("", 1, 12);
 
         let importer = build_importer(
             &|parser_mock| {
@@ -172,8 +192,48 @@ mod tests {
                 let stored_transactions = transactions.clone();
                 store_mock
                     .expect_get_at_most_to()
-                    .return_once(|_| Ok(Some((2, stored_transactions))));
+                    .return_once(|_| Ok(Some((12, stored_transactions))));
                 store_mock.expect_store_transactions().never();
+            },
+        );
+        let imported_transactions = importer
+            .import(&beacon)
+            .await
+            .expect("Transactions Parser should succeed");
+
+        assert_eq!(transactions, imported_transactions);
+    }
+
+    #[tokio::test]
+    async fn if_all_half_are_stored_the_other_half_is_parsed_and_stored() {
+        let transactions = vec![
+            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-10", 11),
+            CardanoTransaction::new("tx_hash-2", 20, 20, "block_hash-20", 12),
+            CardanoTransaction::new("tx_hash-3", 30, 25, "block_hash-30", 13),
+            CardanoTransaction::new("tx_hash-4", 40, 30, "block_hash-40", 14),
+        ];
+        let beacon = CardanoDbBeacon::new("", 1, 14);
+
+        let importer = build_importer(
+            &|parser_mock| {
+                let expected_until = beacon.immutable_file_number;
+                let parsed_transactions = transactions[2..=3].to_vec();
+                parser_mock
+                    .expect_parse()
+                    .withf(move |_, from, until| from == &Some(13) && until == &expected_until)
+                    .return_once(move |_, _, _| Ok(parsed_transactions));
+            },
+            &|store_mock| {
+                let stored_transactions = transactions[0..=1].to_vec();
+                store_mock
+                    .expect_get_at_most_to()
+                    .return_once(|_| Ok(Some((12, stored_transactions))));
+                let expected_to_store_transactions = transactions[2..=3].to_vec();
+                store_mock
+                    .expect_store_transactions()
+                    .with(eq(expected_to_store_transactions))
+                    .returning(|_| Ok(()))
+                    .once();
             },
         );
         let imported_transactions = importer

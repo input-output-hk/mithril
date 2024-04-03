@@ -46,7 +46,10 @@ impl CardanoTransactionsImporter {
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
-        let transactions = self.transaction_parser.parse(&self.dirpath, beacon).await?;
+        let transactions = self
+            .transaction_parser
+            .parse(&self.dirpath, None, beacon.immutable_file_number)
+            .await?;
         debug!(
             self.logger,
             "Retrieved {} Cardano transactions at beacon: {beacon}",

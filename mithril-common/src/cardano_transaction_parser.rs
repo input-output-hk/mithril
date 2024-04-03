@@ -2,8 +2,8 @@
 use crate::{
     digesters::ImmutableFile,
     entities::{
-        BlockHash, BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
-        SlotNumber, TransactionHash,
+        BlockHash, BlockNumber, CardanoTransaction, ImmutableFileNumber, SlotNumber,
+        TransactionHash,
     },
     StdResult,
 };
@@ -23,7 +23,7 @@ use tokio::sync::RwLock;
 ///     use anyhow::anyhow;
 ///     use async_trait::async_trait;
 ///     use mithril_common::cardano_transaction_parser::TransactionParser;
-///     use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction};
+///     use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber};
 ///     use mithril_common::StdResult;
 ///     use mockall::mock;
 ///     use std::path::Path;
@@ -36,7 +36,8 @@ use tokio::sync::RwLock;
 ///             async fn parse(
 ///               &self,
 ///               dirpath: &Path,
-///               beacon: &CardanoDbBeacon,
+///               from_immutable: Option<ImmutableFileNumber>,
+///               until_immutable: ImmutableFileNumber,
 ///             ) -> StdResult<Vec<CardanoTransaction>>;
 ///         }
 ///     }
@@ -56,7 +57,8 @@ pub trait TransactionParser: Sync + Send {
     async fn parse(
         &self,
         dirpath: &Path,
-        beacon: &CardanoDbBeacon,
+        from_immutable: Option<ImmutableFileNumber>,
+        until_immutable: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>>;
 }
 
@@ -85,7 +87,8 @@ impl TransactionParser for DumbTransactionParser {
     async fn parse(
         &self,
         _dirpath: &Path,
-        _beacon: &CardanoDbBeacon,
+        _from_immutable: Option<ImmutableFileNumber>,
+        _until_immutable: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
         Ok(self.transactions.read().await.clone())
     }
@@ -198,12 +201,14 @@ impl CardanoTransactionParser {
 
 #[async_trait]
 impl TransactionParser for CardanoTransactionParser {
+    // Todo: update implem to parse from the lower bound
     async fn parse(
         &self,
         dirpath: &Path,
-        beacon: &CardanoDbBeacon,
+        _from_immutable: Option<ImmutableFileNumber>,
+        until_immutable: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        let up_to_file_number = beacon.immutable_file_number;
+        let up_to_file_number = until_immutable;
         let immutable_chunks = ImmutableFile::list_completed_in_dir(dirpath)?
             .into_iter()
             .filter(|f| f.number <= up_to_file_number && f.filename.contains("chunk"))
@@ -275,16 +280,13 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
-        let beacon = CardanoDbBeacon {
-            immutable_file_number: 2,
-            ..CardanoDbBeacon::default()
-        };
+        let until_immutable_file = 2;
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
             CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
-            .parse(db_path, &beacon)
+            .parse(db_path, None, until_immutable_file)
             .await
             .unwrap();
 
@@ -292,16 +294,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_parse_from_lower_bound_until_upper_bound() {
+        todo!()
+    }
+
+    #[tokio::test]
     async fn test_parse_should_error_with_unparsable_block_format() {
         let db_path = Path::new("../mithril-test-lab/test_data/parsing_error/immutable/");
-        let beacon = CardanoDbBeacon {
-            immutable_file_number: 4831,
-            ..CardanoDbBeacon::default()
-        };
+        let until_immutable_file = 4831;
         let cardano_transaction_parser =
             CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
 
-        let result = cardano_transaction_parser.parse(db_path, &beacon).await;
+        let result = cardano_transaction_parser
+            .parse(db_path, None, until_immutable_file)
+            .await;
 
         assert!(result.is_err());
     }
@@ -314,17 +320,14 @@ mod tests {
         );
         let filepath = temp_dir.join("test.log");
         let db_path = Path::new("../mithril-test-lab/test_data/parsing_error/immutable/");
-        let beacon = CardanoDbBeacon {
-            immutable_file_number: 4831,
-            ..CardanoDbBeacon::default()
-        };
+        let until_immutable_file = 4831;
         // We create a block to drop the logger and force a flush before we read the log file.
         {
             let cardano_transaction_parser =
                 CardanoTransactionParser::new(create_file_logger(&filepath), true);
 
             cardano_transaction_parser
-                .parse(db_path, &beacon)
+                .parse(db_path, None, until_immutable_file)
                 .await
                 .expect_err("parse should have failed");
         }
@@ -340,16 +343,13 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);
 
-        let beacon = CardanoDbBeacon {
-            immutable_file_number: 1,
-            ..CardanoDbBeacon::default()
-        };
+        let until_immutable_file = 1;
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
             CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
-            .parse(db_path, &beacon)
+            .parse(db_path, None, until_immutable_file)
             .await
             .unwrap();
 
