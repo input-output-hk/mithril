@@ -699,5 +699,31 @@ update pending_certificate
         );
         "#,
         ),
+        // Migration 24
+        // Add indexes for foreign keys
+        SqlMigration::new(
+            24,
+            r#"
+-- `certificate` table
+create index certificate_parent_certificate_id_index on certificate(parent_certificate_id);
+
+-- `signer_registration` table
+create index signer_registration_epoch_setting_id_index on signer_registration(epoch_setting_id);
+create index signer_registration_signer_id_index on signer_registration(signer_id);
+
+-- `open_message` table
+create index open_message_epoch_setting_id_index on open_message(epoch_setting_id);
+create index open_message_signed_entity_type_id_index on open_message(signed_entity_type_id);
+
+-- `signed_entity` table
+create index signed_entity_signed_entity_type_id_index on signed_entity(signed_entity_type_id);
+create index signed_entity_certificate_id_index on signed_entity(certificate_id);
+
+-- `single_signature` table
+create index single_signature_open_message_id_index on single_signature(open_message_id);
+create index single_signature_signer_id_index on single_signature(signer_id);
+create index single_signature_registration_epoch_setting_id_index on single_signature(registration_epoch_setting_id);
+"#,
+        ),
     ]
 }
