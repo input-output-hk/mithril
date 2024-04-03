@@ -7,6 +7,7 @@ This PR includes...
 - Branch
   - [ ] Tests are provided (if possible)
   - [ ] Crates versions are updated (if relevant)
+  - [ ] CHANGELOG file is updated (if relevant)
   - [ ] Commit sequence broadly makes sense
   - [ ] Key commits have useful messages
 - PR
