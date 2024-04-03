@@ -266,8 +266,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        // TODO: 'allow_unparsable_block' parameter should be configurable and its default value set to false
-        let allow_unparsable_block = true;
+        // TODO: 'allow_unparsable_block' parameter should be configurable
+        let allow_unparsable_block = false;
         let transaction_parser = Arc::new(CardanoTransactionParser::new(
             slog_scope::logger(),
             allow_unparsable_block,

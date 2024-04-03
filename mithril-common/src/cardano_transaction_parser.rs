@@ -326,7 +326,7 @@ mod tests {
             cardano_transaction_parser
                 .parse(db_path, &beacon)
                 .await
-                .unwrap();
+                .expect_err("parse should have failed");
         }
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();

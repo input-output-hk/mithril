@@ -741,8 +741,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
-        // TODO: 'allow_unparsable_block' parameter should be configurable and its default value set to false
-        let allow_unparsable_block = true;
+        // TODO: 'allow_unparsable_block' parameter should be configurable
+        let allow_unparsable_block = false;
         let transaction_parser =
             CardanoTransactionParser::new(self.get_logger().await?, allow_unparsable_block);
 
