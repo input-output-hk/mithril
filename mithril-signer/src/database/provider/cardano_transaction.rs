@@ -292,10 +292,11 @@ impl CardanoTransactionRepository {
 
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
-    async fn get_at_most_to(
-        &self,
-        _beacon: &CardanoDbBeacon,
-    ) -> StdResult<Option<(ImmutableFileNumber, Vec<CardanoTransaction>)>> {
+    async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>> {
+        todo!()
+    }
+
+    async fn get_up_to(&self, _beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
         todo!()
     }
 

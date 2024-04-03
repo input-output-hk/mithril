@@ -14,13 +14,14 @@ use mockall::automock;
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait TransactionStore: Send + Sync {
-    /// Get stored transactions at most up to the given beacon
-    ///
-    /// Alongside the transactions it will return the highest immutable file number
-    async fn get_at_most_to(
+    /// Get the highest known transaction beacon
+    async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
+
+    /// Get stored transactions up to the given beacon
+    async fn get_up_to(
         &self,
-        beacon: &CardanoDbBeacon,
-    ) -> StdResult<Option<(ImmutableFileNumber, Vec<CardanoTransaction>)>>;
+        immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Store list of transactions
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
@@ -56,20 +57,26 @@ impl CardanoTransactionsImporter {
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
         let (parse_range, mut stored_transactions) =
-            match self.transaction_store.get_at_most_to(beacon).await? {
+            match self.transaction_store.get_highest_beacon().await? {
+                Some(highest_immutable) => {
+                    let stored_transactions = self
+                        .transaction_store
+                        .get_up_to(beacon.immutable_file_number)
+                        .await?;
+
+                    if highest_immutable >= beacon.immutable_file_number {
+                        // Db up to date - nothing to parse
+                        (None, stored_transactions)
+                    } else {
+                        // Db partially up to date - parse newest immutables
+                        (
+                            Some((Some(highest_immutable + 1), beacon.immutable_file_number)),
+                            stored_transactions,
+                        )
+                    }
+                }
                 // Nothing in db - all transactions will be parsed
                 None => (Some((None, beacon.immutable_file_number)), vec![]),
-                // Db up to date - nothing to parse
-                Some((highest_immutable, stored_transactions))
-                    if highest_immutable >= beacon.immutable_file_number =>
-                {
-                    (None, stored_transactions)
-                }
-                // Db partially up to date - parse newest immutables
-                Some((highest_immutable, stored_transactions)) => (
-                    Some((Some(highest_immutable + 1), beacon.immutable_file_number)),
-                    stored_transactions,
-                ),
             };
 
         if let Some((from, until)) = parse_range {
@@ -174,7 +181,9 @@ mod tests {
             },
             &|store_mock| {
                 let expected_stored_transactions = transactions.clone();
-                store_mock.expect_get_at_most_to().returning(|_| Ok(None));
+                store_mock
+                    .expect_get_highest_beacon()
+                    .returning(|| Ok(None));
                 store_mock
                     .expect_store_transactions()
                     .with(eq(expected_stored_transactions))
@@ -207,8 +216,12 @@ mod tests {
             &|store_mock| {
                 let stored_transactions = transactions.clone();
                 store_mock
-                    .expect_get_at_most_to()
-                    .return_once(|_| Ok(Some((12, stored_transactions))));
+                    .expect_get_highest_beacon()
+                    .returning(|| Ok(Some(12)));
+                store_mock
+                    .expect_get_up_to()
+                    .with(eq(beacon.immutable_file_number))
+                    .return_once(|_| Ok(stored_transactions));
                 store_mock.expect_store_transactions().never();
             },
         );
@@ -242,8 +255,12 @@ mod tests {
             &|store_mock| {
                 let stored_transactions = transactions[0..=1].to_vec();
                 store_mock
-                    .expect_get_at_most_to()
-                    .return_once(|_| Ok(Some((12, stored_transactions))));
+                    .expect_get_highest_beacon()
+                    .returning(|| Ok(Some(12)));
+                store_mock
+                    .expect_get_up_to()
+                    .with(eq(beacon.immutable_file_number))
+                    .return_once(|_| Ok(stored_transactions));
                 let expected_to_store_transactions = transactions[2..=3].to_vec();
                 store_mock
                     .expect_store_transactions()
