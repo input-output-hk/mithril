@@ -99,6 +99,9 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::provider::CardanoTransactionRepository;
+    use crate::{Configuration, ProductionServiceBuilder};
+    use mithril_persistence::sqlite::SqliteConnection;
     use mockall::mock;
     use mockall::predicate::eq;
 
@@ -116,6 +119,19 @@ mod tests {
               until_immutable: ImmutableFileNumber,
             ) -> StdResult<Vec<CardanoTransaction>>;
         }
+    }
+
+    async fn get_connection() -> Arc<SqliteConnection> {
+        let party_id = "party-id-123".to_string();
+        let configuration = Configuration::new_sample(&party_id);
+        let production_service_builder = ProductionServiceBuilder::new(&configuration);
+        production_service_builder
+            .build_sqlite_connection(
+                ":memory:",
+                crate::database::cardano_transaction_migration::get_migrations(),
+            )
+            .await
+            .unwrap()
     }
 
     fn build_importer(
@@ -242,5 +258,45 @@ mod tests {
             .expect("Transactions Parser should succeed");
 
         assert_eq!(transactions, imported_transactions);
+    }
+
+    #[tokio::test]
+    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_the_transactions_in_same_order(
+    ) {
+        let transactions = vec![
+            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 11),
+            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 11),
+            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
+            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
+        ];
+        let beacon = CardanoDbBeacon::new("", 1, 12);
+        let importer = {
+            let connection = get_connection().await;
+            let parsed_transactions = transactions.clone();
+            let mut parser = MockTransactionParserImpl::new();
+            parser
+                .expect_parse()
+                .return_once(move |_, _, _| Ok(parsed_transactions));
+
+            CardanoTransactionsImporter::new(
+                Arc::new(parser),
+                Arc::new(CardanoTransactionRepository::new(connection.clone())),
+                Path::new(""),
+                crate::test_tools::logger_for_tests(),
+            )
+        };
+
+        let cold_imported_transactions = importer
+            .import(&beacon)
+            .await
+            .expect("Transactions Parser should succeed");
+
+        let warm_imported_transactions = importer
+            .import(&beacon)
+            .await
+            .expect("Transactions Parser should succeed");
+
+        assert_eq!(transactions, cold_imported_transactions);
+        assert_eq!(cold_imported_transactions, warm_imported_transactions);
     }
 }
