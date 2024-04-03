@@ -3572,9 +3572,8 @@ dependencies = [
  "mockall",
  "nom",
  "pallas-addresses",
- "pallas-codec 0.25.0",
- "pallas-crypto 0.24.0",
- "pallas-crypto 0.25.0",
+ "pallas-codec",
+ "pallas-crypto",
  "pallas-hardano",
  "pallas-network",
  "pallas-primitives",
@@ -4244,21 +4243,9 @@ dependencies = [
  "bech32 0.9.1",
  "crc",
  "hex",
- "pallas-codec 0.25.0",
- "pallas-crypto 0.25.0",
+ "pallas-codec",
+ "pallas-crypto",
  "sha3",
- "thiserror",
-]
-
-[[package]]
-name = "pallas-codec"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2f6659ef912bf95cb19423e83638b7b37ca86fe3be4fe7ea8eee87f90ccad7a"
-dependencies = [
- "hex",
- "minicbor",
- "serde",
  "thiserror",
 ]
 
@@ -4276,27 +4263,13 @@ dependencies = [
 
 [[package]]
 name = "pallas-crypto"
-version = "0.24.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66fc2250551c7a07e132898610f8c725c2f8f59300a6311c371dc4cf7ad27353"
-dependencies = [
- "cryptoxide",
- "hex",
- "pallas-codec 0.24.0",
- "rand_core 0.6.4",
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "pallas-crypto"
 version = "0.25.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c4a1adbeb46418fd6b1ca00db9d81253f131c7555864f4e6712c7f562063c316"
 dependencies = [
  "cryptoxide",
  "hex",
- "pallas-codec 0.25.0",
+ "pallas-codec",
  "rand_core 0.6.4",
  "serde",
  "thiserror",
@@ -4325,8 +4298,8 @@ dependencies = [
  "byteorder",
  "hex",
  "itertools 0.12.1",
- "pallas-codec 0.25.0",
- "pallas-crypto 0.25.0",
+ "pallas-codec",
+ "pallas-crypto",
  "rand",
  "socket2 0.5.6",
  "thiserror",
@@ -4344,8 +4317,8 @@ dependencies = [
  "bech32 0.9.1",
  "hex",
  "log",
- "pallas-codec 0.25.0",
- "pallas-crypto 0.25.0",
+ "pallas-codec",
+ "pallas-crypto",
  "serde",
  "serde_json",
 ]
@@ -4358,8 +4331,8 @@ checksum = "dfd9057640b61de89bf3176aeee20145192df644d09dd6672dcc85824901f11e"
 dependencies = [
  "hex",
  "pallas-addresses",
- "pallas-codec 0.25.0",
- "pallas-crypto 0.25.0",
+ "pallas-codec",
+ "pallas-crypto",
  "pallas-primitives",
  "paste",
  "serde",
