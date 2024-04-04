@@ -24,7 +24,7 @@ pub trait TransactionStore: Send + Sync {
     ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Store list of transactions
-    async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
+    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
 }
 
 /// Import and store [CardanoTransaction].
@@ -89,12 +89,9 @@ impl CardanoTransactionsImporter {
             from.unwrap_or(0)
         );
 
-        let transaction_chunk_size = 100;
-        for transactions_in_chunk in parsed_transactions.chunks(transaction_chunk_size) {
-            self.transaction_store
-                .store_transactions(transactions_in_chunk)
-                .await?;
-        }
+        self.transaction_store
+            .store_transactions(parsed_transactions)
+            .await?;
         Ok(())
     }
 }

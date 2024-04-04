@@ -331,11 +331,13 @@ impl TransactionStore for CardanoTransactionRepository {
         })
     }
 
-    async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()> {
-        self.create_transactions(transactions.to_vec())
-            .await
-            .with_context(|| "CardanoTransactionRepository can not store transactions")?;
-
+    async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
+        // Chunk transactions to avoid an error when we exceed sqlite binding limitations
+        for transactions_in_chunk in transactions.chunks(100) {
+            self.create_transactions(transactions_in_chunk.to_vec())
+                .await
+                .with_context(|| "CardanoTransactionRepository can not store transactions")?;
+        }
         Ok(())
     }
 }
@@ -556,7 +558,7 @@ mod tests {
             CardanoTransaction::new("tx-hash-456", 11, 51, "block-hash-456", 100),
         ];
         repository
-            .store_transactions(&cardano_transactions)
+            .create_transactions(cardano_transactions)
             .await
             .unwrap();
 
@@ -626,7 +628,7 @@ mod tests {
             CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
         ];
         repository
-            .store_transactions(&cardano_transactions)
+            .create_transactions(cardano_transactions.clone())
             .await
             .unwrap();
 
@@ -657,7 +659,7 @@ mod tests {
             99,
         )];
         repository
-            .store_transactions(&cardano_transactions)
+            .create_transactions(cardano_transactions)
             .await
             .unwrap();
 
@@ -694,7 +696,7 @@ mod tests {
             CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
         ];
         repository
-            .store_transactions(&cardano_transactions)
+            .create_transactions(cardano_transactions)
             .await
             .unwrap();
 
