@@ -278,12 +278,15 @@ impl CardanoTransactionRepository {
     }
 
     /// Create new [CardanoTransactionRecord]s in the database.
-    pub async fn create_transactions(
+    pub async fn create_transactions<T: Into<CardanoTransactionRecord>>(
         &self,
-        transactions: Vec<CardanoTransactionRecord>,
+        transactions: Vec<T>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let records: Vec<CardanoTransactionRecord> =
+            transactions.into_iter().map(|tx| tx.into()).collect();
+
         let provider = InsertCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_insert_many_condition(transactions)?;
+        let filters = provider.get_insert_many_condition(records)?;
         let cursor = provider.find(filters)?;
 
         Ok(cursor.collect())
@@ -328,9 +331,7 @@ impl TransactionStore for CardanoTransactionRepository {
     }
 
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()> {
-        let records: Vec<CardanoTransactionRecord> =
-            transactions.iter().map(|tx| tx.to_owned().into()).collect();
-        self.create_transactions(records)
+        self.create_transactions(transactions.to_vec())
             .await
             .with_context(|| "CardanoTransactionRepository can not store transactions")?;
 
@@ -574,8 +575,8 @@ mod tests {
         let connection = get_connection().await;
         let repository = CardanoTransactionRepository::new(connection.clone());
 
-        let cardano_transactions: Vec<CardanoTransaction> = (20..=40)
-            .map(|i| CardanoTransaction {
+        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
+            .map(|i| CardanoTransactionRecord {
                 transaction_hash: format!("tx-hash-{i}"),
                 block_number: i % 10,
                 slot_number: i * 100,
@@ -584,24 +585,18 @@ mod tests {
             })
             .collect();
         repository
-            .store_transactions(&cardano_transactions)
+            .create_transactions(cardano_transactions.clone())
             .await
             .unwrap();
 
-        let transaction_result = repository.get_up_to(34).await.unwrap();
-
+        let transaction_result = repository.get_transactions_up_to(34).await.unwrap();
         assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
 
-        let transaction_result = repository.get_up_to(300).await.unwrap();
+        let transaction_result = repository.get_transactions_up_to(300).await.unwrap();
+        assert_eq!(cardano_transactions.clone(), transaction_result);
 
-        assert_eq!(
-            cardano_transactions.into_iter().collect::<Vec<_>>(),
-            transaction_result
-        );
-
-        let transaction_result = repository.get_up_to(19).await.unwrap();
-
-        assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
+        let transaction_result = repository.get_transactions_up_to(19).await.unwrap();
+        assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 
     #[tokio::test]
