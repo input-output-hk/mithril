@@ -114,10 +114,10 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 #[cfg(test)]
 mod tests {
     use crate::database::provider::CardanoTransactionRepository;
-    use crate::{Configuration, ProductionServiceBuilder};
-    use mithril_persistence::sqlite::SqliteConnection;
+    use crate::database::test_utils::apply_all_transactions_db_migrations;
     use mockall::mock;
     use mockall::predicate::eq;
+    use sqlite::Connection;
 
     use super::*;
 
@@ -133,19 +133,6 @@ mod tests {
               until_immutable: ImmutableFileNumber,
             ) -> StdResult<Vec<CardanoTransaction>>;
         }
-    }
-
-    async fn get_connection() -> Arc<SqliteConnection> {
-        let party_id = "party-id-123".to_string();
-        let configuration = Configuration::new_sample(&party_id);
-        let production_service_builder = ProductionServiceBuilder::new(&configuration);
-        production_service_builder
-            .build_sqlite_connection(
-                ":memory:",
-                crate::database::cardano_transaction_migration::get_migrations(),
-            )
-            .await
-            .unwrap()
     }
 
     fn build_importer(
@@ -275,7 +262,8 @@ mod tests {
             CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
         let importer = {
-            let connection = get_connection().await;
+            let connection = Connection::open_thread_safe(":memory:").unwrap();
+            apply_all_transactions_db_migrations(&connection).unwrap();
             let parsed_transactions = transactions.clone();
             let mut parser = MockTransactionParserImpl::new();
             parser
@@ -284,7 +272,7 @@ mod tests {
 
             CardanoTransactionsImporter::new(
                 Arc::new(parser),
-                Arc::new(CardanoTransactionRepository::new(connection.clone())),
+                Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
                 Path::new(""),
                 None,
                 crate::test_tools::logger_for_tests(),

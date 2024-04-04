@@ -343,21 +343,14 @@ mod tests {
     use mithril_persistence::sqlite::SourceAlias;
     use sqlite::Connection;
 
-    use crate::{Configuration, ProductionServiceBuilder};
+    use crate::database::test_utils::apply_all_transactions_db_migrations;
 
     use super::*;
 
     async fn get_connection() -> Arc<SqliteConnection> {
-        let party_id = "party-id-123".to_string();
-        let configuration = Configuration::new_sample(&party_id);
-        let production_service_builder = ProductionServiceBuilder::new(&configuration);
-        production_service_builder
-            .build_sqlite_connection(
-                ":memory:",
-                crate::database::cardano_transaction_migration::get_migrations(),
-            )
-            .await
-            .unwrap()
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
+        apply_all_transactions_db_migrations(&connection).unwrap();
+        Arc::new(connection)
     }
 
     #[test]
