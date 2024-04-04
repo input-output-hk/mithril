@@ -293,7 +293,30 @@ impl CardanoTransactionRepository {
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>> {
-        todo!()
+        let sql = "select max(immutable_file_number) as highest from cardano_tx;";
+        match self
+            .connection
+            .prepare(sql)
+            .with_context(|| {
+                format!(
+                    "Prepare query error: SQL=`{}`",
+                    &sql.replace('\n', " ").trim()
+                )
+            })?
+            .iter()
+            .next()
+        {
+            None => Ok(None),
+            Some(row) => {
+                let highest = row?.read::<Option<i64>, _>(0);
+                highest
+                    .map(u64::try_from)
+                    .transpose()
+                    .with_context(||
+                        format!("Integer field max(immutable_file_number) (value={highest:?}) is incompatible with u64 representation.")
+                    )
+            }
+        }
     }
 
     async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
@@ -645,5 +668,32 @@ mod tests {
             }),
             transaction_result
         );
+    }
+
+    #[tokio::test]
+    async fn repository_get_highest_beacon_without_transactions_in_db() {
+        let connection = get_connection().await;
+        let repository = CardanoTransactionRepository::new(connection.clone());
+
+        let highest_beacon = repository.get_highest_beacon().await.unwrap();
+        assert_eq!(None, highest_beacon);
+    }
+
+    #[tokio::test]
+    async fn repository_get_highest_beacon_with_transactions_in_db() {
+        let connection = get_connection().await;
+        let repository = CardanoTransactionRepository::new(connection.clone());
+
+        let cardano_transactions = vec![
+            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
+            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
+        ];
+        repository
+            .store_transactions(&cardano_transactions)
+            .await
+            .unwrap();
+
+        let highest_beacon = repository.get_highest_beacon().await.unwrap();
+        assert_eq!(Some(100), highest_beacon);
     }
 }
