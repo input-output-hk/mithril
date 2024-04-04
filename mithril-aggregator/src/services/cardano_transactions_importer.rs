@@ -71,7 +71,10 @@ impl CardanoTransactionsImporter {
         until: ImmutableFileNumber,
     ) -> StdResult<()> {
         if from.is_some_and(|f| f >= until) {
-            // Db is up-to-date - nothing to do
+            debug!(
+                self.logger,
+                "TransactionsImporter does not need to retrieve Cardano transactions, the database is up to date for immutable '{until}'",
+            );
             return Ok(());
         }
 
@@ -81,7 +84,7 @@ impl CardanoTransactionsImporter {
             .await?;
         debug!(
             self.logger,
-            "Retrieved {} Cardano transactions at between immutables {} and {until}",
+            "TransactionsImporter retrieved '{}' Cardano transactions between immutables '{}' and '{until}'",
             parsed_transactions.len(),
             from.unwrap_or(0)
         );
