@@ -27,7 +27,6 @@ pub trait TransactionStore: Send + Sync {
     async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
 }
 
-// Todo: see if we can add quickly a parameter to rescan the last "x" immutables
 /// Import and store [CardanoTransaction].
 pub struct CardanoTransactionsImporter {
     transaction_parser: Arc<dyn TransactionParser>,
@@ -57,6 +56,13 @@ impl CardanoTransactionsImporter {
             rescan_offset,
             dirpath: dirpath.to_owned(),
         }
+    }
+
+    async fn get_starting_beacon(&self) -> StdResult<Option<u64>> {
+        let highest = self.transaction_store.get_highest_beacon().await?;
+        let rescan_offset = self.rescan_offset.unwrap_or(0);
+        let highest = highest.map(|h| (h + 1).saturating_sub(rescan_offset as u64));
+        Ok(highest)
     }
 
     async fn parse_and_store_missing_transactions(
@@ -93,13 +99,9 @@ impl CardanoTransactionsImporter {
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
-        let highest = self.transaction_store.get_highest_beacon().await?;
-        let rescan_offset = self.rescan_offset.unwrap_or(0);
-        self.parse_and_store_missing_transactions(
-            highest.map(|h| (h + 1).saturating_sub(rescan_offset as u64)),
-            beacon.immutable_file_number,
-        )
-        .await?;
+        let from = self.get_starting_beacon().await?;
+        self.parse_and_store_missing_transactions(from, beacon.immutable_file_number)
+            .await?;
 
         let transactions = self
             .transaction_store
@@ -308,36 +310,33 @@ mod tests {
 
     #[tokio::test]
     async fn change_parsed_lower_bound_when_rescan_limit_is_set() {
-        let beacon = CardanoDbBeacon::new("", 1, 12);
-        let highest_stored_beacon = 8;
-        let rescan_offset = 3;
-        let expected_parsed_lower_bound = highest_stored_beacon + 1 - rescan_offset;
-
-        let importer = {
-            let mut parser = MockTransactionParserImpl::new();
-            parser
-                .expect_parse()
-                .withf(move |_, from, _| from.is_some_and(|f| f == expected_parsed_lower_bound))
-                .return_once(move |_, _, _| Ok(vec![]));
-
+        fn importer_with_offset(
+            highest_stored_beacon: ImmutableFileNumber,
+            rescan_offset: ImmutableFileNumber,
+        ) -> CardanoTransactionsImporter {
             let mut store = MockTransactionStore::new();
             store
                 .expect_get_highest_beacon()
                 .returning(move || Ok(Some(highest_stored_beacon)));
-            store.expect_get_up_to().returning(|_| Ok(vec![]));
 
             CardanoTransactionsImporter::new(
-                Arc::new(parser),
+                Arc::new(MockTransactionParserImpl::new()),
                 Arc::new(store),
                 Path::new(""),
                 Some(rescan_offset as usize),
                 crate::test_tools::logger_for_tests(),
             )
-        };
+        }
+        let importer = importer_with_offset(8, 3);
 
-        importer
-            .import(&beacon)
-            .await
-            .expect("Transactions Parser should succeed");
+        let from = importer.get_starting_beacon().await.unwrap();
+        // Expected should be: highest_stored_beacon + 1 - rescan_offset
+        assert_eq!(Some(6), from);
+
+        let importer = importer_with_offset(5, 10);
+
+        let from = importer.get_starting_beacon().await.unwrap();
+        // If sub overflow it should be 0
+        assert_eq!(Some(0), from);
     }
 }
