@@ -540,6 +540,7 @@ mod tests {
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
+            None,
             slog_scope::logger(),
         ));
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(

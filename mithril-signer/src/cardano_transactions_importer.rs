@@ -33,21 +33,28 @@ pub struct CardanoTransactionsImporter {
     transaction_parser: Arc<dyn TransactionParser>,
     transaction_store: Arc<dyn TransactionStore>,
     logger: Logger,
+    rescan_offset: Option<usize>,
     dirpath: PathBuf,
 }
 
 impl CardanoTransactionsImporter {
     /// Constructor
+    ///
+    /// About `rescan_offset`: if Some(x) the importer will be asked to rescan the previous 'x'
+    /// immutables starting from the highest immutable known in the store.
+    /// This is useful when one of the last immutable was not full scanned.
     pub fn new(
         transaction_parser: Arc<dyn TransactionParser>,
         transaction_store: Arc<dyn TransactionStore>,
         dirpath: &Path,
+        rescan_offset: Option<usize>,
         logger: Logger,
     ) -> Self {
         Self {
             transaction_parser,
             transaction_store,
             logger,
+            rescan_offset,
             dirpath: dirpath.to_owned(),
         }
     }
@@ -87,8 +94,9 @@ impl CardanoTransactionsImporter {
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
         let highest = self.transaction_store.get_highest_beacon().await?;
+        let rescan_offset = self.rescan_offset.unwrap_or(0);
         self.parse_and_store_missing_transactions(
-            highest.map(|h| h + 1),
+            highest.map(|h| (h + 1).saturating_sub(rescan_offset as u64)),
             beacon.immutable_file_number,
         )
         .await?;
@@ -154,6 +162,7 @@ mod tests {
             Arc::new(parser),
             Arc::new(store),
             db_path,
+            None,
             crate::test_tools::logger_for_tests(),
         )
     }
@@ -278,6 +287,7 @@ mod tests {
                 Arc::new(parser),
                 Arc::new(CardanoTransactionRepository::new(connection.clone())),
                 Path::new(""),
+                None,
                 crate::test_tools::logger_for_tests(),
             )
         };
@@ -294,5 +304,40 @@ mod tests {
 
         assert_eq!(transactions, cold_imported_transactions);
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
+    }
+
+    #[tokio::test]
+    async fn change_parsed_lower_bound_when_rescan_limit_is_set() {
+        let beacon = CardanoDbBeacon::new("", 1, 12);
+        let highest_stored_beacon = 8;
+        let rescan_offset = 3;
+        let expected_parsed_lower_bound = highest_stored_beacon + 1 - rescan_offset;
+
+        let importer = {
+            let mut parser = MockTransactionParserImpl::new();
+            parser
+                .expect_parse()
+                .withf(move |_, from, _| from.is_some_and(|f| f == expected_parsed_lower_bound))
+                .return_once(move |_, _, _| Ok(vec![]));
+
+            let mut store = MockTransactionStore::new();
+            store
+                .expect_get_highest_beacon()
+                .returning(move || Ok(Some(highest_stored_beacon)));
+            store.expect_get_up_to().returning(|_| Ok(vec![]));
+
+            CardanoTransactionsImporter::new(
+                Arc::new(parser),
+                Arc::new(store),
+                Path::new(""),
+                Some(rescan_offset as usize),
+                crate::test_tools::logger_for_tests(),
+            )
+        };
+
+        importer
+            .import(&beacon)
+            .await
+            .expect("Transactions Parser should succeed");
     }
 }
