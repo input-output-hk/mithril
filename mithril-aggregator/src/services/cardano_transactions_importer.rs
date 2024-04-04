@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use mithril_common::cardano_transaction_parser::TransactionParser;
-use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction};
+use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 use slog::{debug, Logger};
@@ -45,14 +45,17 @@ impl CardanoTransactionsImporter {
 
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
-    async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
+    async fn import(
+        &self,
+        up_to_beacon: ImmutableFileNumber,
+    ) -> StdResult<Vec<CardanoTransaction>> {
         let transactions = self
             .transaction_parser
-            .parse(&self.dirpath, None, beacon.immutable_file_number)
+            .parse(&self.dirpath, None, up_to_beacon)
             .await?;
         debug!(
             self.logger,
-            "Retrieved {} Cardano transactions at beacon: {beacon}",
+            "Retrieved {} Cardano transactions at beacon: {up_to_beacon}",
             transactions.len()
         );
 

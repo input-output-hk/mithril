@@ -14,6 +14,7 @@ use crate::{
     StdResult,
 };
 
+use crate::entities::ImmutableFileNumber;
 #[cfg(test)]
 use mockall::automock;
 
@@ -22,7 +23,8 @@ use mockall::automock;
 #[async_trait]
 pub trait TransactionsImporter: Send + Sync {
     /// Returns all transactions up to the given beacon
-    async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>>;
+    async fn import(&self, up_to_beacon: ImmutableFileNumber)
+        -> StdResult<Vec<CardanoTransaction>>;
 }
 
 /// A [CardanoTransactionsSignableBuilder] builder
@@ -94,7 +96,10 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
             "Compute protocol message for CardanoTransactions at beacon: {beacon}"
         );
 
-        let transactions = self.transaction_importer.import(&beacon).await?;
+        let transactions = self
+            .transaction_importer
+            .import(beacon.immutable_file_number)
+            .await?;
         let mk_root = self.compute_merkle_root(&transactions)?;
 
         let mut protocol_message = ProtocolMessage::new();

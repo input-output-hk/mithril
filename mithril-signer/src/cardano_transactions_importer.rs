@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use mithril_common::cardano_transaction_parser::TransactionParser;
-use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber};
+use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 use slog::{debug, Logger};
@@ -98,15 +98,15 @@ impl CardanoTransactionsImporter {
 
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
-    async fn import(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
+    async fn import(
+        &self,
+        up_to_beacon: ImmutableFileNumber,
+    ) -> StdResult<Vec<CardanoTransaction>> {
         let from = self.get_starting_beacon().await?;
-        self.parse_and_store_missing_transactions(from, beacon.immutable_file_number)
+        self.parse_and_store_missing_transactions(from, up_to_beacon)
             .await?;
 
-        let transactions = self
-            .transaction_store
-            .get_up_to(beacon.immutable_file_number)
-            .await?;
+        let transactions = self.transaction_store.get_up_to(up_to_beacon).await?;
         Ok(transactions)
     }
 }
@@ -177,15 +177,14 @@ mod tests {
             CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
             CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
-        let beacon = CardanoDbBeacon::new("", 1, 12);
+        let up_to_beacon = 12;
 
         let importer = build_importer(
             &|parser_mock| {
-                let expected_until = beacon.immutable_file_number;
                 let parsed_transactions = transactions.clone();
                 parser_mock
                     .expect_parse()
-                    .withf(move |_, from, until| from.is_none() && until == &expected_until)
+                    .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
                     .return_once(move |_, _, _| Ok(parsed_transactions));
             },
             &|store_mock| {
@@ -202,14 +201,14 @@ mod tests {
         );
 
         importer
-            .import(&beacon)
+            .import(up_to_beacon)
             .await
             .expect("Transactions Parser should succeed");
     }
 
     #[tokio::test]
     async fn if_all_stored_nothing_is_parsed_and_stored() {
-        let beacon = CardanoDbBeacon::new("", 1, 12);
+        let up_to_beacon = 12;
 
         let importer = build_importer(
             &|parser_mock| {
@@ -224,7 +223,7 @@ mod tests {
         );
 
         importer
-            .import(&beacon)
+            .import(up_to_beacon)
             .await
             .expect("Transactions Parser should succeed");
     }
@@ -237,15 +236,14 @@ mod tests {
             CardanoTransaction::new("tx_hash-3", 30, 25, "block_hash-30", 13),
             CardanoTransaction::new("tx_hash-4", 40, 30, "block_hash-40", 14),
         ];
-        let beacon = CardanoDbBeacon::new("", 1, 14);
+        let up_to_beacon = 14;
 
         let importer = build_importer(
             &|parser_mock| {
-                let expected_until = beacon.immutable_file_number;
                 let parsed_transactions = transactions[2..=3].to_vec();
                 parser_mock
                     .expect_parse()
-                    .withf(move |_, from, until| from == &Some(13) && until == &expected_until)
+                    .withf(move |_, from, until| from == &Some(13) && until == &up_to_beacon)
                     .return_once(move |_, _, _| Ok(parsed_transactions));
             },
             &|store_mock| {
@@ -262,7 +260,7 @@ mod tests {
         );
 
         importer
-            .import(&beacon)
+            .import(up_to_beacon)
             .await
             .expect("Transactions Parser should succeed");
     }
@@ -276,7 +274,6 @@ mod tests {
             CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
             CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
-        let beacon = CardanoDbBeacon::new("", 1, 12);
         let importer = {
             let connection = get_connection().await;
             let parsed_transactions = transactions.clone();
@@ -295,12 +292,12 @@ mod tests {
         };
 
         let cold_imported_transactions = importer
-            .import(&beacon)
+            .import(12)
             .await
             .expect("Transactions Parser should succeed");
 
         let warm_imported_transactions = importer
-            .import(&beacon)
+            .import(12)
             .await
             .expect("Transactions Parser should succeed");
 
