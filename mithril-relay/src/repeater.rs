@@ -7,7 +7,7 @@ use tokio::{
     time::Instant,
 };
 
-/// A message repeater will send a message to a channel at a given delay
+/// A message repeater will send a copy of the message to a channel at a given frequency
 pub struct MessageRepeater<M: Clone + Debug + Sync + Send + 'static> {
     message: Arc<Mutex<Option<M>>>,
     tx_message: UnboundedSender<M>,
