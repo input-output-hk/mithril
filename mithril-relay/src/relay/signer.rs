@@ -28,12 +28,15 @@ impl SignerRelay {
         address: &Multiaddr,
         server_port: &u16,
         aggregator_endpoint: &str,
+        signer_repeater_delay: &Duration,
     ) -> StdResult<Self> {
         debug!("SignerRelay: starting...");
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
-        let repeat_frequency = Duration::from_secs(30);
-        let signer_repeater = Arc::new(MessageRepeater::new(signer_tx.clone(), repeat_frequency));
+        let signer_repeater = Arc::new(MessageRepeater::new(
+            signer_tx.clone(),
+            signer_repeater_delay.to_owned(),
+        ));
         let peer = Peer::new(address).start().await?;
         let server = Self::start_http_server(
             server_port,

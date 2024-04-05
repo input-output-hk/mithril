@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use libp2p::{gossipsub, Multiaddr};
 use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
@@ -35,9 +35,15 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
     let server_port = 0;
     let aggregator_endpoint = "http://0.0.0.0:1234".to_string();
-    let mut signer_relay = SignerRelay::start(&addr, &server_port, &aggregator_endpoint)
-        .await
-        .expect("Relay start failed");
+    let signer_repeater_delay = Duration::from_secs(100);
+    let mut signer_relay = SignerRelay::start(
+        &addr,
+        &server_port,
+        &aggregator_endpoint,
+        &signer_repeater_delay,
+    )
+    .await
+    .expect("Relay start failed");
     let relay_address = signer_relay.address();
     let relay_peer_address = signer_relay.peer_address().unwrap();
     info!("Test: relay_address is '{relay_address:?}'");
