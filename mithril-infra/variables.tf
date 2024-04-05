@@ -178,6 +178,12 @@ variable "mithril_use_p2p_network" {
   default     = false
 }
 
+variable "mithril_p2p_signer_registration_repeat_delay" {
+  type        = number
+  description = "The repeat delay in milliseconds for the signer registration when operating in P2P mode (defaults to 1 hour)"
+  default     = 3600 * 1000
+}
+
 locals {
   mithril_network_type_suffix = var.mithril_use_p2p_network ? "-p2p" : ""
 }
