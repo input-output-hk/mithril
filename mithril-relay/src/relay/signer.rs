@@ -1,4 +1,7 @@
-use crate::p2p::{Peer, PeerEvent};
+use crate::{
+    p2p::{Peer, PeerEvent},
+    repeater::MessageRepeater,
+};
 use libp2p::Multiaddr;
 use mithril_common::{
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
@@ -6,7 +9,7 @@ use mithril_common::{
     StdResult,
 };
 use slog_scope::{debug, info};
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use warp::Filter;
 
@@ -16,6 +19,7 @@ pub struct SignerRelay {
     peer: Peer,
     signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
     signer_rx: UnboundedReceiver<RegisterSignerMessage>,
+    signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
 }
 
 impl SignerRelay {
@@ -28,10 +32,17 @@ impl SignerRelay {
         debug!("SignerRelay: starting...");
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
+        let repeat_frequency = Duration::from_secs(30);
+        let signer_repeater = Arc::new(MessageRepeater::new(signer_tx.clone(), repeat_frequency));
         let peer = Peer::new(address).start().await?;
-        let server =
-            Self::start_http_server(server_port, aggregator_endpoint, signer_tx, signature_tx)
-                .await;
+        let server = Self::start_http_server(
+            server_port,
+            aggregator_endpoint,
+            signer_tx,
+            signature_tx,
+            signer_repeater.clone(),
+        )
+        .await;
         info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
 
         Ok(Self {
@@ -39,6 +50,7 @@ impl SignerRelay {
             peer,
             signature_rx,
             signer_rx,
+            signer_repeater,
         })
     }
 
@@ -47,6 +59,7 @@ impl SignerRelay {
         aggregator_endpoint: &str,
         signer_tx: UnboundedSender<RegisterSignerMessage>,
         signature_tx: UnboundedSender<RegisterSignatureMessage>,
+        signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
     ) -> TestHttpServer {
         test_http_server_with_socket_address(
             warp::path("register-signatures")
@@ -58,6 +71,7 @@ impl SignerRelay {
                     .and(warp::post())
                     .and(warp::body::json())
                     .and(middlewares::with_transmitter(signer_tx))
+                    .and(middlewares::with_repeater(signer_repeater.clone()))
                     .and_then(handlers::register_signer_handler))
                 .or(warp::path("epoch-settings")
                     .and(warp::get())
@@ -104,6 +118,7 @@ impl SignerRelay {
                     }
                 }
             },
+            _ = self.signer_repeater.repeat_message() => {Ok(())},
             _event =  self.peer.tick_swarm() => {Ok(())}
         }
     }
@@ -136,14 +151,22 @@ impl SignerRelay {
 }
 
 mod middlewares {
-    use std::convert::Infallible;
+    use std::{convert::Infallible, fmt::Debug, sync::Arc};
     use tokio::sync::mpsc::UnboundedSender;
     use warp::Filter;
+
+    use crate::repeater::MessageRepeater;
 
     pub fn with_transmitter<T: Send + Sync>(
         tx: UnboundedSender<T>,
     ) -> impl Filter<Extract = (UnboundedSender<T>,), Error = Infallible> + Clone {
         warp::any().map(move || tx.clone())
+    }
+
+    pub fn with_repeater<M: Clone + Debug + Sync + Send + 'static>(
+        repeater: Arc<MessageRepeater<M>>,
+    ) -> impl Filter<Extract = (Arc<MessageRepeater<M>>,), Error = Infallible> + Clone {
+        warp::any().map(move || repeater.clone())
     }
 
     pub fn with_aggregator_endpoint(
@@ -157,15 +180,20 @@ mod handlers {
     use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
     use reqwest::{Error, Response};
     use slog_scope::debug;
-    use std::convert::Infallible;
+    use std::{convert::Infallible, sync::Arc};
     use tokio::sync::mpsc::UnboundedSender;
     use warp::http::StatusCode;
+
+    use crate::repeater;
 
     pub async fn register_signer_handler(
         register_signer_message: RegisterSignerMessage,
         tx: UnboundedSender<RegisterSignerMessage>,
+        repeater: Arc<repeater::MessageRepeater<RegisterSignerMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("SignerRelay: serve HTTP route /register-signer"; "register_signer_message" => format!("{register_signer_message:#?}"));
+
+        repeater.set_message(register_signer_message.clone()).await;
         match tx.send(register_signer_message) {
             Ok(_) => Ok(Box::new(warp::reply::with_status(
                 "".to_string(),
