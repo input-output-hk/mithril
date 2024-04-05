@@ -5,6 +5,7 @@ mod commands;
 /// Peer to peer module
 pub mod p2p;
 mod relay;
+mod repeater;
 
 pub use commands::Args;
 pub use commands::RelayCommands;
