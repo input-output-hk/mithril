@@ -31,6 +31,7 @@ impl RelaySigner {
             ("SERVER_PORT", server_port_str.as_str()),
             ("AGGREGATOR_ENDPOINT", aggregator_endpoint),
             ("DIAL_TO", &dial_to),
+            ("SIGNER_REPEATER_DELAY", "100"),
         ]);
         let args = vec!["-vvv", "signer"];
 
