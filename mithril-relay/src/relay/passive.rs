@@ -11,19 +11,11 @@ pub struct PassiveRelay {
 }
 
 impl PassiveRelay {
-    /// Create a passive relay
-    /// TODO: should be replaced by Self::start(...)
-    pub fn new(addr: &Multiaddr) -> Self {
-        Self {
-            peer: Peer::new(addr),
-        }
-    }
-
     /// Start a passive relay
-    pub async fn start(self) -> StdResult<Self> {
+    pub async fn start(addr: &Multiaddr) -> StdResult<Self> {
         debug!("PassiveRelay: starting...");
         Ok(Self {
-            peer: self.peer.start().await?,
+            peer: Peer::new(addr).start().await?,
         })
     }
 
