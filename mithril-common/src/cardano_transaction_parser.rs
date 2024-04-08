@@ -201,17 +201,20 @@ impl CardanoTransactionParser {
 
 #[async_trait]
 impl TransactionParser for CardanoTransactionParser {
-    // Todo: update implem to parse from the lower bound
     async fn parse(
         &self,
         dirpath: &Path,
-        _from_immutable: Option<ImmutableFileNumber>,
+        from_immutable: Option<ImmutableFileNumber>,
         until_immutable: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
         let up_to_file_number = until_immutable;
+        let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
+            Some(from) => from <= number && number <= up_to_file_number,
+            None => number <= up_to_file_number,
+        };
         let immutable_chunks = ImmutableFile::list_completed_in_dir(dirpath)?
             .into_iter()
-            .filter(|f| f.number <= up_to_file_number && f.filename.contains("chunk"))
+            .filter(|f| is_in_bounds(f.number) && f.filename.contains("chunk"))
             .collect::<Vec<_>>();
         let mut transactions: Vec<CardanoTransaction> = vec![];
 
@@ -295,7 +298,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_from_lower_bound_until_upper_bound() {
-        todo!()
+        // We known the number of transactions in those prebuilt immutables
+        let immutable_files = [("00002", 3)];
+        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
+        assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
+
+        let until_immutable_file = 2;
+        let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
+        let cardano_transaction_parser =
+            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
+
+        let transactions = cardano_transaction_parser
+            .parse(db_path, Some(2), until_immutable_file)
+            .await
+            .unwrap();
+
+        assert_eq!(transactions.len(), tx_count);
     }
 
     #[tokio::test]
