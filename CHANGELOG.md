@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Certificate chain structure has been modified to remove coupling with immutable file number.
   - Client needs to be updated to verify certificate chain.
 
+- Support incremental import for Cardano Transactions instead of scanning the whole immutable database for every signing round.
+
 - Crates versions:
 
 |  Crate  |  Version  |
