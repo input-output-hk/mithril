@@ -2,13 +2,17 @@ use anyhow::anyhow;
 use mithril_common::StdResult;
 use slog_scope::debug;
 use std::{fmt::Debug, sync::Arc, time::Duration};
-use tokio::sync::{mpsc::UnboundedSender, Mutex};
+use tokio::{
+    sync::{mpsc::UnboundedSender, Mutex},
+    time::Instant,
+};
 
 /// A message repeater will send a message to a channel at a given delay
 pub struct MessageRepeater<M: Clone + Debug + Sync + Send + 'static> {
     message: Arc<Mutex<Option<M>>>,
     tx_message: UnboundedSender<M>,
     delay: Duration,
+    next_repeat_at: Arc<Mutex<Option<Instant>>>,
 }
 
 impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
@@ -18,18 +22,31 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
             message: Arc::new(Mutex::new(None)),
             tx_message,
             delay,
+            next_repeat_at: Arc::new(Mutex::new(None)),
         }
+    }
+
+    async fn reset_next_repeat_at(&self) {
+        debug!("MessageRepeater: reset next_repeat_at");
+        *self.next_repeat_at.lock().await = Some(Instant::now() + self.delay);
     }
 
     /// Set the message to repeat
     pub async fn set_message(&self, message: M) {
         debug!("MessageRepeater: set message"; "message" => format!("{:#?}", message));
         *self.message.lock().await = Some(message);
+        self.reset_next_repeat_at().await;
     }
 
     /// Start repeating the message if any
     pub async fn repeat_message(&self) -> StdResult<()> {
-        tokio::time::sleep(self.delay).await;
+        let wait_delay = match self.next_repeat_at.lock().await.as_ref() {
+            None => self.delay,
+            Some(next_repeat_at) => next_repeat_at
+                .checked_duration_since(Instant::now())
+                .unwrap_or_default(),
+        };
+        tokio::time::sleep(wait_delay).await;
         match self.message.lock().await.as_ref() {
             Some(message) => {
                 debug!("MessageRepeater: repeat message"; "message" => format!("{:#?}", message));
@@ -41,6 +58,7 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
                 debug!("MessageRepeater: no message to repeat");
             }
         }
+        self.reset_next_repeat_at().await;
 
         Ok(())
     }
