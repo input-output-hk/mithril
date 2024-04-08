@@ -207,10 +207,9 @@ impl TransactionParser for CardanoTransactionParser {
         from_immutable: Option<ImmutableFileNumber>,
         until_immutable: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        let up_to_file_number = until_immutable;
         let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
-            Some(from) => from <= number && number <= up_to_file_number,
-            None => number <= up_to_file_number,
+            Some(from) => (from..=until_immutable).contains(&number),
+            None => number <= until_immutable,
         };
         let immutable_chunks = ImmutableFile::list_completed_in_dir(dirpath)?
             .into_iter()
@@ -278,7 +277,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_expected_number_of_transactions() {
-        // We known the number of transactions in those prebuilt immutables
+        // We know the number of transactions in those prebuilt immutables
         let immutable_files = [("00000", 0usize), ("00001", 2), ("00002", 3)];
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
@@ -298,7 +297,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_from_lower_bound_until_upper_bound() {
-        // We known the number of transactions in those prebuilt immutables
+        // We know the number of transactions in those prebuilt immutables
         let immutable_files = [("00002", 3)];
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
@@ -356,7 +355,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_up_to_given_beacon() {
-        // We known the number of transactions in those prebuilt immutables
+        // We know the number of transactions in those prebuilt immutables
         let immutable_files = [("00000", 0usize), ("00001", 2)];
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);

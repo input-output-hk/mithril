@@ -65,9 +65,9 @@ impl CardanoTransactionsImporter {
         Ok(highest)
     }
 
-    async fn parse_and_store_missing_transactions(
+    async fn parse_and_store_transactions_not_imported_yet(
         &self,
-        from: Option<u64>,
+        from: Option<ImmutableFileNumber>,
         until: ImmutableFileNumber,
     ) -> StdResult<()> {
         if from.is_some_and(|f| f >= until) {
@@ -103,7 +103,7 @@ impl TransactionsImporter for CardanoTransactionsImporter {
         up_to_beacon: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
         let from = self.get_starting_beacon().await?;
-        self.parse_and_store_missing_transactions(from, up_to_beacon)
+        self.parse_and_store_transactions_not_imported_yet(from, up_to_beacon)
             .await?;
 
         let transactions = self.transaction_store.get_up_to(up_to_beacon).await?;
