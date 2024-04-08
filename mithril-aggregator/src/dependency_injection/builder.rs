@@ -1084,8 +1084,8 @@ impl DependenciesBuilder {
             self.get_transaction_parser().await?,
             self.get_transaction_store().await?,
             &self.configuration.db_directory,
-            // Rescan the last two immutables when importing transactions
-            Some(2),
+            // Rescan the last immutable when importing transactions, it may have been partially imported
+            Some(1),
             self.get_logger().await?,
         ));
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(

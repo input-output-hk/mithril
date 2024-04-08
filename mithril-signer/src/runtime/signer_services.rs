@@ -280,8 +280,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             transaction_parser,
             transaction_store,
             &self.config.db_directory,
-            // Rescan the last two immutables when importing transactions
-            Some(2),
+            // Rescan the last immutable when importing transactions, it may have been partially imported
+            Some(1),
             slog_scope::logger(),
         );
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
