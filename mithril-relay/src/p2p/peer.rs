@@ -14,7 +14,10 @@ use mithril_common::{
 };
 use serde::{Deserialize, Serialize};
 use slog_scope::{debug, info};
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    time::Duration,
+};
 
 use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME, MITHRIL_SIGNERS_TOPIC_NAME};
 
@@ -38,6 +41,11 @@ pub enum PeerEvent {
     },
     /// The peer established a connection with another peer
     ConnectionEstablished {
+        /// Remote peer id
+        peer_id: PeerId,
+    },
+    /// The peer closed a connection with another peer
+    ConnectionClosed {
         /// Remote peer id
         peer_id: PeerId,
     },
@@ -75,6 +83,7 @@ pub struct Peer {
     addr: Multiaddr,
     /// Multi address on which the peer is listening
     pub addr_peer: Option<Multiaddr>,
+    connected_peers: HashSet<PeerId>,
 }
 
 impl Peer {
@@ -85,6 +94,7 @@ impl Peer {
             swarm: None,
             addr: addr.to_owned(),
             addr_peer: None,
+            connected_peers: HashSet::new(),
         }
     }
 
@@ -193,7 +203,13 @@ impl Peer {
             }
             Some(swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
                 debug!("Peer: received connection established event"; "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                self.connected_peers.insert(peer_id.to_owned());
                 Ok(Some(PeerEvent::ConnectionEstablished { peer_id }))
+            }
+            Some(swarm::SwarmEvent::ConnectionClosed { peer_id, .. }) => {
+                debug!("Peer: received connection closed event"; "remote_peer_id" => format!("{peer_id:?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
+                self.connected_peers.remove(&peer_id);
+                Ok(Some(PeerEvent::ConnectionClosed { peer_id }))
             }
             Some(swarm::SwarmEvent::Behaviour(event)) => {
                 debug!("Peer: received behaviour event"; "event" => format!("{event:#?}"), "local_peer_id" => format!("{:?}", self.local_peer_id()));
@@ -279,5 +295,10 @@ impl Peer {
     /// Get the local peer id (if any)
     pub fn local_peer_id(&self) -> Option<PeerId> {
         self.swarm.as_ref().map(|s| s.local_peer_id().to_owned())
+    }
+
+    /// Get the list of connected peers
+    pub fn connected_peers(&self) -> Vec<PeerId> {
+        self.connected_peers.iter().map(|p| p.to_owned()).collect()
     }
 }

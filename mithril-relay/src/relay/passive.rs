@@ -60,4 +60,9 @@ impl PassiveRelay {
     pub fn peer_address(&self) -> Option<Multiaddr> {
         self.peer.addr_peer.to_owned()
     }
+
+    /// Retrieve the peer
+    pub fn peer(&self) -> &Peer {
+        &self.peer
+    }
 }

@@ -24,11 +24,11 @@ impl AggregatorRelay {
     }
 
     async fn notify_signature_to_aggregator(
-        &self,
         signature_message: &RegisterSignatureMessage,
+        aggregator_endpoint: &str,
     ) -> StdResult<()> {
         let response = reqwest::Client::new()
-            .post(format!("{}/register-signatures", self.aggregator_endpoint))
+            .post(format!("{}/register-signatures", aggregator_endpoint))
             .json(signature_message)
             //.header(MITHRIL_API_VERSION_HEADER, "0.1.13") // TODO: retrieve current version
             .send()
@@ -52,11 +52,11 @@ impl AggregatorRelay {
     }
 
     async fn notify_signer_to_aggregator(
-        &self,
         signer_message: &RegisterSignerMessage,
+        aggregator_endpoint: &str,
     ) -> StdResult<()> {
         let response = reqwest::Client::new()
-            .post(format!("{}/register-signer", self.aggregator_endpoint))
+            .post(format!("{}/register-signer", aggregator_endpoint))
             .json(signer_message)
             //.header(MITHRIL_API_VERSION_HEADER, "0.1.13") // TODO: retrieve current version
             .send()
@@ -86,9 +86,11 @@ impl AggregatorRelay {
                 Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
                     let retry_max = 3;
                     let mut retry_count = 0;
-                    while let Err(e) = self
-                        .notify_signer_to_aggregator(&signer_message_received)
-                        .await
+                    while let Err(e) = Self::notify_signer_to_aggregator(
+                        &signer_message_received,
+                        &self.aggregator_endpoint,
+                    )
+                    .await
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
@@ -100,9 +102,11 @@ impl AggregatorRelay {
                 Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
                     let retry_max = 3;
                     let mut retry_count = 0;
-                    while let Err(e) = self
-                        .notify_signature_to_aggregator(&signature_message_received)
-                        .await
+                    while let Err(e) = Self::notify_signature_to_aggregator(
+                        &signature_message_received,
+                        &self.aggregator_endpoint,
+                    )
+                    .await
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
@@ -133,5 +137,10 @@ impl AggregatorRelay {
     /// Retrieve address on which the peer is listening
     pub fn peer_address(&self) -> Option<Multiaddr> {
         self.peer.addr_peer.to_owned()
+    }
+
+    /// Retrieve the peer
+    pub fn peer(&self) -> &Peer {
+        &self.peer
     }
 }
