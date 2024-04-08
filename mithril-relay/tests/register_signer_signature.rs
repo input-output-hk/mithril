@@ -48,8 +48,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let relay_peer_address = signer_relay.peer_address().unwrap();
     info!("Test: relay_address is '{relay_address:?}'");
 
-    let mut p2p_client1 = PassiveRelay::new(&addr)
-        .start()
+    let mut p2p_client1 = PassiveRelay::start(&addr)
         .await
         .expect("P2P client start failed");
     p2p_client1
@@ -57,8 +56,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
         .dial(relay_peer_address.clone())
         .expect("P2P client dial to the relay should not fail");
 
-    let mut p2p_client2 = PassiveRelay::new(&addr)
-        .start()
+    let mut p2p_client2 = PassiveRelay::start(&addr)
         .await
         .expect("P2P client start failed");
     p2p_client2
