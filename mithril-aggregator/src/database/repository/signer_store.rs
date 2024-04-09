@@ -8,7 +8,7 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::SqliteConnection;
 
 use crate::database::provider::{
-    ImportSignerRecordProvider, RegisterSignerRecordProvider, SignerRecordProvider,
+    GetSignerRecordProvider, ImportSignerRecordProvider, RegisterSignerRecordProvider,
 };
 use crate::database::record::SignerRecord;
 use crate::SignerRecorder;
@@ -105,7 +105,7 @@ impl SignerRecorder for SignerStore {
 #[async_trait]
 impl SignerGetter for SignerStore {
     async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
-        let provider = SignerRecordProvider::new(&self.connection);
+        let provider = GetSignerRecordProvider::new(&self.connection);
         let cursor = provider.get_all()?;
 
         Ok(cursor.collect())
@@ -159,7 +159,7 @@ mod tests {
                 .record_signer_registration(signer_record.signer_id.clone())
                 .await
                 .expect("record_signer_registration should not fail");
-            let provider = SignerRecordProvider::new(&connection);
+            let provider = GetSignerRecordProvider::new(&connection);
             let signer_records_stored: Vec<SignerRecord> = provider
                 .get_by_signer_id(signer_record.signer_id)
                 .unwrap()
@@ -192,7 +192,7 @@ mod tests {
                 )
                 .await
                 .expect("import_signer should not fail");
-            let provider = SignerRecordProvider::new(&connection);
+            let provider = GetSignerRecordProvider::new(&connection);
             let signer_records_stored: Vec<SignerRecord> = provider
                 .get_by_signer_id(signer_record.signer_id)
                 .unwrap()

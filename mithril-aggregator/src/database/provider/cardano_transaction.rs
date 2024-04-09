@@ -11,11 +11,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::CardanoTransactionRecord;
 
 /// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
-pub(crate) struct CardanoTransactionProvider<'client> {
+pub(crate) struct GetCardanoTransactionProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
-impl<'client> CardanoTransactionProvider<'client> {
+impl<'client> GetCardanoTransactionProvider<'client> {
     /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
@@ -43,7 +43,7 @@ impl<'client> CardanoTransactionProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
+impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
     type Entity = CardanoTransactionRecord;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {

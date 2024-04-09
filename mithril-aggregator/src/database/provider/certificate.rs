@@ -10,11 +10,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::CertificateRecord;
 
 /// Simple queries to retrieve [CertificateRecord] from the sqlite database.
-pub(crate) struct CertificateRecordProvider<'client> {
+pub(crate) struct GetCertificateRecordProvider<'client> {
     client: &'client ConnectionThreadSafe,
 }
 
-impl<'client> CertificateRecordProvider<'client> {
+impl<'client> GetCertificateRecordProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client ConnectionThreadSafe) -> Self {
         Self { client }
@@ -64,7 +64,7 @@ impl<'client> CertificateRecordProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for CertificateRecordProvider<'client> {
+impl<'client> Provider<'client> for GetCertificateRecordProvider<'client> {
     type Entity = CertificateRecord;
 
     fn get_connection(&'client self) -> &'client ConnectionThreadSafe {
@@ -395,7 +395,7 @@ mod tests {
         setup_certificate_db(&connection, vec![]).unwrap();
         insert_golden_certificate(&connection);
 
-        let provider = CertificateRecordProvider::new(&connection);
+        let provider = GetCertificateRecordProvider::new(&connection);
         let certificate_records: Vec<CertificateRecord> = provider
             .get_all()
             .expect("Getting Golden certificates should not fail")
@@ -411,7 +411,7 @@ mod tests {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_certificate_db(&connection, certificates.clone()).unwrap();
 
-        let provider = CertificateRecordProvider::new(&connection);
+        let provider = GetCertificateRecordProvider::new(&connection);
 
         let certificate_records: Vec<CertificateRecord> =
             provider.get_by_epoch(&Epoch(1)).unwrap().collect();

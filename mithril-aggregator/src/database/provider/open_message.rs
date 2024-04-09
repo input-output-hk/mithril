@@ -14,11 +14,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
 /// Simple queries to retrieve [OpenMessageRecord] from the sqlite database.
-pub(crate) struct OpenMessageProvider<'client> {
+pub(crate) struct GetOpenMessageProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
-impl<'client> OpenMessageProvider<'client> {
+impl<'client> GetOpenMessageProvider<'client> {
     /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
@@ -55,7 +55,7 @@ impl<'client> OpenMessageProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for OpenMessageProvider<'client> {
+impl<'client> Provider<'client> for GetOpenMessageProvider<'client> {
     type Entity = OpenMessageRecord;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {

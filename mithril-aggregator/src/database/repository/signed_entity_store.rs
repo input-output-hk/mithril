@@ -9,7 +9,7 @@ use mithril_persistence::sqlite::SqliteConnection;
 use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::provider::{
-    InsertSignedEntityRecordProvider, SignedEntityRecordProvider, UpdateSignedEntityProvider,
+    GetSignedEntityRecordProvider, InsertSignedEntityRecordProvider, UpdateSignedEntityProvider,
 };
 use crate::database::record::SignedEntityRecord;
 
@@ -80,7 +80,7 @@ impl SignedEntityStorer for SignedEntityStore {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
-        let provider = SignedEntityRecordProvider::new(&self.connection);
+        let provider = GetSignedEntityRecordProvider::new(&self.connection);
         let mut cursor = provider
             .get_by_signed_entity_id(signed_entity_id)
             .with_context(|| format!("get signed entity by id failure, id: {signed_entity_id}"))
@@ -94,7 +94,7 @@ impl SignedEntityStorer for SignedEntityStore {
         &self,
         certificate_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
-        let provider = SignedEntityRecordProvider::new(&self.connection);
+        let provider = GetSignedEntityRecordProvider::new(&self.connection);
         let mut cursor = provider
             .get_by_certificate_id(certificate_id)
             .with_context(|| {
@@ -112,7 +112,7 @@ impl SignedEntityStorer for SignedEntityStore {
         &self,
         certificates_ids: &[&'a str],
     ) -> StdResult<Vec<SignedEntityRecord>> {
-        let provider = SignedEntityRecordProvider::new(&self.connection);
+        let provider = GetSignedEntityRecordProvider::new(&self.connection);
         let cursor = provider.get_by_certificates_ids(certificates_ids)?;
 
         Ok(cursor.collect())
@@ -123,7 +123,7 @@ impl SignedEntityStorer for SignedEntityStore {
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>> {
-        let provider = SignedEntityRecordProvider::new(&self.connection);
+        let provider = GetSignedEntityRecordProvider::new(&self.connection);
         let cursor = provider
             .get_by_signed_entity_type(signed_entity_type_id)
             .with_context(|| {

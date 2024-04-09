@@ -10,7 +10,7 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::Provider;
 
 use crate::database::provider::{
-    CertificateRecordProvider, DeleteCertificateProvider, InsertCertificateRecordProvider,
+    DeleteCertificateProvider, GetCertificateRecordProvider, InsertCertificateRecordProvider,
     MasterCertificateProvider,
 };
 use crate::database::record::CertificateRecord;
@@ -31,7 +31,7 @@ impl CertificateRepository {
     where
         T: From<CertificateRecord>,
     {
-        let provider = CertificateRecordProvider::new(&self.connection);
+        let provider = GetCertificateRecordProvider::new(&self.connection);
         let mut cursor = provider.get_by_certificate_id(hash)?;
 
         Ok(cursor.next().map(|v| v.into()))
@@ -42,7 +42,7 @@ impl CertificateRepository {
     where
         T: From<CertificateRecord>,
     {
-        let provider = CertificateRecordProvider::new(&self.connection);
+        let provider = GetCertificateRecordProvider::new(&self.connection);
         let cursor = provider.get_all()?;
 
         Ok(cursor.take(last_n).map(|v| v.into()).collect())
@@ -458,7 +458,7 @@ mod tests {
         assert_eq!(certificates[4].hash, certificate.hash);
         {
             let connection = deps.get_sqlite_connection().await.unwrap();
-            let provider = CertificateRecordProvider::new(&connection);
+            let provider = GetCertificateRecordProvider::new(&connection);
             let mut cursor = provider
                 .get_by_certificate_id(&certificates[4].hash)
                 .unwrap();

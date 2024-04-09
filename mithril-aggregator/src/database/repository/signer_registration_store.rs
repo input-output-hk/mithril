@@ -10,8 +10,8 @@ use mithril_persistence::sqlite::SqliteConnection;
 use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::provider::{
-    DeleteSignerRegistrationRecordProvider, InsertOrReplaceSignerRegistrationRecordProvider,
-    SignerRegistrationRecordProvider,
+    DeleteSignerRegistrationRecordProvider, GetSignerRegistrationRecordProvider,
+    InsertOrReplaceSignerRegistrationRecordProvider,
 };
 use crate::database::record::SignerRegistrationRecord;
 use crate::VerificationKeyStorer;
@@ -36,7 +36,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         signer: SignerWithStake,
     ) -> StdResult<Option<SignerWithStake>> {
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&self.connection);
-        let existing_record = SignerRegistrationRecordProvider::new(&self.connection)
+        let existing_record = GetSignerRegistrationRecordProvider::new(&self.connection)
             .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
             .with_context(|| {
                 format!(
@@ -64,7 +64,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         &self,
         epoch: Epoch,
     ) -> StdResult<Option<HashMap<PartyId, Signer>>> {
-        let provider = SignerRegistrationRecordProvider::new(&self.connection);
+        let provider = GetSignerRegistrationRecordProvider::new(&self.connection);
         let cursor = provider
             .get_by_epoch(&epoch)
             .with_context(|| format!("get verification key failure, epoch: {epoch}"))
@@ -80,7 +80,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     }
 
     async fn get_signers(&self, epoch: Epoch) -> StdResult<Option<Vec<SignerWithStake>>> {
-        let provider = SignerRegistrationRecordProvider::new(&self.connection);
+        let provider = GetSignerRegistrationRecordProvider::new(&self.connection);
         let cursor = provider
             .get_by_epoch(&epoch)
             .with_context(|| format!("get verification key failure, epoch: {epoch}"))

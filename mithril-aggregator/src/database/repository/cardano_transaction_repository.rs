@@ -10,7 +10,7 @@ use mithril_common::entities::{
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Provider, SqliteConnection, WhereCondition};
 
-use crate::database::provider::{CardanoTransactionProvider, InsertCardanoTransactionProvider};
+use crate::database::provider::{GetCardanoTransactionProvider, InsertCardanoTransactionProvider};
 use crate::database::record::CardanoTransactionRecord;
 use crate::services::{TransactionStore, TransactionsRetriever};
 
@@ -30,7 +30,7 @@ impl CardanoTransactionRepository {
 
     /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
     pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
-        let provider = CardanoTransactionProvider::new(&self.connection);
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = WhereCondition::default();
         let transactions = provider.find(filters)?;
 
@@ -43,7 +43,7 @@ impl CardanoTransactionRepository {
         &self,
         beacon: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
-        let provider = CardanoTransactionProvider::new(&self.connection);
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_transaction_up_to_beacon_condition(beacon);
         let transactions = provider.find(filters)?;
 
@@ -55,7 +55,7 @@ impl CardanoTransactionRepository {
         &self,
         transaction_hash: T,
     ) -> StdResult<Option<CardanoTransactionRecord>> {
-        let provider = CardanoTransactionProvider::new(&self.connection);
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_transaction_hash_condition(&transaction_hash.into());
         let mut transactions = provider.find(filters)?;
 

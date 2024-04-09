@@ -9,12 +9,12 @@ use mithril_persistence::sqlite::{
 use crate::database::record::SingleSignatureRecord;
 
 /// Simple queries to retrieve [SingleSignatureRecord] from the sqlite database.
-pub(crate) struct SingleSignatureRecordProvider<'client> {
+pub(crate) struct GetSingleSignatureRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
 #[allow(dead_code)] // todo: Unused in production code, Should we keep it ?
-impl<'client> SingleSignatureRecordProvider<'client> {
+impl<'client> GetSingleSignatureRecordProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
@@ -66,7 +66,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for SingleSignatureRecordProvider<'client> {
+impl<'client> Provider<'client> for GetSingleSignatureRecordProvider<'client> {
     type Entity = SingleSignatureRecord;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {
@@ -165,7 +165,7 @@ mod tests {
         disable_foreign_key_support(&connection).unwrap();
         insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
 
-        let provider = SingleSignatureRecordProvider::new(&connection);
+        let provider = GetSingleSignatureRecordProvider::new(&connection);
 
         let open_message_id_test = single_signature_records_src[0].open_message_id.to_owned();
         let single_signature_records: Vec<SingleSignatureRecord> = provider

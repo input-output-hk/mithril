@@ -11,7 +11,7 @@ use mithril_persistence::store::adapter::AdapterError;
 use mithril_persistence::store::StakeStorer;
 
 use crate::database::provider::{
-    DeleteStakePoolProvider, InsertOrReplaceStakePoolProvider, StakePoolProvider,
+    DeleteStakePoolProvider, GetStakePoolProvider, InsertOrReplaceStakePoolProvider,
 };
 
 /// Service to deal with stake pools (read & write).
@@ -65,7 +65,7 @@ impl StakeStorer for StakePoolStore {
     }
 
     async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let provider = StakePoolProvider::new(&self.connection);
+        let provider = GetStakePoolProvider::new(&self.connection);
         let cursor = provider
             .get_by_epoch(&epoch)
             .with_context(|| format!("get stakes failure, epoch: {epoch}"))

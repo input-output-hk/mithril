@@ -8,7 +8,7 @@ use mithril_persistence::sqlite::SqliteConnection;
 use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::provider::{
-    DeleteEpochSettingProvider, EpochSettingProvider, UpdateEpochSettingProvider,
+    DeleteEpochSettingProvider, GetEpochSettingProvider, UpdateEpochSettingProvider,
 };
 use crate::ProtocolParametersStorer;
 
@@ -55,7 +55,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
-        let provider = EpochSettingProvider::new(&self.connection);
+        let provider = GetEpochSettingProvider::new(&self.connection);
         let mut cursor = provider
             .get_by_epoch(&epoch)
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;

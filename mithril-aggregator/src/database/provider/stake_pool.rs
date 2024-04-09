@@ -12,11 +12,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::StakePool;
 
 /// Simple queries to retrieve [StakePool] from the sqlite database.
-pub(crate) struct StakePoolProvider<'client> {
+pub(crate) struct GetStakePoolProvider<'client> {
     client: &'client SqliteConnection,
 }
 
-impl<'client> StakePoolProvider<'client> {
+impl<'client> GetStakePoolProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
@@ -38,7 +38,7 @@ impl<'client> StakePoolProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for StakePoolProvider<'client> {
+impl<'client> Provider<'client> for GetStakePoolProvider<'client> {
     type Entity = StakePool;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {
@@ -180,7 +180,7 @@ mod tests {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_stake_db(&connection, &[1, 2, 3]).unwrap();
 
-        let provider = StakePoolProvider::new(&connection);
+        let provider = GetStakePoolProvider::new(&connection);
         let mut cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
 
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool3'.");
@@ -218,7 +218,7 @@ mod tests {
         assert_eq!(Epoch(3), stake_pool.epoch);
         assert_eq!(9999, stake_pool.stake);
 
-        let provider = StakePoolProvider::new(&connection);
+        let provider = GetStakePoolProvider::new(&connection);
         let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool4'.");
 
@@ -238,7 +238,7 @@ mod tests {
 
         assert_eq!(3, cursor.count());
 
-        let provider = StakePoolProvider::new(&connection);
+        let provider = GetStakePoolProvider::new(&connection);
         let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
 
         assert_eq!(0, cursor.count());

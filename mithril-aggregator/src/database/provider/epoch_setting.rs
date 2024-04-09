@@ -12,11 +12,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::EpochSettingRecord;
 
 /// Simple queries to retrieve [EpochSettingRecord] from the sqlite database.
-pub(crate) struct EpochSettingProvider<'client> {
+pub(crate) struct GetEpochSettingProvider<'client> {
     client: &'client SqliteConnection,
 }
 
-impl<'client> EpochSettingProvider<'client> {
+impl<'client> GetEpochSettingProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
@@ -42,7 +42,7 @@ impl<'client> EpochSettingProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for EpochSettingProvider<'client> {
+impl<'client> Provider<'client> for GetEpochSettingProvider<'client> {
     type Entity = EpochSettingRecord;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {
@@ -200,7 +200,7 @@ mod tests {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_epoch_setting_db(&connection, &[1, 2, 3]).unwrap();
 
-        let provider = EpochSettingProvider::new(&connection);
+        let provider = GetEpochSettingProvider::new(&connection);
 
         let mut cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
         let epoch_setting_record = cursor
@@ -242,7 +242,7 @@ mod tests {
             epoch_setting_record.protocol_parameters
         );
 
-        let provider = EpochSettingProvider::new(&connection);
+        let provider = GetEpochSettingProvider::new(&connection);
         let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
         let epoch_setting_record = cursor
             .next()
@@ -266,7 +266,7 @@ mod tests {
 
         assert_eq!(1, cursor.count());
 
-        let provider = EpochSettingProvider::new(&connection);
+        let provider = GetEpochSettingProvider::new(&connection);
         let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
 
         assert_eq!(1, cursor.count());
@@ -286,7 +286,7 @@ mod tests {
 
         assert_eq!(1, cursor.count());
 
-        let provider = EpochSettingProvider::new(&connection);
+        let provider = GetEpochSettingProvider::new(&connection);
         let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
 
         assert_eq!(0, cursor.count());

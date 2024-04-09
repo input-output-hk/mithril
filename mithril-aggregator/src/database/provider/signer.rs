@@ -10,11 +10,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::SignerRecord;
 
 /// Simple queries to retrieve [SignerRecord] from the sqlite database.
-pub(crate) struct SignerRecordProvider<'client> {
+pub(crate) struct GetSignerRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
-impl<'client> SignerRecordProvider<'client> {
+impl<'client> GetSignerRecordProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
@@ -46,7 +46,7 @@ impl<'client> SignerRecordProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for SignerRecordProvider<'client> {
+impl<'client> Provider<'client> for GetSignerRecordProvider<'client> {
     type Entity = SignerRecord;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {
@@ -233,7 +233,7 @@ mod tests {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signer_db(&connection, signer_records_fake.clone()).unwrap();
 
-        let provider = SignerRecordProvider::new(&connection);
+        let provider = GetSignerRecordProvider::new(&connection);
 
         let signer_records: Vec<SignerRecord> = provider
             .get_by_signer_id(signer_records_fake[0].signer_id.to_owned())

@@ -9,11 +9,11 @@ use mithril_persistence::sqlite::{
 use crate::database::record::SignedEntityRecord;
 
 /// Simple queries to retrieve [SignedEntityRecord] from the sqlite database.
-pub(crate) struct SignedEntityRecordProvider<'client> {
+pub(crate) struct GetSignedEntityRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
-impl<'client> SignedEntityRecordProvider<'client> {
+impl<'client> GetSignedEntityRecordProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
@@ -108,7 +108,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     }
 }
 
-impl<'client> Provider<'client> for SignedEntityRecordProvider<'client> {
+impl<'client> Provider<'client> for GetSignedEntityRecordProvider<'client> {
     type Entity = SignedEntityRecord;
 
     fn get_connection(&'client self) -> &'client SqliteConnection {
@@ -327,7 +327,7 @@ mod tests {
         setup_signed_entity_db(&connection, vec![]).unwrap();
         insert_golden_signed_entities(&connection);
 
-        let provider = SignedEntityRecordProvider::new(&connection);
+        let provider = GetSignedEntityRecordProvider::new(&connection);
         let cardano_immutable_files_fulls: Vec<SignedEntity<Snapshot>> = provider
             .get_by_signed_entity_type(&SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
             .expect("Getting Golden snapshot signed entities should not fail")
@@ -350,7 +350,7 @@ mod tests {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
 
-        let provider = SignedEntityRecordProvider::new(&connection);
+        let provider = GetSignedEntityRecordProvider::new(&connection);
 
         let first_signed_entity_type = signed_entity_records.first().unwrap().to_owned();
         let signed_entity_records: Vec<SignedEntityRecord> = provider

@@ -7,7 +7,7 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Provider, SqliteConnection};
 
 use crate::database::provider::{
-    DeleteOpenMessageProvider, InsertOpenMessageProvider, OpenMessageProvider,
+    DeleteOpenMessageProvider, GetOpenMessageProvider, InsertOpenMessageProvider,
     OpenMessageWithSingleSignaturesProvider, UpdateOpenMessageProvider,
 };
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
@@ -31,7 +31,7 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
-        let provider = OpenMessageProvider::new(&self.connection);
+        let provider = GetOpenMessageProvider::new(&self.connection);
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
             .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
@@ -59,7 +59,7 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
-        let provider = OpenMessageProvider::new(&self.connection);
+        let provider = GetOpenMessageProvider::new(&self.connection);
         let now = Utc::now().to_rfc3339();
         let filters = provider
             .get_expired_entity_type_condition(&now)
@@ -232,7 +232,7 @@ mod tests {
         );
 
         let message = {
-            let provider = OpenMessageProvider::new(&connection);
+            let provider = GetOpenMessageProvider::new(&connection);
             let mut cursor = provider
                 .find(WhereCondition::new(
                     "open_message_id = ?*",
