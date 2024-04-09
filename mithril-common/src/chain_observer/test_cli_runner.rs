@@ -169,6 +169,23 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         Ok(output.to_string())
     }
 
+    /// launches the chain point info.
+    async fn launch_chain_point(&self) -> StdResult<String> {
+        let output = r#"
+{
+    "block": 1270276,
+    "epoch": 299,
+    "era": "Conway",
+    "hash": "7383b17d7b05b0953cf0649abff60173995eb9febe556889333e20e1e5b7ca84",
+    "slot": 25886617,
+    "slotInEpoch": 53017,
+    "slotsToEpochEnd": 33383,
+    "syncProgress": "100.00"
+}"#;
+
+        Ok(output.to_string())
+    }
+
     /// launches the kes period.
     async fn launch_kes_period(&self, _opcert_file: &str) -> StdResult<String> {
         let output = r#"
