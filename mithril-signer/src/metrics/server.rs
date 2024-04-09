@@ -75,8 +75,8 @@ impl MetricsServer {
                 .await?;
         axum::serve(listener, app)
             .with_graceful_shutdown(async {
-                warn!("MetricsServer: shutting down HTTP server after receiving signal");
                 shutdown_rx.await.ok();
+                warn!("MetricsServer: shutting down HTTP server after receiving signal");
             })
             .await?;
 
