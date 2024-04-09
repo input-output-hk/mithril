@@ -183,22 +183,24 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 "AggregatorRunner can not create the list of allowed signed entity types"
             })?;
         for signed_entity_type in signed_entity_types {
-            if let Some(open_message) = self
-                .get_current_open_message_for_signed_entity_type(&signed_entity_type)
+            let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
-                .with_context(|| format!("AggregatorRunner can not get current open message for signed entity type: '{}'", &signed_entity_type))?
-            {
-                if !open_message.is_certified && !open_message.is_expired {
-                    return Ok(Some(open_message));
-                }
-                continue;
-            }
-            let protocol_message = self.compute_protocol_message(&signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
-            let open_message_new = self.create_open_message(&signed_entity_type, &protocol_message)
-            .await
-            .with_context(|| format!("AggregatorRunner can not create open message for signed_entity_type: '{signed_entity_type}'"))?;
+                .with_context(|| format!("AggregatorRunner can not get current open message for signed entity type: '{}'", &signed_entity_type))?;
+            match current_open_message {
+                None => {
+                    let protocol_message = self.compute_protocol_message(&signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
+                    let open_message_new = self.create_open_message(&signed_entity_type, &protocol_message)
+                        .await
+                        .with_context(|| format!("AggregatorRunner can not create open message for signed_entity_type: '{signed_entity_type}'"))?;
 
-            return Ok(Some(open_message_new));
+                    return Ok(Some(open_message_new));
+                }
+                Some(open_message) => {
+                    if !open_message.is_certified && !open_message.is_expired {
+                        return Ok(Some(open_message));
+                    }
+                }
+            }
         }
 
         Ok(None)
