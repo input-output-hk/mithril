@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use sqlite::Connection;
 use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
@@ -22,8 +21,8 @@ use mithril_common::{
     StdResult, TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
-    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
-    sqlite::SqliteConnection,
+    database::{ApplicationNodeType, SqlMigration},
+    sqlite::{ConnectionBuilder, SqliteConnection},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
@@ -168,23 +167,15 @@ impl<'a> ProductionServiceBuilder<'a> {
         migrations: Vec<SqlMigration>,
     ) -> StdResult<Arc<SqliteConnection>> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
-        let sqlite_connection = Arc::new(Connection::open_thread_safe(sqlite_db_path)?);
-        let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
-            ApplicationNodeType::Signer,
-            &sqlite_connection,
-        );
-
-        for migration in migrations {
-            db_checker.add_migration(migration);
-        }
-
-        db_checker
-            .apply()
+        let connection = ConnectionBuilder::open_file(&sqlite_db_path)
+            .with_node_type(ApplicationNodeType::Signer)
+            .with_migrations(migrations)
+            .with_logger(slog_scope::logger())
+            .build()
             .await
-            .with_context(|| "Database migration error")?;
+            .with_context(|| "Database connection initialisation error")?;
 
-        Ok(sqlite_connection)
+        Ok(Arc::new(connection))
     }
 }
 
