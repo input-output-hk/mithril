@@ -113,9 +113,8 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::{
-        apply_all_transactions_db_migrations, CardanoTransactionRepository,
-    };
+    use crate::database::provider::CardanoTransactionRepository;
+    use crate::database::test_helper::apply_all_transactions_db_migrations;
     use mockall::mock;
     use mockall::predicate::eq;
     use sqlite::Connection;

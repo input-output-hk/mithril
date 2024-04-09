@@ -409,7 +409,7 @@ mod tests {
 
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
 
-    use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
+    use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
     use super::*;

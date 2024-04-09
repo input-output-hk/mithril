@@ -204,10 +204,10 @@ mod test {
     use mithril_persistence::sqlite::SqliteConnection;
 
     use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRepository,
-        SignedEntityStoreAdapter, SignedEntityStorer,
+        CertificateRepository, SignedEntityStoreAdapter, SignedEntityStorer,
     };
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
+    use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
 
     use super::CertificatesHashMigrator;
 

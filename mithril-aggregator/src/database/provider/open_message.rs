@@ -373,11 +373,11 @@ mod tests {
     use mithril_common::entities::CardanoDbBeacon;
     use mithril_persistence::sqlite::SourceAlias;
 
-    use crate::database::provider::test_helper::{
-        insert_single_signatures_in_db, setup_single_signature_records,
-    };
-    use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
     use crate::database::record::SingleSignatureRecord;
+    use crate::database::test_helper::{
+        apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
+        setup_single_signature_records,
+    };
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
     use super::*;

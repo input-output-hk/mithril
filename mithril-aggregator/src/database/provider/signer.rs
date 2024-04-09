@@ -316,7 +316,7 @@ mod tests {
 
     use mithril_common::StdResult;
 
-    use crate::database::provider::apply_all_migrations_to_db;
+    use crate::database::test_helper::apply_all_migrations_to_db;
 
     use super::*;
 

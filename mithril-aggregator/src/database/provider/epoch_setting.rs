@@ -241,7 +241,7 @@ mod tests {
 
     use mithril_common::test_utils::fake_data;
 
-    use crate::database::provider::apply_all_migrations_to_db;
+    use crate::database::test_helper::apply_all_migrations_to_db;
 
     use super::*;
 

@@ -184,7 +184,7 @@ mod tests {
 
     use mithril_common::test_utils::fake_data;
 
-    use crate::database::provider::{
+    use crate::database::test_helper::{
         apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
         setup_single_signature_records,
     };

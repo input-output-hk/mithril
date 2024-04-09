@@ -315,7 +315,7 @@ mod tests {
 
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
-    use crate::database::provider::{apply_all_migrations_to_db, disable_foreign_key_support};
+    use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
     use crate::store::test_verification_key_storer;
 
     use super::*;

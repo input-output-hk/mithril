@@ -211,7 +211,7 @@ impl GenesisTools {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::apply_all_migrations_to_db;
+    use crate::database::test_helper::apply_all_migrations_to_db;
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{ProtocolClerk, ProtocolGenesisSigner},

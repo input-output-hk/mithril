@@ -6,3 +6,5 @@ pub mod cardano_transaction_migration;
 pub mod migration;
 pub mod provider;
 pub mod record;
+#[cfg(test)]
+pub(crate) mod test_helper;
