@@ -106,6 +106,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
         Ok(signed_entity_record)
     }
 
+    #[cfg(test)]
     /// Get all SignedEntityRecords.
     pub fn get_all(&self) -> StdResult<EntityCursor<SignedEntityRecord>> {
         let filters = WhereCondition::default();

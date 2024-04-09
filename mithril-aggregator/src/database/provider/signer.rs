@@ -27,6 +27,7 @@ impl<'client> SignerRecordProvider<'client> {
         Self { client }
     }
 
+    #[cfg(test)]
     fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
@@ -34,6 +35,7 @@ impl<'client> SignerRecordProvider<'client> {
         ))
     }
 
+    #[cfg(test)]
     /// Get SignerRecords for a given signer id.
     pub fn get_by_signer_id(&self, signer_id: String) -> StdResult<EntityCursor<SignerRecord>> {
         let filters = self.condition_by_signer_id(signer_id)?;

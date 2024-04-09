@@ -45,14 +45,6 @@ impl<'client> EpochSettingProvider<'client> {
 
         Ok(epoch_setting_record)
     }
-
-    /// Get all EpochSettingRecords.
-    pub fn get_all(&self) -> StdResult<EntityCursor<EpochSettingRecord>> {
-        let filters = WhereCondition::default();
-        let epoch_setting_record = self.find(filters)?;
-
-        Ok(epoch_setting_record)
-    }
 }
 
 impl<'client> Provider<'client> for EpochSettingProvider<'client> {
@@ -157,6 +149,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
         Self { connection }
     }
 
+    #[cfg(test)]
     /// Create the SQL condition to delete a record given the Epoch.
     fn get_delete_condition_by_epoch(&self, epoch: Epoch) -> WhereCondition {
         let epoch_setting_id_value = Value::Integer(epoch.try_into().unwrap());
@@ -164,6 +157,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
         WhereCondition::new("epoch_setting_id = ?*", vec![epoch_setting_id_value])
     }
 
+    #[cfg(test)]
     /// Delete the epoch setting data given the Epoch
     pub fn delete(&self, epoch: Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
         let filters = self.get_delete_condition_by_epoch(epoch);

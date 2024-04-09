@@ -65,6 +65,7 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
         Ok(signer_registration_record)
     }
 
+    #[cfg(test)]
     /// Get all SignerRegistrationRecords.
     pub fn get_all(&self) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
         let filters = WhereCondition::default();
@@ -195,20 +196,6 @@ impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
     /// Create a new instance
     pub fn new(connection: &'conn SqliteConnection) -> Self {
         Self { connection }
-    }
-
-    /// Create the SQL condition to delete a record given the Epoch.
-    fn get_delete_condition_by_epoch(&self, epoch: Epoch) -> WhereCondition {
-        let epoch_threshold = Value::Integer(epoch.try_into().unwrap());
-
-        WhereCondition::new("epoch_setting_id = ?*", vec![epoch_threshold])
-    }
-
-    /// Delete the epoch setting data given the Epoch
-    pub fn delete(&self, epoch: Epoch) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
-        let filters = self.get_delete_condition_by_epoch(epoch);
-
-        self.find(filters)
     }
 
     /// Create the SQL condition to prune data older than the given Epoch.
@@ -524,17 +511,6 @@ mod tests {
             ],
             params
         );
-    }
-
-    #[test]
-    fn delete() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = DeleteSignerRegistrationRecordProvider::new(&connection);
-        let condition = provider.get_delete_condition_by_epoch(Epoch(5));
-        let (condition, params) = condition.expand();
-
-        assert_eq!("epoch_setting_id = ?1".to_string(), condition);
-        assert_eq!(vec![Value::Integer(5)], params);
     }
 
     #[test]

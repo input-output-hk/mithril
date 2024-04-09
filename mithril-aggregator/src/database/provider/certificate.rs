@@ -33,6 +33,7 @@ impl<'client> CertificateRecordProvider<'client> {
         ))
     }
 
+    #[cfg(test)]
     fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "epoch = ?*",
@@ -51,6 +52,7 @@ impl<'client> CertificateRecordProvider<'client> {
         Ok(certificate_record)
     }
 
+    #[cfg(test)]
     /// Get CertificateRecords for a given Epoch.
     pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<CertificateRecord>> {
         let filters = self.condition_by_epoch(epoch)?;
