@@ -28,6 +28,15 @@ pub fn beacon() -> entities::CardanoDbBeacon {
     entities::CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number)
 }
 
+/// Fake ChainPoint
+pub fn chain_point() -> entities::ChainPoint {
+    entities::ChainPoint {
+        slot_number: 500,
+        block_number: 42,
+        block_hash: "1b69b3202fbe500".to_string(),
+    }
+}
+
 /// Fake Digest
 pub fn digest(beacon: &entities::CardanoDbBeacon) -> Vec<u8> {
     format!(

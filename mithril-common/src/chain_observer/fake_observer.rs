@@ -18,6 +18,9 @@ pub struct FakeObserver {
     /// [get_current_epoch]: ChainObserver::get_current_epoch
     pub current_time_point: RwLock<Option<TimePoint>>,
 
+    /// The current chain point
+    pub current_chain_point: RwLock<Option<ChainPoint>>,
+
     /// A list of [TxDatum], used by [get_current_datums]
     ///
     /// [get_current_datums]: ChainObserver::get_current_datums
@@ -30,6 +33,7 @@ impl FakeObserver {
         Self {
             signers: RwLock::new(vec![]),
             current_time_point: RwLock::new(current_time_point),
+            current_chain_point: RwLock::new(None),
             datums: RwLock::new(vec![]),
         }
     }
@@ -50,6 +54,13 @@ impl FakeObserver {
     pub async fn set_signers(&self, new_signers: Vec<SignerWithStake>) {
         let mut signers = self.signers.write().await;
         *signers = new_signers;
+    }
+
+    /// Set the chain point that will use to compute the result of
+    /// [get_current_chain_point][ChainObserver::get_current_chain_point].
+    pub async fn set_current_chain_point(&self, new_current_chain_point: Option<ChainPoint>) {
+        let mut current_chain_point = self.current_chain_point.write().await;
+        *current_chain_point = new_current_chain_point;
     }
 
     /// Set the datums that will use to compute the result of
@@ -88,6 +99,10 @@ impl ChainObserver for FakeObserver {
             .map(|time_point| time_point.epoch))
     }
 
+    async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
+        Ok(self.current_chain_point.read().await.clone())
+    }
+
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
@@ -122,6 +137,21 @@ mod tests {
         let current_epoch = fake_observer.get_current_epoch().await.unwrap();
 
         assert_eq!(Some(time_point.epoch), current_epoch);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_chain_point() {
+        let fake_observer = FakeObserver::new(None);
+        fake_observer
+            .set_current_chain_point(Some(fake_data::chain_point()))
+            .await;
+        let chain_point = fake_observer.get_current_chain_point().await.unwrap();
+
+        assert_eq!(
+            Some(fake_data::chain_point()),
+            chain_point,
+            "get current chain point should not fail"
+        );
     }
 
     #[tokio::test]
