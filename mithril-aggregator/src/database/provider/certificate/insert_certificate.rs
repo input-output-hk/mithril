@@ -134,34 +134,17 @@ impl<'conn> Provider<'conn> for InsertCertificateRecordProvider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::entities::Certificate;
 
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_certificate_records,
-    };
+    use crate::database::test_helper::main_db_connection;
 
     use super::*;
-
-    pub fn setup_certificate_db(
-        connection: &ConnectionThreadSafe,
-        certificates: Vec<Certificate>,
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        disable_foreign_key_support(connection)?;
-        insert_certificate_records(connection, certificates);
-        Ok(())
-    }
 
     #[test]
     fn test_insert_certificate_record() {
         let (certificates, _) = setup_certificate_chain(5, 2);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_certificate_db(&connection, Vec::new()).unwrap();
-
+        let connection = main_db_connection().unwrap();
         let provider = InsertCertificateRecordProvider::new(&connection);
 
         for certificate in certificates {
@@ -177,10 +160,9 @@ mod tests {
         let certificates_records: Vec<CertificateRecord> =
             certificates.into_iter().map(|cert| cert.into()).collect();
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_certificate_db(&connection, Vec::new()).unwrap();
-
+        let connection = main_db_connection().unwrap();
         let provider = InsertCertificateRecordProvider::new(&connection);
+
         let certificates_records_saved = provider
             .persist_many(certificates_records.clone())
             .expect("saving many records should not fail");

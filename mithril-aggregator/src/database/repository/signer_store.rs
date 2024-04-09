@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
+#[cfg(test)]
+use mockall::automock;
 
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::SqliteConnection;
@@ -12,9 +14,6 @@ use crate::database::provider::{
 };
 use crate::database::record::SignerRecord;
 use crate::SignerRecorder;
-
-#[cfg(test)]
-use mockall::automock;
 
 /// Service to get [SignerRecord].
 #[cfg_attr(test, automock)]
@@ -114,25 +113,18 @@ impl SignerGetter for SignerStore {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::database::test_helper::{apply_all_migrations_to_db, insert_signers};
-    use sqlite::Connection;
     use std::collections::BTreeMap;
 
-    pub fn setup_signer_db(
-        connection: &SqliteConnection,
-        records: Vec<SignerRecord>,
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        insert_signers(connection, records)
-    }
+    use crate::database::test_helper::{insert_signers, main_db_connection};
+
+    use super::*;
 
     #[tokio::test]
     async fn test_get_all_signers() {
         let signer_records = SignerRecord::fake_records(5);
         let expected: Vec<_> = signer_records.iter().rev().cloned().collect();
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signer_db(&connection, signer_records).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_signers(&connection, signer_records).unwrap();
 
         let store = SignerStore::new(Arc::new(connection));
 
@@ -148,10 +140,7 @@ mod tests {
     async fn test_signer_recorder() {
         let signer_records_fake = SignerRecord::fake_records(5);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signer_db(&connection, Vec::new()).unwrap();
-
-        let connection = Arc::new(connection);
+        let connection = Arc::new(main_db_connection().unwrap());
         let store_recorder = SignerStore::new(connection.clone());
 
         for signer_record in signer_records_fake.clone() {
@@ -178,10 +167,7 @@ mod tests {
     async fn test_store_import_signer() {
         let signer_records_fake = SignerRecord::fake_records(5);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signer_db(&connection, Vec::new()).unwrap();
-
-        let connection = Arc::new(connection);
+        let connection = Arc::new(main_db_connection().unwrap());
         let store = SignerStore::new(connection.clone());
 
         for signer_record in signer_records_fake {
@@ -217,8 +203,7 @@ mod tests {
             .map(|r| (r.signer_id, r.pool_ticker))
             .collect();
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signer_db(&connection, Vec::new()).unwrap();
+        let connection = main_db_connection().unwrap();
         let store = SignerStore::new(Arc::new(connection));
 
         store

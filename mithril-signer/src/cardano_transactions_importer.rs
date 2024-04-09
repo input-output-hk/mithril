@@ -114,10 +114,9 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 #[cfg(test)]
 mod tests {
     use crate::database::repository::CardanoTransactionRepository;
-    use crate::database::test_utils::apply_all_transactions_db_migrations;
+    use crate::database::test_utils::cardano_tx_connection;
     use mockall::mock;
     use mockall::predicate::eq;
-    use sqlite::Connection;
 
     use super::*;
 
@@ -262,8 +261,6 @@ mod tests {
             CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
         let importer = {
-            let connection = Connection::open_thread_safe(":memory:").unwrap();
-            apply_all_transactions_db_migrations(&connection).unwrap();
             let parsed_transactions = transactions.clone();
             let mut parser = MockTransactionParserImpl::new();
             parser
@@ -272,7 +269,9 @@ mod tests {
 
             CardanoTransactionsImporter::new(
                 Arc::new(parser),
-                Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
+                Arc::new(CardanoTransactionRepository::new(
+                    cardano_tx_connection().unwrap(),
+                )),
                 Path::new(""),
                 None,
                 crate::test_tools::logger_for_tests(),

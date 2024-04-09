@@ -55,27 +55,16 @@ impl<'client> Provider<'client> for GetEpochSettingProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use mithril_common::entities::ProtocolParameters;
 
-    use crate::database::test_helper::{apply_all_migrations_to_db, insert_epoch_settings};
+    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;
 
-    pub fn setup_epoch_setting_db(
-        connection: &SqliteConnection,
-        epoch_to_insert_settings: &[u64],
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        insert_epoch_settings(connection, epoch_to_insert_settings)?;
-        Ok(())
-    }
-
     #[test]
     fn test_get_epoch_settings() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_epoch_setting_db(&connection, &[1, 2, 3]).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_epoch_settings(&connection, &[1, 2, 3]).unwrap();
 
         let provider = GetEpochSettingProvider::new(&connection);
 

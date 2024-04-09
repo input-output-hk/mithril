@@ -85,24 +85,11 @@ mod tests {
     use chrono::{DateTime, Utc};
 
     use mithril_common::entities::SignerWithStake;
-    use sqlite::Connection;
-
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_signer_registrations,
-    };
+    use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
 
     use super::*;
-
-    pub fn setup_signer_registration_db(
-        connection: &SqliteConnection,
-        signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)>,
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        disable_foreign_key_support(connection)?;
-        insert_signer_registrations(connection, signer_with_stakes_by_epoch)
-    }
 
     #[test]
     fn test_get_signer_registration_records() {
@@ -112,8 +99,8 @@ mod tests {
             .map(|e| (Epoch(e), signer_with_stakes.clone()))
             .collect();
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signer_registration_db(&connection, signer_with_stakes_by_epoch.clone()).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_signer_registrations(&connection, signer_with_stakes_by_epoch.clone()).unwrap();
 
         let provider = GetSignerRegistrationRecordProvider::new(&connection);
 

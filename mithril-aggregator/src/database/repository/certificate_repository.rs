@@ -120,9 +120,7 @@ mod tests {
 
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
 
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_certificate_records,
-    };
+    use crate::database::test_helper::{insert_certificate_records, main_db_connection};
     use crate::dependency_injection::DependenciesBuilder;
     use crate::Configuration;
 
@@ -198,9 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_golden_certificate(&connection);
 
         let repository = CertificateRepository::new(Arc::new(connection));
@@ -214,9 +210,7 @@ mod tests {
 
     #[tokio::test]
     async fn persisting_many_without_any_records_dont_crash() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         let repository = CertificateRepository::new(Arc::new(connection));
 
         let modified_records = repository

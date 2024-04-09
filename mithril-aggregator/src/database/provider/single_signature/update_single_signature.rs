@@ -74,11 +74,7 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, setup_single_signature_records,
-    };
+    use crate::database::test_helper::{main_db_connection, setup_single_signature_records};
 
     use super::*;
 
@@ -87,10 +83,7 @@ mod tests {
         let single_signature_records = setup_single_signature_records(2, 3, 4);
         let single_signature_records_copy = single_signature_records.clone();
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
-
+        let connection = main_db_connection().unwrap();
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
 
         for single_signature_record in single_signature_records {

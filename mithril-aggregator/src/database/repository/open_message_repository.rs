@@ -112,22 +112,22 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::database::record::SingleSignatureRecord;
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_epoch_settings,
-        insert_single_signatures_in_db, setup_single_signature_records,
-    };
+    use sqlite::Value;
+
     use mithril_common::entities::CardanoDbBeacon;
     use mithril_persistence::sqlite::WhereCondition;
-    use sqlite::{Connection, Value};
+
+    use crate::database::record::SingleSignatureRecord;
+    use crate::database::test_helper::{
+        insert_epoch_settings, insert_single_signatures_in_db, main_db_connection,
+        setup_single_signature_records,
+    };
+
+    use super::*;
 
     async fn get_connection() -> Arc<SqliteConnection> {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
-
         Arc::new(connection)
     }
 
@@ -165,9 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_golden_open_message_with_signature(&connection);
 
         let repository = OpenMessageRepository::new(Arc::new(connection));
@@ -310,10 +308,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_exist() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
-        let connection = Arc::new(connection);
+        let connection = Arc::new(main_db_connection().unwrap());
         let repository = OpenMessageRepository::new(connection.clone());
 
         let open_message = repository
@@ -349,9 +344,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_open_message_with_single_signatures_when_signatures_not_exist() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         let repository = OpenMessageRepository::new(Arc::new(connection));
 
         let open_message = OpenMessageRecord::dummy();

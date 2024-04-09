@@ -52,16 +52,13 @@ impl<'client> Provider<'client> for GetStakePoolProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
-    use crate::database::test_helper::{apply_all_migrations_to_db, insert_stake_pool};
+    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
 
     use super::*;
 
     #[test]
     fn test_get_stake_pools() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_stake_pool(&connection, &[1, 2, 3]).unwrap();
 
         let provider = GetStakePoolProvider::new(&connection);

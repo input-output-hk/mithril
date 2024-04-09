@@ -82,11 +82,8 @@ impl<'client> Provider<'client> for GetSingleSignatureRecordProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
-        setup_single_signature_records,
+        insert_single_signatures_in_db, main_db_connection, setup_single_signature_records,
     };
 
     use super::*;
@@ -95,9 +92,7 @@ mod tests {
     async fn test_get_single_signature_records() {
         let single_signature_records_src = setup_single_signature_records(2, 3, 4);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_single_signatures_in_db(&connection, single_signature_records_src.clone()).unwrap();
 
         let provider = GetSingleSignatureRecordProvider::new(&connection);

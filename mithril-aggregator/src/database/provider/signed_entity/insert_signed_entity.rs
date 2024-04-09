@@ -70,9 +70,7 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
-    use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
+    use crate::database::test_helper::main_db_connection;
 
     use super::*;
 
@@ -80,10 +78,7 @@ mod tests {
     fn test_insert_signed_entity_record() {
         let signed_entity_records = SignedEntityRecord::fake_records(5);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
-
+        let connection = main_db_connection().unwrap();
         let provider = InsertSignedEntityRecordProvider::new(&connection);
 
         for signed_entity_record in signed_entity_records {

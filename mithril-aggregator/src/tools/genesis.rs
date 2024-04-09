@@ -211,13 +211,12 @@ impl GenesisTools {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::apply_all_migrations_to_db;
+    use crate::database::test_helper::main_db_connection;
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{ProtocolClerk, ProtocolGenesisSigner},
         test_utils::{fake_data, MithrilFixtureBuilder, TempDir},
     };
-    use sqlite::Connection;
     use std::path::PathBuf;
 
     use super::*;
@@ -241,8 +240,7 @@ mod tests {
         Arc<ProtocolGenesisVerifier>,
         Arc<dyn CertificateVerifier>,
     ) {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(
             slog_scope::logger(),

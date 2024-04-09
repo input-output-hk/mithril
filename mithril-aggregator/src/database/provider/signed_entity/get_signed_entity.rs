@@ -126,34 +126,18 @@ impl<'client> Provider<'client> for GetSignedEntityRecordProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
+    use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
 
-    use mithril_common::entities::CardanoDbBeacon;
-    use mithril_common::entities::SignedEntityType;
-
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_signed_entities,
-    };
+    use crate::database::test_helper::{insert_signed_entities, main_db_connection};
 
     use super::*;
-
-    pub fn setup_signed_entity_db(
-        connection: &SqliteConnection,
-        signed_entity_records: Vec<SignedEntityRecord>,
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        disable_foreign_key_support(connection)?;
-        insert_signed_entities(connection, signed_entity_records)?;
-
-        Ok(())
-    }
 
     #[test]
     fn test_get_signed_entity_records() {
         let signed_entity_records = SignedEntityRecord::fake_records(5);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(&connection, signed_entity_records.clone()).unwrap();
 
         let provider = GetSignedEntityRecordProvider::new(&connection);
 

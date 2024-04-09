@@ -1,7 +1,7 @@
-use anyhow::Context;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
@@ -107,12 +107,10 @@ impl VerificationKeyStorer for SignerRegistrationStore {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_signer_registrations,
-    };
+    use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
     use crate::store::test_verification_key_storer;
-    use sqlite::Connection;
+
+    use super::*;
 
     fn insert_golden_signer_registration(connection: &SqliteConnection) {
         connection
@@ -136,9 +134,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_golden_signer_registration(&connection);
 
         let repository = SignerRegistrationStore::new(Arc::new(connection));
@@ -152,13 +148,11 @@ mod tests {
     pub fn init_signer_registration_store(
         initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
     ) -> Arc<dyn VerificationKeyStorer> {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
+        let connection = main_db_connection().unwrap();
         let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
             .into_iter()
             .map(|(e, signers)| (e, signers.into_values().collect::<Vec<_>>()))
             .collect();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
         insert_signer_registrations(&connection, initial_data).unwrap();
 
         Arc::new(SignerRegistrationStore::new(Arc::new(connection)))

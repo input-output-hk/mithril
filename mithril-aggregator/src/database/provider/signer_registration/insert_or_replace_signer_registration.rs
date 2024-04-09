@@ -88,12 +88,10 @@ impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use mithril_common::entities::{Epoch, SignerWithStake};
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
-    use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
+    use crate::database::test_helper::main_db_connection;
 
     use super::*;
 
@@ -110,10 +108,7 @@ mod tests {
             })
             .collect::<Vec<SignerWithStake>>();
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
-
+        let connection = main_db_connection().unwrap();
         let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&connection);
 
         for signer_with_stake in signer_with_stakes {

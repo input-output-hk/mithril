@@ -149,22 +149,13 @@ impl TransactionStore for CardanoTransactionRepository {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
-    use crate::database::test_utils::apply_all_transactions_db_migrations;
+    use crate::database::test_utils::cardano_tx_connection;
 
     use super::*;
 
-    async fn get_connection() -> Arc<SqliteConnection> {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_transactions_db_migrations(&connection).unwrap();
-        Arc::new(connection)
-    }
-
     #[tokio::test]
     async fn repository_create_and_get_transaction() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
         repository
             .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
             .await
@@ -189,8 +180,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_create_ignore_further_transactions_when_exists() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
         repository
             .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
             .await
@@ -215,8 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_transactions_and_get_stored_transactions() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-123", 99),
@@ -256,8 +245,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_up_to_beacon_transactions() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
 
         let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
             .map(|i| CardanoTransactionRecord {
@@ -285,8 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_all_stored_transactions() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 99),
@@ -308,8 +295,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_transactions_doesnt_erase_existing_data() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
 
         repository
             .create_transaction("tx-hash-000", 1, 5, "block-hash", 9)
@@ -344,8 +330,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_highest_beacon_without_transactions_in_db() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
 
         let highest_beacon = repository.get_highest_beacon().await.unwrap();
         assert_eq!(None, highest_beacon);
@@ -353,8 +338,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_highest_beacon_with_transactions_in_db() {
-        let connection = get_connection().await;
-        let repository = CardanoTransactionRepository::new(connection.clone());
+        let repository = CardanoTransactionRepository::new(cardano_tx_connection().unwrap());
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),

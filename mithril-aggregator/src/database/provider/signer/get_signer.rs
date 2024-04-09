@@ -61,9 +61,7 @@ impl<'client> Provider<'client> for GetSignerRecordProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
-    use crate::database::test_helper::{apply_all_migrations_to_db, insert_signers};
+    use crate::database::test_helper::{insert_signers, main_db_connection};
 
     use super::*;
 
@@ -71,8 +69,7 @@ mod tests {
     fn test_get_signer_records() {
         let signer_records_fake = SignerRecord::fake_records(5);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
         let provider = GetSignerRecordProvider::new(&connection);

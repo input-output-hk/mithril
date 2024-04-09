@@ -151,26 +151,11 @@ impl SignedEntityStorer for SignedEntityStore {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use mithril_common::entities::{MithrilStakeDistribution, SignedEntity, Snapshot};
 
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_signed_entities,
-    };
+    use crate::database::test_helper::{insert_signed_entities, main_db_connection};
 
     use super::*;
-
-    pub fn setup_signed_entity_db(
-        connection: &SqliteConnection,
-        signed_entity_records: Vec<SignedEntityRecord>,
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        disable_foreign_key_support(connection)?;
-        insert_signed_entities(connection, signed_entity_records)?;
-
-        Ok(())
-    }
 
     fn insert_golden_signed_entities(connection: &SqliteConnection) {
         connection
@@ -222,8 +207,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_golden_master() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signed_entity_db(&connection, vec![]).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_golden_signed_entities(&connection);
 
         let store = SignedEntityStore::new(Arc::new(connection));
@@ -255,8 +239,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_entity_record_by_certificate_id() {
         let expected_record = SignedEntityRecord::fake_records(1).remove(0);
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signed_entity_db(&connection, vec![expected_record.clone()]).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(&connection, vec![expected_record.clone()]).unwrap();
         let store = SignedEntityStore::new(Arc::new(connection));
 
         let record = store
@@ -270,8 +254,8 @@ mod tests {
     #[tokio::test]
     async fn test_get_signed_entity_record_by_certificates_ids() {
         let expected_records = SignedEntityRecord::fake_records(3);
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signed_entity_db(&connection, expected_records.clone()).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(&connection, expected_records.clone()).unwrap();
         let store = SignedEntityStore::new(Arc::new(connection));
         let certificates_ids: Vec<&str> = expected_records
             .iter()
@@ -294,8 +278,8 @@ mod tests {
     async fn update_only_given_entities() {
         let mut signed_entity_records = SignedEntityRecord::fake_records(5);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_signed_entity_db(&connection, signed_entity_records.clone()).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(&connection, signed_entity_records.clone()).unwrap();
         let store = SignedEntityStore::new(Arc::new(connection));
 
         let records_to_update: Vec<SignedEntityRecord> = signed_entity_records

@@ -1,11 +1,10 @@
-use anyhow::Context;
 use chrono::Utc;
 use sqlite::{ConnectionThreadSafe, Value};
 use uuid::Uuid;
 
 use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
-use mithril_persistence::sqlite::SqliteConnection;
+use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
 use crate::database::provider::{
     ImportSignerRecordProvider, InsertCertificateRecordProvider,
@@ -17,6 +16,24 @@ use crate::database::record::{
     CertificateRecord, SignedEntityRecord, SignerRecord, SignerRegistrationRecord,
     SingleSignatureRecord,
 };
+
+/// In-memory sqlite database without foreign key support with migrations applied
+pub fn main_db_connection() -> StdResult<ConnectionThreadSafe> {
+    let connection = ConnectionBuilder::open_memory()
+        .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
+        .with_migrations(crate::database::migration::get_migrations())
+        .build()?;
+    Ok(connection)
+}
+
+/// In-memory sqlite database without foreign key support with cardano db migrations applied
+pub fn cardano_tx_db_connection() -> StdResult<ConnectionThreadSafe> {
+    let connection = ConnectionBuilder::open_memory()
+        .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
+        .with_migrations(crate::database::cardano_transaction_migration::get_migrations())
+        .build()?;
+    Ok(connection)
+}
 
 pub fn setup_single_signature_records(
     total_epoch: u64,
@@ -43,29 +60,6 @@ pub fn setup_single_signature_records(
         }
     }
     single_signature_records
-}
-
-pub fn disable_foreign_key_support(connection: &SqliteConnection) -> StdResult<()> {
-    connection
-        .execute("pragma foreign_keys=false")
-        .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
-    Ok(())
-}
-
-pub fn apply_all_migrations_to_db(connection: &SqliteConnection) -> StdResult<()> {
-    for migration in crate::database::migration::get_migrations() {
-        connection.execute(&migration.alterations)?;
-    }
-
-    Ok(())
-}
-
-pub fn apply_all_transactions_db_migrations(connection: &SqliteConnection) -> StdResult<()> {
-    for migration in crate::database::cardano_transaction_migration::get_migrations() {
-        connection.execute(&migration.alterations)?;
-    }
-
-    Ok(())
 }
 
 pub fn insert_single_signatures_in_db(
@@ -260,7 +254,7 @@ pub fn insert_signers(
 pub fn insert_signer_registrations(
     connection: &SqliteConnection,
     signer_with_stakes_by_epoch: Vec<(Epoch, Vec<SignerWithStake>)>,
-) -> Result<(), StdError> {
+) -> StdResult<()> {
     if signer_with_stakes_by_epoch.is_empty() {
         return Ok(());
     }

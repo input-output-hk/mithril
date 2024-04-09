@@ -69,17 +69,14 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use crate::database::provider::GetEpochSettingProvider;
-    use crate::database::test_helper::{apply_all_migrations_to_db, insert_epoch_settings};
+    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;
 
     #[test]
     fn test_delete() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);
@@ -99,8 +96,7 @@ mod tests {
 
     #[test]
     fn test_prune() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
+        let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
         let provider = DeleteEpochSettingProvider::new(&connection);

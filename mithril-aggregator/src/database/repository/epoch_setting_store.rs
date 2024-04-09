@@ -69,19 +69,17 @@ impl ProtocolParametersStorer for EpochSettingStore {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use mithril_common::test_utils::fake_data;
 
-    use crate::database::test_helper::{apply_all_migrations_to_db, insert_epoch_settings};
+    use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;
 
     #[tokio::test]
     async fn save_protocol_parameters_prune_older_epoch_settings() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
         const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: u64 = 5;
-        apply_all_migrations_to_db(&connection).unwrap();
+
+        let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
         let store = EpochSettingStore::new(
             Arc::new(connection),

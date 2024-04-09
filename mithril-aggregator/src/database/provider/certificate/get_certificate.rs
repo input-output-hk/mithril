@@ -80,33 +80,18 @@ impl<'client> Provider<'client> for GetCertificateRecordProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::entities::Certificate;
 
-    use crate::database::test_helper::{
-        apply_all_migrations_to_db, disable_foreign_key_support, insert_certificate_records,
-    };
+    use crate::database::test_helper::{insert_certificate_records, main_db_connection};
 
     use super::*;
-
-    pub fn setup_certificate_db(
-        connection: &ConnectionThreadSafe,
-        certificates: Vec<Certificate>,
-    ) -> StdResult<()> {
-        apply_all_migrations_to_db(connection)?;
-        disable_foreign_key_support(connection)?;
-        insert_certificate_records(connection, certificates);
-        Ok(())
-    }
 
     #[test]
     fn test_get_certificate_records() {
         let (certificates, _) = setup_certificate_chain(20, 7);
 
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        setup_certificate_db(&connection, certificates.clone()).unwrap();
+        let connection = main_db_connection().unwrap();
+        insert_certificate_records(&connection, certificates.clone());
 
         let provider = GetCertificateRecordProvider::new(&connection);
 

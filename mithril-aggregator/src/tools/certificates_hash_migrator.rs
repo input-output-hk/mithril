@@ -190,32 +190,31 @@ impl CertificatesHashMigrator {
 
 #[cfg(test)]
 mod test {
-    use sqlite::Connection;
-
     use mithril_common::entities::{
         ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants as Type, TimePoint,
     };
     use mithril_common::test_utils::fake_data;
-    use mithril_persistence::sqlite::SqliteConnection;
+    use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
     use crate::database::repository::SignedEntityStore;
-    use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
 
     use super::*;
 
     fn connection_with_foreign_key_support() -> SqliteConnection {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-
-        connection
+        ConnectionBuilder::open_memory()
+            .with_migrations(crate::database::migration::get_migrations())
+            .with_options(&[ConnectionOptions::EnableForeignKeys])
+            .build()
+            .unwrap()
     }
 
     fn connection_without_foreign_key_support() -> SqliteConnection {
-        let connection = connection_with_foreign_key_support();
-        disable_foreign_key_support(&connection).unwrap();
-
-        connection
+        ConnectionBuilder::open_memory()
+            .with_migrations(crate::database::migration::get_migrations())
+            .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
+            .build()
+            .unwrap()
     }
 
     fn time_at(epoch: u64, immutable_file_number: ImmutableFileNumber) -> TimePoint {
