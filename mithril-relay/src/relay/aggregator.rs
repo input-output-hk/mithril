@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use anyhow::anyhow;
 use libp2p::Multiaddr;
@@ -7,6 +9,7 @@ use mithril_common::{
 };
 use reqwest::StatusCode;
 use slog_scope::{error, info};
+use tokio::time;
 
 /// A relay for a Mithril aggregator
 pub struct AggregatorRelay {
@@ -81,46 +84,53 @@ impl AggregatorRelay {
 
     /// Tick the aggregator relay
     pub async fn tick(&mut self) -> StdResult<()> {
-        if let Some(peer_event) = self.peer.tick_swarm().await? {
-            match self.peer.convert_peer_event_to_message(peer_event) {
-                Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
-                    let retry_max = 3;
-                    let mut retry_count = 0;
-                    while let Err(e) = Self::notify_signer_to_aggregator(
-                        &signer_message_received,
-                        &self.aggregator_endpoint,
-                    )
-                    .await
-                    {
-                        retry_count += 1;
-                        if retry_count >= retry_max {
-                            error!("Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => format!("{:#?}", signer_message_received), "error" => format!("{e:?}"));
-                            return Err(e);
+        tokio::select! {
+            event =  self.peer.tick_swarm() => {
+                info!("Relay aggregator: tick event"; "event" => format!("{:#?}", event));
+                if let Some(peer_event) = event? {
+                match self.peer.convert_peer_event_to_message(peer_event) {
+                    Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
+                        info!("Relay aggregator: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
+                        let retry_max = 3;
+                        let mut retry_count = 0;
+                        while let Err(e) = Self::notify_signer_to_aggregator(
+                            &signer_message_received,
+                            &self.aggregator_endpoint,
+                        )
+                        .await
+                        {
+                            retry_count += 1;
+                            if retry_count >= retry_max {
+                                error!("Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => format!("{:#?}", signer_message_received), "error" => format!("{e:?}"));
+                                return Err(e);
+                            }
                         }
                     }
-                }
-                Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
-                    let retry_max = 3;
-                    let mut retry_count = 0;
-                    while let Err(e) = Self::notify_signature_to_aggregator(
-                        &signature_message_received,
-                        &self.aggregator_endpoint,
-                    )
-                    .await
-                    {
-                        retry_count += 1;
-                        if retry_count >= retry_max {
-                            error!("Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
-                            return Err(e);
+                    Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
+                        info!("Relay aggregator: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+                        let retry_max = 3;
+                        let mut retry_count = 0;
+                        while let Err(e) = Self::notify_signature_to_aggregator(
+                            &signature_message_received,
+                            &self.aggregator_endpoint,
+                        )
+                        .await
+                        {
+                            retry_count += 1;
+                            if retry_count >= retry_max {
+                                error!("Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
+                                return Err(e);
+                            }
                         }
                     }
+                    Ok(None) => {}
+                    Err(e) => return Err(e),
                 }
-                Ok(None) => {}
-                Err(e) => return Err(e),
             }
-        }
 
-        Ok(())
+            Ok(())}
+            _ = time::sleep(Duration::from_millis(1000)) => {Ok(())}
+        }
     }
 
     /// Tick the peer of the aggregator relay

@@ -10,7 +10,10 @@ use mithril_common::{
 };
 use slog_scope::{debug, info};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::{
+    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    time,
+};
 use warp::Filter;
 
 /// A relay for a Mithril signer
@@ -123,6 +126,7 @@ impl SignerRelay {
             },
             _ = self.signer_repeater.repeat_message() => {Ok(())},
             _event =  self.peer.tick_swarm() => {Ok(())}
+            _ = time::sleep(Duration::from_millis(1000)) => {Ok(())}
         }
     }
 

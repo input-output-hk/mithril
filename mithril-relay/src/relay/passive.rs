@@ -1,7 +1,10 @@
+use std::time::Duration;
+
 use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
 use slog_scope::{debug, info};
+use tokio::time;
 
 /// A passive relay
 pub struct PassiveRelay {
@@ -30,20 +33,25 @@ impl PassiveRelay {
 
     /// Tick the passive relay
     pub async fn tick(&mut self) -> StdResult<()> {
-        if let Some(peer_event) = self.peer.tick_swarm().await? {
-            match self.peer.convert_peer_event_to_message(peer_event) {
-                Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
-                    info!("Relay passive: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
+        tokio::select! {
+            event =  self.peer.tick_swarm() => {
+                info!("Relay passive: tick event"; "event" => format!("{:#?}", event));
+                if let Some(peer_event) = event? {
+                match self.peer.convert_peer_event_to_message(peer_event) {
+                    Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
+                        info!("Relay passive: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
+                    }
+                    Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
+                        info!("Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+                    }
+                    Ok(None) => {}
+                    Err(e) => return Err(e),
                 }
-                Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
-                    info!("Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
-                }
-                Ok(None) => {}
-                Err(e) => return Err(e),
             }
-        }
 
-        Ok(())
+            Ok(())}
+            _ = time::sleep(Duration::from_millis(1000)) => {Ok(())}
+        }
     }
 
     /// Tick the peer of the passive relay
