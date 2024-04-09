@@ -15,11 +15,13 @@ use mithril_persistence::sqlite::{
 
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
-struct OpenMessageProvider<'client> {
+/// Simple queries to retrieve [OpenMessageRecord] from the sqlite database.
+pub(crate) struct OpenMessageProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
 impl<'client> OpenMessageProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
@@ -73,11 +75,13 @@ impl<'client> Provider<'client> for OpenMessageProvider<'client> {
     }
 }
 
-struct InsertOpenMessageProvider<'client> {
+/// Query to insert [OpenMessageRecord] in the sqlite database
+pub(crate) struct InsertOpenMessageProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
 impl<'client> InsertOpenMessageProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
@@ -122,10 +126,13 @@ impl<'client> Provider<'client> for InsertOpenMessageProvider<'client> {
     }
 }
 
-struct UpdateOpenMessageProvider<'client> {
+/// Query to update [OpenMessageRecord] in the sqlite database
+pub(crate) struct UpdateOpenMessageProvider<'client> {
     connection: &'client SqliteConnection,
 }
+
 impl<'client> UpdateOpenMessageProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
@@ -173,11 +180,13 @@ impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
     }
 }
 
-struct DeleteOpenMessageProvider<'client> {
+/// Query to delete old [OpenMessageRecord] from the sqlite database
+pub(crate) struct DeleteOpenMessageProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
 impl<'client> DeleteOpenMessageProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
@@ -202,7 +211,8 @@ impl<'client> Provider<'client> for DeleteOpenMessageProvider<'client> {
     }
 }
 
-struct OpenMessageWithSingleSignaturesProvider<'client> {
+/// Simple queries to retrieve [OpenMessageWithSingleSignaturesRecord] from the sqlite database.
+pub(crate) struct OpenMessageWithSingleSignaturesProvider<'client> {
     connection: &'client SqliteConnection,
 }
 

@@ -16,8 +16,8 @@ use crate::database::record::SignedEntityRecord;
 #[cfg(test)]
 use mockall::automock;
 
-/// Simple [SignedEntityRecord] provider.
-pub struct SignedEntityRecordProvider<'client> {
+/// Simple queries to retrieve [SignedEntityRecord] from the sqlite database.
+pub(crate) struct SignedEntityRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
@@ -131,8 +131,8 @@ impl<'client> Provider<'client> for SignedEntityRecordProvider<'client> {
     }
 }
 
-/// Query to insert the signed_entity record
-pub struct InsertSignedEntityRecordProvider<'conn> {
+/// Query to insert [SignedEntityRecord] in the sqlite database
+pub(crate) struct InsertSignedEntityRecordProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 
@@ -186,11 +186,13 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
     }
 }
 
-struct UpdateSignedEntityProvider<'client> {
+/// Query to update [SignedEntityRecord] in the sqlite database
+pub(crate) struct UpdateSignedEntityProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
 impl<'client> UpdateSignedEntityProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }

@@ -18,11 +18,13 @@ use crate::{
     services::{TransactionStore, TransactionsRetriever},
 };
 
-struct CardanoTransactionProvider<'client> {
+/// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
+pub(crate) struct CardanoTransactionProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
 impl<'client> CardanoTransactionProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
@@ -62,20 +64,27 @@ impl<'client> Provider<'client> for CardanoTransactionProvider<'client> {
     }
 }
 
-struct InsertCardanoTransactionProvider<'client> {
+/// Query to insert [CardanoTransactionRecord] in the sqlite database
+pub(crate) struct InsertCardanoTransactionProvider<'client> {
     connection: &'client SqliteConnection,
 }
 
 impl<'client> InsertCardanoTransactionProvider<'client> {
+    /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
     }
 
-    fn get_insert_condition(&self, record: &CardanoTransactionRecord) -> StdResult<WhereCondition> {
+    /// Condition to insert one record.
+    pub fn get_insert_condition(
+        &self,
+        record: &CardanoTransactionRecord,
+    ) -> StdResult<WhereCondition> {
         self.get_insert_many_condition(vec![record.clone()])
     }
 
-    fn get_insert_many_condition(
+    /// Condition to insert multiples records.
+    pub fn get_insert_many_condition(
         &self,
         transactions_records: Vec<CardanoTransactionRecord>,
     ) -> StdResult<WhereCondition> {

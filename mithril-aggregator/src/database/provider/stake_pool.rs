@@ -16,8 +16,8 @@ use mithril_persistence::store::{adapter::AdapterError, StakeStorer};
 
 use crate::database::record::StakePool;
 
-/// Simple [StakePool] provider.
-pub struct StakePoolProvider<'client> {
+/// Simple queries to retrieve [StakePool] from the sqlite database.
+pub(crate) struct StakePoolProvider<'client> {
     client: &'client SqliteConnection,
 }
 
@@ -58,8 +58,8 @@ impl<'client> Provider<'client> for StakePoolProvider<'client> {
     }
 }
 
-/// Query to update the stake distribution
-pub struct InsertOrReplaceStakePoolProvider<'conn> {
+/// Query to insert or replace [StakePool] in the sqlite database
+pub(crate) struct InsertOrReplaceStakePoolProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 
@@ -117,8 +117,8 @@ impl<'conn> Provider<'conn> for InsertOrReplaceStakePoolProvider<'conn> {
     }
 }
 
-/// Provider to remove old data from the stake_pool table
-pub struct DeleteStakePoolProvider<'conn> {
+/// Query to delete old [StakePool] from the sqlite database
+pub(crate) struct DeleteStakePoolProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 

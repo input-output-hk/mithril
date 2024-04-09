@@ -16,8 +16,8 @@ use mithril_persistence::store::adapter::AdapterError;
 use crate::database::record::EpochSettingRecord;
 use crate::ProtocolParametersStorer;
 
-/// Simple [EpochSettingRecord] provider.
-pub struct EpochSettingProvider<'client> {
+/// Simple queries to retrieve [EpochSettingRecord] from the sqlite database.
+pub(crate) struct EpochSettingProvider<'client> {
     client: &'client SqliteConnection,
 }
 
@@ -69,8 +69,8 @@ impl<'client> Provider<'client> for EpochSettingProvider<'client> {
     }
 }
 
-/// Query to update the epoch setting
-pub struct UpdateEpochSettingProvider<'conn> {
+/// Query to update [EpochSettingRecord] in the sqlite database
+pub(crate) struct UpdateEpochSettingProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 
@@ -129,8 +129,8 @@ impl<'conn> Provider<'conn> for UpdateEpochSettingProvider<'conn> {
     }
 }
 
-/// Provider to remove old data from the epoch_setting table
-pub struct DeleteEpochSettingProvider<'conn> {
+/// Query to delete old [EpochSettingRecord] from the sqlite database
+pub(crate) struct DeleteEpochSettingProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 

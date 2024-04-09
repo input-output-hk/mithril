@@ -16,8 +16,8 @@ use crate::signer_registerer::SignerRecorder;
 #[cfg(test)]
 use mockall::automock;
 
-/// Simple [SignerRecord] provider.
-pub struct SignerRecordProvider<'client> {
+/// Simple queries to retrieve [SignerRecord] from the sqlite database.
+pub(crate) struct SignerRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
@@ -65,8 +65,10 @@ impl<'client> Provider<'client> for SignerRecordProvider<'client> {
     }
 }
 
-/// Query to insert the signer record
-pub struct RegisterSignerRecordProvider<'conn> {
+/// Query to register a [SignerRecord] in the sqlite database
+///
+/// If it already exists it's `last_registered_at` and `updated_at` fields will be updated.
+pub(crate) struct RegisterSignerRecordProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 
@@ -126,8 +128,11 @@ impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
     }
 }
 
-/// Query to update the signer record
-pub struct ImportSignerRecordProvider<'conn> {
+/// Query used by the [signer importer][crate::tools::SignersImporter] to register a [SignerRecord]
+/// in the sqlite database.
+///
+/// If it already exists it's `pool_ticker` and `updated_at` fields will be updated.
+pub(crate) struct ImportSignerRecordProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 

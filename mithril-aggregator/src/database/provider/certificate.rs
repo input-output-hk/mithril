@@ -15,8 +15,8 @@ use mithril_persistence::sqlite::{
 
 use crate::database::record::CertificateRecord;
 
-/// Simple [CertificateRecord] provider.
-pub struct CertificateRecordProvider<'client> {
+/// Simple queries to retrieve [CertificateRecord] from the sqlite database.
+pub(crate) struct CertificateRecordProvider<'client> {
     client: &'client ConnectionThreadSafe,
 }
 
@@ -82,8 +82,8 @@ impl<'client> Provider<'client> for CertificateRecordProvider<'client> {
     }
 }
 
-/// Query to insert the certificate record
-pub struct InsertCertificateRecordProvider<'conn> {
+/// Query to insert [CertificateRecord] in the sqlite database
+pub(crate) struct InsertCertificateRecordProvider<'conn> {
     connection: &'conn ConnectionThreadSafe,
 }
 
@@ -207,11 +207,13 @@ impl<'conn> Provider<'conn> for InsertCertificateRecordProvider<'conn> {
     }
 }
 
-struct MasterCertificateProvider<'conn> {
+/// Query to obtains the master [CertificateRecord] of an epoch
+pub(crate) struct MasterCertificateProvider<'conn> {
     connection: &'conn ConnectionThreadSafe,
 }
 
 impl<'conn> MasterCertificateProvider<'conn> {
+    /// Create a new instance
     pub fn new(connection: &'conn ConnectionThreadSafe) -> Self {
         Self { connection }
     }
@@ -257,8 +259,8 @@ order by certificate.ROWID desc"#
     }
 }
 
-/// Provider to remove old data from the `certificate` table
-pub struct DeleteCertificateProvider<'conn> {
+/// Query to delete old [CertificateRecord] from the sqlite database
+pub(crate) struct DeleteCertificateProvider<'conn> {
     connection: &'conn ConnectionThreadSafe,
 }
 

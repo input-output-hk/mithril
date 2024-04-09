@@ -13,11 +13,12 @@ use mithril_persistence::sqlite::{
 
 use crate::database::record::{OpenMessageRecord, SingleSignatureRecord};
 
-/// Simple [SingleSignatureRecord] provider.
-pub struct SingleSignatureRecordProvider<'client> {
+/// Simple queries to retrieve [SingleSignatureRecord] from the sqlite database.
+pub(crate) struct SingleSignatureRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
+#[allow(dead_code)] // todo: Unused in production code, Should we keep it ?
 impl<'client> SingleSignatureRecordProvider<'client> {
     /// Create a new provider
     pub fn new(client: &'client SqliteConnection) -> Self {
@@ -31,7 +32,6 @@ impl<'client> SingleSignatureRecordProvider<'client> {
         ))
     }
 
-    #[allow(dead_code)] // todo: Should we keep this ?
     fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
@@ -39,7 +39,6 @@ impl<'client> SingleSignatureRecordProvider<'client> {
         ))
     }
 
-    #[allow(dead_code)] // todo: Should we keep this ?
     fn condition_by_registration_epoch(
         &self,
         registration_epoch: &Epoch,
@@ -86,8 +85,8 @@ impl<'client> Provider<'client> for SingleSignatureRecordProvider<'client> {
     }
 }
 
-/// Query to update the single_signature record
-pub struct UpdateSingleSignatureRecordProvider<'conn> {
+/// Query to update [SingleSignatureRecord] in the sqlite database
+pub(crate) struct UpdateSingleSignatureRecordProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 

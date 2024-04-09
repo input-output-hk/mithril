@@ -16,8 +16,8 @@ use mithril_persistence::store::adapter::AdapterError;
 use crate::database::record::SignerRegistrationRecord;
 use crate::VerificationKeyStorer;
 
-/// Simple [SignerRegistrationRecord] provider.
-pub struct SignerRegistrationRecordProvider<'client> {
+/// Simple queries to retrieve [SignerRegistrationRecord] from the sqlite database.
+pub(crate) struct SignerRegistrationRecordProvider<'client> {
     client: &'client SqliteConnection,
 }
 
@@ -88,8 +88,8 @@ impl<'client> Provider<'client> for SignerRegistrationRecordProvider<'client> {
     }
 }
 
-/// Query to insert or replace a signer_registration record
-pub struct InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
+/// Query to insert or replace [SignerRegistrationRecord] in the sqlite database
+pub(crate) struct InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 
@@ -167,8 +167,8 @@ impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<
     }
 }
 
-/// Provider to remove old data from the signer_registration table
-pub struct DeleteSignerRegistrationRecordProvider<'conn> {
+/// Query to delete old [SignerRegistrationRecord] from the sqlite database
+pub(crate) struct DeleteSignerRegistrationRecordProvider<'conn> {
     connection: &'conn SqliteConnection,
 }
 
