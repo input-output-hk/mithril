@@ -4,7 +4,7 @@
 
 pub mod cardano_transaction_migration;
 pub mod migration;
-pub mod provider;
+pub(crate) mod provider;
 pub mod record;
 pub mod repository;
 #[cfg(test)]
