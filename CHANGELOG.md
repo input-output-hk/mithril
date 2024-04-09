@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support incremental import for Cardano Transactions instead of scanning the whole immutable database for every signing round.
 
+- Chain observers support the retrieval of the current Cardano chain point.
+
 - Crates versions:
 
 |  Crate  |  Version  |
