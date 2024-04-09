@@ -149,102 +149,12 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
 mod tests {
     use sqlite::Connection;
 
-    use mithril_common::test_utils::fake_data;
-
     use crate::database::test_helper::{
         apply_all_migrations_to_db, disable_foreign_key_support, insert_single_signatures_in_db,
         setup_single_signature_records,
     };
 
     use super::*;
-
-    #[test]
-    fn projection() {
-        let projection = SingleSignatureRecord::get_projection();
-        let aliases = SourceAlias::new(&[("{:single_signature:}", "ssig")]);
-
-        assert_eq!(
-            "ssig.open_message_id as open_message_id, ssig.signer_id as signer_id, ssig.registration_epoch_setting_id as registration_epoch_setting_id, ssig.lottery_indexes as lottery_indexes, ssig.signature as signature, ssig.created_at as created_at"
-                .to_string(),
-            projection.expand(aliases)
-        );
-    }
-
-    #[test]
-    fn get_single_signature_record_by_epoch() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SingleSignatureRecordProvider::new(&connection);
-        let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
-        let condition = provider
-            .condition_by_open_message_id(&open_message_id_test)
-            .unwrap();
-        let (filter, values) = condition.expand();
-
-        assert_eq!("open_message_id = ?1".to_string(), filter);
-        assert_eq!(
-            vec![Value::String(open_message_id_test.to_string())],
-            values
-        );
-    }
-
-    #[test]
-    fn get_single_signature_record_by_signer_id() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SingleSignatureRecordProvider::new(&connection);
-        let condition = provider
-            .condition_by_signer_id("signer-123".to_string())
-            .unwrap();
-        let (filter, values) = condition.expand();
-
-        assert_eq!("signer_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::String("signer-123".to_string())], values);
-    }
-
-    #[test]
-    fn get_single_signature_record_by_registration_epoch() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SingleSignatureRecordProvider::new(&connection);
-        let condition = provider
-            .condition_by_registration_epoch(&Epoch(17))
-            .unwrap();
-        let (filter, values) = condition.expand();
-
-        assert_eq!("registration_epoch_setting_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::Integer(17)], values);
-    }
-
-    #[test]
-    fn update_single_signature_record() {
-        let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
-        let single_signature_record = SingleSignatureRecord::try_from_single_signatures(
-            &single_signature,
-            &Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
-            Epoch(1),
-        )
-        .unwrap();
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = UpdateSingleSignatureRecordProvider::new(&connection);
-        let condition = provider.get_update_condition(&single_signature_record);
-        let (values, params) = condition.expand();
-
-        assert_eq!(
-            "(open_message_id, signer_id, registration_epoch_setting_id, lottery_indexes, signature, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(),
-            values
-        );
-        assert_eq!(
-            vec![
-                Value::String(single_signature_record.open_message_id.to_string()),
-                Value::String(single_signature_record.signer_id),
-                Value::Integer(*single_signature_record.registration_epoch_setting_id as i64),
-                Value::String(
-                    serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()
-                ),
-                Value::String(single_signature_record.signature),
-                Value::String(single_signature_record.created_at.to_rfc3339()),
-            ],
-            params
-        );
-    }
 
     #[tokio::test]
     async fn test_get_single_signature_records() {

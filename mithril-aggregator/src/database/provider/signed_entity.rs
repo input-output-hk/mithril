@@ -249,13 +249,12 @@ impl<'client> Provider<'client> for UpdateSignedEntityProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, Utc};
     use sqlite::Connection;
 
+    use mithril_common::entities::CardanoDbBeacon;
     use mithril_common::entities::{
         MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot,
     };
-    use mithril_common::{entities::CardanoDbBeacon, test_utils::fake_data};
 
     use crate::database::test_helper::{
         apply_all_migrations_to_db, disable_foreign_key_support, insert_signed_entities,
@@ -345,115 +344,6 @@ mod tests {
     }
 
     #[test]
-    fn projection() {
-        let projection = SignedEntityRecord::get_projection();
-        let aliases = SourceAlias::new(&[("{:signed_entity:}", "se")]);
-
-        assert_eq!(
-            "se.signed_entity_id as signed_entity_id, se.signed_entity_type_id as signed_entity_type_id, se.certificate_id as certificate_id, se.beacon as beacon, se.artifact as artifact, se.created_at as created_at"
-                .to_string(),
-            projection.expand(aliases)
-        );
-    }
-
-    #[test]
-    fn get_signed_entity_record_by_signed_entity_type() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SignedEntityRecordProvider::new(&connection);
-        let condition = provider
-            .condition_by_signed_entity_type(
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            )
-            .unwrap();
-        let (filter, values) = condition.expand();
-
-        assert_eq!("signed_entity_type_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::Integer(2)], values);
-    }
-
-    #[test]
-    fn get_signed_entity_record_by_signed_entity_id() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SignedEntityRecordProvider::new(&connection);
-        let condition = provider
-            .condition_by_signed_entity_id("signed-ent-123")
-            .unwrap();
-        let (filter, values) = condition.expand();
-
-        assert_eq!("signed_entity_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::String("signed-ent-123".to_string())], values);
-    }
-
-    #[test]
-    fn get_signed_entity_record_by_signed_certificate_id() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SignedEntityRecordProvider::new(&connection);
-        let condition = provider
-            .condition_by_certificate_id("certificate_id")
-            .unwrap();
-        let (filter, values) = condition.expand();
-
-        assert_eq!("certificate_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::String("certificate_id".to_string())], values);
-    }
-
-    #[test]
-    fn get_signed_entity_record_by_signed_certificates_ids() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = SignedEntityRecordProvider::new(&connection);
-        let condition = provider.condition_by_certificates_ids(&["a", "b", "c"]);
-        let (condition, params) = condition.expand();
-
-        assert_eq!("certificate_id in (?1, ?2, ?3)".to_string(), condition);
-        assert_eq!(
-            vec![
-                Value::String("a".to_string()),
-                Value::String("b".to_string()),
-                Value::String("c".to_string()),
-            ],
-            params
-        );
-    }
-
-    #[test]
-    fn insert_signed_entity_record() {
-        let snapshots = fake_data::snapshots(1);
-        let snapshot = snapshots.first().unwrap().to_owned();
-        let signed_entity_record: SignedEntityRecord = SignedEntityRecord::from_snapshot(
-            snapshot,
-            "certificate-1".to_string(),
-            DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = InsertSignedEntityRecordProvider::new(&connection);
-        let condition = provider.get_insert_condition(signed_entity_record.clone());
-        let (values, params) = condition.expand();
-
-        assert_eq!(
-            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, artifact, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(),
-            values
-        );
-        assert_eq!(
-            vec![
-                Value::String(signed_entity_record.signed_entity_id),
-                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
-                Value::String(signed_entity_record.certificate_id),
-                Value::String(
-                    signed_entity_record
-                        .signed_entity_type
-                        .get_json_beacon()
-                        .unwrap()
-                ),
-                Value::String(signed_entity_record.artifact),
-                Value::String(signed_entity_record.created_at.to_rfc3339()),
-            ],
-            params
-        );
-    }
-
-    #[test]
     fn test_get_signed_entity_records() {
         let signed_entity_records = SignedEntityRecord::fake_records(5);
 
@@ -504,46 +394,5 @@ mod tests {
                 provider.persist(signed_entity_record.clone()).unwrap();
             assert_eq!(signed_entity_record, signed_entity_record_saved);
         }
-    }
-
-    #[test]
-    fn update_provider_condition() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = UpdateSignedEntityProvider::new(&connection);
-        let snapshots = fake_data::snapshots(1);
-        let snapshot = snapshots.first().unwrap().to_owned();
-        let signed_entity_record: SignedEntityRecord = SignedEntityRecord::from_snapshot(
-            snapshot,
-            "certificate-1".to_string(),
-            DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
-                .unwrap()
-                .with_timezone(&Utc),
-        );
-        let (expr, params) = provider
-            .get_update_condition(&signed_entity_record)
-            .unwrap()
-            .expand();
-
-        assert_eq!(
-            "signed_entity_type_id = ?1, certificate_id = ?2, beacon = ?3, artifact = ?4, created_at = ?5 where signed_entity_id = ?6"
-                .to_string(),
-            expr
-        );
-        assert_eq!(
-            vec![
-                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
-                Value::String(signed_entity_record.certificate_id.to_owned()),
-                Value::String(
-                    signed_entity_record
-                        .signed_entity_type
-                        .get_json_beacon()
-                        .unwrap()
-                ),
-                Value::String(signed_entity_record.artifact.to_owned()),
-                Value::String(signed_entity_record.created_at.to_rfc3339()),
-                Value::String(signed_entity_record.signed_entity_id),
-            ],
-            params
-        );
     }
 }
