@@ -188,12 +188,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .await
                 .with_context(|| format!("AggregatorRunner can not get current open message for signed entity type: '{}'", &signed_entity_type))?
             {
-                if !open_message.is_certified {
+                if !open_message.is_certified && !open_message.is_expired {
                     return Ok(Some(open_message));
                 }
-                if open_message.is_certified || open_message.is_expired {
-                    continue;
-                }
+                continue;
             }
             let protocol_message = self.compute_protocol_message(&signed_entity_type).await.with_context(|| format!("AggregatorRunner can not compute protocol message for signed_entity_type: '{signed_entity_type}'"))?;
             let open_message_new = self.create_open_message(&signed_entity_type, &protocol_message)
@@ -1120,13 +1118,19 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_all_open_message_already_expired(
+    async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message(
     ) {
         let time_point = TimePoint::dummy();
+        let open_message_mithril_stake_distribution_expired = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
+            is_certified: false,
+            is_expired: true,
+            ..OpenMessage::dummy()
+        };
         let open_message_expired_cardano_immutable_files = OpenMessage {
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
             is_certified: false,
-            is_expired: true,
+            is_expired: false,
             ..OpenMessage::dummy()
         };
         let open_message_expected = open_message_expired_cardano_immutable_files.clone();
@@ -1134,12 +1138,16 @@ pub mod tests {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_get_open_message()
+            .return_once(|_| Ok(Some(open_message_mithril_stake_distribution_expired)))
+            .times(1);
+        mock_certifier_service
+            .expect_get_open_message()
             .return_once(|_| Ok(Some(open_message_expired_cardano_immutable_files)))
             .times(1);
         mock_certifier_service
             .expect_mark_open_message_if_expired()
-            .return_once(|_| Ok(None))
-            .times(1);
+            .returning(|_| Ok(None))
+            .times(2);
         mock_certifier_service.expect_create_open_message().never();
 
         let mut deps = initialize_dependencies().await;
