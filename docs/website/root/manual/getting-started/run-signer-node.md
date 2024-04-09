@@ -113,6 +113,32 @@ Note that this guide works on a Linux machine only.
 
 :::
 
+:::info
+
+To verify that your node version is supported, compare the version of your Cardano node with the minimum supported versions listed in the `cardano-min-versions.json` file located at the root of the repository.
+
+First, check the version of your Cardano node by running the following command:
+
+```bash
+cardano-node --version
+```
+
+Then, refer to the minimum supported versions listed in the `cardano-min-versions.json` file, which can be found [here](https://github.com/input-output-hk/mithril/blob/main/cardano-min-versions.json).
+
+You can also fetch the minimum supported version for your network using the command below:
+```bash
+wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/cardano-min-versions.json | jq -r '.network.**YOUR_CARDANO_NETWORK**'
+```
+
+Here is an example for `preprod`:
+```bash
+wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/cardano-min-versions.json | jq -r '.network.preprod'
+```
+
+Compare the Cardano node versions, if your node version is equal to or higher than the minimum supported version listed for your network, your Cardano node is supported.
+
+:::
+
 ### Building your own executable
 
 #### Download the source file
