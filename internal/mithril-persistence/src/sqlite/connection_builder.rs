@@ -26,6 +26,11 @@ pub enum ConnectionOptions {
 
     /// Enable foreign key support
     EnableForeignKeys,
+
+    /// Disable foreign key support after the migrations are run
+    ///
+    /// This option take priority over [ConnectionOptions::EnableForeignKeys] if both are enabled.
+    ForceDisableForeignKeys,
 }
 
 impl ConnectionBuilder {
@@ -110,21 +115,23 @@ impl ConnectionBuilder {
                 .with_context(|| "Database migration error")?;
         }
 
-        Ok(connection)
-    }
+        if self
+            .options
+            .contains(&ConnectionOptions::ForceDisableForeignKeys)
+        {
+            connection
+                .execute("pragma foreign_keys=false")
+                .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;
+        }
 
-    /// Shortcut for `ConnectionBuilder::open_memory().with_migrations(migrations).build()`, mostly
-    /// useful for quick connections for tests.
-    pub fn build_memory_with_migration(
-        migrations: Vec<SqlMigration>,
-    ) -> StdResult<ConnectionThreadSafe> {
-        Self::open_memory().with_migrations(migrations).build()
+        Ok(connection)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
     use mithril_common::test_utils::TempDir;
     use sqlite::Value;
 
@@ -249,5 +256,17 @@ mod tests {
             Value::String("db_version,first,second".to_string()),
             tables_list
         );
+    }
+
+    #[test]
+    fn can_disable_foreign_keys_even_if_a_migration_enable_them() {
+        let connection = ConnectionBuilder::open_memory()
+            .with_migrations(vec![SqlMigration::new(1, "pragma foreign_keys=true;")])
+            .with_options(&[ForceDisableForeignKeys])
+            .build()
+            .unwrap();
+
+        let foreign_keys = execute_single_cell_query(&connection, "pragma foreign_keys;");
+        assert_eq!(Value::Integer(false.into()), foreign_keys);
     }
 }
