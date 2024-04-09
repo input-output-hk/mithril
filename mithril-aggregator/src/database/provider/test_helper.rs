@@ -6,7 +6,7 @@ use uuid::Uuid;
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdResult};
 use mithril_persistence::sqlite::SqliteConnection;
 
-use crate::database::{migration::get_migrations, provider::UpdateSingleSignatureRecordProvider};
+use crate::database::provider::UpdateSingleSignatureRecordProvider;
 
 use super::SingleSignatureRecord;
 
@@ -45,7 +45,15 @@ pub fn disable_foreign_key_support(connection: &SqliteConnection) -> StdResult<(
 }
 
 pub fn apply_all_migrations_to_db(connection: &SqliteConnection) -> StdResult<()> {
-    for migration in get_migrations() {
+    for migration in crate::database::migration::get_migrations() {
+        connection.execute(&migration.alterations)?;
+    }
+
+    Ok(())
+}
+
+pub fn apply_all_transactions_db_migrations(connection: &SqliteConnection) -> StdResult<()> {
+    for migration in crate::database::cardano_transaction_migration::get_migrations() {
         connection.execute(&migration.alterations)?;
     }
 

@@ -1,15 +1,10 @@
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use crate::{
-    cardano_transaction_parser::TransactionParser,
     crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
     entities::{
         BlockRange, CardanoDbBeacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
@@ -19,38 +14,31 @@ use crate::{
     StdResult,
 };
 
+use crate::entities::ImmutableFileNumber;
 #[cfg(test)]
 use mockall::automock;
 
-/// Cardano transactions store
+/// Cardano transactions importer
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait TransactionStore: Send + Sync {
-    /// Store list of transactions
-    async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
+pub trait TransactionsImporter: Send + Sync {
+    /// Returns all transactions up to the given beacon
+    async fn import(&self, up_to_beacon: ImmutableFileNumber)
+        -> StdResult<Vec<CardanoTransaction>>;
 }
 
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
-    transaction_parser: Arc<dyn TransactionParser>,
-    transaction_store: Arc<dyn TransactionStore>,
+    transaction_importer: Arc<dyn TransactionsImporter>,
     logger: Logger,
-    dirpath: PathBuf,
 }
 
 impl CardanoTransactionsSignableBuilder {
     /// Constructor
-    pub fn new(
-        transaction_parser: Arc<dyn TransactionParser>,
-        transaction_store: Arc<dyn TransactionStore>,
-        dirpath: &Path,
-        logger: Logger,
-    ) -> Self {
+    pub fn new(transaction_importer: Arc<dyn TransactionsImporter>, logger: Logger) -> Self {
         Self {
-            transaction_parser,
-            transaction_store,
+            transaction_importer,
             logger,
-            dirpath: dirpath.to_owned(),
         }
     }
 
@@ -99,7 +87,6 @@ impl CardanoTransactionsSignableBuilder {
 
 #[async_trait]
 impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
-    // TODO: return a protocol message computed from the transactions when it's ready to be implemented
     async fn compute_protocol_message(
         &self,
         beacon: CardanoDbBeacon,
@@ -110,22 +97,9 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
         );
 
         let transactions = self
-            .transaction_parser
-            .parse(&self.dirpath, &beacon)
+            .transaction_importer
+            .import(beacon.immutable_file_number)
             .await?;
-        debug!(
-            self.logger,
-            "Retrieved {} Cardano transactions at beacon: {beacon}",
-            transactions.len()
-        );
-
-        let transaction_chunk_size = 100;
-        for transactions_in_chunk in transactions.chunks(transaction_chunk_size) {
-            self.transaction_store
-                .store_transactions(transactions_in_chunk)
-                .await?;
-        }
-
         let mk_root = self.compute_merkle_root(&transactions)?;
 
         let mut protocol_message = ProtocolMessage::new();
@@ -144,9 +118,6 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::cardano_transaction_parser::DumbTransactionParser;
-    use crate::signable_builder::MockTransactionStore;
-
     use super::*;
     use slog::Drain;
 
@@ -177,9 +148,7 @@ mod tests {
         }
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-            Arc::new(DumbTransactionParser::new(vec![])),
-            Arc::new(MockTransactionStore::new()),
-            Path::new("/tmp"),
+            Arc::new(MockTransactionsImporter::new()),
             create_logger(),
         );
 
@@ -240,9 +209,7 @@ mod tests {
             CardanoTransaction::new("tx-hash-456", BlockRange::LENGTH + 1, 20, "block_hash", 1);
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-            Arc::new(DumbTransactionParser::new(vec![])),
-            Arc::new(MockTransactionStore::new()),
-            Path::new("/tmp"),
+            Arc::new(MockTransactionsImporter::new()),
             create_logger(),
         );
 
@@ -269,16 +236,13 @@ mod tests {
             CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 12),
             CardanoTransaction::new("tx-hash-789", 30, 3, "block_hash", 13),
         ];
-        let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
-        let mut mock_transaction_store = MockTransactionStore::new();
-        mock_transaction_store
-            .expect_store_transactions()
-            .returning(|_| Ok(()));
-        let transaction_store = Arc::new(mock_transaction_store);
+        let imported_transactions = transactions.clone();
+        let mut transaction_importer = MockTransactionsImporter::new();
+        transaction_importer
+            .expect_import()
+            .return_once(move |_| Ok(imported_transactions));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
-            transaction_parser,
-            transaction_store,
-            Path::new("/tmp"),
+            Arc::new(transaction_importer),
             create_logger(),
         );
 
@@ -307,17 +271,12 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable_with_no_transaction_return_error() {
         let beacon = CardanoDbBeacon::default();
-        let transactions = vec![];
-        let transaction_parser = Arc::new(DumbTransactionParser::new(transactions.clone()));
-        let mut mock_transaction_store = MockTransactionStore::new();
-        mock_transaction_store
-            .expect_store_transactions()
-            .returning(|_| Ok(()));
-        let transaction_store = Arc::new(mock_transaction_store);
+        let mut transaction_importer = MockTransactionsImporter::new();
+        transaction_importer
+            .expect_import()
+            .return_once(|_| Ok(vec![]));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
-            transaction_parser,
-            transaction_store,
-            Path::new("/tmp"),
+            Arc::new(transaction_importer),
             create_logger(),
         );
 

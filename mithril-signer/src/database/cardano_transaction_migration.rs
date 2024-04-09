@@ -51,5 +51,13 @@ alter table cardano_tx add column block_hash text not null;
 vacuum;
         "#,
         ),
+        // Migration 4
+        // Add index on `block_number` column of `cardano_tx` table
+        SqlMigration::new(
+            4,
+            r#"
+create index block_number_index on cardano_tx(block_number);
+"#,
+        ),
     ]
 }

@@ -10,7 +10,7 @@ use mithril_common::{
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
-    signable_builder::{SignableBuilderService, TransactionStore},
+    signable_builder::SignableBuilderService,
     test_utils::MithrilFixture,
     TimePointProvider,
 };
@@ -18,21 +18,20 @@ use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
 
 use crate::{
     configuration::*,
-    database::provider::{CertificateRepository, SignedEntityStorer, SignerGetter, StakePoolStore},
+    database::provider::{
+        CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
+        StakePoolStore,
+    },
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
     services::{
-        CertifierService, ProverService, SignedEntityService, StakeDistributionService,
-        TickerService,
+        CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
+        StakeDistributionService, TickerService, TransactionStore,
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
-};
-use crate::{
-    database::provider::OpenMessageRepository,
-    services::{EpochService, MessageService},
 };
 
 /// MultiSignerWrapper wraps a [MultiSigner]

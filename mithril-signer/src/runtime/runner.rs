@@ -458,7 +458,7 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{CardanoDbBeacon, CardanoTransaction, Epoch, StakeDistribution},
+        entities::{CardanoDbBeacon, Epoch, StakeDistribution},
         era::{
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
@@ -466,7 +466,6 @@ mod tests {
         signable_builder::{
             CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
             MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-            TransactionStore,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
         TimePointProvider, TimePointProviderImpl,
@@ -480,22 +479,12 @@ mod tests {
     };
 
     use crate::{
-        metrics::MetricsService, AggregatorClient, DumbAggregatorClient, MithrilSingleSigner,
-        MockAggregatorClient, ProtocolInitializerStore, SingleSigner,
+        metrics::MetricsService, AggregatorClient, CardanoTransactionsImporter,
+        DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient, MockTransactionStore,
+        ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
-
-    mock! {
-        TransactionStoreImpl { }
-
-        #[async_trait]
-        impl TransactionStore for TransactionStoreImpl
-        {
-            async fn store_transactions(&self, transactions: &[CardanoTransaction]) -> StdResult<()>;
-
-        }
-    }
 
     const DIGESTER_RESULT: &str = "a digest";
 
@@ -546,11 +535,16 @@ mod tests {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
-        let transaction_store = Arc::new(MockTransactionStoreImpl::new());
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let transaction_store = Arc::new(MockTransactionStore::new());
+        let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
+            None,
+            slog_scope::logger(),
+        ));
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            transaction_importer,
             slog_scope::logger(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

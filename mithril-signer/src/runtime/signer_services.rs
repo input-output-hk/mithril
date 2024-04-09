@@ -29,9 +29,10 @@ use mithril_persistence::{
 
 use crate::{
     aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
-    metrics::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient, Configuration,
-    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
-    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    metrics::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient,
+    CardanoTransactionsImporter, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
+    ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -275,10 +276,16 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let transactions_importer = CardanoTransactionsImporter::new(
             transaction_parser,
             transaction_store,
             &self.config.db_directory,
+            // Rescan the last immutable when importing transactions, it may have been partially imported
+            Some(1),
+            slog_scope::logger(),
+        );
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+            Arc::new(transactions_importer),
             slog_scope::logger(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

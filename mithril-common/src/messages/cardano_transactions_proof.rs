@@ -314,13 +314,12 @@ mod tests {
 
     #[cfg(feature = "fs")]
     mod fs_only {
-        use crate::cardano_transaction_parser::DumbTransactionParser;
         use crate::entities::{CardanoDbBeacon, CardanoTransaction};
         use crate::signable_builder::{
-            CardanoTransactionsSignableBuilder, MockTransactionStore, SignableBuilder,
+            CardanoTransactionsSignableBuilder, MockTransactionsImporter, SignableBuilder,
         };
         use slog::Logger;
-        use std::{path::Path, sync::Arc};
+        use std::sync::Arc;
 
         use super::*;
 
@@ -377,16 +376,13 @@ mod tests {
             transactions: &[CardanoTransaction],
             immutable_file_number: u64,
         ) -> ProtocolMessage {
-            let mut mock_transaction_store = MockTransactionStore::new();
-            mock_transaction_store
-                .expect_store_transactions()
-                .returning(|_| Ok(()))
-                .times(1);
-
+            let transactions = transactions.to_vec();
+            let mut transaction_importer = MockTransactionsImporter::new();
+            transaction_importer
+                .expect_import()
+                .return_once(move |_| Ok(transactions));
             let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-                Arc::new(DumbTransactionParser::new(transactions.to_vec())),
-                Arc::new(mock_transaction_store),
-                Path::new("/tmp"),
+                Arc::new(transaction_importer),
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
