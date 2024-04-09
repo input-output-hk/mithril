@@ -3,6 +3,7 @@
 //! with ability to perform any SQL query possible and hydrate results in Rust
 //! structs.
 mod condition;
+mod connection_builder;
 mod cursor;
 mod entity;
 mod projection;
@@ -10,6 +11,7 @@ mod provider;
 mod source_alias;
 
 pub use condition::WhereCondition;
+pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
 pub use cursor::EntityCursor;
 pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
