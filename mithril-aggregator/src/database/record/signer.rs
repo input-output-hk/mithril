@@ -21,6 +21,29 @@ pub struct SignerRecord {
     pub last_registered_at: Option<DateTime<Utc>>,
 }
 
+#[cfg(test)]
+impl SignerRecord {
+    pub(crate) fn fake_records(number_of_records: usize) -> Vec<SignerRecord> {
+        (0..number_of_records)
+            .map(|idx| SignerRecord {
+                signer_id: format!("signer-{idx}"),
+                pool_ticker: Some(format!("pool-ticker-{idx}")),
+                created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339("2024-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+                last_registered_at: Some(
+                    DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                ),
+            })
+            .collect()
+    }
+}
+
 impl SqLiteEntity for SignerRecord {
     fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError>
     where

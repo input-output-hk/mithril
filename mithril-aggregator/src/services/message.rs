@@ -15,7 +15,7 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::database::provider::{CertificateRepository, SignedEntityStorer};
+use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 
 #[cfg(test)]
 use mockall::automock;
@@ -199,8 +199,8 @@ mod tests {
     use mithril_common::messages::ToMessageAdapter;
     use mithril_common::test_utils::MithrilFixtureBuilder;
 
-    use crate::database::provider::MockSignedEntityStorer;
     use crate::database::record::SignedEntityRecord;
+    use crate::database::repository::MockSignedEntityStorer;
     use crate::dependency_injection::DependenciesBuilder;
     use crate::message_adapters::{
         ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,

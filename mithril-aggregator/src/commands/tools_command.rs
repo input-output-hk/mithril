@@ -7,7 +7,7 @@ use slog_scope::debug;
 use std::sync::Arc;
 
 use crate::{
-    database::provider::{CertificateRepository, SignedEntityStoreAdapter},
+    database::repository::{CertificateRepository, SignedEntityStore},
     dependency_injection::DependenciesBuilder,
     tools::CertificatesHashMigrator,
     Configuration,
@@ -66,7 +66,7 @@ impl RecomputeCertificatesHashCommand {
             .with_context(|| "Dependencies Builder can not get sqlite connection")?;
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
-            Arc::new(SignedEntityStoreAdapter::new(connection.clone())),
+            Arc::new(SignedEntityStore::new(connection.clone())),
         );
 
         migrator

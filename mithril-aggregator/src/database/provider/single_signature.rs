@@ -1,17 +1,12 @@
-use std::sync::Arc;
-
 use sqlite::Value;
 use uuid::Uuid;
 
-use mithril_common::{
-    entities::{Epoch, SingleSignatures},
-    StdResult,
-};
+use mithril_common::{entities::Epoch, StdResult};
 use mithril_persistence::sqlite::{
     EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
 
-use crate::database::record::{OpenMessageRecord, SingleSignatureRecord};
+use crate::database::record::SingleSignatureRecord;
 
 /// Simple queries to retrieve [SingleSignatureRecord] from the sqlite database.
 pub(crate) struct SingleSignatureRecordProvider<'client> {
@@ -115,7 +110,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
         )
     }
 
-    fn persist(
+    pub(crate) fn persist(
         &self,
         single_signature_record: SingleSignatureRecord,
     ) -> StdResult<SingleSignatureRecord> {
@@ -147,34 +142,6 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
         )]));
 
         format!("insert or replace into single_signature {condition} returning {projection}")
-    }
-}
-
-/// Service to deal with single_signature (read & write).
-pub struct SingleSignatureRepository {
-    connection: Arc<SqliteConnection>,
-}
-
-impl SingleSignatureRepository {
-    /// Create a new SingleSignatureStoreAdapter service
-    pub fn new(connection: Arc<SqliteConnection>) -> Self {
-        Self { connection }
-    }
-
-    /// Create a new Single Signature in database
-    pub async fn create_single_signature(
-        &self,
-        single_signature: &SingleSignatures,
-        open_message: &OpenMessageRecord,
-    ) -> StdResult<SingleSignatureRecord> {
-        let single_signature = SingleSignatureRecord::try_from_single_signatures(
-            single_signature,
-            &open_message.open_message_id,
-            open_message.epoch.offset_to_signer_retrieval_epoch()?,
-        )?;
-        let provider = UpdateSingleSignatureRecordProvider::new(&self.connection);
-
-        provider.persist(single_signature)
     }
 }
 

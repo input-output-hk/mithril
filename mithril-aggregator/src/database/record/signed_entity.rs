@@ -49,6 +49,29 @@ impl SignedEntityRecord {
             created_at,
         }
     }
+
+    pub(crate) fn fake_records(number_if_records: usize) -> Vec<SignedEntityRecord> {
+        use mithril_common::test_utils::fake_data;
+
+        let snapshots = fake_data::snapshots(number_if_records as u64);
+        (0..number_if_records)
+            .map(|idx| {
+                let snapshot = snapshots.get(idx).unwrap().to_owned();
+                let entity = serde_json::to_string(&snapshot).unwrap();
+                SignedEntityRecord {
+                    signed_entity_id: snapshot.digest,
+                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                        snapshot.beacon,
+                    ),
+                    certificate_id: format!("certificate-{idx}"),
+                    artifact: entity,
+                    created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                        .unwrap()
+                        .with_timezone(&Utc),
+                }
+            })
+            .collect()
+    }
 }
 
 impl From<SignedEntityRecord> for Snapshot {

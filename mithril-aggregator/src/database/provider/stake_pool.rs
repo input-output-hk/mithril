@@ -1,18 +1,13 @@
 use std::iter::repeat;
-use std::ops::Not;
-use std::sync::Arc;
 
-use anyhow::Context;
-use async_trait::async_trait;
 use chrono::Utc;
 use sqlite::Value;
 
-use mithril_common::entities::{Epoch, PartyId, Stake, StakeDistribution};
+use mithril_common::entities::{Epoch, PartyId, Stake};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
     EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
-use mithril_persistence::store::{adapter::AdapterError, StakeStorer};
 
 use crate::database::record::StakePool;
 
@@ -69,7 +64,7 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
         Self { connection }
     }
 
-    fn get_insert_or_replace_condition(
+    pub(crate) fn get_insert_or_replace_condition(
         &self,
         records: Vec<(PartyId, Epoch, Stake)>,
     ) -> WhereCondition {
@@ -93,7 +88,10 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
         )
     }
 
-    fn persist_many(&self, records: Vec<(PartyId, Epoch, Stake)>) -> StdResult<Vec<StakePool>> {
+    pub(crate) fn persist_many(
+        &self,
+        records: Vec<(PartyId, Epoch, Stake)>,
+    ) -> StdResult<Vec<StakePool>> {
         let filters = self.get_insert_or_replace_condition(records);
 
         Ok(self.find(filters)?.collect())
@@ -161,121 +159,20 @@ impl<'conn> DeleteStakePoolProvider<'conn> {
     }
 }
 
-/// Service to deal with stake pools (read & write).
-pub struct StakePoolStore {
-    connection: Arc<SqliteConnection>,
-
-    /// Number of epochs before previous records will be pruned at the next call to
-    /// [save_protocol_parameters][StakePoolStore::save_stakes].
-    retention_limit: Option<u64>,
-}
-
-impl StakePoolStore {
-    /// Create a new StakePool service
-    pub fn new(connection: Arc<SqliteConnection>, retention_limit: Option<u64>) -> Self {
-        Self {
-            connection,
-            retention_limit,
-        }
-    }
-}
-
-#[async_trait]
-impl StakeStorer for StakePoolStore {
-    async fn save_stakes(
-        &self,
-        epoch: Epoch,
-        stakes: StakeDistribution,
-    ) -> StdResult<Option<StakeDistribution>> {
-        let provider = InsertOrReplaceStakePoolProvider::new(&self.connection);
-        let pools = provider
-            .persist_many(
-                stakes
-                    .into_iter()
-                    .map(|(pool_id, stake)| (pool_id, epoch, stake))
-                    .collect(),
-            )
-            .with_context(|| format!("persist stakes failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
-
-        // Prune useless old stake distributions.
-        if let Some(threshold) = self.retention_limit {
-            let _ = DeleteStakePoolProvider::new(&self.connection)
-                .prune(epoch - threshold)
-                .map_err(AdapterError::QueryError)?
-                .count();
-        }
-
-        Ok(Some(StakeDistribution::from_iter(
-            pools.into_iter().map(|p| (p.stake_pool_id, p.stake)),
-        )))
-    }
-
-    async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let provider = StakePoolProvider::new(&self.connection);
-        let cursor = provider
-            .get_by_epoch(&epoch)
-            .with_context(|| format!("get stakes failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
-        let mut stake_distribution = StakeDistribution::new();
-
-        for stake_pool in cursor {
-            stake_distribution.insert(stake_pool.stake_pool_id, stake_pool.stake);
-        }
-
-        Ok(stake_distribution
-            .is_empty()
-            .not()
-            .then_some(stake_distribution))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use sqlite::Connection;
 
-    use crate::database::test_helper::apply_all_migrations_to_db;
+    use crate::database::test_helper::{apply_all_migrations_to_db, insert_stake_pool};
 
     use super::*;
 
     pub fn setup_stake_db(
         connection: &SqliteConnection,
-        epoch_to_insert_settings: &[i64],
+        epoch_to_insert_stake_pools: &[i64],
     ) -> StdResult<()> {
         apply_all_migrations_to_db(connection)?;
-
-        let query = {
-            // leverage the expanded parameter from this provider which is unit
-            // tested on its own above.
-            let update_provider = InsertOrReplaceStakePoolProvider::new(connection);
-            let (sql_values, _) = update_provider
-                .get_insert_or_replace_condition(vec![("pool_id".to_string(), Epoch(1), 1000)])
-                .expand();
-
-            format!("insert into stake_pool {sql_values}")
-        };
-
-        // Note: decreasing stakes for pool3 so we can test that the order has changed
-        for (pool_id, epoch, stake) in epoch_to_insert_settings.iter().flat_map(|epoch| {
-            [
-                ("pool1", *epoch, 1000 + (epoch - 1) * 40),
-                ("pool2", *epoch, 1100 + (epoch - 1) * 45),
-                ("pool3", *epoch, 1200 - (epoch - 1) * 50),
-            ]
-        }) {
-            let mut statement = connection.prepare(&query)?;
-            statement
-                .bind::<&[(_, Value)]>(&[
-                    (1, pool_id.to_string().into()),
-                    (2, Value::Integer(epoch)),
-                    (3, Value::Integer(stake)),
-                    (4, Utc::now().to_rfc3339().into()),
-                ])
-                .unwrap();
-            statement.next().unwrap();
-        }
-
-        Ok(())
+        insert_stake_pool(connection, epoch_to_insert_stake_pools)
     }
 
     #[test]
@@ -414,33 +311,5 @@ mod tests {
         let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
 
         assert_eq!(3, cursor.count());
-    }
-
-    #[tokio::test]
-    async fn save_protocol_parameters_prune_older_epoch_settings() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 10;
-        setup_stake_db(&connection, &[1, 2]).unwrap();
-        let store =
-            StakePoolStore::new(Arc::new(connection), Some(STAKE_POOL_PRUNE_EPOCH_THRESHOLD));
-
-        store
-            .save_stakes(
-                Epoch(2) + STAKE_POOL_PRUNE_EPOCH_THRESHOLD,
-                StakeDistribution::from_iter([("pool1".to_string(), 100)]),
-            )
-            .await
-            .expect("saving stakes should not fails");
-        let epoch1_stakes = store.get_stakes(Epoch(1)).await.unwrap();
-        let epoch2_stakes = store.get_stakes(Epoch(2)).await.unwrap();
-
-        assert_eq!(
-            None, epoch1_stakes,
-            "Stakes at epoch 1 should have been pruned",
-        );
-        assert!(
-            epoch2_stakes.is_some(),
-            "Stakes at epoch 2 should still exist",
-        );
     }
 }

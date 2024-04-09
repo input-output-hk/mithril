@@ -18,7 +18,7 @@ use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
 
 use crate::{
     configuration::*,
-    database::provider::{
+    database::repository::{
         CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
         StakePoolStore,
     },

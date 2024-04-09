@@ -57,7 +57,7 @@ fn registered_signers(
 }
 
 mod handlers {
-    use crate::database::provider::SignerGetter;
+    use crate::database::repository::SignerGetter;
     use crate::entities::{
         SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
     };
@@ -262,7 +262,7 @@ mod tests {
     use mithril_persistence::store::adapter::AdapterError;
 
     use crate::{
-        database::{provider::MockSignerGetter, record::SignerRecord},
+        database::{record::SignerRecord, repository::MockSignerGetter},
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
         signer_registerer::MockSignerRegisterer,

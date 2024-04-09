@@ -8,7 +8,7 @@ use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::database::provider::SignerStore;
+use crate::database::repository::SignerStore;
 
 #[cfg(test)]
 use mockall::automock;
@@ -190,7 +190,7 @@ mod tests {
 
     use warp::Filter;
 
-    use crate::database::provider::{SignerGetter, SignerStore};
+    use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::{apply_all_migrations_to_db, disable_foreign_key_support};
     use crate::http_server::routes::reply;
 

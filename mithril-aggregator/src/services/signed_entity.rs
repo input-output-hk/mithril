@@ -19,7 +19,7 @@ use mithril_common::{
 
 use crate::{
     artifact_builder::ArtifactBuilder,
-    database::{provider::SignedEntityStorer, record::SignedEntityRecord},
+    database::{record::SignedEntityRecord, repository::SignedEntityStorer},
 };
 
 #[cfg(test)]
@@ -307,9 +307,8 @@ mod tests {
 
     use super::*;
 
-    use crate::{
-        artifact_builder::MockArtifactBuilder, database::provider::MockSignedEntityStorer,
-    };
+    use crate::artifact_builder::MockArtifactBuilder;
+    use crate::database::repository::MockSignedEntityStorer;
 
     fn create_stake_distribution(epoch: Epoch, signers: usize) -> MithrilStakeDistribution {
         MithrilStakeDistribution::new(

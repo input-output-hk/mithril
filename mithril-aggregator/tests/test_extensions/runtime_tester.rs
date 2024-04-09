@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use mithril_aggregator::{
-    database::{provider::OpenMessageRepository, record::SignedEntityRecord},
+    database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
     AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,

@@ -1,5 +1,5 @@
 use crate::{
-    database::provider::SignerGetter,
+    database::repository::SignerGetter,
     dependency_injection::EpochServiceWrapper,
     event_store::{EventMessage, TransmitterService},
     services::{

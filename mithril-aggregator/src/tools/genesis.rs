@@ -12,7 +12,7 @@ use mithril_common::{
     CardanoNetwork, StdResult, TimePointProvider,
 };
 
-use crate::database::provider::CertificateRepository;
+use crate::database::repository::CertificateRepository;
 use crate::{ProtocolParametersStorer, VerificationKeyStorer};
 
 pub struct GenesisToolsDependency {

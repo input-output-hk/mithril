@@ -49,10 +49,10 @@ use crate::{
         MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
-    database::provider::{
+    database::repository::{
         CardanoTransactionRepository, CertificateRepository, EpochSettingStore,
-        OpenMessageRepository, SignedEntityStoreAdapter, SignedEntityStorer,
-        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
+        OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
+        SignerStore, SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -1172,9 +1172,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
-        let signed_entity_storer = Arc::new(SignedEntityStoreAdapter::new(
-            self.get_sqlite_connection().await?,
-        ));
+        let signed_entity_storer =
+            Arc::new(SignedEntityStore::new(self.get_sqlite_connection().await?));
 
         Ok(signed_entity_storer)
     }
