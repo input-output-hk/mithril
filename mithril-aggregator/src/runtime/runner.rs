@@ -498,7 +498,8 @@ pub mod tests {
         StdResult, TimePointProviderImpl,
     };
     use mithril_persistence::store::StakeStorer;
-    use mockall::{mock, predicate::eq};
+    use mockall::predicate::eq;
+    use mockall::{mock, Sequence};
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -535,6 +536,73 @@ pub mod tests {
         .await;
 
         AggregatorRunner::new(Arc::new(deps))
+    }
+
+    async fn build_runner(mock_certifier_service: MockCertifierService) -> AggregatorRunner {
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let mut mock_signable_builder_service = MockSignableBuilderServiceImpl::new();
+        mock_signable_builder_service
+            .expect_compute_protocol_message()
+            .return_once(|_| Ok(ProtocolMessage::default()));
+        deps.signable_builder_service = Arc::new(mock_signable_builder_service);
+
+        let runner = build_runner_with_fixture_data(deps).await;
+
+        let current_epoch = runner
+            .dependencies
+            .ticker_service
+            .get_current_epoch()
+            .await
+            .unwrap();
+        runner.inform_new_epoch(current_epoch).await.unwrap();
+        runner.precompute_epoch_data().await.unwrap();
+        runner
+    }
+
+    fn init_certifier_service_mock(
+        mock_certifier_service: &mut MockCertifierService,
+        messages: Vec<OpenMessage>,
+    ) {
+        for message in messages {
+            mock_certifier_service
+                .expect_get_open_message()
+                .return_once(|_| Ok(Some(message)))
+                .times(1);
+        }
+        // When all messages are retrieved, the function return None
+        mock_certifier_service
+            .expect_get_open_message()
+            .returning(|_| Ok(None));
+
+        mock_certifier_service
+            .expect_inform_epoch()
+            .return_once(|_| Ok(()));
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .returning(|_| Ok(None));
+    }
+
+    fn create_open_message(is_certified: IsCertified, is_expired: IsExpired) -> OpenMessage {
+        OpenMessage {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            is_certified: is_certified == IsCertified::Yes,
+            is_expired: is_expired == IsExpired::Yes,
+            ..OpenMessage::dummy()
+        }
+    }
+
+    #[derive(Eq, PartialEq)]
+    enum IsCertified {
+        Yes,
+        No,
+    }
+
+    #[derive(Eq, PartialEq)]
+    enum IsExpired {
+        Yes,
+        No,
     }
 
     #[tokio::test]
@@ -876,291 +944,202 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists(
+    async fn test_get_current_non_certified_open_message_should_create_new_open_message_if_none_exists(
     ) {
-        let time_point = TimePoint::dummy();
-        let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            is_certified: false,
-            ..OpenMessage::dummy()
+        let open_message_created = create_open_message(IsCertified::No, IsExpired::No);
+        let open_message_expected = open_message_created.clone();
+
+        let runner = {
+            let mut mock_certifier_service = MockCertifierService::new();
+            init_certifier_service_mock(&mut mock_certifier_service, vec![]);
+
+            mock_certifier_service
+                .expect_create_open_message()
+                .return_once(|_, _| Ok(open_message_created))
+                .times(1);
+            build_runner(mock_certifier_service).await
         };
-        let open_message_clone = open_message_expected.clone();
-
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_inform_epoch()
-            .return_once(|_| Ok(()));
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(None))
-            .times(1);
-        mock_certifier_service
-            .expect_create_open_message()
-            .return_once(|_, _| Ok(open_message_clone))
-            .times(1);
-        mock_certifier_service
-            .expect_mark_open_message_if_expired()
-            .return_once(|_| Ok(None))
-            .times(1);
-
-        let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-
-        let runner = build_runner_with_fixture_data(deps).await;
-        let current_epoch = runner
-            .dependencies
-            .ticker_service
-            .get_current_epoch()
-            .await
-            .unwrap();
-        runner.inform_new_epoch(current_epoch).await.unwrap();
-        runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&time_point)
+            .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
         assert_eq!(Some(open_message_expected), open_message_returned);
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists_and_not_expired(
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_not_expired(
     ) {
-        let time_point = TimePoint::dummy();
-        let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            is_certified: false,
-            is_expired: false,
-            ..OpenMessage::dummy()
+        let not_certified_and_not_expired = create_open_message(IsCertified::No, IsExpired::No);
+
+        let open_message_expected = not_certified_and_not_expired.clone();
+
+        let runner = {
+            let mut mock_certifier_service = MockCertifierService::new();
+            init_certifier_service_mock(
+                &mut mock_certifier_service,
+                vec![not_certified_and_not_expired],
+            );
+
+            mock_certifier_service.expect_create_open_message().never();
+            build_runner(mock_certifier_service).await
         };
-        let open_message_clone = open_message_expected.clone();
-
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(Some(open_message_clone)))
-            .times(1);
-        mock_certifier_service
-            .expect_mark_open_message_if_expired()
-            .return_once(|_| Ok(None))
-            .times(1);
-        mock_certifier_service.expect_create_open_message().never();
-
-        let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-
-        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&time_point)
+            .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
+
         assert_eq!(Some(open_message_expected), open_message_returned);
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified(
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_if_already_exists_and_open_message_already_certified(
     ) {
-        let time_point = TimePoint::dummy();
-        let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            is_certified: true,
-            is_expired: false,
-            ..OpenMessage::dummy()
+        let certified_and_not_expired = create_open_message(IsCertified::Yes, IsExpired::No);
+        let not_certified_and_not_expired = create_open_message(IsCertified::No, IsExpired::No);
+
+        let open_message_expected = not_certified_and_not_expired.clone();
+
+        let runner = {
+            let mut mock_certifier_service = MockCertifierService::new();
+            init_certifier_service_mock(
+                &mut mock_certifier_service,
+                vec![certified_and_not_expired, not_certified_and_not_expired],
+            );
+
+            mock_certifier_service.expect_create_open_message().never();
+            build_runner(mock_certifier_service).await
         };
-        let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
-            is_certified: false,
-            is_expired: false,
-            ..OpenMessage::dummy()
-        };
-        let open_message_clone = open_message_expected.clone();
-
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(Some(open_message_already_certified)))
-            .times(1);
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(Some(open_message_clone)))
-            .times(1);
-        mock_certifier_service
-            .expect_mark_open_message_if_expired()
-            .returning(|_| Ok(None))
-            .times(2);
-        mock_certifier_service.expect_create_open_message().never();
-
-        let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-
-        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&time_point)
+            .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
+
         assert_eq!(Some(open_message_expected), open_message_returned);
     }
 
     #[tokio::test]
-    async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified(
+    async fn test_get_current_non_certified_open_message_should_create_open_message_if_none_exists_and_open_message_already_certified(
     ) {
-        let time_point = TimePoint::dummy();
-        let open_message_already_certified = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            is_certified: true,
-            is_expired: false,
-            ..OpenMessage::dummy()
+        let certified_and_not_expired = create_open_message(IsCertified::Yes, IsExpired::No);
+
+        let open_message_created = create_open_message(IsCertified::No, IsExpired::No);
+        let open_message_expected = open_message_created.clone();
+
+        let runner = {
+            let mut mock_certifier_service = MockCertifierService::new();
+            init_certifier_service_mock(
+                &mut mock_certifier_service,
+                vec![certified_and_not_expired],
+            );
+
+            mock_certifier_service
+                .expect_create_open_message()
+                .return_once(|_, _| Ok(open_message_created))
+                .times(1);
+            build_runner(mock_certifier_service).await
         };
-        let open_message_expected = OpenMessage {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
-            is_certified: false,
-            is_expired: false,
-            ..OpenMessage::dummy()
-        };
-        let open_message_clone = open_message_expected.clone();
-
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_inform_epoch()
-            .return_once(|_| Ok(()));
-        mock_certifier_service
-            .expect_get_open_message()
-            .with(eq(open_message_already_certified
-                .signed_entity_type
-                .clone()))
-            .return_once(|_| Ok(Some(open_message_already_certified)))
-            .times(1);
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(None))
-            .times(1);
-        mock_certifier_service
-            .expect_create_open_message()
-            .return_once(|_, _| Ok(open_message_clone))
-            .times(1);
-        mock_certifier_service
-            .expect_mark_open_message_if_expired()
-            .returning(|_| Ok(None))
-            .times(2);
-
-        let mut mock_signable_builder_service = MockSignableBuilderServiceImpl::new();
-        mock_signable_builder_service
-            .expect_compute_protocol_message()
-            .return_once(|_| Ok(ProtocolMessage::default()));
-
-        let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-        deps.signable_builder_service = Arc::new(mock_signable_builder_service);
-
-        let runner = build_runner_with_fixture_data(deps).await;
-        let current_epoch = runner
-            .dependencies
-            .ticker_service
-            .get_current_epoch()
-            .await
-            .unwrap();
-        runner.inform_new_epoch(current_epoch).await.unwrap();
-        runner.precompute_epoch_data().await.unwrap();
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&time_point)
+            .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
+
         assert_eq!(Some(open_message_expected), open_message_returned);
     }
 
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
     ) {
-        let time_point = TimePoint::dummy();
-        let open_message_already_certified_mithril_stake_distribution = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            is_certified: true,
-            is_expired: false,
-            ..OpenMessage::dummy()
+        let certified_and_not_expired_1 = create_open_message(IsCertified::Yes, IsExpired::No);
+        let certified_and_not_expired_2 = create_open_message(IsCertified::Yes, IsExpired::No);
+
+        let runner = {
+            let mut mock_certifier_service = MockCertifierService::new();
+            init_certifier_service_mock(
+                &mut mock_certifier_service,
+                vec![certified_and_not_expired_1, certified_and_not_expired_2],
+            );
+
+            mock_certifier_service.expect_create_open_message().never();
+            build_runner(mock_certifier_service).await
         };
-        let open_message_already_certified_cardano_immutable_files = OpenMessage {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
-            is_certified: true,
-            is_expired: false,
-            ..OpenMessage::dummy()
-        };
-
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| {
-                Ok(Some(
-                    open_message_already_certified_mithril_stake_distribution,
-                ))
-            })
-            .times(1);
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(Some(open_message_already_certified_cardano_immutable_files)))
-            .times(1);
-        mock_certifier_service
-            .expect_mark_open_message_if_expired()
-            .returning(|_| Ok(None))
-            .times(2);
-        mock_certifier_service.expect_create_open_message().never();
-
-        let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-
-        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&time_point)
+            .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
+
         assert!(open_message_returned.is_none());
     }
 
     #[tokio::test]
     async fn test_get_current_non_certified_open_message_should_return_first_not_certified_and_not_expired_open_message(
     ) {
-        let time_point = TimePoint::dummy();
-        let open_message_mithril_stake_distribution_expired = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            is_certified: false,
-            is_expired: true,
-            ..OpenMessage::dummy()
+        let not_certified_and_expired = create_open_message(IsCertified::No, IsExpired::Yes);
+        let not_certified_and_not_expired = create_open_message(IsCertified::No, IsExpired::No);
+
+        let open_message_expected = not_certified_and_not_expired.clone();
+
+        let runner = {
+            let mut mock_certifier_service = MockCertifierService::new();
+            init_certifier_service_mock(
+                &mut mock_certifier_service,
+                vec![not_certified_and_expired, not_certified_and_not_expired],
+            );
+
+            mock_certifier_service.expect_create_open_message().never();
+            build_runner(mock_certifier_service).await
         };
-        let open_message_expired_cardano_immutable_files = OpenMessage {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
-            is_certified: false,
-            is_expired: false,
-            ..OpenMessage::dummy()
-        };
-        let open_message_expected = open_message_expired_cardano_immutable_files.clone();
-
-        let mut mock_certifier_service = MockCertifierService::new();
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(Some(open_message_mithril_stake_distribution_expired)))
-            .times(1);
-        mock_certifier_service
-            .expect_get_open_message()
-            .return_once(|_| Ok(Some(open_message_expired_cardano_immutable_files)))
-            .times(1);
-        mock_certifier_service
-            .expect_mark_open_message_if_expired()
-            .returning(|_| Ok(None))
-            .times(2);
-        mock_certifier_service.expect_create_open_message().never();
-
-        let mut deps = initialize_dependencies().await;
-        deps.certifier_service = Arc::new(mock_certifier_service);
-
-        let runner = build_runner_with_fixture_data(deps).await;
 
         let open_message_returned = runner
-            .get_current_non_certified_open_message(&time_point)
+            .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
+
         assert_eq!(Some(open_message_expected), open_message_returned);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_called_for_mithril_stake_distribution_and_then_for_immutable_file(
+    ) {
+        let mut mock_certifier_service = MockCertifierService::new();
+
+        let mut seq = Sequence::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .with(eq(SignedEntityType::MithrilStakeDistribution(
+                TimePoint::dummy().epoch,
+            )))
+            .times(1)
+            .in_sequence(&mut seq)
+            .return_once(|_| Ok(Some(create_open_message(IsCertified::Yes, IsExpired::No))));
+
+        mock_certifier_service
+            .expect_get_open_message()
+            .with(eq(SignedEntityType::CardanoImmutableFilesFull(
+                fake_data::beacon(),
+            )))
+            .times(1)
+            .in_sequence(&mut seq)
+            .return_once(|_| Ok(Some(create_open_message(IsCertified::Yes, IsExpired::No))));
+
+        mock_certifier_service.expect_create_open_message().never();
+
+        mock_certifier_service
+            .expect_inform_epoch()
+            .return_once(|_| Ok(()));
+        mock_certifier_service
+            .expect_mark_open_message_if_expired()
+            .returning(|_| Ok(None));
+
+        let runner = build_runner(mock_certifier_service).await;
+
+        runner
+            .get_current_non_certified_open_message(&TimePoint::dummy())
+            .await
+            .unwrap();
     }
 }
