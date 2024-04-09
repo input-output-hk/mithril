@@ -8,11 +8,9 @@ use std::{
 
 use crate::{
     crypto_helper::{MKMapKey, MKTreeNode},
+    entities::BlockNumber,
     StdResult,
 };
-
-/// BlockNumber is the block number of a Cardano transaction.
-pub type BlockNumber = u64;
 
 /// BlockRangeLength is the length of a block range.
 pub type BlockRangeLength = u64;

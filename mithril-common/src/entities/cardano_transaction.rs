@@ -1,13 +1,10 @@
-use crate::crypto_helper::MKTreeNode;
-
-use super::{BlockNumber, ImmutableFileNumber};
+use crate::{
+    crypto_helper::MKTreeNode,
+    entities::{BlockHash, BlockNumber, ImmutableFileNumber, SlotNumber},
+};
 
 /// TransactionHash is the unique identifier of a cardano transaction.
 pub type TransactionHash = String;
-/// Hash of a Cardano Block
-pub type BlockHash = String;
-/// [Cardano Slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
-pub type SlotNumber = u64;
 
 #[derive(Debug, PartialEq, Clone)]
 /// Cardano transaction representation
