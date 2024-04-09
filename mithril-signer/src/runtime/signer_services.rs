@@ -172,7 +172,6 @@ impl<'a> ProductionServiceBuilder<'a> {
             .with_migrations(migrations)
             .with_logger(slog_scope::logger())
             .build()
-            .await
             .with_context(|| "Database connection initialisation error")?;
 
         Ok(Arc::new(connection))

@@ -292,7 +292,6 @@ impl DependenciesBuilder {
             .with_logger(self.get_logger().await?)
             .with_migrations(migrations)
             .build()
-            .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "SQLite initialization: failed to build connection.".to_string(),
                 error: Some(e),

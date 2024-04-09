@@ -72,7 +72,7 @@ impl ConnectionBuilder {
     }
 
     /// Build a connection based on the builder configuration
-    pub async fn build(self) -> StdResult<ConnectionThreadSafe> {
+    pub fn build(self) -> StdResult<ConnectionThreadSafe> {
         let connection =
             Connection::open_thread_safe(&self.connection_path).with_context(|| {
                 format!(
@@ -107,7 +107,6 @@ impl ConnectionBuilder {
 
             db_checker
                 .apply()
-                .await
                 .with_context(|| "Database migration error")?;
         }
 
@@ -116,13 +115,10 @@ impl ConnectionBuilder {
 
     /// Shortcut for `ConnectionBuilder::open_memory().with_migrations(migrations).build()`, mostly
     /// useful for quick connections for tests.
-    pub async fn build_memory_with_migration(
+    pub fn build_memory_with_migration(
         migrations: Vec<SqlMigration>,
     ) -> StdResult<ConnectionThreadSafe> {
-        Self::open_memory()
-            .with_migrations(migrations)
-            .build()
-            .await
+        Self::open_memory().with_migrations(migrations).build()
     }
 }
 
@@ -143,9 +139,9 @@ mod tests {
         row.take(0)
     }
 
-    #[tokio::test]
-    async fn test_open_in_memory_without_foreign_key() {
-        let connection = ConnectionBuilder::open_memory().build().await.unwrap();
+    #[test]
+    fn test_open_in_memory_without_foreign_key() {
+        let connection = ConnectionBuilder::open_memory().build().unwrap();
 
         let journal_mode = execute_single_cell_query(&connection, "pragma journal_mode;");
         let foreign_keys = execute_single_cell_query(&connection, "pragma foreign_keys;");
@@ -154,12 +150,11 @@ mod tests {
         assert_eq!(Value::Integer(false.into()), foreign_keys);
     }
 
-    #[tokio::test]
-    async fn test_open_with_foreign_key() {
+    #[test]
+    fn test_open_with_foreign_key() {
         let connection = ConnectionBuilder::open_memory()
             .with_options(&[ConnectionOptions::EnableForeignKeys])
             .build()
-            .await
             .unwrap();
 
         let journal_mode = execute_single_cell_query(&connection, "pragma journal_mode;");
@@ -169,8 +164,8 @@ mod tests {
         assert_eq!(Value::Integer(true.into()), foreign_keys);
     }
 
-    #[tokio::test]
-    async fn test_open_file_without_wal_and_foreign_keys() {
+    #[test]
+    fn test_open_file_without_wal_and_foreign_keys() {
         let dirpath = TempDir::create(
             "mithril_test_database",
             "test_open_file_without_wal_and_foreign_keys",
@@ -178,10 +173,7 @@ mod tests {
         let filepath = dirpath.join("db.sqlite3");
         assert!(!filepath.exists());
 
-        let connection = ConnectionBuilder::open_file(&filepath)
-            .build()
-            .await
-            .unwrap();
+        let connection = ConnectionBuilder::open_file(&filepath).build().unwrap();
 
         let journal_mode = execute_single_cell_query(&connection, "pragma journal_mode;");
         let foreign_keys = execute_single_cell_query(&connection, "pragma foreign_keys;");
@@ -194,8 +186,8 @@ mod tests {
         assert_eq!(Value::Integer(false.into()), foreign_keys);
     }
 
-    #[tokio::test]
-    async fn test_open_file_with_wal_and_foreign_keys() {
+    #[test]
+    fn test_open_file_with_wal_and_foreign_keys() {
         let dirpath = TempDir::create(
             "mithril_test_database",
             "test_open_file_with_wal_and_foreign_keys",
@@ -209,7 +201,6 @@ mod tests {
                 ConnectionOptions::EnableWriteAheadLog,
             ])
             .build()
-            .await
             .unwrap();
 
         let journal_mode = execute_single_cell_query(&connection, "pragma journal_mode;");
@@ -220,8 +211,8 @@ mod tests {
         assert_eq!(Value::Integer(true.into()), foreign_keys);
     }
 
-    #[tokio::test]
-    async fn enabling_wal_option_also_set_synchronous_flag_to_normal() {
+    #[test]
+    fn enabling_wal_option_also_set_synchronous_flag_to_normal() {
         let dirpath = TempDir::create(
             "mithril_test_database",
             "enabling_wal_option_also_set_synchronous_flag_to_normal",
@@ -230,7 +221,6 @@ mod tests {
         let connection = ConnectionBuilder::open_file(&dirpath.join("db.sqlite3"))
             .with_options(&[ConnectionOptions::EnableWriteAheadLog])
             .build()
-            .await
             .unwrap();
 
         let synchronous_flag = execute_single_cell_query(&connection, "pragma synchronous;");
@@ -238,15 +228,14 @@ mod tests {
         assert_eq!(Value::Integer(NORMAL_SYNCHRONOUS_FLAG), synchronous_flag);
     }
 
-    #[tokio::test]
-    async fn builder_apply_given_migrations() {
+    #[test]
+    fn builder_apply_given_migrations() {
         let connection = ConnectionBuilder::open_memory()
             .with_migrations(vec![
                 SqlMigration::new(1, "create table first(id integer);"),
                 SqlMigration::new(2, "create table second(id integer);"),
             ])
             .build()
-            .await
             .unwrap();
 
         let tables_list = execute_single_cell_query(

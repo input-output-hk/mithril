@@ -51,7 +51,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
     }
 
     /// Apply migrations
-    pub async fn apply(&self) -> StdResult<()> {
+    pub fn apply(&self) -> StdResult<()> {
         debug!(&self.logger, "check database version",);
         let provider = DatabaseVersionProvider::new(self.connection);
         provider
@@ -179,7 +179,7 @@ mod tests {
 
     use super::*;
 
-    async fn check_database_version(connection: &SqliteConnection, db_version: DbVersion) {
+    fn check_database_version(connection: &SqliteConnection, db_version: DbVersion) {
         let provider = DatabaseVersionProvider::new(connection);
         let version = provider
             .get_application_version(&ApplicationNodeType::Aggregator)
@@ -199,7 +199,7 @@ mod tests {
         Ok((filepath, connection))
     }
 
-    async fn get_table_whatever_column_count(connection: &SqliteConnection) -> i64 {
+    fn get_table_whatever_column_count(connection: &SqliteConnection) -> i64 {
         let sql = "select count(*) as column_count from pragma_table_info('whatever');";
         let column_count = connection
             .prepare(sql)
@@ -213,8 +213,8 @@ mod tests {
         column_count
     }
 
-    #[tokio::test]
-    async fn test_upgrade_with_migration() {
+    #[test]
+    fn test_upgrade_with_migration() {
         let (_filepath, connection) =
             create_sqlite_file("test_upgrade_with_migration.sqlite3").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
@@ -223,11 +223,11 @@ mod tests {
             &connection,
         );
 
-        db_checker.apply().await.unwrap();
-        assert_eq!(0, get_table_whatever_column_count(&connection).await);
+        db_checker.apply().unwrap();
+        assert_eq!(0, get_table_whatever_column_count(&connection));
 
-        db_checker.apply().await.unwrap();
-        assert_eq!(0, get_table_whatever_column_count(&connection).await);
+        db_checker.apply().unwrap();
+        assert_eq!(0, get_table_whatever_column_count(&connection));
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
@@ -235,13 +235,13 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().await.unwrap();
-        assert_eq!(1, get_table_whatever_column_count(&connection).await);
-        check_database_version(&connection, 1).await;
+        db_checker.apply().unwrap();
+        assert_eq!(1, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 1);
 
-        db_checker.apply().await.unwrap();
-        assert_eq!(1, get_table_whatever_column_count(&connection).await);
-        check_database_version(&connection, 1).await;
+        db_checker.apply().unwrap();
+        assert_eq!(1, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 1);
 
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
@@ -249,9 +249,9 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().await.unwrap();
-        assert_eq!(2, get_table_whatever_column_count(&connection).await);
-        check_database_version(&connection, 2).await;
+        db_checker.apply().unwrap();
+        assert_eq!(2, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 2);
 
         // in the test below both migrations are declared in reversed order to
         // ensure they are played in the right order. The last one depends on
@@ -268,13 +268,13 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().await.unwrap();
-        assert_eq!(4, get_table_whatever_column_count(&connection).await);
-        check_database_version(&connection, 4).await;
+        db_checker.apply().unwrap();
+        assert_eq!(4, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 4);
     }
 
-    #[tokio::test]
-    async fn starting_with_migration() {
+    #[test]
+    fn starting_with_migration() {
         let (_filepath, connection) = create_sqlite_file("starting_with_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
@@ -288,16 +288,16 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().await.unwrap();
-        assert_eq!(1, get_table_whatever_column_count(&connection).await);
-        check_database_version(&connection, 1).await;
+        db_checker.apply().unwrap();
+        assert_eq!(1, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 1);
     }
 
-    #[tokio::test]
+    #[test]
     /// This test case ensure that when multiple migrations are played and one fails:
     /// * previous migrations are ok and the database version is updated
     /// * further migrations are not played.
-    async fn test_failing_migration() {
+    fn test_failing_migration() {
         let (_filepath, connection) = create_sqlite_file("test_failing_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
@@ -323,12 +323,12 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().await.unwrap_err();
-        check_database_version(&connection, 1).await;
+        db_checker.apply().unwrap_err();
+        check_database_version(&connection, 1);
     }
 
-    #[tokio::test]
-    async fn test_fail_downgrading() {
+    #[test]
+    fn test_fail_downgrading() {
         let (_filepath, connection) = create_sqlite_file("test_fail_downgrading").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
@@ -341,8 +341,8 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().await.unwrap();
-        check_database_version(&connection, 1).await;
+        db_checker.apply().unwrap();
+        check_database_version(&connection, 1);
 
         // re instantiate a new checker with no migration registered (version 0).
         let db_checker = DatabaseVersionChecker::new(
@@ -351,9 +351,9 @@ mod tests {
             &connection,
         );
         assert!(
-            db_checker.apply().await.is_err(),
+            db_checker.apply().is_err(),
             "using an old version with an up to date database should fail"
         );
-        check_database_version(&connection, 1).await;
+        check_database_version(&connection, 1);
     }
 }
