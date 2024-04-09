@@ -192,26 +192,22 @@ impl MessageService for MithrilMessageService {
 mod tests {
     use std::sync::Arc;
 
-    use mithril_common::entities::Certificate;
-    use mithril_common::{
-        entities::{
-            CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, SignedEntity,
-            SignedEntityType, Snapshot,
-        },
-        messages::ToMessageAdapter,
-        test_utils::MithrilFixtureBuilder,
+    use mithril_common::entities::{
+        CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution, SignedEntity,
+        SignedEntityType, Snapshot,
     };
+    use mithril_common::messages::ToMessageAdapter;
+    use mithril_common::test_utils::MithrilFixtureBuilder;
 
-    use crate::{
-        database::provider::{MockSignedEntityStorer, SignedEntityRecord},
-        dependency_injection::DependenciesBuilder,
-        message_adapters::{
-            ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
-            ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
-            ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter,
-        },
-        Configuration,
+    use crate::database::provider::MockSignedEntityStorer;
+    use crate::database::record::SignedEntityRecord;
+    use crate::dependency_injection::DependenciesBuilder;
+    use crate::message_adapters::{
+        ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
+        ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+        ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter,
     };
+    use crate::Configuration;
 
     #[tokio::test]
     async fn get_no_certificate() {

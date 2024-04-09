@@ -1,9 +1,10 @@
 use chrono::{DateTime, Utc};
+
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, SingleSignatures,
 };
 
-use crate::database::provider::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
+use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
 /// ## OpenMessage
 ///
@@ -103,14 +104,15 @@ impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessage {
 
 #[cfg(test)]
 mod test {
-    use crate::database::provider::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
     use chrono::Utc;
+    use uuid::Uuid;
+
     use mithril_common::{
         entities::{Epoch, ProtocolMessage, SignedEntityType},
         test_utils::fake_data,
     };
-    use std::vec;
-    use uuid::Uuid;
+
+    use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
     use super::OpenMessage;
 

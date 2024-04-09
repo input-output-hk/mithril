@@ -19,7 +19,7 @@ use mithril_common::{
 
 use crate::{
     artifact_builder::ArtifactBuilder,
-    database::provider::{SignedEntityRecord, SignedEntityStorer},
+    database::{provider::SignedEntityStorer, record::SignedEntityRecord},
 };
 
 #[cfg(test)]

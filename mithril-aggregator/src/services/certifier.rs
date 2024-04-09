@@ -24,10 +24,8 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use crate::{
-    database::provider::{
-        CertificateRepository, OpenMessageRecord, OpenMessageRepository,
-        OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
-    },
+    database::provider::{CertificateRepository, OpenMessageRepository, SingleSignatureRepository},
+    database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord},
     entities::OpenMessage,
     services::TickerService,
     MultiSigner,

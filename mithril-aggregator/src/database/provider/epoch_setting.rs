@@ -1,72 +1,20 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use async_trait::async_trait;
 use sqlite::Value;
-use std::sync::Arc;
 
 use mithril_common::{
     entities::{Epoch, ProtocolParameters},
     StdResult,
 };
 use mithril_persistence::sqlite::{
-    EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
-    SqliteConnection, WhereCondition,
+    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
 use mithril_persistence::store::adapter::AdapterError;
 
+use crate::database::record::EpochSettingRecord;
 use crate::ProtocolParametersStorer;
-
-/// Settings for an epoch, including the protocol parameters.
-#[derive(Debug, PartialEq)]
-pub struct EpochSettingRecord {
-    /// Epoch setting id, i.e. the epoch number.
-    epoch_setting_id: Epoch,
-
-    /// Protocol parameters.
-    protocol_parameters: ProtocolParameters,
-}
-
-impl SqLiteEntity for EpochSettingRecord {
-    fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError>
-    where
-        Self: Sized,
-    {
-        let epoch_setting_id_int = row.read::<i64, _>(0);
-        let protocol_parameters_string = &row.read::<&str, _>(1);
-
-        let epoch_setting_record = Self {
-            epoch_setting_id: Epoch(epoch_setting_id_int.try_into().map_err(|e| {
-                HydrationError::InvalidData(format!(
-                    "Could not cast i64 ({epoch_setting_id_int}) to u64. Error: '{e}'"
-                ))
-            })?),
-            protocol_parameters: serde_json::from_str(protocol_parameters_string).map_err(
-                |e| {
-                    HydrationError::InvalidData(format!(
-                        "Could not turn string '{protocol_parameters_string}' to ProtocolParameters. Error: {e}"
-                    ))
-                },
-            )?,
-        };
-
-        Ok(epoch_setting_record)
-    }
-
-    fn get_projection() -> Projection {
-        let mut projection = Projection::default();
-        projection.add_field(
-            "epoch_setting_id",
-            "{:epoch_setting:}.epoch_setting_id",
-            "integer",
-        );
-        projection.add_field(
-            "protocol_parameters",
-            "{:epoch_setting:}.protocol_parameters",
-            "text",
-        );
-
-        projection
-    }
-}
 
 /// Simple [EpochSettingRecord] provider.
 pub struct EpochSettingProvider<'client> {
@@ -295,9 +243,11 @@ impl ProtocolParametersStorer for EpochSettingStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::apply_all_migrations_to_db;
-    use mithril_common::test_utils::fake_data;
     use sqlite::Connection;
+
+    use mithril_common::test_utils::fake_data;
+
+    use crate::database::provider::apply_all_migrations_to_db;
 
     use super::*;
 

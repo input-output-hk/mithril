@@ -195,20 +195,19 @@ mod test {
     use anyhow::Context;
     use sqlite::Connection;
 
-    use mithril_common::{
-        entities::{
-            Certificate, ImmutableFileNumber, SignedEntityType,
-            SignedEntityTypeDiscriminants as Type, TimePoint,
-        },
-        test_utils::fake_data,
-        StdResult,
+    use mithril_common::entities::{
+        Certificate, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants as Type,
+        TimePoint,
     };
+    use mithril_common::test_utils::fake_data;
+    use mithril_common::StdResult;
     use mithril_persistence::sqlite::SqliteConnection;
 
     use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRecord,
-        CertificateRepository, SignedEntityRecord, SignedEntityStoreAdapter, SignedEntityStorer,
+        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRepository,
+        SignedEntityStoreAdapter, SignedEntityStorer,
     };
+    use crate::database::record::{CertificateRecord, SignedEntityRecord};
 
     use super::CertificatesHashMigrator;
 

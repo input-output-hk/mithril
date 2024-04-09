@@ -7,8 +7,7 @@ use mithril_common::{entities::Epoch, test_utils::fake_keys, StdResult};
 use mithril_persistence::sqlite::SqliteConnection;
 
 use crate::database::provider::UpdateSingleSignatureRecordProvider;
-
-use super::SingleSignatureRecord;
+use crate::database::record::SingleSignatureRecord;
 
 pub fn setup_single_signature_records(
     total_epoch: u64,

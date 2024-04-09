@@ -1,9 +1,10 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
-use mithril_aggregator::database::provider::{OpenMessageRepository, SignedEntityRecord};
 use mithril_aggregator::{
-    dependency_injection::DependenciesBuilder, event_store::EventMessage, AggregatorRuntime,
-    Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
+    database::{provider::OpenMessageRepository, record::SignedEntityRecord},
+    dependency_injection::DependenciesBuilder,
+    event_store::EventMessage,
+    AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
 use mithril_common::{
