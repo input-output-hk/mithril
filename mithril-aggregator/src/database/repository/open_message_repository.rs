@@ -7,8 +7,8 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Provider, SqliteConnection};
 
 use crate::database::provider::{
-    DeleteOpenMessageProvider, GetOpenMessageProvider, InsertOpenMessageProvider,
-    OpenMessageWithSingleSignaturesProvider, UpdateOpenMessageProvider,
+    DeleteOpenMessageProvider, GetOpenMessageProvider, GetOpenMessageWithSingleSignaturesProvider,
+    InsertOpenMessageProvider, UpdateOpenMessageProvider,
 };
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
@@ -45,7 +45,7 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
-        let provider = OpenMessageWithSingleSignaturesProvider::new(&self.connection);
+        let provider = GetOpenMessageWithSingleSignaturesProvider::new(&self.connection);
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
             .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
