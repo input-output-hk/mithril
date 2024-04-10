@@ -23,7 +23,7 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
         Self { connection }
     }
 
-    pub(crate) fn get_import_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
+    pub fn get_import_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
         let columns = "(signer_id, pool_ticker, created_at, updated_at, last_registered_at)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
             .take(signer_records.len())
@@ -53,7 +53,7 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
         )
     }
 
-    pub(crate) fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
+    pub fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
         let filters = self.get_import_condition(vec![signer_record.clone()]);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
@@ -63,10 +63,7 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
         Ok(entity)
     }
 
-    pub(crate) fn persist_many(
-        &self,
-        signer_records: Vec<SignerRecord>,
-    ) -> StdResult<Vec<SignerRecord>> {
+    pub fn persist_many(&self, signer_records: Vec<SignerRecord>) -> StdResult<Vec<SignerRecord>> {
         let filters = self.get_import_condition(signer_records);
 
         Ok(self.find(filters)?.collect())

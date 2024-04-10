@@ -39,7 +39,7 @@ impl<'conn> RegisterSignerRecordProvider<'conn> {
         )
     }
 
-    pub(crate) fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
+    pub fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
         let filters = self.get_register_condition(signer_record.clone());
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {

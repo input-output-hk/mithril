@@ -22,7 +22,7 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
         Self { connection }
     }
 
-    pub(crate) fn get_insert_or_replace_condition(
+    pub fn get_insert_or_replace_condition(
         &self,
         records: Vec<(PartyId, Epoch, Stake)>,
     ) -> WhereCondition {
@@ -46,10 +46,7 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
         )
     }
 
-    pub(crate) fn persist_many(
-        &self,
-        records: Vec<(PartyId, Epoch, Stake)>,
-    ) -> StdResult<Vec<StakePool>> {
+    pub fn persist_many(&self, records: Vec<(PartyId, Epoch, Stake)>) -> StdResult<Vec<StakePool>> {
         let filters = self.get_insert_or_replace_condition(records);
 
         Ok(self.find(filters)?.collect())

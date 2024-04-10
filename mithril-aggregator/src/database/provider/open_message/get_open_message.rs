@@ -21,11 +21,11 @@ impl<'client> GetOpenMessageProvider<'client> {
         Self { connection }
     }
 
-    pub(crate) fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
+    pub fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
         WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(*epoch as i64)])
     }
 
-    pub(crate) fn get_signed_entity_type_condition(
+    pub fn get_signed_entity_type_condition(
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<WhereCondition> {
@@ -38,7 +38,7 @@ impl<'client> GetOpenMessageProvider<'client> {
         ))
     }
 
-    pub(crate) fn get_expired_entity_type_condition(&self, now: &str) -> WhereCondition {
+    pub fn get_expired_entity_type_condition(&self, now: &str) -> WhereCondition {
         WhereCondition::new("expires_at < ?*", vec![Value::String(now.to_string())])
     }
 

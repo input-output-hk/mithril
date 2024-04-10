@@ -18,7 +18,7 @@ impl<'client> DeleteOpenMessageProvider<'client> {
         Self { connection }
     }
 
-    pub(crate) fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
+    pub fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
         WhereCondition::new("epoch_setting_id < ?*", vec![Value::Integer(*epoch as i64)])
     }
 }

@@ -18,10 +18,7 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
         Self { connection }
     }
 
-    pub(crate) fn get_insert_condition(
-        &self,
-        signed_entity_record: SignedEntityRecord,
-    ) -> WhereCondition {
+    pub fn get_insert_condition(&self, signed_entity_record: SignedEntityRecord) -> WhereCondition {
         WhereCondition::new(
             "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, artifact, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
@@ -35,7 +32,7 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
         )
     }
 
-    pub(crate) fn persist(
+    pub fn persist(
         &self,
         signed_entity_record: SignedEntityRecord,
     ) -> StdResult<SignedEntityRecord> {

@@ -18,7 +18,7 @@ impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
         Self { connection }
     }
 
-    pub(crate) fn get_insert_or_replace_condition(
+    pub fn get_insert_or_replace_condition(
         &self,
         signer_registration_record: SignerRegistrationRecord,
     ) -> WhereCondition {
@@ -51,7 +51,7 @@ impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
         )
     }
 
-    pub(crate) fn persist(
+    pub fn persist(
         &self,
         signer_registration_record: SignerRegistrationRecord,
     ) -> StdResult<SignerRegistrationRecord> {

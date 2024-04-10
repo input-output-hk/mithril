@@ -18,7 +18,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
         Self { connection }
     }
 
-    pub(crate) fn get_update_condition(
+    pub fn get_update_condition(
         &self,
         single_signature_record: &SingleSignatureRecord,
     ) -> WhereCondition {
@@ -37,7 +37,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
         )
     }
 
-    pub(crate) fn persist(
+    pub fn persist(
         &self,
         single_signature_record: SingleSignatureRecord,
     ) -> StdResult<SingleSignatureRecord> {

@@ -18,11 +18,11 @@ impl<'client> GetOpenMessageWithSingleSignaturesProvider<'client> {
         Self { connection }
     }
 
-    pub(crate) fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
+    pub fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
         WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(*epoch as i64)])
     }
 
-    pub(crate) fn get_signed_entity_type_condition(
+    pub fn get_signed_entity_type_condition(
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<WhereCondition> {

@@ -19,7 +19,7 @@ impl<'client> GetCardanoTransactionProvider<'client> {
     }
 
     // Useful in test and probably in the future.
-    pub(crate) fn get_transaction_hash_condition(
+    pub fn get_transaction_hash_condition(
         &self,
         transaction_hash: &TransactionHash,
     ) -> WhereCondition {
@@ -29,7 +29,7 @@ impl<'client> GetCardanoTransactionProvider<'client> {
         )
     }
 
-    pub(crate) fn get_transaction_up_to_beacon_condition(
+    pub fn get_transaction_up_to_beacon_condition(
         &self,
         beacon: ImmutableFileNumber,
     ) -> WhereCondition {

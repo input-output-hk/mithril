@@ -38,7 +38,7 @@ where signed_entity_id = ?*";
         Ok(WhereCondition::new(expression, parameters))
     }
 
-    pub(crate) fn persist(
+    pub fn persist(
         &self,
         signed_entity_record: &SignedEntityRecord,
     ) -> StdResult<SignedEntityRecord> {

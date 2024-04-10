@@ -21,7 +21,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
         Self { connection }
     }
 
-    pub(crate) fn get_insert_condition(
+    pub fn get_insert_condition(
         &self,
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,

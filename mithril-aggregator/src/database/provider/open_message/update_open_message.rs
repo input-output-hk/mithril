@@ -19,7 +19,7 @@ impl<'client> UpdateOpenMessageProvider<'client> {
         Self { connection }
     }
 
-    pub(crate) fn get_update_condition(
+    pub fn get_update_condition(
         &self,
         open_message: &OpenMessageRecord,
     ) -> StdResult<WhereCondition> {
