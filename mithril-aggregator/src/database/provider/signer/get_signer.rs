@@ -1,6 +1,3 @@
-#[cfg(test)]
-use sqlite::Value;
-
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
     EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
@@ -23,7 +20,7 @@ impl<'client> GetSignerRecordProvider<'client> {
     fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
             "signer_id = ?*",
-            vec![Value::String(signer_id)],
+            vec![sqlite::Value::String(signer_id)],
         ))
     }
 
