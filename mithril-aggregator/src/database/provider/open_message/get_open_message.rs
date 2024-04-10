@@ -41,15 +41,6 @@ impl<'client> GetOpenMessageProvider<'client> {
     pub fn get_expired_entity_type_condition(&self, now: &str) -> WhereCondition {
         WhereCondition::new("expires_at < ?*", vec![Value::String(now.to_string())])
     }
-
-    // Useful in test and probably in the future.
-    #[allow(dead_code)]
-    fn get_open_message_id_condition(&self, open_message_id: &str) -> WhereCondition {
-        WhereCondition::new(
-            "open_message_id = ?*",
-            vec![Value::String(open_message_id.to_owned())],
-        )
-    }
 }
 
 impl<'client> Provider<'client> for GetOpenMessageProvider<'client> {
