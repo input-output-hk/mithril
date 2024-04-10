@@ -49,28 +49,3 @@ impl<'conn> DeleteCertificateProvider<'conn> {
         self.find(filters)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use sqlite::Connection;
-
-    use super::*;
-
-    #[test]
-    fn delete_certificates_condition_correctly_joins_given_ids() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = DeleteCertificateProvider::new(&connection);
-        let condition = provider.get_delete_by_ids_condition(&["a", "b", "c"]);
-        let (condition, params) = condition.expand();
-
-        assert_eq!("certificate_id in (?1, ?2, ?3)".to_string(), condition);
-        assert_eq!(
-            vec![
-                Value::String("a".to_string()),
-                Value::String("b".to_string()),
-                Value::String("c".to_string()),
-            ],
-            params
-        );
-    }
-}

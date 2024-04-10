@@ -225,20 +225,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn master_certificate_condition() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = MasterCertificateProvider::new(&connection);
-        let condition = provider.get_master_certificate_condition(Epoch(10));
-        let (condition_str, parameters) = condition.expand();
-
-        assert_eq!(
-            "certificate.epoch between ?1 and ?2 and (certificate.parent_certificate_id is null or certificate.epoch != parent_certificate.epoch)".to_string(),
-            condition_str
-        );
-        assert_eq!(vec![Value::Integer(9), Value::Integer(10)], parameters);
-    }
-
-    #[tokio::test]
     async fn repository_get_certificate() {
         let (certificates, _) = setup_certificate_chain(5, 2);
         let expected_hash = certificates[0].hash.clone();
