@@ -12,7 +12,7 @@ use tokio::process::Command;
 use crate::chain_observer::interface::{ChainObserver, ChainObserverError};
 use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
-use crate::entities::{Epoch, StakeDistribution};
+use crate::entities::{ChainPoint, Epoch, StakeDistribution};
 use crate::{CardanoNetwork, StdResult};
 
 /// `CliRunner` trait defines the asynchronous methods
@@ -29,6 +29,8 @@ pub trait CliRunner {
     async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String>;
     /// Launches the epoch info.
     async fn launch_epoch(&self) -> StdResult<String>;
+    /// Launches the chain point.
+    async fn launch_chain_point(&self) -> StdResult<String>;
     /// Launches the kes period.
     async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String>;
 }
@@ -107,6 +109,14 @@ impl CardanoCliRunner {
     }
 
     fn command_for_epoch(&self) -> Command {
+        let mut command = self.get_command();
+        command.arg("query").arg("tip");
+        self.post_config_command(&mut command);
+
+        command
+    }
+
+    fn command_for_chain_point(&self) -> Command {
         let mut command = self.get_command();
         command.arg("query").arg("tip");
         self.post_config_command(&mut command);
@@ -235,6 +245,22 @@ impl CliRunner for CardanoCliRunner {
             Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_epoch(),
+                message
+            ))
+        }
+    }
+
+    async fn launch_chain_point(&self) -> StdResult<String> {
+        let output = self.command_for_chain_point().output().await?;
+
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(anyhow!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_chain_point(),
                 message
             ))
         }
@@ -407,6 +433,27 @@ impl ChainObserver for CardanoCliChainObserver {
         }
     }
 
+    async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
+        let output = self
+            .cli_runner
+            .launch_chain_point()
+            .await
+            .map_err(ChainObserverError::General)?;
+        let v: Value = serde_json::from_str(&output)
+            .with_context(|| format!("output was = '{output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
+
+        if let Value::String(hash) = &v["hash"] {
+            Ok(Some(ChainPoint {
+                slot_number: v["slot"].as_u64().unwrap_or_default(),
+                block_number: v["block"].as_u64().unwrap_or_default(),
+                block_hash: hash.to_string(),
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     async fn get_current_datums(
         &self,
         address: &ChainAddress,
@@ -483,6 +530,22 @@ mod tests {
         let epoch = observer.get_current_epoch().await.unwrap().unwrap();
 
         assert_eq!(Epoch(120), epoch);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_chain_point() {
+        let observer = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
+        let chain_point = observer.get_current_chain_point().await.unwrap().unwrap();
+
+        assert_eq!(
+            ChainPoint {
+                slot_number: 25886617,
+                block_number: 1270276,
+                block_hash: "7383b17d7b05b0953cf0649abff60173995eb9febe556889333e20e1e5b7ca84"
+                    .to_string(),
+            },
+            chain_point
+        );
     }
 
     #[tokio::test]

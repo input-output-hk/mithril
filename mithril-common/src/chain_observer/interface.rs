@@ -36,6 +36,9 @@ pub trait ChainObserver: Sync + Send {
     /// Retrieve the current epoch of the Cardano network
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError>;
 
+    /// Retrieve the current chain point of the Cardano network
+    async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError>;
+
     /// Retrieve the current stake distribution of the Cardano network
     async fn get_current_stake_distribution(
         &self,

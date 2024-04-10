@@ -25,7 +25,7 @@ use std::{
 use crate::{
     chain_observer::{interface::*, ChainAddress, TxDatum},
     crypto_helper::{encode_bech32, KESPeriod, OpCert},
-    entities::{Epoch, StakeDistribution},
+    entities::{ChainPoint, Epoch, StakeDistribution},
     CardanoNetwork, StdResult,
 };
 
@@ -382,6 +382,11 @@ impl ChainObserver for PallasChainObserver {
         client.abort().await;
 
         Ok(Some(Epoch(epoch as u64)))
+    }
+
+    async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
+        // TODO: Implement get_current_chain_point with pallas
+        todo!("Implement get_current_chain_point")
     }
 
     async fn get_current_datums(

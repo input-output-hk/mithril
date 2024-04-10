@@ -76,7 +76,7 @@ impl TimePointProvider for TimePointProviderImpl {
 mod tests {
     use crate::chain_observer::{ChainAddress, ChainObserver, ChainObserverError, TxDatum};
     use crate::digesters::DumbImmutableFileObserver;
-    use crate::entities::{Epoch, StakeDistribution};
+    use crate::entities::{ChainPoint, Epoch, StakeDistribution};
     use anyhow::anyhow;
 
     use super::*;
@@ -94,6 +94,14 @@ mod tests {
 
         async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
             Ok(Some(Epoch(42)))
+        }
+
+        async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
+            Ok(Some(ChainPoint {
+                slot_number: 500,
+                block_number: 42,
+                block_hash: "1b69b3202fbe500".to_string(),
+            }))
         }
 
         async fn get_current_stake_distribution(
