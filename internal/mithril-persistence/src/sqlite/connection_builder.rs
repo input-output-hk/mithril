@@ -247,15 +247,13 @@ mod tests {
 
         let tables_list = execute_single_cell_query(
             &connection,
+            // Note: exclude sqlite system tables and migration system `db_version` table
             "SELECT group_concat(name) FROM sqlite_schema \
-            WHERE type = 'table' AND name NOT LIKE 'sqlite_%' \
+            WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != 'db_version' \
             ORDER BY name;",
         );
 
-        assert_eq!(
-            Value::String("db_version,first,second".to_string()),
-            tables_list
-        );
+        assert_eq!(Value::String("first,second".to_string()), tables_list);
     }
 
     #[test]
