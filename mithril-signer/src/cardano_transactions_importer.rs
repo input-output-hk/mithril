@@ -1,14 +1,15 @@
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
 use async_trait::async_trait;
+#[cfg(test)]
+use mockall::automock;
+use slog::{debug, Logger};
+
 use mithril_common::cardano_transaction_parser::TransactionParser;
 use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
-use slog::{debug, Logger};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-#[cfg(test)]
-use mockall::automock;
 
 /// Cardano transactions store
 #[cfg_attr(test, automock)]
@@ -113,10 +114,11 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::repository::CardanoTransactionRepository;
-    use crate::database::test_utils::cardano_tx_connection;
     use mockall::mock;
     use mockall::predicate::eq;
+
+    use crate::database::repository::CardanoTransactionRepository;
+    use crate::database::test_utils::cardano_tx_db_connection;
 
     use super::*;
 
@@ -261,6 +263,7 @@ mod tests {
             CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
         ];
         let importer = {
+            let connection = cardano_tx_db_connection().unwrap();
             let parsed_transactions = transactions.clone();
             let mut parser = MockTransactionParserImpl::new();
             parser
@@ -269,9 +272,7 @@ mod tests {
 
             CardanoTransactionsImporter::new(
                 Arc::new(parser),
-                Arc::new(CardanoTransactionRepository::new(
-                    cardano_tx_connection().unwrap(),
-                )),
+                Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
                 Path::new(""),
                 None,
                 crate::test_tools::logger_for_tests(),

@@ -116,8 +116,6 @@ impl CertificateRetriever for CertificateRepository {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::{Connection, Value};
-
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
 
     use crate::database::test_helper::{insert_certificate_records, main_db_connection};
