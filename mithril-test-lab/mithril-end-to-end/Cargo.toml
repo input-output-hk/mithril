@@ -41,5 +41,4 @@ tokio-util = { version = "0.7.10", features = ["codec"] }
 
 [features]
 default = []
-portable = ["mithril-common/portable"]
 allow_skip_signer_certification = []

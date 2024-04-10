@@ -46,7 +46,4 @@ prometheus-parse = "0.2.5"
 slog-term = "2.9.0"
 
 [features]
-portable = [
-    "mithril-common/portable",
-] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]

@@ -32,8 +32,7 @@ jobs:
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         shell: bash
-        run: |
-          cargo build --features portable --release -p mithril-end-to-end
+        run: cargo build --release -p mithril-end-to-end
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
@@ -166,7 +165,7 @@ jobs:
 
         include:
           - os: ubuntu-22.04
-            test-args: --features portable,full,unstable --workspace
+            test-args: --features full,unstable --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-12
             test-args: --package mithril-client --package mithril-client-cli --features full,unstable

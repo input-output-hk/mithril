@@ -30,6 +30,3 @@ mithril-stm = { path = "../../mithril-stm" }
 mithril-stm = { path = "../../mithril-stm", default-features = false, features = [
     "num-integer-backend",
 ] }
-
-[features]
-portable = ["mithril-common/portable", "mithril-stm/portable"]
