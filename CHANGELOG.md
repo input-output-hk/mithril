@@ -17,6 +17,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Chain observers support the retrieval of the current Cardano chain point.
 
+-  Deprecate `portable` feature of `mithril-stm` and `mithril-client`:
+   - Instead, always enable BLST `portable` feature in `mithril-stm` for runtime check of intel ADX instruction set.
+   - `portable` feature now has no effect and should be removed from crate dependencies.
+   - Removed it from all other crates (including `mithril-common`).
+
 - Crates versions:
 
 |  Crate  |  Version  |
