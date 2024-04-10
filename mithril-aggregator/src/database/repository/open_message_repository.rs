@@ -210,6 +210,34 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn repository_get_expired_open_message() {
+        let connection = get_connection().await;
+        let repository = OpenMessageRepository::new(connection.clone());
+        let epoch = Epoch(1);
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(epoch);
+
+        let mut open_message = repository
+            .create_open_message(epoch, &signed_entity_type, &ProtocolMessage::new())
+            .await
+            .unwrap();
+
+        let open_message_result = repository
+            .get_expired_open_message(&signed_entity_type)
+            .await
+            .unwrap();
+        assert!(open_message_result.is_none());
+
+        open_message.expires_at = Some(Utc::now() - chrono::Days::new(100));
+        repository.update_open_message(&open_message).await.unwrap();
+
+        let open_message_result = repository
+            .get_expired_open_message(&signed_entity_type)
+            .await
+            .unwrap();
+        assert!(open_message_result.is_some());
+    }
+
+    #[tokio::test]
     async fn repository_create_open_message() {
         let connection = get_connection().await;
         let repository = OpenMessageRepository::new(connection.clone());
