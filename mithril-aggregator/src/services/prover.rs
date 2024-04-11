@@ -164,15 +164,26 @@ mod tests {
         (hashes, transactions)
     }
 
+    fn build_prover<F>(retriever_mock_config: F) -> MithrilProverService
+    where
+        F: FnOnce(&mut MockTransactionsRetriever),
+    {
+        let mut transaction_retriever = MockTransactionsRetriever::new();
+        retriever_mock_config(&mut transaction_retriever);
+
+        MithrilProverService::new(Arc::new(transaction_retriever))
+    }
+
     #[tokio::test]
     async fn compute_proof_for_one_set_with_multiple_transactions() {
         let (transaction_hashes, transactions) = generate_transactions(3);
-        let mut transaction_retriever = MockTransactionsRetriever::new();
-        transaction_retriever
-            .expect_get_up_to()
-            .with(eq(fake_data::beacon()))
-            .return_once(move |_| Ok(transactions));
-        let prover = MithrilProverService::new(Arc::new(transaction_retriever));
+        let prover = build_prover(|retriever_mock| {
+            retriever_mock
+                .expect_get_up_to()
+                .with(eq(fake_data::beacon()))
+                .return_once(move |_| Ok(transactions));
+        });
+
         let transactions_set_proof = prover
             .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
@@ -189,12 +200,13 @@ mod tests {
     #[tokio::test]
     async fn cant_compute_proof_for_unknown_transaction() {
         let (transaction_hashes, _transactions) = generate_transactions(3);
-        let mut transaction_retriever = MockTransactionsRetriever::new();
-        transaction_retriever
-            .expect_get_up_to()
-            .with(eq(fake_data::beacon()))
-            .returning(|_| Ok(vec![]));
-        let prover = MithrilProverService::new(Arc::new(transaction_retriever));
+        let prover = build_prover(|retriever_mock| {
+            retriever_mock
+                .expect_get_up_to()
+                .with(eq(fake_data::beacon()))
+                .returning(|_| Ok(vec![]));
+        });
+
         let transactions_set_proof = prover
             .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
@@ -206,14 +218,15 @@ mod tests {
     #[tokio::test]
     async fn compute_proof_for_one_set_of_three_known_transactions_and_two_unknowns() {
         let (transaction_hashes, transactions) = generate_transactions(5);
-        // The last two are not in the "store"
-        let transactions = transactions[0..=2].to_vec();
-        let mut transaction_retriever = MockTransactionsRetriever::new();
-        transaction_retriever
-            .expect_get_up_to()
-            .with(eq(fake_data::beacon()))
-            .return_once(move |_| Ok(transactions));
-        let prover = MithrilProverService::new(Arc::new(transaction_retriever));
+        let prover = build_prover(|retriever_mock| {
+            // The last two are not in the "store"
+            let transactions = transactions[0..=2].to_vec();
+            retriever_mock
+                .expect_get_up_to()
+                .with(eq(fake_data::beacon()))
+                .return_once(move |_| Ok(transactions));
+        });
+
         let transactions_set_proof = prover
             .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
@@ -230,13 +243,13 @@ mod tests {
     #[tokio::test]
     async fn cant_compute_proof_if_retriever_fail() {
         let (transaction_hashes, _transactions) = generate_transactions(3);
-        let mut transaction_retriever = MockTransactionsRetriever::new();
-        transaction_retriever
-            .expect_get_up_to()
-            .with(eq(fake_data::beacon()))
-            .returning(|_| Err(anyhow!("Error")));
+        let prover = build_prover(|retriever_mock| {
+            retriever_mock
+                .expect_get_up_to()
+                .with(eq(fake_data::beacon()))
+                .returning(|_| Err(anyhow!("Error")));
+        });
 
-        let prover = MithrilProverService::new(Arc::new(transaction_retriever));
         prover
             .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
