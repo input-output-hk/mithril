@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use sqlite::Connection;
 use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
@@ -22,13 +21,13 @@ use mithril_common::{
     StdResult, TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
-    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
-    sqlite::SqliteConnection,
+    database::{ApplicationNodeType, SqlMigration},
+    sqlite::{ConnectionBuilder, SqliteConnection},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
 use crate::{
-    aggregator_client::AggregatorClient, database::provider::CardanoTransactionRepository,
+    aggregator_client::AggregatorClient, database::repository::CardanoTransactionRepository,
     metrics::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient,
     CardanoTransactionsImporter, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
     ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
@@ -168,23 +167,14 @@ impl<'a> ProductionServiceBuilder<'a> {
         migrations: Vec<SqlMigration>,
     ) -> StdResult<Arc<SqliteConnection>> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
-        let sqlite_connection = Arc::new(Connection::open_thread_safe(sqlite_db_path)?);
-        let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
-            ApplicationNodeType::Signer,
-            &sqlite_connection,
-        );
+        let connection = ConnectionBuilder::open_file(&sqlite_db_path)
+            .with_node_type(ApplicationNodeType::Signer)
+            .with_migrations(migrations)
+            .with_logger(slog_scope::logger())
+            .build()
+            .with_context(|| "Database connection initialisation error")?;
 
-        for migration in migrations {
-            db_checker.add_migration(migration);
-        }
-
-        db_checker
-            .apply()
-            .await
-            .with_context(|| "Database migration error")?;
-
-        Ok(sqlite_connection)
+        Ok(Arc::new(connection))
     }
 }
 

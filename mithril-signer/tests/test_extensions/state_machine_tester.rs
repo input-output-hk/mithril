@@ -21,7 +21,7 @@ use mithril_common::{
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
-    database::provider::CardanoTransactionRepository, metrics::*, AggregatorClient,
+    database::repository::CardanoTransactionRepository, metrics::*, AggregatorClient,
     CardanoTransactionsImporter, Configuration, MetricsService, MithrilSingleSigner,
     ProductionServiceBuilder, ProtocolInitializerStore, ProtocolInitializerStorer, RuntimeError,
     SignerRunner, SignerServices, SignerState, StateMachine,

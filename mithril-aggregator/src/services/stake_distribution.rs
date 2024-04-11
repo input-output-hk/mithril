@@ -15,7 +15,7 @@ use mithril_common::{
 };
 use mithril_persistence::store::StakeStorer;
 
-use crate::database::provider::StakePoolStore;
+use crate::database::repository::StakePoolStore;
 
 #[cfg(test)]
 use mockall::automock;

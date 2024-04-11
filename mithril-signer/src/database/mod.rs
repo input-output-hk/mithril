@@ -3,20 +3,24 @@
 //! representation with their associated providers.
 pub mod cardano_transaction_migration;
 pub mod migration;
-pub mod provider;
+pub(crate) mod provider;
+pub mod record;
+pub mod repository;
 
 #[cfg(test)]
 pub mod test_utils {
+    use sqlite::ConnectionThreadSafe;
+
     use mithril_common::StdResult;
-    use mithril_persistence::sqlite::SqliteConnection;
+    use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions};
 
     use super::*;
 
-    pub fn apply_all_transactions_db_migrations(connection: &SqliteConnection) -> StdResult<()> {
-        for migration in cardano_transaction_migration::get_migrations() {
-            connection.execute(&migration.alterations)?;
-        }
-
-        Ok(())
+    pub fn cardano_tx_db_connection() -> StdResult<ConnectionThreadSafe> {
+        let connection = ConnectionBuilder::open_memory()
+            .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
+            .with_migrations(cardano_transaction_migration::get_migrations())
+            .build()?;
+        Ok(connection)
     }
 }

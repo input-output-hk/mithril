@@ -1,7 +1,9 @@
+use std::sync::Arc;
+
+use warp::Filter;
+
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
-use warp::Filter;
 
 const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
@@ -55,7 +57,7 @@ fn registered_signers(
 }
 
 mod handlers {
-    use crate::database::provider::SignerGetter;
+    use crate::database::repository::SignerGetter;
     use crate::entities::{
         SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
     };
@@ -244,13 +246,6 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mithril_common::entities::Epoch;
-    use mithril_common::{
-        crypto_helper::ProtocolRegistrationError,
-        messages::RegisterSignerMessage,
-        test_utils::{apispec::APISpec, fake_data},
-    };
-    use mithril_persistence::store::adapter::AdapterError;
     use mockall::predicate::eq;
     use serde_json::Value::Null;
     use warp::{
@@ -258,10 +253,20 @@ mod tests {
         test::request,
     };
 
-    use crate::database::provider::{MockSignerGetter, SignerRecord};
+    use mithril_common::entities::Epoch;
+    use mithril_common::{
+        crypto_helper::ProtocolRegistrationError,
+        messages::RegisterSignerMessage,
+        test_utils::{apispec::APISpec, fake_data},
+    };
+    use mithril_persistence::store::adapter::AdapterError;
+
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies,
-        signer_registerer::MockSignerRegisterer, store::MockVerificationKeyStorer,
+        database::{record::SignerRecord, repository::MockSignerGetter},
+        http_server::SERVER_BASE_PATH,
+        initialize_dependencies,
+        signer_registerer::MockSignerRegisterer,
+        store::MockVerificationKeyStorer,
         SignerRegistrationError,
     };
 

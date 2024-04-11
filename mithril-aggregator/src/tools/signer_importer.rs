@@ -8,7 +8,7 @@ use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::database::provider::SignerStore;
+use crate::database::repository::SignerStore;
 
 #[cfg(test)]
 use mockall::automock;
@@ -180,19 +180,17 @@ impl SPOItem {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::test_http_server::test_http_server;
-    use mithril_common::StdResult;
-    use mithril_persistence::sqlite::SqliteConnection;
-    use sqlite::Connection;
     use std::collections::{BTreeMap, BTreeSet};
     use std::convert::Infallible;
     use std::sync::Arc;
-
     use warp::Filter;
 
-    use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, SignerGetter, SignerStore,
-    };
+    use mithril_common::test_utils::test_http_server::test_http_server;
+    use mithril_common::StdResult;
+    use mithril_persistence::sqlite::SqliteConnection;
+
+    use crate::database::repository::{SignerGetter, SignerStore};
+    use crate::database::test_helper::main_db_connection;
     use crate::http_server::routes::reply;
 
     use super::*;
@@ -217,14 +215,6 @@ mod tests {
                 ticker: None,
             }
         }
-    }
-
-    fn connection_without_foreign_key_support() -> SqliteConnection {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-        disable_foreign_key_support(&connection).unwrap();
-
-        connection
     }
 
     async fn fill_signer_db(
@@ -344,7 +334,7 @@ mod tests {
 
     #[tokio::test]
     async fn persist_list_of_two_signers_one_with_ticker_the_other_without() {
-        let connection = Arc::new(connection_without_foreign_key_support());
+        let connection = Arc::new(main_db_connection().unwrap());
         let mut retriever = MockSignersImporterRetriever::new();
         retriever.expect_retrieve().returning(|| {
             Ok(HashMap::from([
@@ -374,7 +364,7 @@ mod tests {
 
     #[tokio::test]
     async fn persist_update_existing_data() {
-        let connection = Arc::new(connection_without_foreign_key_support());
+        let connection = Arc::new(main_db_connection().unwrap());
         fill_signer_db(
             connection.clone(),
             &[
@@ -421,7 +411,7 @@ mod tests {
 
     #[tokio::test]
     async fn importer_integration_test() {
-        let connection = Arc::new(connection_without_foreign_key_support());
+        let connection = Arc::new(main_db_connection().unwrap());
         fill_signer_db(
             connection.clone(),
             &[

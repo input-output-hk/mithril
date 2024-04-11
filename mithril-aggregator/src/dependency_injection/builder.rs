@@ -1,7 +1,6 @@
 use anyhow::Context;
 use semver::Version;
 use slog::Logger;
-use sqlite::Connection;
 use std::sync::Arc;
 use tokio::{
     sync::{
@@ -38,8 +37,8 @@ use mithril_common::{
     TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
-    database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration},
-    sqlite::SqliteConnection,
+    database::{ApplicationNodeType, SqlMigration},
+    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection},
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
@@ -49,10 +48,10 @@ use crate::{
         MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
-    database::provider::{
+    database::repository::{
         CardanoTransactionRepository, CertificateRepository, EpochSettingStore,
-        OpenMessageRepository, SignedEntityStoreAdapter, SignedEntityStorer,
-        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
+        OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
+        SignerStore, SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -269,63 +268,36 @@ impl DependenciesBuilder {
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
     ) -> Result<Arc<SqliteConnection>> {
-        let path = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                self.configuration.get_sqlite_dir().join(sqlite_file_name)
+        let connection_builder = match self.configuration.environment {
+            ExecutionEnvironment::Production => ConnectionBuilder::open_file(
+                &self.configuration.get_sqlite_dir().join(sqlite_file_name),
+            ),
+            _ if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" => {
+                ConnectionBuilder::open_memory()
             }
-            _ => {
-                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" {
-                    self.configuration.data_stores_directory.clone()
-                } else {
-                    self.configuration
-                        .data_stores_directory
-                        .join(sqlite_file_name)
-                }
-            }
+            _ => ConnectionBuilder::open_file(
+                &self
+                    .configuration
+                    .data_stores_directory
+                    .join(sqlite_file_name),
+            ),
         };
 
-        let connection = Connection::open_thread_safe(&path)
-            .map(Arc::new)
+        let connection = connection_builder
+            .with_node_type(ApplicationNodeType::Aggregator)
+            .with_options(&[
+                ConnectionOptions::EnableForeignKeys,
+                ConnectionOptions::EnableWriteAheadLog,
+            ])
+            .with_logger(self.get_logger().await?)
+            .with_migrations(migrations)
+            .build()
             .map_err(|e| DependenciesBuilderError::Initialization {
-                message: format!(
-                    "SQLite initialization: could not open connection with string '{}'.",
-                    path.display()
-                ),
-                error: Some(e.into()),
+                message: "SQLite initialization: failed to build connection.".to_string(),
+                error: Some(e),
             })?;
 
-        // Check database migrations
-        let mut db_checker = DatabaseVersionChecker::new(
-            self.get_logger().await?,
-            ApplicationNodeType::Aggregator,
-            connection.as_ref(),
-        );
-
-        for migration in migrations {
-            db_checker.add_migration(migration);
-        }
-
-        // configure session
-        connection
-            .execute("pragma journal_mode = wal; pragma synchronous = normal;")
-            .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "SQLite initialization: could not enable WAL.".to_string(),
-                error: Some(e.into()),
-            })?;
-
-        connection
-            .execute("pragma foreign_keys=true")
-            .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "SQLite initialization: could not enable FOREIGN KEY support.".to_string(),
-                error: Some(e.into()),
-            })?;
-
-        db_checker
-            .apply()
-            .await
-            .with_context(|| "Database migration error")?;
-
-        Ok(connection)
+        Ok(Arc::new(connection))
     }
 
     async fn drop_sqlite_connections(&self) {
@@ -1172,9 +1144,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
-        let signed_entity_storer = Arc::new(SignedEntityStoreAdapter::new(
-            self.get_sqlite_connection().await?,
-        ));
+        let signed_entity_storer =
+            Arc::new(SignedEntityStore::new(self.get_sqlite_connection().await?));
 
         Ok(signed_entity_storer)
     }

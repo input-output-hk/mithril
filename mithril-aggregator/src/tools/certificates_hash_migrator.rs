@@ -5,7 +5,7 @@ use slog_scope::{debug, info, trace};
 
 use mithril_common::{entities::Certificate, StdResult};
 
-use crate::database::provider::{CertificateRepository, SignedEntityStorer};
+use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 
 /// Tools to recompute all the certificates hashes in a aggregator database.
 pub struct CertificatesHashMigrator {
@@ -190,40 +190,31 @@ impl CertificatesHashMigrator {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::HashMap, sync::Arc};
-
-    use anyhow::Context;
-    use sqlite::Connection;
-
-    use mithril_common::{
-        entities::{
-            Certificate, ImmutableFileNumber, SignedEntityType,
-            SignedEntityTypeDiscriminants as Type, TimePoint,
-        },
-        test_utils::fake_data,
-        StdResult,
+    use mithril_common::entities::{
+        ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants as Type, TimePoint,
     };
-    use mithril_persistence::sqlite::SqliteConnection;
+    use mithril_common::test_utils::fake_data;
+    use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
-    use crate::database::provider::{
-        apply_all_migrations_to_db, disable_foreign_key_support, CertificateRecord,
-        CertificateRepository, SignedEntityRecord, SignedEntityStoreAdapter, SignedEntityStorer,
-    };
+    use crate::database::record::{CertificateRecord, SignedEntityRecord};
+    use crate::database::repository::SignedEntityStore;
 
-    use super::CertificatesHashMigrator;
+    use super::*;
 
     fn connection_with_foreign_key_support() -> SqliteConnection {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        apply_all_migrations_to_db(&connection).unwrap();
-
-        connection
+        ConnectionBuilder::open_memory()
+            .with_migrations(crate::database::migration::get_migrations())
+            .with_options(&[ConnectionOptions::EnableForeignKeys])
+            .build()
+            .unwrap()
     }
 
     fn connection_without_foreign_key_support() -> SqliteConnection {
-        let connection = connection_with_foreign_key_support();
-        disable_foreign_key_support(&connection).unwrap();
-
-        connection
+        ConnectionBuilder::open_memory()
+            .with_migrations(crate::database::migration::get_migrations())
+            .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
+            .build()
+            .unwrap()
     }
 
     fn time_at(epoch: u64, immutable_file_number: ImmutableFileNumber) -> TimePoint {
@@ -305,7 +296,7 @@ mod test {
     ) -> StdResult<Vec<(Certificate, Option<SignedEntityRecord>)>> {
         let certificate_repository: CertificateRepository =
             CertificateRepository::new(connection.clone());
-        let signed_entity_store = SignedEntityStoreAdapter::new(connection.clone());
+        let signed_entity_store = SignedEntityStore::new(connection.clone());
         let mut result = vec![];
 
         for certificate in certificates.iter().cloned() {
@@ -415,7 +406,7 @@ mod test {
         let mut result = vec![];
         let certificate_repository: CertificateRepository =
             CertificateRepository::new(connection.clone());
-        let signed_entity_store = SignedEntityStoreAdapter::new(connection.clone());
+        let signed_entity_store = SignedEntityStore::new(connection.clone());
 
         let certificates = certificate_repository
             .get_latest_certificates::<Certificate>(usize::MAX)
@@ -456,7 +447,7 @@ mod test {
         // Act
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(sqlite_connection.clone()),
-            Arc::new(SignedEntityStoreAdapter::new(sqlite_connection.clone())),
+            Arc::new(SignedEntityStore::new(sqlite_connection.clone())),
         );
         migrator
             .migrate()
@@ -620,7 +611,7 @@ mod test {
 
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
-            Arc::new(SignedEntityStoreAdapter::new(connection.clone())),
+            Arc::new(SignedEntityStore::new(connection.clone())),
         );
         migrator
             .migrate()
