@@ -51,6 +51,21 @@ impl MithrilProverService {
         }
     }
 
+    async fn get_transactions_by_hashes_with_block_range(
+        &self,
+        hashes: Vec<TransactionHash>,
+    ) -> StdResult<Vec<(BlockRange, CardanoTransaction)>> {
+        let transactions = self.transaction_retriever.get_by_hashes(hashes).await?;
+        let transactions_with_block_range = transactions
+            .into_iter()
+            .map(|transaction| {
+                let block_range = BlockRange::from_block_number(transaction.block_number);
+                (block_range, transaction)
+            })
+            .collect::<Vec<_>>();
+        Ok(transactions_with_block_range)
+    }
+
     fn compute_merkle_map_from_transactions(
         &self,
         transactions: Vec<CardanoTransaction>,
@@ -89,20 +104,13 @@ impl ProverService for MithrilProverService {
         up_to: &CardanoDbBeacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
-        let transactions = self.transaction_retriever.get_up_to(up_to).await?;
-
         // 1 - Get transactions to prove per block range
-        let transactions_to_prove = transactions
-            .iter()
-            .filter_map(|transaction| {
-                let block_range = BlockRange::from_block_number(transaction.block_number);
-                transaction_hashes
-                    .contains(&transaction.transaction_hash)
-                    .then_some((block_range, transaction.clone()))
-            })
-            .collect::<Vec<_>>();
+        let transactions_to_prove = self
+            .get_transactions_by_hashes_with_block_range(transaction_hashes.to_vec())
+            .await?;
 
         // 2 - Compute Transactions Merkle Tree
+        let transactions = self.transaction_retriever.get_up_to(up_to).await?;
         let mk_map = self.compute_merkle_map_from_transactions(transactions)?;
 
         // 3 - Compute proof for each transaction to prove
@@ -178,6 +186,11 @@ mod tests {
     async fn compute_proof_for_one_set_with_multiple_transactions() {
         let (transaction_hashes, transactions) = generate_transactions(3);
         let prover = build_prover(|retriever_mock| {
+            let transactions_by_hashes_res = transactions.clone();
+            retriever_mock
+                .expect_get_by_hashes()
+                .with(eq(transaction_hashes.clone()))
+                .return_once(move |_| Ok(transactions_by_hashes_res));
             retriever_mock
                 .expect_get_up_to()
                 .with(eq(fake_data::beacon()))
@@ -199,8 +212,12 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_for_unknown_transaction() {
-        let (transaction_hashes, _transactions) = generate_transactions(3);
+        let (transaction_hashes, transactions) = generate_transactions(3);
         let prover = build_prover(|retriever_mock| {
+            retriever_mock
+                .expect_get_by_hashes()
+                .with(eq(transaction_hashes.clone()))
+                .return_once(move |_| Ok(transactions));
             retriever_mock
                 .expect_get_up_to()
                 .with(eq(fake_data::beacon()))
@@ -221,6 +238,11 @@ mod tests {
         let prover = build_prover(|retriever_mock| {
             // The last two are not in the "store"
             let transactions = transactions[0..=2].to_vec();
+            let transactions_by_hashes_res = transactions.clone();
+            retriever_mock
+                .expect_get_by_hashes()
+                .with(eq(transaction_hashes.clone()))
+                .return_once(move |_| Ok(transactions_by_hashes_res));
             retriever_mock
                 .expect_get_up_to()
                 .with(eq(fake_data::beacon()))
@@ -245,8 +267,8 @@ mod tests {
         let (transaction_hashes, _transactions) = generate_transactions(3);
         let prover = build_prover(|retriever_mock| {
             retriever_mock
-                .expect_get_up_to()
-                .with(eq(fake_data::beacon()))
+                .expect_get_by_hashes()
+                .with(eq(transaction_hashes.clone()))
                 .returning(|_| Err(anyhow!("Error")));
         });
 
