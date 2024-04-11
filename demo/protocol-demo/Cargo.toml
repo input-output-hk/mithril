@@ -1,6 +1,6 @@
 [package]
 name = "mithrildemo"
-version = "0.1.33"
+version = "0.1.34"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -30,6 +30,3 @@ mithril-stm = { path = "../../mithril-stm" }
 mithril-stm = { path = "../../mithril-stm", default-features = false, features = [
     "num-integer-backend",
 ] }
-
-[features]
-portable = ["mithril-common/portable", "mithril-stm/portable"]

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.3.29"
+version = "0.3.30"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -116,9 +116,6 @@ fs = [
     "dep:pallas-primitives",
     "dep:pallas-traverse",
 ]
-
-# Portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
-portable = ["mithril-stm/portable"]
 
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []

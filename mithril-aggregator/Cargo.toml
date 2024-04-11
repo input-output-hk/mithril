@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.4.56"
+version = "0.4.57"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -57,7 +57,4 @@ slog-term = "2.9.0"
 tempfile = "3.9.0"
 
 [features]
-portable = [
-    "mithril-common/portable",
-] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
