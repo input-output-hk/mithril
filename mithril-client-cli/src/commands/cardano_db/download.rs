@@ -46,6 +46,11 @@ pub struct CardanoDbDownloadCommand {
 }
 
 impl CardanoDbDownloadCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.json
+    }
+
     /// Command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.add_source(self.clone()).build()?;

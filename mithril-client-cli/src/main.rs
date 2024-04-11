@@ -190,7 +190,12 @@ impl ArtifactCommands {
         match self {
             #[allow(deprecated)]
             Self::Snapshot(cmd) => {
-                eprintln!("`snapshot` command is deprecated, use `cardano-db` instead");
+                let message = "`snapshot` command is deprecated, use `cardano-db` instead";
+                if cmd.is_json_output_enabled() {
+                    eprintln!(r#"{{"warning": "{}", "type": "deprecation"}}"#, message);
+                } else {
+                    eprintln!("{}", message);
+                };
                 cmd.execute(config_builder).await
             }
             Self::CardanoDb(cmd) => cmd.execute(config_builder).await,
