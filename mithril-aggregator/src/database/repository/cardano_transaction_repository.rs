@@ -159,6 +159,20 @@ impl TransactionsRetriever for CardanoTransactionRepository {
                     .collect::<Vec<CardanoTransaction>>()
             })
     }
+
+    async fn get_by_hashes(
+        &self,
+        hashes: Vec<TransactionHash>,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_hashes_condition(hashes);
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions
+            .into_iter()
+            .map(|record| record.into())
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -190,6 +204,32 @@ mod tests {
                 immutable_file_number: 99
             }),
             transaction_result
+        );
+    }
+
+    #[tokio::test]
+    async fn repository_get_transaction_by_hashes() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+        repository
+            .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
+            .await
+            .unwrap();
+        repository
+            .create_transaction("tx-hash-456", 11, 51, "block_hash-456", 100)
+            .await
+            .unwrap();
+        let transactions_result = repository
+            .get_by_hashes(vec!["tx-hash-123".to_string(), "tx-hash-456".to_string()])
+            .await
+            .unwrap();
+
+        assert_eq!(
+            vec![
+                CardanoTransaction::new("tx-hash-123", 10, 50, "block_hash-123", 99),
+                CardanoTransaction::new("tx-hash-456", 11, 51, "block_hash-456", 100),
+            ],
+            transactions_result
         );
     }
 

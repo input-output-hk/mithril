@@ -12,11 +12,8 @@ use mithril_common::{
     StdResult,
 };
 
-#[cfg(test)]
-use mockall::automock;
-
 /// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ProverService: Sync + Send {
     /// Compute the cryptographic proofs for the given transactions
@@ -28,11 +25,17 @@ pub trait ProverService: Sync + Send {
 }
 
 /// Transactions retriever
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait TransactionsRetriever: Sync + Send {
-    /// Get transactions up to given beacon using chronological order
+    /// Get all transactions up to given beacon using chronological order
     async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>>;
+
+    /// Get a list of transactions by hashes using chronological order
+    async fn get_by_hashes(
+        &self,
+        hashes: Vec<TransactionHash>,
+    ) -> StdResult<Vec<CardanoTransaction>>;
 }
 
 /// Mithril prover
