@@ -24,6 +24,11 @@ pub struct CardanoDbShowCommand {
 }
 
 impl CardanoDbShowCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.json
+    }
+
     /// Cardano DB Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.build()?;

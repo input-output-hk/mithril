@@ -87,5 +87,14 @@ pub mod deprecated {
                 Self::Show(cmd) => cmd.execute(config_builder).await,
             }
         }
+
+        /// Is JSON output enabled
+        pub fn is_json_output_enabled(&self) -> bool {
+            match self {
+                Self::List(cmd) => cmd.is_json_output_enabled(),
+                Self::Download(cmd) => cmd.is_json_output_enabled(),
+                Self::Show(cmd) => cmd.is_json_output_enabled(),
+            }
+        }
     }
 }
