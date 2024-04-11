@@ -50,7 +50,7 @@ impl MithrilProverService {
 
     fn compute_merkle_map_from_transactions(
         &self,
-        transactions: &[CardanoTransaction],
+        transactions: Vec<CardanoTransaction>,
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
         let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
@@ -59,7 +59,7 @@ impl MithrilProverService {
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
-                .push(transaction.transaction_hash.to_owned());
+                .push(transaction.transaction_hash);
         }
         let mk_hash_map = MKMap::new(
             transactions_by_block_ranges
@@ -87,16 +87,22 @@ impl ProverService for MithrilProverService {
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         let transactions = self.transaction_retriever.get_up_to(up_to).await?;
-        let mk_map = self.compute_merkle_map_from_transactions(&transactions)?;
+
+        // 1 - Get transactions to prove per block range
         let transactions_to_prove = transactions
             .iter()
             .filter_map(|transaction| {
                 let block_range = BlockRange::from_block_number(transaction.block_number);
                 transaction_hashes
                     .contains(&transaction.transaction_hash)
-                    .then(|| (block_range, transaction.to_owned()))
+                    .then_some((block_range, transaction.clone()))
             })
             .collect::<Vec<_>>();
+
+        // 2 - Compute Transactions Merkle Tree
+        let mk_map = self.compute_merkle_map_from_transactions(transactions)?;
+
+        // 3 - Compute proof for each transaction to prove
         let mut transaction_hashes_certified = vec![];
         for (_block_range, transaction) in transactions_to_prove {
             let mk_tree_node_transaction_hash: MKTreeNode =
@@ -105,9 +111,10 @@ impl ProverService for MithrilProverService {
                 .compute_proof(&[mk_tree_node_transaction_hash])
                 .is_ok()
             {
-                transaction_hashes_certified.push(transaction.transaction_hash.to_string());
+                transaction_hashes_certified.push(transaction.transaction_hash);
             }
         }
+
         if !transaction_hashes_certified.is_empty() {
             let mk_leaves: Vec<MKTreeNode> = transaction_hashes_certified
                 .iter()
