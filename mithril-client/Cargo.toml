@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.7.2"
+version = "0.7.3"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -76,7 +76,7 @@ full = ["fs"]
 
 # Enable file system releated functionnality, right now that mean ony snapshot download
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
-portable = [] # deprecated, will be removed soon
+portable = []                                       # deprecated, will be removed soon
 unstable = []
 
 [package.metadata.docs.rs]

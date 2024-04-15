@@ -10,8 +10,7 @@ CARGO = cargo
 all: test build
 
 build:
-	# We use 'portable' feature to avoid SIGILL crashes
-	${CARGO} build --release --features portable,full
+	${CARGO} build --release --features full
 
 test:
 	${CARGO} test --features full
