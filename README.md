@@ -34,9 +34,11 @@ To unleash the power of Mithril and leverage new use cases, we have also impleme
 
 ## :shield: Mainnet availability
 
-> :construction: **Mithril** is currently a work in progress, and is available in its [**beta**](https://mithril.network/doc/dev-blog/2023/07/21/mainnet-beta-launch) version on mainnet.
+> **Mithril** is currently a work in progress, and is available in its [**beta**](https://mithril.network/doc/dev-blog/2023/07/21/mainnet-beta-launch) version on mainnet.
 >
-> It is **NOT** yet completely ready for production and **Cardano** mainnet.
+> :heavy_check_mark: It is ready to be safely deployed in the SPO production infrastructure for **Cardano** mainnet.
+> 
+> :warning: It is **NOT** yet completely ready for production usage of the artifacts produced before a minimum level of participation in the network.
 
 
 ## :rocket: Getting started with Mithril
