@@ -3397,7 +3397,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.57"
+version = "0.4.58"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3471,7 +3471,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3504,7 +3504,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.7.10"
+version = "0.7.11"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3550,7 +3550,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.3.30"
+version = "0.3.31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3695,7 +3695,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.123"
+version = "0.2.124"
 dependencies = [
  "anyhow",
  "async-trait",
