@@ -136,10 +136,14 @@ mod tests {
         }
     }
 
-    fn build_importer(
-        parser_mock_config: &dyn Fn(&mut MockTransactionParserImpl),
-        store_mock_config: &dyn Fn(&mut MockTransactionStore),
-    ) -> CardanoTransactionsImporter {
+    fn build_importer<TParser, TStore>(
+        parser_mock_config: TParser,
+        store_mock_config: TStore,
+    ) -> CardanoTransactionsImporter
+    where
+        TParser: FnOnce(&mut MockTransactionParserImpl),
+        TStore: FnOnce(&mut MockTransactionStore),
+    {
         let db_path = Path::new("");
         let mut parser = MockTransactionParserImpl::new();
         parser_mock_config(&mut parser);
@@ -168,14 +172,14 @@ mod tests {
         let up_to_beacon = 12;
 
         let importer = build_importer(
-            &|parser_mock| {
+            |parser_mock| {
                 let parsed_transactions = transactions.clone();
                 parser_mock
                     .expect_parse()
                     .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
                     .return_once(move |_, _, _| Ok(parsed_transactions));
             },
-            &|store_mock| {
+            |store_mock| {
                 let expected_stored_transactions = transactions.clone();
                 store_mock
                     .expect_get_highest_beacon()
@@ -199,10 +203,10 @@ mod tests {
         let up_to_beacon = 12;
 
         let importer = build_importer(
-            &|parser_mock| {
+            |parser_mock| {
                 parser_mock.expect_parse().never();
             },
-            &|store_mock| {
+            |store_mock| {
                 store_mock
                     .expect_get_highest_beacon()
                     .returning(|| Ok(Some(12)));
@@ -227,14 +231,14 @@ mod tests {
         let up_to_beacon = 14;
 
         let importer = build_importer(
-            &|parser_mock| {
+            |parser_mock| {
                 let parsed_transactions = transactions[2..=3].to_vec();
                 parser_mock
                     .expect_parse()
                     .withf(move |_, from, until| from == &Some(13) && until == &up_to_beacon)
                     .return_once(move |_, _, _| Ok(parsed_transactions));
             },
-            &|store_mock| {
+            |store_mock| {
                 store_mock
                     .expect_get_highest_beacon()
                     .returning(|| Ok(Some(12)));
