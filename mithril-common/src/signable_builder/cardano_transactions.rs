@@ -117,15 +117,9 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use slog::Drain;
+    use crate::test_utils::logger_for_tests;
 
-    fn create_logger() -> slog::Logger {
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        slog::Logger::root(Arc::new(drain), slog::o!())
-    }
+    use super::*;
 
     #[tokio::test]
     async fn test_compute_merkle_root_in_same_block_range() {
@@ -148,7 +142,7 @@ mod tests {
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(MockTransactionsImporter::new()),
-            create_logger(),
+            logger_for_tests(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
@@ -209,7 +203,7 @@ mod tests {
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(MockTransactionsImporter::new()),
-            create_logger(),
+            logger_for_tests(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
@@ -242,7 +236,7 @@ mod tests {
             .return_once(move |_| Ok(imported_transactions));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
-            create_logger(),
+            logger_for_tests(),
         );
 
         // Action
@@ -276,7 +270,7 @@ mod tests {
             .return_once(|_| Ok(vec![]));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
-            create_logger(),
+            logger_for_tests(),
         );
 
         let result = cardano_transactions_signable_builder
