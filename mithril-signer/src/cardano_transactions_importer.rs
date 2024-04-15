@@ -2,17 +2,16 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-#[cfg(test)]
-use mockall::automock;
 use slog::{debug, Logger};
 
 use mithril_common::cardano_block_scanner::BlockScanner;
-use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
+use mithril_common::crypto_helper::MKTreeNode;
+use mithril_common::entities::{BlockRange, CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
 /// Cardano transactions store
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
@@ -26,6 +25,12 @@ pub trait TransactionStore: Send + Sync {
 
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
+
+    /// Store list of block ranges with their corresponding merkle root
+    async fn store_block_ranges(
+        &self,
+        block_ranges: Vec<(BlockRange, MKTreeNode)>,
+    ) -> StdResult<()>;
 }
 
 /// Import and store [CardanoTransaction].
@@ -121,6 +126,8 @@ mod tests {
     use mockall::predicate::eq;
 
     use mithril_common::cardano_block_scanner::ScannedBlock;
+    use mithril_common::crypto_helper::MKTree;
+    use mithril_common::entities::BlockNumber;
 
     use crate::database::repository::CardanoTransactionRepository;
     use crate::database::test_utils::cardano_tx_db_connection;
@@ -166,8 +173,18 @@ mod tests {
         )
     }
 
+    fn block_range_with_merkle_root<T: Into<MKTreeNode> + Clone>(
+        block_number: BlockNumber,
+        hashes: &[T],
+    ) -> (BlockRange, MKTreeNode) {
+        (
+            BlockRange::from_block_number(block_number),
+            MKTree::new(hashes).unwrap().compute_root().unwrap(),
+        )
+    }
+
     #[tokio::test]
-    async fn if_nothing_stored_parse_and_store_all_transactions() {
+    async fn if_nothing_stored_parse_and_store_all_transactions_and_block_ranges() {
         let blocks = vec![
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
@@ -195,6 +212,14 @@ mod tests {
                     .with(eq(expected_stored_transactions))
                     .returning(|_| Ok(()))
                     .once();
+                store_mock
+                    .expect_store_block_ranges()
+                    .with(eq(vec![
+                        block_range_with_merkle_root(10, &["tx_hash-1", "tx_hash-2"]),
+                        block_range_with_merkle_root(20, &["tx_hash-3", "tx_hash-4"]),
+                    ]))
+                    .returning(|_| Ok(()))
+                    .once();
             },
         );
 
@@ -217,6 +242,7 @@ mod tests {
                     .expect_get_highest_beacon()
                     .returning(|| Ok(Some(12)));
                 store_mock.expect_store_transactions().never();
+                store_mock.expect_store_block_ranges().never();
             },
         );
 
@@ -256,6 +282,14 @@ mod tests {
                     .with(eq(expected_to_store_transactions))
                     .returning(|_| Ok(()))
                     .once();
+                store_mock
+                    .expect_store_block_ranges()
+                    .with(eq(vec![block_range_with_merkle_root(
+                        20,
+                        &["tx_hash-3", "tx_hash-4"],
+                    )]))
+                    .returning(|_| Ok(()))
+                    .once();
             },
         );
 
@@ -266,7 +300,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_the_transactions_in_same_order(
+    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_and_block_ranges_in_same_order(
     ) {
         let blocks = vec![
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),

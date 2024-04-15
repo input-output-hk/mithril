@@ -3,8 +3,10 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
+use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockHash, BlockNumber, CardanoTransaction, ImmutableFileNumber, SlotNumber, TransactionHash,
+    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber, SlotNumber,
+    TransactionHash,
 };
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Provider, SqliteConnection, WhereCondition};
@@ -144,6 +146,13 @@ impl TransactionStore for CardanoTransactionRepository {
                 .with_context(|| "CardanoTransactionRepository can not store transactions")?;
         }
         Ok(())
+    }
+
+    async fn store_block_ranges(
+        &self,
+        _block_ranges: Vec<(BlockRange, MKTreeNode)>,
+    ) -> StdResult<()> {
+        todo!()
     }
 }
 
