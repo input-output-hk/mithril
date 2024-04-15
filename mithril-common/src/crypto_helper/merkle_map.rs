@@ -39,15 +39,20 @@ pub struct MKMap<K: MKMapKey, V: MKMapValue<K>> {
 impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     /// MKMap factory
     pub fn new(entries: &[(K, V)]) -> StdResult<Self> {
+        Self::new_from_iter(entries.to_vec())
+    }
+
+    /// MKMap factory
+    pub fn new_from_iter<T: IntoIterator<Item = (K, V)>>(entries: T) -> StdResult<Self> {
         let inner_map_values = BTreeMap::default();
         let inner_merkle_tree = MKTree::new::<MKTreeNode>(&[])?;
         let mut mk_map = Self {
             inner_map_values,
             inner_merkle_tree,
         };
-        let sorted_entries = BTreeMap::from_iter(entries.to_vec());
+        let sorted_entries = BTreeMap::from_iter(entries);
         for (key, value) in sorted_entries {
-            mk_map.insert_unchecked(key.clone(), value.clone())?;
+            mk_map.insert_unchecked(key, value)?;
         }
 
         Ok(mk_map)
@@ -394,7 +399,7 @@ mod tests {
             .map(|(range, mktree)| (range.to_owned(), mktree.into()))
             .collect::<Vec<(_, MKMapNode<_>)>>();
         let mk_map_nodes = MKMap::new(merkle_tree_node_entries.as_slice()).unwrap();
-        let mk_map_full = MKMap::new(merkle_tree_full_entries.as_slice()).unwrap();
+        let mk_map_full = MKMap::new(merkle_tree_full_entries).unwrap();
 
         let mk_map_nodes_root = mk_map_nodes.compute_root().unwrap();
         let mk_map_full_root = mk_map_full.compute_root().unwrap();

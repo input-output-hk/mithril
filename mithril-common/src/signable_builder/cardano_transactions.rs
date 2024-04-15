@@ -46,7 +46,7 @@ impl CardanoTransactionsSignableBuilder {
     // This will be not be the case when we use the cached intermediate merkle roots.
     fn compute_merkle_map_from_transactions(
         &self,
-        transactions: &[CardanoTransaction],
+        transactions: Vec<CardanoTransaction>,
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
         let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
             HashMap::new();
@@ -55,9 +55,9 @@ impl CardanoTransactionsSignableBuilder {
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
-                .push(transaction.transaction_hash.to_owned());
+                .push(transaction.transaction_hash);
         }
-        let mk_hash_map = MKMap::new(
+        let mk_hash_map = MKMap::new_from_iter(
             transactions_by_block_ranges
                 .into_iter()
                 .try_fold(
@@ -66,15 +66,14 @@ impl CardanoTransactionsSignableBuilder {
                         acc.push((block_range, MKTree::new(&transactions)?.into()));
                         Ok(acc)
                     },
-                )?
-                .as_slice(),
+                )?,
         )
         .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
 
         Ok(mk_hash_map)
     }
 
-    fn compute_merkle_root(&self, transactions: &[CardanoTransaction]) -> StdResult<MKTreeNode> {
+    fn compute_merkle_root(&self, transactions: Vec<CardanoTransaction>) -> StdResult<MKTreeNode> {
         let mk_map = self.compute_merkle_map_from_transactions(transactions)?;
 
         let mk_root = mk_map.compute_root().with_context(|| {
@@ -100,7 +99,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
             .transaction_importer
             .import(beacon.immutable_file_number)
             .await?;
-        let mk_root = self.compute_merkle_root(&transactions)?;
+        let mk_root = self.compute_merkle_root(transactions)?;
 
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
@@ -118,15 +117,9 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use slog::Drain;
+    use crate::test_utils::logger_for_tests;
 
-    fn create_logger() -> slog::Logger {
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        slog::Logger::root(Arc::new(drain), slog::o!())
-    }
+    use super::*;
 
     #[tokio::test]
     async fn test_compute_merkle_root_in_same_block_range() {
@@ -149,11 +142,11 @@ mod tests {
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(MockTransactionsImporter::new()),
-            create_logger(),
+            logger_for_tests(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
-            .compute_merkle_root(&[
+            .compute_merkle_root(vec![
                 transaction_1.clone(),
                 transaction_2.clone(),
                 transaction_3.clone(),
@@ -163,14 +156,14 @@ mod tests {
         {
             let transactions_set = vec![transaction_1.clone()];
             let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(&transactions_set)
+                .compute_merkle_root(transactions_set)
                 .unwrap();
             assert_ne!(merkle_root_reference, mk_root);
         }
         {
             let transactions_set = vec![transaction_1.clone(), transaction_2.clone()];
             let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(&transactions_set)
+                .compute_merkle_root(transactions_set)
                 .unwrap();
             assert_ne!(merkle_root_reference, mk_root);
         }
@@ -182,7 +175,7 @@ mod tests {
                 transaction_4.clone(),
             ];
             let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(&transactions_set)
+                .compute_merkle_root(transactions_set)
                 .unwrap();
             assert_ne!(merkle_root_reference, mk_root);
         }
@@ -195,7 +188,7 @@ mod tests {
                 transaction_2.clone(),
             ];
             let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(&transactions_set)
+                .compute_merkle_root(transactions_set)
                 .unwrap();
             assert_ne!(merkle_root_reference, mk_root);
         }
@@ -210,15 +203,15 @@ mod tests {
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(MockTransactionsImporter::new()),
-            create_logger(),
+            logger_for_tests(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
-            .compute_merkle_root(&[transaction_1.clone(), transaction_2.clone()])
+            .compute_merkle_root(vec![transaction_1.clone(), transaction_2.clone()])
             .unwrap();
 
         let mk_root = cardano_transaction_signable_builder
-            .compute_merkle_root(&[transaction_2.clone(), transaction_1.clone()])
+            .compute_merkle_root(vec![transaction_2.clone(), transaction_1.clone()])
             .unwrap();
 
         assert_eq!(merkle_root_reference, mk_root);
@@ -243,7 +236,7 @@ mod tests {
             .return_once(move |_| Ok(imported_transactions));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
-            create_logger(),
+            logger_for_tests(),
         );
 
         // Action
@@ -254,7 +247,7 @@ mod tests {
 
         // Assert
         let mk_root = cardano_transactions_signable_builder
-            .compute_merkle_root(&transactions)
+            .compute_merkle_root(transactions)
             .unwrap();
         let mut signable_expected = ProtocolMessage::new();
         signable_expected.set_message_part(
@@ -277,7 +270,7 @@ mod tests {
             .return_once(|_| Ok(vec![]));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
-            create_logger(),
+            logger_for_tests(),
         );
 
         let result = cardano_transactions_signable_builder

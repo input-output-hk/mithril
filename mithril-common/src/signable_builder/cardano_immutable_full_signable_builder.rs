@@ -62,14 +62,14 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
     use std::path::Path;
-
-    use super::*;
 
     use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
     use crate::entities::CardanoDbBeacon;
-    use async_trait::async_trait;
-    use slog::Drain;
+    use crate::test_utils::logger_for_tests;
+
+    use super::*;
 
     #[derive(Default)]
     pub struct ImmutableDigesterImpl;
@@ -85,19 +85,13 @@ mod tests {
         }
     }
 
-    fn create_logger() -> slog::Logger {
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        slog::Logger::root(Arc::new(drain), slog::o!())
-    }
     #[tokio::test]
     async fn compute_signable() {
         let digester = ImmutableDigesterImpl;
         let signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
             Arc::new(digester),
             Path::new(""),
-            create_logger(),
+            logger_for_tests(),
         );
         let protocol_message = signable_builder
             .compute_protocol_message(CardanoDbBeacon::default())

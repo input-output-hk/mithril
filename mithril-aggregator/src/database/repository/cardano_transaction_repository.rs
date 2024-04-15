@@ -159,6 +159,20 @@ impl TransactionsRetriever for CardanoTransactionRepository {
                     .collect::<Vec<CardanoTransaction>>()
             })
     }
+
+    async fn get_by_hashes(
+        &self,
+        hashes: Vec<TransactionHash>,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_hashes_condition(hashes);
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions
+            .into_iter()
+            .map(|record| record.into())
+            .collect())
+    }
 }
 
 #[cfg(test)]
@@ -172,25 +186,67 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
         repository
-            .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
+            .create_transactions(vec![
+                CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123", 99),
+                CardanoTransaction::new("tx_hash-456", 11, 51, "block_hash-456", 100),
+            ])
             .await
             .unwrap();
-        repository
-            .create_transaction("tx-hash-456", 11, 51, "block_hash-456", 100)
-            .await
-            .unwrap();
-        let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
 
-        assert_eq!(
-            Some(CardanoTransactionRecord {
-                transaction_hash: "tx-hash-123".to_string(),
-                block_number: 10,
-                slot_number: 50,
-                block_hash: "block_hash-123".to_string(),
-                immutable_file_number: 99
-            }),
-            transaction_result
-        );
+        {
+            let transaction_result = repository.get_transaction("tx_hash-123").await.unwrap();
+            assert_eq!(
+                Some(CardanoTransactionRecord {
+                    transaction_hash: "tx_hash-123".to_string(),
+                    block_number: 10,
+                    slot_number: 50,
+                    block_hash: "block_hash-123".to_string(),
+                    immutable_file_number: 99
+                }),
+                transaction_result
+            );
+        }
+        {
+            let transaction_result = repository.get_transaction("not-exist").await.unwrap();
+            assert_eq!(None, transaction_result);
+        }
+    }
+
+    #[tokio::test]
+    async fn repository_get_transaction_by_hashes() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+        repository
+            .create_transactions(vec![
+                CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123", 99),
+                CardanoTransaction::new("tx_hash-456", 11, 51, "block_hash-456", 100),
+                CardanoTransaction::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+            ])
+            .await
+            .unwrap();
+
+        {
+            let transactions = repository
+                .get_by_hashes(vec!["tx_hash-123".to_string(), "tx_hash-789".to_string()])
+                .await
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123", 99),
+                    CardanoTransaction::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+                ],
+                transactions
+            );
+        }
+        {
+            let transactions = repository
+                .get_by_hashes(vec!["not-exist".to_string()])
+                .await
+                .unwrap();
+
+            assert_eq!(Vec::<CardanoTransaction>::new(), transactions);
+        }
     }
 
     #[tokio::test]

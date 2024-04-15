@@ -29,6 +29,15 @@ impl<'client> GetCardanoTransactionProvider<'client> {
         )
     }
 
+    pub fn get_transaction_hashes_condition(
+        &self,
+        transactions_hashes: Vec<TransactionHash>,
+    ) -> WhereCondition {
+        let hashes_values = transactions_hashes.into_iter().map(Value::String).collect();
+
+        WhereCondition::where_in("transaction_hash", hashes_values)
+    }
+
     pub fn get_transaction_up_to_beacon_condition(
         &self,
         beacon: ImmutableFileNumber,
