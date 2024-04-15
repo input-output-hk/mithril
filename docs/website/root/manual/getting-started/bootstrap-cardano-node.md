@@ -186,7 +186,7 @@ Then, create a shell function for the Mithril client:
 
 ```bash
 mithril_client () {
-  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+  docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
 }
 ```
 
@@ -211,9 +211,6 @@ In the following part of the document, you will need to replace the `./mithril-c
 ### Step 1: Prepare some useful variables
 
 ```bash
-# Cardano network
-export NETWORK=**YOUR_CARDANO_NETWORK**
-
 # Aggregator API endpoint URL
 export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 
@@ -313,7 +310,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 Launch an empty Cardano node and make it live in minutes!
 
 ```bash
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=**YOUR_CARDANO_NETWORK** inputoutput/cardano-node
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=testnet inputoutput/cardano-node
 ```
 
 You will see the node start by validating the files ingested from the snapshot archive:

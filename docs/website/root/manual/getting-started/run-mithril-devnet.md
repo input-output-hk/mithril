@@ -427,9 +427,6 @@ tail -n 22 ./node-pool2/node.log
 ### Step 1: Prepare some useful variables
 
 ```bash
-# Cardano network
-export NETWORK=devnet
-
 # Aggregator API endpoint URL
 export AGGREGATOR_ENDPOINT=http://localhost:8080/aggregator
 
@@ -445,7 +442,7 @@ You can pick an online test aggregator directly from the [Mithril Explorer](http
 List the available snapshots with which you can bootstrap a Cardano node:
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot list
+AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot list
 ```
 
 You will see a list of snapshots:
@@ -472,7 +469,7 @@ You will see a list of snapshots:
 To get more details from a specific snapshot (optional), run:
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot show $SNAPSHOT_DIGEST
+AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot show $SNAPSHOT_DIGEST
 ```
 
 You will see more information about the snapshot:
@@ -504,7 +501,7 @@ You will see more information about the snapshot:
 To download the selected snapshot from the remote location to your remote location, run:
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot download $SNAPSHOT_DIGEST
+AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client snapshot download $SNAPSHOT_DIGEST
 ```
 
 You will see that the certificate chain is validated to ensure the issued certificate is genuine and then the selected snapshot archive is downloaded, unpacked and verified against the corresponding certificate.
