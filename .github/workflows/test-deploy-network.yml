@@ -15,6 +15,7 @@ on:
         type: choice
         options:
           - dev-preview
+          - testing-mainnet
       dry_run:
         description: Dry run will not deploy the distribution to the Mithril network
         required: true
@@ -26,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ dev-preview ]
+        environment: [ dev-preview, testing-mainnet ]
         include:
           - environment: dev-preview
             environment_prefix: dev
@@ -61,6 +62,31 @@ jobs:
             google_machine_type: e2-highmem-4
             google_compute_instance_boot_disk_size: 200
             google_compute_instance_data_disk_size: 250
+          - environment: testing-mainnet
+            environment_prefix: testing
+            cardano_network: mainnet
+            mithril_use_p2p_network: false
+            mithril_api_domain: api.mithril.network
+            mithril_era_reader_adapter_type: bootstrap
+            mithril_protocol_parameters: |
+              {
+                k     = 2422
+                m     = 20973
+                phi_f = 0.20
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "unverified-alone",
+                  pool_id = "pool1re8cmjt895tpx8dx2veg0cew5yqtxnt82sll03e433a4ugnh9w7",
+                }
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-8
+            google_compute_instance_boot_disk_size: 250
+            google_compute_instance_data_disk_size: 1000
 
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
