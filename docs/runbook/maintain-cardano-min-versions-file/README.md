@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The [cardano-min-versions.json](../../../cardano-min-versions.json) file, which specifies the minimum supported versions of the Cardano node for Mithril signers and facilitates the verification of compatibility for the Cardano networks.
+The [networks.json](../../../networks.json) file specifies the minimum supported versions of the Cardano node for Mithril signers and facilitates the verification of compatibility for the Cardano networks.
 
 ## Maintaining the file
 

@@ -22,4 +22,4 @@ This page gathers the available guides to operate a Mithril network.
 | **Publish crates to crates.io manually**   | [manual-publish-crates](./manual-publish-crates/README.md)                           | Manually publish Rust crates to crates.io.                                  |
 | **Publish packages to npm manually**       | [manual-publish-npm](./manual-publish-npm/README.md)                                 | Manually publish packages to npm registry.                                  |
 | **Client multi-platform test**             | [test-client-multiplatform](./test-client-multiplatform/README.md)                   | Run multi-platform client CLI binaries, docker and WASM package tests.      |
-| **Maintain Cardano minimum versions file** | [maintain-cardano-min-versions-file](./maintain-cardano-min-versions-file/README.md) | Maintain the `cardano-min-versions.json` file                               |
+| **Maintain Cardano minimum versions file** | [maintain-cardano-min-versions-file](./maintain-cardano-min-versions-file/README.md) | Maintain the `networks.json` file                                           |
