@@ -79,7 +79,7 @@ impl MithrilProverService {
                 .or_default()
                 .push(transaction.transaction_hash);
         }
-        let mk_hash_map = MKMap::new(
+        let mk_hash_map = MKMap::new_from_iter(
             transactions_by_block_ranges
                 .into_iter()
                 .try_fold(
@@ -88,8 +88,7 @@ impl MithrilProverService {
                         acc.push((block_range, MKTree::new(&transactions)?.into()));
                         Ok(acc)
                     },
-                )?
-                .as_slice(),
+                )?,
         )
         .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
 
