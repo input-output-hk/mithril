@@ -1,0 +1,22 @@
+{
+  "mainnet": {
+    "cardano-minimum-version": {
+      "mithril-signer": "8.7.3"
+    }
+  },
+  "preprod": {
+    "cardano-minimum-version": {
+      "mithril-signer": "8.7.3"
+    }
+  },
+  "preview": {
+    "cardano-minimum-version": {
+      "mithril-signer": "8.7.3"
+    }
+  },
+  "sanchonet": {
+    "cardano-minimum-version": {
+      "mithril-signer": "8.10.0-pre"
+    }
+  }
+}

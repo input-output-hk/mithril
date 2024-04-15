@@ -93,7 +93,7 @@ Note that this guide works on a Linux machine only.
   * Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
   * Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
-* Install a recent version of [`cardano-cli`](https://github.com/input-output-hk/cardano-node/releases/tag/8.7.3) (version 8.7.3+).
+* Install a recent version of [`cardano-cli`](https://github.com/IntersectMBO/cardano-node/releases/tag/8.9.1) (version 8.9.1+).
 
 * Install a correctly configured Rust toolchain (latest stable version). You can follow the instructions provided [here](https://www.rust-lang.org/learn/get-started).
 
@@ -110,6 +110,30 @@ Note that this guide works on a Linux machine only.
 - For **production** deployment, the **Mithril signer** setup is performed on the **Cardano block producer** machine.
 
 - For **naive** deployment, the **Mithril signer** setup is performed on the **Cardano relay** machine.
+
+:::
+
+:::info
+
+Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) to verify its compatibility with the Mithril signer.
+
+First, check the version of your Cardano node by running the following command:
+
+```bash
+cardano-node --version
+```
+
+Then, refer to the minimum supported versions listed in the the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file.
+
+You can also fetch the minimum supported version for your network using the command below:
+```bash
+wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json | jq -r '."**YOUR_CARDANO_NETWORK**"."cardano-minimum-version"."mithril-signer"'
+```
+
+Here is an example for `preprod`:
+```bash
+wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/networks.json | jq -r '."preprod"."cardano-minimum-version"."mithril-signer"'
+```
 
 :::
 

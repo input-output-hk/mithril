@@ -257,6 +257,10 @@ jobs:
           base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
           head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
+      - name: Check networks.json validity
+        if: success() || failure()
+        run: jq . networks.json
+
   e2e:
     runs-on: ubuntu-22.04
     needs: [ build-ubuntu-X64 ]
