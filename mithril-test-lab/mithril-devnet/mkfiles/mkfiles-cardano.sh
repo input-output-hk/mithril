@@ -94,6 +94,12 @@ if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
   cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
 fi
 
+if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.10.0") = "false" ]; then
+  # Fix >=8.10.0, to avoid the following errors: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: ./temp/genesis.conway.spec.json Error: Error in $: key "minFeeRefScriptCostPerByte" not found
+  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"minFeeRefScriptCostPerByte": 0, "committee": {"members": {}, "threshold": 0.67}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
+  cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
+fi
+
 cp $SCRIPT_DIRECTORY/configuration/byron/configuration.yaml "${ARTIFACTS_DIR_TEMP}/"
 $SED -i "${ARTIFACTS_DIR_TEMP}/configuration.yaml" \
      -e 's/Protocol: RealPBFT/Protocol: Cardano/' \
