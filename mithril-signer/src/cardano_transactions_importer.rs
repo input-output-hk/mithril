@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
-use mithril_common::cardano_block_scanner::BlockScanner;
+use mithril_common::cardano_block_scanner::{BlockScanner, ScannedBlock};
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{BlockRange, CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
@@ -87,6 +87,8 @@ impl CardanoTransactionsImporter {
         // todo: temp algorithm, should be optimized to avoid loading all blocks & transactions
         // at once in memory (probably using iterators)
         let scanned_blocks = self.block_scanner.scan(&self.dirpath, from, until).await?;
+        let block_ranges = Self::compute_block_ranges(&scanned_blocks).await?;
+
         let parsed_transactions: Vec<CardanoTransaction> = scanned_blocks
             .into_iter()
             .flat_map(|b| b.into_transactions())
@@ -101,7 +103,39 @@ impl CardanoTransactionsImporter {
         self.transaction_store
             .store_transactions(parsed_transactions)
             .await?;
+        self.transaction_store
+            .store_block_ranges(block_ranges)
+            .await?;
         Ok(())
+    }
+
+    async fn compute_block_ranges(
+        scanned_blocks: &[ScannedBlock],
+    ) -> StdResult<Vec<(BlockRange, MKTreeNode)>> {
+        let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];
+        if scanned_blocks.is_empty() {
+            return Ok(block_ranges_with_merkle_root);
+        }
+
+        let start = scanned_blocks[0].block_number;
+        let start_block_range = BlockRange::from_block_number(start);
+
+        let chunk = if start == start_block_range.start {
+            scanned_blocks.chunks_exact(BlockRange::LENGTH as usize)
+        } else {
+            scanned_blocks[((start_block_range.end - start) as usize)..scanned_blocks.len()]
+                .chunks_exact(BlockRange::LENGTH as usize)
+        };
+
+        block_ranges_with_merkle_root = chunk
+            .map(|c| {
+                let start = c[0].block_number;
+
+                (BlockRange::from_block_number(start), "".into())
+            })
+            .collect();
+
+        Ok(block_ranges_with_merkle_root)
     }
 }
 
@@ -368,5 +402,100 @@ mod tests {
         let from = importer.get_starting_beacon().await.unwrap();
         // If sub overflow it should be 0
         assert_eq!(Some(0), from);
+    }
+
+    fn build_blocks(
+        start_block_number: BlockNumber,
+        number_of_consecutive_block: BlockNumber,
+    ) -> Vec<ScannedBlock> {
+        (start_block_number..(start_block_number + number_of_consecutive_block))
+            .map(|block_number| {
+                ScannedBlock::new(
+                    format!("block_hash-{}", block_number),
+                    block_number,
+                    block_number * 100,
+                    block_number * 10,
+                    vec![format!("tx_hash-{}", block_number)],
+                )
+            })
+            .collect()
+    }
+
+    /// ---- Commence à block number qui est un début de block range:
+    // J'ai 15 blocks consécutifs (soit BlockRange::Length) ce qui donne 1 block ranges
+    // j'ai 14 blocks consécutifs (soit BlockRange::Length - 1) ce qui donne 0 block range
+    // j'ai 16 blocks consécutifs (soit BlockRange::Length + 1) ce qui donne 1 seul block range
+    /// ---- Commence à block number qui n'est pas un début de block range:
+    // J'ai 15 blocks consécutifs (soit BlockRange::Length) ce qui donne 0 block ranges
+    #[tokio::test]
+    async fn vvv_less_than_a_block_range_length_of_consecutive_blocks_starting_from_block_number_0_give_0_block_range(
+    ) {
+        let blocks = build_blocks(0, BlockRange::LENGTH - 1);
+
+        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
+            .await
+            .unwrap();
+
+        assert_eq!(Vec::<(BlockRange, MKTreeNode)>::new(), block_ranges);
+    }
+
+    #[tokio::test]
+    async fn vvv_exactly_a_block_range_length_of_consecutive_blocks_starting_from_block_number_0_give_1_block_range(
+    ) {
+        let blocks = build_blocks(0, BlockRange::LENGTH);
+        let expected = vec![BlockRange::from_block_number(0)];
+
+        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            expected,
+            block_ranges.into_iter().map(|(r, _)| r).collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn vvv_more_than_a_block_range_length_of_consecutive_blocks_starting_from_block_number_0_give_1_block_range(
+    ) {
+        let blocks = build_blocks(0, BlockRange::LENGTH + 1);
+        let expected = vec![BlockRange::from_block_number(0)];
+
+        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            expected,
+            block_ranges.into_iter().map(|(r, _)| r).collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn vvv_exactly_a_block_range_length_of_consecutive_blocks_starting_from_block_number_4_give_0_block_range(
+    ) {
+        let blocks = build_blocks(4, BlockRange::LENGTH);
+
+        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
+            .await
+            .unwrap();
+
+        assert_eq!(Vec::<(BlockRange, MKTreeNode)>::new(), block_ranges);
+    }
+
+    #[tokio::test]
+    async fn vvv_exactly_two_block_range_length_of_consecutive_blocks_starting_from_block_number_14_give_1_block_range(
+    ) {
+        let blocks = build_blocks(BlockRange::LENGTH - 1, BlockRange::LENGTH * 2);
+        let expected = vec![BlockRange::from_block_number(BlockRange::LENGTH)];
+
+        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            expected,
+            block_ranges.into_iter().map(|(r, _)| r).collect::<Vec<_>>()
+        );
     }
 }
