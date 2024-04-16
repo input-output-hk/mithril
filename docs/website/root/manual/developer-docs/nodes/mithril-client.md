@@ -168,7 +168,7 @@ Run in release mode with a specific mode:
 Run in release mode with a custom configuration using environment variables:
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) NETWORK=**YOUR_CARDANO_NETWORK** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./mithril-client
+GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./mithril-client
 ```
 
 :::tip
@@ -207,7 +207,6 @@ To prepare the environment variables, retrieve the values from the above **Mithr
 
 ```bash
 export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
-export NETWORK=**YOUR_CARDANO_NETWORK**
 export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
 export SNAPSHOT_DIGEST=latest
@@ -217,7 +216,6 @@ Here is an example configuration for the `release-preprod` network and the `late
 
 ```bash
 export MITHRIL_IMAGE_ID=latest
-export NETWORK=preprod
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
 export SNAPSHOT_DIGEST=latest
@@ -227,7 +225,7 @@ Proceed by creating a shell function for the Mithril client:
 
 ```bash
 mithril_client () {
-  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+  docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
 }
 ```
 
@@ -336,7 +334,6 @@ Here is a list of the available parameters:
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
 | `unstable` | `--unstable` | - | - | Enable unstable commands | - | - | - |
 | `run_mode` | `--run-mode` | - | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
-| `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
 | `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
 | `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
