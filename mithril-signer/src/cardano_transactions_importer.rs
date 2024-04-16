@@ -79,7 +79,13 @@ impl CardanoTransactionsImporter {
             return Ok(());
         }
 
-        let parsed_transactions = self.block_scanner.parse(&self.dirpath, from, until).await?;
+        // todo: temp algorithm, should be optimized to avoid loading all blocks & transactions
+        // at once in memory (probably using iterators)
+        let scanned_blocks = self.block_scanner.scan(&self.dirpath, from, until).await?;
+        let parsed_transactions: Vec<CardanoTransaction> = scanned_blocks
+            .into_iter()
+            .flat_map(|b| b.into_transactions())
+            .collect();
         debug!(
             self.logger,
             "TransactionsImporter retrieved '{}' Cardano transactions between immutables '{}' and '{until}'",
@@ -114,6 +120,8 @@ mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
 
+    use mithril_common::cardano_block_scanner::ScannedBlock;
+
     use crate::database::repository::CardanoTransactionRepository;
     use crate::database::test_utils::cardano_tx_db_connection;
 
@@ -124,12 +132,12 @@ mod tests {
 
         #[async_trait]
         impl BlockScanner for BlockScannerImpl {
-            async fn parse(
+            async fn scan(
               &self,
               dirpath: &Path,
               from_immutable: Option<ImmutableFileNumber>,
               until_immutable: ImmutableFileNumber,
-            ) -> StdResult<Vec<CardanoTransaction>>;
+            ) -> StdResult<Vec<ScannedBlock>>;
         }
     }
 
@@ -142,15 +150,15 @@ mod tests {
         TStore: FnOnce(&mut MockTransactionStore),
     {
         let db_path = Path::new("");
-        let mut parser = MockBlockScannerImpl::new();
-        scanner_mock_config(&mut parser);
+        let mut scanner = MockBlockScannerImpl::new();
+        scanner_mock_config(&mut scanner);
 
         let mut store = MockTransactionStore::new();
         store.expect_get_up_to().returning(|_| Ok(vec![]));
         store_mock_config(&mut store);
 
         CardanoTransactionsImporter::new(
-            Arc::new(parser),
+            Arc::new(scanner),
             Arc::new(store),
             db_path,
             None,
@@ -160,21 +168,22 @@ mod tests {
 
     #[tokio::test]
     async fn if_nothing_stored_parse_and_store_all_transactions() {
-        let transactions = vec![
-            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 11),
-            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 11),
-            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
-            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
+        let blocks = vec![
+            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
+        let transactions: Vec<CardanoTransaction> = blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect();
         let up_to_beacon = 12;
 
         let importer = build_importer(
             |scanner_mock| {
-                let parsed_transactions = transactions.clone();
                 scanner_mock
-                    .expect_parse()
+                    .expect_scan()
                     .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
-                    .return_once(move |_, _, _| Ok(parsed_transactions));
+                    .return_once(move |_, _, _| Ok(blocks));
             },
             |store_mock| {
                 let expected_stored_transactions = transactions.clone();
@@ -201,7 +210,7 @@ mod tests {
 
         let importer = build_importer(
             |scanner_mock| {
-                scanner_mock.expect_parse().never();
+                scanner_mock.expect_scan().never();
             },
             |store_mock| {
                 store_mock
@@ -219,21 +228,23 @@ mod tests {
 
     #[tokio::test]
     async fn if_all_half_are_stored_the_other_half_is_parsed_and_stored() {
-        let transactions = vec![
-            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-10", 11),
-            CardanoTransaction::new("tx_hash-2", 20, 20, "block_hash-20", 12),
-            CardanoTransaction::new("tx_hash-3", 30, 25, "block_hash-30", 13),
-            CardanoTransaction::new("tx_hash-4", 40, 30, "block_hash-40", 14),
+        let blocks = [
+            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
+        let transactions: Vec<CardanoTransaction> = blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect();
         let up_to_beacon = 14;
 
         let importer = build_importer(
             |scanner_mock| {
-                let parsed_transactions = transactions[2..=3].to_vec();
+                let scanned_blocks = vec![blocks[1].clone()];
                 scanner_mock
-                    .expect_parse()
+                    .expect_scan()
                     .withf(move |_, from, until| from == &Some(13) && until == &up_to_beacon)
-                    .return_once(move |_, _, _| Ok(parsed_transactions));
+                    .return_once(move |_, _, _| Ok(scanned_blocks));
             },
             |store_mock| {
                 store_mock
@@ -257,19 +268,18 @@ mod tests {
     #[tokio::test]
     async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_the_transactions_in_same_order(
     ) {
-        let transactions = vec![
-            CardanoTransaction::new("tx_hash-1", 10, 15, "block_hash-1", 11),
-            CardanoTransaction::new("tx_hash-2", 10, 20, "block_hash-1", 11),
-            CardanoTransaction::new("tx_hash-3", 20, 25, "block_hash-2", 12),
-            CardanoTransaction::new("tx_hash-4", 20, 30, "block_hash-2", 12),
+        let blocks = vec![
+            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
+        let transactions: Vec<CardanoTransaction> = blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect();
         let importer = {
             let connection = cardano_tx_db_connection().unwrap();
-            let parsed_transactions = transactions.clone();
             let mut scanner = MockBlockScannerImpl::new();
-            scanner
-                .expect_parse()
-                .return_once(move |_, _, _| Ok(parsed_transactions));
+            scanner.expect_scan().return_once(move |_, _, _| Ok(blocks));
 
             CardanoTransactionsImporter::new(
                 Arc::new(scanner),
