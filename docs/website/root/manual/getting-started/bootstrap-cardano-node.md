@@ -99,7 +99,7 @@ To check if the version of the Mithril signer binary is correct, use the followi
 You should see something like:
 
 ```bash
-mithril-client 0.2.0
+mithril-client 0.7.6
 ```
 
 :warning: Verify that the version displayed corresponds to the version specified in the content of the Release/Pre-release notes (refer to the **Build from** column in the 'Mithril networks' table above).
@@ -120,8 +120,10 @@ This program shows, downloads and verifies certified blockchain artifacts.
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  snapshot                    Snapshot commands
+  snapshot                    Deprecated, use `cardano-db` instead
+  cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -132,13 +134,17 @@ Options:
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration aggregator endpoint URL
+          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+      --log-format-json
+          Enable JSON output for logs displayed according to verbosity level
+      --log-output <LOG_OUTPUT>
+          Redirect the logs to a file
+      --unstable
+          Enable unstable commands (such as Cardano Transactions)
   -h, --help
           Print help
   -V, --version
           Print version
-
-
 ```
 
 :::tip
@@ -146,7 +152,7 @@ Options:
 To display results in JSON format for the `list` and `show` commands of the Mithril client, you can use the `--json` option:
 
 ```bash
-./mithril-client snapshot list --json
+./mithril-client cardano-db snapshot list --json
 ```
 
 :::
@@ -197,7 +203,7 @@ You can now use the `mithril_client` function:
 mithril_client help
 
 # 2- List snapshots
-mithril_client snapshot list
+mithril_client cardano-db snapshot list
 ```
 
 :::tip
@@ -206,7 +212,7 @@ In the following part of the document, you will need to replace the `./mithril-c
 
 :::
 
-## Bootstrap a Cardano node from a testnet Mithril snapshot
+## Bootstrap a Cardano node from a testnet Mithril Cardano DB snapshot
 
 ### Step 1: Prepare some useful variables
 
@@ -217,34 +223,34 @@ export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 # Genesis verification key
 export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
 
-# Digest of the latest produced snapshot for convenience of the demo
+# Digest of the latest produced cardano db snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
 export SNAPSHOT_DIGEST=latest
 ```
 
-### Step 2: Select a snapshot
+### Step 2: Select a Cardano DB snapshot
 
-List the available snapshots with which you can bootstrap a Cardano node:
+List the available cardano db snapshots with which you can bootstrap a Cardano node:
 
 ```bash
-./mithril-client snapshot list
+./mithril-client cardano-db snapshot list
 ```
 
 You will see a list of snapshots:
 
 ```bash
-+-------+-----------+------------------------------------------------------------------+------------+-----------+--------------------------------+
-| Epoch | Immutable | Digest                                                           | Size       | Locations | Created                        |
-+-------+-----------+------------------------------------------------------------------+------------+-----------+--------------------------------+
-| 72    | 1379      | a305aa11b0e2ccf737d4f5def8b0a9f2245eded2b4ec4be876f7bd64deddcbbf | 1259745182 |         1 | 2023-05-31T14:02:40.150189810Z |
-+-------+-----------+------------------------------------------------------------------+------------+-----------+--------------------------------+
-| 72    | 1378      | 5c2214b0b3a00cccacc96b65f9741d4e818df0bc092bee30986e4d554396c6fd | 1258142105 |         1 | 2023-05-31T07:48:08.357263836Z |
-+-------+-----------+------------------------------------------------------------------+------------+-----------+--------------------------------+
-| 72    | 1377      | 7cea14e5742387ca770a74f3e3cfdd93fc38573e2babbf05df292888a528ab15 | 1256695921 |         1 | 2023-05-31T01:56:38.178640636Z |
-+-------+-----------+------------------------------------------------------------------+------------+-----------+--------------------------------+
-| 72    | 1376      | 4cb153b55f6cadf47bc48cc3112c16a037ee49416820190dc9e121d4aa49369f | 1255258102 |         1 | 2023-05-30T20:11:54.620669432Z |
-+-------+-----------+------------------------------------------------------------------+------------+-----------+--------------------------------+
-|       |           |                                                                  |            |           |                                |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+-----------------------------------+
+| Epoch | Immutable | Network | Digest                                                           |       Size | Locations |                           Created |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+-----------------------------------+
+| 539   | 10787     | preview | db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667 | 2323485648 | 1         | 2024-04-16 12:56:22.170174972 UTC |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+-----------------------------------+
+| 539   | 10786     | preview | 6af5dac31e7697c4481426712742f4d6391aea0a5b1df145e08e9eaa105af4a5 | 2323875790 | 1         | 2024-04-16 11:44:25.583804349 UTC |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+-----------------------------------+
+| 539   | 10785     | preview | 39770647f027a214ac955668dffe4d6d51b9cf67798041de1b003b21ef2208da | 2323295044 | 1         | 2024-04-16 10:31:26.056746652 UTC |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+-----------------------------------+
+| 539   | 10784     | preview | 9ce64187cb6af25266563e039e8d15962d281482979df94e3ac5c5ca6a914eea | 2323079205 | 1         | 2024-04-16 09:08:14.605224999 UTC |
++-------+-----------+---------+------------------------------------------------------------------+------------+-----------+-----------------------------------+
+|       |           |         |                                                                  |            |           |                                   |
 …
 ```
 
@@ -254,58 +260,65 @@ If you restore a Cardano node with a version not included in the advertised rang
 
 :::
 
-### Step 3: Show snapshot details
+### Step 3: Show Cardano DB snapshot details
 
 To get more details from a specific snapshot (optional), run:
 
 ```bash
-./mithril-client snapshot show $SNAPSHOT_DIGEST
+./mithril-client cardano-db snapshot show $SNAPSHOT_DIGEST
 ```
 
 You will see more information about the snapshot:
 
 ```bash
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Info                  | Value                                                                                                                         |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Epoch                 | 72                                                                                                                            |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Immutable File Number | 1379                                                                                                                          |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Digest                | a305aa11b0e2ccf737d4f5def8b0a9f2245eded2b4ec4be876f7bd64deddcbbf                                                              |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Size                  | 1259745182                                                                                                                    |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Location 1            | https://storage.googleapis.com/mithril-release-preprod-…aa11b0e2ccf737d4f5def8b0a9f2245eded2b4ec4be876f7bd64deddcbbf.tar.gz   |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Cardano node version  | 8.7.3                                                                                                                         |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
-| Created               | 2023-05-31T14:02:40.150189810Z                                                                                                |
-+-----------------------+-------------------------------------------------------------------------------------------------------------------------------+
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Epoch                 | 539                                                                                                                                                                            |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Immutable File Number | 10787                                                                                                                                                                          |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Network               | preview                                                                                                                                                                        |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Digest                | db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667                                                                                                               |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Size                  | 2323485648                                                                                                                                                                     |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Cardano node version  | 8.9.0                                                                                                                                                                          |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Location              | https://storage.googleapis.com/cdn.aggregator.testing-preview.api.mithril.network/preview-e539-i10787.db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667.tar.zst |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Created               | 2024-04-16 12:56:22.170174972 UTC                                                                                                                                              |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
+| Compression Algorithm | Zstandard                                                                                                                                                                      |
++-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 ```
 
-### Step 4: Download the selected snapshot
+### Step 4: Download the selected Cardano DB snapshot
 
 To download the selected snapshot from the remote location to your remote location, run:
 
 ```bash
-./mithril-client snapshot download $SNAPSHOT_DIGEST
+./mithril-client cardano-db download $SNAPSHOT_DIGEST
 ```
 
 
 You will see that the selected snapshot archive has been downloaded locally, unpacked, and that the associated certificate is valid:
 
 ```bash
-Unpacking snapshot...
-Unpack success cd587611b5ff2445c714bef083d9455ed3e42e9304ae0ad38b02432d03f9b068
-to /home/mithril/data/testnet/cd587611b5ff2445c714bef083d9455ed3e42e9304ae0ad38b02432d03f9b068/db
+1/5 - Checking local disk info…
+2/5 - Fetching the certificate and verifying the certificate chain…
+3/5 - Downloading and unpacking the cardano db 
+4/5 - Computing the cardano db message
+5/5 - Verifying the cardano db signature…
+Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
 
-Restore a Cardano node:
+    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 8.9.0.
 
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/cd587611b5ff2445c714bef083d9455ed3e42e9304ae0ad38b02432d03f9b068/db",target=/data/db/ -e NETWORK=testnet inputoutput/cardano-node
+    If you are using Cardano Docker image, you can restore a Cardano Node with:
+
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:8.9.0
 ```
 
-### Step 5: Launch a Cardano node from the restored snapshot
+### Step 5: Launch a Cardano node from the restored Cardano DB snapshot
 
 Launch an empty Cardano node and make it live in minutes!
 
