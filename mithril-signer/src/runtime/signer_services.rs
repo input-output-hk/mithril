@@ -4,7 +4,7 @@ use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_transaction_parser::CardanoTransactionParser,
+    cardano_block_scanner::CardanoBlockScanner,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
@@ -257,7 +257,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(CardanoTransactionParser::new(
+        let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),
             self.config
                 .get_network()?
@@ -267,7 +267,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             transaction_sqlite_connection,
         ));
         let transactions_importer = CardanoTransactionsImporter::new(
-            transaction_parser,
+            block_scanner,
             transaction_store,
             &self.config.db_directory,
             // Rescan the last immutable when importing transactions, it may have been partially imported

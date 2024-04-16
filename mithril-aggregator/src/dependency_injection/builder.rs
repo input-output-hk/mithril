@@ -13,7 +13,7 @@ use warp::Filter;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_transaction_parser::{CardanoTransactionParser, TransactionParser},
+    cardano_block_scanner::{BlockScanner, CardanoBlockScanner},
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     crypto_helper::{
@@ -137,7 +137,7 @@ pub struct DependenciesBuilder {
     pub transaction_store: Option<Arc<dyn TransactionStore>>,
 
     /// Cardano transactions parser.
-    pub transaction_parser: Option<Arc<dyn TransactionParser>>,
+    pub block_scanner: Option<Arc<dyn BlockScanner>>,
 
     /// Immutable file digester service.
     pub immutable_digester: Option<Arc<dyn ImmutableDigester>>,
@@ -233,7 +233,7 @@ impl DependenciesBuilder {
             cardano_cli_runner: None,
             chain_observer: None,
             time_point_provider: None,
-            transaction_parser: None,
+            block_scanner: None,
             transaction_repository: None,
             transaction_store: None,
             immutable_digester: None,
@@ -713,24 +713,24 @@ impl DependenciesBuilder {
         Ok(self.transaction_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
-        let transaction_parser = CardanoTransactionParser::new(
+    async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
+        let block_scanner = CardanoBlockScanner::new(
             self.get_logger().await?,
             self.configuration
                 .get_network()?
                 .compute_allow_unparsable_block(self.configuration.allow_unparsable_block)?,
         );
 
-        Ok(Arc::new(transaction_parser))
+        Ok(Arc::new(block_scanner))
     }
 
     /// Transaction parser.
-    pub async fn get_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
-        if self.transaction_parser.is_none() {
-            self.transaction_parser = Some(self.build_transaction_parser().await?);
+    pub async fn get_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
+        if self.block_scanner.is_none() {
+            self.block_scanner = Some(self.build_block_scanner().await?);
         }
 
-        Ok(self.transaction_parser.as_ref().cloned().unwrap())
+        Ok(self.block_scanner.as_ref().cloned().unwrap())
     }
 
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
@@ -1055,7 +1055,7 @@ impl DependenciesBuilder {
             self.get_logger().await?,
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
-            self.get_transaction_parser().await?,
+            self.get_block_scanner().await?,
             self.get_transaction_store().await?,
             &self.configuration.db_directory,
             // Rescan the last immutable when importing transactions, it may have been partially imported
@@ -1198,7 +1198,7 @@ impl DependenciesBuilder {
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
-            transaction_parser: self.get_transaction_parser().await?,
+            transaction_parser: self.get_block_scanner().await?,
             transaction_store: self.get_transaction_store().await?,
             prover_service: self.get_prover_service().await?,
         };

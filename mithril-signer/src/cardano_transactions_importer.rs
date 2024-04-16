@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use mockall::automock;
 use slog::{debug, Logger};
 
-use mithril_common::cardano_transaction_parser::TransactionParser;
+use mithril_common::cardano_block_scanner::BlockScanner;
 use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
@@ -30,7 +30,7 @@ pub trait TransactionStore: Send + Sync {
 
 /// Import and store [CardanoTransaction].
 pub struct CardanoTransactionsImporter {
-    transaction_parser: Arc<dyn TransactionParser>,
+    block_scanner: Arc<dyn BlockScanner>,
     transaction_store: Arc<dyn TransactionStore>,
     logger: Logger,
     rescan_offset: Option<usize>,
@@ -44,14 +44,14 @@ impl CardanoTransactionsImporter {
     /// immutables starting after the highest immutable known in the store.
     /// This is useful when one of the last immutable was not full scanned.
     pub fn new(
-        transaction_parser: Arc<dyn TransactionParser>,
+        block_scanner: Arc<dyn BlockScanner>,
         transaction_store: Arc<dyn TransactionStore>,
         dirpath: &Path,
         rescan_offset: Option<usize>,
         logger: Logger,
     ) -> Self {
         Self {
-            transaction_parser,
+            block_scanner,
             transaction_store,
             logger,
             rescan_offset,
@@ -79,10 +79,7 @@ impl CardanoTransactionsImporter {
             return Ok(());
         }
 
-        let parsed_transactions = self
-            .transaction_parser
-            .parse(&self.dirpath, from, until)
-            .await?;
+        let parsed_transactions = self.block_scanner.parse(&self.dirpath, from, until).await?;
         debug!(
             self.logger,
             "TransactionsImporter retrieved '{}' Cardano transactions between immutables '{}' and '{until}'",
@@ -123,10 +120,10 @@ mod tests {
     use super::*;
 
     mock! {
-        pub TransactionParserImpl { }
+        pub BlockScannerImpl { }
 
         #[async_trait]
-        impl TransactionParser for TransactionParserImpl {
+        impl BlockScanner for BlockScannerImpl {
             async fn parse(
               &self,
               dirpath: &Path,
@@ -137,16 +134,16 @@ mod tests {
     }
 
     fn build_importer<TParser, TStore>(
-        parser_mock_config: TParser,
+        scanner_mock_config: TParser,
         store_mock_config: TStore,
     ) -> CardanoTransactionsImporter
     where
-        TParser: FnOnce(&mut MockTransactionParserImpl),
+        TParser: FnOnce(&mut MockBlockScannerImpl),
         TStore: FnOnce(&mut MockTransactionStore),
     {
         let db_path = Path::new("");
-        let mut parser = MockTransactionParserImpl::new();
-        parser_mock_config(&mut parser);
+        let mut parser = MockBlockScannerImpl::new();
+        scanner_mock_config(&mut parser);
 
         let mut store = MockTransactionStore::new();
         store.expect_get_up_to().returning(|_| Ok(vec![]));
@@ -172,9 +169,9 @@ mod tests {
         let up_to_beacon = 12;
 
         let importer = build_importer(
-            |parser_mock| {
+            |scanner_mock| {
                 let parsed_transactions = transactions.clone();
-                parser_mock
+                scanner_mock
                     .expect_parse()
                     .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
                     .return_once(move |_, _, _| Ok(parsed_transactions));
@@ -203,8 +200,8 @@ mod tests {
         let up_to_beacon = 12;
 
         let importer = build_importer(
-            |parser_mock| {
-                parser_mock.expect_parse().never();
+            |scanner_mock| {
+                scanner_mock.expect_parse().never();
             },
             |store_mock| {
                 store_mock
@@ -231,9 +228,9 @@ mod tests {
         let up_to_beacon = 14;
 
         let importer = build_importer(
-            |parser_mock| {
+            |scanner_mock| {
                 let parsed_transactions = transactions[2..=3].to_vec();
-                parser_mock
+                scanner_mock
                     .expect_parse()
                     .withf(move |_, from, until| from == &Some(13) && until == &up_to_beacon)
                     .return_once(move |_, _, _| Ok(parsed_transactions));
@@ -269,13 +266,13 @@ mod tests {
         let importer = {
             let connection = cardano_tx_db_connection().unwrap();
             let parsed_transactions = transactions.clone();
-            let mut parser = MockTransactionParserImpl::new();
-            parser
+            let mut scanner = MockBlockScannerImpl::new();
+            scanner
                 .expect_parse()
                 .return_once(move |_, _, _| Ok(parsed_transactions));
 
             CardanoTransactionsImporter::new(
-                Arc::new(parser),
+                Arc::new(scanner),
                 Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
                 Path::new(""),
                 None,
@@ -309,7 +306,7 @@ mod tests {
                 .returning(move || Ok(Some(highest_stored_beacon)));
 
             CardanoTransactionsImporter::new(
-                Arc::new(MockTransactionParserImpl::new()),
+                Arc::new(MockBlockScannerImpl::new()),
                 Arc::new(store),
                 Path::new(""),
                 Some(rescan_offset as usize),

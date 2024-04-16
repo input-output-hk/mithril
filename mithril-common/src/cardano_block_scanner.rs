@@ -22,17 +22,17 @@ use tokio::sync::RwLock;
 /// mod test {
 ///     use anyhow::anyhow;
 ///     use async_trait::async_trait;
-///     use mithril_common::cardano_transaction_parser::TransactionParser;
+///     use mithril_common::cardano_block_scanner::BlockScanner;
 ///     use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber};
 ///     use mithril_common::StdResult;
 ///     use mockall::mock;
 ///     use std::path::Path;
 ///
 ///     mock! {
-///         pub TransactionParserImpl { }
+///         pub BlockScannerImpl { }
 ///
 ///         #[async_trait]
-///         impl TransactionParser for TransactionParserImpl {
+///         impl BlockScanner for BlockScannerImpl {
 ///             async fn parse(
 ///               &self,
 ///               dirpath: &Path,
@@ -44,7 +44,7 @@ use tokio::sync::RwLock;
 ///
 ///     #[test]
 ///     fn test_mock() {
-///         let mut mock = MockTransactionParserImpl::new();
+///         let mut mock = MockBlockScannerImpl::new();
 ///         mock.expect_parse().return_once(|_, _| {
 ///             Err(anyhow!("parse error"))
 ///         });
@@ -52,7 +52,7 @@ use tokio::sync::RwLock;
 /// }
 /// ```
 #[async_trait]
-pub trait TransactionParser: Sync + Send {
+pub trait BlockScanner: Sync + Send {
     /// Parse the transactions
     async fn parse(
         &self,
@@ -63,11 +63,11 @@ pub trait TransactionParser: Sync + Send {
 }
 
 /// Dumb transaction parser
-pub struct DumbTransactionParser {
+pub struct DumbBlockScanner {
     transactions: RwLock<Vec<CardanoTransaction>>,
 }
 
-impl DumbTransactionParser {
+impl DumbBlockScanner {
     /// Factory
     pub fn new(transactions: Vec<CardanoTransaction>) -> Self {
         Self {
@@ -83,7 +83,7 @@ impl DumbTransactionParser {
 }
 
 #[async_trait]
-impl TransactionParser for DumbTransactionParser {
+impl BlockScanner for DumbBlockScanner {
     async fn parse(
         &self,
         _dirpath: &Path,
@@ -120,7 +120,7 @@ impl Block {
 }
 
 /// Cardano transaction parser
-pub struct CardanoTransactionParser {
+pub struct CardanoBlockScanner {
     logger: Logger,
     /// When set to true, no error is returned in case of unparsable block, and an error log is written instead.
     /// This can occur when the crate 'pallas-hardano' doesn't support some non final encoding for a Cardano era.
@@ -128,7 +128,7 @@ pub struct CardanoTransactionParser {
     allow_unparsable_block: bool,
 }
 
-impl CardanoTransactionParser {
+impl CardanoBlockScanner {
     /// Factory
     pub fn new(logger: Logger, allow_unparsable_block: bool) -> Self {
         if allow_unparsable_block {
@@ -148,8 +148,7 @@ impl CardanoTransactionParser {
         &self,
         immutable_file: &ImmutableFile,
     ) -> StdResult<Vec<Block>> {
-        let cardano_blocks_reader =
-            CardanoTransactionParser::cardano_blocks_reader(immutable_file)?;
+        let cardano_blocks_reader = CardanoBlockScanner::cardano_blocks_reader(immutable_file)?;
 
         let mut blocks = Vec::new();
         for parsed_block in cardano_blocks_reader {
@@ -159,7 +158,7 @@ impl CardanoTransactionParser {
                     immutable_file.path
                 )
             })?;
-            match CardanoTransactionParser::convert_to_block(&block, immutable_file) {
+            match CardanoBlockScanner::convert_to_block(&block, immutable_file) {
                 Ok(convert_to_block) => {
                     blocks.push(convert_to_block);
                 }
@@ -206,7 +205,7 @@ impl CardanoTransactionParser {
 }
 
 #[async_trait]
-impl TransactionParser for CardanoTransactionParser {
+impl BlockScanner for CardanoBlockScanner {
     async fn parse(
         &self,
         dirpath: &Path,
@@ -256,13 +255,12 @@ impl TransactionParser for CardanoTransactionParser {
 
 #[cfg(test)]
 mod tests {
-
-    use super::*;
+    use slog::Drain;
+    use std::{fs::File, sync::Arc};
 
     use crate::test_utils::TempDir;
 
-    use slog::Drain;
-    use std::{fs::File, sync::Arc};
+    use super::*;
 
     fn get_number_of_immutable_chunk_in_dir(dir: &Path) -> usize {
         ImmutableFile::list_completed_in_dir(dir)
@@ -272,7 +270,7 @@ mod tests {
             .len()
     }
 
-    fn create_file_logger(filepath: &Path) -> slog::Logger {
+    fn create_file_logger(filepath: &Path) -> Logger {
         let writer = File::create(filepath).unwrap();
         let decorator = slog_term::PlainDecorator::new(writer);
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
@@ -291,7 +289,7 @@ mod tests {
         let until_immutable_file = 2;
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
+            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
             .parse(db_path, None, until_immutable_file)
@@ -311,7 +309,7 @@ mod tests {
         let until_immutable_file = 2;
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
+            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
             .parse(db_path, Some(2), until_immutable_file)
@@ -326,7 +324,7 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/parsing_error/immutable/");
         let until_immutable_file = 4831;
         let cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
+            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let result = cardano_transaction_parser
             .parse(db_path, None, until_immutable_file)
@@ -347,7 +345,7 @@ mod tests {
         // We create a block to drop the logger and force a flush before we read the log file.
         {
             let cardano_transaction_parser =
-                CardanoTransactionParser::new(create_file_logger(&filepath), true);
+                CardanoBlockScanner::new(create_file_logger(&filepath), true);
 
             cardano_transaction_parser
                 .parse(db_path, None, until_immutable_file)
@@ -369,7 +367,7 @@ mod tests {
         let until_immutable_file = 1;
         let tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
         let cardano_transaction_parser =
-            CardanoTransactionParser::new(Logger::root(slog::Discard, slog::o!()), false);
+            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
 
         let transactions = cardano_transaction_parser
             .parse(db_path, None, until_immutable_file)
@@ -388,7 +386,7 @@ mod tests {
         let filepath = temp_dir.join("test.log");
         // We create a block to drop the logger and force a flush before we read the log file.
         {
-            let _ = CardanoTransactionParser::new(create_file_logger(&filepath), true);
+            let _ = CardanoBlockScanner::new(create_file_logger(&filepath), true);
         }
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();
@@ -404,7 +402,7 @@ mod tests {
         let filepath = temp_dir.join("test.log");
         // We create a block to drop the logger and force a flush before we read the log file.
         {
-            let _ = CardanoTransactionParser::new(create_file_logger(&filepath), false);
+            let _ = CardanoBlockScanner::new(create_file_logger(&filepath), false);
         }
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();
