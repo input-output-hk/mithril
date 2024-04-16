@@ -262,19 +262,24 @@ impl Configuration {
     pub fn list_allowed_signed_entity_types_discriminants(
         &self,
     ) -> StdResult<Vec<SignedEntityTypeDiscriminants>> {
-        let mut signed_entity_types = Vec::new();
-        signed_entity_types.push(SignedEntityTypeDiscriminants::MithrilStakeDistribution);
-        signed_entity_types.push(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull);
+        let default_discriminants = vec![
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+        ];
+
+        let mut all_discriminants = default_discriminants;
 
         let discriminant_names = self.signed_entity_types.clone().unwrap_or_default();
-        let mut signed_entity_types_appended = discriminant_names
+        for discriminant in discriminant_names
             .split(',')
             .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
-            .filter(|signed_entity_type| !signed_entity_types.contains(signed_entity_type))
-            .collect::<Vec<_>>();
-        signed_entity_types.append(&mut signed_entity_types_appended);
+        {
+            if !all_discriminants.contains(&discriminant) {
+                all_discriminants.push(discriminant)
+            }
+        }
 
-        Ok(signed_entity_types)
+        Ok(all_discriminants)
     }
 
     /// Create the deduplicated list of allowed signed entity types.
@@ -503,20 +508,14 @@ mod test {
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_without_specific_configuration() {
-        let beacon = fake_data::beacon();
+    fn test_list_allowed_signed_entity_types_discriminant_without_specific_configuration() {
         let config = Configuration {
             signed_entity_types: None,
-            network: beacon.network.clone(),
             ..Configuration::new_sample()
         };
-        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
 
         let discriminants = config
             .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-        let signed_entity_types = config
-            .list_allowed_signed_entity_types(&time_point)
             .unwrap();
 
         assert_eq!(
@@ -526,32 +525,89 @@ mod test {
             ],
             discriminants
         );
-        assert_eq!(
-            vec![
-                SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-            ],
-            signed_entity_types
-        );
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_with_specific_configuration() {
-        let beacon = fake_data::beacon();
+    fn test_list_allowed_signed_entity_types_discriminant_should_not_return_unknown_signed_entity_types_in_configuration(
+    ) {
         let config = Configuration {
-            network: beacon.network.clone(),
-            signed_entity_types: Some(
-                "MithrilStakeDistribution,Unknown, CardanoStakeDistribution".to_string(),
-            ),
+            signed_entity_types: Some("Unknown".to_string()),
             ..Configuration::new_sample()
         };
-        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
 
         let discriminants = config
             .list_allowed_signed_entity_types_discriminants()
             .unwrap();
-        let signed_entity_types = config
-            .list_allowed_signed_entity_types(&time_point)
+
+        assert_eq!(
+            vec![
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ],
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminant_should_not_duplicate_a_signed_entity_discriminant_type_already_in_default_ones(
+    ) {
+        let config = Configuration {
+            signed_entity_types: Some(
+                "CardanoImmutableFilesFull, MithrilStakeDistribution, CardanoImmutableFilesFull"
+                    .to_string(),
+            ),
+            ..Configuration::new_sample()
+        };
+
+        let discriminants = config
+            .list_allowed_signed_entity_types_discriminants()
+            .unwrap();
+
+        assert_eq!(
+            vec![
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ],
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminants_should_add_signed_entity_types_in_configuration_at_the_end(
+    ) {
+        let config = Configuration {
+            signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
+            ..Configuration::new_sample()
+        };
+
+        let discriminants = config
+            .list_allowed_signed_entity_types_discriminants()
+            .unwrap();
+
+        assert_eq!(
+            vec![
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ],
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminants_with_multiple_identical_signed_entity_types_in_configuration_should_not_be_added_several_times(
+    ) {
+        let config = Configuration {
+            signed_entity_types: Some(
+                "CardanoStakeDistribution, CardanoStakeDistribution, CardanoStakeDistribution"
+                    .to_string(),
+            ),
+            ..Configuration::new_sample()
+        };
+
+        let discriminants = config
+            .list_allowed_signed_entity_types_discriminants()
             .unwrap();
 
         assert_eq!(
@@ -562,11 +618,29 @@ mod test {
             ],
             discriminants
         );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_with_specific_configuration() {
+        let beacon = fake_data::beacon();
+        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
+
+        let config = Configuration {
+            network: beacon.network.clone(),
+            signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
+            ..Configuration::new_sample()
+        };
+
+        let signed_entity_types = config
+            .list_allowed_signed_entity_types(&time_point)
+            .unwrap();
+
         assert_eq!(
             vec![
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
                 SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 SignedEntityType::CardanoStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoTransactions(beacon.clone()),
             ],
             signed_entity_types
         );

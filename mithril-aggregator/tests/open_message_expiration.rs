@@ -5,8 +5,8 @@ use std::time::Duration;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, StakeDistributionParty, TimePoint,
+        CardanoDbBeacon, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+        TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -59,6 +59,19 @@ async fn open_message_expiration() {
         .unwrap();
     cycle_err!(tester, "signing");
 
+    comment!(
+        "Schedule the open message for MithrilStakeDistribution to expire, and wait until it does"
+    );
+    let open_message_timeout = Duration::from_millis(100);
+    tester
+        .activate_open_message_expiration(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            open_message_timeout,
+        )
+        .await
+        .unwrap();
+    tokio::time::sleep(2 * open_message_timeout).await;
+
     comment!("signers send their single signature");
     tester
         .send_single_signatures(
@@ -68,66 +81,13 @@ async fn open_message_expiration() {
         .await
         .unwrap();
 
-    comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
+    comment!("The state machine should not issue a certificate for the MithrilStakeDistribution");
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 2),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                1
-            )),
-        )
-    );
-
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
-    // todo!: remove this immutable increase:
-    // right now because we only have one state machine for all signed entity type we need it else
-    // the state machine will stay in the idle state since its beacon didn't change.
-    // With one state machine per signed entity type this problem will disappear.
-    tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "signing");
-
-    comment!(
-        "Schedule the open message for CardanoImmutableFilesFull to expire, and wait until it does"
-    );
-    let open_message_timeout = Duration::from_millis(100);
-    tester
-        .activate_open_message_expiration(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            open_message_timeout,
-        )
-        .await
-        .unwrap();
-    tokio::time::sleep(2 * open_message_timeout).await;
-    let signers_for_immutables = &fixture.signers_fixture()[0..=6];
-    tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            signers_for_immutables,
-        )
-        .await
-        .unwrap();
-
-    comment!("The state machine should not issue a certificate for the CardanoImmutableFilesFull");
-    cycle!(tester, "ready");
-    assert_last_certificate_eq!(
-        tester,
-        ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 2),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                1
-            )),
+        ExpectedCertificate::new_genesis(
+            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
+            fixture.compute_and_encode_avk()
         )
     );
 
@@ -150,7 +110,7 @@ async fn open_message_expiration() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 4),
+            CardanoDbBeacon::new("devnet".to_string(), 1, 3),
             &signers_for_immutables
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
@@ -159,7 +119,7 @@ async fn open_message_expiration() {
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,
-                4
+                3
             )),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
