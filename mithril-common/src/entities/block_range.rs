@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter, Result},
-    ops::{Deref, Range},
+    ops::{Deref, Range, RangeInclusive},
 };
 
 use crate::{
@@ -53,6 +53,21 @@ impl BlockRange {
         }
     }
 
+    /// Get the start of the block range that contains the given block number
+    pub fn start(number: BlockNumber) -> BlockNumber {
+        Self::start_with_length(number, Self::LENGTH)
+    }
+
+    /// Get all [BlockRange] contained in the given interval
+    pub fn all_ranges_in(interval: RangeInclusive<BlockNumber>) -> Vec<BlockRange> {
+        let all_numbers: Vec<BlockNumber> =
+            interval.skip_while(|i| i % Self::LENGTH != 0).collect();
+        all_numbers
+            .chunks_exact(Self::LENGTH as usize)
+            .map(|chunk| Self::from_block_number(chunk[0]))
+            .collect()
+    }
+
     /// Create a BlockRange from a block number
     pub fn from_block_number(number: BlockNumber) -> Self {
         // Unwrap is safe as the length is always strictly greater than 0
@@ -69,13 +84,18 @@ impl BlockRange {
                 "BlockRange cannot be be computed with a length of 0"
             ));
         }
-        // The formula used to compute the lower bound of the block range is `⌊number / length⌋ * length`
-        // The computation of the floor is done with the integer division `/` of Rust
-        let block_range_start = (number / length) * length;
+        let block_range_start = Self::start_with_length(number, length);
         let block_range_end = block_range_start + length;
         Ok(Self {
             inner_range: block_range_start..block_range_end,
         })
+    }
+
+    /// Get the start of the block range of given length that contains the given block number
+    fn start_with_length(number: BlockNumber, length: BlockRangeLength) -> BlockNumber {
+        // the formula used to compute the lower bound of the block range is `⌊number / length⌋ * length`
+        // the computation of the floor is done with the integer division `/` of rust
+        (number / length) * length
     }
 }
 
@@ -131,7 +151,22 @@ impl MKMapKey for BlockRange {}
 
 #[cfg(test)]
 mod tests {
+    use std::ops::Not;
+
     use super::*;
+
+    #[test]
+    fn test_block_range_contains() {
+        let block_range = BlockRange::new(1, 10);
+
+        assert!(block_range.contains(&1));
+        assert!(block_range.contains(&6));
+        assert!(block_range.contains(&9));
+
+        assert!(block_range.contains(&0).not());
+        // The end of the range is exclusive
+        assert!(block_range.contains(&10).not());
+    }
 
     #[test]
     fn test_block_range_cmp() {
@@ -164,6 +199,46 @@ mod tests {
                 .try_add(&BlockRange::new(2, 10))
                 .unwrap(),
             BlockRange::new(1, 10)
+        );
+    }
+
+    #[test]
+    fn test_block_range_start() {
+        assert_eq!(BlockRange::start(0), 0);
+        assert_eq!(BlockRange::start(1), 0);
+        assert_eq!(BlockRange::start(14), 0);
+        assert_eq!(BlockRange::start(15), 15);
+        assert_eq!(BlockRange::start(16), 15);
+        assert_eq!(BlockRange::start(29), 15);
+    }
+
+    #[test]
+    fn test_block_range_all_ranges_in() {
+        assert_eq!(BlockRange::all_ranges_in(0..=0), vec![]);
+        assert_eq!(BlockRange::all_ranges_in(1..=16), vec![]);
+        assert_eq!(
+            BlockRange::all_ranges_in(0..=15),
+            vec![BlockRange::new(0, 15)]
+        );
+        assert_eq!(
+            BlockRange::all_ranges_in(0..=16),
+            vec![BlockRange::new(0, 15)]
+        );
+        assert_eq!(
+            BlockRange::all_ranges_in(14..=29),
+            vec![BlockRange::new(15, 30)]
+        );
+        assert_eq!(
+            BlockRange::all_ranges_in(14..=30),
+            vec![BlockRange::new(15, 30)]
+        );
+        assert_eq!(
+            BlockRange::all_ranges_in(14..=61),
+            vec![
+                BlockRange::new(15, 30),
+                BlockRange::new(30, 45),
+                BlockRange::new(45, 60)
+            ]
         );
     }
 
