@@ -255,7 +255,7 @@ impl Peer {
     }
 
     /// Publish a signer registration on the P2P pubsub
-    pub fn publish_signer(
+    pub fn publish_signer_registration(
         &mut self,
         message: &RegisterSignerMessage,
     ) -> StdResult<gossipsub::MessageId> {

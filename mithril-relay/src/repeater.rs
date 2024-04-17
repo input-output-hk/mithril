@@ -94,7 +94,7 @@ mod tests {
         repeater.set_message(message.to_string()).await;
 
         let result = tokio::select! {
-            _ = time::sleep(delay-Duration::from_millis(100)) => {Err(anyhow!("Timeout"))}
+            _ = time::sleep(delay - Duration::from_millis(100)) => {Err(anyhow!("Timeout"))}
             _ = repeater.repeat_message() => {Ok(())}
         };
 
@@ -119,7 +119,7 @@ mod tests {
         let repeater = MessageRepeater::new(tx, delay);
 
         let result = tokio::select! {
-            _ = time::sleep(delay-Duration::from_millis(100)) => {Err(anyhow!("Timeout"))}
+            _ = time::sleep(delay - Duration::from_millis(100)) => {Err(anyhow!("Timeout"))}
             _ = repeater.repeat_message() => {Ok(())}
         };
 

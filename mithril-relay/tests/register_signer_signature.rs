@@ -11,7 +11,7 @@ use slog::{Drain, Level, Logger};
 use slog_scope::{error, info};
 
 // Launch a relay that connects to P2P network. The relay is a peer in the P2P
-// network. The relay sends some signer regsitrations that must be received by other
+// network. The relay sends some signer registrations that must be received by other
 // relays.
 // TODO: this test is not optimal and should be refactored for better performances,
 // handling a variable number of peers and with test extensions to avoid code duplication
