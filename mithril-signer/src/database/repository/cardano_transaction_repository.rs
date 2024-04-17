@@ -130,6 +130,20 @@ impl TransactionStore for CardanoTransactionRepository {
         }
     }
 
+    async fn get_block_interval_without_associated_block_range_and_merkle_root(
+        &self,
+    ) -> StdResult<Option<(BlockNumber, BlockNumber)>> {
+        todo!()
+    }
+
+    async fn get_transactions_between(
+        &self,
+        _start: BlockNumber,
+        _end: BlockNumber,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        todo!()
+    }
+
     async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
         self.get_transactions_up_to(beacon).await.map(|v| {
             v.into_iter()

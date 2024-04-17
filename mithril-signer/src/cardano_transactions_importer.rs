@@ -4,9 +4,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
-use mithril_common::cardano_block_scanner::{BlockScanner, ScannedBlock};
-use mithril_common::crypto_helper::MKTreeNode;
-use mithril_common::entities::{BlockRange, CardanoTransaction, ImmutableFileNumber};
+use mithril_common::cardano_block_scanner::BlockScanner;
+use mithril_common::crypto_helper::{MKTree, MKTreeNode};
+use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -16,6 +16,18 @@ use mithril_common::StdResult;
 pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
+
+    /// Get the interval of blocks whose merkle root has yet to be computed
+    async fn get_block_interval_without_associated_block_range_and_merkle_root(
+        &self,
+    ) -> StdResult<Option<(BlockNumber, BlockNumber)>>;
+
+    /// Get transactions between two block numbers
+    async fn get_transactions_between(
+        &self,
+        start: BlockNumber,
+        end: BlockNumber,
+    ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Get stored transactions up to the given beacon
     async fn get_up_to(
@@ -64,6 +76,12 @@ impl CardanoTransactionsImporter {
         }
     }
 
+    async fn import_transactions(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()> {
+        let from = self.get_starting_beacon().await?;
+        self.parse_and_store_transactions_not_imported_yet(from, up_to_beacon)
+            .await
+    }
+
     async fn get_starting_beacon(&self) -> StdResult<Option<u64>> {
         let highest = self.transaction_store.get_highest_beacon().await?;
         let rescan_offset = self.rescan_offset.unwrap_or(0);
@@ -87,8 +105,6 @@ impl CardanoTransactionsImporter {
         // todo: temp algorithm, should be optimized to avoid loading all blocks & transactions
         // at once in memory (probably using iterators)
         let scanned_blocks = self.block_scanner.scan(&self.dirpath, from, until).await?;
-        let block_ranges = Self::compute_block_ranges(&scanned_blocks).await?;
-
         let parsed_transactions: Vec<CardanoTransaction> = scanned_blocks
             .into_iter()
             .flat_map(|b| b.into_transactions())
@@ -103,39 +119,52 @@ impl CardanoTransactionsImporter {
         self.transaction_store
             .store_transactions(parsed_transactions)
             .await?;
-        self.transaction_store
-            .store_block_ranges(block_ranges)
-            .await?;
         Ok(())
     }
 
-    async fn compute_block_ranges(
-        scanned_blocks: &[ScannedBlock],
-    ) -> StdResult<Vec<(BlockRange, MKTreeNode)>> {
-        let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];
-        if scanned_blocks.is_empty() {
-            return Ok(block_ranges_with_merkle_root);
+    async fn import_block_ranges(&self) -> StdResult<()> {
+        match self
+            .transaction_store
+            .get_block_interval_without_associated_block_range_and_merkle_root()
+            .await?
+        {
+            None => {
+                // Nothing to do
+                Ok(())
+            }
+            Some((start_block, end_block)) => {
+                let block_ranges =
+                    BlockRange::all_ranges_in(BlockRange::start(start_block)..=end_block);
+
+                if block_ranges.is_empty() {
+                    return Ok(());
+                }
+                let start = block_ranges[0].start;
+                let end = block_ranges[block_ranges.len() - 1].end;
+
+                let transactions: Vec<CardanoTransaction> = self
+                    .transaction_store
+                    .get_transactions_between(start, end)
+                    .await?;
+
+                let block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = block_ranges
+                    .into_iter()
+                    .map(|range| {
+                        let transactions_in_range = transactions
+                            .iter()
+                            .filter(|t| range.contains(&t.block_number))
+                            .map(|t| t.transaction_hash.clone())
+                            .collect::<Vec<_>>();
+                        let merkle_root = MKTree::new(&transactions_in_range)?.compute_root()?;
+                        Ok((range, merkle_root))
+                    })
+                    .collect::<StdResult<_>>()?;
+
+                self.transaction_store
+                    .store_block_ranges(block_ranges_with_merkle_root)
+                    .await
+            }
         }
-
-        let start = scanned_blocks[0].block_number;
-        let start_block_range = BlockRange::from_block_number(start);
-
-        let chunk = if start == start_block_range.start {
-            scanned_blocks.chunks_exact(BlockRange::LENGTH as usize)
-        } else {
-            scanned_blocks[((start_block_range.end - start) as usize)..scanned_blocks.len()]
-                .chunks_exact(BlockRange::LENGTH as usize)
-        };
-
-        block_ranges_with_merkle_root = chunk
-            .map(|c| {
-                let start = c[0].block_number;
-
-                (BlockRange::from_block_number(start), "".into())
-            })
-            .collect();
-
-        Ok(block_ranges_with_merkle_root)
     }
 }
 
@@ -145,9 +174,8 @@ impl TransactionsImporter for CardanoTransactionsImporter {
         &self,
         up_to_beacon: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        let from = self.get_starting_beacon().await?;
-        self.parse_and_store_transactions_not_imported_yet(from, up_to_beacon)
-            .await?;
+        self.import_transactions(up_to_beacon).await?;
+        self.import_block_ranges().await?;
 
         let transactions = self.transaction_store.get_up_to(up_to_beacon).await?;
         Ok(transactions)
@@ -207,18 +235,25 @@ mod tests {
         )
     }
 
-    fn block_range_with_merkle_root<T: Into<MKTreeNode> + Clone>(
-        block_number: BlockNumber,
-        hashes: &[T],
-    ) -> (BlockRange, MKTreeNode) {
-        (
-            BlockRange::from_block_number(block_number),
-            MKTree::new(hashes).unwrap().compute_root().unwrap(),
-        )
+    fn build_blocks(
+        start_block_number: BlockNumber,
+        number_of_consecutive_block: BlockNumber,
+    ) -> Vec<ScannedBlock> {
+        (start_block_number..(start_block_number + number_of_consecutive_block))
+            .map(|block_number| {
+                ScannedBlock::new(
+                    format!("block_hash-{}", block_number),
+                    block_number,
+                    block_number * 100,
+                    block_number * 10,
+                    vec![format!("tx_hash-{}", block_number)],
+                )
+            })
+            .collect()
     }
 
     #[tokio::test]
-    async fn if_nothing_stored_parse_and_store_all_transactions_and_block_ranges() {
+    async fn if_nothing_stored_parse_and_store_all_transactions() {
         let blocks = vec![
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
@@ -246,25 +281,82 @@ mod tests {
                     .with(eq(expected_stored_transactions))
                     .returning(|_| Ok(()))
                     .once();
+            },
+        );
+
+        importer
+            .import_transactions(up_to_beacon)
+            .await
+            .expect("Transactions Parser should succeed");
+    }
+
+    #[tokio::test]
+    async fn if_nothing_stored_parse_and_store_all_block_ranges() {
+        let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
+        let transactions: Vec<CardanoTransaction> = blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect();
+
+        let importer = build_importer(
+            |_scanner_mock| {},
+            |store_mock| {
+                let expected_stored_transactions = transactions.clone();
+                store_mock
+                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
+                    .returning(|| Ok(Some((0, BlockRange::LENGTH * 5 + 1))));
+                store_mock
+                    .expect_get_transactions_between()
+                    .withf(|start, end| start == &0 && end == &(BlockRange::LENGTH * 5))
+                    .return_once(move |_, _| Ok(expected_stored_transactions))
+                    .once();
                 store_mock
                     .expect_store_block_ranges()
-                    .with(eq(vec![
-                        block_range_with_merkle_root(10, &["tx_hash-1", "tx_hash-2"]),
-                        block_range_with_merkle_root(20, &["tx_hash-3", "tx_hash-4"]),
-                    ]))
+                    .withf(|block_ranges| {
+                        let values = block_ranges
+                            .iter()
+                            .map(|(r, _)| r.clone())
+                            .collect::<Vec<_>>();
+                        values
+                            == vec![
+                                BlockRange::from_block_number(0),
+                                BlockRange::from_block_number(BlockRange::LENGTH),
+                                BlockRange::from_block_number(BlockRange::LENGTH * 2),
+                                BlockRange::from_block_number(BlockRange::LENGTH * 3),
+                                BlockRange::from_block_number(BlockRange::LENGTH * 4),
+                            ]
+                    })
                     .returning(|_| Ok(()))
                     .once();
             },
         );
 
         importer
-            .import(up_to_beacon)
+            .import_block_ranges()
             .await
             .expect("Transactions Parser should succeed");
     }
 
     #[tokio::test]
-    async fn if_all_stored_nothing_is_parsed_and_stored() {
+    async fn if_all_block_ranges_computed_nothing_computed_and_stored() {
+        let importer = build_importer(
+            |_scanner_mock| {},
+            |store_mock| {
+                store_mock
+                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
+                    .returning(|| Ok(None));
+                store_mock.expect_store_block_ranges().never();
+            },
+        );
+
+        importer
+            .import_block_ranges()
+            .await
+            .expect("Transactions Parser should succeed");
+    }
+
+    #[tokio::test]
+    async fn if_all_transactions_stored_nothing_is_parsed_and_stored() {
         let up_to_beacon = 12;
 
         let importer = build_importer(
@@ -276,18 +368,17 @@ mod tests {
                     .expect_get_highest_beacon()
                     .returning(|| Ok(Some(12)));
                 store_mock.expect_store_transactions().never();
-                store_mock.expect_store_block_ranges().never();
             },
         );
 
         importer
-            .import(up_to_beacon)
+            .import_transactions(up_to_beacon)
             .await
             .expect("Transactions Parser should succeed");
     }
 
     #[tokio::test]
-    async fn if_all_half_are_stored_the_other_half_is_parsed_and_stored() {
+    async fn if_half_transactions_are_stored_the_other_half_is_parsed_and_stored() {
         let blocks = [
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
@@ -316,25 +407,65 @@ mod tests {
                     .with(eq(expected_to_store_transactions))
                     .returning(|_| Ok(()))
                     .once();
+            },
+        );
+
+        importer
+            .import_transactions(up_to_beacon)
+            .await
+            .expect("Transactions Parser should succeed");
+    }
+
+    #[tokio::test]
+    async fn if_half_block_ranges_are_stored_the_other_half_is_computed_and_stored() {
+        let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
+        let transactions: Vec<CardanoTransaction> = blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect();
+
+        let importer = build_importer(
+            |_scanner_mock| {},
+            |store_mock| {
+                let expected_stored_transactions = transactions.clone();
+                store_mock
+                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
+                    .returning(|| Ok(Some((BlockRange::LENGTH + 2, BlockRange::LENGTH * 5 + 1))));
+                store_mock
+                    .expect_get_transactions_between()
+                    .withf(|start, end| {
+                        start == &BlockRange::LENGTH && end == &(BlockRange::LENGTH * 5)
+                    })
+                    .return_once(move |_, _| Ok(expected_stored_transactions))
+                    .once();
                 store_mock
                     .expect_store_block_ranges()
-                    .with(eq(vec![block_range_with_merkle_root(
-                        20,
-                        &["tx_hash-3", "tx_hash-4"],
-                    )]))
+                    .withf(|block_ranges| {
+                        let values = block_ranges
+                            .iter()
+                            .map(|(r, _)| r.clone())
+                            .collect::<Vec<_>>();
+                        values
+                            == vec![
+                                BlockRange::from_block_number(BlockRange::LENGTH),
+                                BlockRange::from_block_number(BlockRange::LENGTH * 2),
+                                BlockRange::from_block_number(BlockRange::LENGTH * 3),
+                                BlockRange::from_block_number(BlockRange::LENGTH * 4),
+                            ]
+                    })
                     .returning(|_| Ok(()))
                     .once();
             },
         );
 
         importer
-            .import(up_to_beacon)
+            .import_block_ranges()
             .await
             .expect("Transactions Parser should succeed");
     }
 
     #[tokio::test]
-    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_and_block_ranges_in_same_order(
+    async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order(
     ) {
         let blocks = vec![
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
@@ -402,100 +533,5 @@ mod tests {
         let from = importer.get_starting_beacon().await.unwrap();
         // If sub overflow it should be 0
         assert_eq!(Some(0), from);
-    }
-
-    fn build_blocks(
-        start_block_number: BlockNumber,
-        number_of_consecutive_block: BlockNumber,
-    ) -> Vec<ScannedBlock> {
-        (start_block_number..(start_block_number + number_of_consecutive_block))
-            .map(|block_number| {
-                ScannedBlock::new(
-                    format!("block_hash-{}", block_number),
-                    block_number,
-                    block_number * 100,
-                    block_number * 10,
-                    vec![format!("tx_hash-{}", block_number)],
-                )
-            })
-            .collect()
-    }
-
-    /// ---- Commence à block number qui est un début de block range:
-    // J'ai 15 blocks consécutifs (soit BlockRange::Length) ce qui donne 1 block ranges
-    // j'ai 14 blocks consécutifs (soit BlockRange::Length - 1) ce qui donne 0 block range
-    // j'ai 16 blocks consécutifs (soit BlockRange::Length + 1) ce qui donne 1 seul block range
-    /// ---- Commence à block number qui n'est pas un début de block range:
-    // J'ai 15 blocks consécutifs (soit BlockRange::Length) ce qui donne 0 block ranges
-    #[tokio::test]
-    async fn vvv_less_than_a_block_range_length_of_consecutive_blocks_starting_from_block_number_0_give_0_block_range(
-    ) {
-        let blocks = build_blocks(0, BlockRange::LENGTH - 1);
-
-        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
-            .await
-            .unwrap();
-
-        assert_eq!(Vec::<(BlockRange, MKTreeNode)>::new(), block_ranges);
-    }
-
-    #[tokio::test]
-    async fn vvv_exactly_a_block_range_length_of_consecutive_blocks_starting_from_block_number_0_give_1_block_range(
-    ) {
-        let blocks = build_blocks(0, BlockRange::LENGTH);
-        let expected = vec![BlockRange::from_block_number(0)];
-
-        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
-            .await
-            .unwrap();
-
-        assert_eq!(
-            expected,
-            block_ranges.into_iter().map(|(r, _)| r).collect::<Vec<_>>()
-        );
-    }
-
-    #[tokio::test]
-    async fn vvv_more_than_a_block_range_length_of_consecutive_blocks_starting_from_block_number_0_give_1_block_range(
-    ) {
-        let blocks = build_blocks(0, BlockRange::LENGTH + 1);
-        let expected = vec![BlockRange::from_block_number(0)];
-
-        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
-            .await
-            .unwrap();
-
-        assert_eq!(
-            expected,
-            block_ranges.into_iter().map(|(r, _)| r).collect::<Vec<_>>()
-        );
-    }
-
-    #[tokio::test]
-    async fn vvv_exactly_a_block_range_length_of_consecutive_blocks_starting_from_block_number_4_give_0_block_range(
-    ) {
-        let blocks = build_blocks(4, BlockRange::LENGTH);
-
-        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
-            .await
-            .unwrap();
-
-        assert_eq!(Vec::<(BlockRange, MKTreeNode)>::new(), block_ranges);
-    }
-
-    #[tokio::test]
-    async fn vvv_exactly_two_block_range_length_of_consecutive_blocks_starting_from_block_number_14_give_1_block_range(
-    ) {
-        let blocks = build_blocks(BlockRange::LENGTH - 1, BlockRange::LENGTH * 2);
-        let expected = vec![BlockRange::from_block_number(BlockRange::LENGTH)];
-
-        let block_ranges = CardanoTransactionsImporter::compute_block_ranges(&blocks)
-            .await
-            .unwrap();
-
-        assert_eq!(
-            expected,
-            block_ranges.into_iter().map(|(r, _)| r).collect::<Vec<_>>()
-        );
     }
 }
