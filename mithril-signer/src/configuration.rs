@@ -90,6 +90,11 @@ pub struct Configuration {
 
     /// Metrics HTTP Server listening port.
     pub metrics_server_port: u16,
+
+    /// If set no error is returned in case of unparsable block and an error log is written instead.
+    ///
+    /// Will be ignored on production networks.
+    pub allow_unparsable_block: bool,
 }
 
 impl Configuration {
@@ -120,6 +125,7 @@ impl Configuration {
             enable_metrics_server: true,
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            allow_unparsable_block: false,
         }
     }
 

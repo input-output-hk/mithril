@@ -599,6 +599,7 @@ mod tests {
             enable_metrics_server: true,
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            allow_unparsable_block: false,
         };
 
         SignerRunner::new(
