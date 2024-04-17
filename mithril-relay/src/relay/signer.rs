@@ -112,7 +112,7 @@ impl SignerRelay {
                 match message {
                     Some(signer_message) => {
                         info!("SignerRelay: publish signer-registration to p2p network"; "message" => format!("{signer_message:#?}"));
-                        self.peer.publish_signer(&signer_message)?;
+                        self.peer.publish_signer_registration(&signer_message)?;
                         Ok(())
                     }
                     None => {
