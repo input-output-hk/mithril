@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_hardano::storage::immutable::chunk::{read_blocks, Reader};
 use pallas_traverse::MultiEraBlock;
-use slog::{error, Logger};
+use slog::{error, warn, Logger};
 use std::path::Path;
 use tokio::sync::RwLock;
 
@@ -131,6 +131,12 @@ pub struct CardanoTransactionParser {
 impl CardanoTransactionParser {
     /// Factory
     pub fn new(logger: Logger, allow_unparsable_block: bool) -> Self {
+        if allow_unparsable_block {
+            warn!(
+                logger,
+                "The 'allow_unparsable_block' option is activated. This option should only be used on test networks.")
+        }
+
         Self {
             logger,
             allow_unparsable_block,
@@ -371,5 +377,37 @@ mod tests {
             .unwrap();
 
         assert_eq!(transactions.len(), tx_count);
+    }
+
+    #[tokio::test]
+    async fn test_instantiate_parser_with_allow_unparsable_block_should_log_warning() {
+        let temp_dir = TempDir::create(
+            "cardano_transaction_parser",
+            "test_instantiate_parser_with_allow_unparsable_block_should_log_warning",
+        );
+        let filepath = temp_dir.join("test.log");
+        // We create a block to drop the logger and force a flush before we read the log file.
+        {
+            let _ = CardanoTransactionParser::new(create_file_logger(&filepath), true);
+        }
+
+        let log_file = std::fs::read_to_string(&filepath).unwrap();
+        assert!(log_file.contains("The 'allow_unparsable_block' option is activated. This option should only be used on test networks."));
+    }
+
+    #[tokio::test]
+    async fn test_instantiate_parser_without_allow_unparsable_block_should_not_log_warning() {
+        let temp_dir = TempDir::create(
+            "cardano_transaction_parser",
+            "test_instantiate_parser_without_allow_unparsable_block_should_not_log_warning",
+        );
+        let filepath = temp_dir.join("test.log");
+        // We create a block to drop the logger and force a flush before we read the log file.
+        {
+            let _ = CardanoTransactionParser::new(create_file_logger(&filepath), false);
+        }
+
+        let log_file = std::fs::read_to_string(&filepath).unwrap();
+        assert!(!log_file.contains("The 'allow_unparsable_block' option is activated. This option should only be used on test networks."));
     }
 }
