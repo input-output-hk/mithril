@@ -85,34 +85,59 @@ impl AggregatorRelay {
             match self.peer.convert_peer_event_to_message(peer_event) {
                 Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
                     let retry_max = 3;
-                    let mut retry_count = 0;
-                    while let Err(e) = self
-                        .notify_signer_to_aggregator(&signer_message_received)
-                        .await
+                    let notify_aggregator = |message: RegisterSignerMessage| -> StdResult<()> {
+                        tokio::runtime::Runtime::new()?
+                            .block_on(self.notify_signer_to_aggregator(&message))
+                    };
+                    if let Err(e) = Self::try_notify_aggregator(
+                        retry_max,
+                        signer_message_received.clone(),
+                        notify_aggregator,
+                    )
+                    .await
                     {
-                        retry_count += 1;
-                        if retry_count >= retry_max {
-                            error!("Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => format!("{:#?}", signer_message_received), "error" => format!("{e:?}"));
-                            return Err(e);
-                        }
+                        error!("Relay aggregator: failed to send signer registration message to aggregator after {retry_max} attempts"; "signer_message" => format!("{:#?}", signer_message_received), "error" => format!("{e:?}"));
+                        return Err(e);
                     }
                 }
                 Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
                     let retry_max = 3;
-                    let mut retry_count = 0;
-                    while let Err(e) = self
-                        .notify_signature_to_aggregator(&signature_message_received)
-                        .await
+                    let notify_aggregator = |message: RegisterSignatureMessage| -> StdResult<()> {
+                        tokio::runtime::Runtime::new()?
+                            .block_on(self.notify_signature_to_aggregator(&message))
+                    };
+                    if let Err(e) = Self::try_notify_aggregator(
+                        retry_max,
+                        signature_message_received.clone(),
+                        notify_aggregator,
+                    )
+                    .await
                     {
-                        retry_count += 1;
-                        if retry_count >= retry_max {
-                            error!("Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
-                            return Err(e);
-                        }
+                        error!("Relay aggregator: failed to send signature message to aggregator after {retry_max} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
+                        return Err(e);
                     }
                 }
                 Ok(None) => {}
                 Err(e) => return Err(e),
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn try_notify_aggregator<'a, M: Clone, F>(
+        retry_max: usize,
+        message: M,
+        notify_fn: F,
+    ) -> StdResult<()>
+    where
+        F: Fn(M) -> StdResult<()>,
+    {
+        let mut retry_count = 0;
+        while let Err(e) = notify_fn(message.clone()) {
+            retry_count += 1;
+            if retry_count >= retry_max {
+                return Err(e);
             }
         }
 
@@ -133,5 +158,98 @@ impl AggregatorRelay {
     /// Retrieve address on which the peer is listening
     pub fn peer_address(&self) -> Option<Multiaddr> {
         self.peer.addr_peer.to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use mithril_common::{messages::RegisterSignerMessage, StdResult};
+
+    use super::*;
+
+    struct Counter {
+        count: RefCell<usize>,
+    }
+
+    impl Counter {
+        fn increment_counter(&self) {
+            (*self.count.borrow_mut()) += 1;
+        }
+
+        fn get_counter(&self) -> usize {
+            *self.count.borrow()
+        }
+    }
+
+    impl Default for Counter {
+        fn default() -> Self {
+            Self {
+                count: RefCell::new(0),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_try_notify_aggregator_succeeds_with_no_retry() {
+        let retry_max = 3;
+        let counter = Counter::default();
+        let notify_aggregator = |_message: RegisterSignerMessage| -> StdResult<()> {
+            counter.increment_counter();
+            Ok(())
+        };
+        let notified = AggregatorRelay::try_notify_aggregator(
+            retry_max,
+            RegisterSignerMessage::dummy(),
+            notify_aggregator,
+        )
+        .await;
+
+        notified.unwrap();
+        assert_eq!(counter.get_counter(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_try_notify_aggregator_succeeds_after_less_than_max_retry() {
+        let retry_max = 3;
+        let counter = Counter::default();
+        let notify_aggregator = |_message: RegisterSignerMessage| -> StdResult<()> {
+            counter.increment_counter();
+            if counter.get_counter() <= 2 {
+                return Err(anyhow!("notify error"));
+            }
+
+            Ok(())
+        };
+        let notified = AggregatorRelay::try_notify_aggregator(
+            retry_max,
+            RegisterSignerMessage::dummy(),
+            notify_aggregator,
+        )
+        .await;
+
+        notified.unwrap();
+        assert_eq!(counter.get_counter(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_try_notify_aggregator_fails_after_more_than_max_retry() {
+        let retry_max = 3;
+        let counter = Counter::default();
+        let notify_aggregator = |_message: RegisterSignerMessage| -> StdResult<()> {
+            counter.increment_counter();
+
+            Err(anyhow!("notify error"))
+        };
+        let notified = AggregatorRelay::try_notify_aggregator(
+            retry_max,
+            RegisterSignerMessage::dummy(),
+            notify_aggregator,
+        )
+        .await;
+
+        notified.expect_err("should have failed");
+        assert_eq!(counter.get_counter(), 3);
     }
 }
