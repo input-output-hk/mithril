@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use libp2p::Multiaddr;
@@ -23,6 +25,10 @@ pub struct SignerCommand {
     /// Aggregator endpoint URL.
     #[clap(long, env = "AGGREGATOR_ENDPOINT")]
     aggregator_endpoint: String,
+
+    /// Interval at which a signer registration should be repeated in milliseconds (defaults to 1 hour)
+    #[clap(long, env = "SIGNER_REPEATER_DELAY", default_value_t = 3_600 * 1_000)]
+    signer_repeater_delay: u64,
 }
 
 impl SignerCommand {
@@ -32,8 +38,15 @@ impl SignerCommand {
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
         let aggregator_endpoint = self.aggregator_endpoint.to_owned();
+        let signer_repeater_delay = Duration::from_millis(self.signer_repeater_delay);
 
-        let mut relay = SignerRelay::start(&addr, &server_port, &aggregator_endpoint).await?;
+        let mut relay = SignerRelay::start(
+            &addr,
+            &server_port,
+            &aggregator_endpoint,
+            &signer_repeater_delay,
+        )
+        .await?;
         if let Some(dial_to_address) = dial_to {
             relay.dial_peer(dial_to_address.clone())?;
         }

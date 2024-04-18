@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.15"
+version = "0.1.16"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -24,7 +24,11 @@ libp2p = { version = "0.53.2", features = [
     "noise",
     "ping",
     "pnet",
+    "quic",
     "tcp",
+    "tls",
+    "websocket-websys",
+    "websocket",
     "yamux",
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
@@ -42,5 +46,5 @@ slog-bunyan = "2.5.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
 thiserror = "1.0.56"
-tokio = { version = "1.35.1", features = ["full"] }
+tokio = { version = "1.37.0", features = ["full"] }
 warp = "0.3.6"

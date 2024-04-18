@@ -1,6 +1,6 @@
-use crate::p2p::{Peer, PeerBehaviourEvent, PeerEvent};
-use libp2p::{gossipsub, Multiaddr};
-use mithril_common::{messages::RegisterSignatureMessage, StdResult};
+use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
+use libp2p::Multiaddr;
+use mithril_common::StdResult;
 use slog_scope::{debug, info};
 
 /// A passive relay
@@ -11,44 +11,35 @@ pub struct PassiveRelay {
 }
 
 impl PassiveRelay {
-    /// Create a passive relay
-    /// TODO: should be replaced by Self::start(...)
-    pub fn new(addr: &Multiaddr) -> Self {
-        Self {
-            peer: Peer::new(addr),
-        }
-    }
-
     /// Start a passive relay
-    pub async fn start(self) -> StdResult<Self> {
+    pub async fn start(addr: &Multiaddr) -> StdResult<Self> {
         debug!("PassiveRelay: starting...");
         Ok(Self {
-            peer: self.peer.start().await?,
+            peer: Peer::new(addr).start().await?,
         })
     }
 
-    /// Convert event to signature message
+    /// Convert event to broadcast message
     /// TODO: should be removed
-    pub fn convert_event(
+    pub fn convert_peer_event_to_message(
         &mut self,
         event: PeerEvent,
-    ) -> StdResult<Option<RegisterSignatureMessage>> {
-        match event {
-            PeerEvent::Behaviour {
-                event: PeerBehaviourEvent::Gossipsub(gossipsub::Event::Message { message, .. }),
-            } => Ok(Some(serde_json::from_slice(&message.data)?)),
-            _ => Ok(None),
-        }
+    ) -> StdResult<Option<BroadcastMessage>> {
+        self.peer.convert_peer_event_to_message(event)
     }
 
     /// Tick the passive relay
     pub async fn tick(&mut self) -> StdResult<()> {
         if let Some(peer_event) = self.peer.tick_swarm().await? {
-            if let Ok(Some(signature_message_received)) = self
-                .peer
-                .convert_peer_event_to_signature_message(peer_event)
-            {
-                info!("Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+            match self.peer.convert_peer_event_to_message(peer_event) {
+                Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
+                    info!("Relay passive: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
+                }
+                Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
+                    info!("Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+                }
+                Ok(None) => {}
+                Err(e) => return Err(e),
             }
         }
 
