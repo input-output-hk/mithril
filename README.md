@@ -34,12 +34,17 @@ To unleash the power of Mithril and leverage new use cases, we have also impleme
 
 ## :shield: Mainnet availability
 
-> **Mithril** is currently a work in progress, and is available in its [**beta**](https://mithril.network/doc/dev-blog/2023/07/21/mainnet-beta-launch) version on mainnet.
->
-> :heavy_check_mark: It is ready to be safely deployed in the SPO production infrastructure for **Cardano** mainnet.
-> 
-> :warning: It is **NOT** yet completely ready for production usage of the artifacts produced before a minimum level of participation in the network.
+**Mithril** is currently a work in progress, and is available in its [**beta**](https://mithril.network/doc/dev-blog/2023/07/21/mainnet-beta-launch) version on mainnet.
 
+:heavy_check_mark: It is ready to be safely deployed in the SPO production infrastructure for **Cardano** mainnet.
+
+:warning: It is **NOT** yet completely ready for production usage of the artifacts produced before a minimum level of participation in the network (which depends on the artifact type).
+
+### Disclaimer
+
+By using Mithril protocol, you understand the protocol is in development and that use of the `mithril-signer`, `mithril-aggregator` and `mithril-client` on mainnet is entirely at your own risk.
+
+You also acknowledge and agree to have an adequate understanding of the risks associated with use of the Mithril network and that all information and materials published, distributed or otherwise made available on mithril.network and Mithril Github Repository is available on an ‘AS IS’ and ‘AS AVAILABLE’ basis, without any representations or warranties of any kind. All implied terms are excluded to the fullest extent permitted by law. For details, see also sections 7, 8 and 9 of the [Apache 2.0 License](./LICENSE).
 
 ## :rocket: Getting started with Mithril
 
