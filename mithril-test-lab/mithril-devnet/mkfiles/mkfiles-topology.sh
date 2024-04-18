@@ -2,15 +2,15 @@
 NODE_PORT_START=3000
 
 # Create network topology
-BFT_NODES=()
-BFT_NODES_N=()
-for (( i=1; i<=${NUM_BFT_NODES}; i++ ))
+FULL_NODES=()
+FULL_NODES_N=()
+for (( i=1; i<=${NUM_FULL_NODES}; i++ ))
   do
-    BFT_NODES=("${BFT_NODES[@]}" "node-bft${i}")
-    BFT_NODES_N=("${BFT_NODES_N[@]}" "${i}")
+    FULL_NODES=("${FULL_NODES[@]}" "node-full${i}")
+    FULL_NODES_N=("${FULL_NODES_N[@]}" "${i}")
 done
-BFT_NODES=${BFT_NODES[@]}
-BFT_NODES_N=${BFT_NODES_N[@]}
+FULL_NODES=${FULL_NODES[@]}
+FULL_NODES_N=${FULL_NODES_N[@]}
 
 POOL_NODES=()
 POOL_NODES_N=()
@@ -31,7 +31,7 @@ UTXO_ADDRS=${UTXO_ADDRS[@]}
 USER_ADDRS=${USER_ADDRS[@]}
 POOL_ADDRS=${POOL_ADDRS[@]}
 
-ALL_NODES="${BFT_NODES} ${POOL_NODES}"
+ALL_NODES="${FULL_NODES} ${POOL_NODES}"
 
 # create the node directories
 for NODE in ${ALL_NODES}; do
@@ -43,7 +43,7 @@ NODE_ADDR=$LISTENING_ADDR
 NODE_PORT=NODE_PORT_START
 TOPOLOGY='{"Producers": []}'
 TOPOLOGY_DOCKER=$TOPOLOGY
-for NODE in ${BFT_NODES}; do
+for NODE in ${FULL_NODES}; do
   NODE_PORT=$(( ${NODE_PORT} + 1))
   echo ${NODE_PORT} > ${NODE}/port
   echo ${LISTENING_ADDR} > ${NODE}/host
@@ -56,7 +56,7 @@ for NODE in ${POOL_NODES}; do
 done
 echo $TOPOLOGY | jq . > topology.json
 
-for NODE in ${BFT_NODES}; do
+for NODE in ${FULL_NODES}; do
   cat topology.json > ${NODE}/topology.json
 done
 NODE_IX=0

@@ -43,7 +43,7 @@ fi
 
 # Start devnet Mithril nodes
 if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
-    echo ">> Info: Mithril Aggregator will be attached to the first Cardano BFT node"
+    echo ">> Info: Mithril Aggregator will be attached to the first Cardano Full node"
     echo ">> Info: Mithril Signers will be attached to each Cardano SPO node"
     echo "====================================================================="
     echo " Start Mithril nodes"

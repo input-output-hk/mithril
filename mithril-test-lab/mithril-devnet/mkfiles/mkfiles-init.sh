@@ -29,8 +29,8 @@ fi
 if [ -z "${HARD_FORK_CONWAY_AT_EPOCH}" ]; then 
   HARD_FORK_CONWAY_AT_EPOCH=0
 fi
-if [ -z "${NUM_BFT_NODES}" ]; then 
-  NUM_BFT_NODES="1"
+if [ -z "${NUM_FULL_NODES}" ]; then 
+  NUM_FULL_NODES="1"
 fi
 if [ -z "${NUM_POOL_NODES}" ]; then 
   NUM_POOL_NODES="2"
@@ -49,7 +49,7 @@ DEVNET_VERSION=$(cat VERSION)
 # Display configuration summary
 echo ">> Devnet Version: ${DEVNET_VERSION}"
 echo ">> Artifacts Directory[env::ARTIFACTS_DIR]: ${ARTIFACTS_DIR}"
-echo ">> Cardano BFT nodes [env::NUM_BFT_NODES]: ${NUM_BFT_NODES}"
+echo ">> Cardano Full nodes [env::NUM_FULL_NODES]: ${NUM_FULL_NODES}"
 echo ">> Cardano SPO nodes [env::NUM_POOL_NODES]: ${NUM_POOL_NODES}"
 echo ">> Cardano Node Version [env::CARDANO_NODE_VERSION]: ${CARDANO_NODE_VERSION}"
 echo ">> Cardano Network Magic [env::NETWORK_MAGIC]: ${NETWORK_MAGIC}"

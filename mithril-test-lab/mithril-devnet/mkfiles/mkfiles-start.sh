@@ -12,7 +12,7 @@ set -e
 
 EOF
 
-for NODE in ${BFT_NODES}; do
+for NODE in ${FULL_NODES}; do
   cat >> ${NODE}/start-node.sh <<EOF
 #!/usr/bin/env bash
 
