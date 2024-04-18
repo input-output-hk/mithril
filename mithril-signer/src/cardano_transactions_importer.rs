@@ -252,6 +252,14 @@ mod tests {
             .collect()
     }
 
+    fn merkle_root_for_blocks(block_ranges: &[ScannedBlock]) -> MKTreeNode {
+        let tx: Vec<_> = block_ranges
+            .iter()
+            .flat_map(|br| br.clone().into_transactions())
+            .collect();
+        MKTree::new(&tx).unwrap().compute_root().unwrap()
+    }
+
     #[tokio::test]
     async fn if_nothing_stored_parse_and_store_all_transactions() {
         let blocks = vec![
@@ -453,6 +461,52 @@ mod tests {
                                 BlockRange::from_block_number(BlockRange::LENGTH * 4),
                             ]
                     })
+                    .returning(|_| Ok(()))
+                    .once();
+            },
+        );
+
+        importer
+            .import_block_ranges()
+            .await
+            .expect("Transactions Parser should succeed");
+    }
+
+    #[tokio::test]
+    async fn compute_block_range_merkle_root() {
+        // 2 block ranges worth of blocks with one more block that should be ignored for merkle root computation
+        let blocks = build_blocks(0, BlockRange::LENGTH * 2 + 1);
+        let transactions: Vec<CardanoTransaction> = blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect();
+        let expected_merkle_root = vec![
+            (
+                BlockRange::from_block_number(0),
+                merkle_root_for_blocks(&blocks[0..(BlockRange::LENGTH as usize)]),
+            ),
+            (
+                BlockRange::from_block_number(BlockRange::LENGTH),
+                merkle_root_for_blocks(
+                    &blocks[(BlockRange::LENGTH as usize)..((BlockRange::LENGTH * 2) as usize)],
+                ),
+            ),
+        ];
+
+        let importer = build_importer(
+            |_scanner_mock| {},
+            |store_mock| {
+                let expected_stored_transactions = transactions.clone();
+                store_mock
+                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
+                    .returning(|| Ok(Some((0, BlockRange::LENGTH * 2))));
+                store_mock
+                    .expect_get_transactions_between()
+                    .return_once(move |_, _| Ok(expected_stored_transactions))
+                    .once();
+                store_mock
+                    .expect_store_block_ranges()
+                    .withf(move |block_ranges| &expected_merkle_root == block_ranges)
                     .returning(|_| Ok(()))
                     .once();
             },
