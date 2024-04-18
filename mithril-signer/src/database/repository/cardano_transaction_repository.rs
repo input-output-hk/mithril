@@ -39,6 +39,18 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
+    /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
+    pub async fn get_transactions_between_blocks(
+        &self,
+        range: RangeInclusive<BlockNumber>,
+    ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_between_blocks_condition(range);
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions.collect())
+    }
+
     /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
     /// chronological order.
     pub async fn get_transactions_up_to(
@@ -141,7 +153,11 @@ impl TransactionStore for CardanoTransactionRepository {
         &self,
         range: RangeInclusive<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>> {
-        todo!()
+        self.get_transactions_between_blocks(range).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 
     async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
@@ -382,5 +398,42 @@ mod tests {
 
         let highest_beacon = repository.get_highest_beacon().await.unwrap();
         assert_eq!(Some(100), highest_beacon);
+    }
+
+    #[tokio::test]
+    async fn repository_get_transactions_between_blocks() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-1", 10, 50, "block-hash-1", 99),
+            CardanoTransaction::new("tx-hash-2", 11, 51, "block-hash-2", 100),
+            CardanoTransaction::new("tx-hash-3", 12, 52, "block-hash-3", 101),
+        ];
+        repository
+            .create_transactions(transactions.clone())
+            .await
+            .unwrap();
+
+        {
+            let transaction_result = repository.get_transactions_between(0..=9).await.unwrap();
+            assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(13..=20).await.unwrap();
+            assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(9..=11).await.unwrap();
+            assert_eq!(transactions[0..=1].to_vec(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(10..=12).await.unwrap();
+            assert_eq!(transactions.clone(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(11..=13).await.unwrap();
+            assert_eq!(transactions[1..=2].to_vec(), transaction_result);
+        }
     }
 }
