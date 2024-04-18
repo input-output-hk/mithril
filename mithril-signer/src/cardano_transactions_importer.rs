@@ -1,3 +1,4 @@
+use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -25,8 +26,7 @@ pub trait TransactionStore: Send + Sync {
     /// Get transactions between two block numbers
     async fn get_transactions_between(
         &self,
-        start: BlockNumber,
-        end: BlockNumber,
+        range: RangeInclusive<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Get stored transactions up to the given beacon
@@ -144,7 +144,7 @@ impl CardanoTransactionsImporter {
 
                 let transactions: Vec<CardanoTransaction> = self
                     .transaction_store
-                    .get_transactions_between(start, end)
+                    .get_transactions_between(start..=end)
                     .await?;
 
                 let block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = block_ranges
@@ -315,8 +315,8 @@ mod tests {
                     .returning(|| Ok(Some((0, BlockRange::LENGTH * 5 + 1))));
                 store_mock
                     .expect_get_transactions_between()
-                    .withf(|start, end| start == &0 && end == &(BlockRange::LENGTH * 5))
-                    .return_once(move |_, _| Ok(expected_stored_transactions))
+                    .withf(|range| range == &(0..=(BlockRange::LENGTH * 5)))
+                    .return_once(move |_| Ok(expected_stored_transactions))
                     .once();
                 store_mock
                     .expect_store_block_ranges()
@@ -441,10 +441,8 @@ mod tests {
                     .returning(|| Ok(Some((BlockRange::LENGTH + 2, BlockRange::LENGTH * 5 + 1))));
                 store_mock
                     .expect_get_transactions_between()
-                    .withf(|start, end| {
-                        start == &BlockRange::LENGTH && end == &(BlockRange::LENGTH * 5)
-                    })
-                    .return_once(move |_, _| Ok(expected_stored_transactions))
+                    .withf(|range| range == &(BlockRange::LENGTH..=(BlockRange::LENGTH * 5)))
+                    .return_once(move |_| Ok(expected_stored_transactions))
                     .once();
                 store_mock
                     .expect_store_block_ranges()
@@ -502,7 +500,7 @@ mod tests {
                     .returning(|| Ok(Some((0, BlockRange::LENGTH * 2))));
                 store_mock
                     .expect_get_transactions_between()
-                    .return_once(move |_, _| Ok(expected_stored_transactions))
+                    .return_once(move |_| Ok(expected_stored_transactions))
                     .once();
                 store_mock
                     .expect_store_block_ranges()

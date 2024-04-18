@@ -1,3 +1,4 @@
+use std::ops::RangeInclusive;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -138,8 +139,7 @@ impl TransactionStore for CardanoTransactionRepository {
 
     async fn get_transactions_between(
         &self,
-        _start: BlockNumber,
-        _end: BlockNumber,
+        range: RangeInclusive<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>> {
         todo!()
     }
