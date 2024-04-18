@@ -630,6 +630,9 @@ cache deny all
 
 # Deny everything else
 http_access deny all
+
+# Deactivate pid file
+pid_filename none
 EOF'
 ```
 
@@ -685,6 +688,9 @@ cache deny all
 
 # Deny everything else
 http_access deny all
+
+# Deactivate pid file
+pid_filename none
 EOF'
 ```
 
