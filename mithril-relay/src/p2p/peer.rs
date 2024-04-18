@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use slog_scope::{debug, info};
 use std::{collections::HashMap, time::Duration};
 
-use crate::{p2p::PeerError, MITHRIL_SIGNATURES_TOPIC_NAME, MITHRIL_SIGNERS_TOPIC_NAME};
+use crate::{mithril_p2p_topic, p2p::PeerError};
 
 /// The idle connection timeout for a P2P connection
 const P2P_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(30);
@@ -91,12 +91,12 @@ impl Peer {
     fn build_topics() -> HashMap<TopicName, gossipsub::IdentTopic> {
         HashMap::from([
             (
-                MITHRIL_SIGNATURES_TOPIC_NAME.into(),
-                gossipsub::IdentTopic::new(MITHRIL_SIGNATURES_TOPIC_NAME),
+                mithril_p2p_topic::SIGNATURES.into(),
+                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNATURES),
             ),
             (
-                MITHRIL_SIGNERS_TOPIC_NAME.into(),
-                gossipsub::IdentTopic::new(MITHRIL_SIGNERS_TOPIC_NAME),
+                mithril_p2p_topic::SIGNERS.into(),
+                gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNERS),
             ),
         ])
     }
@@ -214,7 +214,7 @@ impl Peer {
     ) -> StdResult<gossipsub::MessageId> {
         self.publish_broadcast_message(
             &BroadcastMessage::RegisterSignature(message.to_owned()),
-            MITHRIL_SIGNATURES_TOPIC_NAME,
+            mithril_p2p_topic::SIGNATURES,
         )
     }
 
@@ -261,7 +261,7 @@ impl Peer {
     ) -> StdResult<gossipsub::MessageId> {
         self.publish_broadcast_message(
             &BroadcastMessage::RegisterSigner(message.to_owned()),
-            MITHRIL_SIGNERS_TOPIC_NAME,
+            mithril_p2p_topic::SIGNERS,
         )
     }
 

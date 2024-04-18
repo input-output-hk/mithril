@@ -13,8 +13,11 @@ pub use relay::AggregatorRelay;
 pub use relay::PassiveRelay;
 pub use relay::SignerRelay;
 
-/// The topic name where signer registrations are published
-pub const MITHRIL_SIGNERS_TOPIC_NAME: &str = "mithril/signers";
+/// The P2P topic names used by Mithril
+pub mod mithril_p2p_topic {
+    /// The topic name where signer registrations are published
+    pub const SIGNERS: &str = "mithril/signers";
 
-/// The topic name where signatures are published
-pub const MITHRIL_SIGNATURES_TOPIC_NAME: &str = "mithril/signatures";
+    /// The topic name where signatures are published
+    pub const SIGNATURES: &str = "mithril/signatures";
+}
