@@ -714,10 +714,12 @@ impl DependenciesBuilder {
     }
 
     async fn build_transaction_parser(&mut self) -> Result<Arc<dyn TransactionParser>> {
-        // TODO: 'allow_unparsable_block' parameter should be configurable
-        let allow_unparsable_block = false;
-        let transaction_parser =
-            CardanoTransactionParser::new(self.get_logger().await?, allow_unparsable_block);
+        let transaction_parser = CardanoTransactionParser::new(
+            self.get_logger().await?,
+            self.configuration
+                .get_network()?
+                .allow_unparsable_block(self.configuration.allow_unparsable_block)?,
+        );
 
         Ok(Arc::new(transaction_parser))
     }
