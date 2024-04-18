@@ -3672,7 +3672,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.9"
+version = "0.4.10"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3721,7 +3721,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "anyhow",
  "clap",
