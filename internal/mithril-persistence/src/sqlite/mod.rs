@@ -10,12 +10,12 @@ mod projection;
 mod provider;
 mod source_alias;
 
-pub use condition::WhereCondition;
+pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
 pub use cursor::EntityCursor;
 pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
-pub use provider::Provider;
+pub use provider::{GetAllProvider, Provider};
 pub use source_alias::SourceAlias;
 
 use mithril_common::StdResult;

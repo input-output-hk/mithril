@@ -1,9 +1,10 @@
+use crate::sqlite::condition::GetAllCondition;
 use anyhow::Context;
 use mithril_common::StdResult;
 
 use super::{EntityCursor, SqLiteEntity, SqliteConnection, WhereCondition};
 
-/// A Provider is able to performe queries on a database and return iterator of a defined entity.
+/// A Provider is able to perform queries on a database and return iterator of a defined entity.
 /// It aims at being easily testable and adaptable.
 pub trait Provider<'conn> {
     /// Entity type returned by the result cursor.
@@ -36,6 +37,22 @@ pub trait Provider<'conn> {
     /// Return the definition of this provider, ie the actual SQL query this
     /// provider performs.
     fn get_definition(&self, condition: &str) -> String;
+}
+
+/// An extension of the [Provider] that can return all the entities of a given type.
+pub trait GetAllProvider<'conn, E: SqLiteEntity> {
+    /// Return all the entities of the given type.
+    fn get_all(&'conn self) -> StdResult<EntityCursor<'conn, E>>;
+}
+
+impl<'conn, P, E> GetAllProvider<'conn, E> for P
+where
+    P: Provider<'conn, Entity = E> + GetAllCondition,
+    E: SqLiteEntity,
+{
+    fn get_all(&'conn self) -> StdResult<EntityCursor<'conn, E>> {
+        self.find(P::get_all_condition())
+    }
 }
 
 #[cfg(test)]
@@ -136,6 +153,8 @@ returning {projection}
         }
     }
 
+    impl GetAllCondition for TestEntityProvider<'_> {}
+
     fn init_database() -> SqliteConnection {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
         connection
@@ -231,6 +250,7 @@ returning {projection}
         );
         assert!(cursor.next().is_none());
     }
+
     #[test]
     fn test_upsertion() {
         let connection = init_database();
@@ -257,5 +277,31 @@ returning {projection}
             entity
         );
         assert!(cursor.next().is_none());
+    }
+
+    #[test]
+    pub fn test_blanket_get_all() {
+        let connection = init_database();
+        let provider = TestEntityProvider::new(&connection);
+        let cursor = provider.get_all().unwrap();
+        let entities: Vec<TestEntity> = cursor.collect();
+
+        assert_eq!(
+            vec![
+                TestEntity {
+                    text_data: "row 1".to_string(),
+                    real_data: 1.23,
+                    integer_data: -52,
+                    maybe_null: None
+                },
+                TestEntity {
+                    text_data: "row 2".to_string(),
+                    real_data: 2.34,
+                    integer_data: 1789,
+                    maybe_null: Some(0)
+                }
+            ],
+            entities
+        );
     }
 }

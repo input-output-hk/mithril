@@ -137,6 +137,17 @@ impl WhereCondition {
     }
 }
 
+/// Get all condition builder.
+///
+/// By default, nothing will be filtered out when using this condition. But you
+/// can override this behavior by implementing this trait for your type.
+pub trait GetAllCondition {
+    /// Get the condition for a get all query.
+    fn get_all_condition() -> WhereCondition {
+        WhereCondition::default()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,5 +359,16 @@ mod tests {
 
         assert_eq!("a = ?1", &sql);
         assert_eq!(1, params.len());
+    }
+
+    #[test]
+    fn expression_get_all_default() {
+        impl GetAllCondition for String {}
+
+        let expression = String::get_all_condition();
+        let (sql, params) = expression.expand();
+
+        assert_eq!("true".to_string(), sql);
+        assert!(params.is_empty());
     }
 }
