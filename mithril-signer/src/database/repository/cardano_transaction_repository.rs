@@ -133,6 +133,24 @@ impl CardanoTransactionRepository {
     }
 }
 
+#[cfg(test)]
+pub mod test_extensions {
+    use mithril_persistence::sqlite::GetAllProvider;
+
+    use crate::database::provider::GetBlockRangeRootProvider;
+
+    use super::*;
+
+    impl CardanoTransactionRepository {
+        pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
+            let provider = GetBlockRangeRootProvider::new(&self.connection);
+            let records = provider.get_all()?;
+
+            Ok(records.collect())
+        }
+    }
+}
+
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>> {

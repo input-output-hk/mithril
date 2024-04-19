@@ -185,9 +185,8 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 #[cfg(test)]
 mod tests {
     use mockall::mock;
-    use mockall::predicate::eq;
 
-    use mithril_common::cardano_block_scanner::ScannedBlock;
+    use mithril_common::cardano_block_scanner::{DumbBlockScanner, ScannedBlock};
     use mithril_common::crypto_helper::MKTree;
     use mithril_common::entities::BlockNumber;
 
@@ -210,29 +209,19 @@ mod tests {
         }
     }
 
-    fn build_importer<TParser, TStore>(
-        scanner_mock_config: TParser,
-        store_mock_config: TStore,
-    ) -> CardanoTransactionsImporter
-    where
-        TParser: FnOnce(&mut MockBlockScannerImpl),
-        TStore: FnOnce(&mut MockTransactionStore),
-    {
-        let db_path = Path::new("");
-        let mut scanner = MockBlockScannerImpl::new();
-        scanner_mock_config(&mut scanner);
-
-        let mut store = MockTransactionStore::new();
-        store.expect_get_up_to().returning(|_| Ok(vec![]));
-        store_mock_config(&mut store);
-
-        CardanoTransactionsImporter::new(
-            Arc::new(scanner),
-            Arc::new(store),
-            db_path,
-            None,
-            crate::test_tools::logger_for_tests(),
-        )
+    impl CardanoTransactionsImporter {
+        pub fn new_for_test(
+            scanner: Arc<dyn BlockScanner>,
+            transaction_store: Arc<dyn TransactionStore>,
+        ) -> Self {
+            CardanoTransactionsImporter::new(
+                scanner,
+                transaction_store,
+                Path::new(""),
+                None,
+                crate::test_tools::logger_for_tests(),
+            )
+        }
     }
 
     fn build_blocks(
@@ -252,6 +241,13 @@ mod tests {
             .collect()
     }
 
+    fn into_transactions(blocks: &[ScannedBlock]) -> Vec<CardanoTransaction> {
+        blocks
+            .iter()
+            .flat_map(|b| b.clone().into_transactions())
+            .collect()
+    }
+
     fn merkle_root_for_blocks(block_ranges: &[ScannedBlock]) -> MKTreeNode {
         let tx: Vec<_> = block_ranges
             .iter()
@@ -262,227 +258,285 @@ mod tests {
 
     #[tokio::test]
     async fn if_nothing_stored_parse_and_store_all_transactions() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
+
         let blocks = vec![
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
-        let transactions: Vec<CardanoTransaction> = blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect();
+        let expected_transactions = into_transactions(&blocks);
         let up_to_beacon = 12;
 
-        let importer = build_importer(
-            |scanner_mock| {
-                scanner_mock
-                    .expect_scan()
-                    .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
-                    .return_once(move |_, _, _| Ok(blocks));
-            },
-            |store_mock| {
-                let expected_stored_transactions = transactions.clone();
-                store_mock
-                    .expect_get_highest_beacon()
-                    .returning(|| Ok(None));
-                store_mock
-                    .expect_store_transactions()
-                    .with(eq(expected_stored_transactions))
-                    .returning(|_| Ok(()))
-                    .once();
-            },
-        );
+        let importer = {
+            let mut scanner_mock = MockBlockScannerImpl::new();
+            scanner_mock
+                .expect_scan()
+                .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
+                .return_once(move |_, _, _| Ok(blocks));
+            CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
+        };
 
         importer
             .import_transactions(up_to_beacon)
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let stored_transactions = repository.get_up_to(10000).await.unwrap();
+        assert_eq!(expected_transactions, stored_transactions);
     }
 
     #[tokio::test]
     async fn if_nothing_stored_parse_and_store_all_block_ranges() {
-        let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
-        let transactions: Vec<CardanoTransaction> = blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect();
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
 
-        let importer = build_importer(
-            |_scanner_mock| {},
-            |store_mock| {
-                let expected_stored_transactions = transactions.clone();
-                store_mock
-                    .expect_get_block_interval_without_block_range_root()
-                    .returning(|| Ok(Some(0..=(BlockRange::LENGTH * 5 + 1))));
-                store_mock
-                    .expect_get_transactions_between()
-                    .withf(|range| range == &(0..=(BlockRange::LENGTH * 5)))
-                    .return_once(move |_| Ok(expected_stored_transactions))
-                    .once();
-                store_mock
-                    .expect_store_block_ranges()
-                    .withf(|block_ranges| {
-                        let values = block_ranges
-                            .iter()
-                            .map(|(r, _)| r.clone())
-                            .collect::<Vec<_>>();
-                        values
-                            == vec![
-                                BlockRange::from_block_number(0),
-                                BlockRange::from_block_number(BlockRange::LENGTH),
-                                BlockRange::from_block_number(BlockRange::LENGTH * 2),
-                                BlockRange::from_block_number(BlockRange::LENGTH * 3),
-                                BlockRange::from_block_number(BlockRange::LENGTH * 4),
-                            ]
-                    })
-                    .returning(|_| Ok(()))
-                    .once();
-            },
+        let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
+        let transactions = into_transactions(&blocks);
+        repository.store_transactions(transactions).await.unwrap();
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
         );
 
         importer
             .import_block_ranges()
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            vec![
+                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockRange::LENGTH),
+                BlockRange::from_block_number(BlockRange::LENGTH * 2),
+                BlockRange::from_block_number(BlockRange::LENGTH * 3),
+                BlockRange::from_block_number(BlockRange::LENGTH * 4),
+            ],
+            block_range_roots
+                .into_iter()
+                .map(|r| r.range)
+                .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
     async fn if_all_block_ranges_computed_nothing_computed_and_stored() {
-        let importer = build_importer(
-            |_scanner_mock| {},
-            |store_mock| {
-                store_mock
-                    .expect_get_block_interval_without_block_range_root()
-                    .returning(|| Ok(None));
-                store_mock.expect_store_block_ranges().never();
-            },
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
         );
 
         importer
             .import_block_ranges()
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert!(
+            block_range_roots.is_empty(),
+            "No block range root should be stored, found: {block_range_roots:?}"
+        );
     }
 
     #[tokio::test]
     async fn if_all_transactions_stored_nothing_is_parsed_and_stored() {
         let up_to_beacon = 12;
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
+        let scanner = DumbBlockScanner::new(vec![
+            ScannedBlock::new("block_hash-1", 10, 15, 10, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, 11, vec!["tx_hash-3", "tx_hash-4"]),
+        ]);
 
-        let importer = build_importer(
-            |scanner_mock| {
-                scanner_mock.expect_scan().never();
-            },
-            |store_mock| {
-                store_mock
-                    .expect_get_highest_beacon()
-                    .returning(|| Ok(Some(12)));
-                store_mock.expect_store_transactions().never();
-            },
-        );
+        let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3", up_to_beacon);
+        repository
+            .store_transactions(vec![last_tx.clone()])
+            .await
+            .unwrap();
+
+        let importer =
+            CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
 
         importer
             .import_transactions(up_to_beacon)
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let transactions = repository.get_up_to(10000).await.unwrap();
+        assert_eq!(vec![last_tx], transactions);
     }
 
     #[tokio::test]
     async fn if_half_transactions_are_stored_the_other_half_is_parsed_and_stored() {
-        let blocks = [
-            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
-        ];
-        let transactions: Vec<CardanoTransaction> = blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect();
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
+
+        let stored_block =
+            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]);
+        let to_store_block =
+            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]);
+        let expected_transactions: Vec<CardanoTransaction> = [
+            stored_block.clone().into_transactions(),
+            to_store_block.clone().into_transactions(),
+        ]
+        .concat();
         let up_to_beacon = 14;
 
-        let importer = build_importer(
-            |scanner_mock| {
-                let scanned_blocks = vec![blocks[1].clone()];
-                scanner_mock
-                    .expect_scan()
-                    .withf(move |_, from, until| from == &Some(13) && until == &up_to_beacon)
-                    .return_once(move |_, _, _| Ok(scanned_blocks));
-            },
-            |store_mock| {
-                store_mock
-                    .expect_get_highest_beacon()
-                    .returning(|| Ok(Some(12)));
-                let expected_to_store_transactions = transactions[2..=3].to_vec();
-                store_mock
-                    .expect_store_transactions()
-                    .with(eq(expected_to_store_transactions))
-                    .returning(|_| Ok(()))
-                    .once();
-            },
-        );
+        repository
+            .store_transactions(stored_block.clone().into_transactions())
+            .await
+            .unwrap();
+
+        let importer = {
+            let scanned_blocks = vec![to_store_block.clone()];
+            let mut scanner_mock = MockBlockScannerImpl::new();
+            scanner_mock
+                .expect_scan()
+                .withf(move |_, from, until| from == &Some(12) && until == &up_to_beacon)
+                .return_once(move |_, _, _| Ok(scanned_blocks))
+                .once();
+            CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
+        };
+
+        let stored_transactions = repository.get_up_to(10000).await.unwrap();
+        assert_eq!(stored_block.into_transactions(), stored_transactions);
 
         importer
             .import_transactions(up_to_beacon)
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let stored_transactions = repository.get_up_to(10000).await.unwrap();
+        assert_eq!(expected_transactions, stored_transactions);
     }
 
     #[tokio::test]
     async fn if_half_block_ranges_are_stored_the_other_half_is_computed_and_stored() {
-        let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
-        let transactions: Vec<CardanoTransaction> = blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect();
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
 
-        let importer = build_importer(
-            |_scanner_mock| {},
-            |store_mock| {
-                let expected_stored_transactions = transactions.clone();
-                store_mock
-                    .expect_get_block_interval_without_block_range_root()
-                    .returning(|| {
-                        Ok(Some(
-                            (BlockRange::LENGTH + 2)..=(BlockRange::LENGTH * 5 + 1),
-                        ))
-                    });
-                store_mock
-                    .expect_get_transactions_between()
-                    .withf(|range| range == &(BlockRange::LENGTH..=(BlockRange::LENGTH * 5)))
-                    .return_once(move |_| Ok(expected_stored_transactions))
-                    .once();
-                store_mock
-                    .expect_store_block_ranges()
-                    .withf(|block_ranges| {
-                        let values = block_ranges
-                            .iter()
-                            .map(|(r, _)| r.clone())
-                            .collect::<Vec<_>>();
-                        values
-                            == vec![
-                                BlockRange::from_block_number(BlockRange::LENGTH),
-                                BlockRange::from_block_number(BlockRange::LENGTH * 2),
-                                BlockRange::from_block_number(BlockRange::LENGTH * 3),
-                                BlockRange::from_block_number(BlockRange::LENGTH * 4),
-                            ]
+        let blocks = build_blocks(0, BlockRange::LENGTH * 4 + 1);
+        let transactions = into_transactions(&blocks);
+        repository.store_transactions(transactions).await.unwrap();
+        repository
+            .store_block_ranges(
+                blocks[0..((BlockRange::LENGTH * 2) as usize)]
+                    .iter()
+                    .map(|b| {
+                        (
+                            BlockRange::from_block_number(b.block_number),
+                            MKTreeNode::from_hex("AAAA").unwrap(),
+                        )
                     })
-                    .returning(|_| Ok(()))
-                    .once();
-            },
+                    .collect(),
+            )
+            .await
+            .unwrap();
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
+        );
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            vec![
+                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockRange::LENGTH),
+            ],
+            block_range_roots
+                .into_iter()
+                .map(|r| r.range)
+                .collect::<Vec<_>>()
         );
 
         importer
             .import_block_ranges()
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            vec![
+                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockRange::LENGTH),
+                BlockRange::from_block_number(BlockRange::LENGTH * 2),
+                BlockRange::from_block_number(BlockRange::LENGTH * 3),
+            ],
+            block_range_roots
+                .into_iter()
+                .map(|r| r.range)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    // async fn block_range_root_compute_work_on_block_range_starting_before_last_block_range_root_and_finishing_before_last_tx(
+    async fn block_range_root_only_retrieve_only_strictly_required_transactions() {
+        fn transactions_for_block(
+            range: RangeInclusive<BlockNumber>,
+        ) -> StdResult<Vec<CardanoTransaction>> {
+            Ok(build_blocks(*range.start(), range.count() as BlockNumber)
+                .iter()
+                .flat_map(|b| b.clone().into_transactions())
+                .collect())
+        }
+
+        let importer = {
+            let mut store_mock = MockTransactionStore::new();
+            store_mock
+                .expect_get_block_interval_without_block_range_root()
+                // Specification of the interval without block range root
+                // Note: in reality the lower bound will always be a multiple of BlockRange::LENGTH
+                // since it's computed from the `block_range_root` table
+                .returning(|| {
+                    Ok(Some(
+                        (BlockRange::LENGTH + 2)..=(BlockRange::LENGTH * 5 + 1),
+                    ))
+                })
+                .once();
+            store_mock
+                .expect_get_transactions_between()
+                // Lower bound should be the block number that start after the last known block range end
+                //
+                // if it's not a multiple of BlockRange::LENGTH, it should be the start block number
+                // of the block range that contains the end of the last known block range.
+                //
+                // Upper bound should be the block number of the highest transaction in a db that can be
+                // included in a block range
+                .withf(|range| {
+                    let expected_range = BlockRange::LENGTH..=(BlockRange::LENGTH * 5);
+                    expected_range.contains(range.start()) && expected_range.contains(range.end())
+                })
+                .returning(transactions_for_block);
+            store_mock.expect_store_block_ranges().returning(|_| Ok(()));
+
+            CardanoTransactionsImporter::new_for_test(
+                Arc::new(MockBlockScannerImpl::new()),
+                Arc::new(store_mock),
+            )
+        };
+
+        importer
+            .import_block_ranges()
+            .await
+            .expect("Transactions Importer should succeed");
     }
 
     #[tokio::test]
     async fn compute_block_range_merkle_root() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
+
         // 2 block ranges worth of blocks with one more block that should be ignored for merkle root computation
         let blocks = build_blocks(0, BlockRange::LENGTH * 2 + 1);
-        let transactions: Vec<CardanoTransaction> = blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect();
-        let expected_merkle_root = vec![
+        let transactions = into_transactions(&blocks);
+        let expected_block_range_roots = vec![
             (
                 BlockRange::from_block_number(0),
                 merkle_root_for_blocks(&blocks[0..(BlockRange::LENGTH as usize)]),
@@ -495,29 +549,26 @@ mod tests {
             ),
         ];
 
-        let importer = build_importer(
-            |_scanner_mock| {},
-            |store_mock| {
-                let expected_stored_transactions = transactions.clone();
-                store_mock
-                    .expect_get_block_interval_without_block_range_root()
-                    .returning(|| Ok(Some(0..=(BlockRange::LENGTH * 2))));
-                store_mock
-                    .expect_get_transactions_between()
-                    .return_once(move |_| Ok(expected_stored_transactions))
-                    .once();
-                store_mock
-                    .expect_store_block_ranges()
-                    .withf(move |block_ranges| &expected_merkle_root == block_ranges)
-                    .returning(|_| Ok(()))
-                    .once();
-            },
+        repository.store_transactions(transactions).await.unwrap();
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
         );
 
         importer
             .import_block_ranges()
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            expected_block_range_roots,
+            block_range_roots
+                .into_iter()
+                .map(|br| br.into())
+                .collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
@@ -527,33 +578,27 @@ mod tests {
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
-        let transactions: Vec<CardanoTransaction> = blocks
-            .iter()
-            .flat_map(|b| b.clone().into_transactions())
-            .collect();
+        let transactions = into_transactions(&blocks);
         let importer = {
             let connection = cardano_tx_db_connection().unwrap();
             let mut scanner = MockBlockScannerImpl::new();
             scanner.expect_scan().return_once(move |_, _, _| Ok(blocks));
 
-            CardanoTransactionsImporter::new(
+            CardanoTransactionsImporter::new_for_test(
                 Arc::new(scanner),
                 Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
-                Path::new(""),
-                None,
-                crate::test_tools::logger_for_tests(),
             )
         };
 
         let cold_imported_transactions = importer
             .import(12)
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
 
         let warm_imported_transactions = importer
             .import(12)
             .await
-            .expect("Transactions Parser should succeed");
+            .expect("Transactions Importer should succeed");
 
         assert_eq!(transactions, cold_imported_transactions);
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
