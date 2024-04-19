@@ -59,5 +59,18 @@ vacuum;
 create index block_number_index on cardano_tx(block_number);
 "#,
         ),
+        // Migration 5
+        // Add `block_range_root` table
+        SqlMigration::new(
+            5,
+            r#"
+create table block_range_root (
+    start         integer   not null,
+    end           integer   not null,
+    merkle_root   text      not null,
+    primary key (start, end)
+);
+"#,
+        ),
     ]
 }

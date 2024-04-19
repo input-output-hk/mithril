@@ -5,6 +5,8 @@ use mithril_common::entities::{
 };
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
+use crate::database::record::hydrator::try_to_u64;
+
 /// Cardano Transaction record is the representation of a cardano transaction.
 #[derive(Debug, PartialEq, Clone)]
 pub struct CardanoTransactionRecord {
@@ -53,17 +55,12 @@ impl SqLiteEntity for CardanoTransactionRecord {
     where
         Self: Sized,
     {
-        // TODO: generalize this method to other hydrator
-        fn try_to_u64(field: &str, value: i64) -> Result<u64, HydrationError> {
-            u64::try_from(value)
-                .map_err(|e| HydrationError::InvalidData(format!("Integer field cardano_tx.{field} (value={value}) is incompatible with u64 representation. Error = {e}")))
-        }
-
         let transaction_hash = row.read::<&str, _>(0);
-        let block_number = try_to_u64("block_number", row.read::<i64, _>(1))?;
-        let slot_number = try_to_u64("slot_number", row.read::<i64, _>(2))?;
+        let block_number = try_to_u64("cardano_tx.block_number", row.read::<i64, _>(1))?;
+        let slot_number = try_to_u64("cardano_tx.slot_number", row.read::<i64, _>(2))?;
         let block_hash = row.read::<&str, _>(3);
-        let immutable_file_number = try_to_u64("immutable_file_number", row.read::<i64, _>(4))?;
+        let immutable_file_number =
+            try_to_u64("cardano_tx.immutable_file_number", row.read::<i64, _>(4))?;
 
         Ok(Self {
             transaction_hash: transaction_hash.to_string(),

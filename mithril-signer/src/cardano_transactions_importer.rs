@@ -19,9 +19,9 @@ pub trait TransactionStore: Send + Sync {
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
 
     /// Get the interval of blocks whose merkle root has yet to be computed
-    async fn get_block_interval_without_associated_block_range_and_merkle_root(
+    async fn get_block_interval_without_block_range_root(
         &self,
-    ) -> StdResult<Option<(BlockNumber, BlockNumber)>>;
+    ) -> StdResult<Option<RangeInclusive<BlockNumber>>>;
 
     /// Get transactions between two block numbers
     async fn get_transactions_between(
@@ -125,16 +125,16 @@ impl CardanoTransactionsImporter {
     async fn import_block_ranges(&self) -> StdResult<()> {
         match self
             .transaction_store
-            .get_block_interval_without_associated_block_range_and_merkle_root()
+            .get_block_interval_without_block_range_root()
             .await?
         {
             None => {
                 // Nothing to do
                 Ok(())
             }
-            Some((start_block, end_block)) => {
+            Some(range) => {
                 let block_ranges =
-                    BlockRange::all_ranges_in(BlockRange::start(start_block)..=end_block);
+                    BlockRange::all_ranges_in(BlockRange::start(*range.start())..=*range.end());
 
                 if block_ranges.is_empty() {
                     return Ok(());
@@ -311,8 +311,8 @@ mod tests {
             |store_mock| {
                 let expected_stored_transactions = transactions.clone();
                 store_mock
-                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
-                    .returning(|| Ok(Some((0, BlockRange::LENGTH * 5 + 1))));
+                    .expect_get_block_interval_without_block_range_root()
+                    .returning(|| Ok(Some(0..=(BlockRange::LENGTH * 5 + 1))));
                 store_mock
                     .expect_get_transactions_between()
                     .withf(|range| range == &(0..=(BlockRange::LENGTH * 5)))
@@ -351,7 +351,7 @@ mod tests {
             |_scanner_mock| {},
             |store_mock| {
                 store_mock
-                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
+                    .expect_get_block_interval_without_block_range_root()
                     .returning(|| Ok(None));
                 store_mock.expect_store_block_ranges().never();
             },
@@ -437,8 +437,12 @@ mod tests {
             |store_mock| {
                 let expected_stored_transactions = transactions.clone();
                 store_mock
-                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
-                    .returning(|| Ok(Some((BlockRange::LENGTH + 2, BlockRange::LENGTH * 5 + 1))));
+                    .expect_get_block_interval_without_block_range_root()
+                    .returning(|| {
+                        Ok(Some(
+                            (BlockRange::LENGTH + 2)..=(BlockRange::LENGTH * 5 + 1),
+                        ))
+                    });
                 store_mock
                     .expect_get_transactions_between()
                     .withf(|range| range == &(BlockRange::LENGTH..=(BlockRange::LENGTH * 5)))
@@ -496,8 +500,8 @@ mod tests {
             |store_mock| {
                 let expected_stored_transactions = transactions.clone();
                 store_mock
-                    .expect_get_block_interval_without_associated_block_range_and_merkle_root()
-                    .returning(|| Ok(Some((0, BlockRange::LENGTH * 2))));
+                    .expect_get_block_interval_without_block_range_root()
+                    .returning(|| Ok(Some(0..=(BlockRange::LENGTH * 2))));
                 store_mock
                     .expect_get_transactions_between()
                     .return_once(move |_| Ok(expected_stored_transactions))
