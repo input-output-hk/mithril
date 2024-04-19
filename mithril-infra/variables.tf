@@ -249,6 +249,12 @@ variable "mithril_aggregator_cexplorer_pools_url" {
   default     = ""
 }
 
+variable "mithril_aggregator_allow_unparsable_block" {
+  type        = bool
+  description = "If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on production networks."
+  default     = false
+}
+
 variable "prometheus_auth_username" {
   type        = string
   description = "The username for authentication on local prometheus endpoint"
