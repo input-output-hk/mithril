@@ -150,7 +150,7 @@ pub struct Configuration {
 
     /// If set no error is returned in case of unparsable block and an error log is written instead.
     ///
-    /// Will be ignored on production networks.
+    /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: bool,
 }
 
@@ -357,7 +357,7 @@ pub struct DefaultConfiguration {
 
     /// If set no error is returned in case of unparsable block and an error log is written instead.
     ///
-    /// Will be ignored on production networks.
+    /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: String,
 }
 

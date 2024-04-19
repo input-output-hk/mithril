@@ -75,9 +75,8 @@ impl CardanoNetwork {
         }
     }
 
-    /// Evaluate the possibility of validating the request to allow unparsable block or not,
-    /// depending on the target Cardano network
-    pub fn allow_unparsable_block(&self, allow_unparsable_block: bool) -> StdResult<bool> {
+    /// Determines whether unparsable blocks should be allowed based on the specific Cardano network.
+    pub fn compute_allow_unparsable_block(&self, allow_unparsable_block: bool) -> StdResult<bool> {
         let allow_unparsable_block = match self {
             CardanoNetwork::MainNet => false,
             CardanoNetwork::TestNet(id) if *id == PREPROD_MAGIC_ID => false,
@@ -158,68 +157,68 @@ mod tests {
     }
 
     #[test]
-    fn allow_unparsable_block_should_always_return_false_on_mainnet_and_preprod() {
+    fn compute_allow_unparsable_block_should_always_return_false_on_mainnet_and_preprod() {
         let allow_unparsable_block = CardanoNetwork::MainNet
-            .allow_unparsable_block(false)
+            .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::MainNet
-            .allow_unparsable_block(true)
+            .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
-            .allow_unparsable_block(false)
+            .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
-            .allow_unparsable_block(true)
+            .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(!allow_unparsable_block);
     }
 
     #[test]
-    fn allow_unparsable_block_should_return_value_passed_in_parameter_on_all_networks_other_than_mainnet_and_preprod(
+    fn compute_allow_unparsable_block_should_return_value_passed_in_parameter_on_all_networks_other_than_mainnet_and_preprod(
     ) {
         let allow_unparsable_block = CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
-            .allow_unparsable_block(false)
+            .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
-            .allow_unparsable_block(true)
+            .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(SANCHONET_MAGIC_ID)
-            .allow_unparsable_block(false)
+            .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(SANCHONET_MAGIC_ID)
-            .allow_unparsable_block(true)
+            .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
-            .allow_unparsable_block(false)
+            .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
-            .allow_unparsable_block(true)
+            .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::DevNet(123)
-            .allow_unparsable_block(false)
+            .compute_allow_unparsable_block(false)
             .unwrap();
         assert!(!allow_unparsable_block);
 
         let allow_unparsable_block = CardanoNetwork::DevNet(123)
-            .allow_unparsable_block(true)
+            .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
     }

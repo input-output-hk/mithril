@@ -718,7 +718,7 @@ impl DependenciesBuilder {
             self.get_logger().await?,
             self.configuration
                 .get_network()?
-                .allow_unparsable_block(self.configuration.allow_unparsable_block)?,
+                .compute_allow_unparsable_block(self.configuration.allow_unparsable_block)?,
         );
 
         Ok(Arc::new(transaction_parser))

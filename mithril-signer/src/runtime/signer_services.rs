@@ -261,7 +261,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
             self.config
                 .get_network()?
-                .allow_unparsable_block(self.config.allow_unparsable_block)?,
+                .compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
         ));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,

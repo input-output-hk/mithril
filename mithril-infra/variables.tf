@@ -251,7 +251,7 @@ variable "mithril_aggregator_cexplorer_pools_url" {
 
 variable "mithril_aggregator_allow_unparsable_block" {
   type        = bool
-  description = "If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on production networks."
+  description = "If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks."
   default     = false
 }
 
