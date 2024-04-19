@@ -7,7 +7,7 @@ use sqlite::ConnectionThreadSafe;
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::{Certificate, Epoch};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::Provider;
+use mithril_persistence::sqlite::{GetAllProvider, Provider};
 
 use crate::database::provider::{
     DeleteCertificateProvider, GetCertificateRecordProvider, InsertCertificateRecordProvider,

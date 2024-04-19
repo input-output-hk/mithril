@@ -97,16 +97,10 @@ impl<'client> GetSignedEntityRecordProvider<'client> {
 
         Ok(signed_entity_record)
     }
-
-    #[cfg(test)]
-    /// Get all SignedEntityRecords.
-    pub fn get_all(&self) -> StdResult<EntityCursor<SignedEntityRecord>> {
-        let filters = WhereCondition::default();
-        let signed_entity_record = self.find(filters)?;
-
-        Ok(signed_entity_record)
-    }
 }
+
+#[cfg(test)]
+impl mithril_persistence::sqlite::GetAllCondition for GetSignedEntityRecordProvider<'_> {}
 
 impl<'client> Provider<'client> for GetSignedEntityRecordProvider<'client> {
     type Entity = SignedEntityRecord;
@@ -127,6 +121,7 @@ impl<'client> Provider<'client> for GetSignedEntityRecordProvider<'client> {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{CardanoDbBeacon, SignedEntityType};
+    use mithril_persistence::sqlite::GetAllProvider;
 
     use crate::database::test_helper::{insert_signed_entities, main_db_connection};
 

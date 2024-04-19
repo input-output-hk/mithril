@@ -1,6 +1,5 @@
-use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
+    GetAllCondition, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
 };
 
 use crate::database::record::SignerRecord;
@@ -15,32 +14,36 @@ impl<'client> GetSignerRecordProvider<'client> {
     pub fn new(client: &'client SqliteConnection) -> Self {
         Self { client }
     }
+}
 
-    #[cfg(test)]
-    fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
-        Ok(WhereCondition::new(
-            "signer_id = ?*",
-            vec![sqlite::Value::String(signer_id)],
-        ))
-    }
+#[cfg(test)]
+mod test_extensions {
+    use mithril_common::StdResult;
+    use mithril_persistence::sqlite::{EntityCursor, WhereCondition};
 
-    #[cfg(test)]
-    /// Get SignerRecords for a given signer id.
-    pub fn get_by_signer_id(&self, signer_id: String) -> StdResult<EntityCursor<SignerRecord>> {
-        let filters = self.condition_by_signer_id(signer_id)?;
-        let signer_record = self.find(filters)?;
+    use crate::database::record::SignerRecord;
 
-        Ok(signer_record)
-    }
+    use super::*;
 
-    /// Get all SignerRecords.
-    pub fn get_all(&self) -> StdResult<EntityCursor<SignerRecord>> {
-        let filters = WhereCondition::default();
-        let signer_record = self.find(filters)?;
+    impl<'client> GetSignerRecordProvider<'client> {
+        fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
+            Ok(WhereCondition::new(
+                "signer_id = ?*",
+                vec![sqlite::Value::String(signer_id)],
+            ))
+        }
 
-        Ok(signer_record)
+        /// Get SignerRecords for a given signer id.
+        pub fn get_by_signer_id(&self, signer_id: String) -> StdResult<EntityCursor<SignerRecord>> {
+            let filters = self.condition_by_signer_id(signer_id)?;
+            let signer_record = self.find(filters)?;
+
+            Ok(signer_record)
+        }
     }
 }
+
+impl GetAllCondition for GetSignerRecordProvider<'_> {}
 
 impl<'client> Provider<'client> for GetSignerRecordProvider<'client> {
     type Entity = SignerRecord;
@@ -58,6 +61,8 @@ impl<'client> Provider<'client> for GetSignerRecordProvider<'client> {
 
 #[cfg(test)]
 mod tests {
+    use mithril_persistence::sqlite::GetAllProvider;
+
     use crate::database::test_helper::{insert_signers, main_db_connection};
 
     use super::*;

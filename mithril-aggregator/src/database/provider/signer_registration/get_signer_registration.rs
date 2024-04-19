@@ -55,16 +55,10 @@ impl<'client> GetSignerRegistrationRecordProvider<'client> {
 
         Ok(signer_registration_record)
     }
-
-    #[cfg(test)]
-    /// Get all SignerRegistrationRecords.
-    pub fn get_all(&self) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
-        let filters = WhereCondition::default();
-        let signer_registration_record = self.find(filters)?;
-
-        Ok(signer_registration_record)
-    }
 }
+
+#[cfg(test)]
+impl mithril_persistence::sqlite::GetAllCondition for GetSignerRegistrationRecordProvider<'_> {}
 
 impl<'client> Provider<'client> for GetSignerRegistrationRecordProvider<'client> {
     type Entity = SignerRegistrationRecord;
@@ -86,6 +80,7 @@ mod tests {
 
     use mithril_common::entities::SignerWithStake;
     use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_persistence::sqlite::GetAllProvider;
 
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
 
