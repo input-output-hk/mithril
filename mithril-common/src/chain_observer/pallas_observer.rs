@@ -379,8 +379,6 @@ impl ChainObserver for PallasChainObserver {
 
         self.post_process_statequery(&mut client).await?;
 
-        client.abort().await;
-
         Ok(Some(Epoch(epoch as u64)))
     }
 
@@ -399,8 +397,6 @@ impl ChainObserver for PallasChainObserver {
 
         self.post_process_statequery(&mut client).await?;
 
-        client.abort().await;
-
         Ok(datums)
     }
 
@@ -412,8 +408,6 @@ impl ChainObserver for PallasChainObserver {
         let stake_distribution = self.get_stake_distribution(&mut client).await?;
 
         self.post_process_statequery(&mut client).await?;
-
-        client.abort().await;
 
         Ok(stake_distribution)
     }
@@ -427,8 +421,6 @@ impl ChainObserver for PallasChainObserver {
         let current_kes_period = self.get_kes_period(&mut client).await?;
 
         self.post_process_statequery(&mut client).await?;
-
-        client.abort().await;
 
         Ok(current_kes_period)
     }
@@ -760,7 +752,6 @@ mod tests {
                 .await
                 .unwrap();
             observer.post_process_statequery(&mut client).await.unwrap();
-            client.abort().await;
             chain_point
         });
 
@@ -784,7 +775,6 @@ mod tests {
                 .await
                 .unwrap();
             observer.post_process_statequery(&mut client).await.unwrap();
-            client.abort().await;
             genesis_config
         });
 
@@ -808,7 +798,6 @@ mod tests {
                 .await
                 .unwrap();
             observer.post_process_statequery(&mut client).await.unwrap();
-            client.abort().await;
             era
         });
 
