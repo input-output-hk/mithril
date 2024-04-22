@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::ops::Range;
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -46,7 +46,7 @@ impl CardanoTransactionRepository {
     /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
     pub async fn get_transactions_between_blocks(
         &self,
-        range: RangeInclusive<BlockNumber>,
+        range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_transaction_between_blocks_condition(range);
@@ -180,46 +180,6 @@ impl TransactionStore for CardanoTransactionRepository {
         }
     }
 
-    async fn get_block_interval_without_block_range_root(
-        &self,
-    ) -> StdResult<Option<RangeInclusive<BlockNumber>>> {
-        let provider = GetIntervalWithoutBlockRangeRootProvider::new(&self.connection);
-        let row = provider
-            .find(provider.get_interval_without_block_range_condition())?
-            .next();
-
-        match row {
-            // Should be impossible - the request as written in the provider always returns a single row
-            None => panic!("IntervalWithoutBlockRangeProvider should always return a single row"),
-            Some(interval) => match (interval.start, interval.end) {
-                (_, None) => Ok(None),
-                (None, Some(end)) => Ok(Some(0..=end)),
-                (Some(start), Some(end)) if end < start => {
-                    // To discuss : should we prune all block ranges from the DB to force recompute ?
-                    warn!(
-                        "Last computed block range is higher than the last transaction block number. \
-                        This should not happen. Did you forgot to prune the `block_range` table after pruning the\
-                        `cardano_tx` table ?";
-                        "start" => start, "end" => end
-                    );
-                    Ok(None)
-                }
-                (Some(start), Some(end)) => Ok(Some(start..=end)),
-            },
-        }
-    }
-
-    async fn get_transactions_between(
-        &self,
-        range: RangeInclusive<BlockNumber>,
-    ) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_between_blocks(range).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
-    }
-
     async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
         self.get_transactions_up_to(beacon).await.map(|v| {
             v.into_iter()
@@ -236,6 +196,46 @@ impl TransactionStore for CardanoTransactionRepository {
                 .with_context(|| "CardanoTransactionRepository can not store transactions")?;
         }
         Ok(())
+    }
+
+    async fn get_block_interval_without_block_range_root(
+        &self,
+    ) -> StdResult<Option<Range<BlockNumber>>> {
+        let provider = GetIntervalWithoutBlockRangeRootProvider::new(&self.connection);
+        let row = provider
+            .find(provider.get_interval_without_block_range_condition())?
+            .next();
+
+        match row {
+            // Should be impossible - the request as written in the provider always returns a single row
+            None => panic!("IntervalWithoutBlockRangeProvider should always return a single row"),
+            Some(interval) => match (interval.start, interval.end) {
+                (_, None) => Ok(None),
+                (None, Some(end)) => Ok(Some(0..(end + 1))),
+                (Some(start), Some(end)) if end < start => {
+                    // To discuss : should we prune all block ranges from the DB to force recompute ?
+                    warn!(
+                        "Last computed block range is higher than the last transaction block number. \
+                        This should not happen. Did you forgot to prune the `block_range` table after pruning the\
+                        `cardano_tx` table ?";
+                        "start" => start, "end" => end
+                    );
+                    Ok(None)
+                }
+                (Some(start), Some(end)) => Ok(Some(start..(end + 1))),
+            },
+        }
+    }
+
+    async fn get_transactions_between(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        self.get_transactions_between_blocks(range).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
     }
 
     async fn store_block_ranges(
@@ -481,23 +481,23 @@ mod tests {
             .unwrap();
 
         {
-            let transaction_result = repository.get_transactions_between(0..=9).await.unwrap();
+            let transaction_result = repository.get_transactions_between(0..10).await.unwrap();
             assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
         }
         {
-            let transaction_result = repository.get_transactions_between(13..=20).await.unwrap();
+            let transaction_result = repository.get_transactions_between(13..21).await.unwrap();
             assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
         }
         {
-            let transaction_result = repository.get_transactions_between(9..=11).await.unwrap();
+            let transaction_result = repository.get_transactions_between(9..12).await.unwrap();
             assert_eq!(transactions[0..=1].to_vec(), transaction_result);
         }
         {
-            let transaction_result = repository.get_transactions_between(10..=12).await.unwrap();
+            let transaction_result = repository.get_transactions_between(10..13).await.unwrap();
             assert_eq!(transactions.clone(), transaction_result);
         }
         {
-            let transaction_result = repository.get_transactions_between(11..=13).await.unwrap();
+            let transaction_result = repository.get_transactions_between(11..14).await.unwrap();
             assert_eq!(transactions[1..=2].to_vec(), transaction_result);
         }
     }
@@ -529,7 +529,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            assert_eq!(Some(0..=last_transaction_block_number), interval);
+            assert_eq!(Some(0..(last_transaction_block_number + 1)), interval);
         }
         {
             // The last block range give the lower bound
@@ -548,7 +548,7 @@ mod tests {
                 .unwrap();
 
             assert_eq!(
-                Some(last_block_range.end..=last_transaction_block_number),
+                Some(last_block_range.end..(last_transaction_block_number + 1)),
                 interval
             );
         }

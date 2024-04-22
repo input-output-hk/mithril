@@ -1,5 +1,5 @@
 use sqlite::Value;
-use std::ops::RangeInclusive;
+use std::ops::Range;
 
 use mithril_common::entities::{BlockNumber, ImmutableFileNumber, TransactionHash};
 use mithril_persistence::sqlite::{
@@ -42,15 +42,15 @@ impl<'client> GetCardanoTransactionProvider<'client> {
 
     pub fn get_transaction_between_blocks_condition(
         &self,
-        range: RangeInclusive<BlockNumber>,
+        range: Range<BlockNumber>,
     ) -> WhereCondition {
         WhereCondition::new(
             "block_number >= ?*",
-            vec![Value::Integer(*range.start() as i64)],
+            vec![Value::Integer(range.start as i64)],
         )
         .and_where(WhereCondition::new(
-            "block_number <= ?*",
-            vec![Value::Integer(*range.end() as i64)],
+            "block_number < ?*",
+            vec![Value::Integer(range.end as i64)],
         ))
     }
 }

@@ -1,4 +1,4 @@
-use std::ops::RangeInclusive;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -18,17 +18,6 @@ pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
 
-    /// Get the interval of blocks whose merkle root has yet to be computed
-    async fn get_block_interval_without_block_range_root(
-        &self,
-    ) -> StdResult<Option<RangeInclusive<BlockNumber>>>;
-
-    /// Get transactions between two block numbers
-    async fn get_transactions_between(
-        &self,
-        range: RangeInclusive<BlockNumber>,
-    ) -> StdResult<Vec<CardanoTransaction>>;
-
     /// Get stored transactions up to the given beacon
     async fn get_up_to(
         &self,
@@ -37,6 +26,17 @@ pub trait TransactionStore: Send + Sync {
 
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
+
+    /// Get the interval of blocks whose merkle root has yet to be computed
+    async fn get_block_interval_without_block_range_root(
+        &self,
+    ) -> StdResult<Option<Range<BlockNumber>>>;
+
+    /// Get transactions between two block numbers
+    async fn get_transactions_between(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Store list of block ranges with their corresponding merkle root
     async fn store_block_ranges(
@@ -134,7 +134,7 @@ impl CardanoTransactionsImporter {
             }
             Some(range) => {
                 let block_ranges =
-                    BlockRange::all_ranges_in(BlockRange::start(*range.start())..=*range.end());
+                    BlockRange::all_ranges_in(BlockRange::start(range.start)..range.end);
 
                 if block_ranges.is_empty() {
                     return Ok(());
@@ -144,7 +144,7 @@ impl CardanoTransactionsImporter {
                 for block_range in block_ranges {
                     let transactions = self
                         .transaction_store
-                        .get_transactions_between(block_range.start..=(block_range.end - 1))
+                        .get_transactions_between(block_range.start..block_range.end)
                         .await?;
                     let merkle_root = MKTree::new(&transactions)?.compute_root()?;
                     block_ranges_with_merkle_root.push((block_range, merkle_root));
@@ -468,10 +468,8 @@ mod tests {
     #[tokio::test]
     // async fn block_range_root_compute_work_on_block_range_starting_before_last_block_range_root_and_finishing_before_last_tx(
     async fn block_range_root_only_retrieve_only_strictly_required_transactions() {
-        fn transactions_for_block(
-            range: RangeInclusive<BlockNumber>,
-        ) -> StdResult<Vec<CardanoTransaction>> {
-            Ok(build_blocks(*range.start(), range.count() as BlockNumber)
+        fn transactions_for_block(range: Range<BlockNumber>) -> StdResult<Vec<CardanoTransaction>> {
+            Ok(build_blocks(range.start, range.count() as BlockNumber)
                 .iter()
                 .flat_map(|b| b.clone().into_transactions())
                 .collect())
@@ -484,11 +482,7 @@ mod tests {
                 // Specification of the interval without block range root
                 // Note: in reality the lower bound will always be a multiple of BlockRange::LENGTH
                 // since it's computed from the `block_range_root` table
-                .returning(|| {
-                    Ok(Some(
-                        (BlockRange::LENGTH + 2)..=(BlockRange::LENGTH * 5 + 1),
-                    ))
-                })
+                .returning(|| Ok(Some((BlockRange::LENGTH + 2)..(BlockRange::LENGTH * 5))))
                 .once();
             store_mock
                 .expect_get_transactions_between()
@@ -501,7 +495,7 @@ mod tests {
                 // included in a block range
                 .withf(|range| {
                     let expected_range = BlockRange::LENGTH..=(BlockRange::LENGTH * 5);
-                    expected_range.contains(range.start()) && expected_range.contains(range.end())
+                    expected_range.contains(&range.start) && expected_range.contains(&range.end)
                 })
                 .returning(transactions_for_block);
             store_mock.expect_store_block_ranges().returning(|_| Ok(()));
