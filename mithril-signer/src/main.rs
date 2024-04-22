@@ -75,6 +75,12 @@ pub struct Args {
     /// Metrics HTTP server listening port.
     #[clap(long, env = "METRICS_SERVER_PORT", default_value_t = 9090)]
     metrics_server_port: u16,
+
+    /// If set no error is returned in case of unparsable block and an error log is written instead.
+    ///
+    /// Will be ignored on (pre)production networks.
+    #[clap(long)]
+    allow_unparsable_block: bool,
 }
 
 impl Args {
@@ -136,6 +142,8 @@ async fn main() -> StdResult<()> {
         .with_context(|| "configuration error: could not set `reset_digests_cache`")?
         .set_default("enable_metrics_server", args.enable_metrics_server)
         .with_context(|| "configuration error: could not set `enable_metrics_server`")?
+        .set_default("allow_unparsable_block", args.allow_unparsable_block)
+        .with_context(|| "configuration error: could not set `allow_unparsable_block`")?
         .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(

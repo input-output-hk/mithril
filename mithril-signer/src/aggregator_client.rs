@@ -443,6 +443,7 @@ mod tests {
             enable_metrics_server: true,
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            allow_unparsable_block: false,
         };
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));

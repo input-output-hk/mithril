@@ -36,6 +36,12 @@ pub struct ServeCommand {
     /// Will be ignored if set in conjunction with `--disable-digests-cache`.
     #[clap(long)]
     reset_digests_cache: bool,
+
+    /// If set no error is returned in case of unparsable block and an error log is written instead.
+    ///
+    /// Will be ignored on (pre)production networks.
+    #[clap(long)]
+    allow_unparsable_block: bool,
 }
 
 impl Source for ServeCommand {

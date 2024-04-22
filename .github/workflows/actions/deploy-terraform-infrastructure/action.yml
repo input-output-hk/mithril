@@ -100,6 +100,10 @@ inputs:
   mithril_aggregator_cexplorer_pools_url:
     description: CExplorer url of the list of pools that is used by the mithril aggregator.
     required: false
+  mithril_aggregator_allow_unparsable_block:
+    description: If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks.
+    required: false
+    default: "false"
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
@@ -153,7 +157,7 @@ runs:
           environment_prefix                                = "${{ inputs.environment_prefix }}"
           cardano_network                                   = "${{ inputs.cardano_network }}"
           cardano_image_id                                  = "${{ inputs.cardano_node_version }}"
-          cardano_image_registry                          = "${{ inputs.cardano_node_docker_registry }}"
+          cardano_image_registry                            = "${{ inputs.cardano_node_docker_registry }}"
           google_region                                     = "${{ inputs.google_region }}"
           google_zone                                       = "${{ inputs.google_zone }}"
           google_machine_type                               = "${{ inputs.google_machine_type }}"
@@ -178,6 +182,7 @@ runs:
           mithril_aggregator_zstandard_parameters_level     = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
           mithril_aggregator_zstandard_parameters_workers   = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
           mithril_aggregator_cexplorer_pools_url            = "${{ inputs.mithril_aggregator_cexplorer_pools_url }}"
+          mithril_aggregator_allow_unparsable_block         = "${{ inputs.mithril_aggregator_allow_unparsable_block }}"
           prometheus_auth_username                          = "${{ inputs.prometheus_auth_username }}"
           prometheus_auth_password                          = "${{ inputs.prometheus_auth_password }}"
           prometheus_ingest_host                            = "${{ inputs.prometheus_ingest_host }}"

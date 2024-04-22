@@ -9,9 +9,9 @@ use mithril_common::{
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-        ImmutableFileObserver,
+        CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
+        ImmutableFileSystemObserver,
     },
-    digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -257,11 +257,11 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        // TODO: 'allow_unparsable_block' parameter should be configurable
-        let allow_unparsable_block = false;
         let transaction_parser = Arc::new(CardanoTransactionParser::new(
             slog_scope::logger(),
-            allow_unparsable_block,
+            self.config
+                .get_network()?
+                .compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
         ));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
@@ -385,6 +385,7 @@ mod tests {
             enable_metrics_server: true,
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            allow_unparsable_block: false,
         };
 
         assert!(!stores_dir.exists());

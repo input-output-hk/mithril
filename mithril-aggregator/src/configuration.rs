@@ -147,6 +147,11 @@ pub struct Configuration {
 
     /// Time interval at which the signers in [Self::cexplorer_pools_url] will be imported (in minutes).
     pub signer_importer_run_interval: u64,
+
+    /// If set no error is returned in case of unparsable block and an error log is written instead.
+    ///
+    /// Will be ignored on (pre)production networks.
+    pub allow_unparsable_block: bool,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -218,6 +223,7 @@ impl Configuration {
             zstandard_parameters: Some(ZstandardCompressionParameters::default()),
             cexplorer_pools_url: None,
             signer_importer_run_interval: 1,
+            allow_unparsable_block: false,
         }
     }
 
@@ -348,6 +354,11 @@ pub struct DefaultConfiguration {
 
     /// Signer importer run interval default setting
     pub signer_importer_run_interval: u64,
+
+    /// If set no error is returned in case of unparsable block and an error log is written instead.
+    ///
+    /// Will be ignored on (pre)production networks.
+    pub allow_unparsable_block: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -367,6 +378,7 @@ impl Default for DefaultConfiguration {
             snapshot_compression_algorithm: "zstandard".to_string(),
             snapshot_use_cdn_domain: "false".to_string(),
             signer_importer_run_interval: 720,
+            allow_unparsable_block: "false".to_string(),
         }
     }
 }
@@ -463,6 +475,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.signer_importer_run_interval),
+            ),
+        );
+        result.insert(
+            "allow_unparsable_block".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.allow_unparsable_block),
             ),
         );
 
