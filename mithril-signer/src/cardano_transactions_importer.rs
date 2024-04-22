@@ -139,26 +139,16 @@ impl CardanoTransactionsImporter {
                 if block_ranges.is_empty() {
                     return Ok(());
                 }
-                let start = block_ranges[0].start;
-                let end = block_ranges[block_ranges.len() - 1].end;
 
-                let transactions: Vec<CardanoTransaction> = self
-                    .transaction_store
-                    .get_transactions_between(start..=end)
-                    .await?;
-
-                let block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = block_ranges
-                    .into_iter()
-                    .map(|range| {
-                        let transactions_in_range = transactions
-                            .iter()
-                            .filter(|t| range.contains(&t.block_number))
-                            .map(|t| t.transaction_hash.clone())
-                            .collect::<Vec<_>>();
-                        let merkle_root = MKTree::new(&transactions_in_range)?.compute_root()?;
-                        Ok((range, merkle_root))
-                    })
-                    .collect::<StdResult<_>>()?;
+                let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];
+                for block_range in block_ranges {
+                    let transactions = self
+                        .transaction_store
+                        .get_transactions_between(block_range.start..=(block_range.end - 1))
+                        .await?;
+                    let merkle_root = MKTree::new(&transactions)?.compute_root()?;
+                    block_ranges_with_merkle_root.push((block_range, merkle_root));
+                }
 
                 self.transaction_store
                     .store_block_ranges(block_ranges_with_merkle_root)
