@@ -123,43 +123,44 @@ impl CardanoTransactionsImporter {
     }
 
     async fn import_block_ranges(&self) -> StdResult<()> {
-        match self
+        let block_ranges = match self
             .transaction_store
             .get_block_interval_without_block_range_root()
             .await?
+            .map(|range| BlockRange::all_ranges_in(BlockRange::start(range.start)..range.end))
         {
-            None => {
-                // Nothing to do
-                Ok(())
+            // Everything is already computed
+            None => return Ok(()),
+            // Not enough block to form at least one block range
+            Some(ranges) if ranges.is_empty() => return Ok(()),
+            Some(ranges) => ranges,
+        };
+
+        debug!(
+            self.logger,
+            "TransactionsImporter - computing Block Range Roots";
+            "start_block" => block_ranges.first().map(|br| br.start).unwrap_or(0),
+            "end_block" => block_ranges.last().map(|br| br.end).unwrap_or(0),
+        );
+
+        let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];
+        for block_range in block_ranges {
+            let transactions = self
+                .transaction_store
+                .get_transactions_between(block_range.start..block_range.end)
+                .await?;
+
+            if transactions.is_empty() {
+                continue;
             }
-            Some(range) => {
-                let block_ranges =
-                    BlockRange::all_ranges_in(BlockRange::start(range.start)..range.end);
 
-                if block_ranges.is_empty() {
-                    return Ok(());
-                }
-
-                let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];
-                for block_range in block_ranges {
-                    let transactions = self
-                        .transaction_store
-                        .get_transactions_between(block_range.start..block_range.end)
-                        .await?;
-
-                    if transactions.is_empty() {
-                        continue;
-                    }
-
-                    let merkle_root = MKTree::new(&transactions)?.compute_root()?;
-                    block_ranges_with_merkle_root.push((block_range, merkle_root));
-                }
-
-                self.transaction_store
-                    .store_block_ranges(block_ranges_with_merkle_root)
-                    .await
-            }
+            let merkle_root = MKTree::new(&transactions)?.compute_root()?;
+            block_ranges_with_merkle_root.push((block_range, merkle_root));
         }
+
+        self.transaction_store
+            .store_block_ranges(block_ranges_with_merkle_root)
+            .await
     }
 }
 

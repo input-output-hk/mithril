@@ -242,7 +242,9 @@ impl TransactionStore for CardanoTransactionRepository {
         &self,
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()> {
-        self.create_block_ranges(block_ranges).await?;
+        if !block_ranges.is_empty() {
+            self.create_block_ranges(block_ranges).await?;
+        }
         Ok(())
     }
 }
