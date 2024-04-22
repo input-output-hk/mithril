@@ -4,9 +4,9 @@
 
 It scaffolds a private compound devnet with Cardano and Mithril nodes:
 
-* `N` Cardano BFT nodes
+* `N` Cardano Full nodes
 * `P` Cardano SPO nodes
-* `1` Mithril Aggregator node (attached to the first Cardano BFT node)
+* `1` Mithril Aggregator node (attached to the first Cardano Full node)
 * `P` Mithril Signer nodes (attached to each Cardano SPO nodes)
 
 ## Credits
@@ -34,10 +34,10 @@ chmod u+x *.sh
 ## One step run with default configuration
 
 ```bash
-# Run devnet with 1 BFT node and 2 SPO nodes (with local docker images)
+# Run devnet with 1 Full node and 2 SPO nodes (with local docker images)
 ./devnet-run.sh
 
-# Run devnet with 1 BFT node and 2 SPO nodes (with remote docker images)
+# Run devnet with 1 Full node and 2 SPO nodes (with remote docker images)
 MITHRIL_IMAGE_ID=main-c9213ca ./devnet-run.sh
 
 # Run devnet with Cardano nodes only
@@ -89,8 +89,8 @@ NODES=mithril ./devnet-query.sh
 ## One step run with custom configuration
 
 ```bash
-# Run devnet with 2 BFT nodes and 5 SPO nodes
-ARTIFACTS_DIR=artifacts NUM_BFT_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
+# Run devnet with 2 Full nodes and 5 SPO nodes
+ARTIFACTS_DIR=artifacts NUM_FULL_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
 
 # Run devnet custom slot length (0.5s) and custom epoch length (120s)
 # Slot length: the duration of a Cardano Eslot (can help modulate the immutables creation rate)
@@ -115,11 +115,11 @@ ARTIFACTS_DIR=artifacts ./devnet-visualize.sh
 ```bash
 # Parameters
 ARTIFACTS_DIR=artifacts # Directory where artifacts are produced
-NUM_BFT_NODES=1 # Number of Cardano BFT nodes
+NUM_FULL_NODES=1 # Number of Cardano Full nodes
 NUM_POOL_NODES=3 # Number of Cardano SPO nodes
 
-# Bootstrap devnet with 1 BFT nodes and 3 SPO nodes
-rm -rf ${ARTIFACTS_DIR} && ./devnet-mkfiles.sh ${ARTIFACTS_DIR} ${NUM_BFT_NODES} ${NUM_POOL_NODES}
+# Bootstrap devnet with 1 Full node and 3 SPO nodes
+rm -rf ${ARTIFACTS_DIR} && ./devnet-mkfiles.sh ${ARTIFACTS_DIR} ${NUM_FULL_NODES} ${NUM_POOL_NODES}
 
 # Change directory
 cd ${ARTIFACTS_DIR}
@@ -169,7 +169,7 @@ artifacts
 ├── cardano-node
 ├── docker-compose.yaml
 ├── log.sh
-├── node-bft1
+├── node-full1
 │   ├── byron
 │   │   ├── delegate.cert
 │   │   ├── delegate.key

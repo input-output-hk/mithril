@@ -10,7 +10,7 @@ version: "3.9"
 services:
 EOF
 
-for NODE in ${BFT_NODES}; do
+for NODE in ${FULL_NODES}; do
 
     PORT=$(cat ${NODE}/port)
     HOST=$(cat ${NODE}/host)
@@ -104,7 +104,7 @@ EOF
 
 done
 
-for NODE in ${BFT_NODES}; do
+for NODE in ${FULL_NODES}; do
 
 cat >> docker-compose.yaml <<EOF
   mithril-aggregator:

@@ -13,7 +13,7 @@ In this guide, you will learn how to run a demonstration of a **Mithril network*
 You can launch a private Mithril network using the following topology:
 
 * `2` **Cardano nodes** configured as **stake pool operators (SPOs)** with a **Mithril signer** on top
-* `1` **Cardano node** configured as a **BFT node** with a **Mithril aggregator** on top
+* `1` **Cardano node** configured as a **Full node** with a **Mithril aggregator** on top
 
 ![Devnet Topology](images/devnet-topology.png)
 
@@ -72,7 +72,7 @@ Open a terminal window. Run a devnet with one BTF and two SPO Cardano nodes.
 The network setup will be quicker when using remote Docker images:
 
 ```bash
-MITHRIL_IMAGE_ID=latest NUM_BFT_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
+MITHRIL_IMAGE_ID=latest FULL_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
 ```
 
 **Option 2**: Use local Docker images
@@ -80,7 +80,7 @@ MITHRIL_IMAGE_ID=latest NUM_BFT_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
 Note that using local Docker images to build Mithril nodes may take more time:
 
 ```bash
-NUM_BFT_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
+FULL_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
 ```
 
 :::info
@@ -101,9 +101,9 @@ You should see the following information displayed:
 =====================================================================
 
 >> Directory: artifacts
->> Cardano BFT nodes: 1
+>> Cardano Full nodes: 1
 >> Cardano SPO nodes: 2
->> Info: Mithril aggregator will be attached to the first Cardano BFT node
+>> Info: Mithril aggregator will be attached to the first Cardano Full node
 >> Info: Mithril signers will be attached to each Cardano SPO node
 
 =====================================================================
@@ -112,7 +112,7 @@ You should see the following information displayed:
 
 >> Start Cardano network
 cardano-node: no process found
->> Starting Cardano node 'node-bft1'
+>> Starting Cardano node 'node-full1'
 >> Starting Cardano node 'node-pool1'
 >> Starting Cardano node 'node-pool2'
 >> Wait for Cardano network to be ready
@@ -340,7 +340,7 @@ mithril-signer-node-pool2_1  | {"msg":"Sleeping for 1000","v":0,"name":"slog-rs"
 
 =====================================================================
 =====================================================================
-tail -n 22 ./node-bft1/node.log
+tail -n 22 ./node-full1/node.log
 =====================================================================
 [jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:28.01 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 219, dsSuffix = Nothing} at 075fc8366d353b45debedfc6faa92148c8fad584d81dbb4ea7b8b4d121489452 at slot 219
 [jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:40.76 UTC] Chain extended, new tip: af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
