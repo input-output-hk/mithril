@@ -146,6 +146,11 @@ impl CardanoTransactionsImporter {
                         .transaction_store
                         .get_transactions_between(block_range.start..block_range.end)
                         .await?;
+
+                    if transactions.is_empty() {
+                        continue;
+                    }
+
                     let merkle_root = MKTree::new(&transactions)?.compute_root()?;
                     block_ranges_with_merkle_root.push((block_range, merkle_root));
                 }
@@ -303,6 +308,43 @@ mod tests {
                 BlockRange::from_block_number(BlockRange::LENGTH * 2),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
                 BlockRange::from_block_number(BlockRange::LENGTH * 4),
+            ],
+            block_range_roots
+                .into_iter()
+                .map(|r| r.range)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn handle_gap_between_block_ranges() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
+
+        // Two block ranges with a gap
+        let blocks: Vec<ScannedBlock> = [
+            build_blocks(0, BlockRange::LENGTH),
+            build_blocks(BlockRange::LENGTH * 3, BlockRange::LENGTH),
+        ]
+        .concat();
+        let transactions = into_transactions(&blocks);
+        repository.store_transactions(transactions).await.unwrap();
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
+        );
+
+        importer
+            .import_block_ranges()
+            .await
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            vec![
+                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
             block_range_roots
                 .into_iter()
