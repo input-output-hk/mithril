@@ -36,6 +36,14 @@ const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
 const SQLITE_FILE: &str = "signer.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 
+// Memory allocator (to handle properly memory fragmentation)
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 #[cfg(test)]
 pub mod test_tools {
     use slog::Drain;
