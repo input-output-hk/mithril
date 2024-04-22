@@ -13,6 +13,8 @@ use mithril_common::StdError;
 use mithril_persistence::database::SignedEntityTypeHydrator;
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
+use crate::database::record::hydrator;
+
 /// SignedEntity record is the representation of a stored signed_entity.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SignedEntityRecord {
@@ -239,7 +241,7 @@ impl SqLiteEntity for SignedEntityRecord {
         let signed_entity_id = row.read::<&str, _>(0).to_string();
         let signed_entity_type_id_int = row.read::<i64, _>(1);
         let certificate_id = row.read::<&str, _>(2).to_string();
-        let beacon_str = super::read_signed_entity_beacon_column(&row, 3);
+        let beacon_str = hydrator::read_signed_entity_beacon_column(&row, 3);
         let artifact_str = row.read::<&str, _>(4).to_string();
         let created_at = row.read::<&str, _>(5);
 

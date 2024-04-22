@@ -6,6 +6,8 @@ use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_persistence::database::SignedEntityTypeHydrator;
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
+use crate::database::record::hydrator;
+
 /// ## OpenMessage
 ///
 /// An open message is a message open for signatures. Every signer may send a
@@ -79,7 +81,7 @@ impl SqLiteEntity for OpenMessageRecord {
         let epoch_setting_id = row.read::<i64, _>(1);
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
-        let beacon_str = super::read_signed_entity_beacon_column(&row, 2);
+        let beacon_str = hydrator::read_signed_entity_beacon_column(&row, 2);
         let signed_entity_type_id = usize::try_from(row.read::<i64, _>(3)).map_err(|e| {
             panic!(
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"

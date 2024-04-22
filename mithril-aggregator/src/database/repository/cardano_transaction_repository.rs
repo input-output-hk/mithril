@@ -1,17 +1,23 @@
+use std::ops::Range;
 use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use slog_scope::warn;
 
+use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockHash, BlockNumber, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber, SlotNumber,
-    TransactionHash,
+    BlockHash, BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
+    SlotNumber, TransactionHash,
 };
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Provider, SqliteConnection, WhereCondition};
 
-use crate::database::provider::{GetCardanoTransactionProvider, InsertCardanoTransactionProvider};
-use crate::database::record::CardanoTransactionRecord;
+use crate::database::provider::{
+    GetCardanoTransactionProvider, GetIntervalWithoutBlockRangeRootProvider,
+    InsertBlockRangeRootProvider, InsertCardanoTransactionProvider,
+};
+use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::services::{TransactionStore, TransactionsRetriever};
 
 /// ## Cardano transaction repository
@@ -32,6 +38,18 @@ impl CardanoTransactionRepository {
     pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = WhereCondition::default();
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions.collect())
+    }
+
+    /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
+    pub async fn get_transactions_between_blocks(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_between_blocks_condition(range);
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
@@ -98,6 +116,39 @@ impl CardanoTransactionRepository {
 
         Ok(cursor.collect())
     }
+
+    /// Create new [BlockRangeRootRecord]s in the database.
+    pub async fn create_block_ranges<T: Into<BlockRangeRootRecord>>(
+        &self,
+        block_ranges: Vec<T>,
+    ) -> StdResult<Vec<BlockRangeRootRecord>> {
+        let records: Vec<BlockRangeRootRecord> =
+            block_ranges.into_iter().map(|tx| tx.into()).collect();
+
+        let provider = InsertBlockRangeRootProvider::new(&self.connection);
+        let filters = provider.get_insert_many_condition(records)?;
+        let cursor = provider.find(filters)?;
+
+        Ok(cursor.collect())
+    }
+}
+
+#[cfg(test)]
+pub mod test_extensions {
+    use mithril_persistence::sqlite::GetAllProvider;
+
+    use crate::database::provider::GetBlockRangeRootProvider;
+
+    use super::*;
+
+    impl CardanoTransactionRepository {
+        pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
+            let provider = GetBlockRangeRootProvider::new(&self.connection);
+            let records = provider.get_all()?;
+
+            Ok(records.collect())
+        }
+    }
 }
 
 #[async_trait]
@@ -146,6 +197,54 @@ impl TransactionStore for CardanoTransactionRepository {
         }
         Ok(())
     }
+
+    async fn get_block_interval_without_block_range_root(
+        &self,
+    ) -> StdResult<Option<Range<BlockNumber>>> {
+        let provider = GetIntervalWithoutBlockRangeRootProvider::new(&self.connection);
+        let row = provider
+            .find(provider.get_interval_without_block_range_condition())?
+            .next();
+
+        match row {
+            // Should be impossible - the request as written in the provider always returns a single row
+            None => panic!("IntervalWithoutBlockRangeProvider should always return a single row"),
+            Some(interval) => match (interval.start, interval.end) {
+                (_, None) => Ok(None),
+                (None, Some(end)) => Ok(Some(0..(end + 1))),
+                (Some(start), Some(end)) if end < start => {
+                    // To discuss : should we prune all block ranges from the DB to force recompute ?
+                    warn!(
+                        "Last computed block range is higher than the last transaction block number. \
+                        This should not happen. Did you forgot to prune the `block_range` table after pruning the\
+                        `cardano_tx` table ?";
+                        "start" => start, "end" => end
+                    );
+                    Ok(None)
+                }
+                (Some(start), Some(end)) => Ok(Some(start..(end + 1))),
+            },
+        }
+    }
+
+    async fn get_transactions_between(
+        &self,
+        range: Range<BlockNumber>,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        self.get_transactions_between_blocks(range).await.map(|v| {
+            v.into_iter()
+                .map(|record| record.into())
+                .collect::<Vec<CardanoTransaction>>()
+        })
+    }
+
+    async fn store_block_ranges(
+        &self,
+        block_ranges: Vec<(BlockRange, MKTreeNode)>,
+    ) -> StdResult<()> {
+        self.create_block_ranges(block_ranges).await?;
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -177,6 +276,9 @@ impl TransactionsRetriever for CardanoTransactionRepository {
 
 #[cfg(test)]
 mod tests {
+    use mithril_persistence::sqlite::GetAllProvider;
+
+    use crate::database::provider::GetBlockRangeRootProvider;
     use crate::database::test_helper::cardano_tx_db_connection;
 
     use super::*;
@@ -369,7 +471,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_store_transactions_doesnt_erase_existing_data() {
+    async fn repository_store_transactions_with_existing_hash_doesnt_erase_existing_data() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
@@ -429,5 +531,198 @@ mod tests {
 
         let highest_beacon = repository.get_highest_beacon().await.unwrap();
         assert_eq!(Some(100), highest_beacon);
+    }
+
+    #[tokio::test]
+    async fn repository_get_transactions_between_blocks() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-1", 10, 50, "block-hash-1", 99),
+            CardanoTransaction::new("tx-hash-2", 11, 51, "block-hash-2", 100),
+            CardanoTransaction::new("tx-hash-3", 12, 52, "block-hash-3", 101),
+        ];
+        repository
+            .create_transactions(transactions.clone())
+            .await
+            .unwrap();
+
+        {
+            let transaction_result = repository.get_transactions_between(0..10).await.unwrap();
+            assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(13..21).await.unwrap();
+            assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(9..12).await.unwrap();
+            assert_eq!(transactions[0..=1].to_vec(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(10..13).await.unwrap();
+            assert_eq!(transactions.clone(), transaction_result);
+        }
+        {
+            let transaction_result = repository.get_transactions_between(11..14).await.unwrap();
+            assert_eq!(transactions[1..=2].to_vec(), transaction_result);
+        }
+    }
+
+    #[tokio::test]
+    async fn repository_get_block_interval_without_block_range_root() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        {
+            let interval = repository
+                .get_block_interval_without_block_range_root()
+                .await
+                .unwrap();
+
+            assert_eq!(None, interval);
+        }
+
+        // The last transaction block number give the upper bound
+        let last_transaction_block_number = BlockRange::LENGTH * 4;
+        repository
+            .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
+            .await
+            .unwrap();
+
+        {
+            let interval = repository
+                .get_block_interval_without_block_range_root()
+                .await
+                .unwrap();
+
+            assert_eq!(Some(0..(last_transaction_block_number + 1)), interval);
+        }
+        {
+            // The last block range give the lower bound
+            let last_block_range = BlockRange::from_block_number(0);
+            repository
+                .store_block_ranges(vec![(
+                    last_block_range.clone(),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                )])
+                .await
+                .unwrap();
+
+            let interval = repository
+                .get_block_interval_without_block_range_root()
+                .await
+                .unwrap();
+
+            assert_eq!(
+                Some(last_block_range.end..(last_transaction_block_number + 1)),
+                interval
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn repository_get_block_interval_without_block_range_root_when_last_block_range_higher_than_stored_transactions(
+    ) {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let last_block_range = BlockRange::from_block_number(BlockRange::LENGTH * 10);
+        repository
+            .store_block_ranges(vec![(
+                last_block_range.clone(),
+                MKTreeNode::from_hex("AAAA").unwrap(),
+            )])
+            .await
+            .unwrap();
+
+        // Only block range in db
+        {
+            let interval = repository
+                .get_block_interval_without_block_range_root()
+                .await
+                .unwrap();
+
+            assert_eq!(None, interval);
+        }
+        // Highest transaction block number is below the last computed block range, this may happen
+        // if the latest transactions were pruned from DB (whatever the reason for this pruned was).
+        {
+            let last_transaction_block_number = last_block_range.end - 10;
+            repository
+                .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
+                .await
+                .unwrap();
+
+            let interval = repository
+                .get_block_interval_without_block_range_root()
+                .await
+                .unwrap();
+
+            assert_eq!(None, interval);
+        }
+    }
+
+    #[tokio::test]
+    async fn repository_store_block_range() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let provider = GetBlockRangeRootProvider::new(&connection);
+        let repository = CardanoTransactionRepository::new(connection.clone());
+
+        repository
+            .store_block_ranges(vec![
+                (
+                    BlockRange::from_block_number(0),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH),
+                    MKTreeNode::from_hex("BBBB").unwrap(),
+                ),
+            ])
+            .await
+            .unwrap();
+
+        let records: Vec<BlockRangeRootRecord> = provider.get_all().unwrap().collect();
+        assert_eq!(
+            vec![
+                BlockRangeRootRecord {
+                    range: BlockRange::from_block_number(0),
+                    merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
+                },
+                BlockRangeRootRecord {
+                    range: BlockRange::from_block_number(BlockRange::LENGTH),
+                    merkle_root: MKTreeNode::from_hex("BBBB").unwrap(),
+                }
+            ],
+            records
+        );
+    }
+
+    #[tokio::test]
+    async fn repository_store_block_range_with_existing_hash_doesnt_erase_existing_data() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let provider = GetBlockRangeRootProvider::new(&connection);
+        let repository = CardanoTransactionRepository::new(connection.clone());
+        let range = BlockRange::from_block_number(0);
+
+        repository
+            .store_block_ranges(vec![(range.clone(), MKTreeNode::from_hex("AAAA").unwrap())])
+            .await
+            .unwrap();
+        repository
+            .store_block_ranges(vec![(range.clone(), MKTreeNode::from_hex("BBBB").unwrap())])
+            .await
+            .unwrap();
+
+        let record: Vec<BlockRangeRootRecord> = provider.get_all().unwrap().collect();
+        assert_eq!(
+            vec![BlockRangeRootRecord {
+                range,
+                merkle_root: MKTreeNode::from_hex("AAAA").unwrap()
+            }],
+            record
+        );
     }
 }
