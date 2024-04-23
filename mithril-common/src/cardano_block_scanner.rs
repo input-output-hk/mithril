@@ -11,7 +11,8 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_hardano::storage::immutable::chunk::{read_blocks, Reader};
 use pallas_traverse::MultiEraBlock;
-use slog::{error, warn, Logger};
+use slog::{debug, error, warn, Logger};
+use std::collections::VecDeque;
 use std::path::Path;
 use tokio::sync::RwLock;
 
@@ -38,7 +39,7 @@ use tokio::sync::RwLock;
 ///               dirpath: &Path,
 ///               from_immutable: Option<ImmutableFileNumber>,
 ///               until_immutable: ImmutableFileNumber,
-///             ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>>;
+///             ) -> StdResult<Box<dyn BlockStreamer>>;
 ///         }
 ///     }
 ///
@@ -59,7 +60,145 @@ pub trait BlockScanner: Sync + Send {
         dirpath: &Path,
         from_immutable: Option<ImmutableFileNumber>,
         until_immutable: ImmutableFileNumber,
-    ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>>;
+    ) -> StdResult<Box<dyn BlockStreamer>>;
+}
+
+/// Trait that define how blocks are streamed from a Cardano database
+#[async_trait]
+pub trait BlockStreamer: Sync + Send {
+    /// Stream the next available blocks
+    async fn poll_next(&mut self) -> StdResult<Option<Vec<ScannedBlock>>>;
+
+    /// Stream all the available blocks, may be very memory intensive
+    async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>> {
+        let mut blocks = Vec::new();
+        while let Some(mut next_blocks) = self.poll_next().await? {
+            blocks.append(&mut next_blocks);
+        }
+        Ok(blocks)
+    }
+}
+
+/// [Block streamer][BlockStreamer] that streams blocks immutable files per immutable files
+pub struct ImmutableBlockStreamer {
+    remaining_immutables: VecDeque<ImmutableFile>,
+    current_immutable_file: Option<ImmutableFile>,
+    allow_unparsable_block: bool,
+    logger: Logger,
+}
+
+#[async_trait]
+impl BlockStreamer for ImmutableBlockStreamer {
+    async fn poll_next(&mut self) -> StdResult<Option<Vec<ScannedBlock>>> {
+        match &self.current_immutable_file {
+            Some(immutable_file) => {
+                debug!(
+                    self.logger,
+                    "Reading blocks from immutable file: '{}'",
+                    immutable_file.path.display()
+                );
+
+                let blocks = self
+                    .read_blocks_from_immutable_file(immutable_file)
+                    .with_context(|| {
+                        format!(
+                            "BlockStreamer failed to read blocks from immutable file: '{}'.",
+                            immutable_file.path.display()
+                        )
+                    })?;
+                self.current_immutable_file = self.remaining_immutables.pop_front();
+                Ok(Some(blocks))
+            }
+            None => Ok(None),
+        }
+    }
+}
+
+impl ImmutableBlockStreamer {
+    /// Factory
+    pub fn new(
+        immutables_to_stream: Vec<ImmutableFile>,
+        allow_unparsable_block: bool,
+        logger: Logger,
+    ) -> Self {
+        let (remaining_immutables, current_immutable_file) = if immutables_to_stream.is_empty() {
+            (VecDeque::new(), None)
+        } else {
+            let mut remaining_immutables = VecDeque::from(immutables_to_stream);
+            let current_immutable_file = remaining_immutables.pop_front();
+            (remaining_immutables, current_immutable_file)
+        };
+
+        Self {
+            remaining_immutables,
+            current_immutable_file,
+            allow_unparsable_block,
+            logger,
+        }
+    }
+
+    /// Read blocks from immutable file
+    fn read_blocks_from_immutable_file(
+        &self,
+        immutable_file: &ImmutableFile,
+    ) -> StdResult<Vec<ScannedBlock>> {
+        let cardano_blocks_reader = Self::cardano_blocks_reader(immutable_file)?;
+
+        let mut blocks = Vec::new();
+        for parsed_block in cardano_blocks_reader {
+            let block = parsed_block.with_context(|| {
+                format!(
+                    "Error while reading block in immutable file: '{:?}'",
+                    immutable_file.path
+                )
+            })?;
+            match Self::convert_to_block(&block, immutable_file) {
+                Ok(convert_to_block) => {
+                    blocks.push(convert_to_block);
+                }
+                Err(err) if self.allow_unparsable_block => {
+                    error!(
+                        self.logger,
+                        "The cbor encoded block could not be parsed";
+                        "error" => ?err, "immutable_file_number" => immutable_file.number
+                    );
+                }
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(blocks)
+    }
+
+    fn convert_to_block(block: &[u8], immutable_file: &ImmutableFile) -> StdResult<ScannedBlock> {
+        let multi_era_block = MultiEraBlock::decode(block).with_context(|| {
+            format!(
+                "Error while decoding block in immutable file: '{:?}'",
+                immutable_file.path
+            )
+        })?;
+
+        Ok(ScannedBlock::convert(
+            multi_era_block,
+            immutable_file.number,
+        ))
+    }
+
+    fn cardano_blocks_reader(immutable_file: &ImmutableFile) -> StdResult<Reader> {
+        let dir_path = immutable_file.path.parent().ok_or(anyhow!(format!(
+            "Could not retrieve immutable file directory with immutable file path: '{:?}'",
+            immutable_file.path
+        )))?;
+        let file_name = &Path::new(&immutable_file.filename)
+            .file_stem()
+            .ok_or(anyhow!(format!(
+                "Could not extract immutable file name from file: '{}'",
+                immutable_file.filename
+            )))?
+            .to_string_lossy();
+        let blocks = read_blocks(dir_path, file_name)?;
+
+        Ok(blocks)
+    }
 }
 
 /// Dumb Block Scanner
@@ -89,9 +228,10 @@ impl BlockScanner for DumbBlockScanner {
         _dirpath: &Path,
         _from_immutable: Option<ImmutableFileNumber>,
         _until_immutable: ImmutableFileNumber,
-    ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>> {
-        let iter = self.blocks.read().await.clone().into_iter();
-        Ok(Box::new(iter))
+    ) -> StdResult<Box<dyn BlockStreamer>> {
+        // let iter = self.blocks.read().await.clone().into_iter();
+        // Ok(Box::new(iter))
+        todo!()
     }
 }
 
@@ -143,6 +283,11 @@ impl ScannedBlock {
         )
     }
 
+    /// Number of transactions in the block
+    pub fn transaction_len(&self) -> usize {
+        self.transactions.len()
+    }
+
     /// Convert the scanned block into a list of Cardano transactions.
     ///
     /// Consume the block.
@@ -185,69 +330,6 @@ impl CardanoBlockScanner {
             allow_unparsable_block,
         }
     }
-
-    /// Read blocks from immutable file
-    fn read_blocks_from_immutable_file(
-        &self,
-        immutable_file: &ImmutableFile,
-    ) -> StdResult<Vec<ScannedBlock>> {
-        let cardano_blocks_reader = CardanoBlockScanner::cardano_blocks_reader(immutable_file)?;
-
-        let mut blocks = Vec::new();
-        for parsed_block in cardano_blocks_reader {
-            let block = parsed_block.with_context(|| {
-                format!(
-                    "Error while reading block in immutable file: '{:?}'",
-                    immutable_file.path
-                )
-            })?;
-            match CardanoBlockScanner::convert_to_block(&block, immutable_file) {
-                Ok(convert_to_block) => {
-                    blocks.push(convert_to_block);
-                }
-                Err(err) if self.allow_unparsable_block => {
-                    error!(
-                        self.logger,
-                        "The cbor encoded block could not be parsed";
-                        "error" => ?err, "immutable_file_number" => immutable_file.number
-                    );
-                }
-                Err(e) => return Err(e),
-            }
-        }
-        Ok(blocks)
-    }
-
-    fn convert_to_block(block: &[u8], immutable_file: &ImmutableFile) -> StdResult<ScannedBlock> {
-        let multi_era_block = MultiEraBlock::decode(block).with_context(|| {
-            format!(
-                "Error while decoding block in immutable file: '{:?}'",
-                immutable_file.path
-            )
-        })?;
-
-        Ok(ScannedBlock::convert(
-            multi_era_block,
-            immutable_file.number,
-        ))
-    }
-
-    fn cardano_blocks_reader(immutable_file: &ImmutableFile) -> StdResult<Reader> {
-        let dir_path = immutable_file.path.parent().ok_or(anyhow!(format!(
-            "Could not retrieve immutable file directory with immutable file path: '{:?}'",
-            immutable_file.path
-        )))?;
-        let file_name = &Path::new(&immutable_file.filename)
-            .file_stem()
-            .ok_or(anyhow!(format!(
-                "Could not extract immutable file name from file: '{}'",
-                immutable_file.filename
-            )))?
-            .to_string_lossy();
-        let blocks = read_blocks(dir_path, file_name)?;
-
-        Ok(blocks)
-    }
 }
 
 #[async_trait]
@@ -257,7 +339,7 @@ impl BlockScanner for CardanoBlockScanner {
         dirpath: &Path,
         from_immutable: Option<ImmutableFileNumber>,
         until_immutable: ImmutableFileNumber,
-    ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>> {
+    ) -> StdResult<Box<dyn BlockStreamer>> {
         let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
             Some(from) => (from..=until_immutable).contains(&number),
             None => number <= until_immutable,
@@ -266,21 +348,12 @@ impl BlockScanner for CardanoBlockScanner {
             .into_iter()
             .filter(|f| is_in_bounds(f.number) && f.filename.contains("chunk"))
             .collect::<Vec<_>>();
-        let mut scanned_blocks: Vec<ScannedBlock> = vec![];
 
-        for immutable_file in &immutable_chunks {
-            let mut blocks = self
-                .read_blocks_from_immutable_file(immutable_file)
-                .with_context(|| {
-                    format!(
-                        "CardanoTransactionParser could read blocks from immutable file: '{}'.",
-                        immutable_file.path.display()
-                    )
-                })?;
-            scanned_blocks.append(&mut blocks);
-        }
-
-        Ok(Box::new(scanned_blocks.into_iter()))
+        Ok(Box::new(ImmutableBlockStreamer::new(
+            immutable_chunks,
+            self.allow_unparsable_block,
+            self.logger.clone(),
+        )))
     }
 }
 
@@ -289,7 +362,7 @@ mod tests {
     use slog::Drain;
     use std::{fs::File, sync::Arc};
 
-    use crate::test_utils::TempDir;
+    use crate::test_utils::{logger_for_tests, TempDir};
 
     use super::*;
 
@@ -318,17 +391,34 @@ mod tests {
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
         let until_immutable_file = 2;
-        let expected_tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
-        let cardano_transaction_parser =
-            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
+        // let expected_tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
+        let cardano_transaction_parser = CardanoBlockScanner::new(logger_for_tests(), false);
 
-        let blocks = cardano_transaction_parser
+        let mut streamer = cardano_transaction_parser
             .scan(db_path, None, until_immutable_file)
             .await
             .unwrap();
-        let tx_count: usize = blocks.map(|b| b.transactions.len()).sum();
 
-        assert_eq!(tx_count, expected_tx_count);
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            Some(immutable_files[0].1)
+        );
+
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            Some(immutable_files[1].1)
+        );
+
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            Some(immutable_files[2].1)
+        );
+
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert!(immutable_blocks.is_none());
     }
 
     #[tokio::test]
@@ -340,28 +430,31 @@ mod tests {
 
         let until_immutable_file = 2;
         let expected_tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
-        let cardano_transaction_parser =
-            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
+        let cardano_transaction_parser = CardanoBlockScanner::new(logger_for_tests(), false);
 
-        let blocks = cardano_transaction_parser
+        let mut streamer = cardano_transaction_parser
             .scan(db_path, Some(2), until_immutable_file)
             .await
             .unwrap();
-        let tx_count: usize = blocks.map(|b| b.transactions.len()).sum();
 
-        assert_eq!(tx_count, expected_tx_count);
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            Some(expected_tx_count)
+        );
     }
 
     #[tokio::test]
     async fn test_parse_should_error_with_unparsable_block_format() {
         let db_path = Path::new("../mithril-test-lab/test_data/parsing_error/immutable/");
         let until_immutable_file = 4831;
-        let cardano_transaction_parser =
-            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
+        let cardano_transaction_parser = CardanoBlockScanner::new(logger_for_tests(), false);
 
-        let result = cardano_transaction_parser
+        let mut streamer = cardano_transaction_parser
             .scan(db_path, None, until_immutable_file)
-            .await;
+            .await
+            .unwrap();
+        let result = streamer.poll_all().await;
 
         assert!(result.is_err());
     }
@@ -380,9 +473,11 @@ mod tests {
             let cardano_transaction_parser =
                 CardanoBlockScanner::new(create_file_logger(&filepath), true);
 
-            let res = cardano_transaction_parser
+            let mut streamer = cardano_transaction_parser
                 .scan(db_path, None, until_immutable_file)
-                .await;
+                .await
+                .unwrap();
+            let res = streamer.poll_all().await;
             assert!(res.is_err(), "parse should have failed");
         }
 
@@ -398,17 +493,27 @@ mod tests {
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);
 
         let until_immutable_file = 1;
-        let expected_tx_count: usize = immutable_files.iter().map(|(_, count)| *count).sum();
-        let cardano_transaction_parser =
-            CardanoBlockScanner::new(Logger::root(slog::Discard, slog::o!()), false);
+        let cardano_transaction_parser = CardanoBlockScanner::new(logger_for_tests(), false);
 
-        let blocks = cardano_transaction_parser
+        let mut streamer = cardano_transaction_parser
             .scan(db_path, None, until_immutable_file)
             .await
             .unwrap();
-        let tx_count: usize = blocks.map(|b| b.transactions.len()).sum();
 
-        assert_eq!(tx_count, expected_tx_count);
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            Some(immutable_files[0].1)
+        );
+
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            Some(immutable_files[1].1)
+        );
+
+        let immutable_blocks = streamer.poll_next().await.unwrap();
+        assert!(immutable_blocks.is_none());
     }
 
     #[tokio::test]
