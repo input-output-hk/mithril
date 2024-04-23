@@ -38,7 +38,7 @@ use tokio::sync::RwLock;
 ///               dirpath: &Path,
 ///               from_immutable: Option<ImmutableFileNumber>,
 ///               until_immutable: ImmutableFileNumber,
-///             ) -> StdResult<Vec<ScannedBlock>>;
+///             ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>>;
 ///         }
 ///     }
 ///
@@ -59,7 +59,7 @@ pub trait BlockScanner: Sync + Send {
         dirpath: &Path,
         from_immutable: Option<ImmutableFileNumber>,
         until_immutable: ImmutableFileNumber,
-    ) -> StdResult<Vec<ScannedBlock>>;
+    ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>>;
 }
 
 /// Dumb Block Scanner
@@ -89,8 +89,9 @@ impl BlockScanner for DumbBlockScanner {
         _dirpath: &Path,
         _from_immutable: Option<ImmutableFileNumber>,
         _until_immutable: ImmutableFileNumber,
-    ) -> StdResult<Vec<ScannedBlock>> {
-        Ok(self.blocks.read().await.clone())
+    ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>> {
+        let iter = self.blocks.read().await.clone().into_iter();
+        Ok(Box::new(iter))
     }
 }
 
@@ -256,7 +257,7 @@ impl BlockScanner for CardanoBlockScanner {
         dirpath: &Path,
         from_immutable: Option<ImmutableFileNumber>,
         until_immutable: ImmutableFileNumber,
-    ) -> StdResult<Vec<ScannedBlock>> {
+    ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>> {
         let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
             Some(from) => (from..=until_immutable).contains(&number),
             None => number <= until_immutable,
@@ -279,7 +280,7 @@ impl BlockScanner for CardanoBlockScanner {
             scanned_blocks.append(&mut blocks);
         }
 
-        Ok(scanned_blocks)
+        Ok(Box::new(scanned_blocks.into_iter()))
     }
 }
 
@@ -325,7 +326,7 @@ mod tests {
             .scan(db_path, None, until_immutable_file)
             .await
             .unwrap();
-        let tx_count: usize = blocks.iter().map(|b| b.transactions.len()).sum();
+        let tx_count: usize = blocks.map(|b| b.transactions.len()).sum();
 
         assert_eq!(tx_count, expected_tx_count);
     }
@@ -346,7 +347,7 @@ mod tests {
             .scan(db_path, Some(2), until_immutable_file)
             .await
             .unwrap();
-        let tx_count: usize = blocks.iter().map(|b| b.transactions.len()).sum();
+        let tx_count: usize = blocks.map(|b| b.transactions.len()).sum();
 
         assert_eq!(tx_count, expected_tx_count);
     }
@@ -379,10 +380,10 @@ mod tests {
             let cardano_transaction_parser =
                 CardanoBlockScanner::new(create_file_logger(&filepath), true);
 
-            cardano_transaction_parser
+            let res = cardano_transaction_parser
                 .scan(db_path, None, until_immutable_file)
-                .await
-                .expect_err("parse should have failed");
+                .await;
+            assert!(res.is_err(), "parse should have failed");
         }
 
         let log_file = std::fs::read_to_string(&filepath).unwrap();
@@ -405,7 +406,7 @@ mod tests {
             .scan(db_path, None, until_immutable_file)
             .await
             .unwrap();
-        let tx_count: usize = blocks.iter().map(|b| b.transactions.len()).sum();
+        let tx_count: usize = blocks.map(|b| b.transactions.len()).sum();
 
         assert_eq!(tx_count, expected_tx_count);
     }

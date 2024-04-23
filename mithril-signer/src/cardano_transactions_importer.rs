@@ -105,10 +105,8 @@ impl CardanoTransactionsImporter {
         // todo: temp algorithm, should be optimized to avoid loading all blocks & transactions
         // at once in memory (probably using iterators)
         let scanned_blocks = self.block_scanner.scan(&self.dirpath, from, until).await?;
-        let parsed_transactions: Vec<CardanoTransaction> = scanned_blocks
-            .into_iter()
-            .flat_map(|b| b.into_transactions())
-            .collect();
+        let parsed_transactions: Vec<CardanoTransaction> =
+            scanned_blocks.flat_map(|b| b.into_transactions()).collect();
         debug!(
             self.logger,
             "TransactionsImporter retrieved '{}' Cardano transactions between immutables '{}' and '{until}'",
@@ -199,7 +197,7 @@ mod tests {
               dirpath: &Path,
               from_immutable: Option<ImmutableFileNumber>,
               until_immutable: ImmutableFileNumber,
-            ) -> StdResult<Vec<ScannedBlock>>;
+            ) -> StdResult<Box<dyn Iterator<Item = ScannedBlock>>>;
         }
     }
 
@@ -267,7 +265,7 @@ mod tests {
             scanner_mock
                 .expect_scan()
                 .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
-                .return_once(move |_, _, _| Ok(blocks));
+                .return_once(move |_, _, _| Ok(Box::new(blocks.into_iter())));
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
 
@@ -429,7 +427,7 @@ mod tests {
             scanner_mock
                 .expect_scan()
                 .withf(move |_, from, until| from == &Some(12) && until == &up_to_beacon)
-                .return_once(move |_, _, _| Ok(scanned_blocks))
+                .return_once(move |_, _, _| Ok(Box::new(scanned_blocks.into_iter())))
                 .once();
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
@@ -608,7 +606,9 @@ mod tests {
         let importer = {
             let connection = cardano_tx_db_connection().unwrap();
             let mut scanner = MockBlockScannerImpl::new();
-            scanner.expect_scan().return_once(move |_, _, _| Ok(blocks));
+            scanner
+                .expect_scan()
+                .return_once(move |_, _, _| Ok(Box::new(blocks.into_iter())));
 
             CardanoTransactionsImporter::new_for_test(
                 Arc::new(scanner),
