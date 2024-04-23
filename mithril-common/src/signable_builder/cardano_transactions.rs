@@ -117,7 +117,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::logger_for_tests;
+    use crate::test_utils::TestLogger;
 
     use super::*;
 
@@ -142,7 +142,7 @@ mod tests {
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(MockTransactionsImporter::new()),
-            logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
@@ -203,7 +203,7 @@ mod tests {
 
         let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(MockTransactionsImporter::new()),
-            logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         let merkle_root_reference = cardano_transaction_signable_builder
@@ -236,7 +236,7 @@ mod tests {
             .return_once(move |_| Ok(imported_transactions));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
-            logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         // Action
@@ -270,7 +270,7 @@ mod tests {
             .return_once(|_| Ok(vec![]));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
-            logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         let result = cardano_transactions_signable_builder

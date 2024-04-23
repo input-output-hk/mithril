@@ -67,7 +67,7 @@ mod tests {
 
     use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
     use crate::entities::CardanoDbBeacon;
-    use crate::test_utils::logger_for_tests;
+    use crate::test_utils::TestLogger;
 
     use super::*;
 
@@ -91,7 +91,7 @@ mod tests {
         let signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
             Arc::new(digester),
             Path::new(""),
-            logger_for_tests(),
+            TestLogger::stdout(),
         );
         let protocol_message = signable_builder
             .compute_protocol_message(CardanoDbBeacon::default())

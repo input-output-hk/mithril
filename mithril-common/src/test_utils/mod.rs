@@ -25,14 +25,36 @@ pub mod test_http_server;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
+#[cfg(test)]
+pub(crate) use utils::*;
 
 #[cfg(test)]
-pub(crate) fn logger_for_tests() -> slog::Logger {
-    use slog::Drain;
+pub(crate) mod utils {
+    use std::fs::File;
+    use std::io;
     use std::sync::Arc;
 
-    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    slog::Logger::root(Arc::new(drain), slog::o!())
+    use slog::{Drain, Logger};
+    use slog_async::Async;
+    use slog_term::{CompactFormat, PlainDecorator};
+
+    pub struct TestLogger;
+
+    #[cfg(test)]
+    impl TestLogger {
+        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
+            let decorator = PlainDecorator::new(writer);
+            let drain = CompactFormat::new(decorator).build().fuse();
+            let drain = Async::new(drain).build().fuse();
+            Logger::root(Arc::new(drain), slog::o!())
+        }
+
+        pub fn stdout() -> Logger {
+            Self::from_writer(slog_term::TestStdoutWriter)
+        }
+
+        pub fn file(filepath: &std::path::Path) -> Logger {
+            Self::from_writer(File::create(filepath).unwrap())
+        }
+    }
 }
