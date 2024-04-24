@@ -213,11 +213,10 @@ impl TransactionStore for CardanoTransactionRepository {
                 (_, None) => Ok(None),
                 (None, Some(end)) => Ok(Some(0..(end + 1))),
                 (Some(start), Some(end)) if end < start => {
-                    // To discuss : should we prune all block ranges from the DB to force recompute ?
                     warn!(
                         "Last computed block range is higher than the last transaction block number. \
-                        This should not happen. Did you forgot to prune the `block_range` table after pruning the\
-                        `cardano_tx` table ?";
+                        This should not happen. Did you forgot to prune the `block_range_root` table \
+                        after pruning the `cardano_tx` table ?";
                         "start" => start, "end" => end
                     );
                     Ok(None)
