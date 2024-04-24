@@ -108,16 +108,18 @@ impl CardanoTransactionsImporter {
         );
 
         let mut streamer = self.block_scanner.scan(&self.dirpath, from, until).await?;
-        let parsed_transactions: Vec<CardanoTransaction> = streamer
-            .poll_all()
-            .await?
-            .into_iter()
-            .flat_map(|b| b.into_transactions())
-            .collect();
 
-        self.transaction_store
-            .store_transactions(parsed_transactions)
-            .await?;
+        while let Some(blocks) = streamer.poll_next().await? {
+            let parsed_transactions: Vec<CardanoTransaction> = blocks
+                .into_iter()
+                .flat_map(|b| b.into_transactions())
+                .collect();
+
+            self.transaction_store
+                .store_transactions(parsed_transactions)
+                .await?;
+        }
+
         Ok(())
     }
 
