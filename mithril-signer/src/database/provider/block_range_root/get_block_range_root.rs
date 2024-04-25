@@ -29,6 +29,6 @@ impl<'client> Provider<'client> for GetBlockRangeRootProvider<'client> {
         let aliases = SourceAlias::new(&[("{:block_range_root:}", "block_range_root")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from block_range_root where {condition} order by rowid")
+        format!("select {projection} from block_range_root where {condition} order by start, end")
     }
 }
