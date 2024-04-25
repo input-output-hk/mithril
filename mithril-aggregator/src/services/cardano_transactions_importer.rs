@@ -32,14 +32,14 @@ pub trait TransactionStore: Send + Sync {
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>>;
 
-    /// Get transactions between two block numbers
-    async fn get_transactions_between(
+    /// Get transactions in an interval of blocks
+    async fn get_transactions_in_range(
         &self,
         range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Store list of block ranges with their corresponding merkle root
-    async fn store_block_ranges(
+    async fn store_block_range_roots(
         &self,
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()>;
@@ -127,7 +127,7 @@ impl CardanoTransactionsImporter {
             .transaction_store
             .get_block_interval_without_block_range_root()
             .await?
-            .map(|range| BlockRange::all_ranges_in(BlockRange::start(range.start)..range.end))
+            .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..range.end))
         {
             // Everything is already computed
             None => return Ok(()),
@@ -147,7 +147,7 @@ impl CardanoTransactionsImporter {
         for block_range in block_ranges {
             let transactions = self
                 .transaction_store
-                .get_transactions_between(block_range.start..block_range.end)
+                .get_transactions_in_range(block_range.start..block_range.end)
                 .await?;
 
             if transactions.is_empty() {
@@ -159,7 +159,7 @@ impl CardanoTransactionsImporter {
         }
 
         self.transaction_store
-            .store_block_ranges(block_ranges_with_merkle_root)
+            .store_block_range_roots(block_ranges_with_merkle_root)
             .await
     }
 }
@@ -318,7 +318,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn handle_gap_between_block_ranges() {
+    async fn if_theres_gap_between_two_stored_block_ranges_it_can_still_compute_their_root() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
 
@@ -405,7 +405,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn if_half_transactions_are_stored_the_other_half_is_parsed_and_stored() {
+    async fn if_half_transactions_are_already_stored_the_other_half_is_parsed_and_stored() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
 
@@ -457,7 +457,7 @@ mod tests {
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
         repository
-            .store_block_ranges(
+            .store_block_range_roots(
                 blocks[0..((BlockRange::LENGTH * 2) as usize)]
                     .iter()
                     .map(|b| {
@@ -509,8 +509,7 @@ mod tests {
     }
 
     #[tokio::test]
-    // async fn block_range_root_compute_work_on_block_range_starting_before_last_block_range_root_and_finishing_before_last_tx(
-    async fn block_range_root_only_retrieve_only_strictly_required_transactions() {
+    async fn block_range_root_retrieves_only_strictly_required_transactions() {
         fn transactions_for_block(range: Range<BlockNumber>) -> StdResult<Vec<CardanoTransaction>> {
             Ok(build_blocks(range.start, range.count() as BlockNumber)
                 .iter()
@@ -528,7 +527,7 @@ mod tests {
                 .returning(|| Ok(Some((BlockRange::LENGTH + 2)..(BlockRange::LENGTH * 5))))
                 .once();
             store_mock
-                .expect_get_transactions_between()
+                .expect_get_transactions_in_range()
                 // Lower bound should be the block number that start after the last known block range end
                 //
                 // if it's not a multiple of BlockRange::LENGTH, it should be the start block number
@@ -541,7 +540,9 @@ mod tests {
                     expected_range.contains(&range.start) && expected_range.contains(&range.end)
                 })
                 .returning(transactions_for_block);
-            store_mock.expect_store_block_ranges().returning(|_| Ok(()));
+            store_mock
+                .expect_store_block_range_roots()
+                .returning(|_| Ok(()));
 
             CardanoTransactionsImporter::new_for_test(
                 Arc::new(MockBlockScannerImpl::new()),

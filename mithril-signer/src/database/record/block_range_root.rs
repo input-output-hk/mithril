@@ -11,8 +11,7 @@ use crate::database::record::hydrator::try_to_u64;
 pub struct BlockRangeRootRecord {
     /// Range of block numbers covered
     pub range: BlockRange,
-    /// Merkle root of the block range, computed from the list of all transactions that are
-    /// included in the range
+    /// Merkle root of the block range, computed from the list of included transactions
     pub merkle_root: MKTreeNode,
 }
 

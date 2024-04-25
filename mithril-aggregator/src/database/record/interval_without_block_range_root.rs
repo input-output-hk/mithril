@@ -5,7 +5,7 @@ use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 use crate::database::record::hydrator::try_to_u64;
 
-/// Interval of block numbers without block ranges root.
+/// Interval of block numbers (`[start, end[`) without block ranges root.
 pub struct IntervalWithoutBlockRangeRootRecord {
     /// Start of the interval
     pub start: Option<BlockNumber>,

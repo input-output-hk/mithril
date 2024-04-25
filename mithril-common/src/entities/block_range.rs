@@ -58,8 +58,8 @@ impl BlockRange {
         Self::start_with_length(number, Self::LENGTH)
     }
 
-    /// Get all [BlockRange] contained in the given interval
-    pub fn all_ranges_in(interval: Range<BlockNumber>) -> Vec<BlockRange> {
+    /// Get all [BlockRange] strictly contained in the given interval
+    pub fn all_block_ranges_in(interval: Range<BlockNumber>) -> Vec<BlockRange> {
         let all_numbers: Vec<BlockNumber> =
             interval.skip_while(|i| i % Self::LENGTH != 0).collect();
         all_numbers
@@ -213,29 +213,29 @@ mod tests {
     }
 
     #[test]
-    fn test_block_range_all_ranges_in() {
-        assert_eq!(BlockRange::all_ranges_in(0..0), vec![]);
-        assert_eq!(BlockRange::all_ranges_in(0..1), vec![]);
-        assert_eq!(BlockRange::all_ranges_in(0..14), vec![]);
-        assert_eq!(BlockRange::all_ranges_in(1..15), vec![]);
+    fn test_block_range_all_block_ranges_in() {
+        assert_eq!(BlockRange::all_block_ranges_in(0..0), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..1), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..14), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(1..15), vec![]);
         assert_eq!(
-            BlockRange::all_ranges_in(0..15),
+            BlockRange::all_block_ranges_in(0..15),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_ranges_in(0..16),
+            BlockRange::all_block_ranges_in(0..16),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_ranges_in(14..30),
+            BlockRange::all_block_ranges_in(14..30),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_ranges_in(14..31),
+            BlockRange::all_block_ranges_in(14..31),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_ranges_in(14..61),
+            BlockRange::all_block_ranges_in(14..61),
             vec![
                 BlockRange::new(15, 30),
                 BlockRange::new(30, 45),

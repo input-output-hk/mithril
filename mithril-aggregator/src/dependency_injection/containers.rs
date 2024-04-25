@@ -87,8 +87,8 @@ pub struct DependencyContainer {
     /// Cardano transactions store.
     pub transaction_store: Arc<dyn TransactionStore>,
 
-    /// Cardano transactions parser.
-    pub transaction_parser: Arc<dyn BlockScanner>,
+    /// Cardano block scanner.
+    pub block_scanner: Arc<dyn BlockScanner>,
 
     /// Immutable file observer service.
     pub immutable_file_observer: Arc<dyn ImmutableFileObserver>,

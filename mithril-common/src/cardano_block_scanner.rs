@@ -62,7 +62,7 @@ pub trait BlockScanner: Sync + Send {
     ) -> StdResult<Vec<ScannedBlock>>;
 }
 
-/// Dumb transaction parser
+/// Dumb Block Scanner
 pub struct DumbBlockScanner {
     blocks: RwLock<Vec<ScannedBlock>>,
 }
@@ -161,7 +161,7 @@ impl ScannedBlock {
     }
 }
 
-/// Cardano transaction parser
+/// Cardano block scanner
 pub struct CardanoBlockScanner {
     logger: Logger,
     /// When set to true, no error is returned in case of unparsable block, and an error log is written instead.

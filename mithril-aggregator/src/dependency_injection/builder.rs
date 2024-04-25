@@ -136,7 +136,7 @@ pub struct DependenciesBuilder {
     /// Cardano transactions store.
     pub transaction_store: Option<Arc<dyn TransactionStore>>,
 
-    /// Cardano transactions parser.
+    /// Cardano block scanner.
     pub block_scanner: Option<Arc<dyn BlockScanner>>,
 
     /// Immutable file digester service.
@@ -724,7 +724,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(block_scanner))
     }
 
-    /// Transaction parser.
+    /// Block scanner
     pub async fn get_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
         if self.block_scanner.is_none() {
             self.block_scanner = Some(self.build_block_scanner().await?);
@@ -1198,7 +1198,7 @@ impl DependenciesBuilder {
             signed_entity_storer: self.get_signed_entity_storer().await?,
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
-            transaction_parser: self.get_block_scanner().await?,
+            block_scanner: self.get_block_scanner().await?,
             transaction_store: self.get_transaction_store().await?,
             prover_service: self.get_prover_service().await?,
         };

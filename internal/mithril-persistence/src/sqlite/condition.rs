@@ -138,9 +138,6 @@ impl WhereCondition {
 }
 
 /// Get all condition builder.
-///
-/// By default, nothing will be filtered out when using this condition. But you
-/// can override this behavior by implementing this trait for your type.
 pub trait GetAllCondition {
     /// Get the condition for a get all query.
     fn get_all_condition() -> WhereCondition {
