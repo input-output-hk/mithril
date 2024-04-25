@@ -1,9 +1,8 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog_scope::warn;
 
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
@@ -213,13 +212,11 @@ impl TransactionStore for CardanoTransactionRepository {
                 (_, None) => Ok(None),
                 (None, Some(end)) => Ok(Some(0..(end + 1))),
                 (Some(start), Some(end)) if end < start => {
-                    warn!(
-                        "Last computed block range is higher than the last transaction block number. \
-                        This should not happen. Did you forgot to prune the `block_range_root` table \
-                        after pruning the `cardano_tx` table ?";
-                        "start" => start, "end" => end
-                    );
-                    Ok(None)
+                    Err(anyhow!(
+                        "Inconsistent state: \
+                        Last block range root block number ({start}) is higher than the last transaction block number ({end}). \
+                        Did you forgot to prune obsolete `block_range_root` after a transaction rollback ?"
+                    ))
                 }
                 (Some(start), Some(end)) => Ok(Some(start..(end + 1))),
             },
@@ -647,8 +644,7 @@ mod tests {
 
             assert_eq!(None, interval);
         }
-        // Highest transaction block number is below the last computed block range, this may happen
-        // if the latest transactions were pruned from DB (whatever the reason for this pruned was).
+        // Inconsistent state: Highest transaction block number is below the last computed block range
         {
             let last_transaction_block_number = last_block_range.end - 10;
             repository
@@ -656,12 +652,14 @@ mod tests {
                 .await
                 .unwrap();
 
-            let interval = repository
+            let res = repository
                 .get_block_interval_without_block_range_root()
-                .await
-                .unwrap();
+                .await;
 
-            assert_eq!(None, interval);
+            assert!(
+                res.is_err(),
+                "Inconsistent state should raise an error, found:\n{res:?}"
+            );
         }
     }
 
