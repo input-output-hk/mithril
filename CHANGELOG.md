@@ -22,6 +22,8 @@ As a minor extension, we have adopted a slightly different versioning convention
    - `portable` feature now has no effect and should be removed from crate dependencies.
    - Removed it from all other crates (including `mithril-common`).
 
+- Switched memory allocator to `jemallocator` on signer and aggregator to avoid memory fragmentation when signing transactions (which lead to RES memory not being properly returned to the OS).
+
 - Crates versions:
 
 |  Crate  |  Version  |

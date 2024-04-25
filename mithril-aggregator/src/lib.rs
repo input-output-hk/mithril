@@ -64,6 +64,14 @@ pub use tools::{
 #[cfg(test)]
 pub use dependency_injection::tests::initialize_dependencies;
 
+// Memory allocator (to handle properly memory fragmentation)
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+use tikv_jemallocator::Jemalloc;
+
+#[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 #[cfg(test)]
 pub(crate) mod test_tools {
     use slog::Drain;

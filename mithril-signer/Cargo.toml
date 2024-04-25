@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.125"
+version = "0.2.126"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -38,6 +38,9 @@ sqlite = { version = "0.34.0", features = ["bundled"] }
 thiserror = "1.0.56"
 tokio = { version = "1.35.1", features = ["full"] }
 
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+tikv-jemallocator = { version = "0.5.4", optional = true }
+
 [dev-dependencies]
 httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common" }
@@ -46,4 +49,7 @@ prometheus-parse = "0.2.5"
 slog-term = "2.9.0"
 
 [features]
+default = ["jemallocator"]
+
 bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
+jemallocator = ["dep:tikv-jemallocator"]
