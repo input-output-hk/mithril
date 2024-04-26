@@ -1,7 +1,7 @@
 use std::ops::Range;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::crypto_helper::MKTreeNode;
@@ -208,18 +208,7 @@ impl TransactionStore for CardanoTransactionRepository {
         match row {
             // Should be impossible - the request as written in the provider always returns a single row
             None => panic!("IntervalWithoutBlockRangeProvider should always return a single row"),
-            Some(interval) => match (interval.start, interval.end) {
-                (_, None) => Ok(None),
-                (None, Some(end)) => Ok(Some(0..(end + 1))),
-                (Some(start), Some(end)) if end < start => {
-                    Err(anyhow!(
-                        "Inconsistent state: \
-                        Last block range root block number ({start}) is higher than the last transaction block number ({end}). \
-                        Did you forgot to prune obsolete `block_range_root` after a transaction rollback ?"
-                    ))
-                }
-                (Some(start), Some(end)) => Ok(Some(start..(end + 1))),
-            },
+            Some(interval) => interval.to_range(),
         }
     }
 
@@ -509,60 +498,8 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
-        {
-            let interval = repository
-                .get_block_interval_without_block_range_root()
-                .await
-                .unwrap();
-
-            assert_eq!(None, interval);
-        }
-
-        // The last transaction block number give the upper bound
-        let last_transaction_block_number = BlockRange::LENGTH * 4;
-        repository
-            .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
-            .await
-            .unwrap();
-
-        {
-            let interval = repository
-                .get_block_interval_without_block_range_root()
-                .await
-                .unwrap();
-
-            assert_eq!(Some(0..(last_transaction_block_number + 1)), interval);
-        }
-        {
-            // The last block range give the lower bound
-            let last_block_range = BlockRange::from_block_number(0);
-            repository
-                .store_block_range_roots(vec![(
-                    last_block_range.clone(),
-                    MKTreeNode::from_hex("AAAA").unwrap(),
-                )])
-                .await
-                .unwrap();
-
-            let interval = repository
-                .get_block_interval_without_block_range_root()
-                .await
-                .unwrap();
-
-            assert_eq!(
-                Some(last_block_range.end..(last_transaction_block_number + 1)),
-                interval
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn repository_get_block_interval_without_block_range_root_when_last_block_range_higher_than_stored_transactions(
-    ) {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let repository = CardanoTransactionRepository::new(connection);
-
-        let last_block_range = BlockRange::from_block_number(BlockRange::LENGTH * 10);
+        // The last block range give the lower bound
+        let last_block_range = BlockRange::from_block_number(0);
         repository
             .store_block_range_roots(vec![(
                 last_block_range.clone(),
@@ -571,32 +508,22 @@ mod tests {
             .await
             .unwrap();
 
-        // Only block range in db
-        {
-            let interval = repository
-                .get_block_interval_without_block_range_root()
-                .await
-                .unwrap();
+        // The last transaction block number give the upper bound
+        let last_transaction_block_number = BlockRange::LENGTH * 4;
+        repository
+            .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
+            .await
+            .unwrap();
 
-            assert_eq!(None, interval);
-        }
-        // Inconsistent state: Highest transaction block number is below the last computed block range
-        {
-            let last_transaction_block_number = last_block_range.end - 10;
-            repository
-                .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
-                .await
-                .unwrap();
+        let interval = repository
+            .get_block_interval_without_block_range_root()
+            .await
+            .unwrap();
 
-            let res = repository
-                .get_block_interval_without_block_range_root()
-                .await;
-
-            assert!(
-                res.is_err(),
-                "Inconsistent state should raise an error, found:\n{res:?}"
-            );
-        }
+        assert_eq!(
+            Some(last_block_range.end..(last_transaction_block_number + 1)),
+            interval
+        );
     }
 
     #[tokio::test]
