@@ -102,7 +102,7 @@ slog-term = "2.9.0"
 tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
-mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2.0" }
+mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
 
 [features]
 default = []
