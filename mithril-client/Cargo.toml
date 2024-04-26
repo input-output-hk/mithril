@@ -39,7 +39,7 @@ slog = "2.7.0"
 strum = { version = "0.26.1", features = ["derive"] }
 tar = { version = "0.4.40", optional = true }
 thiserror = "1.0.56"
-tokio = { version = "1.35.1", features = ["sync"] }
+tokio = { version = "1.37.0", features = ["sync"] }
 uuid = { version = "1.7.0", features = ["v4"] }
 zstd = { version = "0.13.0", optional = true }
 
@@ -64,7 +64,7 @@ mockall = "0.12.1"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-tokio = { version = "1.35.1", features = ["macros", "rt"] }
+tokio = { version = "1.37.0", features = ["macros", "rt"] }
 warp = "0.3.6"
 
 [features]

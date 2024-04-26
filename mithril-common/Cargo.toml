@@ -68,7 +68,7 @@ sha2 = "0.10.8"
 slog = "2.7.0"
 strum = { version = "0.26.1", features = ["derive"] }
 thiserror = "1.0.56"
-tokio = { version = "1.35.1", features = ["io-util", "rt", "sync"] }
+tokio = { version = "1.37.0", features = ["io-util", "rt", "sync"] }
 typetag = "0.2.15"
 walkdir = "2.4.0"
 warp = { version = "0.3.6", optional = true }
@@ -99,7 +99,7 @@ reqwest = { version = "0.12.0", features = ["json"] }
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2.0" }

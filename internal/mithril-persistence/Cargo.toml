@@ -24,7 +24,7 @@ sha2 = "0.10.8"
 slog = "2.7.0"
 sqlite = { version = "0.34.0", features = ["bundled"] }
 thiserror = "1.0.56"
-tokio = { version = "1.35.1", features = ["sync"] }
+tokio = { version = "1.37.0", features = ["sync"] }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
@@ -32,4 +32,4 @@ mockall = "0.12.1"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-tokio = { version = "1.35.1", features = ["macros", "time"] }
+tokio = { version = "1.37.0", features = ["macros", "time"] }
