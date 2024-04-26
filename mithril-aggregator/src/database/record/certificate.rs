@@ -17,6 +17,8 @@ use mithril_persistence::{
     sqlite::{HydrationError, Projection, SqLiteEntity},
 };
 
+use crate::database::record::hydrator;
+
 era_deprecate!("Remove immutable_file_number");
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
@@ -312,7 +314,7 @@ impl SqLiteEntity for CertificateRecord {
         let network = row.read::<&str, _>(6).to_string();
         let immutable_file_number = row.read::<i64, _>(7);
         let signed_entity_type_id = row.read::<i64, _>(8);
-        let signed_entity_beacon_string = super::read_signed_entity_beacon_column(&row, 9);
+        let signed_entity_beacon_string = hydrator::read_signed_entity_beacon_column(&row, 9);
         let protocol_version = row.read::<&str, _>(10).to_string();
         let protocol_parameters_string = row.read::<&str, _>(11);
         let protocol_message_string = row.read::<&str, _>(12);

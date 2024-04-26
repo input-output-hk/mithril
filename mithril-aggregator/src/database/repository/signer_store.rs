@@ -7,7 +7,7 @@ use chrono::Utc;
 use mockall::automock;
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::SqliteConnection;
+use mithril_persistence::sqlite::{GetAllProvider, SqliteConnection};
 
 use crate::database::provider::{
     GetSignerRecordProvider, ImportSignerRecordProvider, RegisterSignerRecordProvider,

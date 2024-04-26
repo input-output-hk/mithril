@@ -68,7 +68,7 @@ cfg_test_tools! {
 cfg_fs! {
     mod time_point_provider;
     pub mod digesters;
-    pub mod cardano_transaction_parser;
+    pub mod cardano_block_scanner;
 
     pub use time_point_provider::{TimePointProvider, TimePointProviderImpl};
 }

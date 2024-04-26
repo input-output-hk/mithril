@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_transaction_parser::DumbTransactionParser,
+    cardano_block_scanner::DumbBlockScanner,
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{Epoch, SignerWithStake, TimePoint},
@@ -150,7 +150,7 @@ impl StateMachineTester {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let transaction_parser = Arc::new(DumbBlockScanner::new(vec![]));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));

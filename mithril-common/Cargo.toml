@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.3.33"
+version = "0.3.34"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -11,6 +11,10 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore", "openapi.yaml"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
+
+[[bench]]
+name = "block_range"
+harness = false
 
 [[bench]]
 name = "digester"

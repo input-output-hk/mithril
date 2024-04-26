@@ -454,7 +454,7 @@ impl Runner for SignerRunner {
 mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
-        cardano_transaction_parser::DumbTransactionParser,
+        cardano_block_scanner::DumbBlockScanner,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -534,7 +534,7 @@ mod tests {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(DumbTransactionParser::new(vec![]));
+        let transaction_parser = Arc::new(DumbBlockScanner::new(vec![]));
         let transaction_store = Arc::new(MockTransactionStore::new());
         let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),

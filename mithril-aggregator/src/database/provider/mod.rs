@@ -1,4 +1,5 @@
 //! Aggregator related database providers
+mod block_range_root;
 mod cardano_transaction;
 mod certificate;
 mod epoch_setting;
@@ -9,6 +10,7 @@ mod signer_registration;
 mod single_signature;
 mod stake_pool;
 
+pub use block_range_root::*;
 pub use cardano_transaction::*;
 pub use certificate::*;
 pub use epoch_setting::*;

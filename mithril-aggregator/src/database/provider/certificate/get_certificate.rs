@@ -4,7 +4,7 @@ use sqlite::{ConnectionThreadSafe, Value};
 use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+    EntityCursor, GetAllCondition, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
 
 use crate::database::record::CertificateRecord;
@@ -54,15 +54,9 @@ impl<'client> GetCertificateRecordProvider<'client> {
 
         Ok(certificate_record)
     }
-
-    /// Get all CertificateRecords.
-    pub fn get_all(&self) -> StdResult<EntityCursor<CertificateRecord>> {
-        let filters = WhereCondition::default();
-        let certificate_record = self.find(filters)?;
-
-        Ok(certificate_record)
-    }
 }
+
+impl GetAllCondition for GetCertificateRecordProvider<'_> {}
 
 impl<'client> Provider<'client> for GetCertificateRecordProvider<'client> {
     type Entity = CertificateRecord;
@@ -81,6 +75,7 @@ impl<'client> Provider<'client> for GetCertificateRecordProvider<'client> {
 #[cfg(test)]
 mod tests {
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_persistence::sqlite::GetAllProvider;
 
     use crate::database::test_helper::{insert_certificate_records, main_db_connection};
 

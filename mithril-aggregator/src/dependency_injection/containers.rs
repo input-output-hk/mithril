@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_transaction_parser::TransactionParser,
+    cardano_block_scanner::BlockScanner,
     certificate_chain::CertificateVerifier,
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
@@ -87,8 +87,8 @@ pub struct DependencyContainer {
     /// Cardano transactions store.
     pub transaction_store: Arc<dyn TransactionStore>,
 
-    /// Cardano transactions parser.
-    pub transaction_parser: Arc<dyn TransactionParser>,
+    /// Cardano block scanner.
+    pub block_scanner: Arc<dyn BlockScanner>,
 
     /// Immutable file observer service.
     pub immutable_file_observer: Arc<dyn ImmutableFileObserver>,

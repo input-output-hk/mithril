@@ -24,7 +24,7 @@ mod snapshot;
 mod time_point;
 mod type_alias;
 
-pub use block_range::{BlockRange, BlockRangeLength};
+pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
 pub use cardano_chain_point::{BlockHash, BlockNumber, ChainPoint, SlotNumber};
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
