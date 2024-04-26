@@ -13,6 +13,10 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore", "openapi.yaml"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bench]]
+name = "block_range"
+harness = false
+
+[[bench]]
 name = "digester"
 harness = false
 required-features = ["fs"]

@@ -137,10 +137,8 @@ impl CardanoTransactionsImporter {
         };
 
         debug!(
-            self.logger,
-            "TransactionsImporter - computing Block Range Roots";
-            "start_block" => block_ranges.first().map(|br| br.start).unwrap_or(0),
-            "end_block" => block_ranges.last().map(|br| br.end).unwrap_or(0),
+            self.logger, "TransactionsImporter - computing Block Range Roots";
+            "start_block" => block_ranges.start(), "end_block" => block_ranges.end(),
         );
 
         let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];

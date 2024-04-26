@@ -59,13 +59,8 @@ impl BlockRange {
     }
 
     /// Get all [BlockRange] strictly contained in the given interval
-    pub fn all_block_ranges_in(interval: Range<BlockNumber>) -> Vec<BlockRange> {
-        let all_numbers: Vec<BlockNumber> =
-            interval.skip_while(|i| i % Self::LENGTH != 0).collect();
-        all_numbers
-            .chunks_exact(Self::LENGTH as usize)
-            .map(|chunk| Self::from_block_number(chunk[0]))
-            .collect()
+    pub fn all_block_ranges_in(interval: Range<BlockNumber>) -> BlockRangesSequence {
+        BlockRangesSequence::new(interval)
     }
 
     /// Create a BlockRange from a block number
@@ -149,6 +144,76 @@ impl From<BlockRange> for MKTreeNode {
 
 impl MKMapKey for BlockRange {}
 
+/// A continuous iterable sequence of [block ranges][BlockRange].
+///
+/// Yielded block ranges are sized by [BlockRange::LENGTH], and always have
+/// bounds that are multiples of [BlockRange::LENGTH].
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct BlockRangesSequence {
+    start: BlockNumber,
+    end: BlockNumber,
+}
+
+impl BlockRangesSequence {
+    /// Build the [BlockRangesSequence] strictly contained in the given interval.
+    ///
+    /// The interval bounds will be corrected to be multiples of [BlockRange::LENGTH].
+    pub fn new(interval: Range<BlockNumber>) -> Self {
+        let start = if (interval.start % BlockRange::LENGTH) == 0 {
+            interval.start
+        } else {
+            BlockRange::start(interval.start) + BlockRange::LENGTH
+        };
+        let end = BlockRange::start(interval.end);
+
+        Self { start, end }
+    }
+
+    /// Returns the start of the block ranges sequence.
+    pub fn start(&self) -> BlockNumber {
+        self.start
+    }
+
+    /// Returns the end of the block ranges sequence.
+    pub fn end(&self) -> BlockNumber {
+        self.end
+    }
+
+    /// Returns `true` if the block ranges sequence contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Consume `self` into a new Vec
+    pub fn into_vec(self) -> Vec<BlockRange> {
+        self.into_iter().collect()
+    }
+}
+
+impl Iterator for BlockRangesSequence {
+    type Item = BlockRange;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.start >= self.end {
+            return None;
+        }
+
+        let block_range = BlockRange::from_block_number(self.start);
+        self.start = block_range.end;
+        Some(block_range)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.start as usize, Some(self.end as usize))
+    }
+}
+
+impl ExactSizeIterator for BlockRangesSequence {
+    fn len(&self) -> usize {
+        ((self.end - self.start) / BlockRange::LENGTH) as usize
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::ops::Not;
@@ -214,33 +279,62 @@ mod tests {
 
     #[test]
     fn test_block_range_all_block_ranges_in() {
-        assert_eq!(BlockRange::all_block_ranges_in(0..0), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(0..1), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(0..14), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(1..15), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..0).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..1).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..14).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(1..15).into_vec(), vec![]);
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..15),
+            BlockRange::all_block_ranges_in(0..15).into_vec(),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..16),
+            BlockRange::all_block_ranges_in(0..16).into_vec(),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..30),
+            BlockRange::all_block_ranges_in(14..30).into_vec(),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..31),
+            BlockRange::all_block_ranges_in(14..31).into_vec(),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..61),
+            BlockRange::all_block_ranges_in(14..61).into_vec(),
             vec![
                 BlockRange::new(15, 30),
                 BlockRange::new(30, 45),
                 BlockRange::new(45, 60)
             ]
+        );
+    }
+
+    #[test]
+    fn test_block_ranges_sequence_is_empty() {
+        assert!(BlockRange::all_block_ranges_in(0..0).is_empty());
+        assert!(BlockRange::all_block_ranges_in(0..1).is_empty());
+        assert!(BlockRange::all_block_ranges_in(0..14).is_empty());
+        assert!(BlockRange::all_block_ranges_in(1..15).is_empty());
+        assert!(BlockRange::all_block_ranges_in(0..15).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(0..16).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(14..30).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(14..31).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(14..61).is_empty().not());
+    }
+
+    #[test]
+    fn test_block_ranges_sequence_len() {
+        assert_eq!(
+            BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH - 1)).len(),
+            0
+        );
+        assert_eq!(
+            BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH)).len(),
+            1
+        );
+        assert_eq!(
+            BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH * 15)).len(),
+            15
         );
     }
 
