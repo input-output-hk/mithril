@@ -101,24 +101,25 @@ impl CardanoTransactionsImporter {
             );
             return Ok(());
         }
-
-        // todo: temp algorithm, should be optimized to avoid loading all blocks & transactions
-        // at once in memory (probably using iterators)
-        let scanned_blocks = self.block_scanner.scan(&self.dirpath, from, until).await?;
-        let parsed_transactions: Vec<CardanoTransaction> = scanned_blocks
-            .into_iter()
-            .flat_map(|b| b.into_transactions())
-            .collect();
         debug!(
             self.logger,
-            "TransactionsImporter retrieved '{}' Cardano transactions between immutables '{}' and '{until}'",
-            parsed_transactions.len(),
+            "TransactionsImporter will retrieve Cardano transactions between immutables '{}' and '{until}'",
             from.unwrap_or(0)
         );
 
-        self.transaction_store
-            .store_transactions(parsed_transactions)
-            .await?;
+        let mut streamer = self.block_scanner.scan(&self.dirpath, from, until).await?;
+
+        while let Some(blocks) = streamer.poll_next().await? {
+            let parsed_transactions: Vec<CardanoTransaction> = blocks
+                .into_iter()
+                .flat_map(|b| b.into_transactions())
+                .collect();
+
+            self.transaction_store
+                .store_transactions(parsed_transactions)
+                .await?;
+        }
+
         Ok(())
     }
 
@@ -180,7 +181,9 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 mod tests {
     use mockall::mock;
 
-    use mithril_common::cardano_block_scanner::{DumbBlockScanner, ScannedBlock};
+    use mithril_common::cardano_block_scanner::{
+        BlockStreamer, DumbBlockScanner, DumbBlockStreamer, ScannedBlock,
+    };
     use mithril_common::crypto_helper::MKTree;
     use mithril_common::entities::{BlockNumber, BlockRangesSequence};
 
@@ -199,7 +202,7 @@ mod tests {
               dirpath: &Path,
               from_immutable: Option<ImmutableFileNumber>,
               until_immutable: ImmutableFileNumber,
-            ) -> StdResult<Vec<ScannedBlock>>;
+            ) -> StdResult<Box<dyn BlockStreamer>>;
         }
     }
 
@@ -267,7 +270,7 @@ mod tests {
             scanner_mock
                 .expect_scan()
                 .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
-                .return_once(move |_, _, _| Ok(blocks));
+                .return_once(move |_, _, _| Ok(Box::new(DumbBlockStreamer::new(vec![blocks]))));
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
 
@@ -429,7 +432,9 @@ mod tests {
             scanner_mock
                 .expect_scan()
                 .withf(move |_, from, until| from == &Some(12) && until == &up_to_beacon)
-                .return_once(move |_, _, _| Ok(scanned_blocks))
+                .return_once(move |_, _, _| {
+                    Ok(Box::new(DumbBlockStreamer::new(vec![scanned_blocks])))
+                })
                 .once();
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
@@ -607,11 +612,9 @@ mod tests {
         let transactions = into_transactions(&blocks);
         let importer = {
             let connection = cardano_tx_db_connection().unwrap();
-            let mut scanner = MockBlockScannerImpl::new();
-            scanner.expect_scan().return_once(move |_, _, _| Ok(blocks));
 
             CardanoTransactionsImporter::new_for_test(
-                Arc::new(scanner),
+                Arc::new(DumbBlockScanner::new(blocks.clone())),
                 Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
             )
         };
