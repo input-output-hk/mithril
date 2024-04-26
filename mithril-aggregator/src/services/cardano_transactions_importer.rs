@@ -1,3 +1,4 @@
+use std::mem;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -155,6 +156,14 @@ impl CardanoTransactionsImporter {
 
             let merkle_root = MKTree::new(&transactions)?.compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
+
+            if block_ranges_with_merkle_root.len() >= 100 {
+                let block_ranges_with_merkle_root_save =
+                    mem::take(&mut block_ranges_with_merkle_root);
+                self.transaction_store
+                    .store_block_range_roots(block_ranges_with_merkle_root_save)
+                    .await?;
+            }
         }
 
         self.transaction_store
