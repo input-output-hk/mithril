@@ -13,7 +13,7 @@ use crate::StdResult;
 
 /// [Block streamer][BlockStreamer] that streams blocks immutable files per immutable files
 pub struct ImmutableBlockStreamer {
-    remaining_immutables: VecDeque<ImmutableFile>,
+    remaining_immutable_files: VecDeque<ImmutableFile>,
     allow_unparsable_block: bool,
     logger: Logger,
 }
@@ -21,7 +21,7 @@ pub struct ImmutableBlockStreamer {
 #[async_trait]
 impl BlockStreamer for ImmutableBlockStreamer {
     async fn poll_next(&mut self) -> StdResult<Option<Vec<ScannedBlock>>> {
-        match &self.remaining_immutables.pop_front() {
+        match &self.remaining_immutable_files.pop_front() {
             Some(immutable_file) => {
                 debug!(
                     self.logger,
@@ -52,7 +52,7 @@ impl ImmutableBlockStreamer {
         logger: Logger,
     ) -> Self {
         Self {
-            remaining_immutables: VecDeque::from(immutables_chunk_to_stream),
+            remaining_immutable_files: VecDeque::from(immutables_chunk_to_stream),
             allow_unparsable_block,
             logger,
         }
@@ -148,19 +148,19 @@ mod tests {
 
         let immutable_blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
-            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transactions_len()).sum()),
             Some(immutable_files[0].1)
         );
 
         let immutable_blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
-            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transactions_len()).sum()),
             Some(immutable_files[1].1)
         );
 
         let immutable_blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
-            immutable_blocks.map(|b| b.into_iter().map(|b| b.transaction_len()).sum()),
+            immutable_blocks.map(|b| b.into_iter().map(|b| b.transactions_len()).sum()),
             Some(immutable_files[2].1)
         );
 

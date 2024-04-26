@@ -13,10 +13,10 @@ pub struct ScannedBlock {
     pub block_number: BlockNumber,
     /// Slot number of the block
     pub slot_number: SlotNumber,
-    /// Number of the immutable that own the block
+    /// Number of the immutable file that own the block
     pub immutable_file_number: ImmutableFileNumber,
     /// Hashes of the transactions in the block
-    pub transactions: Vec<TransactionHash>,
+    pub transactions_hashes: Vec<TransactionHash>,
 }
 
 impl ScannedBlock {
@@ -33,7 +33,7 @@ impl ScannedBlock {
             block_number,
             slot_number,
             immutable_file_number,
-            transactions: transaction_hashes.into_iter().map(|h| h.into()).collect(),
+            transactions_hashes: transaction_hashes.into_iter().map(|h| h.into()).collect(),
         }
     }
 
@@ -56,15 +56,15 @@ impl ScannedBlock {
     }
 
     /// Number of transactions in the block
-    pub fn transaction_len(&self) -> usize {
-        self.transactions.len()
+    pub fn transactions_len(&self) -> usize {
+        self.transactions_hashes.len()
     }
 
     /// Convert the scanned block into a list of Cardano transactions.
     ///
     /// Consume the block.
     pub fn into_transactions(self) -> Vec<CardanoTransaction> {
-        self.transactions
+        self.transactions_hashes
             .into_iter()
             .map(|transaction_hash| {
                 CardanoTransaction::new(
