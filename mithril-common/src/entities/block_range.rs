@@ -179,6 +179,11 @@ impl BlockRangesSequence {
         self.end
     }
 
+    /// Returns `true` if range is contained in the sequence.
+    pub fn contains(&self, range: &Range<BlockNumber>) -> bool {
+        self.start <= range.start && range.end <= self.end
+    }
+
     /// Returns `true` if the block ranges sequence contains no elements.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -336,6 +341,20 @@ mod tests {
             BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH * 15)).len(),
             15
         );
+    }
+
+    #[test]
+    fn test_block_ranges_sequence_contains() {
+        let block_range = BlockRange::new(15, 30);
+        assert!(BlockRange::all_block_ranges_in(0..15)
+            .contains(&block_range)
+            .not());
+        assert!(BlockRange::all_block_ranges_in(30..60)
+            .contains(&block_range)
+            .not());
+        assert!(BlockRange::all_block_ranges_in(0..30).contains(&block_range));
+        assert!(BlockRange::all_block_ranges_in(15..30).contains(&block_range));
+        assert!(BlockRange::all_block_ranges_in(15..45).contains(&block_range));
     }
 
     #[test]

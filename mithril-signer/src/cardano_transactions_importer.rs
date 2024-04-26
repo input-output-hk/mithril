@@ -182,7 +182,7 @@ mod tests {
 
     use mithril_common::cardano_block_scanner::{DumbBlockScanner, ScannedBlock};
     use mithril_common::crypto_helper::MKTree;
-    use mithril_common::entities::BlockNumber;
+    use mithril_common::entities::{BlockNumber, BlockRangesSequence};
 
     use crate::database::repository::CardanoTransactionRepository;
     use crate::database::test_utils::cardano_tx_db_connection;
@@ -534,8 +534,8 @@ mod tests {
                 // Upper bound should be the block number of the highest transaction in a db that can be
                 // included in a block range
                 .withf(|range| {
-                    let expected_range = BlockRange::LENGTH..=(BlockRange::LENGTH * 5);
-                    expected_range.contains(&range.start) && expected_range.contains(&range.end)
+                    BlockRangesSequence::new(BlockRange::LENGTH..(BlockRange::LENGTH * 5))
+                        .contains(range)
                 })
                 .returning(transactions_for_block);
             store_mock
