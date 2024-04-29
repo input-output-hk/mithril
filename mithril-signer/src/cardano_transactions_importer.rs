@@ -174,15 +174,9 @@ impl CardanoTransactionsImporter {
 
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
-    async fn import(
-        &self,
-        up_to_beacon: ImmutableFileNumber,
-    ) -> StdResult<Vec<CardanoTransaction>> {
+    async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()> {
         self.import_transactions(up_to_beacon).await?;
-        self.import_block_ranges().await?;
-
-        let transactions = self.transaction_store.get_up_to(up_to_beacon).await?;
-        Ok(transactions)
+        self.import_block_ranges().await
     }
 }
 
@@ -619,24 +613,28 @@ mod tests {
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
         let transactions = into_transactions(&blocks);
-        let importer = {
-            let connection = cardano_tx_db_connection().unwrap();
 
-            CardanoTransactionsImporter::new_for_test(
+        let (importer, repository) = {
+            let connection = Arc::new(cardano_tx_db_connection().unwrap());
+            let repository = Arc::new(CardanoTransactionRepository::new(connection.clone()));
+            let importer = CardanoTransactionsImporter::new_for_test(
                 Arc::new(DumbBlockScanner::new(blocks.clone())),
-                Arc::new(CardanoTransactionRepository::new(Arc::new(connection))),
-            )
+                Arc::new(CardanoTransactionRepository::new(connection.clone())),
+            );
+            (importer, repository)
         };
 
-        let cold_imported_transactions = importer
+        importer
             .import(12)
             .await
             .expect("Transactions Importer should succeed");
+        let cold_imported_transactions = repository.get_all().await.unwrap();
 
-        let warm_imported_transactions = importer
+        importer
             .import(12)
             .await
             .expect("Transactions Importer should succeed");
+        let warm_imported_transactions = repository.get_all().await.unwrap();
 
         assert_eq!(transactions, cold_imported_transactions);
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
