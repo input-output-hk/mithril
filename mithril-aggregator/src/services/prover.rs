@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -70,25 +70,37 @@ impl MithrilProverService {
         &self,
         transactions: Vec<CardanoTransaction>,
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
-        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
-            HashMap::new();
+        let mut transactions_by_block_ranges: BTreeMap<BlockRange, Vec<TransactionHash>> =
+            BTreeMap::new();
+        let mut last_transaction: Option<CardanoTransaction> = None;
         for transaction in transactions {
             let block_range = BlockRange::from_block_number(transaction.block_number);
+            last_transaction = Some(transaction.clone());
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
                 .push(transaction.transaction_hash);
         }
+        let mut block_ranges = transactions_by_block_ranges.into_iter().try_fold(
+            vec![],
+            |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
+                acc.push((block_range, MKTree::new(&transactions)?.into()));
+                Ok(acc)
+            },
+        )?;
+
+        // This is a temporary fix to avoid including an incomplete block ranges in the computation of the prover.
+        // This will be swiftly replaced by the new way of computing proof relying on the block range roots stored in database.
+        if let Some(transaction) = last_transaction {
+            if let Some((last_block_range, _)) = block_ranges.last() {
+                if transaction.block_number < last_block_range.end - 1 {
+                    block_ranges.pop();
+                }
+            }
+        }
+
         let mk_hash_map = MKMap::new_from_iter(
-            transactions_by_block_ranges
-                .into_iter()
-                .try_fold(
-                    vec![],
-                    |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
-                        acc.push((block_range, MKTree::new(&transactions)?.into()));
-                        Ok(acc)
-                    },
-                )?,
+            block_ranges
         )
         .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
 
@@ -143,6 +155,8 @@ impl ProverService for MithrilProverService {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::max;
+
     use anyhow::anyhow;
     use mithril_common::entities::CardanoTransaction;
     use mithril_common::test_utils::fake_data;
@@ -160,7 +174,7 @@ mod tests {
             let hash = format!("tx-{i}");
             transactions.push(CardanoTransaction::new(
                 &hash,
-                10 * i as u64,
+                max(0, 10 * i - 1) as u64,
                 100 * i as u64,
                 format!("block_hash-{i}"),
                 i as u64,
@@ -200,7 +214,6 @@ mod tests {
             .compute_transactions_proofs(&fake_data::beacon(), &transaction_hashes)
             .await
             .unwrap();
-
         assert_eq!(transactions_set_proof.len(), 1);
         assert_eq!(
             transactions_set_proof[0].transactions_hashes(),
