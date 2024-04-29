@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       commit_sha:
-        description: SHA of the commit on which the load-aggregator binary should be obtained.
+        description: SHA of the commit on which the aggregator binary should be obtained.
         required: true
         type: string
       num_signers:
@@ -29,8 +29,6 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.commit_sha }}
 
       - name: Prepare environment variables
         id: prepare
@@ -45,6 +43,20 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Download built artifacts (Linux-x64)
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          name: mithril-distribution-Linux-X64
+          path: ./bin
+          commit: ${{ inputs.commit_sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Set permissions
+        shell: bash
+        working-directory: ./bin
+        run: chmod +x ./mithril-aggregator
+
       - name: Build the aggregator stress test
         working-directory: mithril-test-lab/mithril-end-to-end
         run: make build
@@ -54,6 +66,6 @@ jobs:
         run: |
             ./load-aggregator ${{ steps.prepare.outputs.debug_level }} \
             --cardano-cli-path script/mock-cardano-cli \
-            --aggregator-dir ../../target/release \
+            --aggregator-dir ../../bin \
             --num-signers=${{ inputs.num_signers }} \
             --num-clients=${{ inputs.num_clients }}
