@@ -958,7 +958,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "anyhow",
  "clap",
@@ -971,7 +971,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "anyhow",
  "clap",
@@ -984,7 +984,7 @@ dependencies = [
 
 [[package]]
 name = "client-snapshot"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3447,7 +3447,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.4.65"
+version = "0.4.66"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3513,7 +3513,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "semver",
  "serde_json",
@@ -3522,7 +3522,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3555,7 +3555,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.7.11"
+version = "0.7.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3585,7 +3585,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "async-trait",
  "futures",
@@ -3601,7 +3601,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.3.35"
+version = "0.3.36"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3655,7 +3655,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "clap",
  "config",
@@ -3665,7 +3665,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc-derive"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "quote",
  "syn 2.0.53",
@@ -3673,7 +3673,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.10"
+version = "0.4.11"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3699,7 +3699,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3722,7 +3722,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.16"
+version = "0.1.17"
 dependencies = [
  "anyhow",
  "clap",
@@ -3746,7 +3746,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.129"
+version = "0.2.130"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3781,7 +3781,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.18"
+version = "0.3.19"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -3804,7 +3804,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.34"
+version = "0.1.35"
 dependencies = [
  "base64 0.22.0",
  "blake2 0.10.6",
@@ -5843,11 +5843,10 @@ dependencies = [
 
 [[package]]
 name = "sqlite"
-version = "0.34.0"
+version = "0.36.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bf42adadeba1af33e2778aa22a6e9c487d8a0e3170fe65e6cb8775b3c59eb99"
+checksum = "274e5a9a0968bc9797fd3fe75a544cbcd3e3c2a111cb1c11cb8a0290f9684cb2"
 dependencies = [
- "libc",
  "sqlite3-sys",
 ]
 
@@ -5863,11 +5862,10 @@ dependencies = [
 
 [[package]]
 name = "sqlite3-sys"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aed0b61828382e1103930d2d5df1972d493173319730b481192e63d929097321"
+checksum = "3901ada7090c3c3584dc92ec7ef1b7091868d13bfe6d7de9f0bcaffee7d0ade5"
 dependencies = [
- "libc",
  "sqlite3-src",
 ]
 
