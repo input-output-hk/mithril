@@ -1,4 +1,8 @@
-use mithril_persistence::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection};
+use mithril_common::entities::BlockNumber;
+use mithril_persistence::sqlite::{
+    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
+};
+use sqlite::Value;
 
 use crate::database::record::BlockRangeRootRecord;
 
@@ -8,10 +12,13 @@ pub struct GetBlockRangeRootProvider<'client> {
 }
 
 impl<'client> GetBlockRangeRootProvider<'client> {
-    #[cfg(test)]
     /// Create a new instance
     pub fn new(connection: &'client SqliteConnection) -> Self {
         Self { connection }
+    }
+
+    pub fn get_up_to_block_number_condition(&self, block_number: BlockNumber) -> WhereCondition {
+        WhereCondition::new("end < ?*", vec![Value::Integer(block_number as i64)])
     }
 }
 

@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use sqlite::Value;
 
-use mithril_common::entities::{BlockNumber, ImmutableFileNumber, TransactionHash};
+use mithril_common::entities::{BlockNumber, TransactionHash};
 use mithril_persistence::sqlite::{
     Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
@@ -38,16 +38,6 @@ impl<'client> GetCardanoTransactionProvider<'client> {
         let hashes_values = transactions_hashes.into_iter().map(Value::String).collect();
 
         WhereCondition::where_in("transaction_hash", hashes_values)
-    }
-
-    pub fn get_transaction_up_to_beacon_condition(
-        &self,
-        beacon: ImmutableFileNumber,
-    ) -> WhereCondition {
-        WhereCondition::new(
-            "immutable_file_number <= ?*",
-            vec![Value::Integer(beacon as i64)],
-        )
     }
 
     pub fn get_transaction_between_blocks_condition(
