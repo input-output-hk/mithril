@@ -118,6 +118,21 @@ impl CardanoTransactionRepository {
 
         let provider = InsertCardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_insert_many_condition(records)?;
+        provider.find(filters)?.next();
+
+        Ok(vec![])
+    }
+
+    /// Create new [CardanoTransactionRecord]s in the database.
+    pub async fn create_transactions_and_collect<T: Into<CardanoTransactionRecord>>(
+        &self,
+        transactions: Vec<T>,
+    ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let records: Vec<CardanoTransactionRecord> =
+            transactions.into_iter().map(|tx| tx.into()).collect();
+
+        let provider = InsertCardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_insert_many_condition(records)?;
         let cursor = provider.find(filters)?;
 
         Ok(cursor.collect())
@@ -136,6 +151,34 @@ impl CardanoTransactionRepository {
         let cursor = provider.find(filters)?;
 
         Ok(cursor.collect())
+    }
+
+    pub async fn store_transactions_with_chunks_size(
+        &self,
+        transactions: Vec<CardanoTransaction>,
+        chunks_size: usize,
+    ) -> StdResult<()> {
+        // Chunk transactions to avoid an error when we exceed sqlite binding limitations
+        for transactions_in_chunk in transactions.chunks(chunks_size) {
+            self.create_transactions(transactions_in_chunk.to_vec())
+                .await
+                .with_context(|| "CardanoTransactionRepository can not store transactions")?;
+        }
+        Ok(())
+    }
+
+    pub async fn store_transactions_with_chunks_size_and_collect(
+        &self,
+        transactions: Vec<CardanoTransaction>,
+        chunks_size: usize,
+    ) -> StdResult<()> {
+        // Chunk transactions to avoid an error when we exceed sqlite binding limitations
+        for transactions_in_chunk in transactions.chunks(chunks_size) {
+            self.create_transactions_and_collect(transactions_in_chunk.to_vec())
+                .await
+                .with_context(|| "CardanoTransactionRepository can not store transactions")?;
+        }
+        Ok(())
     }
 
     // TODO: remove this function when the Cardano transaction signature is based on block number instead of immutable number
@@ -238,7 +281,7 @@ impl TransactionStore for CardanoTransactionRepository {
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
         // Chunk transactions to avoid an error when we exceed sqlite binding limitations
         for transactions_in_chunk in transactions.chunks(100) {
-            self.create_transactions(transactions_in_chunk.to_vec())
+            self.create_transactions_and_collect(transactions_in_chunk.to_vec())
                 .await
                 .with_context(|| "CardanoTransactionRepository can not store transactions")?;
         }
