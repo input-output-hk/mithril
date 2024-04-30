@@ -43,7 +43,7 @@ pub trait BlockRangeRootRetriever: Send + Sync {
             .await?
             .map(|(block_range, root)| (block_range, root.into()));
         let mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
-        .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
+        .with_context(|| "BlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
 
         Ok(mk_hash_map)
     }

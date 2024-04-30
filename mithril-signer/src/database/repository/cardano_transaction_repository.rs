@@ -22,6 +22,9 @@ use crate::database::provider::{
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::TransactionStore;
 
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllProvider;
+
 /// ## Cardano transaction repository
 ///
 /// This is a business oriented layer to perform actions on the database through
@@ -58,7 +61,8 @@ impl CardanoTransactionRepository {
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
-    /// chronological order.
+    /// order of insertion.
+    /// Note: until we rely on block number based beacons, this function needs to compute the highest block number for the given immutable file number.
     pub async fn get_transactions_up_to(
         &self,
         beacon: ImmutableFileNumber,
@@ -170,10 +174,9 @@ impl CardanoTransactionRepository {
     #[cfg(test)]
     pub(crate) async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = WhereCondition::default();
-        let transactions = provider.find(filters)?;
+        let records = provider.get_all()?;
 
-        Ok(transactions.map(|record| record.into()).collect::<Vec<_>>())
+        Ok(records.map(|record| record.into()).collect())
     }
 }
 

@@ -7,6 +7,9 @@ use mithril_persistence::sqlite::{
     Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
 
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllCondition;
+
 use crate::database::record::CardanoTransactionRecord;
 
 /// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
@@ -69,3 +72,6 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
         format!("select {projection} from cardano_tx where {condition} order by rowid")
     }
 }
+
+#[cfg(test)]
+impl GetAllCondition for GetCardanoTransactionProvider<'_> {}

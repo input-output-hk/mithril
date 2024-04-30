@@ -72,10 +72,9 @@ impl MithrilProverService {
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
         let mut transactions_by_block_ranges: BTreeMap<BlockRange, Vec<TransactionHash>> =
             BTreeMap::new();
-        let mut last_transaction: Option<CardanoTransaction> = None;
+        let last_transaction = transactions.last().cloned();
         for transaction in transactions {
             let block_range = BlockRange::from_block_number(transaction.block_number);
-            last_transaction = Some(transaction.clone());
             transactions_by_block_ranges
                 .entry(block_range)
                 .or_default()
@@ -174,7 +173,7 @@ mod tests {
             let hash = format!("tx-{i}");
             transactions.push(CardanoTransaction::new(
                 &hash,
-                max(0, 10 * i - 1) as u64,
+                max(0, 10 * i - 1) as u64, // will produce the following sequence: 0, 9, 19, 29, 39, 49, ...
                 100 * i as u64,
                 format!("block_hash-{i}"),
                 i as u64,

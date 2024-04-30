@@ -22,6 +22,9 @@ use crate::database::provider::{
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::services::{TransactionStore, TransactionsRetriever};
 
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllProvider;
+
 /// ## Cardano transaction repository
 ///
 /// This is a business oriented layer to perform actions on the database through
@@ -58,7 +61,8 @@ impl CardanoTransactionRepository {
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
-    /// chronological order.
+    /// order of insertion.
+    /// Note: until we rely on block number based beacons, this function needs to compute the highest block number for the given immutable file number.
     pub async fn get_transactions_up_to(
         &self,
         beacon: ImmutableFileNumber,
@@ -70,7 +74,7 @@ impl CardanoTransactionRepository {
             .await?
             .unwrap_or(0);
         let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_transaction_between_blocks_condition(0..block_number);
+        let filters = provider.get_transaction_between_blocks_condition(0..block_number + 1);
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
@@ -176,10 +180,9 @@ impl CardanoTransactionRepository {
     #[cfg(test)]
     pub(crate) async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = WhereCondition::default();
-        let transactions = provider.find(filters)?;
+        let records = provider.get_all()?;
 
-        Ok(transactions.map(|record| record.into()).collect::<Vec<_>>())
+        Ok(records.map(|record| record.into()).collect())
     }
 }
 
@@ -486,27 +489,34 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
+        // Build transactions with block numbers from 10 to 40 and immutable file numbers from 12 to 14
         let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
             .map(|i| CardanoTransactionRecord {
                 transaction_hash: format!("tx-hash-{i}"),
-                block_number: i / 10,
+                block_number: i,
                 slot_number: i * 100,
                 block_hash: format!("block-hash-{i}"),
-                immutable_file_number: i,
+                immutable_file_number: i / 10 + 10,
             })
             .collect();
+
         repository
             .create_transactions(cardano_transactions.clone())
             .await
             .unwrap();
 
-        let transaction_result = repository.get_transactions_up_to(34).await.unwrap();
-        assert_eq!(cardano_transactions[0..10].to_vec(), transaction_result);
+        let transaction_result = repository.get_transactions_up_to(12).await.unwrap();
+        let transaction_up_to_immutable_file_number_12 = cardano_transactions[0..10].to_vec();
+        assert_eq!(
+            transaction_up_to_immutable_file_number_12,
+            transaction_result
+        );
 
         let transaction_result = repository.get_transactions_up_to(300).await.unwrap();
-        assert_eq!(cardano_transactions[0..20].to_vec(), transaction_result);
+        let transaction_all = cardano_transactions[..].to_vec();
+        assert_eq!(transaction_all, transaction_result);
 
-        let transaction_result = repository.get_transactions_up_to(19).await.unwrap();
+        let transaction_result = repository.get_transactions_up_to(9).await.unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 
