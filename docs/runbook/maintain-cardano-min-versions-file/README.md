@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The [networks.json](../../../networks.json) file specifies the minimum supported versions of the Cardano node for Mithril signers and facilitates the verification of compatibility for the Cardano networks.
+The [networks.json](../../../networks.json) file provides essential information for configuring a Mithril signer node. It specifies the minimum supported versions of the Cardano node for Mithril signers and facilitates the verification of compatibility for the Cardano networks.
 
 ## Maintaining the file
 
