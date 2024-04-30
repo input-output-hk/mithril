@@ -30,7 +30,7 @@ use mithril_persistence::sqlite::GetAllProvider;
 /// This is a business oriented layer to perform actions on the database through
 /// providers.
 pub struct CardanoTransactionRepository {
-    connection: Arc<SqliteConnection>,
+    pub connection: Arc<SqliteConnection>,
 }
 
 impl CardanoTransactionRepository {

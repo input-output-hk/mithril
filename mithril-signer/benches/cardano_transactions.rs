@@ -19,6 +19,17 @@ fn cardano_tx_db_connection() -> StdResult<ConnectionThreadSafe> {
     Ok(connection)
 }
 
+async fn store_transactions_with_sqlite_transaction(
+    repository: CardanoTransactionRepository,
+    transactions: Vec<CardanoTransaction>,
+) -> StdResult<()> {
+    repository.connection.execute("BEGIN TRANSACTION;")?;
+    repository.store_transactions(transactions).await?;
+    repository.connection.execute("END TRANSACTION;")?;
+
+    Ok(())
+}
+
 fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
     (0..nb_transactions)
         .map(|i| {
@@ -34,7 +45,7 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
 }
 
 fn bench_store_transactions_transactions(c: &mut Criterion) {
-    const NB_CARDANO_TRANSACTIONS: usize = 100000;
+    const NB_CARDANO_TRANSACTIONS: usize = 10000;
     let runtime = tokio::runtime::Runtime::new().unwrap();
 
     let mut group = c.benchmark_group("Create transactions");
@@ -46,6 +57,18 @@ fn bench_store_transactions_transactions(c: &mut Criterion) {
             repository
                 .store_transactions(generate_transactions(NB_CARDANO_TRANSACTIONS))
                 .await
+        });
+    });
+
+    group.bench_function("store_transactions_with_sqlite_transaction", |bencher| {
+        bencher.to_async(&runtime).iter(|| async {
+            let connection = Arc::new(cardano_tx_db_connection().unwrap());
+            let repository = CardanoTransactionRepository::new(connection);
+            store_transactions_with_sqlite_transaction(
+                repository,
+                generate_transactions(NB_CARDANO_TRANSACTIONS),
+            )
+            .await
         });
     });
 
