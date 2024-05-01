@@ -1366,7 +1366,8 @@ impl DependenciesBuilder {
     /// build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
         let transaction_retriever = self.get_transaction_repository().await?;
-        let service = MithrilProverService::new(transaction_retriever);
+        let block_range_root_retriever = self.get_transaction_repository().await?;
+        let service = MithrilProverService::new(transaction_retriever, block_range_root_retriever);
 
         Ok(Arc::new(service))
     }
