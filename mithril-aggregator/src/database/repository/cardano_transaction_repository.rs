@@ -313,6 +313,20 @@ impl TransactionsRetriever for CardanoTransactionRepository {
             .map(|record| record.into())
             .collect())
     }
+
+    async fn get_by_block_ranges(
+        &self,
+        block_ranges: Vec<BlockRange>,
+    ) -> StdResult<Vec<CardanoTransaction>> {
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
+        let filters = provider.get_transaction_block_ranges_condition(block_ranges);
+        let transactions = provider.find(filters)?;
+
+        Ok(transactions
+            .into_iter()
+            .map(|record| record.into())
+            .collect())
+    }
 }
 
 #[async_trait]
