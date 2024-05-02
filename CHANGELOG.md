@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (https://mithril.network/doc/adr/3#decision)
 
-## Mithril Distribution [2416.0] - UNRELEASED
+## Mithril Distribution [XXXX.X] - UNRELEASED
+
+- Support computation of the Cardano Transactions signature with the pre-computed Block Range Merkle Roots retrieved from the database.
+
+## Mithril Distribution [2418.1] - UNRELEASED
 
 - **BREAKING** changes in Mithril client CLI:
   - Certificate chain structure has been modified to remove coupling with immutable file number.
