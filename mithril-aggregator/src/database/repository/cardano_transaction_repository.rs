@@ -691,6 +691,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn repository_get_transactions_by_block_ranges() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-1", 10, 50, "block-hash-1", 99),
+            CardanoTransaction::new("tx-hash-2", 11, 51, "block-hash-2", 100),
+            CardanoTransaction::new("tx-hash-3", 20, 52, "block-hash-3", 101),
+            CardanoTransaction::new("tx-hash-4", 31, 53, "block-hash-4", 102),
+            CardanoTransaction::new("tx-hash-5", 35, 54, "block-hash-5", 103),
+            CardanoTransaction::new("tx-hash-6", 46, 55, "block-hash-6", 104),
+        ];
+        repository
+            .create_transactions(transactions.clone())
+            .await
+            .unwrap();
+
+        {
+            let transaction_result = repository
+                .get_by_block_ranges(vec![BlockRange::from_block_number(100)])
+                .await
+                .unwrap();
+            assert_eq!(Vec::<CardanoTransaction>::new(), transaction_result);
+        }
+        {
+            let transaction_result = repository
+                .get_by_block_ranges(vec![BlockRange::from_block_number(0)])
+                .await
+                .unwrap();
+            assert_eq!(transactions[0..=1].to_vec(), transaction_result);
+        }
+        {
+            let transaction_result = repository
+                .get_by_block_ranges(vec![
+                    BlockRange::from_block_number(0),
+                    BlockRange::from_block_number(15),
+                ])
+                .await
+                .unwrap();
+            assert_eq!(transactions[0..=2].to_vec(), transaction_result);
+        }
+        {
+            let transaction_result = repository
+                .get_by_block_ranges(vec![
+                    BlockRange::from_block_number(0),
+                    BlockRange::from_block_number(30),
+                ])
+                .await
+                .unwrap();
+            assert_eq!(
+                [transactions[0..=1].to_vec(), transactions[3..=4].to_vec()].concat(),
+                transaction_result
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn repository_store_block_range() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let provider = GetBlockRangeRootProvider::new(&connection);
