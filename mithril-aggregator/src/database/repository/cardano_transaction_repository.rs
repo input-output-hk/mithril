@@ -503,7 +503,7 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
-        // Build transactions with block numbers from 10 to 40 and immutable file numbers from 12 to 14
+        // Build transactions with block numbers from 20 to 40 and immutable file numbers from 12 to 14
         let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
             .map(|i| CardanoTransactionRecord {
                 transaction_hash: format!("tx-hash-{i}"),

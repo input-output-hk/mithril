@@ -118,12 +118,7 @@ impl ProverService for MithrilProverService {
         // 2 - Compute block ranges sub Merkle trees
         let mut mk_trees = BTreeMap::new();
         for (block_range, transactions) in block_range_transactions {
-            let mk_tree = MKTree::new(
-                &transactions
-                    .iter()
-                    .map(|t| t.transaction_hash.clone())
-                    .collect::<Vec<_>>(),
-            )?;
+            let mk_tree = MKTree::new(&transactions)?;
             mk_trees.insert(block_range, mk_tree);
         }
 
@@ -140,15 +135,11 @@ impl ProverService for MithrilProverService {
 
         // 5 - Compute the proof for all transactions
         if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
-            let transaction_hashes_certified = transaction_hashes
+            let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
                 .iter()
-                .filter_map(|hash| {
-                    mk_proof
-                        .contains(&hash.to_owned().into())
-                        .ok()
-                        .map(|_| hash.clone())
-                })
-                .collect::<Vec<_>>();
+                .filter(|hash| mk_proof.contains(&hash.as_str().into()).is_ok())
+                .cloned()
+                .collect();
 
             Ok(vec![CardanoTransactionsSetProof::new(
                 transaction_hashes_certified,
@@ -194,7 +185,7 @@ mod tests {
 
         // Generate transactions for 'total_block_ranges' consecutive block ranges,
         // with 'total_transactions_per_block_range' transactions per block range
-        pub(crate) fn generate_transactions(
+        pub fn generate_transactions(
             total_block_ranges: usize,
             total_transactions_per_block_range: usize,
         ) -> Vec<CardanoTransaction> {
@@ -229,7 +220,7 @@ mod tests {
             transactions
         }
 
-        pub(crate) fn filter_transactions_for_indices(
+        pub fn filter_transactions_for_indices(
             indices: &[usize],
             transactions: &[CardanoTransaction],
         ) -> Vec<CardanoTransaction> {
@@ -241,7 +232,7 @@ mod tests {
                 .collect()
         }
 
-        pub(crate) fn compute_transaction_hashes_from_transactions(
+        pub fn compute_transaction_hashes_from_transactions(
             transactions: &[CardanoTransaction],
         ) -> Vec<TransactionHash> {
             transactions
@@ -250,7 +241,7 @@ mod tests {
                 .collect()
         }
 
-        pub(crate) fn compute_block_ranges_map_from_transactions(
+        pub fn compute_block_ranges_map_from_transactions(
             transactions: &[CardanoTransaction],
         ) -> BTreeMap<BlockRange, Vec<CardanoTransaction>> {
             let mut block_ranges_map = BTreeMap::new();
@@ -264,7 +255,7 @@ mod tests {
             block_ranges_map
         }
 
-        pub(crate) fn filter_transactions_for_block_ranges(
+        pub fn filter_transactions_for_block_ranges(
             block_ranges: &[BlockRange],
             transactions: &[CardanoTransaction],
         ) -> Vec<CardanoTransaction> {
@@ -275,13 +266,7 @@ mod tests {
                 .collect()
         }
 
-        pub(crate) fn compute_mk_tree_from_transactions(
-            transactions: &[CardanoTransaction],
-        ) -> MKTree {
-            MKTree::new(&compute_transaction_hashes_from_transactions(transactions)).unwrap()
-        }
-
-        pub(crate) fn compute_mk_map_from_block_ranges_map(
+        pub fn compute_mk_map_from_block_ranges_map(
             block_ranges_map: BTreeMap<BlockRange, Vec<CardanoTransaction>>,
         ) -> MKMap<BlockRange, MKMapNode<BlockRange>> {
             MKMap::new_from_iter(
@@ -291,7 +276,8 @@ mod tests {
                         (
                             block_range,
                             MKMapNode::TreeNode(
-                                compute_mk_tree_from_transactions(&transactions)
+                                MKTree::new(&transactions)
+                                    .unwrap()
                                     .compute_root()
                                     .unwrap()
                                     .clone(),
@@ -302,7 +288,7 @@ mod tests {
             .unwrap()
         }
 
-        pub(crate) fn compute_beacon_from_transactions(
+        pub fn compute_beacon_from_transactions(
             transactions: &[CardanoTransaction],
         ) -> CardanoDbBeacon {
             CardanoDbBeacon {
@@ -311,15 +297,15 @@ mod tests {
             }
         }
 
-        pub(crate) struct TestData {
-            pub(crate) transaction_hashes_to_prove: Vec<TransactionHash>,
-            pub(crate) block_ranges_map: BTreeMap<BlockRange, Vec<CardanoTransaction>>,
-            pub(crate) block_ranges_to_prove: Vec<BlockRange>,
-            pub(crate) all_transactions_in_block_ranges_to_prove: Vec<CardanoTransaction>,
-            pub(crate) beacon: CardanoDbBeacon,
+        pub struct TestData {
+            pub transaction_hashes_to_prove: Vec<TransactionHash>,
+            pub block_ranges_map: BTreeMap<BlockRange, Vec<CardanoTransaction>>,
+            pub block_ranges_to_prove: Vec<BlockRange>,
+            pub all_transactions_in_block_ranges_to_prove: Vec<CardanoTransaction>,
+            pub beacon: CardanoDbBeacon,
         }
 
-        pub(crate) fn build_test_data(
+        pub fn build_test_data(
             transactions_to_prove: &[CardanoTransaction],
             transactions: &[CardanoTransaction],
         ) -> TestData {
@@ -480,12 +466,11 @@ mod tests {
             vec!["tx-unknown-123".to_string(), "tx-unknown-456".to_string()];
         let mut test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         let transaction_hashes_known = test_data.transaction_hashes_to_prove.clone();
-        test_data.transaction_hashes_to_prove = test_data
-            .transaction_hashes_to_prove
-            .clone()
-            .into_iter()
-            .chain(transaction_hashes_unknown.into_iter())
-            .collect::<Vec<_>>();
+        test_data.transaction_hashes_to_prove = [
+            test_data.transaction_hashes_to_prove.clone(),
+            transaction_hashes_unknown,
+        ]
+        .concat();
         let prover = build_prover(
             |retriever_mock| {
                 let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
@@ -541,10 +526,8 @@ mod tests {
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         let prover = build_prover(
             |retriever_mock| {
-                let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove))
                     .returning(|_| Err(anyhow!("Error")));
             },
             |block_range_root_retriever_mock| {
@@ -573,19 +556,15 @@ mod tests {
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         let prover = build_prover(
             |retriever_mock| {
-                let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 let transactions_to_prove = transactions_to_prove.clone();
                 retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove))
                     .return_once(move |_| Ok(transactions_to_prove));
 
-                let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
                 let all_transactions_in_block_ranges_to_prove =
                     test_data.all_transactions_in_block_ranges_to_prove.clone();
                 retriever_mock
                     .expect_get_by_block_ranges()
-                    .with(eq(block_ranges_to_prove))
                     .return_once(move |_| Ok(all_transactions_in_block_ranges_to_prove));
             },
             |block_range_root_retriever_mock| {
