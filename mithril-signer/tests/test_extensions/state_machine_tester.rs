@@ -161,8 +161,10 @@ impl StateMachineTester {
             None,
             slog_scope::logger(),
         ));
+        let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_importer,
+            block_range_root_retriever,
             slog_scope::logger(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

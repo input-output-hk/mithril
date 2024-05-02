@@ -456,16 +456,17 @@ mod tests {
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
         chain_observer::{ChainObserver, FakeObserver},
-        crypto_helper::ProtocolInitializer,
+        crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{CardanoDbBeacon, Epoch, StakeDistribution},
+        entities::{BlockRange, CardanoDbBeacon, Epoch, ImmutableFileNumber, StakeDistribution},
         era::{
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
         },
         signable_builder::{
-            CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
-            MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+            BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
+            CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+            MithrilStakeDistributionSignableBuilder,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
         TimePointProvider, TimePointProviderImpl,
@@ -494,6 +495,23 @@ mod tests {
         #[async_trait]
         impl TimePointProvider for FakeTimePointProvider {
             async fn get_current_time_point(&self) -> StdResult<TimePoint>;
+        }
+    }
+
+    mock! {
+        pub BlockRangeRootRetrieverImpl { }
+
+        #[async_trait]
+        impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
+            async fn retrieve_block_range_roots(
+                &self,
+                up_to_beacon: ImmutableFileNumber,
+            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
+
+            async fn compute_merkle_map_from_block_range_roots(
+                &self,
+                up_to_beacon: ImmutableFileNumber,
+            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>>;
         }
     }
 
@@ -543,8 +561,10 @@ mod tests {
             None,
             slog_scope::logger(),
         ));
+        let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transaction_importer,
+            block_range_root_retriever,
             slog_scope::logger(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

@@ -1062,8 +1062,10 @@ impl DependenciesBuilder {
             Some(1),
             self.get_logger().await?,
         ));
+        let block_range_root_retriever = self.get_transaction_repository().await?;
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer,
+            block_range_root_retriever,
             self.get_logger().await?,
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

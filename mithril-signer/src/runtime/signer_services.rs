@@ -268,14 +268,16 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let transactions_importer = CardanoTransactionsImporter::new(
             block_scanner,
-            transaction_store,
+            transaction_store.clone(),
             &self.config.db_directory,
             // Rescan the last immutable when importing transactions, it may have been partially imported
             Some(1),
             slog_scope::logger(),
         );
+        let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             Arc::new(transactions_importer),
+            block_range_root_retriever,
             slog_scope::logger(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

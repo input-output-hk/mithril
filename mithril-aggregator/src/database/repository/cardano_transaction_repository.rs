@@ -9,15 +9,21 @@ use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
     SlotNumber, TransactionHash,
 };
+use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Provider, SqliteConnection, WhereCondition};
+use sqlite::Value;
 
 use crate::database::provider::{
-    GetCardanoTransactionProvider, GetIntervalWithoutBlockRangeRootProvider,
-    InsertBlockRangeRootProvider, InsertCardanoTransactionProvider,
+    GetBlockRangeRootProvider, GetCardanoTransactionProvider,
+    GetIntervalWithoutBlockRangeRootProvider, InsertBlockRangeRootProvider,
+    InsertCardanoTransactionProvider,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::services::{TransactionStore, TransactionsRetriever};
+
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllProvider;
 
 /// ## Cardano transaction repository
 ///
@@ -55,13 +61,20 @@ impl CardanoTransactionRepository {
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
-    /// chronological order.
+    /// order of insertion.
+    /// Note: until we rely on block number based beacons, this function needs to compute the highest block number for the given immutable file number.
     pub async fn get_transactions_up_to(
         &self,
         beacon: ImmutableFileNumber,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        // Get the highest block number for the given immutable number.
+        // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
+        let block_number = self
+            .get_highest_block_number_for_immutable_number(beacon)
+            .await?
+            .unwrap_or(0);
         let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_transaction_up_to_beacon_condition(beacon);
+        let filters = provider.get_transaction_between_blocks_condition(0..block_number + 1);
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
@@ -129,6 +142,47 @@ impl CardanoTransactionRepository {
         let cursor = provider.find(filters)?;
 
         Ok(cursor.collect())
+    }
+
+    // TODO: remove this function when the Cardano transaction signature is based on block number instead of immutable number
+    async fn get_highest_block_number_for_immutable_number(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<Option<BlockNumber>> {
+        let sql =
+            "select max(block_number) as highest from cardano_tx where immutable_file_number <= $1;";
+        match self
+            .connection
+            .prepare(sql)
+            .with_context(|| {
+                format!(
+                    "Prepare query error: SQL=`{}`",
+                    &sql.replace('\n', " ").trim()
+                )
+            })?
+            .iter()
+            .bind::<&[(_, Value)]>(&[(1, Value::Integer(immutable_file_number as i64))])?
+            .next()
+        {
+            None => Ok(None),
+            Some(row) => {
+                let highest = row?.read::<Option<i64>, _>(0);
+                highest
+                    .map(u64::try_from)
+                    .transpose()
+                    .with_context(||
+                        format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
+                    )
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
+        let provider = GetCardanoTransactionProvider::new(&self.connection);
+        let records = provider.get_all()?;
+
+        Ok(records.map(|record| record.into()).collect())
     }
 }
 
@@ -258,6 +312,31 @@ impl TransactionsRetriever for CardanoTransactionRepository {
             .into_iter()
             .map(|record| record.into())
             .collect())
+    }
+}
+
+#[async_trait]
+impl BlockRangeRootRetriever for CardanoTransactionRepository {
+    async fn retrieve_block_range_roots(
+        &self,
+        up_to_beacon: ImmutableFileNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+        // Get the highest block number for the given immutable number.
+        // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
+        let block_number = self
+            .get_highest_block_number_for_immutable_number(up_to_beacon)
+            .await?
+            .unwrap_or(0);
+        let provider = GetBlockRangeRootProvider::new(&self.connection);
+        let filters = provider.get_up_to_block_number_condition(block_number);
+        let block_range_roots = provider.find(filters)?;
+        let block_range_roots = block_range_roots
+            .into_iter()
+            .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
+            .collect::<Vec<_>>() // TODO: remove this collect when we should ba able return the iterator directly
+            .into_iter();
+
+        Ok(Box::new(block_range_roots))
     }
 }
 
@@ -410,27 +489,34 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
+        // Build transactions with block numbers from 10 to 40 and immutable file numbers from 12 to 14
         let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
             .map(|i| CardanoTransactionRecord {
                 transaction_hash: format!("tx-hash-{i}"),
-                block_number: i % 10,
+                block_number: i,
                 slot_number: i * 100,
                 block_hash: format!("block-hash-{i}"),
-                immutable_file_number: i,
+                immutable_file_number: i / 10 + 10,
             })
             .collect();
+
         repository
             .create_transactions(cardano_transactions.clone())
             .await
             .unwrap();
 
-        let transaction_result = repository.get_transactions_up_to(34).await.unwrap();
-        assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
+        let transaction_result = repository.get_transactions_up_to(12).await.unwrap();
+        let transaction_up_to_immutable_file_number_12 = cardano_transactions[0..10].to_vec();
+        assert_eq!(
+            transaction_up_to_immutable_file_number_12,
+            transaction_result
+        );
 
         let transaction_result = repository.get_transactions_up_to(300).await.unwrap();
-        assert_eq!(cardano_transactions.clone(), transaction_result);
+        let transaction_all = cardano_transactions[..].to_vec();
+        assert_eq!(transaction_all, transaction_result);
 
-        let transaction_result = repository.get_transactions_up_to(19).await.unwrap();
+        let transaction_result = repository.get_transactions_up_to(9).await.unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 

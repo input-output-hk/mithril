@@ -1,15 +1,12 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use crate::{
-    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeNode},
-    entities::{
-        BlockRange, CardanoDbBeacon, CardanoTransaction, ProtocolMessage, ProtocolMessagePartKey,
-        TransactionHash,
-    },
+    crypto_helper::{MKMap, MKMapNode, MKTreeNode},
+    entities::{BlockRange, CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -23,64 +20,54 @@ use mockall::automock;
 #[async_trait]
 pub trait TransactionsImporter: Send + Sync {
     /// Returns all transactions up to the given beacon
-    async fn import(&self, up_to_beacon: ImmutableFileNumber)
-        -> StdResult<Vec<CardanoTransaction>>;
+    async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()>;
+}
+
+/// Block Range Merkle roots retriever
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait BlockRangeRootRetriever: Send + Sync {
+    /// Returns a Merkle map of the block ranges roots up to a given beacon
+    async fn retrieve_block_range_roots(
+        &self,
+        up_to_beacon: ImmutableFileNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
+
+    /// Returns a Merkle map of the block ranges roots up to a given beacon
+    async fn compute_merkle_map_from_block_range_roots(
+        &self,
+        up_to_beacon: ImmutableFileNumber,
+    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
+        let block_range_roots_iterator = self
+            .retrieve_block_range_roots(up_to_beacon)
+            .await?
+            .map(|(block_range, root)| (block_range, root.into()));
+        let mk_hash_map = MKMap::new_from_iter(block_range_roots_iterator)
+        .with_context(|| "BlockRangeRootRetriever failed to compute the merkelized structure that proves ownership of the transaction")?;
+
+        Ok(mk_hash_map)
+    }
 }
 
 /// A [CardanoTransactionsSignableBuilder] builder
 pub struct CardanoTransactionsSignableBuilder {
     transaction_importer: Arc<dyn TransactionsImporter>,
+    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
     logger: Logger,
 }
 
 impl CardanoTransactionsSignableBuilder {
     /// Constructor
-    pub fn new(transaction_importer: Arc<dyn TransactionsImporter>, logger: Logger) -> Self {
+    pub fn new(
+        transaction_importer: Arc<dyn TransactionsImporter>,
+        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+        logger: Logger,
+    ) -> Self {
         Self {
             transaction_importer,
+            block_range_root_retriever,
             logger,
         }
-    }
-
-    // Note: Code duplicated from aggregator Prover service as is.
-    // This will be not be the case when we use the cached intermediate merkle roots.
-    fn compute_merkle_map_from_transactions(
-        &self,
-        transactions: Vec<CardanoTransaction>,
-    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
-        let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
-            HashMap::new();
-        for transaction in transactions {
-            let block_range = BlockRange::from_block_number(transaction.block_number);
-            transactions_by_block_ranges
-                .entry(block_range)
-                .or_default()
-                .push(transaction.transaction_hash);
-        }
-        let mk_hash_map = MKMap::new_from_iter(
-            transactions_by_block_ranges
-                .into_iter()
-                .try_fold(
-                    vec![],
-                    |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
-                        acc.push((block_range, MKTree::new(&transactions)?.into()));
-                        Ok(acc)
-                    },
-                )?,
-        )
-        .with_context(|| "ProverService failed to compute the merkelized structure that proves ownership of the transaction")?;
-
-        Ok(mk_hash_map)
-    }
-
-    fn compute_merkle_root(&self, transactions: Vec<CardanoTransaction>) -> StdResult<MKTreeNode> {
-        let mk_map = self.compute_merkle_map_from_transactions(transactions)?;
-
-        let mk_root = mk_map.compute_root().with_context(|| {
-            "CardanoTransactionsSignableBuilder failed to compute MKHashMap root"
-        })?;
-
-        Ok(mk_root)
     }
 }
 
@@ -95,11 +82,15 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
             "Compute protocol message for CardanoTransactions at beacon: {beacon}"
         );
 
-        let transactions = self
-            .transaction_importer
+        self.transaction_importer
             .import(beacon.immutable_file_number)
             .await?;
-        let mk_root = self.compute_merkle_root(transactions)?;
+
+        let mk_root = self
+            .block_range_root_retriever
+            .compute_merkle_map_from_block_range_roots(beacon.immutable_file_number)
+            .await?
+            .compute_root()?;
 
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
@@ -117,104 +108,21 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_utils::TestLogger;
+
+    use crate::{entities::CardanoTransaction, test_utils::TestLogger};
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_compute_merkle_root_in_same_block_range() {
-        let transaction_1 = CardanoTransaction::new("tx-hash-123", 1, 10, "block_hash", 1);
-        let transaction_2 = CardanoTransaction::new("tx-hash-456", 2, 20, "block_hash", 1);
-        let transaction_3 = CardanoTransaction::new("tx-hash-789", 3, 30, "block_hash", 1);
-        let transaction_4 = CardanoTransaction::new("tx-hash-abc", 4, 40, "block_hash", 1);
-
-        for tx in [
-            &transaction_1,
-            &transaction_2,
-            &transaction_3,
-            &transaction_4,
-        ] {
-            assert!(
-                tx.block_number < BlockRange::LENGTH,
-                "all manipulated transactions should be in the same block range"
-            );
-        }
-
-        let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-            Arc::new(MockTransactionsImporter::new()),
-            TestLogger::stdout(),
-        );
-
-        let merkle_root_reference = cardano_transaction_signable_builder
-            .compute_merkle_root(vec![
-                transaction_1.clone(),
-                transaction_2.clone(),
-                transaction_3.clone(),
-            ])
-            .unwrap();
-
-        {
-            let transactions_set = vec![transaction_1.clone()];
-            let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(transactions_set)
-                .unwrap();
-            assert_ne!(merkle_root_reference, mk_root);
-        }
-        {
-            let transactions_set = vec![transaction_1.clone(), transaction_2.clone()];
-            let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(transactions_set)
-                .unwrap();
-            assert_ne!(merkle_root_reference, mk_root);
-        }
-        {
-            let transactions_set = vec![
-                transaction_1.clone(),
-                transaction_2.clone(),
-                transaction_3.clone(),
-                transaction_4.clone(),
-            ];
-            let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(transactions_set)
-                .unwrap();
-            assert_ne!(merkle_root_reference, mk_root);
-        }
-
-        {
-            // In a same block range Transactions in a different order return a different merkle root.
-            let transactions_set = vec![
-                transaction_1.clone(),
-                transaction_3.clone(),
-                transaction_2.clone(),
-            ];
-            let mk_root = cardano_transaction_signable_builder
-                .compute_merkle_root(transactions_set)
-                .unwrap();
-            assert_ne!(merkle_root_reference, mk_root);
-        }
-    }
-
-    #[tokio::test]
-    async fn test_compute_merkle_root_order_of_block_range_does_not_matter() {
-        let transaction_1 =
-            CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH - 1, 10, "block_hash", 1);
-        let transaction_2 =
-            CardanoTransaction::new("tx-hash-456", BlockRange::LENGTH + 1, 20, "block_hash", 1);
-
-        let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
-            Arc::new(MockTransactionsImporter::new()),
-            TestLogger::stdout(),
-        );
-
-        let merkle_root_reference = cardano_transaction_signable_builder
-            .compute_merkle_root(vec![transaction_1.clone(), transaction_2.clone()])
-            .unwrap();
-
-        let mk_root = cardano_transaction_signable_builder
-            .compute_merkle_root(vec![transaction_2.clone(), transaction_1.clone()])
-            .unwrap();
-
-        assert_eq!(merkle_root_reference, mk_root);
+    fn compute_mk_map_from_transactions(
+        transactions: Vec<CardanoTransaction>,
+    ) -> MKMap<BlockRange, MKMapNode<BlockRange>> {
+        MKMap::new_from_iter(transactions.iter().map(|tx| {
+            (
+                BlockRange::from_block_number(tx.block_number),
+                MKMapNode::TreeNode(tx.transaction_hash.clone().into()),
+            )
+        }))
+        .unwrap()
     }
 
     #[tokio::test]
@@ -229,13 +137,20 @@ mod tests {
             CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 12),
             CardanoTransaction::new("tx-hash-789", 30, 3, "block_hash", 13),
         ];
-        let imported_transactions = transactions.clone();
+        let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer
             .expect_import()
-            .return_once(move |_| Ok(imported_transactions));
+            .return_once(move |_| Ok(()));
+        let retrieved_transactions = transactions.clone();
+        let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
+        block_range_root_retriever
+            .expect_compute_merkle_map_from_block_range_roots()
+            .return_once(move |_| Ok(compute_mk_map_from_transactions(retrieved_transactions)));
+
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
+            Arc::new(block_range_root_retriever),
             TestLogger::stdout(),
         );
 
@@ -246,13 +161,10 @@ mod tests {
             .unwrap();
 
         // Assert
-        let mk_root = cardano_transactions_signable_builder
-            .compute_merkle_root(transactions)
-            .unwrap();
         let mut signable_expected = ProtocolMessage::new();
         signable_expected.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
-            mk_root.to_hex(),
+            mk_map.compute_root().unwrap().to_hex(),
         );
         signable_expected.set_message_part(
             ProtocolMessagePartKey::LatestImmutableFileNumber,
@@ -262,14 +174,17 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compute_signable_with_no_transaction_return_error() {
+    async fn test_compute_signable_with_no_block_range_root_return_error() {
         let beacon = CardanoDbBeacon::default();
         let mut transaction_importer = MockTransactionsImporter::new();
-        transaction_importer
-            .expect_import()
-            .return_once(|_| Ok(vec![]));
+        transaction_importer.expect_import().return_once(|_| Ok(()));
+        let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
+        block_range_root_retriever
+            .expect_compute_merkle_map_from_block_range_roots()
+            .return_once(move |_| Ok(compute_mk_map_from_transactions(vec![])));
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
+            Arc::new(block_range_root_retriever),
             TestLogger::stdout(),
         );
 

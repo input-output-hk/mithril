@@ -314,9 +314,11 @@ mod tests {
 
     #[cfg(feature = "fs")]
     mod fs_only {
-        use crate::entities::{CardanoDbBeacon, CardanoTransaction};
+        use crate::crypto_helper::{MKMap, MKMapNode};
+        use crate::entities::{BlockRange, CardanoDbBeacon, CardanoTransaction};
         use crate::signable_builder::{
-            CardanoTransactionsSignableBuilder, MockTransactionsImporter, SignableBuilder,
+            CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
+            MockTransactionsImporter, SignableBuilder,
         };
         use slog::Logger;
         use std::sync::Arc;
@@ -376,13 +378,28 @@ mod tests {
             transactions: &[CardanoTransaction],
             immutable_file_number: u64,
         ) -> ProtocolMessage {
-            let transactions = transactions.to_vec();
             let mut transaction_importer = MockTransactionsImporter::new();
             transaction_importer
                 .expect_import()
-                .return_once(move |_| Ok(transactions));
+                .return_once(move |_| Ok(()));
+            let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
+
+            let transactions_imported = transactions.to_vec();
+            block_range_root_retriever
+                .expect_compute_merkle_map_from_block_range_roots()
+                .return_once(move |_| {
+                    MKMap::<BlockRange, MKMapNode<BlockRange>>::new_from_iter(
+                        transactions_imported.into_iter().map(|tx| {
+                            (
+                                BlockRange::from_block_number(tx.block_number),
+                                MKMapNode::TreeNode(tx.transaction_hash.clone().into()),
+                            )
+                        }),
+                    )
+                });
             let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
                 Arc::new(transaction_importer),
+                Arc::new(block_range_root_retriever),
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
