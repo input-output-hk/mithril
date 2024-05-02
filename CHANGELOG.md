@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
 
+- Update website and explorer user interface to use the new mithril logo.
+
 ## Mithril Distribution [2418.1] - UNRELEASED
 
 - **BREAKING** changes in Mithril client CLI:

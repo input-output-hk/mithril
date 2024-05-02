@@ -111,3 +111,7 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 * Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag
 
 When contributing to this project and interacting with others, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md) and our [Contributing Guidelines](./CONTRIBUTING.md).
+
+## 🙏 Credits
+
+- Logo created by Alexander Wende
