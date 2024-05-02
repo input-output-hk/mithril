@@ -635,9 +635,7 @@ mod tests {
                 .get("pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w")
                 .unwrap()
         );
-        assert!(results
-            .get("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8")
-            .is_none());
+        assert!(!results.contains_key("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8"));
     }
 
     #[tokio::test]

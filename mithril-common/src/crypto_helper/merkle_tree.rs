@@ -8,6 +8,7 @@ use ckb_merkle_mountain_range::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
+    fmt::Display,
     ops::{Add, Deref},
     sync::Arc,
 };
@@ -82,9 +83,9 @@ impl TryFrom<&MKTree> for MKTreeNode {
     }
 }
 
-impl ToString for MKTreeNode {
-    fn to_string(&self) -> String {
-        String::from_utf8_lossy(&self.hash).to_string()
+impl Display for MKTreeNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", String::from_utf8_lossy(&self.hash))
     }
 }
 

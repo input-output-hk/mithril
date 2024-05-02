@@ -145,7 +145,7 @@ info:
         write_minimal_open_api_file("2.0.0", &sub_folder.join("openapi-thales.yaml"));
 
         let expected = r#"("openapi-thales.yaml".to_string(), semver::Version::new(2, 0, 0)), ("openapi.yaml".to_string(), semver::Version::new(1, 0, 0))"#;
-        let generated_code = generate_open_api_versions_mapping(&[&parent_folder, &sub_folder]);
+        let generated_code = generate_open_api_versions_mapping(&[parent_folder, &sub_folder]);
 
         assert_open_api_content_contains(expected, &generated_code);
     }
@@ -162,7 +162,7 @@ info:
         let expected = r#"HashMap::from([
         ("openapi.yaml".to_string(), semver::Version::new(2, 0, 0)), 
     ])"#;
-        let generated_code = generate_open_api_versions_mapping(&[&parent_folder, &sub_folder]);
+        let generated_code = generate_open_api_versions_mapping(&[parent_folder, &sub_folder]);
 
         assert_open_api_content_contains(expected, &generated_code);
     }

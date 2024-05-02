@@ -375,8 +375,8 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                 }
                 i += 1;
             }
-            leaves = new_hashes.clone();
-            ordered_indices = new_indices.clone();
+            leaves.clone_from(&new_hashes);
+            ordered_indices.clone_from(&new_indices);
         }
 
         if leaves.len() == 1 && leaves[0] == self.root {
@@ -541,7 +541,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
                 }
                 i += 1;
             }
-            ordered_indices = new_indices.clone();
+            ordered_indices.clone_from(&new_indices);
         }
 
         BatchPath {

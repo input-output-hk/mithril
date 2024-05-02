@@ -468,7 +468,9 @@ mod tests {
             "another-avk".to_string(),
         );
         fake_certificate2.hash = fake_certificate2.compute_hash();
-        fake_certificate1.previous_hash = fake_certificate2.hash.clone();
+        fake_certificate1
+            .previous_hash
+            .clone_from(&fake_certificate2.hash);
         fake_certificate1.hash = fake_certificate1.compute_hash();
         let mut mock_certificate_retriever = MockCertificateRetrieverImpl::new();
         mock_certificate_retriever

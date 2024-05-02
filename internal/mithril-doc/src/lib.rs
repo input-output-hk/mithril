@@ -87,13 +87,14 @@ impl StructDoc {
             } else {
                 let mut d = data_map1.get(&field_doc.parameter).unwrap().clone();
                 if d.default_value.is_none() {
-                    d.default_value = field_doc.default_value.clone();
+                    d.default_value.clone_from(&field_doc.default_value);
                 }
                 if d.example.is_none() {
-                    d.example = field_doc.example.clone();
+                    d.example.clone_from(&field_doc.example);
                 }
                 if d.environment_variable.is_none() {
-                    d.environment_variable = field_doc.environment_variable.clone();
+                    d.environment_variable
+                        .clone_from(&field_doc.environment_variable);
                 }
                 data_map1.insert(field_doc.parameter.clone(), d);
             }
