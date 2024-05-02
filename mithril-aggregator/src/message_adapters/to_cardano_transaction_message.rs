@@ -2,6 +2,7 @@ use mithril_common::entities::{CardanoTransactionsSnapshot, SignedEntity};
 use mithril_common::messages::{CardanoTransactionSnapshotMessage, ToMessageAdapter};
 
 /// Adapter to convert [CardanoTransaction] to [CardanoTransactionSnapshotMessage] instances
+#[allow(dead_code)]
 pub struct ToCardanoTransactionMessageAdapter;
 
 impl ToMessageAdapter<SignedEntity<CardanoTransactionsSnapshot>, CardanoTransactionSnapshotMessage>

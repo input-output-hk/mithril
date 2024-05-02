@@ -2,6 +2,7 @@ use mithril_common::entities::{SignedEntity, Snapshot};
 use mithril_common::messages::{SnapshotMessage, ToMessageAdapter};
 
 /// Adapter to convert [Snapshot] to [SnapshotMessage] instances
+#[allow(dead_code)]
 pub struct ToSnapshotMessageAdapter;
 
 impl ToMessageAdapter<SignedEntity<Snapshot>, SnapshotMessage> for ToSnapshotMessageAdapter {

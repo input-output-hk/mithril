@@ -251,7 +251,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
                 .get(&party_id_save)
                 .unwrap(),
         );
-        signer_save.party_id = party_id_save.clone();
+        signer_save.party_id.clone_from(&party_id_save);
 
         self.signer_recorder
             .record_signer_registration(party_id_save)

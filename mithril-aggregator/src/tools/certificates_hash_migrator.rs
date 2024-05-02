@@ -66,12 +66,12 @@ impl CertificatesHashMigrator {
                 certificate.previous_hash.clone()
             } else {
                 let old_previous_hash = certificate.previous_hash.clone();
-                certificate.previous_hash = old_and_new_hashes
+                old_and_new_hashes
                     .get(&certificate.previous_hash)
                     .ok_or(anyhow!(
                         "Could not migrate certificate previous_hash: The hash '{}' doesn't exist in the certificate table",
                         &certificate.previous_hash
-                    ))?.to_owned();
+                    ))?.clone_into(&mut certificate.previous_hash);
 
                 old_previous_hash
             };
@@ -332,7 +332,7 @@ mod test {
 
         for (mut certificate, signed_entity_maybe) in certificates_and_signed_entity {
             if let Some(hash) = old_and_new_hashes.get(&certificate.previous_hash) {
-                certificate.previous_hash = hash.clone();
+                certificate.previous_hash.clone_from(hash);
             }
 
             let new_hash = certificate.compute_hash();
@@ -342,7 +342,7 @@ mod test {
             let signed_entity_maybe = match signed_entity_maybe {
                 None => None,
                 Some(mut signed_entity) => {
-                    signed_entity.certificate_id = certificate.hash.clone();
+                    signed_entity.certificate_id.clone_from(&certificate.hash);
                     Some(signed_entity)
                 }
             };

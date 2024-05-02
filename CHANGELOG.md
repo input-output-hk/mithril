@@ -9,7 +9,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
-- Support computation of the Cardano Transactions signature with the pre-computed Block Range Merkle Roots retrieved from the database.
+- Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
 
 ## Mithril Distribution [2418.1] - UNRELEASED
 

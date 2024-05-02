@@ -117,9 +117,9 @@ impl ImmutableFile {
     }
 
     /// Compute the hash of this immutable file.
-    pub fn compute_raw_hash<D: Digest>(&self) -> Result<Output<D>, io::Error>
+    pub fn compute_raw_hash<D>(&self) -> Result<Output<D>, io::Error>
     where
-        D: io::Write,
+        D: Digest + io::Write,
     {
         let mut hasher = D::new();
         let mut file = File::open(&self.path)?;

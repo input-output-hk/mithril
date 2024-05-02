@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use sqlite::Value;
 
-use mithril_common::entities::{BlockNumber, TransactionHash};
+use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
 use mithril_persistence::sqlite::{
     Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
@@ -41,6 +41,24 @@ impl<'client> GetCardanoTransactionProvider<'client> {
         let hashes_values = transactions_hashes.into_iter().map(Value::String).collect();
 
         WhereCondition::where_in("transaction_hash", hashes_values)
+    }
+
+    pub fn get_transaction_block_ranges_condition(
+        &self,
+        block_ranges: Vec<BlockRange>,
+    ) -> WhereCondition {
+        let mut where_condition = WhereCondition::default();
+        for block_range in block_ranges {
+            where_condition = where_condition.or_where(WhereCondition::new(
+                "(block_number >= ?* and block_number < ?*)",
+                vec![
+                    Value::Integer(block_range.start as i64),
+                    Value::Integer(block_range.end as i64),
+                ],
+            ))
+        }
+
+        where_condition
     }
 
     pub fn get_transaction_between_blocks_condition(
