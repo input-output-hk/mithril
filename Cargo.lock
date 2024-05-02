@@ -3447,7 +3447,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3513,7 +3513,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "semver",
  "serde_json",
@@ -3601,7 +3601,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.1"
+version = "0.4.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3655,7 +3655,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "clap",
  "config",
@@ -3781,7 +3781,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.19"
+version = "0.3.20"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
