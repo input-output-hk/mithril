@@ -4,6 +4,7 @@ use mithril_common::messages::{
 };
 
 /// Adapter to convert [MithrilStakeDistribution] to [MithrilStakeDistributionMessage] instances
+#[allow(dead_code)]
 pub struct ToMithrilStakeDistributionMessageAdapter;
 
 impl ToMessageAdapter<SignedEntity<MithrilStakeDistribution>, MithrilStakeDistributionMessage>

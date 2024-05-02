@@ -5,6 +5,7 @@ use mithril_common::messages::{
 };
 
 /// Adapter to convert a list of [CardanoTransaction] to [CardanoTransactionSnapshotListMessage] instances
+#[allow(dead_code)]
 pub struct ToCardanoTransactionListMessageAdapter;
 
 impl

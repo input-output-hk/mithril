@@ -4,6 +4,7 @@ use mithril_common::messages::{
 };
 
 /// Adapter to convert a list of [MithrilStakeDistribution] to [MithrilStakeDistributionListMessage] instances
+#[allow(dead_code)]
 pub struct ToMithrilStakeDistributionListMessageAdapter;
 
 impl
