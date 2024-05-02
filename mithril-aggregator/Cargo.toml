@@ -9,6 +9,10 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
+[[bench]]
+name = "cardano_transactions"
+harness = false
+
 [dependencies]
 anyhow = "1.0.79"
 async-trait = "0.1.77"
@@ -50,6 +54,7 @@ zstd = { version = "0.13.0", features = ["zstdmt"] }
 tikv-jemallocator = { version = "0.5.4", optional = true }
 
 [dev-dependencies]
+criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common", features = [
     "allow_skip_signer_certification",

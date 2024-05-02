@@ -3455,6 +3455,7 @@ dependencies = [
  "clap",
  "cloud-storage",
  "config",
+ "criterion",
  "flate2",
  "hex",
  "httpmock",
