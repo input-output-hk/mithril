@@ -123,6 +123,7 @@
             pkgs.rustc
             pkgs.libiconv
             config.treefmt.package
+            pkgs.gnumake
           ];
 
           shellHook = ''
