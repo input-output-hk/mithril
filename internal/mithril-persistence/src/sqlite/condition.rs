@@ -75,16 +75,15 @@ impl WhereCondition {
         //
         // Replace parameters placeholders by numerated parameters.
         let mut final_expression = "".to_string();
-        let mut value = "".to_string();
-        let mut param_index = 0;
-        for sql_part in expression.split("?*") {
-            final_expression.push_str(&value);
+        for (param_index, sql_part) in expression.split("?*").enumerate() {
+            if param_index > 0 {
+                final_expression.push('?');
+                final_expression.push_str(&param_index.to_string());
+            }
             final_expression.push_str(sql_part);
-            param_index += 1;
-            value = format!("?{}", param_index);
         }
 
-        (final_expression.to_string(), parameters)
+        (final_expression, parameters)
     }
 
     /// Instanciate a condition with a `IN` statement.
