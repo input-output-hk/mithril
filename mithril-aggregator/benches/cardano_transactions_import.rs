@@ -39,22 +39,25 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
 }
 
 fn bench_store_transactions(c: &mut Criterion) {
-    const NB_CARDANO_TRANSACTIONS: usize = 100000;
+    const NB_CARDANO_TRANSACTIONS: usize = 1_000_000;
     let runtime = tokio::runtime::Runtime::new().unwrap();
+    let transactions = generate_transactions(NB_CARDANO_TRANSACTIONS);
 
     let mut group = c.benchmark_group("Store transactions");
     group.bench_function("store_transactions", |bencher| {
         bencher.to_async(&runtime).iter(|| async {
             let connection = Arc::new(cardano_tx_db_connection());
             let repository = CardanoTransactionRepository::new(connection);
-            repository
-                .store_transactions(generate_transactions(NB_CARDANO_TRANSACTIONS))
-                .await
+            repository.store_transactions(transactions.clone()).await
         });
     });
 
     group.finish();
 }
 
-criterion_group!(benches, bench_store_transactions);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().sample_size(10);
+    targets = bench_store_transactions
+}
 criterion_main!(benches);
