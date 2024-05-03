@@ -10,7 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [[bench]]
-name = "cardano_transactions"
+name = "cardano_transactions_import"
 harness = false
 
 [dependencies]
