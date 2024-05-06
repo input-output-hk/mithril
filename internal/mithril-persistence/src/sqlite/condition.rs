@@ -70,20 +70,20 @@ impl WhereCondition {
 
     /// Turn the condition into a SQL string representation.
     pub fn expand(self) -> (String, Vec<Value>) {
-        let mut expression = self.condition.expand();
+        let expression = self.condition.expand();
         let parameters = self.parameters;
-        let mut param_index = 1;
         //
         // Replace parameters placeholders by numerated parameters.
-        loop {
-            if !expression.contains("?*") {
-                break;
+        let mut final_expression = "".to_string();
+        for (param_index, sql_part) in expression.split("?*").enumerate() {
+            if param_index > 0 {
+                final_expression.push('?');
+                final_expression.push_str(&param_index.to_string());
             }
-            expression = expression.replacen("?*", &format!("?{param_index}"), 1);
-            param_index += 1;
+            final_expression.push_str(sql_part);
         }
 
-        (expression, parameters)
+        (final_expression, parameters)
     }
 
     /// Instanciate a condition with a `IN` statement.

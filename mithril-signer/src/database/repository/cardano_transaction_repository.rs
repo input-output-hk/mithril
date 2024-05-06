@@ -236,11 +236,18 @@ impl TransactionStore for CardanoTransactionRepository {
     }
 
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
-        // Chunk transactions to avoid an error when we exceed sqlite binding limitations
-        for transactions_in_chunk in transactions.chunks(100) {
-            self.create_transactions(transactions_in_chunk.to_vec())
-                .await
-                .with_context(|| "CardanoTransactionRepository can not store transactions")?;
+        const DB_TRANSACTION_SIZE: usize = 100000;
+        for transactions_in_db_transaction_chunk in transactions.chunks(DB_TRANSACTION_SIZE) {
+            self.connection.execute("BEGIN TRANSACTION;")?;
+
+            // Chunk transactions to avoid an error when we exceed sqlite binding limitations
+            for transactions_in_chunk in transactions_in_db_transaction_chunk.chunks(100) {
+                self.create_transactions(transactions_in_chunk.to_vec())
+                    .await
+                    .with_context(|| "CardanoTransactionRepository can not store transactions")?;
+            }
+
+            self.connection.execute("END TRANSACTION;")?;
         }
         Ok(())
     }

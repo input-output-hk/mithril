@@ -3447,7 +3447,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3455,6 +3455,7 @@ dependencies = [
  "clap",
  "cloud-storage",
  "config",
+ "criterion",
  "flate2",
  "hex",
  "httpmock",
@@ -3699,7 +3700,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3746,7 +3747,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.131"
+version = "0.2.132"
 dependencies = [
  "anyhow",
  "async-trait",
