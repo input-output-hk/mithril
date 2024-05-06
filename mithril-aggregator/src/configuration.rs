@@ -5,6 +5,7 @@ use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -267,11 +268,11 @@ impl Configuration {
     /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
     pub fn list_allowed_signed_entity_types_discriminants(
         &self,
-    ) -> StdResult<Vec<SignedEntityTypeDiscriminants>> {
-        let default_discriminants = vec![
+    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
+        let default_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-        ];
+        ]);
 
         let mut all_discriminants = default_discriminants;
 
@@ -280,9 +281,7 @@ impl Configuration {
             .split(',')
             .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
         {
-            if !all_discriminants.contains(&discriminant) {
-                all_discriminants.push(discriminant)
-            }
+            all_discriminants.insert(discriminant);
         }
 
         Ok(all_discriminants)
@@ -538,10 +537,10 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            vec![
+            BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ],
+            ]),
             discriminants
         );
     }
@@ -559,10 +558,10 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            vec![
+            BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ],
+            ]),
             discriminants
         );
     }
@@ -583,10 +582,10 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            vec![
+            BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ],
+            ]),
             discriminants
         );
     }
@@ -604,12 +603,12 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            vec![
+            BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
-            ],
+            ]),
             discriminants
         );
     }
@@ -630,11 +629,11 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            vec![
+            BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-            ],
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ]),
             discriminants
         );
     }
@@ -657,8 +656,8 @@ mod test {
         assert_eq!(
             vec![
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 SignedEntityType::CardanoStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 SignedEntityType::CardanoTransactions(beacon.clone()),
             ],
             signed_entity_types
