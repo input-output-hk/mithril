@@ -78,15 +78,31 @@ pub struct ProgressBarJsonFormatter;
 impl ProgressBarJsonFormatter {
     /// Get a json formatted string given the progress bar status
     pub fn format(progress_bar: &ProgressBar) -> String {
-        format!(
-            r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+        ProgressBarJsonFormatter::format_values(
             Utc::now().to_rfc3339(),
             progress_bar.position(),
             progress_bar.length().unwrap_or(0),
-            progress_bar.eta().as_secs(),
-            progress_bar.eta().subsec_millis(),
-            progress_bar.elapsed().as_secs(),
-            progress_bar.elapsed().subsec_millis(),
+            progress_bar.eta(),
+            progress_bar.elapsed(),
+        )
+    }
+
+    fn format_values(
+        timestamp: String,
+        bytes_downloaded: u64,
+        bytes_total: u64,
+        duration_left: Duration,
+        duration_elapsed: Duration,
+    ) -> String {
+        format!(
+            r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+            timestamp,
+            bytes_downloaded,
+            bytes_total,
+            duration_left.as_secs(),
+            duration_left.subsec_millis(),
+            duration_elapsed.as_secs(),
+            duration_elapsed.subsec_millis(),
         )
     }
 }
@@ -152,11 +168,20 @@ mod tests {
     use indicatif::ProgressBar;
 
     #[test]
-    fn check_seconds_elapsed_in_json_report_with_more_than_100_milliseconds() {
-        let progress_bar = ProgressBar::new(10).with_elapsed(Duration::from_millis(5124));
+    fn check_seconds_formatting_in_json_report_with_more_than_100_milliseconds() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "".to_string(),
+            0,
+            0,
+            Duration::from_millis(7569),
+            Duration::from_millis(5124),
+        );
 
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
-
+        assert!(
+            json_string.contains(r#""seconds_left": 7.569"#),
+            "Not expected value in json output: {}",
+            json_string
+        );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.124"#),
             "Not expected value in json output: {}",
@@ -165,11 +190,20 @@ mod tests {
     }
 
     #[test]
-    fn check_seconds_elapsed_in_json_report_with_less_than_100_milliseconds() {
-        let progress_bar = ProgressBar::new(10).with_elapsed(Duration::from_millis(5004));
+    fn check_seconds_formatting_in_json_report_with_less_than_100_milliseconds() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "".to_string(),
+            0,
+            0,
+            Duration::from_millis(7006),
+            Duration::from_millis(5004),
+        );
 
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
-
+        assert!(
+            json_string.contains(r#""seconds_left": 7.006"#),
+            "Not expected value in json output: {}",
+            json_string
+        );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.004"#),
             "Not expected value in json output: {}",
@@ -178,38 +212,54 @@ mod tests {
     }
 
     #[test]
-    fn check_seconds_left_in_json_report_with_more_than_100_milliseconds() {
-        let half_position = 5;
-        let progress_bar = ProgressBar::new(half_position * 2);
-        sleep(Duration::from_millis(123));
-        progress_bar.set_position(half_position);
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
+    fn check_seconds_formatting_in_json_report_with_milliseconds_ending_by_zeros() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "".to_string(),
+            0,
+            0,
+            Duration::from_millis(7200),
+            Duration::from_millis(5100),
+        );
 
-        let milliseconds = progress_bar.eta().subsec_millis();
-        assert!(milliseconds > 100);
         assert!(
-            json_string.contains(&format!(r#""seconds_left": 0.{}"#, milliseconds)),
+            json_string.contains(r#""seconds_left": 7.200"#),
+            "Not expected value in json output: {}",
+            json_string
+        );
+        assert!(
+            json_string.contains(r#""seconds_elapsed": 5.100"#),
             "Not expected value in json output: {}",
             json_string
         );
     }
 
     #[test]
-    fn check_seconds_left_in_json_report_with_less_than_100_milliseconds() {
-        let half_position = 5;
-        let progress_bar = ProgressBar::new(half_position * 2);
-        sleep(Duration::from_millis(1));
-        progress_bar.set_position(half_position);
+    fn check_seconds_left_and_elapsed_time_are_used_by_the_formatter() {
+        // 4 steps
+        let progress_bar = ProgressBar::new(4);
+        // 1 step done in 15 ms, left 45ms to finish the 4th steps
+        sleep(Duration::from_millis(15));
+        progress_bar.set_position(1);
+
         let json_string = ProgressBarJsonFormatter::format(&progress_bar);
 
+        let milliseconds_left = progress_bar.eta().as_millis();
+        let milliseconds_elapsed = progress_bar.elapsed().as_millis();
+
+        // Milliseconds in json may not be exactly the same as the one we get because of the test duration.
+        // We need to have a difference not more than 4ms to keep the same 2 first milliseconds digits.
+        let delta = 4;
+
+        assert!(((45 - delta)..=(45 + delta)).contains(&milliseconds_left));
         assert!(
-            json_string.contains(r#""seconds_left": 0.0"#),
+            json_string.contains(r#""seconds_left": 0.04"#), // Should be close to 0.045
             "Not expected value in json output: {}",
             json_string
         );
 
+        assert!(((15 - delta)..(15 + delta)).contains(&milliseconds_elapsed));
         assert!(
-            !json_string.contains(r#""seconds_left": 0.000"#),
+            json_string.contains(r#""seconds_elapsed": 0.01"#), // Should be close to 0.015
             "Not expected value in json output: {}",
             json_string
         );
