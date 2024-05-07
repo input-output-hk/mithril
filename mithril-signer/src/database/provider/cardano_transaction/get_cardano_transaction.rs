@@ -69,7 +69,7 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from cardano_tx where {condition} order by rowid")
+        format!("select {projection} from cardano_tx where {condition} order by block_number, transaction_hash")
     }
 }
 
