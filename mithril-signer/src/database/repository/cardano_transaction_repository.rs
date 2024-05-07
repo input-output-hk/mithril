@@ -273,6 +273,8 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
         &self,
         up_to_beacon: ImmutableFileNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+        // Get the highest block number for the given immutable number.
+        // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
         let block_number = self
             .get_highest_block_number_for_immutable_number(up_to_beacon)
             .await?

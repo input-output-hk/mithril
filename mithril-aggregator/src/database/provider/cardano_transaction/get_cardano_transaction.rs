@@ -3,12 +3,11 @@ use std::ops::Range;
 use sqlite::Value;
 
 use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllCondition;
 use mithril_persistence::sqlite::{
     Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
-
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllCondition;
 
 use crate::database::record::CardanoTransactionRecord;
 

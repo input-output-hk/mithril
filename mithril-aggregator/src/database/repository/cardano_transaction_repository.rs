@@ -343,13 +343,13 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
         let provider = GetBlockRangeRootProvider::new(&self.connection);
         let filters = provider.get_up_to_block_number_condition(block_number);
         let block_range_roots = provider.find(filters)?;
-        let block_range_roots = block_range_roots
+        let iterator = block_range_roots
             .into_iter()
             .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
             .collect::<Vec<_>>() // TODO: remove this collect when we should ba able return the iterator directly
             .into_iter();
 
-        Ok(Box::new(block_range_roots))
+        Ok(Box::new(iterator))
     }
 }
 
