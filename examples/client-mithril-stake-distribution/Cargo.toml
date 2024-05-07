@@ -1,7 +1,7 @@
 [package]
 name = "client-mithril-stake-distribution"
 description = "Mithril client stake distribution example"
-version = "0.1.11"
+version = "0.1.12"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
