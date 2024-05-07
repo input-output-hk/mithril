@@ -19,12 +19,6 @@ pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
 
-    /// Get stored transactions up to the given beacon
-    async fn get_up_to(
-        &self,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<CardanoTransaction>>;
-
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
 

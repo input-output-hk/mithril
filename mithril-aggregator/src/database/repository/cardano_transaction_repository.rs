@@ -233,14 +233,6 @@ impl TransactionStore for CardanoTransactionRepository {
         }
     }
 
-    async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_up_to(beacon).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
-    }
-
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
         const DB_TRANSACTION_SIZE: usize = 100000;
         for transactions_in_db_transaction_chunk in transactions.chunks(DB_TRANSACTION_SIZE) {

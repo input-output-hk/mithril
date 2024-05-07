@@ -60,20 +60,6 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
-    /// order of insertion.
-    /// Note: until we rely on block number based beacons, this function needs to compute the highest block number for the given immutable file number.
-    pub async fn get_transactions_up_to(
-        &self,
-        beacon: ImmutableFileNumber,
-    ) -> StdResult<Vec<CardanoTransactionRecord>> {
-        let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_transaction_up_to_beacon_condition(beacon);
-        let transactions = provider.find(filters)?;
-
-        Ok(transactions.collect())
-    }
-
     /// Return the [CardanoTransactionRecord] for the given transaction hash.
     pub async fn get_transaction<T: Into<TransactionHash>>(
         &self,
@@ -225,14 +211,6 @@ impl TransactionStore for CardanoTransactionRepository {
                     )
             }
         }
-    }
-
-    async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_up_to(beacon).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
     }
 
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
@@ -417,35 +395,6 @@ mod tests {
             }),
             transaction_result
         );
-    }
-
-    #[tokio::test]
-    async fn repository_get_up_to_beacon_transactions() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let repository = CardanoTransactionRepository::new(connection);
-
-        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
-            .map(|i| CardanoTransactionRecord {
-                transaction_hash: format!("tx-hash-{i}"),
-                block_number: i % 10,
-                slot_number: i * 100,
-                block_hash: format!("block-hash-{i}"),
-                immutable_file_number: i,
-            })
-            .collect();
-        repository
-            .create_transactions(cardano_transactions.clone())
-            .await
-            .unwrap();
-
-        let transaction_result = repository.get_transactions_up_to(34).await.unwrap();
-        assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
-
-        let transaction_result = repository.get_transactions_up_to(300).await.unwrap();
-        assert_eq!(cardano_transactions.clone(), transaction_result);
-
-        let transaction_result = repository.get_transactions_up_to(19).await.unwrap();
-        assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 
     #[tokio::test]
