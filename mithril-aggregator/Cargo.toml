@@ -13,6 +13,10 @@ repository = { workspace = true }
 name = "cardano_transactions_import"
 harness = false
 
+[[bench]]
+name = "cardano_transactions_get"
+harness = false
+
 [dependencies]
 anyhow = "1.0.79"
 async-trait = "0.1.77"
