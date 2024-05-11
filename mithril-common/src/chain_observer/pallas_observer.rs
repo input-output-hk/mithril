@@ -7,8 +7,8 @@ use pallas_network::{
     miniprotocols::{
         localstate::{
             queries_v16::{
-                self, Addr, Addrs, Genesis, PostAlonsoTransactionOutput, StakeSnapshot, Stakes,
-                TransactionOutput, UTxOByAddress,
+                self, Addr, Addrs, ChainBlockNumber, Genesis, PostAlonsoTransactionOutput,
+                StakeSnapshot, Stakes, TransactionOutput, UTxOByAddress,
             },
             Client,
         },
@@ -279,6 +279,16 @@ impl PallasChainObserver {
         Ok(chain_point)
     }
 
+    /// Fetches the current chain point using the provided `NodeClient`.
+    async fn do_get_chain_block_no(&self, statequery: &mut Client) -> StdResult<ChainBlockNumber> {
+        let chain_block_number = queries_v16::get_chain_block_no(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get chain block number")?;
+
+        Ok(chain_block_number)
+    }
+
     /// Fetches the current era using the provided `statequery` client.
     async fn do_get_current_era_state_query(&self, statequery: &mut Client) -> StdResult<u16> {
         let era = queries_v16::get_current_era(statequery)
@@ -301,6 +311,30 @@ impl PallasChainObserver {
             .with_context(|| "PallasChainObserver failed to get genesis config")?;
 
         Ok(genesis_config)
+    }
+
+    /// Fetches the current chain point using the provided `NodeClient`.
+    async fn get_chain_point(&self, statequery: &mut Client) -> StdResult<ChainPoint> {
+        statequery
+            .acquire(None)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to acquire statequery")?;
+
+        let chain_point = self.do_get_chain_point_state_query(statequery).await?;
+
+        let header_hash = match chain_point {
+            Point::Origin => None,
+            Point::Specific(_at_slot, ref hash) => Some(hex::encode(hash)),
+        };
+
+        let chain_block_number = self.do_get_chain_block_no(statequery).await?;
+
+        Ok(ChainPoint {
+            slot_number: chain_point.slot_or_default(),
+            block_hash: header_hash.unwrap_or_default(),
+            block_number: chain_block_number.block_number as u64,
+        })
     }
 
     /// Fetches chain point and genesis config through the local statequery.
@@ -385,8 +419,15 @@ impl ChainObserver for PallasChainObserver {
     }
 
     async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
-        // TODO: Implement get_current_chain_point with pallas
-        todo!("Implement get_current_chain_point")
+        let mut client = self.get_client().await?;
+
+        let chain_point = self.get_chain_point(client.statequery()).await?;
+
+        self.post_process_statequery(&mut client).await?;
+
+        client.abort().await;
+
+        Ok(Some(chain_point))
     }
 
     async fn get_current_datums(
@@ -444,8 +485,8 @@ mod tests {
     use pallas_network::miniprotocols::{
         localstate::{
             queries_v16::{
-                BlockQuery, Fraction, Genesis, HardForkQuery, LedgerQuery, Request, Snapshots,
-                StakeSnapshot, SystemStart, Value,
+                BlockQuery, ChainBlockNumber, Fraction, Genesis, HardForkQuery, LedgerQuery,
+                Request, Snapshots, StakeSnapshot, SystemStart, Value,
             },
             ClientQueryRequest,
         },
@@ -581,6 +622,10 @@ mod tests {
             Request::GetChainPoint => {
                 AnyCbor::from_encode(Point::Specific(52851885, vec![1, 2, 3]))
             }
+            Request::GetChainBlockNo => AnyCbor::from_encode(ChainBlockNumber {
+                slot_timeline: 1,
+                block_number: 52851885,
+            }),
             Request::LedgerQuery(LedgerQuery::HardForkQuery(HardForkQuery::GetCurrentEra)) => {
                 AnyCbor::from_encode(4)
             }
@@ -815,5 +860,27 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let era = client_res.expect("Client failed");
         assert_eq!(era, 4);
+    }
+
+    #[tokio::test]
+    async fn get_current_chain_point() {
+        let socket_path = create_temp_dir("get_current_chain_point").join("node.socket");
+        let server = setup_server(socket_path.clone(), 2).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            observer.get_current_chain_point().await.unwrap()
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let chain_point = client_res.expect("Client failed");
+        assert_eq!(
+            chain_point,
+            Some(ChainPoint {
+                slot_number: 52851885,
+                block_hash: "010203".to_string(),
+                block_number: 52851885
+            })
+        );
     }
 }
