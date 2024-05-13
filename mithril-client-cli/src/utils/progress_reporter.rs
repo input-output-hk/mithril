@@ -235,8 +235,8 @@ mod tests {
 
     #[test]
     fn check_seconds_left_and_elapsed_time_are_used_by_the_formatter() {
-        let expected_milliseconds_left: u128 = 450;
-        let expected_milliseconds_elapsed: u128 = 150;
+        let expected_milliseconds_left: u128 = 45;
+        let expected_milliseconds_elapsed: u128 = 15;
 
         // 4 steps
         let progress_bar = ProgressBar::new(4);
@@ -251,7 +251,7 @@ mod tests {
 
         // Milliseconds in json may not be exactly the same as the one we get because of the test duration.
         // We need to have a difference not more than 49ms to keep the same 1 first milliseconds digits.
-        let delta = 49;
+        let delta = 4;
         // TODO: to remove, it-s just to investigation on CI.
         let error_message = format!(
             "\n- milliseconds_left:{milliseconds_left}\n- milliseconds_elapsed:{milliseconds_elapsed}\n- json_string:{json_string}"
@@ -266,7 +266,7 @@ mod tests {
             &error_message
         );
         assert!(
-            json_string.contains(r#""seconds_left": 0.4"#), // Should be close to 0.450
+            json_string.contains(r#""seconds_left": 0.04"#), // Should be close to 0.450
             "Not expected value in json output: {}",
             json_string
         );
@@ -280,7 +280,7 @@ mod tests {
             &error_message
         );
         assert!(
-            json_string.contains(r#""seconds_elapsed": 0.1"#), // Should be close to 0.150
+            json_string.contains(r#""seconds_elapsed": 0.01"#), // Should be close to 0.150
             "Not expected value in json output: {}",
             json_string
         );
