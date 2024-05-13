@@ -22,9 +22,6 @@ use crate::database::provider::{
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::TransactionStore;
 
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllProvider;
-
 /// ## Cardano transaction repository
 ///
 /// This is a business oriented layer to perform actions on the database through
@@ -173,14 +170,6 @@ impl CardanoTransactionRepository {
 
         Ok(Box::new(iterator))
     }
-
-    #[cfg(test)]
-    pub(crate) async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
-        let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let records = provider.get_all()?;
-
-        Ok(records.map(|record| record.into()).collect())
-    }
 }
 
 #[cfg(test)]
@@ -192,6 +181,13 @@ pub mod test_extensions {
     use super::*;
 
     impl CardanoTransactionRepository {
+        pub async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
+            let provider = GetCardanoTransactionProvider::new(&self.connection);
+            let records = provider.get_all()?;
+
+            Ok(records.map(|record| record.into()).collect())
+        }
+
         pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
             let provider = GetBlockRangeRootProvider::new(&self.connection);
             let records = provider.get_all()?;
