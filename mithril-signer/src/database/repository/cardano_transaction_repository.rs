@@ -22,9 +22,6 @@ use crate::database::provider::{
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::TransactionStore;
 
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllProvider;
-
 /// ## Cardano transaction repository
 ///
 /// This is a business oriented layer to perform actions on the database through
@@ -55,20 +52,6 @@ impl CardanoTransactionRepository {
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = provider.get_transaction_between_blocks_condition(range);
-        let transactions = provider.find(filters)?;
-
-        Ok(transactions.collect())
-    }
-
-    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
-    /// order of insertion.
-    /// Note: until we rely on block number based beacons, this function needs to compute the highest block number for the given immutable file number.
-    pub async fn get_transactions_up_to(
-        &self,
-        beacon: ImmutableFileNumber,
-    ) -> StdResult<Vec<CardanoTransactionRecord>> {
-        let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_transaction_up_to_beacon_condition(beacon);
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
@@ -171,12 +154,21 @@ impl CardanoTransactionRepository {
         }
     }
 
-    #[cfg(test)]
-    pub(crate) async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
-        let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let records = provider.get_all()?;
+    /// Retrieve all the Block Range Roots in database up to the given end block number excluded.
+    pub async fn retrieve_block_range_roots_up_to(
+        &self,
+        end_block_number: BlockNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+        let provider = GetBlockRangeRootProvider::new(&self.connection);
+        let filters = provider.get_up_to_block_number_condition(end_block_number);
+        let block_range_roots = provider.find(filters)?;
+        let iterator = block_range_roots
+            .into_iter()
+            .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
+            .collect::<Vec<_>>() // TODO: remove this collect when we should ba able return the iterator directly
+            .into_iter();
 
-        Ok(records.map(|record| record.into()).collect())
+        Ok(Box::new(iterator))
     }
 }
 
@@ -189,6 +181,13 @@ pub mod test_extensions {
     use super::*;
 
     impl CardanoTransactionRepository {
+        pub async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
+            let provider = GetCardanoTransactionProvider::new(&self.connection);
+            let records = provider.get_all()?;
+
+            Ok(records.map(|record| record.into()).collect())
+        }
+
         pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
             let provider = GetBlockRangeRootProvider::new(&self.connection);
             let records = provider.get_all()?;
@@ -225,14 +224,6 @@ impl TransactionStore for CardanoTransactionRepository {
                     )
             }
         }
-    }
-
-    async fn get_up_to(&self, beacon: ImmutableFileNumber) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_up_to(beacon).await.map(|v| {
-            v.into_iter()
-                .map(|record| record.into())
-                .collect::<Vec<CardanoTransaction>>()
-        })
     }
 
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
@@ -295,20 +286,14 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
         &self,
         up_to_beacon: ImmutableFileNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+        // Get the highest block number for the given immutable number.
+        // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
         let block_number = self
             .get_highest_block_number_for_immutable_number(up_to_beacon)
             .await?
             .unwrap_or(0);
-        let provider = GetBlockRangeRootProvider::new(&self.connection);
-        let filters = provider.get_up_to_block_number_condition(block_number);
-        let block_range_roots = provider.find(filters)?;
-        let iterator = block_range_roots
-            .into_iter()
-            .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
-            .collect::<Vec<_>>() // TODO: remove this collect when we should ba able return the iterator directly
-            .into_iter();
 
-        Ok(Box::new(iterator))
+        self.retrieve_block_range_roots_up_to(block_number).await
     }
 }
 
@@ -417,35 +402,6 @@ mod tests {
             }),
             transaction_result
         );
-    }
-
-    #[tokio::test]
-    async fn repository_get_up_to_beacon_transactions() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let repository = CardanoTransactionRepository::new(connection);
-
-        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
-            .map(|i| CardanoTransactionRecord {
-                transaction_hash: format!("tx-hash-{i}"),
-                block_number: i % 10,
-                slot_number: i * 100,
-                block_hash: format!("block-hash-{i}"),
-                immutable_file_number: i,
-            })
-            .collect();
-        repository
-            .create_transactions(cardano_transactions.clone())
-            .await
-            .unwrap();
-
-        let transaction_result = repository.get_transactions_up_to(34).await.unwrap();
-        assert_eq!(cardano_transactions[0..=14].to_vec(), transaction_result);
-
-        let transaction_result = repository.get_transactions_up_to(300).await.unwrap();
-        assert_eq!(cardano_transactions.clone(), transaction_result);
-
-        let transaction_result = repository.get_transactions_up_to(19).await.unwrap();
-        assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 
     #[tokio::test]
@@ -664,5 +620,74 @@ mod tests {
             }],
             record
         );
+    }
+
+    #[tokio::test]
+    async fn repository_retrieve_block_range_roots_up_to() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+        let block_range_roots = vec![
+            (
+                BlockRange::from_block_number(15),
+                MKTreeNode::from_hex("AAAA").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(30),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(45),
+                MKTreeNode::from_hex("CCCC").unwrap(),
+            ),
+        ];
+        repository
+            .store_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        // Retrieve with a block far higher than the highest block range - should return all
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(1000)
+                .await
+                .unwrap();
+            assert_eq!(
+                block_range_roots,
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
+        // Retrieve with a block bellow than the smallest block range - should return none
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(2)
+                .await
+                .unwrap();
+            assert_eq!(
+                Vec::<(BlockRange, MKTreeNode)>::new(),
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
+        // The given block is matched to the end (excluded) - should return the first of the three
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(45)
+                .await
+                .unwrap();
+            assert_eq!(
+                vec![block_range_roots[0].clone()],
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
+        // Right after the end of the second block range - should return first two of the three
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(46)
+                .await
+                .unwrap();
+            assert_eq!(
+                block_range_roots[0..=1].to_vec(),
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
     }
 }

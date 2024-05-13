@@ -1,15 +1,15 @@
-use sqlite::Value;
 use std::ops::Range;
 
-use mithril_common::entities::{BlockNumber, ImmutableFileNumber, TransactionHash};
+use sqlite::Value;
+
+use mithril_common::entities::{BlockNumber, TransactionHash};
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllCondition;
 use mithril_persistence::sqlite::{
     Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
 
 use crate::database::record::CardanoTransactionRecord;
-
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllCondition;
 
 /// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
 pub struct GetCardanoTransactionProvider<'client> {
@@ -30,16 +30,6 @@ impl<'client> GetCardanoTransactionProvider<'client> {
         WhereCondition::new(
             "transaction_hash = ?*",
             vec![Value::String(transaction_hash.to_owned())],
-        )
-    }
-
-    pub fn get_transaction_up_to_beacon_condition(
-        &self,
-        beacon: ImmutableFileNumber,
-    ) -> WhereCondition {
-        WhereCondition::new(
-            "immutable_file_number <= ?*",
-            vec![Value::Integer(beacon as i64)],
         )
     }
 
@@ -69,7 +59,7 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from cardano_tx where {condition} order by rowid")
+        format!("select {projection} from cardano_tx where {condition} order by block_number, transaction_hash")
     }
 }
 

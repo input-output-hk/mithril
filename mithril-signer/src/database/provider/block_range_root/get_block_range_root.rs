@@ -18,7 +18,7 @@ impl<'client> GetBlockRangeRootProvider<'client> {
     }
 
     pub fn get_up_to_block_number_condition(&self, block_number: BlockNumber) -> WhereCondition {
-        WhereCondition::new("end <= ?*", vec![Value::Integer(block_number as i64)])
+        WhereCondition::new("end < ?*", vec![Value::Integer(block_number as i64)])
     }
 }
 

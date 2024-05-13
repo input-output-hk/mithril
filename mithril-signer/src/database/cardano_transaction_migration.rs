@@ -72,5 +72,19 @@ create table block_range_root (
 );
 "#,
         ),
+        // Migration 6
+        // Add composite index on `block_number/transaction_hash` column of `cardano_tx` table
+        // Truncate `block_range_root` table after changing the order of retrieval of the transactions
+        SqlMigration::new(
+            6,
+            r#"
+create index block_number_transaction_hash_index on cardano_tx(block_number, transaction_hash);
+
+-- remove all data from the block_range_root table since the order used to create them has changed
+delete from block_range_root;
+
+vacuum;
+"#,
+        ),
     ]
 }

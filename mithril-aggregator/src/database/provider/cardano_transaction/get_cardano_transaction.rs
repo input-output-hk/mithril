@@ -3,12 +3,11 @@ use std::ops::Range;
 use sqlite::Value;
 
 use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
+#[cfg(test)]
+use mithril_persistence::sqlite::GetAllCondition;
 use mithril_persistence::sqlite::{
     Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
 };
-
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllCondition;
 
 use crate::database::record::CardanoTransactionRecord;
 
@@ -87,7 +86,7 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from cardano_tx where {condition} order by rowid")
+        format!("select {projection} from cardano_tx where {condition} order by block_number, transaction_hash")
     }
 }
 

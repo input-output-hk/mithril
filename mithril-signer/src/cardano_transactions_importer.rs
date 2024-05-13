@@ -19,12 +19,6 @@ pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
 
-    /// Get stored transactions up to the given beacon
-    async fn get_up_to(
-        &self,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<CardanoTransaction>>;
-
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
 
@@ -282,7 +276,7 @@ mod tests {
             .await
             .expect("Transactions Importer should succeed");
 
-        let stored_transactions = repository.get_up_to(10000).await.unwrap();
+        let stored_transactions = repository.get_all().await.unwrap();
         assert_eq!(expected_transactions, stored_transactions);
     }
 
@@ -404,7 +398,7 @@ mod tests {
             .await
             .expect("Transactions Importer should succeed");
 
-        let transactions = repository.get_up_to(10000).await.unwrap();
+        let transactions = repository.get_all().await.unwrap();
         assert_eq!(vec![last_tx], transactions);
     }
 
@@ -442,7 +436,7 @@ mod tests {
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
 
-        let stored_transactions = repository.get_up_to(10000).await.unwrap();
+        let stored_transactions = repository.get_all().await.unwrap();
         assert_eq!(stored_block.into_transactions(), stored_transactions);
 
         importer
@@ -450,7 +444,7 @@ mod tests {
             .await
             .expect("Transactions Importer should succeed");
 
-        let stored_transactions = repository.get_up_to(10000).await.unwrap();
+        let stored_transactions = repository.get_all().await.unwrap();
         assert_eq!(expected_transactions, stored_transactions);
     }
 
