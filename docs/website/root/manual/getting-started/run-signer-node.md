@@ -396,7 +396,7 @@ RestartSec=60
 User=cardano
 EnvironmentFile=/opt/mithril/mithril-signer.env
 ExecStart=/opt/mithril/mithril-signer -vvv
-KillMode=None
+PIDFile=/opt/squid/var/run/squid/squid.pid
 
 [Install]
 WantedBy=multi-user.target
@@ -632,8 +632,8 @@ cache deny all
 # Deny everything else
 http_access deny all
 
-# Deactivate pid file
-pid_filename none
+# Pid file
+pid_filename /opt/squid/var/run/squid/squid.pid
 EOF'
 ```
 
@@ -690,8 +690,8 @@ cache deny all
 # Deny everything else
 http_access deny all
 
-# Deactivate pid file
-pid_filename none
+# Pid file
+pid_filename /opt/squid/var/run/squid/squid.pid
 EOF'
 ```
 
@@ -748,6 +748,7 @@ RestartSec=60
 User=squid
 Group=squid
 ExecStart=/opt/squid/sbin/squid -f /etc/squid/squid.conf
+PIDFile=/opt/squid/var/run/squid/squid.pid
 
 [Install]
 WantedBy=multi-user.target
