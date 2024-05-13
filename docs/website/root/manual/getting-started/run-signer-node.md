@@ -396,6 +396,7 @@ RestartSec=60
 User=cardano
 EnvironmentFile=/opt/mithril/mithril-signer.env
 ExecStart=/opt/mithril/mithril-signer -vvv
+KillMode=None
 
 [Install]
 WantedBy=multi-user.target
