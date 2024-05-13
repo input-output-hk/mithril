@@ -177,6 +177,23 @@ impl CardanoTransactionRepository {
         }
     }
 
+    /// Retrieve all the Block Range Roots in database up to the given end block number excluded.
+    pub async fn retrieve_block_range_roots_up_to(
+        &self,
+        end_block_number: BlockNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+        let provider = GetBlockRangeRootProvider::new(&self.connection);
+        let filters = provider.get_up_to_block_number_condition(end_block_number);
+        let block_range_roots = provider.find(filters)?;
+        let iterator = block_range_roots
+            .into_iter()
+            .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
+            .collect::<Vec<_>>() // TODO: remove this collect when we should ba able return the iterator directly
+            .into_iter();
+
+        Ok(Box::new(iterator))
+    }
+
     #[cfg(test)]
     pub(crate) async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
@@ -340,16 +357,8 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
             .get_highest_block_number_for_immutable_number(up_to_beacon)
             .await?
             .unwrap_or(0);
-        let provider = GetBlockRangeRootProvider::new(&self.connection);
-        let filters = provider.get_up_to_block_number_condition(block_number);
-        let block_range_roots = provider.find(filters)?;
-        let iterator = block_range_roots
-            .into_iter()
-            .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
-            .collect::<Vec<_>>() // TODO: remove this collect when we should ba able return the iterator directly
-            .into_iter();
 
-        Ok(Box::new(iterator))
+        self.retrieve_block_range_roots_up_to(block_number).await
     }
 }
 
@@ -806,5 +815,74 @@ mod tests {
             }],
             record
         );
+    }
+
+    #[tokio::test]
+    async fn repository_retrieve_block_range_roots_up_to() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+        let block_range_roots = vec![
+            (
+                BlockRange::from_block_number(15),
+                MKTreeNode::from_hex("AAAA").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(30),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(45),
+                MKTreeNode::from_hex("CCCC").unwrap(),
+            ),
+        ];
+        repository
+            .store_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        // Retrieve with a block far higher than the highest block range - should return all
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(1000)
+                .await
+                .unwrap();
+            assert_eq!(
+                block_range_roots,
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
+        // Retrieve with a block bellow than the smallest block range - should return none
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(2)
+                .await
+                .unwrap();
+            assert_eq!(
+                Vec::<(BlockRange, MKTreeNode)>::new(),
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
+        // The given block is matched to the end (excluded) - should return the first of the three
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(45)
+                .await
+                .unwrap();
+            assert_eq!(
+                vec![block_range_roots[0].clone()],
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
+        // Right after the end of the second block range - should return first two of the three
+        {
+            let retrieved_block_ranges = repository
+                .retrieve_block_range_roots_up_to(46)
+                .await
+                .unwrap();
+            assert_eq!(
+                block_range_roots[0..=1].to_vec(),
+                retrieved_block_ranges.collect::<Vec<_>>()
+            );
+        }
     }
 }
