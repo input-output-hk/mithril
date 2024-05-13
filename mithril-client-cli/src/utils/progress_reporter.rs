@@ -237,8 +237,8 @@ mod tests {
     fn check_seconds_left_and_elapsed_time_are_used_by_the_formatter() {
         // 4 steps
         let progress_bar = ProgressBar::new(4);
-        // 1 step done in 15 ms, left 45ms to finish the 4th steps
-        sleep(Duration::from_millis(15));
+        // 1 step done in 150 ms, left 450ms to finish the 4th steps
+        sleep(Duration::from_millis(150));
         progress_bar.set_position(1);
 
         let json_string = ProgressBarJsonFormatter::format(&progress_bar);
@@ -247,19 +247,19 @@ mod tests {
         let milliseconds_elapsed = progress_bar.elapsed().as_millis();
 
         // Milliseconds in json may not be exactly the same as the one we get because of the test duration.
-        // We need to have a difference not more than 4ms to keep the same 2 first milliseconds digits.
-        let delta = 4;
+        // We need to have a difference not more than 49ms to keep the same 1 first milliseconds digits.
+        let delta = 49;
 
-        assert!(((45 - delta)..=(45 + delta)).contains(&milliseconds_left));
+        assert!(((450 - delta)..=(450 + delta)).contains(&milliseconds_left));
         assert!(
-            json_string.contains(r#""seconds_left": 0.04"#), // Should be close to 0.045
+            json_string.contains(r#""seconds_left": 0.4"#), // Should be close to 0.450
             "Not expected value in json output: {}",
             json_string
         );
 
-        assert!(((15 - delta)..(15 + delta)).contains(&milliseconds_elapsed));
+        assert!(((150 - delta)..(150 + delta)).contains(&milliseconds_elapsed));
         assert!(
-            json_string.contains(r#""seconds_elapsed": 0.01"#), // Should be close to 0.015
+            json_string.contains(r#""seconds_elapsed": 0.1"#), // Should be close to 0.150
             "Not expected value in json output: {}",
             json_string
         );
