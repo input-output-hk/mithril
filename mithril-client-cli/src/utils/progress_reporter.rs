@@ -166,6 +166,7 @@ mod tests {
 
     use super::*;
     use indicatif::ProgressBar;
+    use serde_json::Value;
 
     #[test]
     fn check_seconds_formatting_in_json_report_with_more_than_100_milliseconds() {
@@ -235,54 +236,60 @@ mod tests {
 
     #[test]
     fn check_seconds_left_and_elapsed_time_are_used_by_the_formatter() {
-        let expected_milliseconds_left: u128 = 45;
-        let expected_milliseconds_elapsed: u128 = 15;
+        fn format_duration(duration: &Duration) -> String {
+            format!("{}.{}", duration.as_secs(), duration.subsec_nanos())
+        }
+        fn round_at_ms(duration: Duration) -> Duration {
+            Duration::from_millis(duration.as_millis() as u64)
+        }
 
         // 4 steps
         let progress_bar = ProgressBar::new(4);
-        // 1 step done in 150 ms, left 450ms to finish the 4th steps
-        sleep(Duration::from_millis(expected_milliseconds_elapsed as u64));
+        // 1 step done in 15 ms, left 45ms to finish the 4th steps
+        sleep(Duration::from_millis(15));
         progress_bar.set_position(1);
+
+        let duration_left_before = round_at_ms(progress_bar.eta());
+        let duration_elapsed_before = round_at_ms(progress_bar.elapsed());
 
         let json_string = ProgressBarJsonFormatter::format(&progress_bar);
 
-        let milliseconds_left = progress_bar.eta().as_millis();
-        let milliseconds_elapsed = progress_bar.elapsed().as_millis();
+        let duration_left_after = round_at_ms(progress_bar.eta());
+        let duration_elapsed_after = round_at_ms(progress_bar.elapsed());
 
         // Milliseconds in json may not be exactly the same as the one we get because of the test duration.
-        // We need to have a difference not more than 49ms to keep the same 1 first milliseconds digits.
-        let delta = 4;
-        // TODO: to remove, it-s just to investigation on CI.
-        let error_message = format!(
-            "\n- milliseconds_left:{milliseconds_left}\n- milliseconds_elapsed:{milliseconds_elapsed}\n- json_string:{json_string}"
+        let delta = 0.1;
+
+        let json_value: Value = serde_json::from_str(&json_string).unwrap();
+        let seconds_left = json_value["seconds_left"].as_f64().unwrap();
+        let seconds_elapsed = json_value["seconds_elapsed"].as_f64().unwrap();
+
+        // We check that we pass the right values to format checking that time left is 3 times the time elapsed
+        assert!(
+            seconds_elapsed * 3.0 - delta < seconds_left
+                && seconds_left < seconds_elapsed * 3.0 + delta,
+            "seconds_left should be close to 3*{} but it's {}.",
+            &seconds_elapsed,
+            &seconds_left
         );
 
+        let duration_left = Duration::from_secs_f64(seconds_left);
         assert!(
-            ((expected_milliseconds_left - delta)..=(expected_milliseconds_left + delta))
-                .contains(&milliseconds_left),
-            "milliseconds_left should be close to {} but it's {}. {}",
-            &expected_milliseconds_left,
-            &milliseconds_left,
-            &error_message
-        );
-        assert!(
-            json_string.contains(r#""seconds_left": 0.04"#), // Should be close to 0.450
-            "Not expected value in json output: {}",
-            json_string
+            duration_left_before <= duration_left && duration_left <= duration_left_after,
+            "Duration left: {} should be between {} and {}",
+            format_duration(&duration_left),
+            format_duration(&duration_left_before),
+            format_duration(&duration_left_after),
         );
 
+        let duration_elapsed = Duration::from_secs_f64(seconds_elapsed);
         assert!(
-            ((expected_milliseconds_elapsed - delta)..=(expected_milliseconds_elapsed + delta))
-                .contains(&milliseconds_elapsed),
-            "milliseconds_elapsed should be close to {} but it's {}. {}",
-            &expected_milliseconds_elapsed,
-            &milliseconds_elapsed,
-            &error_message
-        );
-        assert!(
-            json_string.contains(r#""seconds_elapsed": 0.01"#), // Should be close to 0.150
-            "Not expected value in json output: {}",
-            json_string
+            duration_elapsed_before <= duration_elapsed
+                && duration_elapsed <= duration_elapsed_after,
+            "Duration elapsed: {} should be between {} and {}",
+            format_duration(&duration_elapsed),
+            format_duration(&duration_elapsed_before),
+            format_duration(&duration_elapsed_after),
         );
     }
 }
