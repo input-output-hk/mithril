@@ -252,13 +252,18 @@ mod tests {
         // Milliseconds in json may not be exactly the same as the one we get because of the test duration.
         // We need to have a difference not more than 49ms to keep the same 1 first milliseconds digits.
         let delta = 49;
+        // TODO: to remove, it-s just to investigation on CI.
+        let error_message = format!(
+            "\n- milliseconds_left:{milliseconds_left}\n- milliseconds_elapsed:{milliseconds_elapsed}\n- json_string:{json_string}"
+        );
 
         assert!(
             ((expected_milliseconds_left - delta)..=(expected_milliseconds_left + delta))
                 .contains(&milliseconds_left),
-            "milliseconds_left should be close to {} but it's {}",
+            "milliseconds_left should be close to {} but it's {}. {}",
             &expected_milliseconds_left,
-            &milliseconds_left
+            &milliseconds_left,
+            &error_message
         );
         assert!(
             json_string.contains(r#""seconds_left": 0.4"#), // Should be close to 0.450
@@ -269,9 +274,10 @@ mod tests {
         assert!(
             ((expected_milliseconds_elapsed - delta)..=(expected_milliseconds_elapsed + delta))
                 .contains(&milliseconds_elapsed),
-            "milliseconds_elapsed should be close to {} but it's {}",
+            "milliseconds_elapsed should be close to {} but it's {}. {}",
             &expected_milliseconds_elapsed,
-            &milliseconds_elapsed
+            &milliseconds_elapsed,
+            &error_message
         );
         assert!(
             json_string.contains(r#""seconds_elapsed": 0.1"#), // Should be close to 0.150
