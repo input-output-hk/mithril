@@ -2,6 +2,7 @@ use std::ops::Range;
 use std::sync::Arc;
 
 use anyhow::Context;
+use async_trait::async_trait;
 use sqlite::Value;
 
 use mithril_common::crypto_helper::MKTreeNode;
@@ -9,6 +10,7 @@ use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber, SlotNumber,
     TransactionHash,
 };
+use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
 
 use crate::database::provider::{
@@ -297,6 +299,23 @@ impl CardanoTransactionRepository {
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
+    }
+}
+
+#[async_trait]
+impl BlockRangeRootRetriever for CardanoTransactionRepository {
+    async fn retrieve_block_range_roots(
+        &self,
+        up_to_beacon: ImmutableFileNumber,
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+        // Get the highest block number for the given immutable number.
+        // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
+        let block_number = self
+            .get_highest_block_number_for_immutable_number(up_to_beacon)
+            .await?
+            .unwrap_or(0);
+
+        self.retrieve_block_range_roots_up_to(block_number).await
     }
 }
 
