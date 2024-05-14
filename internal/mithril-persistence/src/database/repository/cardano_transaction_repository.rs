@@ -35,7 +35,7 @@ impl CardanoTransactionRepository {
         Self { connection }
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
+    /// Return all the [CardanoTransactionRecord]s in the database.
     pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
         let filters = WhereCondition::default();
@@ -44,7 +44,8 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database using chronological order.
+    /// Return all the [CardanoTransactionRecord]s in the database where block number is in the
+    /// given range.
     pub async fn get_transactions_in_range_blocks(
         &self,
         range: Range<BlockNumber>,
@@ -56,8 +57,8 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
-    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon using
-    /// order of insertion.
+    /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon.
+    ///
     /// Note: until we rely on block number based beacons, this function needs to compute the highest block number for the given immutable file number.
     pub async fn get_transactions_up_to(
         &self,
