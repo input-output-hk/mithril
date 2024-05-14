@@ -60,14 +60,6 @@ pub async fn bootstrap_aggregator(
 
     restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
 
-    fake_signer::try_register_signer_until_registration_round_is_open(
-        &aggregator,
-        &signers_fixture.signers()[0],
-        *current_epoch + 1,
-        Duration::from_secs(60),
-    )
-    .await?;
-
     info!(">> Send the Signer Key Registrations payloads for the genesis signers");
     let errors = fake_signer::register_signers_to_aggregator(
         &aggregator,
@@ -77,13 +69,7 @@ pub async fn bootstrap_aggregator(
     .await?;
     assert_eq!(0, errors);
 
-    fake_signer::try_register_signer_until_registration_round_is_open(
-        &aggregator,
-        &signers_fixture.signers()[0],
-        *current_epoch + 1,
-        Duration::from_secs(60),
-    )
-    .await?;
+    restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
 
     restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
 
@@ -133,7 +119,7 @@ async fn restart_aggregator_and_move_one_epoch_forward(
     *current_epoch += 1;
     fake_chain::set_epoch(&args.mock_epoch_file_path(), *current_epoch);
 
-    info!(">> Restarting the aggregator with a large run interval");
+    info!(">> Restarting the aggregator still with a large run interval");
     aggregator.serve().unwrap();
     wait::for_http_response(
         &format!("{}/epoch-settings", aggregator.endpoint()),
