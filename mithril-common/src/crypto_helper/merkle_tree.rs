@@ -3,14 +3,14 @@ use anyhow::anyhow;
 use anyhow::Context;
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
-    util::MemStore, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
+    MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Display,
     ops::{Add, Deref},
-    sync::Arc,
+    sync::{Arc, RwLock},
 };
 
 use crate::{StdError, StdResult};
@@ -194,28 +194,33 @@ impl From<MKProof> for MKTreeNode {
 
 /// A Merkle tree store
 pub struct MKTreeStore<T> {
-    inner_store: MemStore<T>,
+    inner_store: RwLock<HashMap<u64, T>>,
 }
 
 impl<T> MKTreeStore<T> {
     fn new() -> Self {
         Self {
-            inner_store: MemStore::<T>::default(),
+            inner_store: RwLock::new(HashMap::new()),
         }
     }
 }
 
 impl<T: Clone> MMRStoreReadOps<T> for MKTreeStore<T> {
     fn get_elem(&self, pos: u64) -> MMRResult<Option<T>> {
-        let inner_store = &self.inner_store;
-        inner_store.get_elem(pos)
+        let inner_store = self.inner_store.read().unwrap();
+
+        Ok((*inner_store).get(&pos).cloned())
     }
 }
 
 impl<T> MMRStoreWriteOps<T> for MKTreeStore<T> {
     fn append(&mut self, pos: u64, elems: Vec<T>) -> MMRResult<()> {
-        let mut inner_store = &self.inner_store;
-        inner_store.append(pos, elems)
+        let mut inner_store = self.inner_store.write().unwrap();
+        for (i, elem) in elems.into_iter().enumerate() {
+            (*inner_store).insert(pos + i as u64, elem);
+        }
+
+        Ok(())
     }
 }
 

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap},
     hash::Hash,
-    rc::Rc,
+    sync::Arc,
 };
 
 use crate::{StdError, StdResult};
@@ -266,10 +266,10 @@ impl<K: MKMapKey> From<MKProof> for MKMapProof<K> {
 #[derive(Clone)]
 pub enum MKMapNode<K: MKMapKey> {
     /// A Merkle map
-    Map(Rc<MKMap<K, Self>>),
+    Map(Arc<MKMap<K, Self>>),
 
     /// A full Merkle tree
-    Tree(Rc<MKTree>),
+    Tree(Arc<MKTree>),
 
     /// A Merkle tree node
     TreeNode(MKTreeNode),
@@ -327,13 +327,13 @@ impl<K: MKMapKey> MKMapValue<K> for MKMapNode<K> {
 
 impl<K: MKMapKey> From<MKMap<K, MKMapNode<K>>> for MKMapNode<K> {
     fn from(other: MKMap<K, MKMapNode<K>>) -> Self {
-        MKMapNode::Map(Rc::new(other))
+        MKMapNode::Map(Arc::new(other))
     }
 }
 
 impl<K: MKMapKey> From<MKTree> for MKMapNode<K> {
     fn from(other: MKTree) -> Self {
-        MKMapNode::Tree(Rc::new(other))
+        MKMapNode::Tree(Arc::new(other))
     }
 }
 
@@ -658,7 +658,7 @@ mod tests {
         ];
         let merkle_tree_node_entries = &entries
             .into_iter()
-            .map(|(range, mktree)| (range.to_owned(), MKMapNode::Tree(Rc::new(mktree))))
+            .map(|(range, mktree)| (range.to_owned(), MKMapNode::Tree(Arc::new(mktree))))
             .collect::<Vec<_>>()
             .chunks(10)
             .map(|entries| {
@@ -668,7 +668,7 @@ mod tests {
                         .fold(BlockRange::new(0, 0), |acc, (range, _)| {
                             acc.try_add(range).unwrap()
                         }),
-                    MKMapNode::Map(Rc::new(MKMap::new(entries).unwrap())),
+                    MKMapNode::Map(Arc::new(MKMap::new(entries).unwrap())),
                 )
             })
             .collect::<Vec<_>>();
