@@ -183,8 +183,8 @@ mod tests {
     };
     use mithril_common::crypto_helper::MKTree;
     use mithril_common::entities::{BlockNumber, BlockRangesSequence};
+    use mithril_persistence::database::repository::CardanoTransactionRepository;
 
-    use crate::database::repository::CardanoTransactionRepository;
     use crate::database::test_helper::cardano_tx_db_connection;
 
     use super::*;
