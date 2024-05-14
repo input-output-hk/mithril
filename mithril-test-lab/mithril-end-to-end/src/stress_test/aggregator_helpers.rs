@@ -58,6 +58,8 @@ pub async fn bootstrap_aggregator(
     )
     .await?;
 
+    restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
+
     info!(">> Send the Signer Key Registrations payloads for the genesis signers");
     let errors = fake_signer::register_signers_to_aggregator(
         &aggregator,
@@ -66,20 +68,8 @@ pub async fn bootstrap_aggregator(
     )
     .await?;
     assert_eq!(0, errors);
-    aggregator.stop().await.unwrap();
 
-    info!(">> Move one epoch forward in order to issue the genesis certificate");
-    *current_epoch += 1;
-    fake_chain::set_epoch(&args.mock_epoch_file_path(), *current_epoch);
-
-    info!(">> Restarting the aggregator still with a large run interval");
-    aggregator.serve().unwrap();
-    wait::for_http_response(
-        &format!("{}/epoch-settings", aggregator.endpoint()),
-        Duration::from_secs(10),
-        "Waiting for the aggregator to start",
-    )
-    .await?;
+    restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
 
     info!(">> Send the Signer Key Registrations payloads for next genesis signers");
     let errors = fake_signer::register_signers_to_aggregator(
@@ -114,4 +104,27 @@ pub async fn bootstrap_aggregator(
     info!(">> Aggregator bootrapped");
 
     Ok(aggregator)
+}
+
+async fn restart_aggregator_and_move_one_epoch_forward(
+    aggregator: &mut Aggregator,
+    current_epoch: &mut Epoch,
+    args: &AggregatorParameters,
+) -> StdResult<()> {
+    info!(">> Stop the aggregator to move one epoch forward");
+    aggregator.stop().await.unwrap();
+
+    *current_epoch += 1;
+    fake_chain::set_epoch(&args.mock_epoch_file_path(), *current_epoch);
+
+    info!(">> Restarting the aggregator with a large run interval");
+    aggregator.serve().unwrap();
+    wait::for_http_response(
+        &format!("{}/epoch-settings", aggregator.endpoint()),
+        Duration::from_secs(10),
+        "Waiting for the aggregator to start",
+    )
+    .await?;
+
+    Ok(())
 }
