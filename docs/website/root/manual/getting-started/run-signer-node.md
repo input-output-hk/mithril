@@ -396,7 +396,6 @@ RestartSec=60
 User=cardano
 EnvironmentFile=/opt/mithril/mithril-signer.env
 ExecStart=/opt/mithril/mithril-signer -vvv
-PIDFile=/opt/squid/var/run/squid/squid.pid
 
 [Install]
 WantedBy=multi-user.target
@@ -632,8 +631,6 @@ cache deny all
 # Deny everything else
 http_access deny all
 
-# Pid file
-pid_filename /opt/squid/var/run/squid/squid.pid
 EOF'
 ```
 
@@ -690,8 +687,6 @@ cache deny all
 # Deny everything else
 http_access deny all
 
-# Pid file
-pid_filename /opt/squid/var/run/squid/squid.pid
 EOF'
 ```
 
@@ -748,7 +743,7 @@ RestartSec=60
 User=squid
 Group=squid
 ExecStart=/opt/squid/sbin/squid -f /etc/squid/squid.conf
-PIDFile=/opt/squid/var/run/squid/squid.pid
+PIDFile=/opt/squid/var/run/squid.pid
 
 [Install]
 WantedBy=multi-user.target
@@ -788,7 +783,7 @@ tail -f /var/log/syslog | grep squid
 And monitor squid access logs:
 
 ```bash
-tail -f /opt/squid/var/log/squid/access.log
+sudo tail -f /opt/squid/var/log/squid/access.log
 ```
 
 ### Firewall configuration
