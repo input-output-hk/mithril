@@ -139,7 +139,8 @@ impl CardanoTransactionRepository {
     }
 
     // TODO: remove this function when the Cardano transaction signature is based on block number instead of immutable number
-    async fn get_highest_block_number_for_immutable_number(
+    /// Get the highest [BlockNumber] of the cardano transactions stored in the database.
+    pub async fn get_highest_block_number_for_immutable_number(
         &self,
         immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Option<BlockNumber>> {
@@ -188,6 +189,7 @@ impl CardanoTransactionRepository {
         Ok(Box::new(iterator))
     }
 
+    /// Retrieve all the [CardanoTransaction] in database.
     pub async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let provider = GetCardanoTransactionProvider::new(&self.connection);
         let records = provider.get_all()?;
@@ -195,6 +197,7 @@ impl CardanoTransactionRepository {
         Ok(records.map(|record| record.into()).collect())
     }
 
+    /// Retrieve all the [BlockRangeRootRecord] in database.
     pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
         let provider = GetBlockRangeRootProvider::new(&self.connection);
         let records = provider.get_all()?;
@@ -202,6 +205,7 @@ impl CardanoTransactionRepository {
         Ok(records.collect())
     }
 
+    /// Get the highest [ImmutableFileNumber] of the cardano transactions stored in the database.
     pub async fn get_transaction_highest_immutable_file_number(
         &self,
     ) -> StdResult<Option<ImmutableFileNumber>> {
@@ -231,6 +235,9 @@ impl CardanoTransactionRepository {
         }
     }
 
+    /// Store the given transactions in the database.
+    ///
+    /// The storage is done in chunks to avoid exceeding sqlite binding limitations.
     pub async fn store_transactions<T: Into<CardanoTransactionRecord> + Clone>(
         &self,
         transactions: Vec<T>,
@@ -251,6 +258,7 @@ impl CardanoTransactionRepository {
         Ok(())
     }
 
+    /// Get the block interval without block range root if any.
     pub async fn get_block_interval_without_block_range_root(
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>> {
@@ -266,6 +274,7 @@ impl CardanoTransactionRepository {
         }
     }
 
+    /// Get the [CardanoTransactionRecord] for the given transaction hashes.
     pub async fn get_transaction_by_hashes<T: Into<TransactionHash>>(
         &self,
         hashes: Vec<T>,
@@ -278,6 +287,7 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
+    /// Get the [CardanoTransactionRecord] for the given block ranges.
     pub async fn get_transaction_by_block_ranges(
         &self,
         block_ranges: Vec<BlockRange>,
