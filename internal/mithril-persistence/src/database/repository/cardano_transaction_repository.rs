@@ -14,7 +14,7 @@ use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
 
 use crate::database::provider::{
-    GetBlockRangeRootProvider, GetCardanoTransactionProvider,
+    DeleteCardanoTransactionProvider, GetBlockRangeRootProvider, GetCardanoTransactionProvider,
     GetIntervalWithoutBlockRangeRootProvider, InsertBlockRangeRootProvider,
     InsertCardanoTransactionProvider,
 };
@@ -272,6 +272,13 @@ impl CardanoTransactionRepository {
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
+    }
+
+    /// Prune the transaction strictly after the given number of block.
+    pub async fn prune_transaction(&self, number_of_block_to_keep: BlockNumber) -> StdResult<()> {
+        let provider = DeleteCardanoTransactionProvider::new(&self.connection);
+        provider.prune(number_of_block_to_keep)?.next();
+        Ok(())
     }
 }
 
@@ -834,5 +841,37 @@ mod tests {
                 retrieved_block_ranges.collect::<Vec<_>>()
             );
         }
+    }
+
+    #[tokio::test]
+    async fn repository_prune_transactions() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        // Build transactions with block numbers from 20 to 50
+        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=50)
+            .map(|i| CardanoTransactionRecord {
+                transaction_hash: format!("tx-hash-{i}"),
+                block_number: i,
+                slot_number: i * 100,
+                block_hash: format!("block-hash-{i}"),
+                immutable_file_number: 1,
+            })
+            .collect();
+
+        repository
+            .create_transactions(cardano_transactions.clone())
+            .await
+            .unwrap();
+
+        let transaction_result = repository.get_all().await.unwrap();
+        assert_eq!(cardano_transactions.len(), transaction_result.len());
+
+        repository.prune_transaction(24).await.unwrap();
+        let transaction_result = repository
+            .get_transactions_in_range_blocks(0..26)
+            .await
+            .unwrap();
+        assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 }
