@@ -6,7 +6,7 @@ use sqlite::Row;
 use mithril_common::entities::BlockNumber;
 use mithril_common::StdResult;
 
-use crate::database::record::hydrator::try_to_u64;
+use crate::database::Hydrator;
 use crate::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Interval of block numbers (`[start, end[`) without block ranges root.
@@ -47,11 +47,11 @@ impl SqLiteEntity for IntervalWithoutBlockRangeRootRecord {
     {
         let start = row
             .read::<Option<i64>, _>(0)
-            .map(|v| try_to_u64("interval_start.start", v))
+            .map(|v| Hydrator::try_to_u64("interval_start.start", v))
             .transpose()?;
         let end = row
             .read::<Option<i64>, _>(1)
-            .map(|v| try_to_u64("interval_end.end", v))
+            .map(|v| Hydrator::try_to_u64("interval_end.end", v))
             .transpose()?;
 
         Ok(Self { start, end })

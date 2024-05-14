@@ -3,14 +3,14 @@
 
 pub mod cardano_transaction_migration;
 mod db_version;
+mod hydrator;
 pub(crate) mod provider;
 pub mod record;
 pub mod repository;
-mod signed_entity_hydrator;
 mod version_checker;
 
 pub use db_version::*;
-pub use signed_entity_hydrator::SignedEntityTypeHydrator;
+pub use hydrator::Hydrator;
 pub use version_checker::{DatabaseVersionChecker, SqlMigration};
 
 /// Database version.

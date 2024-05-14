@@ -13,11 +13,9 @@ use mithril_common::messages::{
 #[cfg(test)]
 use mithril_common::test_utils::{fake_data, fake_keys};
 use mithril_persistence::{
-    database::SignedEntityTypeHydrator,
+    database::Hydrator,
     sqlite::{HydrationError, Projection, SqLiteEntity},
 };
-
-use crate::database::record::hydrator;
 
 era_deprecate!("Remove immutable_file_number");
 /// Certificate record is the representation of a stored certificate.
@@ -314,7 +312,7 @@ impl SqLiteEntity for CertificateRecord {
         let network = row.read::<&str, _>(6).to_string();
         let immutable_file_number = row.read::<i64, _>(7);
         let signed_entity_type_id = row.read::<i64, _>(8);
-        let signed_entity_beacon_string = hydrator::read_signed_entity_beacon_column(&row, 9);
+        let signed_entity_beacon_string = Hydrator::read_signed_entity_beacon_column(&row, 9);
         let protocol_version = row.read::<&str, _>(10).to_string();
         let protocol_parameters_string = row.read::<&str, _>(11);
         let protocol_message_string = row.read::<&str, _>(12);
@@ -339,7 +337,7 @@ impl SqLiteEntity for CertificateRecord {
                     "Could not cast i64 ({immutable_file_number}) to u64. Error: '{e}'"
                 ))
             })?,
-            signed_entity_type: SignedEntityTypeHydrator::hydrate(
+            signed_entity_type: Hydrator::hydrate_signed_entity_type(
                 signed_entity_type_id.try_into().map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not cast i64 ({signed_entity_type_id}) to u64. Error: '{e}'"
