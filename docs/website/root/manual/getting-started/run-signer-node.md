@@ -101,7 +101,7 @@ Note that this guide works on a Linux machine only.
 
 * Install a recent version of `jq` (version 1.6+). You can install it by running `apt install jq`.
 
-* Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version 6.8+).
+* Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version 6.9+).
 
 ## Set up the Mithril signer node
 
@@ -519,16 +519,16 @@ sudo systemctl restart mithril-signer
 
 :::
 
-On the [Squid page listing released versions](https://www.squid-cache.org/Versions/) identify the latest stable released version (currently `6.8`) and download it:
+On the [Squid page listing released versions](https://www.squid-cache.org/Versions/) identify the latest stable released version (currently `6.9`) and download it:
 
 ```bash
-wget https://www.squid-cache.org/Versions/v6/squid-6.8.tar.gz
+wget https://www.squid-cache.org/Versions/v6/squid-6.9.tar.gz
 ```
 
 Uncompress the downloaded archive, and change directory:
 ```bash
-tar xzf squid-6.8.tar.gz
-cd squid-6.8
+tar xzf squid-6.9.tar.gz
+cd squid-6.9
 ```
 
 Then, configure the compilation:
@@ -561,7 +561,7 @@ Optionally, verify that the version is correct:
 
 You should see a result like this:
 ```bash
-Squid Cache: Version 6.8
+Squid Cache: Version 6.9
 Service Name: squid
 configure options:  '--prefix=/opt/squid' '--localstatedir=/opt/squid/var' '--libexecdir=/opt/squid/lib/squid' '--datadir=/opt/squid/share/squid' '--sysconfdir=/etc/squid' '--with-default-user=squid' '--with-logdir=/opt/squid/var/log/squid' '--with-pidfile=/opt/squid/var/run/squid.pid'
 ```
