@@ -12,6 +12,7 @@ use super::{ChainBlockNextAction, ChainBlockReader, RawChainBlock};
 pub struct PallasChainReader {
     socket: PathBuf,
     network: CardanoNetwork,
+    client: Option<NodeClient>,
 }
 
 impl PallasChainReader {
@@ -20,6 +21,7 @@ impl PallasChainReader {
         Self {
             socket: socket.to_owned(),
             network,
+            client: None,
         }
     }
 
@@ -31,15 +33,33 @@ impl PallasChainReader {
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to create new client")
     }
+
+    async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
+        if self.client.is_none() {
+            self.client = Some(self.new_client().await?);
+        }
+
+        Ok(self.client.as_mut().unwrap())
+    }
+}
+
+impl Drop for PallasChainReader {
+    fn drop(&mut self) {
+        if let Some(client) = self.client.take() {
+            tokio::spawn(async move {
+                let _ = client.abort().await;
+            });
+        }
+    }
 }
 
 #[async_trait]
-impl<'a> ChainBlockReader<'a> for PallasChainReader {
+impl ChainBlockReader for PallasChainReader {
     async fn get_next_chain_block(
-        &self,
+        &mut self,
         point: &ChainPoint,
     ) -> StdResult<Option<ChainBlockNextAction>> {
-        let mut client = self.new_client().await?;
+        let client = self.get_client().await?;
 
         let chainsync = client.chainsync();
 

@@ -12,7 +12,7 @@ use super::ChainBlockNextAction;
 pub trait ChainBlockReader {
     /// Get next chain block action
     async fn get_next_chain_block(
-        &self,
+        &mut self,
         point: &ChainPoint,
     ) -> StdResult<Option<ChainBlockNextAction>>;
 }
