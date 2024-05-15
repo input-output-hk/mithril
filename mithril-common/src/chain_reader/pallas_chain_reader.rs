@@ -86,3 +86,57 @@ impl ChainBlockReader for PallasChainReader {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, path::PathBuf};
+    use tokio::net::UnixListener;
+
+    use crate::{chain_reader::ChainBlockNextAction, entities::ChainPoint};
+
+    /// Sets up a mock server for related tests.
+    async fn setup_server(
+        socket_path: PathBuf,
+        queries: Vec<(ChainPoint, ChainBlockNextAction)>,
+    ) -> tokio::task::JoinHandle<()> {
+        tokio::spawn({
+            async move {
+                if socket_path.exists() {
+                    fs::remove_file(&socket_path).expect("Previous socket removal failed");
+                }
+
+                let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
+                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
+                    .await
+                    .unwrap();
+                for query in queries {
+                    let (point, action) = query;
+                    match action {
+                        ChainBlockNextAction::RollForward {
+                            raw_block,
+                            next_point,
+                        } => {
+                            server
+                                .chainsync()
+                                .send_intersect_found(point.into(), next_point.clone().into())
+                                .await
+                                .unwrap();
+                            server
+                                .chainsync()
+                                .send_roll_forward(raw_block.0, next_point.into())
+                                .await
+                                .unwrap();
+                        }
+                        ChainBlockNextAction::RollBackward { rollback_point } => {
+                            server
+                                .chainsync()
+                                .send_roll_backward(point.into(), rollback_point.into())
+                                .await
+                                .unwrap();
+                        }
+                    }
+                }
+            }
+        })
+    }
+}
