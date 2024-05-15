@@ -289,10 +289,18 @@ impl CardanoTransactionRepository {
         Ok(transactions.collect())
     }
 
-    /// Prune the transaction strictly after the given number of block.
-    pub async fn prune_transaction(&self, number_of_block_to_keep: BlockNumber) -> StdResult<()> {
-        let provider = DeleteCardanoTransactionProvider::new(&self.connection);
-        provider.prune(number_of_block_to_keep)?.next();
+    /// Prune the transactions older than the given number of blocks (based on the block range root
+    /// stored).
+    pub async fn prune_transaction(&self, number_of_blocks_to_keep: BlockNumber) -> StdResult<()> {
+        if let Some(highest_block_range_start) = self
+            .get_highest_start_block_number_for_block_range_roots()
+            .await?
+        {
+            let provider = DeleteCardanoTransactionProvider::new(&self.connection);
+            let threshold = highest_block_range_start - number_of_blocks_to_keep;
+            provider.prune(threshold)?.next();
+        }
+
         Ok(())
     }
 }
@@ -878,13 +886,22 @@ mod tests {
             .create_transactions(cardano_transactions.clone())
             .await
             .unwrap();
+        repository
+            .create_block_range_roots(vec![(
+                BlockRange::from_block_number(45),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            )])
+            .await
+            .unwrap();
 
         let transaction_result = repository.get_all().await.unwrap();
         assert_eq!(cardano_transactions.len(), transaction_result.len());
 
-        repository.prune_transaction(24).await.unwrap();
+        // Since the highest block range start is 45, pruning with 20 should remove transactions
+        // with a block number strictly below 25.
+        repository.prune_transaction(20).await.unwrap();
         let transaction_result = repository
-            .get_transactions_in_range_blocks(0..26)
+            .get_transactions_in_range_blocks(0..25)
             .await
             .unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);

@@ -36,21 +36,18 @@ impl<'conn> DeleteCardanoTransactionProvider<'conn> {
         Self { connection }
     }
 
-    fn get_prune_condition(&self, number_of_block_to_keep: BlockNumber) -> WhereCondition {
-        let number_of_block_to_keep = Value::Integer(number_of_block_to_keep.try_into().unwrap());
+    fn get_prune_condition(&self, threshold: BlockNumber) -> WhereCondition {
+        let threshold = Value::Integer(threshold.try_into().unwrap());
 
-        WhereCondition::new(
-            "block_number < ((select max(block_number) from cardano_tx) - ?*)",
-            vec![number_of_block_to_keep],
-        )
+        WhereCondition::new("block_number < ?*", vec![threshold])
     }
 
-    /// Prune the cardano transaction data after the given number of block.
+    /// Prune the cardano transaction data below the given threshold.
     pub fn prune(
         &self,
-        number_of_block_to_keep: BlockNumber,
+        threshold: BlockNumber,
     ) -> StdResult<EntityCursor<CardanoTransactionRecord>> {
-        let filters = self.get_prune_condition(number_of_block_to_keep);
+        let filters = self.get_prune_condition(threshold);
 
         self.find(filters)
     }
@@ -96,12 +93,26 @@ mod tests {
     }
 
     #[test]
-    fn test_prune_keep_all_data_if_given_block_number_is_larger_than_stored_number_of_block() {
+    fn test_prune_all_data_if_given_block_number_is_larger_than_stored_number_of_block() {
         let connection = cardano_tx_db_connection().unwrap();
         insert_transactions(&connection, test_transaction_set());
 
         let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
         let cursor = prune_provider.prune(100_000).unwrap();
+        assert_eq!(test_transaction_set().len(), cursor.count());
+
+        let get_provider = GetCardanoTransactionProvider::new(&connection);
+        let cursor = get_provider.get_all().unwrap();
+        assert_eq!(0, cursor.count());
+    }
+
+    #[test]
+    fn test_prune_keep_all_tx_of_last_block_if_given_number_of_block_is_zero() {
+        let connection = cardano_tx_db_connection().unwrap();
+        insert_transactions(&connection, test_transaction_set());
+
+        let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
+        let cursor = prune_provider.prune(0).unwrap();
         assert_eq!(0, cursor.count());
 
         let get_provider = GetCardanoTransactionProvider::new(&connection);
@@ -110,30 +121,16 @@ mod tests {
     }
 
     #[test]
-    fn test_prune_keep_only_tx_of_last_block_if_given_number_of_block_is_zero() {
+    fn test_prune_data_of_below_given_blocks() {
         let connection = cardano_tx_db_connection().unwrap();
         insert_transactions(&connection, test_transaction_set());
 
         let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
-        let cursor = prune_provider.prune(0).unwrap();
+        let cursor = prune_provider.prune(12).unwrap();
         assert_eq!(4, cursor.count());
 
         let get_provider = GetCardanoTransactionProvider::new(&connection);
         let cursor = get_provider.get_all().unwrap();
         assert_eq!(2, cursor.count());
-    }
-
-    #[test]
-    fn test_prune_data_of_older_than_n_blocks() {
-        let connection = cardano_tx_db_connection().unwrap();
-        insert_transactions(&connection, test_transaction_set());
-
-        let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
-        let cursor = prune_provider.prune(1).unwrap();
-        assert_eq!(2, cursor.count());
-
-        let get_provider = GetCardanoTransactionProvider::new(&connection);
-        let cursor = get_provider.get_all().unwrap();
-        assert_eq!(4, cursor.count());
     }
 }
