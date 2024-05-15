@@ -52,20 +52,26 @@ jobs:
           workflow: ci.yml
           workflow_conclusion: success
 
+      - name: Download test runners
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          name: mithril-tooling-Linux-X64
+          path: ./bin
+          commit: ${{ inputs.commit_sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
       - name: Set permissions
         shell: bash
         working-directory: ./bin
-        run: chmod +x ./mithril-aggregator
-
-      - name: Build the aggregator stress test
-        working-directory: mithril-test-lab/mithril-end-to-end
-        run: make build
+        run: |
+          chmod +x ./mithril-aggregator
+          chmod +x ./load-aggregator
 
       - name: Run the aggregator stress test
-        working-directory: mithril-test-lab/mithril-end-to-end
         run: |
-            ./load-aggregator ${{ steps.prepare.outputs.debug_level }} \
-            --cardano-cli-path script/mock-cardano-cli \
-            --aggregator-dir ../../bin \
+            ./bin/load-aggregator ${{ steps.prepare.outputs.debug_level }} \
+            --cardano-cli-path ./mithril-test-lab/mithril-end-to-end/script/mock-cardano-cli \
+            --aggregator-dir ./bin \
             --num-signers=${{ inputs.num_signers }} \
             --num-clients=${{ inputs.num_clients }}
