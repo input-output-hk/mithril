@@ -161,6 +161,21 @@ impl CardanoTransactionRepository {
             )
     }
 
+    /// Get the highest start [BlockNumber] of the block range roots stored in the database.
+    pub async fn get_highest_start_block_number_for_block_range_roots(
+        &self,
+    ) -> StdResult<Option<BlockNumber>> {
+        let highest: Option<i64> = self
+            .connection
+            .query_single_cell("select max(start) as highest from block_range_root;", &[])?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(start) (value={highest:?}) is incompatible with u64 representation.")
+            )
+    }
+
     /// Retrieve all the Block Range Roots in database up to the given end block number excluded.
     pub async fn retrieve_block_range_roots_up_to(
         &self,
@@ -873,5 +888,38 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
+    }
+
+    #[tokio::test]
+    async fn get_highest_start_block_number_for_block_range_roots() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let highest = repository
+            .get_highest_start_block_number_for_block_range_roots()
+            .await
+            .unwrap();
+        assert_eq!(None, highest);
+
+        let block_range_roots = vec![
+            (
+                BlockRange::from_block_number(15),
+                MKTreeNode::from_hex("AAAA").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(30),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            ),
+        ];
+        repository
+            .create_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        let highest = repository
+            .get_highest_start_block_number_for_block_range_roots()
+            .await
+            .unwrap();
+        assert_eq!(Some(30), highest);
     }
 }
