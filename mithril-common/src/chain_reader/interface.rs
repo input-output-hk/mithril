@@ -14,5 +14,5 @@ pub trait ChainBlockReader {
     async fn get_next_chain_block(
         &self,
         point: &ChainPoint,
-    ) -> StdResult<Option<ChainBlockNextAction<'a>>>;
+    ) -> StdResult<Option<ChainBlockNextAction>>;
 }

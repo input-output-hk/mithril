@@ -3,27 +3,23 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_network::{facades::NodeClient, miniprotocols::chainsync::NextResponse};
-use pallas_traverse::MultiEraBlock;
-use slog::Logger;
 
 use crate::{entities::ChainPoint, CardanoNetwork, StdResult};
 
-use super::{ChainBlockNextAction, ChainBlockReader};
+use super::{ChainBlockNextAction, ChainBlockReader, RawChainBlock};
 
 /// ][PallasChainReader] which reads blocks with chainsync mini protocol
 pub struct PallasChainReader {
     socket: PathBuf,
     network: CardanoNetwork,
-    logger: Logger,
 }
 
 impl PallasChainReader {
     /// Factory
-    pub fn new(socket: &Path, network: CardanoNetwork, logger: Logger) -> Self {
+    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
         Self {
             socket: socket.to_owned(),
             network,
-            logger,
         }
     }
 
@@ -42,7 +38,7 @@ impl<'a> ChainBlockReader<'a> for PallasChainReader {
     async fn get_next_chain_block(
         &self,
         point: &ChainPoint,
-    ) -> StdResult<Option<ChainBlockNextAction<'a>>> {
+    ) -> StdResult<Option<ChainBlockNextAction>> {
         let mut client = self.new_client().await?;
 
         let chainsync = client.chainsync();
@@ -56,10 +52,9 @@ impl<'a> ChainBlockReader<'a> for PallasChainReader {
 
         match chainsync.request_next().await? {
             NextResponse::RollForward(raw_block, forward_tip) => {
-                let block = MultiEraBlock::decode(&raw_block.to_owned())?;
                 Ok(Some(ChainBlockNextAction::RollForward {
                     next_point: forward_tip.into(),
-                    block,
+                    raw_block: RawChainBlock(raw_block),
                 }))
             }
             NextResponse::RollBackward(rollback_point, _) => {

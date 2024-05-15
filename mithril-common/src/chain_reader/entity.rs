@@ -1,18 +1,18 @@
-use pallas_traverse::MultiEraBlock;
+use pallas_network::miniprotocols::chainsync::BlockContent;
 
 use crate::entities::ChainPoint;
 
-/// The parsed chain block representation
-pub type ParsedBlock<'a> = MultiEraBlock<'a>;
+/// The raw chain block representation
+pub struct RawChainBlock(pub BlockContent);
 
 /// The action that indicates what to do next when scanning the chain
-pub enum ChainBlockNextAction<'a> {
+pub enum ChainBlockNextAction {
     /// RollForward event (we are still on the correct fork)
     RollForward {
         /// The next point in the chain to read
         next_point: ChainPoint,
-        /// The parsed block
-        block: ParsedBlock<'a>,
+        /// The raw chain block
+        raw_block: RawChainBlock,
     },
     /// RollBackward event (we are on an incorrect fork, we need to get back a point to roll forward again)
     RollBackward {
