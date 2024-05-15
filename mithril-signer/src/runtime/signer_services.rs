@@ -21,17 +21,16 @@ use mithril_common::{
     StdResult, TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
-    database::{ApplicationNodeType, SqlMigration},
+    database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
     sqlite::{ConnectionBuilder, SqliteConnection},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
 use crate::{
-    aggregator_client::AggregatorClient, database::repository::CardanoTransactionRepository,
-    metrics::MetricsService, single_signer::SingleSigner, AggregatorHTTPClient,
-    CardanoTransactionsImporter, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
-    SQLITE_FILE_CARDANO_TRANSACTION,
+    aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
+    AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
+    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -197,7 +196,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_sqlite_connection = self
             .build_sqlite_connection(
                 SQLITE_FILE_CARDANO_TRANSACTION,
-                crate::database::cardano_transaction_migration::get_migrations(),
+                mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             )
             .await?;
 

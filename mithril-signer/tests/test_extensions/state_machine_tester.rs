@@ -18,13 +18,14 @@ use mithril_common::{
     },
     StdError, TimePointProvider, TimePointProviderImpl,
 };
+use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
 
 use mithril_signer::{
-    database::repository::CardanoTransactionRepository, metrics::*, AggregatorClient,
-    CardanoTransactionsImporter, Configuration, MetricsService, MithrilSingleSigner,
-    ProductionServiceBuilder, ProtocolInitializerStore, ProtocolInitializerStorer, RuntimeError,
-    SignerRunner, SignerServices, SignerState, StateMachine,
+    metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MetricsService,
+    MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
+    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
+    StateMachine,
 };
 
 use super::FakeAggregator;
@@ -81,7 +82,7 @@ impl StateMachineTester {
         let transaction_sqlite_connection = production_service_builder
             .build_sqlite_connection(
                 ":memory:",
-                mithril_signer::database::cardano_transaction_migration::get_migrations(),
+                mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             )
             .await
             .unwrap();

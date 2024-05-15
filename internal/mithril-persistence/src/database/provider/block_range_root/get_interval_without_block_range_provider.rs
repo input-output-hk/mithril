@@ -1,8 +1,5 @@
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
-
 use crate::database::record::IntervalWithoutBlockRangeRootRecord;
+use crate::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition};
 
 /// Query that return the interval of block numbers that does not have a block range root.
 pub struct GetIntervalWithoutBlockRangeRootProvider<'client> {

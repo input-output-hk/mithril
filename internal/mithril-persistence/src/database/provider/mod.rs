@@ -1,5 +1,4 @@
-//! Signer related database providers
-
+//! Shared database providers
 mod block_range_root;
 mod cardano_transaction;
 

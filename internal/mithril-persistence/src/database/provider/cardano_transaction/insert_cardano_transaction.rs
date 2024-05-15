@@ -3,11 +3,9 @@ use std::iter::repeat;
 use sqlite::Value;
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
 
 use crate::database::record::CardanoTransactionRecord;
+use crate::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition};
 
 /// Query to insert [CardanoTransactionRecord] in the sqlite database
 pub struct InsertCardanoTransactionProvider<'client> {

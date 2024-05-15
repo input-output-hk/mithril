@@ -3,10 +3,9 @@ use std::sync::Arc;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use sqlite::ConnectionThreadSafe;
 
-use mithril_aggregator::{
-    database::repository::CardanoTransactionRepository, services::TransactionStore,
-};
+use mithril_aggregator::services::TransactionStore;
 use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
+use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::ConnectionBuilder;
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
@@ -19,7 +18,7 @@ fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
 
     ConnectionBuilder::open_file(&db_path)
         .with_migrations(
-            mithril_aggregator::database::cardano_transaction_migration::get_migrations(),
+            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
         )
         .build()
         .unwrap()

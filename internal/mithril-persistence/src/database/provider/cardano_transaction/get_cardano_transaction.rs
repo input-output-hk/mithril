@@ -3,13 +3,11 @@ use std::ops::Range;
 use sqlite::Value;
 
 use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllCondition;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
 
 use crate::database::record::CardanoTransactionRecord;
+use crate::sqlite::{
+    GetAllCondition, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
+};
 
 /// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
 pub struct GetCardanoTransactionProvider<'client> {
@@ -90,5 +88,4 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
     }
 }
 
-#[cfg(test)]
 impl GetAllCondition for GetCardanoTransactionProvider<'_> {}

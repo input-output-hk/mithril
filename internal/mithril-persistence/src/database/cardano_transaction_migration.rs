@@ -1,6 +1,6 @@
 //! Migration module for cardano transactions store
 //!
-use mithril_persistence::database::SqlMigration;
+use crate::database::SqlMigration;
 
 /// Get all the migrations required by this version of the software.
 /// There shall be one migration per database version. There could be several

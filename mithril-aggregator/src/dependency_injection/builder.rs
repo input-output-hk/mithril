@@ -37,7 +37,7 @@ use mithril_common::{
     TimePointProvider, TimePointProviderImpl,
 };
 use mithril_persistence::{
-    database::{ApplicationNodeType, SqlMigration},
+    database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
     sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection},
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
@@ -49,9 +49,9 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::repository::{
-        CardanoTransactionRepository, CertificateRepository, EpochSettingStore,
-        OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
-        SignerStore, SingleSignatureRepository, StakePoolStore,
+        CertificateRepository, EpochSettingStore, OpenMessageRepository, SignedEntityStore,
+        SignedEntityStorer, SignerRegistrationStore, SignerStore, SingleSignatureRepository,
+        StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -333,7 +333,7 @@ impl DependenciesBuilder {
             self.transaction_sqlite_connection = Some(
                 self.build_sqlite_connection(
                     SQLITE_FILE_CARDANO_TRANSACTION,
-                    crate::database::cardano_transaction_migration::get_migrations(),
+                    mithril_persistence::database::cardano_transaction_migration::get_migrations(),
                 )
                 .await?,
             );
