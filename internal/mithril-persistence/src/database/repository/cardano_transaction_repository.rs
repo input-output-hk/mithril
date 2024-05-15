@@ -19,7 +19,9 @@ use crate::database::provider::{
     InsertCardanoTransactionProvider,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
-use crate::sqlite::{GetAllProvider, Provider, SqliteConnection, WhereCondition};
+use crate::sqlite::{
+    ConnectionExtensions, GetAllProvider, Provider, SqliteConnection, WhereCondition,
+};
 
 /// ## Cardano transaction repository
 ///
@@ -147,32 +149,16 @@ impl CardanoTransactionRepository {
         &self,
         immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Option<BlockNumber>> {
-        let sql =
-            "select max(block_number) as highest from cardano_tx where immutable_file_number <= $1;";
-        match self
-            .connection
-            .prepare(sql)
-            .with_context(|| {
-                format!(
-                    "Prepare query error: SQL=`{}`",
-                    &sql.replace('\n', " ").trim()
-                )
-            })?
-            .iter()
-            .bind::<&[(_, Value)]>(&[(1, Value::Integer(immutable_file_number as i64))])?
-            .next()
-        {
-            None => Ok(None),
-            Some(row) => {
-                let highest = row?.read::<Option<i64>, _>(0);
-                highest
-                    .map(u64::try_from)
-                    .transpose()
-                    .with_context(||
-                        format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
-                    )
-            }
-        }
+        let highest: Option<i64> = self.connection.query_single_cell(
+            "select max(block_number) as highest from cardano_tx where immutable_file_number <= ?;",
+            &[Value::Integer(immutable_file_number as i64)],
+        )?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
+            )
     }
 
     /// Retrieve all the Block Range Roots in database up to the given end block number excluded.
@@ -212,30 +198,16 @@ impl CardanoTransactionRepository {
     pub async fn get_transaction_highest_immutable_file_number(
         &self,
     ) -> StdResult<Option<ImmutableFileNumber>> {
-        let sql = "select max(immutable_file_number) as highest from cardano_tx;";
-        match self
-            .connection
-            .prepare(sql)
-            .with_context(|| {
-                format!(
-                    "Prepare query error: SQL=`{}`",
-                    &sql.replace('\n', " ").trim()
-                )
-            })?
-            .iter()
-            .next()
-        {
-            None => Ok(None),
-            Some(row) => {
-                let highest = row?.read::<Option<i64>, _>(0);
-                highest
-                    .map(u64::try_from)
-                    .transpose()
-                    .with_context(||
-                        format!("Integer field max(immutable_file_number) (value={highest:?}) is incompatible with u64 representation.")
-                    )
-            }
-        }
+        let highest: Option<i64> = self.connection.query_single_cell(
+            "select max(immutable_file_number) as highest from cardano_tx;",
+            &[],
+        )?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(immutable_file_number) (value={highest:?}) is incompatible with u64 representation.")
+            )
     }
 
     /// Store the given transactions in the database.

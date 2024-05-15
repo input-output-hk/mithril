@@ -4,6 +4,7 @@
 //! structs.
 mod condition;
 mod connection_builder;
+mod connection_extensions;
 mod cursor;
 mod entity;
 mod projection;
@@ -12,6 +13,7 @@ mod source_alias;
 
 pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
+pub use connection_extensions::ConnectionExtensions;
 pub use cursor::EntityCursor;
 pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
