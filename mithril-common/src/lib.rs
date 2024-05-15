@@ -53,6 +53,7 @@ macro_rules! cfg_test_tools {
 pub mod api_version;
 pub mod certificate_chain;
 pub mod chain_observer;
+pub mod chain_reader;
 pub mod crypto_helper;
 pub mod entities;
 #[macro_use]
