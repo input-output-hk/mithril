@@ -133,6 +133,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/mithril-signer-${SIGNER_ID}/cardano/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ./cardano-configurations/network/${NETWORK}:/config
+    command: [ "-vvv" ]
     depends_on:
       cardano-node-signer-block-producer:
         condition: service_started
