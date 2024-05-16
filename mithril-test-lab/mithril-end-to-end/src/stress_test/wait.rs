@@ -48,7 +48,7 @@ where
             }
             _ => request_first_list_item_with_expected_size::<I>(url, expected_size).await,
         },
-        Err(err) => Err(anyhow!(err).context("Request to `{url}` failed")),
+        Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
     }
 }
 
