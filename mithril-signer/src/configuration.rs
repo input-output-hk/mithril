@@ -188,6 +188,12 @@ pub struct DefaultConfiguration {
     pub metrics_server_port: u16,
 }
 
+impl DefaultConfiguration {
+    fn namespace() -> String {
+        "default configuration".to_string()
+    }
+}
+
 impl Default for DefaultConfiguration {
     fn default() -> Self {
         Self {
@@ -204,29 +210,25 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
+            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
+        }
         let mut result = Map::new();
-        let namespace = "default configuration".to_string();
         let myself = self.clone();
 
         result.insert(
             "era_reader_adapter_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.era_reader_adapter_type),
-            ),
+            into_value(myself.era_reader_adapter_type),
         );
 
         result.insert(
             "metrics_server_ip".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.metrics_server_ip)),
+            into_value(myself.metrics_server_ip),
         );
 
         result.insert(
             "metrics_server_port".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.metrics_server_port),
-            ),
+            into_value(myself.metrics_server_port),
         );
 
         Ok(result)
