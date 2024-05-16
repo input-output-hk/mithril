@@ -67,52 +67,52 @@ async fn main() -> StdResult<()> {
     let aggregator_endpoint = aggregator.endpoint();
     reporter.stop();
 
-    // let mut scenario_parameters = ScenarioParameters {
-    //     aggregator,
-    //     aggregator_parameters,
-    //     signers_fixture,
-    //     immutable_db,
-    //     reporter,
-    //     precomputed_mithril_stake_distribution_signatures: mithril_stake_distribution_signatures,
-    // };
+    let mut scenario_parameters = ScenarioParameters {
+        aggregator,
+        aggregator_parameters,
+        signers_fixture,
+        immutable_db,
+        reporter,
+        precomputed_mithril_stake_distribution_signatures: mithril_stake_distribution_signatures,
+    };
 
-    // let scenario_counters = ScenarioCounters {
-    //     current_epoch,
-    //     number_of_certificates: 1,
-    //     number_of_mithril_stake_distributions: 0,
-    //     number_of_snapshots: 0,
-    // };
+    let scenario_counters = ScenarioCounters {
+        current_epoch,
+        number_of_certificates: 1,
+        number_of_mithril_stake_distributions: 0,
+        number_of_snapshots: 0,
+    };
 
-    // info!(">> Run phase 1 without client load");
-    // let scenario_counters = main_scenario(scenario_counters, &mut scenario_parameters).await?;
+    info!(">> Run phase 1 without client load");
+    let scenario_counters = main_scenario(scenario_counters, &mut scenario_parameters).await?;
 
-    // info!(">> Run phase 2 with client load");
-    // let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
-    // let clients_handle = tokio::spawn(async move {
-    //     if opts.num_clients > 0 {
-    //         loop {
-    //             tokio::select! {
-    //                 _msg = &mut shutdown_rx => {
-    //                     break;
-    //                 }
-    //                 _ = clients_scenario(aggregator_endpoint.clone(), opts.num_clients) => {
+    info!(">> Run phase 2 with client load");
+    let (shutdown_tx, mut shutdown_rx) = oneshot::channel();
+    let clients_handle = tokio::spawn(async move {
+        if opts.num_clients > 0 {
+            loop {
+                tokio::select! {
+                    _msg = &mut shutdown_rx => {
+                        break;
+                    }
+                    _ = clients_scenario(aggregator_endpoint.clone(), opts.num_clients) => {
 
-    //                 }
-    //             }
-    //         }
-    //     }
-    // });
-    // main_scenario(scenario_counters, &mut scenario_parameters)
-    //     .await
-    //     .expect("the main scenario should not fail");
-    // let _ = shutdown_tx.send(());
-    // clients_handle.await.unwrap();
+                    }
+                }
+            }
+        }
+    });
+    main_scenario(scenario_counters, &mut scenario_parameters)
+        .await
+        .expect("the main scenario should not fail");
+    let _ = shutdown_tx.send(());
+    clients_handle.await.unwrap();
 
-    // info!(">> Display execution timings:");
-    // scenario_parameters.reporter.print_report();
+    info!(">> Display execution timings:");
+    scenario_parameters.reporter.print_report();
 
-    // info!(">> All steps executed successfully, stopping all tasks...");
-    // scenario_parameters.aggregator.stop().await.unwrap();
+    info!(">> All steps executed successfully, stopping all tasks...");
+    scenario_parameters.aggregator.stop().await.unwrap();
 
     Ok(())
 }
