@@ -13,6 +13,7 @@ pub mod apispec;
 pub mod fake_data;
 pub mod fake_keys;
 
+mod cardano_transactions_builder;
 mod fixture_builder;
 mod mithril_fixture;
 
@@ -22,6 +23,7 @@ mod temp_dir;
 #[cfg_attr(docsrs, doc(cfg(feature = "test_http_server")))]
 pub mod test_http_server;
 
+pub use cardano_transactions_builder::CardanoTransactionsBuilder;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
