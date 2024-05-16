@@ -511,7 +511,10 @@ sudo systemctl restart mithril-signer
 
 :::info
 
-- If you have already installed `Squid` via `apt` package manager, we recommend that you delete it before manually building it from source by running the commands: `sudo apt remove squid` and `sudo apt autoremove`.
+- If you have already installed `Squid` via `apt` package manager, we recommend that you delete it before manually building it from source by running the following commands: 
+  - `sudo systemctl stop squid`
+  - `sudo apt remove squid`
+  - `sudo apt autoremove`
 
 - The FAQ for compiling `Squid` is available [here](https://wiki.squid-cache.org/SquidFaq/CompilingSquid).
 
@@ -742,7 +745,7 @@ Restart=always
 RestartSec=60
 User=squid
 Group=squid
-ExecStart=/opt/squid/sbin/squid -f /etc/squid/squid.conf
+ExecStart=/opt/squid/sbin/squid -f /etc/squid/squid.conf -d5
 PIDFile=/opt/squid/var/run/squid.pid
 
 [Install]
@@ -785,6 +788,14 @@ And monitor squid access logs:
 ```bash
 sudo tail -f /opt/squid/var/log/squid/access.log
 ```
+
+:::tip
+
+If your **Squid service** does not start properly and you have the error message `FATAL: /dev/null (13) Permission denied` in the logs of the service, it means that some permissions need to be fixed following the creation of the new `squid` user by running the following commands:
+- `sudo chmod 666 /dev/null`
+- `sudo systemctl restart squid`
+
+:::
 
 ### Firewall configuration
 
