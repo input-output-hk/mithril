@@ -71,8 +71,6 @@ pub async fn bootstrap_aggregator(
 
     restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
 
-    restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
-
     info!(">> Send the Signer Key Registrations payloads for next genesis signers");
     let errors = fake_signer::register_signers_to_aggregator(
         &aggregator,
