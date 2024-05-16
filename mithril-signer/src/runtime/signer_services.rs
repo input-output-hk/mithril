@@ -275,7 +275,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import
         let transactions_importer = Arc::new(crate::TransactionsImporterWithPruneDecorator::new(
-            None,
+            self.config
+                .enable_transaction_pruning
+                .then_some(self.config.network_security_parameter),
             transaction_store.clone(),
             transactions_importer,
         ));

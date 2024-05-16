@@ -7,7 +7,7 @@ use std::{path::PathBuf, sync::Arc};
 use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::tests_setup,
-    entities::PartyId,
+    entities::{BlockNumber, PartyId},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
         EraReaderAdapter,
@@ -27,14 +27,18 @@ pub struct Configuration {
     #[example = "`/tmp/cardano.sock`"]
     pub cardano_node_socket_path: PathBuf,
 
+    /// Cardano network
+    #[example = "`testnet` or `mainnet` or `devnet`"]
+    pub network: String,
+
     /// Cardano Network Magic number
     /// useful for TestNet & DevNet
     #[example = "`1097911063` or `42`"]
     pub network_magic: Option<u64>,
 
-    /// Cardano network
-    #[example = "`testnet` or `mainnet` or `devnet`"]
-    pub network: String,
+    /// Also known as `k`, it defines the number of blocks that are required for the blockchain to
+    /// be considered final, preventing any further rollback `[default: 2160]`.
+    pub network_security_parameter: BlockNumber,
 
     /// Aggregator endpoint
     #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
@@ -95,6 +99,11 @@ pub struct Configuration {
     ///
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: bool,
+
+    /// If set, the signer will prune the cardano transactions in database older than the
+    /// [network_security_parameter][Self::network_security_parameter] blocks after each import
+    /// `[default: true]`.
+    pub enable_transaction_pruning: bool,
 }
 
 impl Configuration {
@@ -111,6 +120,7 @@ impl Configuration {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
+            network_security_parameter: 2160,
             party_id: Some(party_id),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
@@ -127,6 +137,7 @@ impl Configuration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             allow_unparsable_block: false,
+            enable_transaction_pruning: false,
         }
     }
 
@@ -187,6 +198,12 @@ pub struct DefaultConfiguration {
 
     /// Metrics HTTP server listening port.
     pub metrics_server_port: u16,
+
+    /// Network security parameter
+    pub network_security_parameter: BlockNumber,
+
+    /// Transaction pruning toggle
+    pub enable_transaction_pruning: bool,
 }
 
 impl DefaultConfiguration {
@@ -201,6 +218,8 @@ impl Default for DefaultConfiguration {
             era_reader_adapter_type: "bootstrap".to_string(),
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            network_security_parameter: 2160, // 2160 is the mainnet value
+            enable_transaction_pruning: true,
         }
     }
 }
@@ -230,6 +249,16 @@ impl Source for DefaultConfiguration {
         result.insert(
             "metrics_server_port".to_string(),
             into_value(myself.metrics_server_port),
+        );
+
+        result.insert(
+            "network_security_parameter".to_string(),
+            into_value(myself.network_security_parameter),
+        );
+
+        result.insert(
+            "enable_transaction_pruning".to_string(),
+            into_value(myself.enable_transaction_pruning),
         );
 
         Ok(result)
