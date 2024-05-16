@@ -7,7 +7,7 @@ use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, Immu
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
-use crate::TransactionStore;
+use crate::{TransactionPruner, TransactionStore};
 
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
@@ -44,5 +44,12 @@ impl TransactionStore for CardanoTransactionRepository {
             self.create_block_range_roots(block_ranges).await?;
         }
         Ok(())
+    }
+}
+
+#[async_trait]
+impl TransactionPruner for CardanoTransactionRepository {
+    async fn prune(&self, number_of_blocks_to_keep: BlockNumber) -> StdResult<()> {
+        self.prune_transaction(number_of_blocks_to_keep).await
     }
 }

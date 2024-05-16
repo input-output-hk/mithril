@@ -265,17 +265,23 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
-        let transactions_importer = CardanoTransactionsImporter::new(
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,
             transaction_store.clone(),
             &self.config.db_directory,
             // Rescan the last immutable when importing transactions, it may have been partially imported
             Some(1),
             slog_scope::logger(),
-        );
+        ));
+        // Wrap the transaction importer with decorator to prune the transactions after import
+        let transactions_importer = Arc::new(crate::TransactionsImporterWithPruneDecorator::new(
+            None,
+            transaction_store.clone(),
+            transactions_importer,
+        ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            Arc::new(transactions_importer),
+            transactions_importer,
             block_range_root_retriever,
             slog_scope::logger(),
         ));
