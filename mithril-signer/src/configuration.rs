@@ -100,8 +100,9 @@ pub struct Configuration {
 impl Configuration {
     /// Create a sample configuration mainly for tests
     #[doc(hidden)]
-    pub fn new_sample(party_id: &PartyId) -> Self {
-        let signer_temp_dir = tests_setup::setup_temp_directory_for_signer(party_id, false);
+    pub fn new_sample<P: Into<PartyId>>(party_id: P) -> Self {
+        let party_id: PartyId = party_id.into();
+        let signer_temp_dir = tests_setup::setup_temp_directory_for_signer(&party_id, false);
         Self {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
             relay_endpoint: None,
@@ -110,7 +111,7 @@ impl Configuration {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            party_id: Some(party_id.to_owned()),
+            party_id: Some(party_id),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
             store_retention_limit: None,
