@@ -297,7 +297,7 @@ impl CardanoTransactionRepository {
             .await?
         {
             let provider = DeleteCardanoTransactionProvider::new(&self.connection);
-            let threshold = highest_block_range_start - number_of_blocks_to_keep;
+            let threshold = highest_block_range_start.saturating_sub(number_of_blocks_to_keep);
             provider.prune(threshold)?.next();
         }
 
@@ -896,6 +896,12 @@ mod tests {
 
         let transaction_result = repository.get_all().await.unwrap();
         assert_eq!(cardano_transactions.len(), transaction_result.len());
+
+        // Pruning with a number of block to keep greater than the highest block range start should
+        // do nothing.
+        repository.prune_transaction(10_000_000).await.unwrap();
+        let transaction_result = repository.get_all_transactions().await.unwrap();
+        assert_eq!(cardano_transactions, transaction_result);
 
         // Since the highest block range start is 45, pruning with 20 should remove transactions
         // with a block number strictly below 25.

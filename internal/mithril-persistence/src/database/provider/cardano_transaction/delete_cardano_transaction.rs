@@ -1,3 +1,4 @@
+use anyhow::Context;
 use sqlite::Value;
 
 use mithril_common::entities::BlockNumber;
@@ -36,10 +37,14 @@ impl<'conn> DeleteCardanoTransactionProvider<'conn> {
         Self { connection }
     }
 
-    fn get_prune_condition(&self, threshold: BlockNumber) -> WhereCondition {
-        let threshold = Value::Integer(threshold.try_into().unwrap());
+    fn get_prune_condition(&self, threshold: BlockNumber) -> StdResult<WhereCondition> {
+        let threshold = Value::Integer(
+            threshold
+                .try_into()
+                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
+        );
 
-        WhereCondition::new("block_number < ?*", vec![threshold])
+        Ok(WhereCondition::new("block_number < ?*", vec![threshold]))
     }
 
     /// Prune the cardano transaction data below the given threshold.
@@ -47,7 +52,7 @@ impl<'conn> DeleteCardanoTransactionProvider<'conn> {
         &self,
         threshold: BlockNumber,
     ) -> StdResult<EntityCursor<CardanoTransactionRecord>> {
-        let filters = self.get_prune_condition(threshold);
+        let filters = self.get_prune_condition(threshold)?;
 
         self.find(filters)
     }
