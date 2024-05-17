@@ -153,7 +153,7 @@ variable "cardano_image_registry" {
 variable "cardano_configurations_repository_commit" {
   type        = string
   description = "The Cardano configurations commit to use"
-  default     = "d55cc5cd71f95807601800f4d6b148eefffbfe10"
+  default     = "692010ed0f454bfbb566c06443227c79e2f4dbab"
 }
 
 variable "mithril_api_domain" {
