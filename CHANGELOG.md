@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
 
+- Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
+
 - Update website and explorer user interface to use the new mithril logo.
 
 - Crates versions:
