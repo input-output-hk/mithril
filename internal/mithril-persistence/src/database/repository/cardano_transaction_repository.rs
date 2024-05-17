@@ -14,12 +14,14 @@ use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
 
 use crate::database::provider::{
-    GetBlockRangeRootProvider, GetCardanoTransactionProvider,
+    DeleteCardanoTransactionProvider, GetBlockRangeRootProvider, GetCardanoTransactionProvider,
     GetIntervalWithoutBlockRangeRootProvider, InsertBlockRangeRootProvider,
     InsertCardanoTransactionProvider,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
-use crate::sqlite::{GetAllProvider, Provider, SqliteConnection, WhereCondition};
+use crate::sqlite::{
+    ConnectionExtensions, GetAllProvider, Provider, SqliteConnection, WhereCondition,
+};
 
 /// ## Cardano transaction repository
 ///
@@ -147,32 +149,31 @@ impl CardanoTransactionRepository {
         &self,
         immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Option<BlockNumber>> {
-        let sql =
-            "select max(block_number) as highest from cardano_tx where immutable_file_number <= $1;";
-        match self
+        let highest: Option<i64> = self.connection.query_single_cell(
+            "select max(block_number) as highest from cardano_tx where immutable_file_number <= ?;",
+            &[Value::Integer(immutable_file_number as i64)],
+        )?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
+            )
+    }
+
+    /// Get the highest start [BlockNumber] of the block range roots stored in the database.
+    pub async fn get_highest_start_block_number_for_block_range_roots(
+        &self,
+    ) -> StdResult<Option<BlockNumber>> {
+        let highest: Option<i64> = self
             .connection
-            .prepare(sql)
-            .with_context(|| {
-                format!(
-                    "Prepare query error: SQL=`{}`",
-                    &sql.replace('\n', " ").trim()
-                )
-            })?
-            .iter()
-            .bind::<&[(_, Value)]>(&[(1, Value::Integer(immutable_file_number as i64))])?
-            .next()
-        {
-            None => Ok(None),
-            Some(row) => {
-                let highest = row?.read::<Option<i64>, _>(0);
-                highest
-                    .map(u64::try_from)
-                    .transpose()
-                    .with_context(||
-                        format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
-                    )
-            }
-        }
+            .query_single_cell("select max(start) as highest from block_range_root;", &[])?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(start) (value={highest:?}) is incompatible with u64 representation.")
+            )
     }
 
     /// Retrieve all the Block Range Roots in database up to the given end block number excluded.
@@ -212,30 +213,16 @@ impl CardanoTransactionRepository {
     pub async fn get_transaction_highest_immutable_file_number(
         &self,
     ) -> StdResult<Option<ImmutableFileNumber>> {
-        let sql = "select max(immutable_file_number) as highest from cardano_tx;";
-        match self
-            .connection
-            .prepare(sql)
-            .with_context(|| {
-                format!(
-                    "Prepare query error: SQL=`{}`",
-                    &sql.replace('\n', " ").trim()
-                )
-            })?
-            .iter()
-            .next()
-        {
-            None => Ok(None),
-            Some(row) => {
-                let highest = row?.read::<Option<i64>, _>(0);
-                highest
-                    .map(u64::try_from)
-                    .transpose()
-                    .with_context(||
-                        format!("Integer field max(immutable_file_number) (value={highest:?}) is incompatible with u64 representation.")
-                    )
-            }
-        }
+        let highest: Option<i64> = self.connection.query_single_cell(
+            "select max(immutable_file_number) as highest from cardano_tx;",
+            &[],
+        )?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(immutable_file_number) (value={highest:?}) is incompatible with u64 representation.")
+            )
     }
 
     /// Store the given transactions in the database.
@@ -300,6 +287,21 @@ impl CardanoTransactionRepository {
         let transactions = provider.find(filters)?;
 
         Ok(transactions.collect())
+    }
+
+    /// Prune the transactions older than the given number of blocks (based on the block range root
+    /// stored).
+    pub async fn prune_transaction(&self, number_of_blocks_to_keep: BlockNumber) -> StdResult<()> {
+        if let Some(highest_block_range_start) = self
+            .get_highest_start_block_number_for_block_range_roots()
+            .await?
+        {
+            let provider = DeleteCardanoTransactionProvider::new(&self.connection);
+            let threshold = highest_block_range_start.saturating_sub(number_of_blocks_to_keep);
+            provider.prune(threshold)?.next();
+        }
+
+        Ok(())
     }
 }
 
@@ -862,5 +864,85 @@ mod tests {
                 retrieved_block_ranges.collect::<Vec<_>>()
             );
         }
+    }
+
+    #[tokio::test]
+    async fn repository_prune_transactions() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        // Build transactions with block numbers from 20 to 50
+        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=50)
+            .map(|i| CardanoTransactionRecord {
+                transaction_hash: format!("tx-hash-{i}"),
+                block_number: i,
+                slot_number: i * 100,
+                block_hash: format!("block-hash-{i}"),
+                immutable_file_number: 1,
+            })
+            .collect();
+
+        repository
+            .create_transactions(cardano_transactions.clone())
+            .await
+            .unwrap();
+        repository
+            .create_block_range_roots(vec![(
+                BlockRange::from_block_number(45),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            )])
+            .await
+            .unwrap();
+
+        let transaction_result = repository.get_all().await.unwrap();
+        assert_eq!(cardano_transactions.len(), transaction_result.len());
+
+        // Pruning with a number of block to keep greater than the highest block range start should
+        // do nothing.
+        repository.prune_transaction(10_000_000).await.unwrap();
+        let transaction_result = repository.get_all_transactions().await.unwrap();
+        assert_eq!(cardano_transactions, transaction_result);
+
+        // Since the highest block range start is 45, pruning with 20 should remove transactions
+        // with a block number strictly below 25.
+        repository.prune_transaction(20).await.unwrap();
+        let transaction_result = repository
+            .get_transactions_in_range_blocks(0..25)
+            .await
+            .unwrap();
+        assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
+    }
+
+    #[tokio::test]
+    async fn get_highest_start_block_number_for_block_range_roots() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let highest = repository
+            .get_highest_start_block_number_for_block_range_roots()
+            .await
+            .unwrap();
+        assert_eq!(None, highest);
+
+        let block_range_roots = vec![
+            (
+                BlockRange::from_block_number(15),
+                MKTreeNode::from_hex("AAAA").unwrap(),
+            ),
+            (
+                BlockRange::from_block_number(30),
+                MKTreeNode::from_hex("BBBB").unwrap(),
+            ),
+        ];
+        repository
+            .create_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        let highest = repository
+            .get_highest_start_block_number_for_block_range_roots()
+            .await
+            .unwrap();
+        assert_eq!(Some(30), highest);
     }
 }

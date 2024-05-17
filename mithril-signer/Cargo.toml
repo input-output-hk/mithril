@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.135"
+version = "0.2.136"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }

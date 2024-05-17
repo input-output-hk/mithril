@@ -29,8 +29,8 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
-    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterWithPruner,
+    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -265,17 +265,25 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
-        let transactions_importer = CardanoTransactionsImporter::new(
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,
             transaction_store.clone(),
             &self.config.db_directory,
             // Rescan the last immutable when importing transactions, it may have been partially imported
             Some(1),
             slog_scope::logger(),
-        );
+        ));
+        // Wrap the transaction importer with decorator to prune the transactions after import
+        let transactions_importer = Arc::new(TransactionsImporterWithPruner::new(
+            self.config
+                .enable_transaction_pruning
+                .then_some(self.config.network_security_parameter),
+            transaction_store.clone(),
+            transactions_importer,
+        ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            Arc::new(transactions_importer),
+            transactions_importer,
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -350,7 +358,6 @@ mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{Epoch, TimePoint},
-        era::adapters::EraReaderAdapterType,
         test_utils::TempDir,
     };
 
@@ -366,27 +373,8 @@ mod tests {
     async fn test_auto_create_stores_directory() {
         let stores_dir = get_test_dir("test_auto_create_stores_directory").join("stores");
         let config = Configuration {
-            cardano_cli_path: PathBuf::new(),
-            cardano_node_socket_path: PathBuf::new(),
-            network_magic: None,
-            network: "preview".to_string(),
-            aggregator_endpoint: "".to_string(),
-            relay_endpoint: None,
-            party_id: Some("party-123456".to_string()),
-            run_interval: 1000,
-            db_directory: PathBuf::new(),
             data_stores_directory: stores_dir.clone(),
-            store_retention_limit: None,
-            kes_secret_key_path: None,
-            operational_certificate_path: None,
-            disable_digests_cache: false,
-            reset_digests_cache: false,
-            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
-            era_reader_adapter_params: None,
-            enable_metrics_server: true,
-            metrics_server_ip: "0.0.0.0".to_string(),
-            metrics_server_port: 9090,
-            allow_unparsable_block: false,
+            ..Configuration::new_sample("party-123456")
         };
 
         assert!(!stores_dir.exists());
