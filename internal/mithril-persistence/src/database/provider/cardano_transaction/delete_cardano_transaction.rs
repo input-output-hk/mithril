@@ -37,12 +37,13 @@ impl<'conn> DeleteCardanoTransactionProvider<'conn> {
         Self { connection }
     }
 
-    fn get_prune_condition(&self, threshold: BlockNumber) -> StdResult<WhereCondition> {
-        let threshold = Value::Integer(
-            threshold
-                .try_into()
-                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
-        );
+    fn get_prune_condition(
+        &self,
+        block_number_threshold: BlockNumber,
+    ) -> StdResult<WhereCondition> {
+        let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
+            format!("Failed to convert threshold `{block_number_threshold}` to i64")
+        })?);
 
         Ok(WhereCondition::new("block_number < ?*", vec![threshold]))
     }
@@ -50,9 +51,9 @@ impl<'conn> DeleteCardanoTransactionProvider<'conn> {
     /// Prune the cardano transaction data below the given threshold.
     pub fn prune(
         &self,
-        threshold: BlockNumber,
+        block_number_threshold: BlockNumber,
     ) -> StdResult<EntityCursor<CardanoTransactionRecord>> {
-        let filters = self.get_prune_condition(threshold)?;
+        let filters = self.get_prune_condition(block_number_threshold)?;
 
         self.find(filters)
     }

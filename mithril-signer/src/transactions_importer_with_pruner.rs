@@ -10,8 +10,7 @@ use mithril_common::StdResult;
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait TransactionPruner: Send + Sync {
-    /// Prune the transactions older than the given number of blocks (based on the block range root
-    /// stored).
+    /// Prune the transactions older than the given number of blocks.
     async fn prune(&self, number_of_blocks_to_keep: BlockNumber) -> StdResult<()>;
 }
 
@@ -19,14 +18,14 @@ pub trait TransactionPruner: Send + Sync {
 /// blocks after running the import.
 ///
 /// If the number of blocks to keep is not provided, no pruning is performed.
-pub struct TransactionsImporterWithPruneDecorator {
+pub struct TransactionsImporterWithPruner {
     number_of_blocks_to_keep: Option<BlockNumber>,
     transaction_pruner: Arc<dyn TransactionPruner>,
     wrapped_importer: Arc<dyn TransactionsImporter>,
 }
 
-impl TransactionsImporterWithPruneDecorator {
-    /// Create a new instance of [TransactionsImporterWithPruneDecorator].
+impl TransactionsImporterWithPruner {
+    /// Create a new instance of [TransactionsImporterWithPruner].
     pub fn new(
         number_of_blocks_to_keep: Option<BlockNumber>,
         transaction_pruner: Arc<dyn TransactionPruner>,
@@ -41,7 +40,7 @@ impl TransactionsImporterWithPruneDecorator {
 }
 
 #[async_trait]
-impl TransactionsImporter for TransactionsImporterWithPruneDecorator {
+impl TransactionsImporter for TransactionsImporterWithPruner {
     async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()> {
         self.wrapped_importer.import(up_to_beacon).await?;
 
@@ -71,15 +70,15 @@ mod tests {
         }
     }
 
-    impl TransactionsImporterWithPruneDecorator {
-        pub fn new_with_mock<Ti, Pr>(
+    impl TransactionsImporterWithPruner {
+        pub fn new_with_mock<P, I>(
             number_of_blocks_to_keep: Option<BlockNumber>,
-            transaction_pruner_mock_config: Pr,
-            importer_mock_config: Ti,
+            transaction_pruner_mock_config: P,
+            importer_mock_config: I,
         ) -> Self
         where
-            Pr: FnOnce(&mut MockTransactionPruner),
-            Ti: FnOnce(&mut MockTransactionImporterImpl),
+            P: FnOnce(&mut MockTransactionPruner),
+            I: FnOnce(&mut MockTransactionImporterImpl),
         {
             let mut transaction_pruner = MockTransactionPruner::new();
             transaction_pruner_mock_config(&mut transaction_pruner);
@@ -96,7 +95,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_does_not_prune_if_none_is_configured() {
-        let importer = TransactionsImporterWithPruneDecorator::new_with_mock(
+        let importer = TransactionsImporterWithPruner::new_with_mock(
             None,
             |mock| {
                 mock.expect_prune().never();
@@ -112,7 +111,7 @@ mod tests {
     #[tokio::test]
     async fn test_does_prune_if_a_block_number_is_configured() {
         let expected_block_number: BlockNumber = 5;
-        let importer = TransactionsImporterWithPruneDecorator::new_with_mock(
+        let importer = TransactionsImporterWithPruner::new_with_mock(
             Some(expected_block_number),
             |mock| {
                 mock.expect_prune()

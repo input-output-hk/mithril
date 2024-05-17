@@ -29,8 +29,8 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, HTTP_REQUEST_TIMEOUT_DURATION,
-    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterWithPruner,
+    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -274,7 +274,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import
-        let transactions_importer = Arc::new(crate::TransactionsImporterWithPruneDecorator::new(
+        let transactions_importer = Arc::new(TransactionsImporterWithPruner::new(
             self.config
                 .enable_transaction_pruning
                 .then_some(self.config.network_security_parameter),
