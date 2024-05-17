@@ -8,7 +8,7 @@ use crate::sqlite::SqliteConnection;
 /// Extension trait for the [SqliteConnection] type.
 pub trait ConnectionExtensions {
     /// Execute the given sql query and return the value of the first cell read.
-    fn query_single_cell<Q: Into<String>, T: ReadableWithIndex>(
+    fn query_single_cell<Q: AsRef<str>, T: ReadableWithIndex>(
         &self,
         sql: Q,
         params: &[Value],
@@ -16,16 +16,15 @@ pub trait ConnectionExtensions {
 }
 
 impl ConnectionExtensions for SqliteConnection {
-    fn query_single_cell<Q: Into<String>, T: ReadableWithIndex>(
+    fn query_single_cell<Q: AsRef<str>, T: ReadableWithIndex>(
         &self,
         sql: Q,
         params: &[Value],
     ) -> StdResult<T> {
-        let sql = sql.into();
         let mut statement = self.prepare(&sql).with_context(|| {
             format!(
                 "Prepare query error: SQL=`{}`",
-                &sql.replace('\n', " ").trim()
+                sql.as_ref().replace('\n', " ").trim()
             )
         })?;
         statement.bind(params)?;
