@@ -2,10 +2,6 @@ use pallas_network::miniprotocols::chainsync::BlockContent;
 
 use crate::entities::ChainPoint;
 
-/// The raw chain block representation
-#[derive(Debug)]
-pub struct RawChainBlock(pub BlockContent);
-
 /// The action that indicates what to do next when scanning the chain
 #[derive(Debug)]
 pub enum ChainBlockNextAction {
@@ -14,7 +10,7 @@ pub enum ChainBlockNextAction {
         /// The next point in the chain to read
         next_point: ChainPoint,
         /// The raw chain block
-        raw_block: RawChainBlock,
+        raw_block: BlockContent,
     },
     /// RollBackward event (we are on an incorrect fork, we need to get back a point to roll forward again)
     RollBackward {

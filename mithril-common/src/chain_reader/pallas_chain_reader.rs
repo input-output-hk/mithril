@@ -9,7 +9,7 @@ use pallas_network::{
 
 use crate::{entities::ChainPoint, CardanoNetwork, StdResult};
 
-use super::{ChainBlockNextAction, ChainBlockReader, RawChainBlock};
+use super::{ChainBlockNextAction, ChainBlockReader};
 
 /// ][PallasChainReader] which reads blocks with chainsync mini protocol
 pub struct PallasChainReader {
@@ -66,7 +66,7 @@ impl ChainBlockReader for PallasChainReader {
             NextResponse::RollForward(raw_block, forward_tip) => {
                 Ok(Some(ChainBlockNextAction::RollForward {
                     next_point: forward_tip.into(),
-                    raw_block: RawChainBlock(raw_block),
+                    raw_block,
                 }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
@@ -253,12 +253,8 @@ mod tests {
                 next_point,
                 raw_block,
             } => {
-                println!("raw_block: {:?}", raw_block.0);
                 assert_eq!(next_point, get_fake_chain_point_forwards().into());
-                // assert_eq!(
-                //     raw_block.0,
-                //     BlockContent(hex::decode("c0ffeec0ffeec0ffee").unwrap())
-                // );
+                assert_eq!(raw_block.0, hex::decode("c0ffeec0ffeec0ffee").unwrap());
             }
             _ => panic!("Unexpected chain block action"),
         }
