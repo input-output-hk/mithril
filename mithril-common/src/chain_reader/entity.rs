@@ -3,9 +3,11 @@ use pallas_network::miniprotocols::chainsync::BlockContent;
 use crate::entities::ChainPoint;
 
 /// The raw chain block representation
+#[derive(Debug)]
 pub struct RawChainBlock(pub BlockContent);
 
 /// The action that indicates what to do next when scanning the chain
+#[derive(Debug)]
 pub enum ChainBlockNextAction {
     /// RollForward event (we are still on the correct fork)
     RollForward {

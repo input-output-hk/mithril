@@ -70,6 +70,7 @@ impl ChainBlockReader for PallasChainReader {
                 }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
+                println!("Rolling back to {:?}", rollback_point);
                 Ok(Some(ChainBlockNextAction::RollBackward {
                     rollback_point: rollback_point.into(),
                 }))
@@ -84,15 +85,21 @@ impl ChainBlockReader for PallasChainReader {
     ) -> StdResult<Option<ChainBlockNextAction>> {
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
+        println!("1.find_intersect start");
 
-        chainsync
+        let intersection = chainsync
             .find_intersect(vec![point.to_owned().into()])
             .await?;
+        println!("2.find_intersect done");
+        println!("intersection: {:?}", intersection);
 
         let next = match chainsync.has_agency() {
             true => chainsync.request_next().await?,
             false => chainsync.recv_while_must_reply().await?,
         };
+
+        println!("3.request_next done");
+        println!("next: {:?}", next);
 
         self.process_next_chain_block(next).await
     }
@@ -151,10 +158,7 @@ mod tests {
                     .unwrap();
 
                 // chansync_server receives request next from client, sends rollbackwards
-                match chansync_server.recv_while_idle().await.unwrap().unwrap() {
-                    ClientRequest::RequestNext => (),
-                    ClientRequest::Intersect(_) => panic!("unexpected message"),
-                };
+                chansync_server.recv_while_idle().await.unwrap();
 
                 chansync_server
                     .send_roll_backward(known_point.clone(), Tip(known_point.clone(), 1337))
@@ -162,10 +166,7 @@ mod tests {
                     .unwrap();
 
                 // server receives request next from client, sends rollforwards
-                match chansync_server.recv_while_idle().await.unwrap().unwrap() {
-                    ClientRequest::RequestNext => (),
-                    ClientRequest::Intersect(_) => panic!("unexpected message"),
-                };
+                chansync_server.recv_while_idle().await.unwrap();
 
                 // mock
                 let block = BlockContent(hex::decode("c0ffeec0ffeec0ffee").unwrap());
@@ -177,10 +178,7 @@ mod tests {
 
                 // server receives request next from client, sends await reply
                 // then rollforwards
-                match chansync_server.recv_while_idle().await.unwrap().unwrap() {
-                    ClientRequest::RequestNext => (),
-                    ClientRequest::Intersect(_) => panic!("unexpected message"),
-                };
+                chansync_server.recv_while_idle().await.unwrap();
 
                 chansync_server.send_await_reply().await.unwrap();
                 server.abort().await;
@@ -200,10 +198,11 @@ mod tests {
         let client = tokio::spawn(async move {
             let mut chain_reader =
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
-            chain_reader
+            let chain_block = chain_reader
                 .get_next_chain_block(&ChainPoint::from(known_point))
                 .await
                 .unwrap();
+            println!("unicorn: {:?}", chain_block);
         });
 
         let (_, client_res) = tokio::join!(server, client);
