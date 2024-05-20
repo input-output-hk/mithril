@@ -143,11 +143,7 @@ mod tests {
 
                 let chansync_server = server.chainsync();
 
-                let intersect_points =
-                    match chansync_server.recv_while_idle().await.unwrap().unwrap() {
-                        ClientRequest::Intersect(points) => points,
-                        ClientRequest::RequestNext => panic!("unexpected message"),
-                    };
+                chansync_server.recv_while_idle().await.unwrap();
 
                 chansync_server
                     .send_intersect_found(known_point.clone(), Tip(known_point.clone(), 1337))
