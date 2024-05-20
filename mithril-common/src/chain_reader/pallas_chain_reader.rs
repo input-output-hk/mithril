@@ -100,7 +100,6 @@ impl ChainBlockReader for PallasChainReader {
 
 #[cfg(test)]
 mod tests {
-
     use std::fs;
 
     use pallas_network::{
@@ -127,17 +126,17 @@ mod tests {
     /// local state queries should be intersepted by the `mock_server`
     /// and avoid any panic errors.
     async fn setup_server(socket_path: PathBuf, intersections: u32) -> tokio::task::JoinHandle<()> {
-        let known_point = Point::Specific(
-            1654413,
-            hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
-                .unwrap(),
-        );
-
         tokio::spawn({
             async move {
                 if socket_path.exists() {
                     fs::remove_file(&socket_path).expect("Previous socket removal failed");
                 }
+
+                let known_point = Point::Specific(
+                    1654413,
+                    hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
+                        .unwrap(),
+                );
 
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
                 let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
@@ -197,7 +196,7 @@ mod tests {
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
                 .unwrap(),
         );
-        let server = setup_server(socket_path.clone(), 1);
+        let server = setup_server(socket_path.clone(), 1).await;
         let client = tokio::spawn(async move {
             let mut chain_reader =
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
