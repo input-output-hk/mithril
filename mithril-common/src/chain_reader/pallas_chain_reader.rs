@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use pallas_network::{facades::NodeClient, miniprotocols::chainsync::NextResponse};
+use pallas_network::{
+    facades::NodeClient,
+    miniprotocols::chainsync::{self, NextResponse},
+};
 
 use crate::{entities::ChainPoint, CardanoNetwork, StdResult};
 
@@ -55,22 +58,11 @@ impl Drop for PallasChainReader {
 
 #[async_trait]
 impl ChainBlockReader for PallasChainReader {
-    async fn get_next_chain_block(
+    async fn process_next_chain_block(
         &mut self,
-        point: &ChainPoint,
+        next: chainsync::NextResponse<chainsync::BlockContent>,
     ) -> StdResult<Option<ChainBlockNextAction>> {
-        let client = self.get_client().await?;
-
-        let chainsync = client.chainsync();
-
-        let (intersect_point, _) = chainsync
-            .find_intersect(vec![point.to_owned().into()])
-            .await?;
-        let _ = intersect_point
-            .ok_or_else(|| anyhow!("PallasChainReader failed to find intersect"))
-            .unwrap();
-
-        match chainsync.request_next().await? {
+        match next {
             NextResponse::RollForward(raw_block, forward_tip) => {
                 Ok(Some(ChainBlockNextAction::RollForward {
                     next_point: forward_tip.into(),
@@ -85,58 +77,55 @@ impl ChainBlockReader for PallasChainReader {
             NextResponse::Await => Ok(None),
         }
     }
+
+    async fn get_next_chain_block(
+        &mut self,
+        point: &ChainPoint,
+    ) -> StdResult<Option<ChainBlockNextAction>> {
+        let client = self.get_client().await?;
+        let chainsync = client.chainsync();
+
+        chainsync
+            .find_intersect(vec![point.to_owned().into()])
+            .await?;
+
+        let next = match chainsync.has_agency() {
+            true => chainsync.request_next().await?,
+            false => chainsync.recv_while_must_reply().await?,
+        };
+
+        self.process_next_chain_block(next).await
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, path::PathBuf};
-    use tokio::net::UnixListener;
 
-    use crate::{chain_reader::ChainBlockNextAction, entities::ChainPoint};
+    use pallas_network::miniprotocols::Point;
 
-    /// Sets up a mock server for related tests.
-    async fn setup_server(
-        socket_path: PathBuf,
-        queries: Vec<(ChainPoint, ChainBlockNextAction)>,
-    ) -> tokio::task::JoinHandle<()> {
-        tokio::spawn({
-            async move {
-                if socket_path.exists() {
-                    fs::remove_file(&socket_path).expect("Previous socket removal failed");
-                }
+    use super::*;
 
-                let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
-                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
-                    .await
-                    .unwrap();
-                for query in queries {
-                    let (point, action) = query;
-                    match action {
-                        ChainBlockNextAction::RollForward {
-                            raw_block,
-                            next_point,
-                        } => {
-                            server
-                                .chainsync()
-                                .send_intersect_found(point.into(), next_point.clone().into())
-                                .await
-                                .unwrap();
-                            server
-                                .chainsync()
-                                .send_roll_forward(raw_block.0, next_point.into())
-                                .await
-                                .unwrap();
-                        }
-                        ChainBlockNextAction::RollBackward { rollback_point } => {
-                            server
-                                .chainsync()
-                                .send_roll_backward(point.into(), rollback_point.into())
-                                .await
-                                .unwrap();
-                        }
-                    }
-                }
-            }
-        })
+    use crate::test_utils::TempDir;
+
+    /// Creates a new work directory in the system's temporary folder.
+    fn create_temp_dir(folder_name: &str) -> PathBuf {
+        TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
+    }
+
+    #[tokio::test]
+    async fn get_next_chain_block() {
+        let socket_path = create_temp_dir("get_next_chain_block.socket").join("node.socket");
+        let mut chain_reader = PallasChainReader::new(&socket_path, CardanoNetwork::TestNet(10));
+        let known_point = Point::Specific(
+            1654413,
+            hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
+                .unwrap(),
+        );
+
+        let next_chain_block = chain_reader
+            .get_next_chain_block(&ChainPoint::from(known_point))
+            .await
+            .unwrap();
+        println!("Socket path: {:?}", socket_path);
     }
 }

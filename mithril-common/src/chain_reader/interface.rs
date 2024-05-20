@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use pallas_network::{facades::NodeClient, miniprotocols::chainsync};
 
 use crate::{entities::ChainPoint, StdResult};
 
@@ -10,7 +11,13 @@ use super::ChainBlockNextAction;
 /// - do nothing
 #[async_trait]
 pub trait ChainBlockReader {
-    /// Get next chain block action
+    /// Process the next chain block action
+    async fn process_next_chain_block(
+        &mut self,
+        point: chainsync::NextResponse<chainsync::BlockContent>,
+    ) -> StdResult<Option<ChainBlockNextAction>>;
+
+    /// Get the next chain block
     async fn get_next_chain_block(
         &mut self,
         point: &ChainPoint,
