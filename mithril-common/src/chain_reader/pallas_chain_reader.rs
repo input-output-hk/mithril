@@ -19,7 +19,7 @@ pub struct PallasChainReader {
 }
 
 impl PallasChainReader {
-    /// Factory
+    /// Creates a new `PallasChainReader` with the specified socket and network.
     pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
         Self {
             socket: socket.to_owned(),
@@ -34,7 +34,7 @@ impl PallasChainReader {
         NodeClient::connect(&self.socket, magic)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainObserver failed to create new client")
+            .with_context(|| "PallasChainReader failed to create new client")
     }
 
     async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
@@ -101,7 +101,13 @@ impl ChainBlockReader for PallasChainReader {
 #[cfg(test)]
 mod tests {
 
-    use pallas_network::miniprotocols::Point;
+    use std::fs;
+
+    use pallas_network::miniprotocols::{
+        chainsync::{BlockContent, ClientRequest, HeaderContent, Tip},
+        Point,
+    };
+    use tokio::net::UnixListener;
 
     use super::*;
 
@@ -112,20 +118,100 @@ mod tests {
         TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
     }
 
-    #[tokio::test]
-    async fn get_next_chain_block() {
-        let socket_path = create_temp_dir("get_next_chain_block.socket").join("node.socket");
-        let mut chain_reader = PallasChainReader::new(&socket_path, CardanoNetwork::TestNet(10));
+    /// Sets up a mock server for related tests.
+    ///
+    /// Use the `intersections` parameter to define exactly how many
+    /// local state queries should be intersepted by the `mock_server`
+    /// and avoid any panic errors.
+    async fn setup_server(socket_path: PathBuf, intersections: u32) -> tokio::task::JoinHandle<()> {
         let known_point = Point::Specific(
             1654413,
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
                 .unwrap(),
         );
-        println!("Socket path: {:?}", socket_path);
 
-        let _next_chain_block = chain_reader
-            .get_next_chain_block(&ChainPoint::from(known_point))
-            .await
-            .unwrap();
+        tokio::spawn({
+            async move {
+                if socket_path.exists() {
+                    fs::remove_file(&socket_path).expect("Previous socket removal failed");
+                }
+
+                let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
+                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
+                    .await
+                    .unwrap();
+
+                let chansync_server = server.chainsync();
+
+                let intersect_points =
+                    match chansync_server.recv_while_idle().await.unwrap().unwrap() {
+                        ClientRequest::Intersect(points) => points,
+                        ClientRequest::RequestNext => panic!("unexpected message"),
+                    };
+
+                chansync_server
+                    .send_intersect_found(known_point.clone(), Tip(known_point.clone(), 1337))
+                    .await
+                    .unwrap();
+
+                // chansync_server receives request next from client, sends rollbackwards
+                match chansync_server.recv_while_idle().await.unwrap().unwrap() {
+                    ClientRequest::RequestNext => (),
+                    ClientRequest::Intersect(_) => panic!("unexpected message"),
+                };
+
+                chansync_server
+                    .send_roll_backward(known_point.clone(), Tip(known_point.clone(), 1337))
+                    .await
+                    .unwrap();
+
+                // server receives request next from client, sends rollforwards
+                match chansync_server.recv_while_idle().await.unwrap().unwrap() {
+                    ClientRequest::RequestNext => (),
+                    ClientRequest::Intersect(_) => panic!("unexpected message"),
+                };
+
+                // mock
+                let block = BlockContent(hex::decode("c0ffeec0ffeec0ffee").unwrap());
+
+                chansync_server
+                    .send_roll_forward(block, Tip(known_point.clone(), 1337))
+                    .await
+                    .unwrap();
+
+                // server receives request next from client, sends await reply
+                // then rollforwards
+                match chansync_server.recv_while_idle().await.unwrap().unwrap() {
+                    ClientRequest::RequestNext => (),
+                    ClientRequest::Intersect(_) => panic!("unexpected message"),
+                };
+
+                chansync_server.send_await_reply().await.unwrap();
+                server.abort().await;
+            }
+        })
+    }
+
+    #[tokio::test]
+    async fn get_next_chain_block() {
+        let socket_path = create_temp_dir("get_next_chain_block.socket").join("node.socket");
+        let server = setup_server(socket_path.clone(), 1);
+        let known_point = Point::Specific(
+            1654413,
+            hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
+                .unwrap(),
+        );
+
+        let client = tokio::spawn(async move {
+            let mut chain_reader =
+                PallasChainReader::new(&socket_path, CardanoNetwork::TestNet(10));
+            chain_reader
+                .get_next_chain_block(&ChainPoint::from(known_point))
+                .await
+                .unwrap();
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        println!("{:?}", client_res);
     }
 }
