@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use pallas_network::{facades::NodeClient, miniprotocols::chainsync};
+use pallas_network::miniprotocols::chainsync;
 
 use crate::{entities::ChainPoint, StdResult};
 

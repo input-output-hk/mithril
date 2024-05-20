@@ -121,11 +121,11 @@ mod tests {
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
                 .unwrap(),
         );
+        println!("Socket path: {:?}", socket_path);
 
-        let next_chain_block = chain_reader
+        let _next_chain_block = chain_reader
             .get_next_chain_block(&ChainPoint::from(known_point))
             .await
             .unwrap();
-        println!("Socket path: {:?}", socket_path);
     }
 }
