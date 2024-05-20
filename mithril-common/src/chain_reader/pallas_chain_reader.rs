@@ -206,13 +206,11 @@ mod tests {
         let client = tokio::spawn(async move {
             let mut chain_reader =
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
-            let chain_block = chain_reader
+            chain_reader
                 .get_next_chain_block(&ChainPoint::from(known_point))
                 .await
                 .unwrap()
-                .unwrap();
-
-            chain_block
+                .unwrap()
         });
 
         let (_, client_res) = tokio::join!(server, client);
