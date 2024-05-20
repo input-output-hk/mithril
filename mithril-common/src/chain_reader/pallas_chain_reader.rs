@@ -122,6 +122,14 @@ mod tests {
 
     use crate::test_utils::TempDir;
 
+    fn get_fake_chain_point() -> ChainPoint {
+        ChainPoint::from(Point::Specific(
+            1654413,
+            hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
+                .unwrap(),
+        ))
+    }
+
     /// Creates a new work directory in the system's temporary folder.
     fn create_temp_dir(folder_name: &str) -> PathBuf {
         TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
@@ -201,11 +209,19 @@ mod tests {
             let chain_block = chain_reader
                 .get_next_chain_block(&ChainPoint::from(known_point))
                 .await
+                .unwrap()
                 .unwrap();
-            println!("unicorn: {:?}", chain_block);
+
+            chain_block
         });
 
         let (_, client_res) = tokio::join!(server, client);
-        println!("{:?}", client_res);
+        let chain_block = client_res.expect("Client failed to get next chain block");
+        match chain_block {
+            ChainBlockNextAction::RollBackward { rollback_point } => {
+                assert_eq!(rollback_point, get_fake_chain_point());
+            }
+            _ => panic!("Unexpected chain block action"),
+        }
     }
 }
