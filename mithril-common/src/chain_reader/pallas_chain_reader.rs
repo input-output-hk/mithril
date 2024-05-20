@@ -34,7 +34,7 @@ impl PallasChainReader {
         NodeClient::connect(&self.socket, magic)
             .await
             .map_err(|err| anyhow!(err))
-            .with_context(|| "PallasChainReader failed to create new client")
+            .with_context(|| "PallasChainReader failed to create a new client")
     }
 
     async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
@@ -103,9 +103,12 @@ mod tests {
 
     use std::fs;
 
-    use pallas_network::miniprotocols::{
-        chainsync::{BlockContent, ClientRequest, HeaderContent, Tip},
-        Point,
+    use pallas_network::{
+        facades::NodeServer,
+        miniprotocols::{
+            chainsync::{BlockContent, ClientRequest, Tip},
+            Point,
+        },
     };
     use tokio::net::UnixListener;
 
@@ -137,9 +140,7 @@ mod tests {
                 }
 
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
-                let mut server = pallas_network::facades::NodeServer::accept(&unix_listener, 10)
-                    .await
-                    .unwrap();
+                let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
 
                 let chansync_server = server.chainsync();
 
@@ -190,17 +191,16 @@ mod tests {
 
     #[tokio::test]
     async fn get_next_chain_block() {
-        let socket_path = create_temp_dir("get_next_chain_block.socket").join("node.socket");
-        let server = setup_server(socket_path.clone(), 1);
+        let socket_path = create_temp_dir("get_next_chain_block").join("node.socket");
         let known_point = Point::Specific(
             1654413,
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
                 .unwrap(),
         );
-
+        let server = setup_server(socket_path.clone(), 1);
         let client = tokio::spawn(async move {
             let mut chain_reader =
-                PallasChainReader::new(&socket_path, CardanoNetwork::TestNet(10));
+                PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
             chain_reader
                 .get_next_chain_block(&ChainPoint::from(known_point))
                 .await
