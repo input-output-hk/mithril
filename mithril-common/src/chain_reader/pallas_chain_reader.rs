@@ -112,7 +112,7 @@ mod tests {
     use pallas_network::{
         facades::NodeServer,
         miniprotocols::{
-            chainsync::{BlockContent, ClientRequest, Tip},
+            chainsync::{BlockContent, Tip},
             Point,
         },
     };
