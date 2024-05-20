@@ -253,7 +253,7 @@ mod tests {
                 next_point,
                 raw_block,
             } => {
-                assert_eq!(next_point, get_fake_chain_point_forwards().into());
+                assert_eq!(next_point, get_fake_chain_point_forwards());
                 assert_eq!(raw_block.0, hex::decode("c0ffeec0ffeec0ffee").unwrap());
             }
             _ => panic!("Unexpected chain block action"),
