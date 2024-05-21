@@ -6,6 +6,7 @@ use crate::entities::{BlockRange, CardanoTransaction};
 pub struct CardanoTransactionsBuilder {
     max_transactions_per_block: usize,
     max_blocks_per_block_range: usize,
+    max_transactions_per_immutable_file: usize,
 }
 
 impl CardanoTransactionsBuilder {
@@ -13,12 +14,19 @@ impl CardanoTransactionsBuilder {
         Self {
             max_transactions_per_block: 1,
             max_blocks_per_block_range: 1,
+            max_transactions_per_immutable_file: 1,
         }
     }
 
     /// Define how many transactions we generate in each block.
     pub fn per_block(mut self, transactions_per_block: usize) -> Self {
         self.max_transactions_per_block = transactions_per_block;
+        self
+    }
+
+    /// Define how many transactions we generate for one immutable_file.
+    pub fn per_immutable_file(mut self, transactions_per_immutable_file: usize) -> Self {
+        self.max_transactions_per_immutable_file = transactions_per_immutable_file;
         self
     }
 
@@ -53,8 +61,11 @@ impl CardanoTransactionsBuilder {
         let first_transaction_number = 100;
         for tx_index in 0..transactions_count {
             let block_number = self.block_number_from_transaction_index(tx_index);
-            transactions
-                .push(self.create_transaction(tx_index + first_transaction_number, block_number))
+            transactions.push(self.create_transaction(
+                tx_index as u64 + first_transaction_number,
+                block_number,
+                tx_index as u64 / self.max_transactions_per_immutable_file as u64,
+            ))
         }
 
         transactions
@@ -82,15 +93,16 @@ impl CardanoTransactionsBuilder {
     /// Create a transaction with a given index and block number.
     fn create_transaction(
         &self,
-        transaction_index: usize,
+        transaction_id: u64,
         block_number: u64,
+        immutable_file_number: u64,
     ) -> CardanoTransaction {
         CardanoTransaction::new(
-            format!("tx-hash-{}-{}", block_number, transaction_index),
+            format!("tx-hash-{}-{}", block_number, transaction_id),
             block_number,
-            transaction_index as u64,
+            transaction_id,
             format!("block-hash-{block_number}"),
-            transaction_index as u64,
+            immutable_file_number,
         )
     }
 
@@ -367,5 +379,19 @@ mod test {
     #[should_panic]
     fn should_panic_when_too_many_blocks_per_block_range() {
         CardanoTransactionsBuilder::new().blocks_per_block_range(BlockRange::LENGTH as usize + 1);
+    }
+
+    #[test]
+    fn build_transactions_with_many_transactions_per_immutable_file() {
+        let transactions = CardanoTransactionsBuilder::new()
+            .per_immutable_file(5)
+            .build_transactions(18);
+
+        assert_eq!(transactions.len(), 18);
+
+        assert_eq!(
+            4,
+            count_distinct_values(&transactions, &|t| t.immutable_file_number)
+        );
     }
 }
