@@ -37,12 +37,15 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to create a new client")
     }
 
+    /// Returns a mutable reference to the client.
     async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
         if self.client.is_none() {
             self.client = Some(self.new_client().await?);
         }
 
-        Ok(self.client.as_mut().unwrap())
+        self.client
+            .as_mut()
+            .with_context(|| "PallasChainReader failed to get client")
     }
 }
 
@@ -228,8 +231,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_next_chain_block_roll_forward() {
-        let socket_path = create_temp_dir("get_next_chain_block_roll_forward").join("node.socket");
+    async fn get_next_chain_block_roll_forwards() {
+        let socket_path = create_temp_dir("get_next_chain_block_roll_forwards").join("node.socket");
         let known_point = Point::Specific(
             1654413,
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
