@@ -196,7 +196,6 @@ mod tests {
                             .unwrap();
                     }
                     ServerAction::RollForwards => {
-                        // mock
                         let block = BlockContent(hex::decode("c0ffeec0ffeec0ffee").unwrap());
                         chansync_server
                             .send_roll_forward(block, Tip(known_point.clone(), 1337))
