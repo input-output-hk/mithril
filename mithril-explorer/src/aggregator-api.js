@@ -18,7 +18,16 @@ function fetchSignersTickers(aggregator) {
     });
 }
 
+function fetchRegistrations(aggregator, epoch) {
+  return fetch(`${aggregator}/signers/registered/${epoch}`)
+    .then((response) => (response.status === 200 ? response.json() : {}))
+    .catch((error) => {
+      console.error("Fetch registrations error:", error);
+    });
+}
+
 module.exports = {
   fetchAggregatorCapabilities,
   fetchSignersTickers,
+  fetchRegistrations,
 };

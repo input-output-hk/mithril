@@ -27,6 +27,7 @@ import LinkButton from "#/LinkButton";
 import Stake from "#/Stake";
 import RawJsonButton from "#/RawJsonButton";
 import SignerTable from "#/SignerTable";
+import { fetchRegistrations } from "@/aggregator-api";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
@@ -60,8 +61,7 @@ export default function Registrations() {
     }
 
     if (error === undefined) {
-      fetch(`${aggregator}/signers/registered/${epoch}`)
-        .then((response) => (response.status === 200 ? response.json() : {}))
+      fetchRegistrations(aggregator, epoch)
         .then((data) => {
           setSigningEpoch(data.signing_at);
           setRegistrations(data.registrations);
@@ -75,7 +75,6 @@ export default function Registrations() {
           setSigningEpoch(undefined);
           setRegistrations([]);
           setIsLoading(false);
-          console.error("Fetch registrations error:", error);
         });
 
       fetch(`${aggregator}/epoch-settings`)
