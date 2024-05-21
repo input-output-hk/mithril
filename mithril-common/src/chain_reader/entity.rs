@@ -1,16 +1,14 @@
-use pallas_network::miniprotocols::chainsync::BlockContent;
-
 use crate::entities::ChainPoint;
 
 /// The action that indicates what to do next when scanning the chain
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChainBlockNextAction {
     /// RollForward event (we are still on the correct fork)
     RollForward {
         /// The next point in the chain to read
         next_point: ChainPoint,
         /// The raw chain block
-        raw_block: BlockContent,
+        raw_block: Vec<u8>,
     },
     /// RollBackward event (we are on an incorrect fork, we need to get back a point to roll forward again)
     RollBackward {

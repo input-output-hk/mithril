@@ -57,7 +57,7 @@ impl PallasChainReader {
             NextResponse::RollForward(raw_block, forward_tip) => {
                 Ok(Some(ChainBlockNextAction::RollForward {
                     next_point: forward_tip.into(),
-                    raw_block,
+                    raw_block: raw_block.to_vec(),
                 }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
@@ -260,7 +260,10 @@ mod tests {
                 raw_block,
             } => {
                 assert_eq!(next_point, get_fake_chain_point_forwards());
-                assert_eq!(raw_block.0, hex::decode("c0ffeec0ffeec0ffee").unwrap());
+                assert_eq!(
+                    raw_block.to_vec(),
+                    hex::decode("c0ffeec0ffeec0ffee").unwrap()
+                );
             }
             _ => panic!("Unexpected chain block action"),
         }
