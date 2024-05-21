@@ -2,9 +2,9 @@ use sqlite::Row;
 
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::BlockRange;
-use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
-use crate::database::record::hydrator::try_to_u64;
+use crate::database::Hydrator;
+use crate::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Block range root record is the representation of block range with its merkle root precomputed.
 #[derive(Debug, PartialEq, Clone)]
@@ -35,8 +35,8 @@ impl SqLiteEntity for BlockRangeRootRecord {
     where
         Self: Sized,
     {
-        let start = try_to_u64("block_range.start", row.read::<i64, _>(0))?;
-        let end = try_to_u64("block_range.end", row.read::<i64, _>(1))?;
+        let start = Hydrator::try_to_u64("block_range.start", row.read::<i64, _>(0))?;
+        let end = Hydrator::try_to_u64("block_range.end", row.read::<i64, _>(1))?;
         let range = BlockRange::from_block_number(start);
         let merkle_root = row.read::<&str, _>(2);
 
@@ -69,9 +69,11 @@ impl SqLiteEntity for BlockRangeRootRecord {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use mithril_common::entities::BlockNumber;
     use sqlite::Connection;
+
+    use mithril_common::entities::BlockNumber;
+
+    use super::*;
 
     fn select_block_range_from_db(start: BlockNumber, end: BlockNumber, merkle_root: &str) -> Row {
         let conn = Connection::open(":memory:").unwrap();

@@ -11,9 +11,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
 
+- Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
+
 - Update website and explorer user interface to use the new mithril logo.
 
-## Mithril Distribution [2418.1] - UNRELEASED
+- Crates versions:
+
+|  Crate  |  Version  |
+|---------- |-------------|
+| N/A | `-` |
+
+## Mithril Distribution [2418.1] - 2024-05-13
 
 - **BREAKING** changes in Mithril client CLI:
   - Certificate chain structure has been modified to remove coupling with immutable file number.
@@ -34,7 +42,13 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 |  Crate  |  Version  |
 |---------- |-------------|
-| N/A | `-` |
+| mithril-aggregator | `0.5.0` |
+| mithril-client | `0.8.0` |
+| mithril-client-cli | `0.8.0` |
+| mithril-client-wasm | `0.3.0` |
+| mithril-common | `0.4.0` |
+| mithril-signer | `0.2.130` |
+| mithril-stm | `0.3.19` |
 
 ## Mithril Distribution [2412.0] - 2024-03-26
 

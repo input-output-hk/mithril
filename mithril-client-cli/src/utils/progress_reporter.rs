@@ -78,15 +78,31 @@ pub struct ProgressBarJsonFormatter;
 impl ProgressBarJsonFormatter {
     /// Get a json formatted string given the progress bar status
     pub fn format(progress_bar: &ProgressBar) -> String {
-        format!(
-            r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+        ProgressBarJsonFormatter::format_values(
             Utc::now().to_rfc3339(),
             progress_bar.position(),
             progress_bar.length().unwrap_or(0),
-            progress_bar.eta().as_secs(),
-            progress_bar.eta().subsec_millis(),
-            progress_bar.elapsed().as_secs(),
-            progress_bar.elapsed().subsec_millis(),
+            progress_bar.eta(),
+            progress_bar.elapsed(),
+        )
+    }
+
+    fn format_values(
+        timestamp: String,
+        bytes_downloaded: u64,
+        bytes_total: u64,
+        duration_left: Duration,
+        duration_elapsed: Duration,
+    ) -> String {
+        format!(
+            r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+            timestamp,
+            bytes_downloaded,
+            bytes_total,
+            duration_left.as_secs(),
+            duration_left.subsec_millis(),
+            duration_elapsed.as_secs(),
+            duration_elapsed.subsec_millis(),
         )
     }
 }
@@ -150,13 +166,23 @@ mod tests {
 
     use super::*;
     use indicatif::ProgressBar;
+    use serde_json::Value;
 
     #[test]
-    fn check_seconds_elapsed_in_json_report_with_more_than_100_milliseconds() {
-        let progress_bar = ProgressBar::new(10).with_elapsed(Duration::from_millis(5124));
+    fn check_seconds_formatting_in_json_report_with_more_than_100_milliseconds() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "".to_string(),
+            0,
+            0,
+            Duration::from_millis(7569),
+            Duration::from_millis(5124),
+        );
 
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
-
+        assert!(
+            json_string.contains(r#""seconds_left": 7.569"#),
+            "Not expected value in json output: {}",
+            json_string
+        );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.124"#),
             "Not expected value in json output: {}",
@@ -165,11 +191,20 @@ mod tests {
     }
 
     #[test]
-    fn check_seconds_elapsed_in_json_report_with_less_than_100_milliseconds() {
-        let progress_bar = ProgressBar::new(10).with_elapsed(Duration::from_millis(5004));
+    fn check_seconds_formatting_in_json_report_with_less_than_100_milliseconds() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "".to_string(),
+            0,
+            0,
+            Duration::from_millis(7006),
+            Duration::from_millis(5004),
+        );
 
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
-
+        assert!(
+            json_string.contains(r#""seconds_left": 7.006"#),
+            "Not expected value in json output: {}",
+            json_string
+        );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.004"#),
             "Not expected value in json output: {}",
@@ -178,40 +213,83 @@ mod tests {
     }
 
     #[test]
-    fn check_seconds_left_in_json_report_with_more_than_100_milliseconds() {
-        let half_position = 5;
-        let progress_bar = ProgressBar::new(half_position * 2);
-        sleep(Duration::from_millis(123));
-        progress_bar.set_position(half_position);
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
+    fn check_seconds_formatting_in_json_report_with_milliseconds_ending_by_zeros() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "".to_string(),
+            0,
+            0,
+            Duration::from_millis(7200),
+            Duration::from_millis(5100),
+        );
 
-        let milliseconds = progress_bar.eta().subsec_millis();
-        assert!(milliseconds > 100);
         assert!(
-            json_string.contains(&format!(r#""seconds_left": 0.{}"#, milliseconds)),
+            json_string.contains(r#""seconds_left": 7.200"#),
+            "Not expected value in json output: {}",
+            json_string
+        );
+        assert!(
+            json_string.contains(r#""seconds_elapsed": 5.100"#),
             "Not expected value in json output: {}",
             json_string
         );
     }
 
     #[test]
-    fn check_seconds_left_in_json_report_with_less_than_100_milliseconds() {
-        let half_position = 5;
-        let progress_bar = ProgressBar::new(half_position * 2);
-        sleep(Duration::from_millis(1));
-        progress_bar.set_position(half_position);
+    fn check_seconds_left_and_elapsed_time_are_used_by_the_formatter() {
+        fn format_duration(duration: &Duration) -> String {
+            format!("{}.{}", duration.as_secs(), duration.subsec_nanos())
+        }
+        fn round_at_ms(duration: Duration) -> Duration {
+            Duration::from_millis(duration.as_millis() as u64)
+        }
+
+        // 4 steps
+        let progress_bar = ProgressBar::new(4);
+        // 1 step done in 15 ms, left 45ms to finish the 4th steps
+        sleep(Duration::from_millis(15));
+        progress_bar.set_position(1);
+
+        let duration_left_before = round_at_ms(progress_bar.eta());
+        let duration_elapsed_before = round_at_ms(progress_bar.elapsed());
+
         let json_string = ProgressBarJsonFormatter::format(&progress_bar);
 
+        let duration_left_after = round_at_ms(progress_bar.eta());
+        let duration_elapsed_after = round_at_ms(progress_bar.elapsed());
+
+        // Milliseconds in json may not be exactly the same as the one we get because of the test duration.
+        let delta = 0.1;
+
+        let json_value: Value = serde_json::from_str(&json_string).unwrap();
+        let seconds_left = json_value["seconds_left"].as_f64().unwrap();
+        let seconds_elapsed = json_value["seconds_elapsed"].as_f64().unwrap();
+
+        // We check that we pass the right values to format checking that time left is 3 times the time elapsed
         assert!(
-            json_string.contains(r#""seconds_left": 0.0"#),
-            "Not expected value in json output: {}",
-            json_string
+            seconds_elapsed * 3.0 - delta < seconds_left
+                && seconds_left < seconds_elapsed * 3.0 + delta,
+            "seconds_left should be close to 3*{} but it's {}.",
+            &seconds_elapsed,
+            &seconds_left
         );
 
+        let duration_left = Duration::from_secs_f64(seconds_left);
         assert!(
-            !json_string.contains(r#""seconds_left": 0.000"#),
-            "Not expected value in json output: {}",
-            json_string
+            duration_left_before <= duration_left && duration_left <= duration_left_after,
+            "Duration left: {} should be between {} and {}",
+            format_duration(&duration_left),
+            format_duration(&duration_left_before),
+            format_duration(&duration_left_after),
+        );
+
+        let duration_elapsed = Duration::from_secs_f64(seconds_elapsed);
+        assert!(
+            duration_elapsed_before <= duration_elapsed
+                && duration_elapsed <= duration_elapsed_after,
+            "Duration elapsed: {} should be between {} and {}",
+            format_duration(&duration_elapsed),
+            format_duration(&duration_elapsed_before),
+            format_duration(&duration_elapsed_after),
         );
     }
 }

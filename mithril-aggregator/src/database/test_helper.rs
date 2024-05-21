@@ -30,7 +30,9 @@ pub fn main_db_connection() -> StdResult<ConnectionThreadSafe> {
 pub fn cardano_tx_db_connection() -> StdResult<ConnectionThreadSafe> {
     let connection = ConnectionBuilder::open_memory()
         .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
-        .with_migrations(crate::database::cardano_transaction_migration::get_migrations())
+        .with_migrations(
+            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+        )
         .build()?;
     Ok(connection)
 }

@@ -382,6 +382,12 @@ impl Default for DefaultConfiguration {
     }
 }
 
+impl DefaultConfiguration {
+    fn namespace() -> String {
+        "default configuration".to_string()
+    }
+}
+
 impl From<ExecutionEnvironment> for ValueKind {
     fn from(value: ExecutionEnvironment) -> Self {
         match value {
@@ -396,92 +402,55 @@ impl Source for DefaultConfiguration {
         Box::new(self.clone())
     }
 
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+    fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        fn into_value<V: Into<ValueKind>>(value: V) -> Value {
+            Value::new(Some(&DefaultConfiguration::namespace()), value.into())
+        }
         let mut result = Map::new();
-        let namespace = "default configuration".to_string();
         let myself = self.clone();
-        result.insert(
-            "environment".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.environment)),
-        );
-        result.insert(
-            "server_ip".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.server_ip)),
-        );
-        result.insert(
-            "server_port".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.server_port)),
-        );
-        result.insert(
-            "db_directory".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.db_directory)),
-        );
+        result.insert("environment".to_string(), into_value(myself.environment));
+        result.insert("server_ip".to_string(), into_value(myself.server_ip));
+        result.insert("server_port".to_string(), into_value(myself.server_port));
+        result.insert("db_directory".to_string(), into_value(myself.db_directory));
         result.insert(
             "snapshot_directory".to_string(),
-            Value::new(Some(&namespace), ValueKind::from(myself.snapshot_directory)),
+            into_value(myself.snapshot_directory),
         );
         result.insert(
             "snapshot_store_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_store_type),
-            ),
+            into_value(myself.snapshot_store_type),
         );
         result.insert(
             "snapshot_uploader_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_uploader_type),
-            ),
+            into_value(myself.snapshot_uploader_type),
         );
         result.insert(
             "era_reader_adapter_type".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.era_reader_adapter_type),
-            ),
+            into_value(myself.era_reader_adapter_type),
         );
         result.insert(
             "reset_digests_cache".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.reset_digests_cache),
-            ),
+            into_value(myself.reset_digests_cache),
         );
         result.insert(
             "disable_digests_cache".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.disable_digests_cache),
-            ),
+            into_value(myself.disable_digests_cache),
         );
         result.insert(
             "snapshot_compression_algorithm".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_compression_algorithm),
-            ),
+            into_value(myself.snapshot_compression_algorithm),
         );
         result.insert(
             "snapshot_use_cdn_domain".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.snapshot_use_cdn_domain),
-            ),
+            into_value(myself.snapshot_use_cdn_domain),
         );
         result.insert(
             "signer_importer_run_interval".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.signer_importer_run_interval),
-            ),
+            into_value(myself.signer_importer_run_interval),
         );
         result.insert(
             "allow_unparsable_block".to_string(),
-            Value::new(
-                Some(&namespace),
-                ValueKind::from(myself.allow_unparsable_block),
-            ),
+            into_value(myself.allow_unparsable_block),
         );
 
         Ok(result)

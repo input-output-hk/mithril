@@ -9,7 +9,6 @@ mod signer_store;
 mod single_signature_repository;
 mod stake_pool_store;
 
-pub use cardano_transaction_repository::*;
 pub use certificate_repository::*;
 pub use epoch_setting_store::*;
 pub use open_message_repository::*;

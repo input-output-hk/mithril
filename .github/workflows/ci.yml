@@ -32,7 +32,7 @@ jobs:
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         shell: bash
-        run: cargo build --release -p mithril-end-to-end
+        run: cargo build --release --bin mithril-end-to-end --bin load-aggregator
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
@@ -58,8 +58,10 @@ jobs:
       - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
         uses: actions/upload-artifact@v4
         with:
-          name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
-          path: target/release/mithril-end-to-end
+          name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            target/release/mithril-end-to-end
+            target/release/load-aggregator
           if-no-files-found: error
 
       - name: Prepare test lab eras
@@ -269,7 +271,7 @@ jobs:
       matrix:
         mode: [ "std" ]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: [ "8.7.3", "8.10.0-pre", "8.9.0" ]
+        cardano_node_version: [ "8.7.3", "8.9.0", "8.11.0-pre" ]
         hard_fork_latest_era_at_epoch: [ 0,10,100 ]
         run_id: [ "#1" ]
         extra_args: [ "" ]
@@ -302,7 +304,7 @@ jobs:
       - name: Download rust test runner
         uses: actions/download-artifact@v4
         with:
-          name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
+          name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
           path: ./
 
       - run: |
@@ -866,3 +868,4 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
           publish_dir: ./github-pages
+          force_orphan: true

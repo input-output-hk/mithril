@@ -414,36 +414,15 @@ mod tests {
     use mithril_common::era::{EraChecker, SupportedEra};
     use mithril_common::messages::TryFromMessageAdapter;
     use serde_json::json;
-    use std::path::{Path, PathBuf};
 
     use crate::configuration::Configuration;
-    use mithril_common::era::adapters::EraReaderAdapterType;
     use mithril_common::test_utils::fake_data;
 
     fn setup_test() -> (MockServer, Configuration, APIVersionProvider) {
         let server = MockServer::start();
         let config = Configuration {
-            cardano_cli_path: PathBuf::new().join("cardano-cli"),
-            cardano_node_socket_path: PathBuf::new().join("whatever"),
-            network_magic: Some(42),
-            network: "testnet".to_string(),
             aggregator_endpoint: server.url(""),
-            relay_endpoint: None,
-            party_id: Some("0".to_string()),
-            run_interval: 100,
-            db_directory: Path::new("./db").to_path_buf(),
-            data_stores_directory: Path::new("./stores").to_path_buf(),
-            store_retention_limit: None,
-            kes_secret_key_path: None,
-            operational_certificate_path: None,
-            disable_digests_cache: false,
-            reset_digests_cache: false,
-            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
-            era_reader_adapter_params: None,
-            enable_metrics_server: true,
-            metrics_server_ip: "0.0.0.0".to_string(),
-            metrics_server_port: 9090,
-            allow_unparsable_block: false,
+            ..Configuration::new_sample("0")
         };
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));

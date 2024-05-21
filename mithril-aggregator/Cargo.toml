@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.5.5"
+version = "0.5.8"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -11,6 +11,10 @@ repository = { workspace = true }
 
 [[bench]]
 name = "cardano_transactions_import"
+harness = false
+
+[[bench]]
+name = "cardano_transactions_get"
 harness = false
 
 [dependencies]

@@ -459,10 +459,7 @@ mod tests {
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockRange, CardanoDbBeacon, Epoch, ImmutableFileNumber, StakeDistribution},
-        era::{
-            adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
-            EraChecker, EraReader,
-        },
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
@@ -474,10 +471,7 @@ mod tests {
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
     use mockall::mock;
-    use std::{
-        path::{Path, PathBuf},
-        sync::Arc,
-    };
+    use std::{path::Path, sync::Arc};
 
     use crate::{
         metrics::MetricsService, AggregatorClient, CardanoTransactionsImporter,
@@ -597,34 +591,9 @@ mod tests {
         maybe_services: Option<SignerServices>,
         maybe_config: Option<Configuration>,
     ) -> SignerRunner {
-        let services = init_services().await;
-        let config = Configuration {
-            aggregator_endpoint: "http://0.0.0.0:3000".to_string(),
-            relay_endpoint: None,
-            cardano_cli_path: PathBuf::new(),
-            cardano_node_socket_path: PathBuf::new(),
-            db_directory: PathBuf::new(),
-            network: "whatever".to_string(),
-            network_magic: None,
-            party_id: Some("1".to_string()),
-            run_interval: 100,
-            data_stores_directory: PathBuf::new(),
-            kes_secret_key_path: None,
-            operational_certificate_path: None,
-            disable_digests_cache: false,
-            store_retention_limit: None,
-            reset_digests_cache: false,
-            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
-            era_reader_adapter_params: None,
-            enable_metrics_server: true,
-            metrics_server_ip: "0.0.0.0".to_string(),
-            metrics_server_port: 9090,
-            allow_unparsable_block: false,
-        };
-
         SignerRunner::new(
-            maybe_config.unwrap_or(config),
-            maybe_services.unwrap_or(services),
+            maybe_config.unwrap_or(Configuration::new_sample("1")),
+            maybe_services.unwrap_or(init_services().await),
         )
     }
 

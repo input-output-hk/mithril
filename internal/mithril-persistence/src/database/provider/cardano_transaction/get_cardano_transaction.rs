@@ -1,15 +1,13 @@
-use sqlite::Value;
 use std::ops::Range;
 
-use mithril_common::entities::{BlockNumber, ImmutableFileNumber, TransactionHash};
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use sqlite::Value;
+
+use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
 
 use crate::database::record::CardanoTransactionRecord;
-
-#[cfg(test)]
-use mithril_persistence::sqlite::GetAllCondition;
+use crate::sqlite::{
+    GetAllCondition, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
+};
 
 /// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
 pub struct GetCardanoTransactionProvider<'client> {
@@ -33,14 +31,31 @@ impl<'client> GetCardanoTransactionProvider<'client> {
         )
     }
 
-    pub fn get_transaction_up_to_beacon_condition(
+    pub fn get_transaction_hashes_condition(
         &self,
-        beacon: ImmutableFileNumber,
+        transactions_hashes: Vec<TransactionHash>,
     ) -> WhereCondition {
-        WhereCondition::new(
-            "immutable_file_number <= ?*",
-            vec![Value::Integer(beacon as i64)],
-        )
+        let hashes_values = transactions_hashes.into_iter().map(Value::String).collect();
+
+        WhereCondition::where_in("transaction_hash", hashes_values)
+    }
+
+    pub fn get_transaction_block_ranges_condition(
+        &self,
+        block_ranges: Vec<BlockRange>,
+    ) -> WhereCondition {
+        let mut where_condition = WhereCondition::default();
+        for block_range in block_ranges {
+            where_condition = where_condition.or_where(WhereCondition::new(
+                "(block_number >= ?* and block_number < ?*)",
+                vec![
+                    Value::Integer(block_range.start as i64),
+                    Value::Integer(block_range.end as i64),
+                ],
+            ))
+        }
+
+        where_condition
     }
 
     pub fn get_transaction_between_blocks_condition(
@@ -69,9 +84,8 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
         let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from cardano_tx where {condition} order by rowid")
+        format!("select {projection} from cardano_tx where {condition} order by block_number, transaction_hash")
     }
 }
 
-#[cfg(test)]
 impl GetAllCondition for GetCardanoTransactionProvider<'_> {}

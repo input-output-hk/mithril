@@ -31,6 +31,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/mithril-aggregator/cardano/db
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
+    command: [ "-vvv" ]
     logging:
       driver: "${LOGGING_DRIVER}"
       options:

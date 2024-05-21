@@ -1,6 +1,6 @@
 //! Migration module for cardano transactions store
 //!
-use mithril_persistence::database::SqlMigration;
+use crate::database::SqlMigration;
 
 /// Get all the migrations required by this version of the software.
 /// There shall be one migration per database version. There could be several
@@ -70,6 +70,20 @@ create table block_range_root (
     merkle_root   text      not null,
     primary key (start, end)
 );
+"#,
+        ),
+        // Migration 6
+        // Add composite index on `block_number/transaction_hash` column of `cardano_tx` table
+        // Truncate `block_range_root` table after changing the order of retrieval of the transactions
+        SqlMigration::new(
+            6,
+            r#"
+create index block_number_transaction_hash_index on cardano_tx(block_number, transaction_hash);
+
+-- remove all data from the block_range_root table since the order used to create them has changed
+delete from block_range_root;
+
+vacuum;
 "#,
         ),
     ]

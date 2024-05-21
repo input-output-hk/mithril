@@ -1,10 +1,8 @@
 use mithril_common::entities::BlockNumber;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
 use sqlite::Value;
 
 use crate::database::record::BlockRangeRootRecord;
+use crate::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition};
 
 /// Simple queries to retrieve [BlockRangeRootRecord] from the sqlite database.
 pub struct GetBlockRangeRootProvider<'client> {
@@ -22,8 +20,7 @@ impl<'client> GetBlockRangeRootProvider<'client> {
     }
 }
 
-#[cfg(test)]
-impl mithril_persistence::sqlite::GetAllCondition for GetBlockRangeRootProvider<'_> {}
+impl crate::sqlite::GetAllCondition for GetBlockRangeRootProvider<'_> {}
 
 impl<'client> Provider<'client> for GetBlockRangeRootProvider<'client> {
     type Entity = BlockRangeRootRecord;
