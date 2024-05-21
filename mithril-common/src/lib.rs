@@ -53,7 +53,6 @@ macro_rules! cfg_test_tools {
 pub mod api_version;
 pub mod certificate_chain;
 pub mod chain_observer;
-pub mod chain_reader;
 pub mod crypto_helper;
 pub mod entities;
 #[macro_use]
@@ -70,6 +69,7 @@ cfg_fs! {
     mod time_point_provider;
     pub mod digesters;
     pub mod cardano_block_scanner;
+    pub mod chain_reader;
 
     pub use time_point_provider::{TimePointProvider, TimePointProviderImpl};
 }
