@@ -1,5 +1,3 @@
-use std::cmp::max;
-
 use crate::entities::{BlockRange, CardanoTransaction};
 
 /// Builder to easily build transactions with consistent values.
@@ -10,7 +8,14 @@ pub struct CardanoTransactionsBuilder {
     first_immutable_file: u64,
 }
 
+impl Default for CardanoTransactionsBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CardanoTransactionsBuilder {
+    /// [CardanoTransactionsBuilder] constructor.
     pub fn new() -> Self {
         Self {
             max_transactions_per_block: 1,
@@ -49,13 +54,6 @@ impl CardanoTransactionsBuilder {
         }
         self.max_blocks_per_block_range = blocks_per_block_range;
         self
-    }
-
-    /// TODO Do we keep this function ? If yes, ido we keep it public ?
-    fn print_transactions(txs: &Vec<CardanoTransaction>) {
-        for tx in txs {
-            println!("{:?}", tx);
-        }
     }
 
     /// Default build that build only one transaction.
@@ -116,42 +114,6 @@ impl CardanoTransactionsBuilder {
             immutable_file_number,
         )
     }
-
-    // TODO to remove when builder is finished
-    pub fn generate_transactions_with_block_ranges(
-        total_block_ranges: usize,
-        total_transactions_per_block_range: usize,
-    ) -> Vec<CardanoTransaction> {
-        let block_range_length = BlockRange::LENGTH as usize;
-        let max_transaction_per_block_number =
-            max(1, total_transactions_per_block_range / block_range_length);
-        let mut transactions = vec![];
-
-        for i in 0..total_block_ranges {
-            let block_range = BlockRange::from_block_number((i * block_range_length) as u64);
-            for j in 0..total_transactions_per_block_range {
-                let transaction_index = i * total_transactions_per_block_range + j;
-                let block_number =
-                    block_range.start + (j / max_transaction_per_block_number) as u64;
-                let slot_number = 100 * block_number;
-                let immutable_file_number = block_number / 5;
-                let tx_hash = format!(
-                    "tx-br-{}..{}-{}-idx-{}",
-                    block_range.start, block_range.end, j, transaction_index
-                );
-                let block_hash = format!("block_hash-{block_number}");
-                transactions.push(CardanoTransaction::new(
-                    &tx_hash,
-                    block_number,
-                    slot_number,
-                    block_hash,
-                    immutable_file_number,
-                ));
-            }
-        }
-
-        transactions
-    }
 }
 
 #[cfg(test)]
@@ -159,13 +121,6 @@ mod test {
     use std::collections::{HashMap, HashSet};
 
     use super::*;
-
-    #[test]
-    fn return_one_transaction_by_default() {
-        let transactions = CardanoTransactionsBuilder::new().build();
-
-        assert_eq!(transactions.len(), 1);
-    }
 
     fn count_distinct_values<T, R>(list: &[T], extract_value: &dyn Fn(&T) -> R) -> usize
     where
@@ -188,25 +143,15 @@ mod test {
         grouped_by_block
     }
 
+    fn extract_by<T, R>(list: &[T], extract_value: &dyn Fn(&T) -> R) -> Vec<R> {
+        list.iter().map(extract_value).collect()
+    }
+
     #[test]
-    fn generate_transactions_with_block_ranges_test() {
-        let total_block_ranges = 3;
-        let total_transactions_per_block_range = 10;
-        let transactions = CardanoTransactionsBuilder::generate_transactions_with_block_ranges(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
+    fn return_one_transaction_by_default() {
+        let transactions = CardanoTransactionsBuilder::new().build();
 
-        CardanoTransactionsBuilder::print_transactions(&transactions);
-
-        println!("-------------------");
-
-        let transactions = CardanoTransactionsBuilder::new()
-            .per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
-
-        CardanoTransactionsBuilder::print_transactions(&transactions);
+        assert_eq!(transactions.len(), 1);
     }
 
     #[test]
@@ -278,26 +223,10 @@ mod test {
         assert_eq!(vec![2, 5, 5], txs_per_block);
     }
 
-    // TODO to remove when builder is finished    #[test]
-    fn test_generate_transactions_with_block_ranges() {
-        let total_block_ranges = 3;
-        let total_transactions_per_block_range = 10;
-        let transactions = CardanoTransactionsBuilder::generate_transactions_with_block_ranges(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
-
-        CardanoTransactionsBuilder::print_transactions(&transactions);
-    }
-
     #[test]
     fn generate_one_block_range_return_one_transaction_by_default() {
         let txs = CardanoTransactionsBuilder::new().build_block_ranges(1);
         assert_eq!(txs.len(), 1);
-    }
-
-    fn extract_by<T, R>(list: &[T], extract_value: &dyn Fn(&T) -> R) -> Vec<R> {
-        list.iter().map(extract_value).collect()
     }
 
     #[test]
