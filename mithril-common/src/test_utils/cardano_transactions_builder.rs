@@ -7,6 +7,7 @@ pub struct CardanoTransactionsBuilder {
     max_transactions_per_block: usize,
     max_blocks_per_block_range: usize,
     max_transactions_per_immutable_file: usize,
+    first_immutable_file: u64,
 }
 
 impl CardanoTransactionsBuilder {
@@ -15,6 +16,7 @@ impl CardanoTransactionsBuilder {
             max_transactions_per_block: 1,
             max_blocks_per_block_range: 1,
             max_transactions_per_immutable_file: 1,
+            first_immutable_file: 1,
         }
     }
 
@@ -27,6 +29,12 @@ impl CardanoTransactionsBuilder {
     /// Define how many transactions we generate for one immutable_file.
     pub fn per_immutable_file(mut self, transactions_per_immutable_file: usize) -> Self {
         self.max_transactions_per_immutable_file = transactions_per_immutable_file;
+        self
+    }
+
+    /// Define the first immutable file number.
+    pub fn first_immutable_file(mut self, first_immutable_file: u64) -> Self {
+        self.first_immutable_file = first_immutable_file;
         self
     }
 
@@ -61,10 +69,13 @@ impl CardanoTransactionsBuilder {
         let first_transaction_number = 100;
         for tx_index in 0..transactions_count {
             let block_number = self.block_number_from_transaction_index(tx_index);
+            let immutable_file_number = tx_index as u64
+                / self.max_transactions_per_immutable_file as u64
+                + self.first_immutable_file;
             transactions.push(self.create_transaction(
                 tx_index as u64 + first_transaction_number,
                 block_number,
-                tx_index as u64 / self.max_transactions_per_immutable_file as u64,
+                immutable_file_number,
             ))
         }
 
@@ -392,6 +403,34 @@ mod test {
         assert_eq!(
             4,
             count_distinct_values(&transactions, &|t| t.immutable_file_number)
+        );
+    }
+
+    #[test]
+    fn build_transactions_with_same_number_of_transactions_per_immutable_file() {
+        let transactions = CardanoTransactionsBuilder::new()
+            .per_immutable_file(5)
+            .build_transactions(20);
+
+        assert_eq!(transactions.len(), 20);
+
+        let grouped_by_immutable_file = group_by(&transactions, &|t| t.immutable_file_number);
+        assert_eq!(4, grouped_by_immutable_file.len());
+
+        for transaction_for_immutable_file in grouped_by_immutable_file.values() {
+            assert_eq!(5, transaction_for_immutable_file.len());
+        }
+    }
+
+    #[test]
+    fn build_transactions_with_immutable_file_starting_at_a_specific_number() {
+        let transactions = CardanoTransactionsBuilder::new()
+            .first_immutable_file(5)
+            .build_transactions(3);
+
+        assert_eq!(
+            vec![5, 6, 7],
+            extract_by(&transactions, &|t| t.immutable_file_number)
         );
     }
 }
