@@ -10,7 +10,7 @@ use super::ChainBlockNextAction;
 /// - do nothing
 #[async_trait]
 pub trait ChainBlockReader {
-    // /// Intersect the point of the chain with the given point
+    /// Intersect the point of the chain with the given point
     async fn intersect_point(&mut self, point: &ChainPoint) -> StdResult<()>;
 
     /// Get the next chain block
