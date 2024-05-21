@@ -48,6 +48,7 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to get client")
     }
 
+    /// Intersects the tip of the chain with the given point.
     async fn intersect_tip(&mut self, point: &ChainPoint) -> StdResult<()> {
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
