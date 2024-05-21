@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::{entities::ChainPoint, StdResult};
+use crate::StdResult;
 
 use super::ChainBlockNextAction;
 
