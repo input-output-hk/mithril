@@ -203,7 +203,6 @@ mod tests {
                             .await
                             .unwrap();
                     }
-                    _ => panic!("Unexpected action"),
                 }
             }
         })
