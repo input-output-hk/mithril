@@ -157,9 +157,7 @@ mod tests {
 
     /// Sets up a mock server for related tests.
     ///
-    /// Use the `intersections` parameter to define exactly how many
-    /// local state queries should be intersepted by the `mock_server`
-    /// and avoid any panic errors.
+    /// Use the `action` parameter to specify the action to be performed by the server.
     async fn setup_server(socket_path: PathBuf, action: String) -> tokio::task::JoinHandle<()> {
         tokio::spawn({
             async move {
