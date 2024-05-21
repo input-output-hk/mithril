@@ -119,6 +119,11 @@ mod tests {
 
     use crate::test_utils::TempDir;
 
+    enum ServerAction {
+        RollBackwards,
+        RollForwards,
+    }
+
     /// Returns a fake chain point for testing purposes.
     fn get_fake_chain_point_backwards() -> ChainPoint {
         ChainPoint::from(Point::Specific(
@@ -158,7 +163,10 @@ mod tests {
     /// Sets up a mock server for related tests.
     ///
     /// Use the `action` parameter to specify the action to be performed by the server.
-    async fn setup_server(socket_path: PathBuf, action: String) -> tokio::task::JoinHandle<()> {
+    async fn setup_server(
+        socket_path: PathBuf,
+        action: ServerAction,
+    ) -> tokio::task::JoinHandle<()> {
         tokio::spawn({
             async move {
                 if socket_path.exists() {
@@ -180,14 +188,14 @@ mod tests {
 
                 chansync_server.recv_while_idle().await.unwrap();
 
-                match action.as_str() {
-                    "roll_backwards" => {
+                match action {
+                    ServerAction::RollBackwards => {
                         chansync_server
                             .send_roll_backward(known_point.clone(), Tip(known_point.clone(), 1337))
                             .await
                             .unwrap();
                     }
-                    "roll_forwards" => {
+                    ServerAction::RollForwards => {
                         // mock
                         let block = BlockContent(hex::decode("c0ffeec0ffeec0ffee").unwrap());
                         chansync_server
@@ -206,7 +214,7 @@ mod tests {
         let socket_path =
             create_temp_dir("get_next_chain_block_roll_backwards").join("node.socket");
         let known_point = get_fake_intersection_point();
-        let server = setup_server(socket_path.clone(), "roll_backwards".to_string()).await;
+        let server = setup_server(socket_path.clone(), ServerAction::RollBackwards).await;
         let client = tokio::spawn(async move {
             let mut chain_reader =
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
@@ -235,7 +243,7 @@ mod tests {
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
                 .unwrap(),
         );
-        let server = setup_server(socket_path.clone(), "roll_forwards".to_string()).await;
+        let server = setup_server(socket_path.clone(), ServerAction::RollForwards).await;
         let client = tokio::spawn(async move {
             let mut chain_reader =
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
