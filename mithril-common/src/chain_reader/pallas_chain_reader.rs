@@ -173,7 +173,6 @@ mod tests {
 
                 let chansync_server = server.chainsync();
 
-                // chansync_server receives request next from client, sends rollbackwards
                 chansync_server.recv_while_idle().await.unwrap();
 
                 chansync_server
@@ -181,7 +180,6 @@ mod tests {
                     .await
                     .unwrap();
 
-                // chansync_server receives request next from client, sends rollbackwards
                 chansync_server.recv_while_idle().await.unwrap();
 
                 match action.as_str() {
