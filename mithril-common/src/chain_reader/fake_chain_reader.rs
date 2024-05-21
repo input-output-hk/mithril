@@ -5,7 +5,7 @@ use crate::{entities::ChainPoint, StdResult};
 
 use super::{ChainBlockNextAction, ChainBlockReader};
 
-/// [FakeChainReader] is a fake implementation of [ChainReader] for testing purposes.
+/// [FakeChainReader] is a fake implementation of [ChainBlockReader] for testing purposes.
 pub struct FakeChainReader {
     chain_point_next_actions: Mutex<VecDeque<ChainBlockNextAction>>,
 }
