@@ -11,12 +11,6 @@ use super::ChainBlockNextAction;
 /// - do nothing
 #[async_trait]
 pub trait ChainBlockReader {
-    /// Process the next chain block action
-    async fn process_next_chain_block(
-        &mut self,
-        point: NextResponse<BlockContent>,
-    ) -> StdResult<Option<ChainBlockNextAction>>;
-
     /// Get the next chain block
     async fn get_next_chain_block(
         &mut self,

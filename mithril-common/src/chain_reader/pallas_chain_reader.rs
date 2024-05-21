@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_network::{
     facades::NodeClient,
-    miniprotocols::chainsync::{self, NextResponse},
+    miniprotocols::chainsync::{BlockContent, NextResponse},
 };
 
 use crate::{entities::ChainPoint, CardanoNetwork, StdResult};
@@ -47,23 +47,11 @@ impl PallasChainReader {
             .as_mut()
             .with_context(|| "PallasChainReader failed to get client")
     }
-}
 
-impl Drop for PallasChainReader {
-    fn drop(&mut self) {
-        if let Some(client) = self.client.take() {
-            tokio::spawn(async move {
-                let _ = client.abort().await;
-            });
-        }
-    }
-}
-
-#[async_trait]
-impl ChainBlockReader for PallasChainReader {
+    /// Processes the next chain block and returns the appropriate action.
     async fn process_next_chain_block(
         &mut self,
-        next: chainsync::NextResponse<chainsync::BlockContent>,
+        next: NextResponse<BlockContent>,
     ) -> StdResult<Option<ChainBlockNextAction>> {
         match next {
             NextResponse::RollForward(raw_block, forward_tip) => {
@@ -80,7 +68,20 @@ impl ChainBlockReader for PallasChainReader {
             NextResponse::Await => Ok(None),
         }
     }
+}
 
+impl Drop for PallasChainReader {
+    fn drop(&mut self) {
+        if let Some(client) = self.client.take() {
+            tokio::spawn(async move {
+                let _ = client.abort().await;
+            });
+        }
+    }
+}
+
+#[async_trait]
+impl ChainBlockReader for PallasChainReader {
     async fn get_next_chain_block(
         &mut self,
         point: &ChainPoint,
