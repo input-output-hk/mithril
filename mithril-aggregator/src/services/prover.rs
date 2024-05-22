@@ -208,11 +208,9 @@ mod tests {
         ) -> BTreeMap<BlockRange, Vec<CardanoTransaction>> {
             let mut block_ranges_map = BTreeMap::new();
             for transaction in transactions {
-                let block_range_first_block =
-                    BlockRange::from_block_number(transaction.block_number);
-                let block_range_transactions: &mut Vec<_> = block_ranges_map
-                    .entry(block_range_first_block)
-                    .or_insert(vec![]);
+                let block_range = BlockRange::from_block_number(transaction.block_number);
+                let block_range_transactions: &mut Vec<_> =
+                    block_ranges_map.entry(block_range).or_insert(vec![]);
                 block_range_transactions.push(transaction.to_owned())
             }
 
@@ -319,7 +317,7 @@ mod tests {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
-            .per_block(1)
+            .max_transactions_per_block(1)
             .blocks_per_block_range(total_transactions_per_block_range)
             .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
@@ -372,7 +370,7 @@ mod tests {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
-            .per_block(1)
+            .max_transactions_per_block(1)
             .blocks_per_block_range(total_transactions_per_block_range)
             .build_block_ranges(total_block_ranges);
         let transactions_to_prove = test_data::filter_transactions_for_indices(&[], &transactions);
@@ -420,7 +418,7 @@ mod tests {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
-            .per_block(1)
+            .max_transactions_per_block(1)
             .blocks_per_block_range(total_transactions_per_block_range)
             .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
@@ -481,7 +479,7 @@ mod tests {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
-            .per_block(1)
+            .max_transactions_per_block(1)
             .blocks_per_block_range(total_transactions_per_block_range)
             .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
@@ -511,7 +509,7 @@ mod tests {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
-            .per_block(1)
+            .max_transactions_per_block(1)
             .blocks_per_block_range(total_transactions_per_block_range)
             .build_block_ranges(total_block_ranges);
         let transactions_to_prove =

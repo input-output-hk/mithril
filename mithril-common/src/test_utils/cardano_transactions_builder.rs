@@ -26,13 +26,16 @@ impl CardanoTransactionsBuilder {
     }
 
     /// Define how many transactions we generate in each block.
-    pub fn per_block(mut self, transactions_per_block: usize) -> Self {
+    pub fn max_transactions_per_block(mut self, transactions_per_block: usize) -> Self {
         self.max_transactions_per_block = transactions_per_block;
         self
     }
 
     /// Define how many transactions we generate for one immutable_file.
-    pub fn per_immutable_file(mut self, transactions_per_immutable_file: usize) -> Self {
+    pub fn max_transactions_per_immutable_file(
+        mut self,
+        transactions_per_immutable_file: usize,
+    ) -> Self {
         self.max_transactions_per_immutable_file = transactions_per_immutable_file;
         self
     }
@@ -54,11 +57,6 @@ impl CardanoTransactionsBuilder {
         }
         self.max_blocks_per_block_range = blocks_per_block_range;
         self
-    }
-
-    /// Default build that build only one transaction.
-    pub fn build(self) -> Vec<CardanoTransaction> {
-        self.build_transactions(1)
     }
 
     /// Build the number of transactions requested.
@@ -148,13 +146,6 @@ mod test {
     }
 
     #[test]
-    fn return_one_transaction_by_default() {
-        let transactions = CardanoTransactionsBuilder::new().build();
-
-        assert_eq!(transactions.len(), 1);
-    }
-
-    #[test]
     fn return_given_number_of_transactions_with_distinct_values() {
         let txs = CardanoTransactionsBuilder::new().build_transactions(3);
 
@@ -174,7 +165,7 @@ mod test {
     fn return_all_transactions_in_same_block_when_ask_less_transactions_than_transactions_per_block(
     ) {
         let txs = CardanoTransactionsBuilder::new()
-            .per_block(10)
+            .max_transactions_per_block(10)
             .build_transactions(3);
 
         assert_eq!(txs.len(), 3);
@@ -190,7 +181,7 @@ mod test {
     #[test]
     fn return_no_more_transactions_in_a_same_block_than_number_per_block_requested() {
         let txs = CardanoTransactionsBuilder::new()
-            .per_block(3)
+            .max_transactions_per_block(3)
             .build_transactions(12);
 
         assert_eq!(txs.len(), 12);
@@ -206,7 +197,7 @@ mod test {
     #[test]
     fn only_the_last_block_is_not_full_when_we_can_not_fill_all_blocks() {
         let txs = CardanoTransactionsBuilder::new()
-            .per_block(5)
+            .max_transactions_per_block(5)
             .build_transactions(12);
 
         assert_eq!(txs.len(), 12);
@@ -245,7 +236,7 @@ mod test {
     #[test]
     fn build_block_ranges_return_many_transactions_per_block_when_requested() {
         let txs = CardanoTransactionsBuilder::new()
-            .per_block(5)
+            .max_transactions_per_block(5)
             .build_block_ranges(3);
 
         assert_eq!(txs.len(), 3 * 5);
@@ -266,7 +257,7 @@ mod test {
     #[test]
     fn build_block_ranges_with_many_blocks_per_block_ranges() {
         let txs = CardanoTransactionsBuilder::new()
-            .per_block(5)
+            .max_transactions_per_block(5)
             .blocks_per_block_range(2)
             .build_block_ranges(3);
 
@@ -291,7 +282,7 @@ mod test {
     #[test]
     fn build_transactions_with_many_blocks_per_block_ranges() {
         let txs = CardanoTransactionsBuilder::new()
-            .per_block(5)
+            .max_transactions_per_block(5)
             .blocks_per_block_range(2)
             .build_transactions(18);
 
@@ -324,7 +315,7 @@ mod test {
     #[test]
     fn build_transactions_with_many_transactions_per_immutable_file() {
         let transactions = CardanoTransactionsBuilder::new()
-            .per_immutable_file(5)
+            .max_transactions_per_immutable_file(5)
             .build_transactions(18);
 
         assert_eq!(transactions.len(), 18);
@@ -338,7 +329,7 @@ mod test {
     #[test]
     fn build_transactions_with_same_number_of_transactions_per_immutable_file() {
         let transactions = CardanoTransactionsBuilder::new()
-            .per_immutable_file(5)
+            .max_transactions_per_immutable_file(5)
             .build_transactions(20);
 
         assert_eq!(transactions.len(), 20);

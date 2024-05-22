@@ -477,11 +477,11 @@ mod tests {
         let repository = CardanoTransactionRepository::new(connection);
 
         let cardano_transactions: Vec<CardanoTransactionRecord> = CardanoTransactionsBuilder::new()
-            .per_immutable_file(10)
+            .max_transactions_per_immutable_file(10)
             .first_immutable_file(120)
             .build_transactions(40)
-            .iter()
-            .map(|transaction| CardanoTransactionRecord::from(transaction.clone()))
+            .into_iter()
+            .map(CardanoTransactionRecord::from)
             .collect();
 
         repository
@@ -898,8 +898,8 @@ mod tests {
         let cardano_transactions: Vec<CardanoTransactionRecord> = CardanoTransactionsBuilder::new()
             .blocks_per_block_range(15)
             .build_transactions(53)
-            .iter()
-            .map(|transaction| CardanoTransactionRecord::from(transaction.clone()))
+            .into_iter()
+            .map(CardanoTransactionRecord::from)
             .collect();
 
         repository
