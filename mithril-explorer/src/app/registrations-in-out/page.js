@@ -4,10 +4,11 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/utils";
-import { Alert, Col, Row, Spinner, Stack } from "react-bootstrap";
+import { Accordion, Alert, Col, Row, Spinner, Stack } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
 import { fetchRegistrations } from "@/aggregator-api";
+import SignerTable from "#/SignerTable";
 
 export default function RegistrationsChanges() {
   const dispatch = useDispatch();
@@ -99,13 +100,44 @@ export default function RegistrationsChanges() {
         <Spinner animation="grow" />
       ) : (
         <Row>
-          <Col xs={12} sm={12} md={7}>
-            <h3>Signers</h3>
-            <h4>Dedup</h4>
-            {JSON.stringify(dedupDiff)}
-            <h4>Complete</h4>
-            {JSON.stringify(completeDiff)}
-          </Col>
+          <Accordion defaultActiveKey={["out", "in"]} alwaysOpen>
+            <Accordion.Item eventKey="out">
+              <Accordion.Header>
+                <i className="bi bi-box-arrow-left"></i> Missing Signers
+              </Accordion.Header>
+              <Accordion.Body>
+                {Object.entries(dedupDiff)
+                  .reverse()
+                  .filter(([_, movements]) => movements.out.length > 0)
+                  .map(([epoch, movements]) => (
+                    <>
+                      <h4>
+                        Missing since epoch <span className="text-secondary">#{epoch}</span>
+                      </h4>
+                      <SignerTable signers={movements.out} />
+                    </>
+                  ))}
+              </Accordion.Body>
+            </Accordion.Item>
+            <Accordion.Item eventKey="in">
+              <Accordion.Header>
+                <i className="bi bi-box-arrow-in-right"></i> New Signers
+              </Accordion.Header>
+              <Accordion.Body>
+                {Object.entries(dedupDiff)
+                  .reverse()
+                  .filter(([_, movements]) => movements.in.length)
+                  .map(([epoch, movements]) => (
+                    <>
+                      <h4>
+                        New since epoch <span className="text-secondary">#{epoch}</span>
+                      </h4>
+                      <SignerTable signers={movements.in} />
+                    </>
+                  ))}
+              </Accordion.Body>
+            </Accordion.Item>
+          </Accordion>
         </Row>
       )}
     </Stack>
