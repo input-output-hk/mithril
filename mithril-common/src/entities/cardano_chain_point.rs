@@ -25,13 +25,23 @@ pub struct ChainPoint {
     pub block_hash: BlockHash,
 }
 
+impl ChainPoint {
+    /// Create origin chain point
+    pub fn is_origin(&self) -> bool {
+        self.slot_number == 0 && self.block_number == 0 && self.block_hash.is_empty()
+    }
+}
+
 cfg_fs! {
     impl From<ChainPoint> for Point {
         fn from(chain_point: ChainPoint) -> Self {
-            Point::Specific(
-                chain_point.slot_number,
-                hex::decode(&chain_point.block_hash).unwrap(), // TODO: keep block_hash as a Vec<u8>
-            )
+            match chain_point.is_origin() {
+                true => Self::Origin,
+                false => Self::Specific(
+                    chain_point.slot_number,
+                    hex::decode(&chain_point.block_hash).unwrap(), // TODO: keep block_hash as a Vec<u8>
+                ),
+            }
         }
     }
 
