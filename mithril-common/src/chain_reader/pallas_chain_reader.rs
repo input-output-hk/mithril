@@ -48,6 +48,18 @@ impl PallasChainReader {
             .with_context(|| "PallasChainReader failed to get client")
     }
 
+    /// Intersects the point of the chain with the given point.
+    async fn intersect_point(&mut self, point: &ChainPoint) -> StdResult<()> {
+        let client = self.get_client().await?;
+        let chainsync = client.chainsync();
+
+        chainsync
+            .find_intersect(vec![point.to_owned().into()])
+            .await?;
+
+        Ok(())
+    }
+
     /// Processes the next chain block and returns the appropriate action.
     async fn process_next_chain_block(
         &mut self,
@@ -82,16 +94,8 @@ impl Drop for PallasChainReader {
 
 #[async_trait]
 impl ChainBlockReader for PallasChainReader {
-    /// Intersects the point of the chain with the given point.
-    async fn intersect_point(&mut self, point: &ChainPoint) -> StdResult<()> {
-        let client = self.get_client().await?;
-        let chainsync = client.chainsync();
-
-        chainsync
-            .find_intersect(vec![point.to_owned().into()])
-            .await?;
-
-        Ok(())
+    async fn set_chain_point(&mut self, point: &ChainPoint) -> StdResult<()> {
+        self.intersect_point(point).await
     }
 
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>> {
@@ -241,7 +245,7 @@ mod tests {
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
 
             chain_reader
-                .intersect_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&ChainPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 
@@ -277,7 +281,7 @@ mod tests {
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
 
             chain_reader
-                .intersect_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&ChainPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 
@@ -316,7 +320,7 @@ mod tests {
                 PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
 
             chain_reader
-                .intersect_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&ChainPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 
