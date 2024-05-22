@@ -141,35 +141,23 @@ mod tests {
         No,
     }
 
-    /// Returns a fake chain point for testing purposes.
-    fn get_fake_chain_point_backwards() -> ChainPoint {
-        ChainPoint::from(Point::Specific(
-            1654413,
-            hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
-                .unwrap(),
-        ))
-    }
-
-    /// Returns a fake chain point for testing purposes.
-    fn get_fake_chain_point_forwards() -> ChainPoint {
-        Tip(
-            Point::Specific(
-                1654413,
-                hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
-                    .unwrap(),
-            ),
-            1337,
-        )
-        .into()
-    }
-
-    /// Returns a fake intersection point for testing purposes.
-    fn get_fake_intersection_point() -> Point {
+    /// Returns a fake specific point for testing purposes.
+    fn get_fake_specific_point() -> Point {
         Point::Specific(
             1654413,
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
                 .unwrap(),
         )
+    }
+
+    /// Returns a fake chain point for testing purposes.
+    fn get_fake_chain_point_backwards() -> ChainPoint {
+        ChainPoint::from(get_fake_specific_point())
+    }
+
+    /// Returns a fake chain point for testing purposes.
+    fn get_fake_chain_point_forwards() -> ChainPoint {
+        Tip(get_fake_specific_point(), 1337).into()
     }
 
     /// Creates a new work directory in the system's temporary folder.
@@ -191,7 +179,7 @@ mod tests {
                     fs::remove_file(&socket_path).expect("Previous socket removal failed");
                 }
 
-                let known_point = get_fake_intersection_point();
+                let known_point = get_fake_specific_point();
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
                 let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
 
@@ -233,7 +221,7 @@ mod tests {
     async fn get_next_chain_block_roll_backwards() {
         let socket_path =
             create_temp_dir("get_next_chain_block_roll_backwards").join("node.socket");
-        let known_point = get_fake_intersection_point();
+        let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
             ServerAction::RollBackwards,
@@ -308,7 +296,7 @@ mod tests {
     #[tokio::test]
     async fn get_next_chain_block_has_no_agency() {
         let socket_path = create_temp_dir("get_next_chain_block_has_no_agency").join("node.socket");
-        let known_point = get_fake_intersection_point();
+        let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
             ServerAction::RollForwards,
