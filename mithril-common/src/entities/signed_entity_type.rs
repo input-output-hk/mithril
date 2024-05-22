@@ -91,9 +91,8 @@ impl SignedEntityType {
     pub fn get_open_message_timeout(&self) -> Option<Duration> {
         match self {
             Self::MithrilStakeDistribution(_) | Self::CardanoImmutableFilesFull(_) => None,
-            Self::CardanoStakeDistribution(_) | Self::CardanoTransactions(_) => {
-                Some(Duration::from_secs(600))
-            }
+            Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(600)),
+            Self::CardanoTransactions(_) => Some(Duration::from_secs(1800)),
         }
     }
 
