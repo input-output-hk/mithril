@@ -109,7 +109,10 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
 #[cfg(test)]
 mod tests {
 
-    use crate::{entities::CardanoTransaction, test_utils::TestLogger};
+    use crate::{
+        entities::CardanoTransaction,
+        test_utils::{CardanoTransactionsBuilder, TestLogger},
+    };
 
     use super::*;
 
@@ -132,11 +135,7 @@ mod tests {
             immutable_file_number: 14,
             ..CardanoDbBeacon::default()
         };
-        let transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash-", 11),
-            CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 12),
-            CardanoTransaction::new("tx-hash-789", 30, 3, "block_hash", 13),
-        ];
+        let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer

@@ -153,11 +153,10 @@ impl ProverService for MithrilProverService {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::max;
-
     use anyhow::anyhow;
     use mithril_common::crypto_helper::{MKMap, MKMapNode, MKTreeNode};
     use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
+    use mithril_common::test_utils::CardanoTransactionsBuilder;
     use mockall::mock;
     use mockall::predicate::eq;
 
@@ -183,43 +182,6 @@ mod tests {
     mod test_data {
         use super::*;
 
-        // Generate transactions for 'total_block_ranges' consecutive block ranges,
-        // with 'total_transactions_per_block_range' transactions per block range
-        pub fn generate_transactions(
-            total_block_ranges: usize,
-            total_transactions_per_block_range: usize,
-        ) -> Vec<CardanoTransaction> {
-            let block_range_length = BlockRange::LENGTH as usize;
-            let max_transaction_per_block_number =
-                max(1, total_transactions_per_block_range / block_range_length);
-            let mut transactions = vec![];
-
-            for i in 0..total_block_ranges {
-                let block_range = BlockRange::from_block_number((i * block_range_length) as u64);
-                for j in 0..total_transactions_per_block_range {
-                    let transaction_index = i * total_transactions_per_block_range + j;
-                    let block_number =
-                        block_range.start + (j / max_transaction_per_block_number) as u64;
-                    let slot_number = 100 * block_number;
-                    let immutable_file_number = block_number / 5;
-                    let tx_hash = format!(
-                        "tx-br-{}..{}-{}-idx-{}",
-                        block_range.start, block_range.end, j, transaction_index
-                    );
-                    let block_hash = format!("block_hash-{block_number}");
-                    transactions.push(CardanoTransaction::new(
-                        &tx_hash,
-                        block_number,
-                        slot_number,
-                        block_hash,
-                        immutable_file_number,
-                    ));
-                }
-            }
-
-            transactions
-        }
-
         pub fn filter_transactions_for_indices(
             indices: &[usize],
             transactions: &[CardanoTransaction],
@@ -232,7 +194,7 @@ mod tests {
                 .collect()
         }
 
-        pub fn compute_transaction_hashes_from_transactions(
+        pub fn map_to_transaction_hashes(
             transactions: &[CardanoTransaction],
         ) -> Vec<TransactionHash> {
             transactions
@@ -241,7 +203,7 @@ mod tests {
                 .collect()
         }
 
-        pub fn compute_block_ranges_map_from_transactions(
+        pub fn transactions_group_by_block_range(
             transactions: &[CardanoTransaction],
         ) -> BTreeMap<BlockRange, Vec<CardanoTransaction>> {
             let mut block_ranges_map = BTreeMap::new();
@@ -309,11 +271,10 @@ mod tests {
             transactions_to_prove: &[CardanoTransaction],
             transactions: &[CardanoTransaction],
         ) -> TestData {
-            let transaction_hashes_to_prove =
-                compute_transaction_hashes_from_transactions(transactions_to_prove);
-            let block_ranges_map = compute_block_ranges_map_from_transactions(transactions);
+            let transaction_hashes_to_prove = map_to_transaction_hashes(transactions_to_prove);
+            let block_ranges_map = transactions_group_by_block_range(transactions);
             let block_ranges_map_to_prove =
-                compute_block_ranges_map_from_transactions(transactions_to_prove);
+                transactions_group_by_block_range(transactions_to_prove);
             let block_ranges_to_prove = block_ranges_map_to_prove
                 .keys()
                 .cloned()
@@ -355,10 +316,10 @@ mod tests {
     async fn compute_proof_for_one_set_of_three_known_transactions() {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
-        let transactions = test_data::generate_transactions(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
+        let transactions = CardanoTransactionsBuilder::new()
+            .max_transactions_per_block(1)
+            .blocks_per_block_range(total_transactions_per_block_range)
+            .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -408,10 +369,10 @@ mod tests {
     async fn cant_compute_proof_for_unknown_transaction() {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
-        let transactions = test_data::generate_transactions(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
+        let transactions = CardanoTransactionsBuilder::new()
+            .max_transactions_per_block(1)
+            .blocks_per_block_range(total_transactions_per_block_range)
+            .build_block_ranges(total_block_ranges);
         let transactions_to_prove = test_data::filter_transactions_for_indices(&[], &transactions);
         let mut test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         test_data.transaction_hashes_to_prove = vec!["tx-unknown-123".to_string()];
@@ -456,10 +417,10 @@ mod tests {
     async fn compute_proof_for_one_set_of_three_known_transactions_and_two_unknowns() {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
-        let transactions = test_data::generate_transactions(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
+        let transactions = CardanoTransactionsBuilder::new()
+            .max_transactions_per_block(1)
+            .blocks_per_block_range(total_transactions_per_block_range)
+            .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let transaction_hashes_unknown =
@@ -517,10 +478,10 @@ mod tests {
     async fn cant_compute_proof_if_transaction_retriever_fails() {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
-        let transactions = test_data::generate_transactions(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
+        let transactions = CardanoTransactionsBuilder::new()
+            .max_transactions_per_block(1)
+            .blocks_per_block_range(total_transactions_per_block_range)
+            .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -547,10 +508,10 @@ mod tests {
     async fn cant_compute_proof_if_block_range_root_retriever_fails() {
         let total_block_ranges = 5;
         let total_transactions_per_block_range = 3;
-        let transactions = test_data::generate_transactions(
-            total_block_ranges,
-            total_transactions_per_block_range,
-        );
+        let transactions = CardanoTransactionsBuilder::new()
+            .max_transactions_per_block(1)
+            .blocks_per_block_range(total_transactions_per_block_range)
+            .build_block_ranges(total_block_ranges);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);

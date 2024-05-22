@@ -68,15 +68,19 @@ impl CardanoTransactionRepository {
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         // Get the highest block number for the given immutable number.
         // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
-        let block_number = self
+
+        if let Some(block_number) = self
             .get_highest_block_number_for_immutable_number(beacon)
             .await?
-            .unwrap_or(0);
-        let provider = GetCardanoTransactionProvider::new(&self.connection);
-        let filters = provider.get_transaction_between_blocks_condition(0..block_number + 1);
-        let transactions = provider.find(filters)?;
+        {
+            let provider = GetCardanoTransactionProvider::new(&self.connection);
+            let filters = provider.get_transaction_between_blocks_condition(0..block_number + 1);
+            let transactions = provider.find(filters)?;
 
-        Ok(transactions.collect())
+            Ok(transactions.collect())
+        } else {
+            Ok(vec![])
+        }
     }
 
     /// Return the [CardanoTransactionRecord] for the given transaction hash.
@@ -324,6 +328,8 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::test_utils::CardanoTransactionsBuilder;
+
     use crate::database::provider::GetBlockRangeRootProvider;
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::sqlite::GetAllProvider;
@@ -470,15 +476,12 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
-        // Build transactions with block numbers from 20 to 40 and immutable file numbers from 12 to 14
-        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=40)
-            .map(|i| CardanoTransactionRecord {
-                transaction_hash: format!("tx-hash-{i}"),
-                block_number: i,
-                slot_number: i * 100,
-                block_hash: format!("block-hash-{i}"),
-                immutable_file_number: i / 10 + 10,
-            })
+        let cardano_transactions: Vec<CardanoTransactionRecord> = CardanoTransactionsBuilder::new()
+            .max_transactions_per_immutable_file(10)
+            .first_immutable_file(120)
+            .build_transactions(40)
+            .into_iter()
+            .map(CardanoTransactionRecord::from)
             .collect();
 
         repository
@@ -486,7 +489,7 @@ mod tests {
             .await
             .unwrap();
 
-        let transaction_result = repository.get_transactions_up_to(12).await.unwrap();
+        let transaction_result = repository.get_transactions_up_to(120).await.unwrap();
         let transaction_up_to_immutable_file_number_12 = cardano_transactions[0..10].to_vec();
         assert_eq!(
             transaction_up_to_immutable_file_number_12,
@@ -497,7 +500,28 @@ mod tests {
         let transaction_all = cardano_transactions[..].to_vec();
         assert_eq!(transaction_all, transaction_result);
 
-        let transaction_result = repository.get_transactions_up_to(9).await.unwrap();
+        let transaction_result = repository.get_transactions_up_to(90).await.unwrap();
+        assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
+    }
+
+    #[tokio::test]
+    async fn get_transactions_up_to_return_empty_list_when_no_record_found_with_provided_immutable_file_number(
+    ) {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        repository
+            .create_transactions(vec![CardanoTransaction::new(
+                "tx-hash-123".to_string(),
+                0,
+                50,
+                "block-hash-0",
+                99,
+            )])
+            .await
+            .unwrap();
+
+        let transaction_result = repository.get_transactions_up_to(90).await.unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
     }
 
@@ -525,7 +549,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_store_transactions_with_existing_hash_doesnt_erase_existing_data() {
+    async fn repository_store_transactions_doesnt_erase_existing_data() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
@@ -871,21 +895,18 @@ mod tests {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
-        // Build transactions with block numbers from 20 to 50
-        let cardano_transactions: Vec<CardanoTransactionRecord> = (20..=50)
-            .map(|i| CardanoTransactionRecord {
-                transaction_hash: format!("tx-hash-{i}"),
-                block_number: i,
-                slot_number: i * 100,
-                block_hash: format!("block-hash-{i}"),
-                immutable_file_number: 1,
-            })
+        let cardano_transactions: Vec<CardanoTransactionRecord> = CardanoTransactionsBuilder::new()
+            .blocks_per_block_range(15)
+            .build_transactions(53)
+            .into_iter()
+            .map(CardanoTransactionRecord::from)
             .collect();
 
         repository
             .create_transactions(cardano_transactions.clone())
             .await
             .unwrap();
+        // Use by 'prune_transaction' to get the block_range of the highest block number
         repository
             .create_block_range_roots(vec![(
                 BlockRange::from_block_number(45),
@@ -911,6 +932,12 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
+
+        let transaction_result = repository
+            .get_transactions_in_range_blocks(25..1000)
+            .await
+            .unwrap();
+        assert_eq!(28, transaction_result.len());
     }
 
     #[tokio::test]
