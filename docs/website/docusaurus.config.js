@@ -192,6 +192,10 @@ const config = {
                 href: 'https://mithril.cronitorstatus.com/'
               },
               {
+                label: 'Mithril Protocol Insights',
+                href: 'https://lookerstudio.google.com/s/oi6CR5eZrnQ'
+              },
+              {
                 label: 'Logbook',
                 href: 'https://github.com/input-output-hk/mithril/wiki/Logbook'
               },
