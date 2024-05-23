@@ -235,7 +235,11 @@ mod tests {
     use super::*;
 
     // use clap::{CommandFactory, FromArgMatches};
-    use clap::FromArgMatches;
+    use clap::{
+        builder::StyledStr,
+        error::{ContextValue, ErrorKind},
+        FromArgMatches,
+    };
 
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
@@ -249,11 +253,36 @@ mod tests {
     }
 
     #[test]
-    fn snapshot_is_not_anymore_a_command() {
+    fn XXXX_cardano_db_is_a_valid_command() {
+        let command_line = ["", "cardano-db", "snapshot", "list"];
+        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
+        let result = handle_deprecated(matches_result);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn XXXX_snapshot_is_not_anymore_a_command() {
         let command_line = ["", "snapshot", "list"];
-        let result = Args::command().try_get_matches_from_mut(&command_line);
+        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
+        let result = handle_deprecated(matches_result);
 
         assert!(result.is_err());
-        assert!(result.err().unwrap().to_string().contains("'snapshot'"));
+        let message = result.err().unwrap().to_string();
+        //TODO to remove
+        println!("Error message: ---\n{message}\n---");
+        assert!(message.contains("'snapshot'"));
+        assert!(message.contains("'cardano-db'"));
+    }
+
+    fn handle_deprecated(
+        matches_result: Result<clap::ArgMatches, clap::error::Error>,
+    ) -> Result<clap::ArgMatches, clap::error::Error> {
+        matches_result.map_err(|mut e: clap::error::Error| {
+            e.insert(
+                clap::error::ContextKind::Suggested,
+                ContextValue::StyledStrs(vec![StyledStr::from("Use command 'cardano-db' instead")]),
+            );
+            e
+        })
     }
 }
