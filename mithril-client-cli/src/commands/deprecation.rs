@@ -4,35 +4,46 @@ use clap::{
     error::{ContextKind, ContextValue},
 };
 
+#[derive(Clone)]
 pub struct DeprecatedCommand {
-    pub command: String,
-    pub new_command: String,
+    command: String,
+    new_command: String,
+}
+
+impl DeprecatedCommand {
+    pub fn new<S: ToString>(command: S, new_command: S) -> Self {
+        Self {
+            command: command.to_string(),
+            new_command: new_command.to_string(),
+        }
+    }
 }
 
 pub struct Deprecation;
 
 impl Deprecation {
+    fn find_deprecated_command(
+        error: &clap::error::Error,
+        deprecated_commands: Vec<DeprecatedCommand>,
+    ) -> Option<DeprecatedCommand> {
+        if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
+            let command_name = context_value.to_string();
+            deprecated_commands
+                .into_iter()
+                .find(|dc| command_name == dc.command)
+        } else {
+            None
+        }
+    }
+
     pub fn handle_deprecated_commands<A>(
         matches_result: Result<A, clap::error::Error>,
         styles: Styles,
         deprecated_commands: Vec<DeprecatedCommand>,
     ) -> Result<A, clap::error::Error> {
         matches_result.map_err(|mut e: clap::error::Error| {
-            fn get_deprecated_command(
-                error: &clap::error::Error,
-                deprecated_commands: Vec<DeprecatedCommand>,
-            ) -> Option<DeprecatedCommand> {
-                if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
-                    let command = context_value.to_string();
-                    for deprecated_command in deprecated_commands {
-                        if command == deprecated_command.command {
-                            return Some(deprecated_command);
-                        }
-                    }
-                }
-                None
-            }
-            if let Some(deprecated_command) = get_deprecated_command(&e, deprecated_commands) {
+            if let Some(deprecated_command) = Self::find_deprecated_command(&e, deprecated_commands)
+            {
                 let message = format!(
                     "'{}{}{}' command is deprecated, use '{}{}{}' command instead",
                     styles.get_error().render(),
@@ -63,68 +74,62 @@ mod tests {
     use clap::{ArgMatches, CommandFactory, Parser, Subcommand};
 
     #[derive(Parser, Debug, Clone)]
-    // #[command(version)]
-    pub struct MyCmd {
-        /// Available commands
+    pub struct MyCommand {
         #[clap(subcommand)]
         command: MySubCommands,
     }
 
-    #[derive(Subcommand, Debug, Clone)]
-    enum MySubCommands {
-        #[clap(subcommand)]
-        CardanoDb,
-
-        #[clap(subcommand)]
-        MithrilStakeDistribution,
-    }
-
-    impl MyCmd {
+    impl MyCommand {
         pub async fn execute(&self) {}
     }
 
+    #[derive(Subcommand, Debug, Clone)]
+    enum MySubCommands {}
+
     #[test]
-    fn XXXX_replace_error_message_on_deprecated_commands() {
-        {
-            let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
-                .with_cmd(&MyCmd::command());
+    fn invalid_sub_command_message_for_a_non_deprecated_command_is_not_modified() {
+        fn build_error() -> Result<MyCommand, clap::error::Error> {
+            let mut e = clap::error::Error::new(ErrorKind::InvalidSubcommand)
+                .with_cmd(&MyCommand::command());
+
             e.insert(
                 ContextKind::InvalidSubcommand,
-                ContextValue::String("deprecated_command".to_string()),
-            );
-            let result = Deprecation::handle_deprecated_commands(
-                Err(e) as Result<MyCmd, clap::error::Error>,
-                Styles::plain(),
-                vec![DeprecatedCommand {
-                    command: "deprecated_other_command".to_string(),
-                    new_command: "new_command".to_string(),
-                }],
-            );
-            assert!(result.is_err());
-            let message = result.err().unwrap().to_string();
-            assert!(message.contains("'deprecated_command'"));
-            assert!(!message.contains("'new_command'"));
-        }
-        {
-            let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
-                .with_cmd(&MyCmd::command());
-            e.insert(
-                ContextKind::InvalidSubcommand,
-                ContextValue::String("deprecated_command".to_string()),
+                ContextValue::String("invalid_command".to_string()),
             );
 
-            let result = Deprecation::handle_deprecated_commands(
-                Err(e) as Result<MyCmd, clap::error::Error>,
-                Styles::plain(),
-                vec![DeprecatedCommand {
-                    command: "deprecated_command".to_string(),
-                    new_command: "new_command".to_string(),
-                }],
-            );
-            assert!(result.is_err());
-            let message = result.err().unwrap().to_string();
-            assert!(message.contains("'deprecated_command'"));
-            assert!(message.contains("'new_command'"));
+            Err(e)
         }
+
+        let default_error_message = build_error().err().unwrap().to_string();
+
+        let result = Deprecation::handle_deprecated_commands(
+            build_error(),
+            Styles::plain(),
+            vec![DeprecatedCommand::new("old_command", "new_command")],
+        );
+        assert!(result.is_err());
+        let message = result.err().unwrap().to_string();
+        assert_eq!(default_error_message, message);
+    }
+
+    #[test]
+    fn replace_error_message_on_deprecated_commands_and_show_the_new_command() {
+        let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
+            .with_cmd(&MyCommand::command());
+        e.insert(
+            ContextKind::InvalidSubcommand,
+            ContextValue::String("old_command".to_string()),
+        );
+
+        let result = Deprecation::handle_deprecated_commands(
+            Err(e) as Result<MyCommand, clap::error::Error>,
+            Styles::plain(),
+            vec![DeprecatedCommand::new("old_command", "new_command")],
+        );
+        assert!(result.is_err());
+        let message = result.err().unwrap().to_string();
+        assert!(message.contains("'old_command'"));
+        assert!(message.contains("deprecated"));
+        assert!(message.contains("'new_command'"));
     }
 }

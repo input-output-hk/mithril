@@ -146,30 +146,24 @@ impl Args {
         Ok(Logger::root(Arc::new(drain), slog::o!()))
     }
 
-    fn parse_deprecated_XXXX() -> Self {
-        let styles = Self::command().get_styles().clone();
-        let result = Self::handle_deprecated(Self::try_parse(), styles);
+    fn parse_with_decorator(
+        decorator: &dyn Fn(Result<Self, clap::error::Error>) -> Result<Self, clap::error::Error>,
+    ) -> Self {
+        let result = decorator(Self::try_parse());
         match result {
             Ok(s) => s,
-            Err(e) => {
-                // Since this is more of a development-time error, we aren't doing as fancy of a quit
-                // as `get_matches`
-                e.exit()
-            }
+            Err(e) => e.exit(),
         }
     }
 
-    fn handle_deprecated<A>(
-        matches_result: Result<A, clap::error::Error>,
-        styles: Styles,
-    ) -> Result<A, clap::error::Error> {
+    fn handle_deprecated_decorator(
+        args_result: Result<Self, clap::error::Error>,
+    ) -> Result<Self, clap::error::Error> {
+        let styles = Args::command().get_styles().clone();
         Deprecation::handle_deprecated_commands(
-            matches_result,
+            args_result,
             styles,
-            vec![DeprecatedCommand {
-                command: "snapshot".to_string(),
-                new_command: "cardano-db".to_string(),
-            }],
+            vec![DeprecatedCommand::new("snapshot", "cardano-db")],
         )
     }
 }
@@ -240,7 +234,9 @@ impl ArtifactCommands {
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     // Load args
-    let args = Args::parse_deprecated_XXXX();
+    let args = Args::parse_with_decorator(&|result: Result<Args, clap::error::Error>| {
+        Args::handle_deprecated_decorator(result)
+    });
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
 
     #[cfg(feature = "bundle_openssl")]
@@ -271,28 +267,13 @@ mod tests {
     }
 
     #[test]
-    fn XXXX_snapshot_is_not_anymore_a_command() {
-        let command_line = ["", "snapshot", "list"];
-        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
-        let result = Args::handle_deprecated(matches_result, Styles::plain());
+    fn snapshot_is_not_a_command_anymore() {
+        let args_result = Args::try_parse_from(["", "snapshot", "list"]);
+        let result = Args::handle_deprecated_decorator(args_result);
 
         assert!(result.is_err());
         let message = result.err().unwrap().to_string();
-        //TODO to remove
-        println!("Error message: ---\n{message}\n---");
         assert!(message.contains("'snapshot'"));
         assert!(message.contains("'cardano-db'"));
-    }
-
-    #[test]
-    fn XXXX_show_deprecated_message_only_with_specific_commands() {
-        let command_line = ["", "unknown_not_deprecated", "list"];
-        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
-        let result = Args::handle_deprecated(matches_result, Styles::plain());
-
-        assert!(result.is_err());
-        let message = result.err().unwrap().to_string();
-        assert!(message.contains("'unknown_not_deprecated'"));
-        assert!(!message.contains("'cardano-db'"));
     }
 }
