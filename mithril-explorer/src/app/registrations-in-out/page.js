@@ -1,14 +1,15 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/utils";
-import { Accordion, Alert, Col, Row, Spinner, Stack } from "react-bootstrap";
+import { Accordion, Alert, Button, Row, Spinner, Stack } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
 import { fetchRegistrations } from "@/aggregator-api";
 import SignerTable from "#/SignerTable";
+import RegistrationDiscordFormatModal from "#/RegistrationDiscordFormatModal";
 
 export default function RegistrationsChanges() {
   const dispatch = useDispatch();
@@ -19,6 +20,7 @@ export default function RegistrationsChanges() {
   const [currentEpoch, setCurrentEpoch] = useState(undefined);
   const [completeDiff, setCompleteDiff] = useState(undefined);
   const [dedupDiff, setDedupDiff] = useState(undefined);
+  const [discordFormatModalMode, setDiscordFormatModalMode] = useState(undefined);
 
   useEffect(() => {
     const aggregator = searchParams.get(aggregatorSearchParam);
@@ -70,6 +72,10 @@ export default function RegistrationsChanges() {
     });
   }
 
+  function handleRegistrationsDiscordFormatClose() {
+    setDiscordFormatModalMode(undefined);
+  }
+
   if (currentError !== undefined) {
     let errorDescription = "";
     switch (currentError) {
@@ -99,46 +105,57 @@ export default function RegistrationsChanges() {
       {isLoading ? (
         <Spinner animation="grow" />
       ) : (
-        <Row>
-          <Accordion defaultActiveKey={["out", "in"]} alwaysOpen>
-            <Accordion.Item eventKey="out">
-              <Accordion.Header>
-                <i className="bi bi-box-arrow-left"></i> Missing Signers
-              </Accordion.Header>
-              <Accordion.Body>
-                {Object.entries(dedupDiff)
-                  .reverse()
-                  .filter(([_, movements]) => movements.out.length > 0)
-                  .map(([epoch, movements]) => (
-                    <>
-                      <h4>
-                        Missing since epoch <span className="text-secondary">#{epoch}</span>
-                      </h4>
-                      <SignerTable signers={movements.out} />
-                    </>
-                  ))}
-              </Accordion.Body>
-            </Accordion.Item>
-            <Accordion.Item eventKey="in">
-              <Accordion.Header>
-                <i className="bi bi-box-arrow-in-right"></i> New Signers
-              </Accordion.Header>
-              <Accordion.Body>
-                {Object.entries(dedupDiff)
-                  .reverse()
-                  .filter(([_, movements]) => movements.in.length)
-                  .map(([epoch, movements]) => (
-                    <>
-                      <h4>
-                        New since epoch <span className="text-secondary">#{epoch}</span>
-                      </h4>
-                      <SignerTable signers={movements.in} />
-                    </>
-                  ))}
-              </Accordion.Body>
-            </Accordion.Item>
-          </Accordion>
-        </Row>
+        <>
+          <RegistrationDiscordFormatModal
+            registrations={dedupDiff}
+            onClose={handleRegistrationsDiscordFormatClose}
+            mode={discordFormatModalMode}
+          />
+
+          <Row>
+            <Accordion defaultActiveKey={["out", "in"]} alwaysOpen>
+              <Accordion.Item eventKey="out">
+                <Accordion.Header>
+                  <i className="bi bi-box-arrow-left"></i> Missing Signers
+                </Accordion.Header>
+                <Accordion.Body>
+                  <Button size="sm" onClick={() => setDiscordFormatModalMode("out")}>
+                    <i className="bi bi-discord"></i>
+                  </Button>
+                  {Object.entries(dedupDiff)
+                    .reverse()
+                    .filter(([_, movements]) => movements.out.length > 0)
+                    .map(([epoch, movements]) => (
+                      <Fragment key={epoch}>
+                        <h4>
+                          Missing since epoch <span className="text-secondary">#{epoch}</span>
+                        </h4>
+                        <SignerTable signers={movements.out} />
+                      </Fragment>
+                    ))}
+                </Accordion.Body>
+              </Accordion.Item>
+              <Accordion.Item eventKey="in">
+                <Accordion.Header>
+                  <i className="bi bi-box-arrow-in-right"></i> New Signers
+                </Accordion.Header>
+                <Accordion.Body>
+                  {Object.entries(dedupDiff)
+                    .reverse()
+                    .filter(([_, movements]) => movements.in.length)
+                    .map(([epoch, movements]) => (
+                      <Fragment key={epoch}>
+                        <h4>
+                          New since epoch <span className="text-secondary">#{epoch}</span>
+                        </h4>
+                        <SignerTable signers={movements.in} />
+                      </Fragment>
+                    ))}
+                </Accordion.Body>
+              </Accordion.Item>
+            </Accordion>
+          </Row>
+        </>
       )}
     </Stack>
   );
