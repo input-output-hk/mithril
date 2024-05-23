@@ -26,7 +26,7 @@ pub struct ChainPoint {
 }
 
 impl ChainPoint {
-    /// Create origin chain point
+    /// Check if origin chain point
     pub fn is_origin(&self) -> bool {
         self.slot_number == 0 && self.block_number == 0 && self.block_hash.is_empty()
     }

@@ -12,7 +12,7 @@ use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint, CardanoNe
 
 use super::{ChainBlockNextAction, ChainBlockReader};
 
-/// ][PallasChainReader] which reads blocks with chainsync mini protocol
+/// [PallasChainReader] reads blocks with 'chainsync' mini-protocol
 pub struct PallasChainReader {
     socket: PathBuf,
     network: CardanoNetwork,
@@ -46,7 +46,7 @@ impl PallasChainReader {
 
         self.client
             .as_mut()
-            .with_context(|| "PallasChainReader failed to get client")
+            .with_context(|| "PallasChainReader failed to get a client")
     }
 
     /// Intersects the point of the chain with the given point.
@@ -61,8 +61,8 @@ impl PallasChainReader {
         Ok(())
     }
 
-    /// Processes the next chain block and returns the appropriate action.
-    async fn process_next_chain_block(
+    /// Processes a block content next response and returns the appropriate chain block next action.
+    async fn process_chain_block_next_action(
         &mut self,
         next: NextResponse<BlockContent>,
     ) -> StdResult<Option<ChainBlockNextAction>> {
@@ -111,7 +111,7 @@ impl ChainBlockReader for PallasChainReader {
             false => chainsync.recv_while_must_reply().await?,
         };
 
-        self.process_next_chain_block(next).await
+        self.process_chain_block_next_action(next).await
     }
 }
 
@@ -134,8 +134,8 @@ mod tests {
 
     /// Enum representing the action to be performed by the server.
     enum ServerAction {
-        RollBackwards,
-        RollForwards,
+        RollBackward,
+        RollForward,
     }
 
     /// Enum representing whether the node has agency or not.
@@ -216,13 +216,13 @@ mod tests {
                 }
 
                 match action {
-                    ServerAction::RollBackwards => {
+                    ServerAction::RollBackward => {
                         chainsync_server
                             .send_roll_backward(known_point.clone(), Tip(known_point.clone(), 1337))
                             .await
                             .unwrap();
                     }
-                    ServerAction::RollForwards => {
+                    ServerAction::RollForward => {
                         let block = BlockContent(get_fake_raw_block());
                         chainsync_server
                             .send_roll_forward(block, Tip(known_point.clone(), 1337))
@@ -235,13 +235,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_next_chain_block_roll_backwards() {
+    async fn get_next_chain_block_rolls_backward() {
         let socket_path =
-            create_temp_dir("get_next_chain_block_roll_backwards").join("node.socket");
+            create_temp_dir("get_next_chain_block_rolls_backward").join("node.socket");
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
-            ServerAction::RollBackwards,
+            ServerAction::RollBackward,
             HasAgency::Yes,
         )
         .await;
@@ -268,8 +268,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_next_chain_block_roll_forwards() {
-        let socket_path = create_temp_dir("get_next_chain_block_roll_forwards").join("node.socket");
+    async fn get_next_chain_block_rolls_forward() {
+        let socket_path = create_temp_dir("get_next_chain_block_rolls_forward").join("node.socket");
         let known_point = Point::Specific(
             1654413,
             hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
@@ -277,7 +277,7 @@ mod tests {
         );
         let server = setup_server(
             socket_path.clone(),
-            ServerAction::RollForwards,
+            ServerAction::RollForward,
             HasAgency::Yes,
         )
         .await;
@@ -313,7 +313,7 @@ mod tests {
         let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
-            ServerAction::RollForwards,
+            ServerAction::RollForward,
             HasAgency::No,
         )
         .await;
