@@ -163,11 +163,10 @@ impl Source for Args {
 
 #[derive(Subcommand, Debug, Clone)]
 enum ArtifactCommands {
-    /// Deprecated, use `cardano-db` instead
-    #[clap(subcommand)]
-    #[deprecated(since = "0.7.3", note = "use `CardanoDb` commands instead")]
-    Snapshot(SnapshotCommands),
-
+    // /// Deprecated, use `cardano-db` instead
+    // #[clap(subcommand)]
+    // #[deprecated(since = "0.7.3", note = "use `CardanoDb` commands instead")]
+    // Snapshot(SnapshotCommands),
     #[clap(subcommand, alias("cdb"))]
     CardanoDb(CardanoDbCommands),
 
@@ -188,16 +187,16 @@ impl ArtifactCommands {
         config_builder: ConfigBuilder<DefaultState>,
     ) -> MithrilResult<()> {
         match self {
-            #[allow(deprecated)]
-            Self::Snapshot(cmd) => {
-                let message = "`snapshot` command is deprecated, use `cardano-db` instead";
-                if cmd.is_json_output_enabled() {
-                    eprintln!(r#"{{"warning": "{}", "type": "deprecation"}}"#, message);
-                } else {
-                    eprintln!("{}", message);
-                };
-                cmd.execute(config_builder).await
-            }
+            // #[allow(deprecated)]
+            // Self::Snapshot(cmd) => {
+            //     let message = "`snapshot` command is deprecated, use `cardano-db` instead";
+            //     if cmd.is_json_output_enabled() {
+            //         eprintln!(r#"{{"warning": "{}", "type": "deprecation"}}"#, message);
+            //     } else {
+            //         eprintln!("{}", message);
+            //     };
+            //     cmd.execute(config_builder).await
+            // }
             Self::CardanoDb(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
             Self::CardanoTransaction(ctx) => {
@@ -235,6 +234,9 @@ async fn main() -> MithrilResult<()> {
 mod tests {
     use super::*;
 
+    // use clap::{CommandFactory, FromArgMatches};
+    use clap::FromArgMatches;
+
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
         let args =
@@ -244,5 +246,14 @@ mod tests {
         args.execute()
             .await
             .expect_err("Should fail if unstable flag missing");
+    }
+
+    #[test]
+    fn snapshot_is_not_anymore_a_command() {
+        let command_line = ["", "snapshot", "list"];
+        let result = Args::command().try_get_matches_from_mut(&command_line);
+
+        assert!(result.is_err());
+        assert!(result.err().unwrap().to_string().contains("'snapshot'"));
     }
 }
