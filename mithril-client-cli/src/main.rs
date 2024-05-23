@@ -243,12 +243,6 @@ async fn main() -> MithrilResult<()> {
 mod tests {
     use super::*;
 
-    use clap::{
-        builder::StyledStr,
-        error::{ContextKind, ContextValue, ErrorKind},
-        FromArgMatches,
-    };
-
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
         let args =

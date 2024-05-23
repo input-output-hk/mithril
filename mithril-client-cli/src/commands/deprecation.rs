@@ -69,21 +69,13 @@ impl Deprecation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::{
-        builder::StyledStr,
-        error::{ContextKind, ContextValue, ErrorKind},
-        FromArgMatches,
-    };
-    use clap::{ArgMatches, CommandFactory, Parser, Subcommand};
+    use clap::error::{ContextKind, ContextValue, ErrorKind};
+    use clap::{CommandFactory, Parser, Subcommand};
 
     #[derive(Parser, Debug, Clone)]
     pub struct MyCommand {
         #[clap(subcommand)]
         command: MySubCommands,
-    }
-
-    impl MyCommand {
-        pub async fn execute(&self) {}
     }
 
     #[derive(Subcommand, Debug, Clone)]
