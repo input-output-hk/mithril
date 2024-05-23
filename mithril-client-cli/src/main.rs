@@ -241,6 +241,25 @@ mod tests {
         FromArgMatches,
     };
 
+    #[derive(Documenter, Parser, Debug, Clone)]
+    #[clap(name = "mithril-client")]
+    #[clap(
+    about = "This program shows, downloads and verifies certified blockchain artifacts.",
+    long_about = None
+    )]
+    #[command(version)]
+    pub struct MyCmd {
+        /// Available commands
+        #[clap(subcommand)]
+        command: ArtifactCommands,
+    }
+
+    impl MyCmd {
+        pub async fn execute(&self) -> MithrilResult<()> {
+            Ok(())
+        }
+    }
+
     #[tokio::test]
     async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
         let args =
@@ -255,7 +274,7 @@ mod tests {
     #[test]
     fn XXXX_cardano_db_is_a_valid_command() {
         let command_line = ["", "cardano-db", "snapshot", "list"];
-        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
+        let matches_result = MyCmd::command().try_get_matches_from_mut(&command_line);
         let result = handle_deprecated(matches_result);
         assert!(result.is_ok());
     }
@@ -263,7 +282,7 @@ mod tests {
     #[test]
     fn XXXX_snapshot_is_not_anymore_a_command() {
         let command_line = ["", "snapshot", "list"];
-        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
+        let matches_result = MyCmd::command().try_get_matches_from_mut(&command_line);
         let result = handle_deprecated(matches_result);
 
         assert!(result.is_err());
@@ -277,7 +296,7 @@ mod tests {
     #[test]
     fn XXXX_show_deprecated_message_only_with_specific_commands() {
         let command_line = ["", "unknown_not_deprecated", "list"];
-        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
+        let matches_result = MyCmd::command().try_get_matches_from_mut(&command_line);
         let result = handle_deprecated(matches_result);
 
         assert!(result.is_err());
@@ -286,21 +305,94 @@ mod tests {
         assert!(!message.contains("'cardano-db'"));
     }
 
-    fn handle_deprecated(
+    struct DeprecatedCommand {
+        command: String,
+        new_command: String,
+    }
+
+    #[test]
+    fn XXXX_replace_error_message_on_deprecated_commands() {
+        {
+            let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
+                .with_cmd(&Args::command());
+            e.insert(
+                ContextKind::InvalidSubcommand,
+                ContextValue::String("deprecated_command".to_string()),
+            );
+            let result = handle_deprecated_commands(
+                Err(e),
+                vec![DeprecatedCommand {
+                    command: "deprecated_other_command".to_string(),
+                    new_command: "new_command".to_string(),
+                }],
+            );
+            assert!(result.is_err());
+            let message = result.err().unwrap().to_string();
+            assert!(message.contains("'deprecated_command'"));
+            assert!(!message.contains("'new_command'"));
+        }
+        {
+            let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
+                .with_cmd(&Args::command());
+            e.insert(
+                ContextKind::InvalidSubcommand,
+                ContextValue::String("deprecated_command".to_string()),
+            );
+            let result = handle_deprecated_commands(
+                Err(e),
+                vec![DeprecatedCommand {
+                    command: "deprecated_command".to_string(),
+                    new_command: "new_command".to_string(),
+                }],
+            );
+            assert!(result.is_err());
+            let message = result.err().unwrap().to_string();
+            assert!(message.contains("'deprecated_command'"));
+            assert!(message.contains("'new_command'"));
+        }
+    }
+
+    fn handle_deprecated_commands(
         matches_result: Result<clap::ArgMatches, clap::error::Error>,
+        deprecated_commands: Vec<DeprecatedCommand>,
     ) -> Result<clap::ArgMatches, clap::error::Error> {
         matches_result.map_err(|mut e: clap::error::Error| {
-            if let Some(context_value) = e.get(ContextKind::InvalidSubcommand) {
-                if context_value.to_string() == "snapshot" {
-                    e.insert(
-                        ContextKind::Suggested,
-                        ContextValue::StyledStrs(vec![StyledStr::from(
-                            "'snapshot' command is deprecated, use 'cardano-db' command instead",
-                        )]),
-                    );
+            fn get_deprecated_command(
+                error: &clap::error::Error,
+                deprecated_commands: Vec<DeprecatedCommand>,
+            ) -> Option<DeprecatedCommand> {
+                if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
+                    let command = context_value.to_string();
+                    for deprecated_command in deprecated_commands {
+                        if command == deprecated_command.command {
+                            return Some(deprecated_command);
+                        }
+                    }
                 }
+                None
+            }
+            if let Some(deprecated_command) = get_deprecated_command(&e, deprecated_commands) {
+                e.insert(
+                    ContextKind::Suggested,
+                    ContextValue::StyledStrs(vec![StyledStr::from(format!(
+                        "'{}' command is deprecated, use '{}' command instead",
+                        deprecated_command.command, deprecated_command.new_command
+                    ))]),
+                );
             }
             e
         })
+    }
+
+    fn handle_deprecated(
+        matches_result: Result<clap::ArgMatches, clap::error::Error>,
+    ) -> Result<clap::ArgMatches, clap::error::Error> {
+        handle_deprecated_commands(
+            matches_result,
+            vec![DeprecatedCommand {
+                command: "snapshot".to_string(),
+                new_command: "cardano-db".to_string(),
+            }],
+        )
     }
 }
