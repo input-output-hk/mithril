@@ -1,5 +1,5 @@
 import { dedupInOutRegistrations } from "@/utils";
-import reg from "../helpers";
+import { reg } from "../helpers";
 
 describe("In/Out registrations deduplication", () => {
   it("should remove duplicate 'in' registrations", () => {

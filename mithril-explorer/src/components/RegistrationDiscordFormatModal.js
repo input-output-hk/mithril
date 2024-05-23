@@ -74,7 +74,7 @@ export default function RegistrationDiscordFormatModal({ registrations, onClose,
       </Modal.Header>
       <Modal.Body>
         {registrations !== undefined && (
-          <Card>
+          <Card bg="light" border={mode === "out" ? "danger" : "success"}>
             <Card.Body>
               <pre>
                 <code>{textToCopy}</code>

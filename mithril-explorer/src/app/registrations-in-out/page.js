@@ -7,7 +7,7 @@ import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/
 import { Col, Alert, Row, Spinner, Stack, Table } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
-import { fetchRegistrations } from "@/aggregator-api";
+import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
 import RegistrationDiscordFormatModal from "#/RegistrationDiscordFormatModal";
 import RegistrationsMovementsList from "@/app/registrations-in-out/RegistrationsMovementsList";
 
@@ -34,8 +34,7 @@ export default function RegistrationsChanges() {
     if (error === undefined) {
       setIsLoading(true);
 
-      fetch(`${aggregator}/epoch-settings`)
-        .then((response) => (response.status === 200 ? response.json() : {}))
+      fetchEpochSettings(aggregator)
         .then((data) => {
           let epoch = data?.epoch;
           setCurrentEpoch(epoch);
@@ -49,9 +48,8 @@ export default function RegistrationsChanges() {
           setDedupDiff(dedupInOutRegistrations(inOutRegistrations));
         })
         .then(() => setIsLoading(false))
-        .catch((error) => {
+        .catch(() => {
           setCurrentEpoch(undefined);
-          console.error("Fetch current epoch in epoch-settings error:", error);
         });
 
       dispatch(updatePoolsForAggregator(aggregator));

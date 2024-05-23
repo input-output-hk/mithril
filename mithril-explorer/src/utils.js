@@ -108,11 +108,11 @@ async function fetchGenesisVerificationKey(aggregator) {
  * All registrations are expected to use the following format:
  * `{ registered_at: number, registrations: [{ party_id: string, stake: number }] }`;
  */
-function computeInOutRegistrations(lastEpochRegistrations, ...PreviousEpochsRegistrations) {
+function computeInOutRegistrations(lastEpochRegistrations, ...previousEpochsRegistrations) {
   const result = {};
   let currentRegistrations = lastEpochRegistrations.registrations;
 
-  for (const { registered_at, registrations } of PreviousEpochsRegistrations) {
+  for (const { registered_at, registrations } of previousEpochsRegistrations) {
     const epochOfChange = registered_at + 1;
     const diff = compareRegistrations(currentRegistrations, registrations);
 

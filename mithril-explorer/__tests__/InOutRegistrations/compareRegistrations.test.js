@@ -8,25 +8,25 @@ describe("Compare registrations", () => {
     expect(result).toEqual({ in: [], out: [] });
   });
 
-  it("One registration still there", () => {
+  it("One registration 'still there'", () => {
     const result = compareRegistrations([reg("party1", 10)], [reg("party1", 10)]);
 
     expect(result).toEqual({ in: [], out: [] });
   });
 
-  it("One in registration", () => {
+  it("One 'in' registration", () => {
     const result = compareRegistrations([reg("party1", 10)], []);
 
     expect(result).toEqual({ in: [reg("party1", 10)], out: [] });
   });
 
-  it("One out registration", () => {
+  it("One 'out' registration", () => {
     const result = compareRegistrations([], [reg("party1", 10)]);
 
     expect(result).toEqual({ in: [], out: [reg("party1", 10)] });
   });
 
-  it("In, out, and still there altogether", () => {
+  it("'In', 'out', and 'still there' altogether", () => {
     const result = compareRegistrations(
       [reg("party1", 10), reg("party3", 12), reg("party4", 13)],
       [reg("party1", 10), reg("party2", 11), reg("party3", 12)],
