@@ -17,17 +17,12 @@ impl FakeChainReader {
             chain_point_next_actions: Mutex::new(chain_point_next_actions.into()),
         }
     }
-
-    /// Intersect the point of the chain with the given point.
-    async fn intersect_point(&mut self, _point: &ChainPoint) -> StdResult<()> {
-        Ok(())
-    }
 }
 
 #[async_trait]
 impl ChainBlockReader for FakeChainReader {
-    async fn set_chain_point(&mut self, point: &ChainPoint) -> StdResult<()> {
-        self.intersect_point(point).await
+    async fn set_chain_point(&mut self, _point: &ChainPoint) -> StdResult<()> {
+        Ok(())
     }
 
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>> {
