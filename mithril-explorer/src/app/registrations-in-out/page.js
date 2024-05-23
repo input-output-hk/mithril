@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import React, { Fragment, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/utils";
-import { Col, Alert, Button, Row, Spinner, Stack } from "react-bootstrap";
+import { Col, Alert, Button, Row, Spinner, Stack, Table } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
 import { fetchRegistrations } from "@/aggregator-api";
@@ -112,6 +112,24 @@ export default function RegistrationsChanges() {
             mode={discordFormatModalMode}
           />
 
+          <Row>
+            <Table>
+              <tbody>
+                <tr>
+                  <td>
+                    <strong>Aggregator:</strong>
+                  </td>
+                  <td>{aggregator}</td>
+                </tr>
+                <tr>
+                  <td>
+                    <strong>Current epoch:</strong>
+                  </td>
+                  <td>{currentEpoch}</td>
+                </tr>
+              </tbody>
+            </Table>
+          </Row>
           <Row>
             <Col xs={12} sm={12} md={12} lg={6}>
               <div className="p-2 mb-2 border border-danger rounded">
