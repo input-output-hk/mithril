@@ -28,15 +28,32 @@ export default function RegistrationDiscordFormatModal({ registrations, onClose,
       }
 
       text += `Since epoch **#${epoch}**:\n`;
-      for (const signer of signers) {
-        const pollTicker =
-          allPools?.find((pool) => pool.party_id === signer.party_id)?.pool_ticker ?? "";
-        text += `* ${signer.party_id} **${pollTicker}**\n`;
+      for (const signer of signers
+        .map((s) => ({
+          party_id: s.party_id,
+          pool_ticker: allPools?.find((p) => p.party_id === s.party_id)?.pool_ticker ?? "",
+        }))
+        .sort(compareSigners)) {
+        text += `* ${signer.party_id}`;
+
+        if (signer.pool_ticker !== "") {
+          text += ` **${signer.pool_ticker}**`;
+        }
+
+        text += `\n`;
       }
     }
 
     setTextToCopy(text);
   }, [registrations, mode, allPools]);
+
+  function compareSigners(left, right) {
+    // Sort by pool_ticker then party_id
+    return (
+      left.pool_ticker.localeCompare(right.pool_ticker) ||
+      left.party_id.localeCompare(right.party_id)
+    );
+  }
 
   function handleModalClose() {
     onClose();
