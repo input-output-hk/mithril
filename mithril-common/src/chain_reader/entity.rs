@@ -1,4 +1,4 @@
-use crate::entities::ChainPoint;
+use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint};
 
 /// The action that indicates what to do next when scanning the chain
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -7,8 +7,8 @@ pub enum ChainBlockNextAction {
     RollForward {
         /// The next point in the chain to read
         next_point: ChainPoint,
-        /// The raw chain block
-        raw_block: Vec<u8>,
+        /// The parsed chain block
+        parsed_block: ScannedBlock,
     },
     /// RollBackward event (we are on an incorrect fork, we need to get back a point to roll forward again)
     RollBackward {

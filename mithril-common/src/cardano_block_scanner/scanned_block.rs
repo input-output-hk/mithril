@@ -5,7 +5,7 @@ use crate::entities::{
 };
 
 /// A block scanned from a Cardano database
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScannedBlock {
     /// Block hash
     pub block_hash: BlockHash,

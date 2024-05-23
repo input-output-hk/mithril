@@ -6,8 +6,9 @@ use pallas_network::{
     facades::NodeClient,
     miniprotocols::chainsync::{BlockContent, NextResponse},
 };
+use pallas_traverse::MultiEraBlock;
 
-use crate::{entities::ChainPoint, CardanoNetwork, StdResult};
+use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint, CardanoNetwork, StdResult};
 
 use super::{ChainBlockNextAction, ChainBlockReader};
 
@@ -67,9 +68,12 @@ impl PallasChainReader {
     ) -> StdResult<Option<ChainBlockNextAction>> {
         match next {
             NextResponse::RollForward(raw_block, forward_tip) => {
+                let multi_era_block = MultiEraBlock::decode(&raw_block)
+                    .with_context(|| "PallasChainReader failed to decode raw block")?;
+                let parsed_block = ScannedBlock::convert(multi_era_block, 0);
                 Ok(Some(ChainBlockNextAction::RollForward {
                     next_point: forward_tip.into(),
-                    raw_block: raw_block.to_vec(),
+                    parsed_block,
                 }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
@@ -165,6 +169,19 @@ mod tests {
         TempDir::create_with_short_path("pallas_chain_observer_test", folder_name)
     }
 
+    fn get_fake_raw_block() -> Vec<u8> {
+        let raw_block = include_str!("../../../mithril-test-lab/test_data/blocks/shelley1.block");
+
+        hex::decode(raw_block).unwrap()
+    }
+
+    fn get_fake_scanned_block() -> ScannedBlock {
+        let raw_block = get_fake_raw_block();
+        let multi_era_block = MultiEraBlock::decode(&raw_block).unwrap();
+
+        ScannedBlock::convert(multi_era_block, 0)
+    }
+
     /// Sets up a mock server for related tests.
     ///
     /// Use the `action` parameter to specify the action to be performed by the server.
@@ -206,7 +223,7 @@ mod tests {
                             .unwrap();
                     }
                     ServerAction::RollForwards => {
-                        let block = BlockContent(hex::decode("c0ffeec0ffeec0ffee").unwrap());
+                        let block = BlockContent(get_fake_raw_block());
                         chainsync_server
                             .send_roll_forward(block, Tip(known_point.clone(), 1337))
                             .await
@@ -281,13 +298,10 @@ mod tests {
         match chain_block {
             ChainBlockNextAction::RollForward {
                 next_point,
-                raw_block,
+                parsed_block,
             } => {
                 assert_eq!(next_point, get_fake_chain_point_forwards());
-                assert_eq!(
-                    raw_block.to_vec(),
-                    hex::decode("c0ffeec0ffeec0ffee").unwrap()
-                );
+                assert_eq!(parsed_block, get_fake_scanned_block());
             }
             _ => panic!("Unexpected chain block action"),
         }
@@ -324,13 +338,10 @@ mod tests {
         match chain_block {
             ChainBlockNextAction::RollForward {
                 next_point,
-                raw_block,
+                parsed_block,
             } => {
                 assert_eq!(next_point, get_fake_chain_point_forwards());
-                assert_eq!(
-                    raw_block.to_vec(),
-                    hex::decode("c0ffeec0ffeec0ffee").unwrap()
-                );
+                assert_eq!(parsed_block, get_fake_scanned_block());
             }
             _ => panic!("Unexpected chain block action"),
         }
