@@ -4,12 +4,12 @@ import { useSearchParams } from "next/navigation";
 import React, { Fragment, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { checkUrl, computeInOutRegistrations, dedupInOutRegistrations } from "@/utils";
-import { Col, Alert, Button, Row, Spinner, Stack, Table } from "react-bootstrap";
+import { Col, Alert, Row, Spinner, Stack, Table } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
 import { fetchRegistrations } from "@/aggregator-api";
-import SignerTable from "#/SignerTable";
 import RegistrationDiscordFormatModal from "#/RegistrationDiscordFormatModal";
+import RegistrationsMovementsList from "@/app/registrations-in-out/RegistrationsMovementsList";
 
 export default function RegistrationsChanges() {
   const dispatch = useDispatch();
@@ -133,50 +133,20 @@ export default function RegistrationsChanges() {
           <Row>
             <Col xs={12} sm={12} md={12} lg={6}>
               <div className="p-2 mb-2 border border-danger rounded">
-                <h3>
-                  <i className="bi bi-box-arrow-left"></i> Missing Signers{" "}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setDiscordFormatModalMode("out")}>
-                    <i className="bi bi-discord"></i>
-                  </Button>
-                </h3>
-                {Object.entries(dedupDiff)
-                  .reverse()
-                  .filter(([_, movements]) => movements.out.length > 0)
-                  .map(([epoch, movements]) => (
-                    <Fragment key={epoch}>
-                      <h4>
-                        Missing since epoch <span className="text-secondary">#{epoch}</span>
-                      </h4>
-                      <SignerTable signers={movements.out} />
-                    </Fragment>
-                  ))}
+                <RegistrationsMovementsList
+                  registrations={dedupDiff}
+                  mode="out"
+                  onDiscordButtonClick={() => setDiscordFormatModalMode("out")}
+                />
               </div>
             </Col>
             <Col xs={12} sm={12} md={12} lg={6}>
               <div className="p-2 border border-success rounded">
-                <h3>
-                  <i className="bi bi-box-arrow-in-right"></i> New Signers{" "}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setDiscordFormatModalMode("in")}>
-                    <i className="bi bi-discord"></i>
-                  </Button>
-                </h3>
-                {Object.entries(dedupDiff)
-                  .reverse()
-                  .filter(([_, movements]) => movements.in.length)
-                  .map(([epoch, movements]) => (
-                    <Fragment key={epoch}>
-                      <h4>
-                        New since epoch <span className="text-secondary">#{epoch}</span>
-                      </h4>
-                      <SignerTable signers={movements.in} />
-                    </Fragment>
-                  ))}
+                <RegistrationsMovementsList
+                  registrations={dedupDiff}
+                  mode="in"
+                  onDiscordButtonClick={() => setDiscordFormatModalMode("in")}
+                />
               </div>
             </Col>
           </Row>
