@@ -5,6 +5,7 @@
 
 pub mod cardano_db;
 pub mod cardano_transaction;
+pub mod deprecation;
 pub mod mithril_stake_distribution;
 
 use mithril_client::{ClientBuilder, MithrilResult};
