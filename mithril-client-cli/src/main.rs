@@ -237,7 +237,7 @@ mod tests {
     // use clap::{CommandFactory, FromArgMatches};
     use clap::{
         builder::StyledStr,
-        error::{ContextValue, ErrorKind},
+        error::{ContextKind, ContextValue, ErrorKind},
         FromArgMatches,
     };
 
@@ -274,14 +274,32 @@ mod tests {
         assert!(message.contains("'cardano-db'"));
     }
 
+    #[test]
+    fn XXXX_show_deprecated_message_only_with_specific_commands() {
+        let command_line = ["", "unknown_not_deprecated", "list"];
+        let matches_result = Args::command().try_get_matches_from_mut(&command_line);
+        let result = handle_deprecated(matches_result);
+
+        assert!(result.is_err());
+        let message = result.err().unwrap().to_string();
+        assert!(message.contains("'unknown_not_deprecated'"));
+        assert!(!message.contains("'cardano-db'"));
+    }
+
     fn handle_deprecated(
         matches_result: Result<clap::ArgMatches, clap::error::Error>,
     ) -> Result<clap::ArgMatches, clap::error::Error> {
         matches_result.map_err(|mut e: clap::error::Error| {
-            e.insert(
-                clap::error::ContextKind::Suggested,
-                ContextValue::StyledStrs(vec![StyledStr::from("Use command 'cardano-db' instead")]),
-            );
+            if let Some(context_value) = e.get(ContextKind::InvalidSubcommand) {
+                if context_value.to_string() == "snapshot" {
+                    e.insert(
+                        ContextKind::Suggested,
+                        ContextValue::StyledStrs(vec![StyledStr::from(
+                            "'snapshot' command is deprecated, use 'cardano-db' command instead",
+                        )]),
+                    );
+                }
+            }
             e
         })
     }
