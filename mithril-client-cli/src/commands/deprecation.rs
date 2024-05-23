@@ -1,9 +1,9 @@
-use clap::Subcommand;
 use clap::{
     builder::{StyledStr, Styles},
     error::{ContextKind, ContextValue},
 };
 
+/// Stores the deprecated command name and the new command name to use.
 #[derive(Clone)]
 pub struct DeprecatedCommand {
     command: String,
@@ -11,6 +11,7 @@ pub struct DeprecatedCommand {
 }
 
 impl DeprecatedCommand {
+    /// Create information about a deprecated command
     pub fn new<S: ToString>(command: S, new_command: S) -> Self {
         Self {
             command: command.to_string(),
@@ -19,6 +20,7 @@ impl DeprecatedCommand {
     }
 }
 
+/// Tool to handle deprecated Clap commands.
 pub struct Deprecation;
 
 impl Deprecation {
@@ -36,6 +38,7 @@ impl Deprecation {
         }
     }
 
+    /// Modify result to add information on deprecated commands.
     pub fn handle_deprecated_commands<A>(
         matches_result: Result<A, clap::error::Error>,
         styles: Styles,

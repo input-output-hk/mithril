@@ -1,13 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, Context};
-use clap::builder::Styles;
-use clap::{
-    builder::StyledStr,
-    error::{ContextKind, ContextValue, ErrorKind},
-    FromArgMatches,
-};
-use clap::{ArgMatches, CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
@@ -18,7 +12,7 @@ use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
 use mithril_client::MithrilResult;
-use mithril_client_cli::commands::deprecation::{DeprecatedCommand, Deprecation};
+use mithril_client_cli::commands::{DeprecatedCommand, Deprecation};
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
