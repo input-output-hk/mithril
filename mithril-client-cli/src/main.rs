@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, Context};
+use clap::builder::Styles;
 use clap::{ArgMatches, CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
@@ -147,7 +148,8 @@ impl Args {
     }
 
     fn parse_deprecated_XXXX() -> Self {
-        let result = handle_deprecated(Self::try_parse());
+        let styles = Self::command().get_styles().clone();
+        let result = handle_deprecated(Self::try_parse(), styles);
         match result {
             Ok(s) => s,
             Err(e) => {
@@ -255,6 +257,7 @@ struct DeprecatedCommand {
 
 fn handle_deprecated_commands<A>(
     matches_result: Result<A, clap::error::Error>,
+    styles: Styles,
     deprecated_commands: Vec<DeprecatedCommand>,
 ) -> Result<A, clap::error::Error> {
     matches_result.map_err(|mut e: clap::error::Error| {
@@ -273,12 +276,33 @@ fn handle_deprecated_commands<A>(
             None
         }
         if let Some(deprecated_command) = get_deprecated_command(&e, deprecated_commands) {
+            // let message = match styles {
+            //     None => format!(
+            //         "'{}' command is deprecated, use '{}' command instead",
+            //         deprecated_command.command, deprecated_command.new_command,
+            //     ),
+            //     Some(s) => format!(
+            //         "'{}{}{}' command is deprecated, use '{}{}{}' command instead",
+            //         s.get_error().render(),
+            //         deprecated_command.command,
+            //         s.get_error().render_reset(),
+            //         s.get_valid().render(),
+            //         deprecated_command.new_command,
+            //         s.get_valid().render_reset(),
+            //     ),
+            // };
+            let message = format!(
+                "'{}{}{}' command is deprecated, use '{}{}{}' command instead",
+                styles.get_error().render(),
+                deprecated_command.command,
+                styles.get_error().render_reset(),
+                styles.get_valid().render(),
+                deprecated_command.new_command,
+                styles.get_valid().render_reset(),
+            );
             e.insert(
                 ContextKind::Suggested,
-                ContextValue::StyledStrs(vec![StyledStr::from(format!(
-                    "'{}' command is deprecated, use '{}' command instead",
-                    deprecated_command.command, deprecated_command.new_command
-                ))]),
+                ContextValue::StyledStrs(vec![StyledStr::from(&message)]),
             );
         }
         e
@@ -287,9 +311,11 @@ fn handle_deprecated_commands<A>(
 
 fn handle_deprecated<A>(
     matches_result: Result<A, clap::error::Error>,
+    styles: Styles,
 ) -> Result<A, clap::error::Error> {
     handle_deprecated_commands(
         matches_result,
+        styles,
         vec![DeprecatedCommand {
             command: "snapshot".to_string(),
             new_command: "cardano-db".to_string(),
@@ -342,7 +368,7 @@ mod tests {
     fn XXXX_cardano_db_is_a_valid_command() {
         let command_line = ["", "cardano-db", "snapshot", "list"];
         let matches_result = MyCmd::command().try_get_matches_from_mut(&command_line);
-        let result = handle_deprecated(matches_result);
+        let result = handle_deprecated(matches_result, Styles::plain());
         assert!(result.is_ok());
     }
 
@@ -350,7 +376,7 @@ mod tests {
     fn XXXX_snapshot_is_not_anymore_a_command() {
         let command_line = ["", "snapshot", "list"];
         let matches_result = MyCmd::command().try_get_matches_from_mut(&command_line);
-        let result = handle_deprecated(matches_result);
+        let result = handle_deprecated(matches_result, Styles::plain());
 
         assert!(result.is_err());
         let message = result.err().unwrap().to_string();
@@ -364,7 +390,7 @@ mod tests {
     fn XXXX_show_deprecated_message_only_with_specific_commands() {
         let command_line = ["", "unknown_not_deprecated", "list"];
         let matches_result = MyCmd::command().try_get_matches_from_mut(&command_line);
-        let result = handle_deprecated(matches_result);
+        let result = handle_deprecated(matches_result, Styles::plain());
 
         assert!(result.is_err());
         let message = result.err().unwrap().to_string();
@@ -383,6 +409,7 @@ mod tests {
             );
             let result = handle_deprecated_commands(
                 Err(e) as Result<MyCmd, clap::error::Error>,
+                Styles::plain(),
                 vec![DeprecatedCommand {
                     command: "deprecated_other_command".to_string(),
                     new_command: "new_command".to_string(),
@@ -400,8 +427,10 @@ mod tests {
                 ContextKind::InvalidSubcommand,
                 ContextValue::String("deprecated_command".to_string()),
             );
+
             let result = handle_deprecated_commands(
                 Err(e) as Result<MyCmd, clap::error::Error>,
+                Styles::plain(),
                 vec![DeprecatedCommand {
                     command: "deprecated_command".to_string(),
                     new_command: "new_command".to_string(),
