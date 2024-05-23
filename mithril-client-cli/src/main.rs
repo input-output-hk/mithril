@@ -1,7 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 use anyhow::{anyhow, Context};
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{ArgMatches, CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
 use slog_async::Async;
@@ -18,6 +18,12 @@ use mithril_client_cli::commands::{
     cardano_db::{deprecated::SnapshotCommands, CardanoDbCommands},
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands,
+};
+
+use clap::{
+    builder::StyledStr,
+    error::{ContextKind, ContextValue, ErrorKind},
+    FromArgMatches,
 };
 
 enum LogOutputType {
@@ -139,6 +145,18 @@ impl Args {
 
         Ok(Logger::root(Arc::new(drain), slog::o!()))
     }
+
+    fn parse_deprecated_XXXX() -> Self {
+        let result = handle_deprecated(Self::try_parse());
+        match result {
+            Ok(s) => s,
+            Err(e) => {
+                // Since this is more of a development-time error, we aren't doing as fancy of a quit
+                // as `get_matches`
+                e.exit()
+            }
+        }
+    }
 }
 
 impl Source for Args {
@@ -221,13 +239,62 @@ impl ArtifactCommands {
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     // Load args
-    let args = Args::parse();
+    let args = Args::parse_deprecated_XXXX();
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
 
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();
 
     args.execute().await
+}
+
+struct DeprecatedCommand {
+    command: String,
+    new_command: String,
+}
+
+fn handle_deprecated_commands<A>(
+    matches_result: Result<A, clap::error::Error>,
+    deprecated_commands: Vec<DeprecatedCommand>,
+) -> Result<A, clap::error::Error> {
+    matches_result.map_err(|mut e: clap::error::Error| {
+        fn get_deprecated_command(
+            error: &clap::error::Error,
+            deprecated_commands: Vec<DeprecatedCommand>,
+        ) -> Option<DeprecatedCommand> {
+            if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
+                let command = context_value.to_string();
+                for deprecated_command in deprecated_commands {
+                    if command == deprecated_command.command {
+                        return Some(deprecated_command);
+                    }
+                }
+            }
+            None
+        }
+        if let Some(deprecated_command) = get_deprecated_command(&e, deprecated_commands) {
+            e.insert(
+                ContextKind::Suggested,
+                ContextValue::StyledStrs(vec![StyledStr::from(format!(
+                    "'{}' command is deprecated, use '{}' command instead",
+                    deprecated_command.command, deprecated_command.new_command
+                ))]),
+            );
+        }
+        e
+    })
+}
+
+fn handle_deprecated<A>(
+    matches_result: Result<A, clap::error::Error>,
+) -> Result<A, clap::error::Error> {
+    handle_deprecated_commands(
+        matches_result,
+        vec![DeprecatedCommand {
+            command: "snapshot".to_string(),
+            new_command: "cardano-db".to_string(),
+        }],
+    )
 }
 
 #[cfg(test)]
@@ -305,22 +372,17 @@ mod tests {
         assert!(!message.contains("'cardano-db'"));
     }
 
-    struct DeprecatedCommand {
-        command: String,
-        new_command: String,
-    }
-
     #[test]
     fn XXXX_replace_error_message_on_deprecated_commands() {
         {
             let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
-                .with_cmd(&Args::command());
+                .with_cmd(&MyCmd::command());
             e.insert(
                 ContextKind::InvalidSubcommand,
                 ContextValue::String("deprecated_command".to_string()),
             );
             let result = handle_deprecated_commands(
-                Err(e),
+                Err(e) as Result<MyCmd, clap::error::Error>,
                 vec![DeprecatedCommand {
                     command: "deprecated_other_command".to_string(),
                     new_command: "new_command".to_string(),
@@ -333,13 +395,13 @@ mod tests {
         }
         {
             let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
-                .with_cmd(&Args::command());
+                .with_cmd(&MyCmd::command());
             e.insert(
                 ContextKind::InvalidSubcommand,
                 ContextValue::String("deprecated_command".to_string()),
             );
             let result = handle_deprecated_commands(
-                Err(e),
+                Err(e) as Result<MyCmd, clap::error::Error>,
                 vec![DeprecatedCommand {
                     command: "deprecated_command".to_string(),
                     new_command: "new_command".to_string(),
@@ -350,49 +412,5 @@ mod tests {
             assert!(message.contains("'deprecated_command'"));
             assert!(message.contains("'new_command'"));
         }
-    }
-
-    fn handle_deprecated_commands(
-        matches_result: Result<clap::ArgMatches, clap::error::Error>,
-        deprecated_commands: Vec<DeprecatedCommand>,
-    ) -> Result<clap::ArgMatches, clap::error::Error> {
-        matches_result.map_err(|mut e: clap::error::Error| {
-            fn get_deprecated_command(
-                error: &clap::error::Error,
-                deprecated_commands: Vec<DeprecatedCommand>,
-            ) -> Option<DeprecatedCommand> {
-                if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
-                    let command = context_value.to_string();
-                    for deprecated_command in deprecated_commands {
-                        if command == deprecated_command.command {
-                            return Some(deprecated_command);
-                        }
-                    }
-                }
-                None
-            }
-            if let Some(deprecated_command) = get_deprecated_command(&e, deprecated_commands) {
-                e.insert(
-                    ContextKind::Suggested,
-                    ContextValue::StyledStrs(vec![StyledStr::from(format!(
-                        "'{}' command is deprecated, use '{}' command instead",
-                        deprecated_command.command, deprecated_command.new_command
-                    ))]),
-                );
-            }
-            e
-        })
-    }
-
-    fn handle_deprecated(
-        matches_result: Result<clap::ArgMatches, clap::error::Error>,
-    ) -> Result<clap::ArgMatches, clap::error::Error> {
-        handle_deprecated_commands(
-            matches_result,
-            vec![DeprecatedCommand {
-                command: "snapshot".to_string(),
-                new_command: "cardano-db".to_string(),
-            }],
-        )
     }
 }
