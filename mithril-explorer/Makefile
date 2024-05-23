@@ -13,6 +13,9 @@ build: package-lock.json
 	mkdir out/registrations
 	cp out/registrations.html out/registrations/index.html
 	cp out/registrations.txt out/registrations/index.txt
+	mkdir out/registrations-in-out
+	cp out/registrations-in-out.html out/registrations-in-out/index.html
+	cp out/registrations-in-out.txt out/registrations-in-out/index.txt
 
 serve: build
 	if [ -d "explorer/" ]; then rm -rf explorer/; fi
