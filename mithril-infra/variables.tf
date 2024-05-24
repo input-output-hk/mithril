@@ -225,6 +225,13 @@ variable "mithril_aggregator_snapshot_use_cdn_domain" {
   default     = false
 }
 
+variable "mithril_aggregator_cardano_transactions_prover_cache_pool_size" {
+  type        = number
+  description = "Cardano transactions prover cache pool size"
+  default     = 10
+}
+
+
 variable "mithril_aggregator_cdn_cname" {
   type        = string
   description = "The CNAME field used for the mithril aggregator CDN"
