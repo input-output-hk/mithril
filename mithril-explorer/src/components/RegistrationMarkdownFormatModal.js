@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Card, Modal, Stack } from "react-bootstrap";
-import CopyButton from "#/CopyButton";
+import { Card, Modal } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import { getSelectedAggregatorPools } from "@/store/poolsSlice";
+import CopyButton from "#/CopyButton";
 
 /**
  * Modal to show a list of registrations in a markdown formatted code block

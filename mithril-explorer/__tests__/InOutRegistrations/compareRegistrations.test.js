@@ -26,7 +26,7 @@ describe("Compare registrations", () => {
     expect(result).toEqual({ in: [], out: [reg("party1", 10)] });
   });
 
-  it("'In', 'out', and 'still there' altogether", () => {
+  it("'In', 'out', and 'still there' all together", () => {
     const result = compareRegistrations(
       [reg("party1", 10), reg("party3", 12), reg("party4", 13)],
       [reg("party1", 10), reg("party2", 11), reg("party3", 12)],
