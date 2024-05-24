@@ -8,8 +8,8 @@ mod signer;
 
 pub use aggregator::{Aggregator, AggregatorConfig};
 pub use client::{
-    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand,
-    SnapshotCommand,
+    CardanoDbCommand, CardanoTransactionCommand, Client, ClientCommand,
+    MithrilStakeDistributionCommand,
 };
 pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;
