@@ -63,10 +63,18 @@ function setLocationToAggregator(aggregatorUrl) {
   setLocation(new URL(`?aggregator=${aggregatorUrl}`, baseLocation));
 }
 
+/**
+ * Helper function to create a signer registration as returned in the `signers/registered/{epoch}` API
+ */
+function reg(party_id, stake) {
+  return { party_id, stake };
+}
+
 module.exports = {
   initStore,
   mockNextNavigation,
   setLocation,
   setLocationToAggregator,
   resetLocation,
+  reg,
 };

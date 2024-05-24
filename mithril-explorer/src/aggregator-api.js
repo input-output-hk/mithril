@@ -18,7 +18,25 @@ function fetchSignersTickers(aggregator) {
     });
 }
 
+function fetchEpochSettings(aggregator) {
+  return fetch(`${aggregator}/epoch-settings`)
+    .then((response) => (response.status === 200 ? response.json() : {}))
+    .catch((error) => {
+      console.error("Fetch epoch settings error:", error);
+    });
+}
+
+function fetchRegistrations(aggregator, epoch) {
+  return fetch(`${aggregator}/signers/registered/${epoch}`)
+    .then((response) => (response.status === 200 ? response.json() : {}))
+    .catch((error) => {
+      console.error("Fetch registrations error:", error);
+    });
+}
+
 module.exports = {
   fetchAggregatorCapabilities,
   fetchSignersTickers,
+  fetchEpochSettings,
+  fetchRegistrations,
 };

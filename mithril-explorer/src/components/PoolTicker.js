@@ -1,13 +1,12 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import { getPoolForSelectedAggregator } from "@/store/poolsSlice";
-import { getCExplorerUrl } from "@/utils";
+import { poolTickerCExplorerUrl } from "@/utils";
 import { CExplorerUrl } from "#/CExplorerUrl";
 
 export default function PoolTicker({ partyId }) {
   const pool = useSelector((state) => getPoolForSelectedAggregator(state, partyId));
-  const cExplorerUrl = getCExplorerUrl(pool.network);
-  const url = cExplorerUrl ? `${cExplorerUrl}/pool/${partyId}` : undefined;
+  const cExplorerUrl = poolTickerCExplorerUrl(pool.network, partyId);
 
-  return <CExplorerUrl url={url} text={pool?.pool_ticker} />;
+  return <CExplorerUrl url={cExplorerUrl} text={pool?.pool_ticker} />;
 }

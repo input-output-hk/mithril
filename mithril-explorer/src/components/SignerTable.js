@@ -14,7 +14,7 @@ export default function SignerTable({ signers, displayIndexes, ...props }) {
           {displayIndexes !== undefined && <th>#</th>}
           <th>Party id</th>
           <th>Pool Ticker</th>
-          <th style={{ textAlign: "end" }}>Stake</th>
+          <th className="text-end">Stake</th>
         </tr>
       </thead>
       <tbody>
@@ -27,7 +27,7 @@ export default function SignerTable({ signers, displayIndexes, ...props }) {
             <td>
               <PoolTicker partyId={signer.party_id} />
             </td>
-            <td style={{ textAlign: "end" }}>
+            <td className="text-end">
               <Stake lovelace={signer.stake} />
             </td>
           </tr>

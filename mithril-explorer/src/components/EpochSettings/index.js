@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card } from "react-bootstrap";
+import { Card, ButtonGroup, DropdownButton } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
@@ -16,6 +16,7 @@ export default function EpochSettings() {
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
+  const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
 
   useEffect(() => {
     if (!autoUpdate) {
@@ -40,6 +41,13 @@ export default function EpochSettings() {
   }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
 
   useEffect(() => {
+    if (checkUrl(currentAggregator)) {
+      const params = new URLSearchParams();
+      params.set("aggregator", currentAggregator);
+
+      setInOutRegistrationsPageUrl(`/registrations-in-out?${params.toString()}`);
+    }
+
     if (checkUrl(currentAggregator) && Number.isInteger(epochSettings?.epoch)) {
       const params = new URLSearchParams();
       params.set("aggregator", currentAggregator);
@@ -65,9 +73,16 @@ export default function EpochSettings() {
           <Card.Title>Next Protocol Parameters</Card.Title>
           <ProtocolParameters protocolParameters={epochSettings.next_protocol} />
         </Card.Body>
-        {registrationPageUrl && (
+        {registrationPageUrl && inOutRegistrationsPageUrl && (
           <Card.Footer className="text-center">
-            <LinkButton href={registrationPageUrl}>Registered Signers</LinkButton>
+            <ButtonGroup>
+              <LinkButton href={registrationPageUrl}>Registered Signers</LinkButton>
+              <DropdownButton as={ButtonGroup}>
+                <LinkButton href={inOutRegistrationsPageUrl} variant="light">
+                  In/Out Registrations
+                </LinkButton>
+              </DropdownButton>
+            </ButtonGroup>
           </Card.Footer>
         )}
       </Card>

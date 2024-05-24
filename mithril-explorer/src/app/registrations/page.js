@@ -27,6 +27,7 @@ import LinkButton from "#/LinkButton";
 import Stake from "#/Stake";
 import RawJsonButton from "#/RawJsonButton";
 import SignerTable from "#/SignerTable";
+import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
@@ -60,8 +61,7 @@ export default function Registrations() {
     }
 
     if (error === undefined) {
-      fetch(`${aggregator}/signers/registered/${epoch}`)
-        .then((response) => (response.status === 200 ? response.json() : {}))
+      fetchRegistrations(aggregator, epoch)
         .then((data) => {
           setSigningEpoch(data.signing_at);
           setRegistrations(data.registrations);
@@ -71,19 +71,16 @@ export default function Registrations() {
           });
           setIsLoading(false);
         })
-        .catch((error) => {
+        .catch(() => {
           setSigningEpoch(undefined);
           setRegistrations([]);
           setIsLoading(false);
-          console.error("Fetch registrations error:", error);
         });
 
-      fetch(`${aggregator}/epoch-settings`)
-        .then((response) => (response.status === 200 ? response.json() : {}))
+      fetchEpochSettings(aggregator)
         .then((data) => setCurrentEpoch(data?.epoch))
-        .catch((error) => {
+        .catch(() => {
           setCurrentEpoch(undefined);
-          console.error("Fetch current epoch in epoch-settings error:", error);
         });
 
       dispatch(updatePoolsForAggregator(aggregator));
