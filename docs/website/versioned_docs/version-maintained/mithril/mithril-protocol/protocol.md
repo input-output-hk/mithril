@@ -11,7 +11,7 @@ Mithril is based on the research paper [Mithril: Stake-based Threshold Multisign
 
 :::
 
-:::info New
+:::info
 
 :new: You can interact with the **Mithril protocol** through the [protocol simulation](./simulation.md). This will help you understand participants' interactions, multi-signature creation, and the influence of protocol parameters.
 
