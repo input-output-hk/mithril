@@ -399,6 +399,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 )
             })?;
 
+        if let SignedEntityType::CardanoTransactions(up_to_beacon) = signed_entity_type {
+            self.dependencies
+                .prover_service
+                .compute_cache(up_to_beacon)
+                .await?;
+        }
+
         Ok(())
     }
 
