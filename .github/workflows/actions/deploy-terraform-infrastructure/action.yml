@@ -104,6 +104,9 @@ inputs:
     description: If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks.
     required: false
     default: "false"
+  mithril_aggregator_cardano_transactions_prover_cache_pool_size:
+    description: Mithril aggregator cardano transactions prover cache pool size.
+    required: true
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
@@ -154,45 +157,46 @@ runs:
       working-directory: mithril-infra
       run: |
         cat > ./env.variables.tfvars << EOF
-          environment_prefix                                = "${{ inputs.environment_prefix }}"
-          cardano_network                                   = "${{ inputs.cardano_network }}"
-          cardano_image_id                                  = "${{ inputs.cardano_node_version }}"
-          cardano_image_registry                            = "${{ inputs.cardano_node_docker_registry }}"
-          google_region                                     = "${{ inputs.google_region }}"
-          google_zone                                       = "${{ inputs.google_zone }}"
-          google_machine_type                               = "${{ inputs.google_machine_type }}"
-          google_compute_instance_boot_disk_size            = "${{ inputs.google_compute_instance_boot_disk_size }}"
-          google_compute_instance_data_disk_size            = "${{ inputs.google_compute_instance_data_disk_size }}"
-          google_service_credentials_json_file              = "./google-application-credentials.json"
-          mithril_use_p2p_network                           = "${{ inputs.mithril_use_p2p_network }}"
-          mithril_api_domain                                = "${{ inputs.mithril_api_domain }}"
-          mithril_image_id                                  = "${{ inputs.mithril_image_id }}"
-          mithril_genesis_verification_key_url              = "${{ inputs.mithril_genesis_verification_key_url }}"
-          mithril_genesis_secret_key                        = "${{ inputs.mithril_genesis_secret_key }}"
-          mithril_protocol_parameters                       = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
-          mithril_signers                                   = ${{ fromJSON(inputs.mithril_signers) }}
-          mithril_era_reader_adapter_type                   = "${{ inputs.mithril_era_reader_adapter_type }}"
-          mithril_era_reader_address_url                    = "${{ inputs.mithril_era_reader_address_url }}"
-          mithril_era_reader_verification_key_url           = "${{ inputs.mithril_era_reader_verification_key_url }}"
-          mithril_era_reader_secret_key                     = "${{ inputs.mithril_era_reader_secret_key }}"
-          mithril_aggregator_signed_entity_types            = "${{ inputs.mithril_aggregator_signed_entity_types }}"
-          mithril_aggregator_cdn_cname                      = "${{ inputs.mithril_aggregator_cdn_cname }}"
-          mithril_aggregator_snapshot_use_cdn_domain        = ${{ inputs.mithril_aggregator_snapshot_use_cdn_domain }}
-          mithril_aggregator_snapshot_compression_algorithm = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
-          mithril_aggregator_zstandard_parameters_level     = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
-          mithril_aggregator_zstandard_parameters_workers   = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
-          mithril_aggregator_cexplorer_pools_url            = "${{ inputs.mithril_aggregator_cexplorer_pools_url }}"
-          mithril_aggregator_allow_unparsable_block         = "${{ inputs.mithril_aggregator_allow_unparsable_block }}"
-          prometheus_auth_username                          = "${{ inputs.prometheus_auth_username }}"
-          prometheus_auth_password                          = "${{ inputs.prometheus_auth_password }}"
-          prometheus_ingest_host                            = "${{ inputs.prometheus_ingest_host }}"
-          prometheus_ingest_username                        = "${{ inputs.prometheus_ingest_username }}"
-          prometheus_ingest_password                        = "${{ inputs.prometheus_ingest_password }}"
-          loki_auth_username                                = "${{ inputs.loki_auth_username }}"
-          loki_auth_password                                = "${{ inputs.loki_auth_password }}"
-          loki_ingest_host                                  = "${{ inputs.loki_ingest_host }}"
-          loki_ingest_username                              = "${{ inputs.loki_ingest_username }}"
-          loki_ingest_password                              = "${{ inputs.loki_ingest_password }}"
+          environment_prefix                                             = "${{ inputs.environment_prefix }}"
+          cardano_network                                                = "${{ inputs.cardano_network }}"
+          cardano_image_id                                               = "${{ inputs.cardano_node_version }}"
+          cardano_image_registry                                         = "${{ inputs.cardano_node_docker_registry }}"
+          google_region                                                  = "${{ inputs.google_region }}"
+          google_zone                                                    = "${{ inputs.google_zone }}"
+          google_machine_type                                            = "${{ inputs.google_machine_type }}"
+          google_compute_instance_boot_disk_size                         = "${{ inputs.google_compute_instance_boot_disk_size }}"
+          google_compute_instance_data_disk_size                         = "${{ inputs.google_compute_instance_data_disk_size }}"
+          google_service_credentials_json_file                           = "./google-application-credentials.json"
+          mithril_use_p2p_network                                        = "${{ inputs.mithril_use_p2p_network }}"
+          mithril_api_domain                                             = "${{ inputs.mithril_api_domain }}"
+          mithril_image_id                                               = "${{ inputs.mithril_image_id }}"
+          mithril_genesis_verification_key_url                           = "${{ inputs.mithril_genesis_verification_key_url }}"
+          mithril_genesis_secret_key                                     = "${{ inputs.mithril_genesis_secret_key }}"
+          mithril_protocol_parameters                                    = ${{ fromJSON(inputs.mithril_protocol_parameters) }}
+          mithril_signers                                                = ${{ fromJSON(inputs.mithril_signers) }}
+          mithril_era_reader_adapter_type                                = "${{ inputs.mithril_era_reader_adapter_type }}"
+          mithril_era_reader_address_url                                 = "${{ inputs.mithril_era_reader_address_url }}"
+          mithril_era_reader_verification_key_url                        = "${{ inputs.mithril_era_reader_verification_key_url }}"
+          mithril_era_reader_secret_key                                  = "${{ inputs.mithril_era_reader_secret_key }}"
+          mithril_aggregator_signed_entity_types                         = "${{ inputs.mithril_aggregator_signed_entity_types }}"
+          mithril_aggregator_cdn_cname                                   = "${{ inputs.mithril_aggregator_cdn_cname }}"
+          mithril_aggregator_snapshot_use_cdn_domain                     = ${{ inputs.mithril_aggregator_snapshot_use_cdn_domain }}
+          mithril_aggregator_snapshot_compression_algorithm              = "${{ inputs.mithril_aggregator_snapshot_compression_algorithm }}"
+          mithril_aggregator_zstandard_parameters_level                  = "${{ inputs.mithril_aggregator_zstandard_parameters_level }}"
+          mithril_aggregator_zstandard_parameters_workers                = "${{ inputs.mithril_aggregator_zstandard_parameters_workers }}"
+          mithril_aggregator_cexplorer_pools_url                         = "${{ inputs.mithril_aggregator_cexplorer_pools_url }}"
+          mithril_aggregator_allow_unparsable_block                      = "${{ inputs.mithril_aggregator_allow_unparsable_block }}"
+          mithril_aggregator_cardano_transactions_prover_cache_pool_size = "${{ inputs.mithril_aggregator_cardano_transactions_prover_cache_pool_size }}"
+          prometheus_auth_username                                       = "${{ inputs.prometheus_auth_username }}"
+          prometheus_auth_password                                       = "${{ inputs.prometheus_auth_password }}"
+          prometheus_ingest_host                                         = "${{ inputs.prometheus_ingest_host }}"
+          prometheus_ingest_username                                     = "${{ inputs.prometheus_ingest_username }}"
+          prometheus_ingest_password                                     = "${{ inputs.prometheus_ingest_password }}"
+          loki_auth_username                                             = "${{ inputs.loki_auth_username }}"
+          loki_auth_password                                             = "${{ inputs.loki_auth_password }}"
+          loki_ingest_host                                               = "${{ inputs.loki_ingest_host }}"
+          loki_ingest_username                                           = "${{ inputs.loki_ingest_username }}"
+          loki_ingest_password                                           = "${{ inputs.loki_ingest_password }}"
         EOF
         terraform fmt ./env.variables.tfvars
         cat ./env.variables.tfvars
