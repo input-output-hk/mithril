@@ -1,19 +1,20 @@
 import React, { useEffect, useState } from "react";
-import { Card, Modal } from "react-bootstrap";
+import { Card, Modal, Stack } from "react-bootstrap";
 import CopyButton from "#/CopyButton";
 import { useSelector } from "react-redux";
 import { getSelectedAggregatorPools } from "@/store/poolsSlice";
 
 /**
- * Modal to show a list of registrations in a discord formatted code block
+ * Modal to show a list of registrations in a markdown formatted code block
  *
  * @param registrations List of registrations movements
  * @param onClose Callback to call when the user ask to close the modal
  * @param mode 'in', 'out' or 'undefined': if undefined, the modal will not show
  */
-export default function RegistrationDiscordFormatModal({ registrations, onClose, mode }) {
-  const allPools = useSelector((state) => getSelectedAggregatorPools(state));
+export default function RegistrationMarkdownFormatModal({ registrations, onClose, mode }) {
+  const aggregatorPools = useSelector((state) => getSelectedAggregatorPools(state));
   const [textToCopy, setTextToCopy] = useState(undefined);
+  const variant = mode === "out" ? "danger" : "success";
 
   useEffect(() => {
     if (mode === undefined) {
@@ -31,7 +32,8 @@ export default function RegistrationDiscordFormatModal({ registrations, onClose,
       for (const signer of signers
         .map((s) => ({
           party_id: s.party_id,
-          pool_ticker: allPools?.find((p) => p.party_id === s.party_id)?.pool_ticker ?? "",
+          pool_ticker:
+            aggregatorPools?.pools?.find((p) => p.party_id === s.party_id)?.pool_ticker ?? "",
         }))
         .sort(compareSigners)) {
         text += `* ${signer.party_id}`;
@@ -45,7 +47,7 @@ export default function RegistrationDiscordFormatModal({ registrations, onClose,
     }
 
     setTextToCopy(text);
-  }, [registrations, mode, allPools]);
+  }, [registrations, mode, aggregatorPools]);
 
   function compareSigners(left, right) {
     // Sort by pool_ticker then party_id
@@ -68,15 +70,15 @@ export default function RegistrationDiscordFormatModal({ registrations, onClose,
       centered>
       <Modal.Header closeButton>
         <Modal.Title>
-          <i className="bi bi-discord"></i> Discord formatted table of{" "}
-          {mode === "out" ? "missing" : "new"} registrations
+          <i className={`bi bi-markdown text-${variant}`}></i> Markdown formatted message of{" "}
+          {mode === "out" ? "de-registered" : "newly registered"} signers
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {registrations !== undefined && (
-          <Card bg="light" border={mode === "out" ? "danger" : "success"}>
+          <Card bg="light" border={variant}>
             <Card.Body>
-              <pre>
+              <pre className="mb-0">
                 <code>{textToCopy}</code>
               </pre>
             </Card.Body>

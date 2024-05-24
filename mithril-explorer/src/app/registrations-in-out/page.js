@@ -8,7 +8,7 @@ import { Col, Alert, Row, Spinner, Stack, Table } from "react-bootstrap";
 import { aggregatorSearchParam } from "@/constants";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
 import { fetchEpochSettings, fetchRegistrations } from "@/aggregator-api";
-import RegistrationDiscordFormatModal from "#/RegistrationDiscordFormatModal";
+import RegistrationMarkdownFormatModal from "#/RegistrationMarkdownFormatModal";
 import RegistrationsMovementsList from "@/app/registrations-in-out/RegistrationsMovementsList";
 
 export default function RegistrationsChanges() {
@@ -20,7 +20,7 @@ export default function RegistrationsChanges() {
   const [currentEpoch, setCurrentEpoch] = useState(undefined);
   const [completeDiff, setCompleteDiff] = useState(undefined);
   const [dedupDiff, setDedupDiff] = useState(undefined);
-  const [discordFormatModalMode, setDiscordFormatModalMode] = useState(undefined);
+  const [markdownFormatModalMode, setMarkdownFormatModalMode] = useState(undefined);
 
   useEffect(() => {
     const aggregator = searchParams.get(aggregatorSearchParam);
@@ -70,8 +70,8 @@ export default function RegistrationsChanges() {
     });
   }
 
-  function handleRegistrationsDiscordFormatClose() {
-    setDiscordFormatModalMode(undefined);
+  function handleRegistrationsMarkdownFormatClose() {
+    setMarkdownFormatModalMode(undefined);
   }
 
   if (currentError !== undefined) {
@@ -104,10 +104,10 @@ export default function RegistrationsChanges() {
         <Spinner animation="grow" />
       ) : (
         <>
-          <RegistrationDiscordFormatModal
+          <RegistrationMarkdownFormatModal
             registrations={dedupDiff}
-            onClose={handleRegistrationsDiscordFormatClose}
-            mode={discordFormatModalMode}
+            onClose={handleRegistrationsMarkdownFormatClose}
+            mode={markdownFormatModalMode}
           />
 
           <Row>
@@ -134,7 +134,7 @@ export default function RegistrationsChanges() {
                 <RegistrationsMovementsList
                   registrations={dedupDiff}
                   mode="out"
-                  onDiscordButtonClick={() => setDiscordFormatModalMode("out")}
+                  onMarkdownButtonClick={() => setMarkdownFormatModalMode("out")}
                 />
               </div>
             </Col>
@@ -143,7 +143,7 @@ export default function RegistrationsChanges() {
                 <RegistrationsMovementsList
                   registrations={dedupDiff}
                   mode="in"
-                  onDiscordButtonClick={() => setDiscordFormatModalMode("in")}
+                  onMarkdownButtonClick={() => setMarkdownFormatModalMode("in")}
                 />
               </div>
             </Col>

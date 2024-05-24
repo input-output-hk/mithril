@@ -81,6 +81,11 @@ function getCExplorerUrl(network) {
   return url;
 }
 
+function poolTickerCExplorerUrl(network, partyId) {
+  const cExplorerUrl = getCExplorerUrl(network);
+  return cExplorerUrl ? `${cExplorerUrl}/pool/${partyId}` : undefined;
+}
+
 function formatProcessDuration(startTime) {
   const duration = performance.now() - startTime;
   const minutes = Math.floor(duration / 60000);
@@ -176,6 +181,7 @@ module.exports = {
   formatBytes,
   formatPartyId,
   getCExplorerUrl,
+  poolTickerCExplorerUrl,
   formatProcessDuration,
   computeAggregatorNetworkFromUrl,
   fetchGenesisVerificationKey,
