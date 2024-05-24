@@ -153,6 +153,9 @@ pub struct Configuration {
     ///
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: bool,
+
+    /// Cardano transactions prover cache pool size
+    pub cardano_transactions_prover_cache_pool_size: u32,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -225,6 +228,7 @@ impl Configuration {
             cexplorer_pools_url: None,
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
+            cardano_transactions_prover_cache_pool_size: 3,
         }
     }
 
@@ -358,6 +362,9 @@ pub struct DefaultConfiguration {
     ///
     /// Will be ignored on (pre)production networks.
     pub allow_unparsable_block: String,
+
+    /// Cardano transactions prover cache pool size
+    pub cardano_transactions_prover_cache_pool_size: u32,
 }
 
 impl Default for DefaultConfiguration {
@@ -378,6 +385,7 @@ impl Default for DefaultConfiguration {
             snapshot_use_cdn_domain: "false".to_string(),
             signer_importer_run_interval: 720,
             allow_unparsable_block: "false".to_string(),
+            cardano_transactions_prover_cache_pool_size: 10,
         }
     }
 }
@@ -451,6 +459,10 @@ impl Source for DefaultConfiguration {
         result.insert(
             "allow_unparsable_block".to_string(),
             into_value(myself.allow_unparsable_block),
+        );
+        result.insert(
+            "cardano_transactions_prover_cache_pool_size".to_string(),
+            into_value(myself.cardano_transactions_prover_cache_pool_size),
         );
 
         Ok(result)
