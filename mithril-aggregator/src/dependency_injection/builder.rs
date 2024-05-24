@@ -1365,11 +1365,29 @@ impl DependenciesBuilder {
 
     /// build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
+        let mk_map_pool_size = 30; // TODO: make this configurable
         let transaction_retriever = self.get_transaction_repository().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
-        let service = MithrilProverService::new(transaction_retriever, block_range_root_retriever);
+        let logger = self.get_logger().await?;
+        let prover_service = MithrilProverService::new(
+            transaction_retriever,
+            block_range_root_retriever,
+            mk_map_pool_size,
+            logger,
+        );
 
-        Ok(Arc::new(service))
+        // Compute the cache pool for prover service
+        let signed_entity_service = self.get_signed_entity_service().await?;
+        if let Some(signed_entity) = signed_entity_service
+            .get_last_cardano_transaction_snapshot()
+            .await?
+        {
+            prover_service
+                .compute_cache(&signed_entity.artifact.beacon)
+                .await?;
+        }
+
+        Ok(Arc::new(prover_service))
     }
 
     /// [ProverService] service
