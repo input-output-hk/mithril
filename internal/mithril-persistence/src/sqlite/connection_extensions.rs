@@ -3,7 +3,7 @@ use sqlite::{ReadableWithIndex, Value};
 
 use mithril_common::StdResult;
 
-use crate::sqlite::SqliteConnection;
+use crate::sqlite::{EntityCursor, ProviderV2, SqliteConnection};
 
 /// Extension trait for the [SqliteConnection] type.
 pub trait ConnectionExtensions {
@@ -13,6 +13,9 @@ pub trait ConnectionExtensions {
         sql: Q,
         params: &[Value],
     ) -> StdResult<T>;
+
+    /// Fetch entities from the database using the given provider.
+    fn fetch<P: ProviderV2>(&self, provider: P) -> StdResult<EntityCursor<P::Entity>>;
 }
 
 impl ConnectionExtensions for SqliteConnection {
@@ -32,6 +35,25 @@ impl ConnectionExtensions for SqliteConnection {
         statement
             .read::<T, _>(0)
             .with_context(|| "Read query error")
+    }
+
+    fn fetch<P: ProviderV2>(&self, provider: P) -> StdResult<EntityCursor<P::Entity>> {
+        let (condition, params) = provider.filters().expand();
+        let sql = provider.get_definition(&condition);
+        let cursor = self
+            .prepare(&sql)
+            .with_context(|| {
+                format!(
+                    "Prepare query error: SQL=`{}`",
+                    &sql.replace('\n', " ").trim()
+                )
+            })?
+            .into_iter()
+            .bind(&params[..])?;
+
+        let iterator = EntityCursor::new(cursor);
+
+        Ok(iterator)
     }
 }
 

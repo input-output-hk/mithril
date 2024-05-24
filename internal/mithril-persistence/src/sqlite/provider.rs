@@ -39,6 +39,19 @@ pub trait Provider<'conn> {
     fn get_definition(&self, condition: &str) -> String;
 }
 
+/// A Provider is able to perform queries on a database and return iterator of a defined entity.
+/// It aims at being easily testable and adaptable.
+pub trait ProviderV2 {
+    /// Entity type returned by the result cursor.
+    type Entity: SqLiteEntity;
+
+    /// Return the filters to apply to the query.
+    fn filters(&self) -> WhereCondition;
+
+    /// Return the definition of this provider, ie the actual SQL query this
+    /// provider performs.
+    fn get_definition(&self, condition: &str) -> String;
+}
 /// An extension of the [Provider] that can return all the entities of a given type.
 pub trait GetAllProvider<'conn, E: SqLiteEntity> {
     /// Return all the entities of the given type.

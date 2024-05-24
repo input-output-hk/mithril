@@ -6,7 +6,8 @@ use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{
-    GetAllCondition, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
+    GetAllCondition, Provider, ProviderV2, SourceAlias, SqLiteEntity, SqliteConnection,
+    WhereCondition,
 };
 
 /// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
@@ -89,3 +90,70 @@ impl<'client> Provider<'client> for GetCardanoTransactionProvider<'client> {
 }
 
 impl GetAllCondition for GetCardanoTransactionProvider<'_> {}
+
+/// Simple queries to retrieve [CardanoTransaction] from the sqlite database.
+pub struct GetCardanoTransactionProviderV2 {
+    filters: WhereCondition,
+}
+
+impl GetCardanoTransactionProviderV2 {
+    pub fn by_hash(transaction_hash: &TransactionHash) -> Self {
+        Self {
+            filters: WhereCondition::new(
+                "transaction_hash = ?*",
+                vec![Value::String(transaction_hash.to_owned())],
+            ),
+        }
+    }
+}
+
+impl ProviderV2 for GetCardanoTransactionProviderV2 {
+    type Entity = CardanoTransactionRecord;
+
+    fn filters(&self) -> WhereCondition {
+        self.filters.clone()
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        let aliases = SourceAlias::new(&[("{:cardano_tx:}", "cardano_tx")]);
+        let projection = Self::Entity::get_projection().expand(aliases);
+
+        format!("select {projection} from cardano_tx where {condition} order by block_number, transaction_hash")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::database::provider::InsertCardanoTransactionProvider;
+    use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::sqlite::ConnectionExtensions;
+
+    use super::*;
+
+    fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
+        let provider = InsertCardanoTransactionProvider::new(connection);
+        let condition = provider.get_insert_many_condition(records).unwrap();
+        let mut cursor = provider.find(condition).unwrap();
+        cursor.next().unwrap();
+    }
+
+    #[test]
+    fn test_get_v2() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let in_db = vec![
+            CardanoTransactionRecord::new("tx-hash-0", 10, 50, "block-hash-10", 1),
+            CardanoTransactionRecord::new("tx-hash-1", 10, 51, "block-hash-10", 1),
+        ];
+
+        insert_transactions(&connection, in_db.clone());
+
+        let cursor = connection
+            .fetch(GetCardanoTransactionProviderV2::by_hash(
+                &"tx-hash-0".to_string(),
+            ))
+            .unwrap();
+        let transactions: Vec<CardanoTransactionRecord> = cursor.collect();
+
+        assert_eq!(in_db[0..1].to_vec(), transactions);
+    }
+}

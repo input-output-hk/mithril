@@ -17,7 +17,7 @@ pub use connection_extensions::ConnectionExtensions;
 pub use cursor::EntityCursor;
 pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
-pub use provider::{GetAllProvider, Provider};
+pub use provider::{GetAllProvider, Provider, ProviderV2};
 pub use source_alias::SourceAlias;
 
 use mithril_common::StdResult;
