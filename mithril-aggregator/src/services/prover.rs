@@ -173,21 +173,24 @@ impl ProverService for MithrilProverService {
             self.logger,
             "Prover starts computing the Merkle map pool pool resource of size {pool_size}"
         );
-        self.mk_map_pool.drain();
         let mk_map_cache = self
             .block_range_root_retriever
             .compute_merkle_map_from_block_range_roots(up_to.immutable_file_number)
             .await?;
         let discriminant_new = self.mk_map_pool.discriminant()? + 1;
         self.mk_map_pool.set_discriminant(discriminant_new)?;
-        for i in 1..=pool_size {
-            debug!(
-                self.logger,
-                "Prover is computing the Merkle map pool pool resource {i}/{pool_size}"
-            );
-            self.mk_map_pool
-                .return_resource(mk_map_cache.clone(), discriminant_new)?;
-        }
+        self.mk_map_pool.drain();
+        (1..=pool_size)
+            .into_par_iter()
+            .map(|i| {
+                debug!(
+                    self.logger,
+                    "Prover is computing the Merkle map pool pool resource {i}/{pool_size}"
+                );
+                self.mk_map_pool
+                    .return_resource(mk_map_cache.clone(), discriminant_new)
+            })
+            .collect::<StdResult<()>>()?;
         info!(
             self.logger,
             "Prover completed computing the Merkle map pool pool resource of size {pool_size}"

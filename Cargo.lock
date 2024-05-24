@@ -3470,6 +3470,7 @@ dependencies = [
  "mockall",
  "openssl",
  "openssl-probe",
+ "rayon",
  "reqwest 0.12.4",
  "semver",
  "serde",
