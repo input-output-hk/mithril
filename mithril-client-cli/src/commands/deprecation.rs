@@ -3,6 +3,8 @@ use clap::{
     error::{ContextKind, ContextValue},
 };
 
+use crate::ClapError;
+
 /// Stores the deprecated command name and the new command name to use.
 #[derive(Clone)]
 pub struct DeprecatedCommand {
@@ -25,7 +27,7 @@ pub struct Deprecation;
 
 impl Deprecation {
     fn find_deprecated_command(
-        error: &clap::error::Error,
+        error: &ClapError,
         deprecated_commands: Vec<DeprecatedCommand>,
     ) -> Option<DeprecatedCommand> {
         if let Some(context_value) = error.get(ContextKind::InvalidSubcommand) {
@@ -40,11 +42,11 @@ impl Deprecation {
 
     /// Modify result to add information on deprecated commands.
     pub fn handle_deprecated_commands<A>(
-        matches_result: Result<A, clap::error::Error>,
+        matches_result: Result<A, ClapError>,
         styles: Styles,
         deprecated_commands: Vec<DeprecatedCommand>,
-    ) -> Result<A, clap::error::Error> {
-        matches_result.map_err(|mut e: clap::error::Error| {
+    ) -> Result<A, ClapError> {
+        matches_result.map_err(|mut e: ClapError| {
             if let Some(deprecated_command) = Self::find_deprecated_command(&e, deprecated_commands)
             {
                 let message = format!(
@@ -83,9 +85,9 @@ mod tests {
 
     #[test]
     fn invalid_sub_command_message_for_a_non_deprecated_command_is_not_modified() {
-        fn build_error() -> Result<MyCommand, clap::error::Error> {
-            let mut e = clap::error::Error::new(ErrorKind::InvalidSubcommand)
-                .with_cmd(&MyCommand::command());
+        fn build_error() -> Result<MyCommand, ClapError> {
+            let mut e =
+                ClapError::new(ErrorKind::InvalidSubcommand).with_cmd(&MyCommand::command());
 
             e.insert(
                 ContextKind::InvalidSubcommand,
@@ -109,15 +111,14 @@ mod tests {
 
     #[test]
     fn replace_error_message_on_deprecated_commands_and_show_the_new_command() {
-        let mut e = clap::error::Error::new(clap::error::ErrorKind::InvalidSubcommand)
-            .with_cmd(&MyCommand::command());
+        let mut e = ClapError::new(ErrorKind::InvalidSubcommand).with_cmd(&MyCommand::command());
         e.insert(
             ContextKind::InvalidSubcommand,
             ContextValue::String("old_command".to_string()),
         );
 
         let result = Deprecation::handle_deprecated_commands(
-            Err(e) as Result<MyCommand, clap::error::Error>,
+            Err(e) as Result<MyCommand, ClapError>,
             Styles::plain(),
             vec![DeprecatedCommand::new("old_command", "new_command")],
         );

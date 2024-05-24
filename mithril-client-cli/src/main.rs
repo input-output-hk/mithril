@@ -12,13 +12,13 @@ use std::sync::Arc;
 use std::{fs::File, path::PathBuf};
 
 use mithril_client::MithrilResult;
-use mithril_client_cli::commands::{DeprecatedCommand, Deprecation};
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
     cardano_db::CardanoDbCommands, cardano_transaction::CardanoTransactionCommands,
-    mithril_stake_distribution::MithrilStakeDistributionCommands,
+    mithril_stake_distribution::MithrilStakeDistributionCommands, DeprecatedCommand, Deprecation,
 };
+use mithril_client_cli::ClapError;
 
 enum LogOutputType {
     StdErr,
@@ -141,7 +141,7 @@ impl Args {
     }
 
     fn parse_with_decorator(
-        decorator: &dyn Fn(Result<Self, clap::error::Error>) -> Result<Self, clap::error::Error>,
+        decorator: &dyn Fn(Result<Self, ClapError>) -> Result<Self, ClapError>,
     ) -> Self {
         let result = decorator(Self::try_parse());
         match result {
@@ -151,8 +151,8 @@ impl Args {
     }
 
     fn handle_deprecated_decorator(
-        args_result: Result<Self, clap::error::Error>,
-    ) -> Result<Self, clap::error::Error> {
+        args_result: Result<Self, ClapError>,
+    ) -> Result<Self, ClapError> {
         let styles = Args::command().get_styles().clone();
         Deprecation::handle_deprecated_commands(
             args_result,
@@ -228,7 +228,7 @@ impl ArtifactCommands {
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     // Load args
-    let args = Args::parse_with_decorator(&|result: Result<Args, clap::error::Error>| {
+    let args = Args::parse_with_decorator(&|result: Result<Args, ClapError>| {
         Args::handle_deprecated_decorator(result)
     });
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
