@@ -9,6 +9,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
+- **BREAKING** changes in Mithril client CLI:
+  - The deprecated `snapshot` command is removed from the Mithril client CLI
+  - Use the `cardano-db snapshot` command instead.
+
 - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
 
 - Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
