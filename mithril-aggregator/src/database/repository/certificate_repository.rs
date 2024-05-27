@@ -9,7 +9,7 @@ use mithril_common::entities::{Certificate, Epoch};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::ConnectionExtensions;
 
-use crate::database::provider::{
+use crate::database::query::{
     DeleteCertificateQuery, GetCertificateRecordQuery, InsertCertificateRecordQuery,
     MasterCertificateQuery,
 };

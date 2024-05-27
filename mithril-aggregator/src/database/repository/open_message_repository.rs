@@ -6,7 +6,7 @@ use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::{
+use crate::database::query::{
     DeleteOpenMessageQuery, GetOpenMessageQuery, GetOpenMessageWithSingleSignaturesQuery,
     InsertOpenMessageQuery, UpdateOpenMessageQuery,
 };

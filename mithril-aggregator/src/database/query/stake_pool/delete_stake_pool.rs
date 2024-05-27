@@ -41,7 +41,7 @@ impl DeleteStakePoolQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::GetStakePoolQuery;
+    use crate::database::query::GetStakePoolQuery;
     use crate::database::test_helper::{insert_stake_pool, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 

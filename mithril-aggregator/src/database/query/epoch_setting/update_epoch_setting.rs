@@ -48,7 +48,7 @@ mod tests {
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::provider::GetEpochSettingQuery;
+    use crate::database::query::GetEpochSettingQuery;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;

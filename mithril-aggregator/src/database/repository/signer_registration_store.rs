@@ -9,7 +9,7 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 
-use crate::database::provider::{
+use crate::database::query::{
     DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery,
 };

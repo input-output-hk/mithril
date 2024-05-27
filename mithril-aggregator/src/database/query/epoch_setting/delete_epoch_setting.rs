@@ -50,7 +50,7 @@ impl DeleteEpochSettingQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::GetEpochSettingQuery;
+    use crate::database::query::GetEpochSettingQuery;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 

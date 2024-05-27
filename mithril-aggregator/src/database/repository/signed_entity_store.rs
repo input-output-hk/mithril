@@ -7,7 +7,7 @@ use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::{
+use crate::database::query::{
     GetSignedEntityRecordQuery, InsertSignedEntityRecordQuery, UpdateSignedEntityQuery,
 };
 use crate::database::record::SignedEntityRecord;

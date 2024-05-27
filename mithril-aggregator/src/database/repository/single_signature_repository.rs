@@ -4,7 +4,7 @@ use mithril_common::entities::SingleSignatures;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::UpdateSingleSignatureRecordQuery;
+use crate::database::query::UpdateSingleSignatureRecordQuery;
 use crate::database::record::{OpenMessageRecord, SingleSignatureRecord};
 
 /// Service to deal with single_signature (read & write).

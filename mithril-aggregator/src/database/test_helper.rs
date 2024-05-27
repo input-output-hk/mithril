@@ -8,7 +8,7 @@ use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };
 
-use crate::database::provider::{
+use crate::database::query::{
     ImportSignerRecordQuery, InsertCertificateRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
     InsertSignedEntityRecordQuery, UpdateEpochSettingQuery, UpdateSingleSignatureRecordQuery,

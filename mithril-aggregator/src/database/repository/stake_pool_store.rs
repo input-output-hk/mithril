@@ -10,7 +10,7 @@ use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 use mithril_persistence::store::StakeStorer;
 
-use crate::database::provider::{
+use crate::database::query::{
     DeleteStakePoolQuery, GetStakePoolQuery, InsertOrReplaceStakePoolQuery,
 };
 use crate::database::record::StakePool;
