@@ -1,7 +1,7 @@
 use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint};
 
 /// The action that indicates what to do next when scanning the chain
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ChainBlockNextAction {
     /// RollForward event (we are still on the correct fork)
     RollForward {

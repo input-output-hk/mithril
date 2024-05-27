@@ -36,40 +36,31 @@ mod tests {
 
     use super::*;
 
+    fn build_chain_point(id: u64) -> ChainPoint {
+        ChainPoint {
+            slot_number: id,
+            block_number: id,
+            block_hash: format!("point-hash-{id}"),
+        }
+    }
+
     #[tokio::test]
     async fn test_get_next_chain_block() {
-        let chain_point = ChainPoint {
-            slot_number: 1,
-            block_number: 1,
-            block_hash: "point-hash-1".to_string(),
-        };
         let expected_chain_point_next_actions = vec![
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint {
-                    slot_number: 1,
-                    block_number: 1,
-                    block_hash: "point-hash-1".to_string(),
-                },
+                next_point: build_chain_point(1),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint {
-                    slot_number: 2,
-                    block_number: 2,
-                    block_hash: "point-hash-2".to_string(),
-                },
+                next_point: build_chain_point(2),
                 parsed_block: ScannedBlock::new("hash-2", 2, 11, 21, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollBackward {
-                rollback_point: ChainPoint {
-                    slot_number: 1,
-                    block_number: 1,
-                    block_hash: "point-hash-1".to_string(),
-                },
+                rollback_point: build_chain_point(1),
             },
         ];
+
         let mut chain_reader = FakeChainReader::new(expected_chain_point_next_actions.clone());
-        chain_reader.set_chain_point(&chain_point).await.unwrap();
 
         let mut chain_point_next_actions = vec![];
         while let Some(chain_block_next_action) = chain_reader.get_next_chain_block().await.unwrap()

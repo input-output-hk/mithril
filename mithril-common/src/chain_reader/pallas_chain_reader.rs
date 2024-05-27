@@ -130,7 +130,7 @@ mod tests {
 
     use super::*;
 
-    use crate::test_utils::TempDir;
+    use crate::{entities::BlockNumber, test_utils::TempDir};
 
     /// Enum representing the action to be performed by the server.
     enum ServerAction {
@@ -154,6 +154,11 @@ mod tests {
         )
     }
 
+    /// Returns a fake block number for testing purposes.
+    fn get_fake_block_number() -> BlockNumber {
+        1337
+    }
+
     /// Returns a fake chain point for testing purposes.
     fn get_fake_chain_point_backwards() -> ChainPoint {
         ChainPoint::from(get_fake_specific_point())
@@ -161,7 +166,7 @@ mod tests {
 
     /// Returns a fake chain point for testing purposes.
     fn get_fake_chain_point_forwards() -> ChainPoint {
-        Tip(get_fake_specific_point(), 1337).into()
+        Tip(get_fake_specific_point(), get_fake_block_number()).into()
     }
 
     /// Creates a new work directory in the system's temporary folder.
@@ -197,6 +202,7 @@ mod tests {
                 }
 
                 let known_point = get_fake_specific_point();
+                let tip_block_number = get_fake_block_number();
                 let unix_listener = UnixListener::bind(socket_path.as_path()).unwrap();
                 let mut server = NodeServer::accept(&unix_listener, 10).await.unwrap();
 
@@ -205,7 +211,10 @@ mod tests {
                 chainsync_server.recv_while_idle().await.unwrap();
 
                 chainsync_server
-                    .send_intersect_found(known_point.clone(), Tip(known_point.clone(), 1337))
+                    .send_intersect_found(
+                        known_point.clone(),
+                        Tip(known_point.clone(), tip_block_number),
+                    )
                     .await
                     .unwrap();
 
@@ -218,14 +227,17 @@ mod tests {
                 match action {
                     ServerAction::RollBackward => {
                         chainsync_server
-                            .send_roll_backward(known_point.clone(), Tip(known_point.clone(), 1337))
+                            .send_roll_backward(
+                                known_point.clone(),
+                                Tip(known_point.clone(), tip_block_number),
+                            )
                             .await
                             .unwrap();
                     }
                     ServerAction::RollForward => {
                         let block = BlockContent(get_fake_raw_block());
                         chainsync_server
-                            .send_roll_forward(block, Tip(known_point.clone(), 1337))
+                            .send_roll_forward(block, Tip(known_point.clone(), tip_block_number))
                             .await
                             .unwrap();
                     }
@@ -270,11 +282,7 @@ mod tests {
     #[tokio::test]
     async fn get_next_chain_block_rolls_forward() {
         let socket_path = create_temp_dir("get_next_chain_block_rolls_forward").join("node.socket");
-        let known_point = Point::Specific(
-            1654413,
-            hex::decode("7de1f036df5a133ce68a82877d14354d0ba6de7625ab918e75f3e2ecb29771c2")
-                .unwrap(),
-        );
+        let known_point = get_fake_specific_point();
         let server = setup_server(
             socket_path.clone(),
             ServerAction::RollForward,
