@@ -4,29 +4,21 @@ use uuid::Uuid;
 
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::OpenMessageRecord;
 
 /// Query to insert [OpenMessageRecord] in the sqlite database
-pub struct InsertOpenMessageProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct InsertOpenMessageProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> InsertOpenMessageProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_insert_condition(
-        &self,
+impl InsertOpenMessageProvider {
+    pub fn one(
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> StdResult<WhereCondition> {
+    ) -> StdResult<Self> {
         let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, expires_at, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*)";
         let beacon_str = signed_entity_type.get_json_beacon()?;
         let parameters = vec![
@@ -42,15 +34,17 @@ impl<'client> InsertOpenMessageProvider<'client> {
             Value::String(Utc::now().to_rfc3339()),
         ];
 
-        Ok(WhereCondition::new(expression, parameters))
+        Ok(Self {
+            condition: WhereCondition::new(expression, parameters),
+        })
     }
 }
 
-impl<'client> Provider<'client> for InsertOpenMessageProvider<'client> {
+impl Query for InsertOpenMessageProvider {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {

@@ -1,32 +1,45 @@
+use chrono::{DateTime, Utc};
 use sqlite::Value;
 
 use mithril_common::{
     entities::{Epoch, SignedEntityType},
     StdResult,
 };
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::OpenMessageRecord;
 
 /// Simple queries to retrieve [OpenMessageRecord] from the sqlite database.
-pub struct GetOpenMessageProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct GetOpenMessageProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> GetOpenMessageProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
+impl GetOpenMessageProvider {
+    pub fn by_epoch_and_signed_entity_type(
+        epoch: Epoch,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Self> {
+        let condition = Self::get_epoch_condition(epoch)
+            .and_where(Self::get_signed_entity_type_condition(signed_entity_type)?);
+
+        Ok(Self { condition })
     }
 
-    pub fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
+    pub fn by_expired_entity_type(
+        now: DateTime<Utc>,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Self> {
+        let condition = Self::get_expired_condition(now)
+            .and_where(Self::get_signed_entity_type_condition(signed_entity_type)?);
+
+        Ok(Self { condition })
+    }
+
+    fn get_epoch_condition(epoch: Epoch) -> WhereCondition {
         WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(*epoch as i64)])
     }
 
-    pub fn get_signed_entity_type_condition(
-        &self,
+    fn get_signed_entity_type_condition(
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<WhereCondition> {
         Ok(WhereCondition::new(
@@ -38,16 +51,29 @@ impl<'client> GetOpenMessageProvider<'client> {
         ))
     }
 
-    pub fn get_expired_entity_type_condition(&self, now: &str) -> WhereCondition {
-        WhereCondition::new("expires_at < ?*", vec![Value::String(now.to_string())])
+    fn get_expired_condition(expires_at: DateTime<Utc>) -> WhereCondition {
+        WhereCondition::new(
+            "expires_at < ?*",
+            vec![Value::String(expires_at.to_rfc3339())],
+        )
+    }
+
+    #[cfg(test)]
+    pub fn by_id(open_message_id: &uuid::Uuid) -> Self {
+        Self {
+            condition: WhereCondition::new(
+                "open_message_id = ?*",
+                vec![Value::String(open_message_id.to_string())],
+            ),
+        }
     }
 }
 
-impl<'client> Provider<'client> for GetOpenMessageProvider<'client> {
+impl Query for GetOpenMessageProvider {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {

@@ -2,27 +2,17 @@ use anyhow::Context;
 use sqlite::Value;
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::OpenMessageRecord;
 
 /// Query to update [OpenMessageRecord] in the sqlite database
-pub struct UpdateOpenMessageProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct UpdateOpenMessageProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> UpdateOpenMessageProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_update_condition(
-        &self,
-        open_message: &OpenMessageRecord,
-    ) -> StdResult<WhereCondition> {
+impl UpdateOpenMessageProvider {
+    pub fn one(open_message: &OpenMessageRecord) -> StdResult<Self> {
         let expression = "epoch_setting_id = ?*, beacon = ?*, \
 signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?*, \
 is_expired = ?*, expires_at = ?* where open_message_id = ?*";
@@ -46,15 +36,17 @@ is_expired = ?*, expires_at = ?* where open_message_id = ?*";
             Value::String(open_message.open_message_id.to_string()),
         ];
 
-        Ok(WhereCondition::new(expression, parameters))
+        Ok(Self {
+            condition: WhereCondition::new(expression, parameters),
+        })
     }
 }
 
-impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
+impl Query for UpdateOpenMessageProvider {
     type Entity = OpenMessageRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
