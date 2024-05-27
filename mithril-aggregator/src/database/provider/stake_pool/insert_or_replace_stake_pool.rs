@@ -4,28 +4,17 @@ use chrono::Utc;
 use sqlite::Value;
 
 use mithril_common::entities::{Epoch, PartyId, Stake};
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::StakePool;
 
 /// Query to insert or replace [StakePool] in the sqlite database
-pub struct InsertOrReplaceStakePoolProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct InsertOrReplaceStakePoolProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_insert_or_replace_condition(
-        &self,
-        records: Vec<(PartyId, Epoch, Stake)>,
-    ) -> WhereCondition {
+impl InsertOrReplaceStakePoolProvider {
+    pub fn many(records: Vec<(PartyId, Epoch, Stake)>) -> Self {
         let columns = "(stake_pool_id, epoch, stake, created_at)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*)").take(records.len()).collect();
         let values = records
@@ -39,25 +28,20 @@ impl<'conn> InsertOrReplaceStakePoolProvider<'conn> {
                 ]
             })
             .collect();
-
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values,
-        )
-    }
+        );
 
-    pub fn persist_many(&self, records: Vec<(PartyId, Epoch, Stake)>) -> StdResult<Vec<StakePool>> {
-        let filters = self.get_insert_or_replace_condition(records);
-
-        Ok(self.find(filters)?.collect())
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for InsertOrReplaceStakePoolProvider<'conn> {
+impl Query for InsertOrReplaceStakePoolProvider {
     type Entity = StakePool;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -74,6 +58,7 @@ impl<'conn> Provider<'conn> for InsertOrReplaceStakePoolProvider<'conn> {
 mod tests {
     use crate::database::provider::GetStakePoolProvider;
     use crate::database::test_helper::{insert_stake_pool, main_db_connection};
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
 
@@ -82,9 +67,12 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_stake_pool(&connection, &[3]).unwrap();
 
-        let provider = InsertOrReplaceStakePoolProvider::new(&connection);
-        let pools = provider
-            .persist_many(vec![("pool4".to_string(), Epoch(3), 9999)])
+        let pools: Vec<StakePool> = connection
+            .fetch_and_collect(InsertOrReplaceStakePoolProvider::many(vec![(
+                "pool4".to_string(),
+                Epoch(3),
+                9999,
+            )]))
             .unwrap();
         let stake_pool = pools.first().unwrap();
 
@@ -92,8 +80,9 @@ mod tests {
         assert_eq!(Epoch(3), stake_pool.epoch);
         assert_eq!(9999, stake_pool.stake);
 
-        let provider = GetStakePoolProvider::new(&connection);
-        let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
+        let mut cursor = connection
+            .fetch(GetStakePoolProvider::by_epoch(Epoch(3)).unwrap())
+            .unwrap();
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool4'.");
 
         assert_eq!("pool4".to_string(), stake_pool.stake_pool_id);

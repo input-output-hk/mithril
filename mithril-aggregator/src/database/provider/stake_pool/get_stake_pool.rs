@@ -2,44 +2,29 @@ use sqlite::Value;
 
 use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::StakePool;
 
 /// Simple queries to retrieve [StakePool] from the sqlite database.
-pub struct GetStakePoolProvider<'client> {
-    client: &'client SqliteConnection,
+pub struct GetStakePoolProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> GetStakePoolProvider<'client> {
-    /// Create a new provider
-    pub fn new(client: &'client SqliteConnection) -> Self {
-        Self { client }
-    }
-
-    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
-        Ok(WhereCondition::new(
-            "epoch = ?*",
-            vec![Value::Integer(epoch.try_into()?)],
-        ))
-    }
-
+impl GetStakePoolProvider {
     /// Get StakePools for a given Epoch for given pool_ids.
-    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<StakePool>> {
-        let filters = self.condition_by_epoch(epoch)?;
-        let stake_pool = self.find(filters)?;
+    pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
+        let condition = WhereCondition::new("epoch = ?*", vec![Value::Integer(epoch.try_into()?)]);
 
-        Ok(stake_pool)
+        Ok(Self { condition })
     }
 }
 
-impl<'client> Provider<'client> for GetStakePoolProvider<'client> {
+impl Query for GetStakePoolProvider {
     type Entity = StakePool;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.client
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -53,6 +38,7 @@ impl<'client> Provider<'client> for GetStakePoolProvider<'client> {
 #[cfg(test)]
 mod tests {
     use crate::database::test_helper::{insert_stake_pool, main_db_connection};
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
 
@@ -61,8 +47,9 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_stake_pool(&connection, &[1, 2, 3]).unwrap();
 
-        let provider = GetStakePoolProvider::new(&connection);
-        let mut cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
+        let mut cursor = connection
+            .fetch(GetStakePoolProvider::by_epoch(Epoch(1)).unwrap())
+            .unwrap();
 
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool3'.");
         assert_eq!(
@@ -71,7 +58,9 @@ mod tests {
         );
         assert_eq!(2, cursor.count());
 
-        let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
+        let mut cursor = connection
+            .fetch(GetStakePoolProvider::by_epoch(Epoch(3)).unwrap())
+            .unwrap();
 
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool2'.");
         assert_eq!(
@@ -80,7 +69,9 @@ mod tests {
         );
         assert_eq!(2, cursor.count());
 
-        let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
+        let cursor = connection
+            .fetch(GetStakePoolProvider::by_epoch(Epoch(5)).unwrap())
+            .unwrap();
         assert_eq!(0, cursor.count());
     }
 }

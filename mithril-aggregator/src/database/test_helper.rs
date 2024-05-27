@@ -345,10 +345,10 @@ pub fn insert_stake_pool(
     let query = {
         // leverage the expanded parameter from this provider which is unit
         // tested on its own above.
-        let update_provider = InsertOrReplaceStakePoolProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_insert_or_replace_condition(vec![("pool_id".to_string(), Epoch(1), 1000)])
-            .expand();
+        let (sql_values, _) =
+            InsertOrReplaceStakePoolProvider::many(vec![("pool_id".to_string(), Epoch(1), 1000)])
+                .filters()
+                .expand();
 
         format!("insert into stake_pool {sql_values}")
     };
