@@ -1,62 +1,36 @@
 use sqlite::Value;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::EpochSettingRecord;
 
 /// Query to update [EpochSettingRecord] in the sqlite database
-pub struct UpdateEpochSettingProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct UpdateEpochSettingProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> UpdateEpochSettingProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    // todo: not pub
-    pub fn get_update_condition(
-        &self,
-        epoch: Epoch,
-        protocol_parameters: ProtocolParameters,
-    ) -> WhereCondition {
+impl UpdateEpochSettingProvider {
+    pub fn one(epoch: Epoch, protocol_parameters: ProtocolParameters) -> Self {
         let epoch_setting_id: i64 = epoch.try_into().unwrap();
 
-        WhereCondition::new(
-            "(epoch_setting_id, protocol_parameters) values (?1, ?2)",
-            vec![
-                Value::Integer(epoch_setting_id),
-                Value::String(serde_json::to_string(&protocol_parameters).unwrap()),
-            ],
-        )
-    }
-
-    pub fn persist(
-        &self,
-        epoch: Epoch,
-        protocol_parameters: ProtocolParameters,
-    ) -> StdResult<EpochSettingRecord> {
-        let filters = self.get_update_condition(epoch, protocol_parameters);
-
-        let entity = self
-            .find(filters)?
-            .next()
-            .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
-
-        Ok(entity)
+        Self {
+            condition: WhereCondition::new(
+                "(epoch_setting_id, protocol_parameters) values (?1, ?2)",
+                vec![
+                    Value::Integer(epoch_setting_id),
+                    Value::String(serde_json::to_string(&protocol_parameters).unwrap()),
+                ],
+            ),
+        }
     }
 }
 
-impl<'conn> Provider<'conn> for UpdateEpochSettingProvider<'conn> {
+impl Query for UpdateEpochSettingProvider {
     type Entity = EpochSettingRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -72,6 +46,7 @@ impl<'conn> Provider<'conn> for UpdateEpochSettingProvider<'conn> {
 #[cfg(test)]
 mod tests {
     use mithril_common::test_utils::fake_data;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::provider::GetEpochSettingProvider;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
@@ -83,9 +58,12 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[3]).unwrap();
 
-        let provider = UpdateEpochSettingProvider::new(&connection);
-        let epoch_setting_record = provider
-            .persist(Epoch(3), fake_data::protocol_parameters())
+        let epoch_setting_record = connection
+            .fetch_one(UpdateEpochSettingProvider::one(
+                Epoch(3),
+                fake_data::protocol_parameters(),
+            ))
+            .unwrap()
             .unwrap();
 
         assert_eq!(Epoch(3), epoch_setting_record.epoch_setting_id);
@@ -94,8 +72,9 @@ mod tests {
             epoch_setting_record.protocol_parameters
         );
 
-        let provider = GetEpochSettingProvider::new(&connection);
-        let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
+        let mut cursor = connection
+            .fetch(GetEpochSettingProvider::by_epoch(Epoch(3)).unwrap())
+            .unwrap();
         let epoch_setting_record = cursor
             .next()
             .expect("Should have an epoch setting for epoch 3.");

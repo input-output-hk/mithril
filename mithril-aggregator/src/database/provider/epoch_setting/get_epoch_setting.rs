@@ -2,48 +2,35 @@ use anyhow::Context;
 use sqlite::Value;
 
 use mithril_common::{entities::Epoch, StdResult};
-use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::EpochSettingRecord;
 
 /// Simple queries to retrieve [EpochSettingRecord] from the sqlite database.
-pub struct GetEpochSettingProvider<'client> {
-    client: &'client SqliteConnection,
+pub struct GetEpochSettingProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> GetEpochSettingProvider<'client> {
-    /// Create a new provider
-    pub fn new(client: &'client SqliteConnection) -> Self {
-        Self { client }
-    }
-
-    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
+impl GetEpochSettingProvider {
+    pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
         let epoch_setting_id: i64 = epoch
             .try_into()
             .with_context(|| format!("Can not convert epoch: '{epoch}'"))?;
 
-        Ok(WhereCondition::new(
-            "epoch_setting_id = ?*",
-            vec![Value::Integer(epoch_setting_id)],
-        ))
-    }
-
-    /// Get EpochSettingRecords for a given Epoch for given pool_ids.
-    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
-        let filters = self.condition_by_epoch(epoch)?;
-        let epoch_setting_record = self.find(filters)?;
-
-        Ok(epoch_setting_record)
+        Ok(Self {
+            condition: WhereCondition::new(
+                "epoch_setting_id = ?*",
+                vec![Value::Integer(epoch_setting_id)],
+            ),
+        })
     }
 }
 
-impl<'client> Provider<'client> for GetEpochSettingProvider<'client> {
+impl Query for GetEpochSettingProvider {
     type Entity = EpochSettingRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.client
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -56,6 +43,7 @@ impl<'client> Provider<'client> for GetEpochSettingProvider<'client> {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::ProtocolParameters;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
@@ -66,11 +54,9 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2, 3]).unwrap();
 
-        let provider = GetEpochSettingProvider::new(&connection);
-
-        let mut cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
-        let epoch_setting_record = cursor
-            .next()
+        let epoch_setting_record = connection
+            .fetch_one(GetEpochSettingProvider::by_epoch(Epoch(1)).unwrap())
+            .unwrap()
             .expect("Should have an epoch setting for epoch 1.");
         assert_eq!(Epoch(1), epoch_setting_record.epoch_setting_id);
         assert_eq!(
@@ -78,9 +64,9 @@ mod tests {
             epoch_setting_record.protocol_parameters
         );
 
-        let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
-        let epoch_setting_record = cursor
-            .next()
+        let epoch_setting_record = connection
+            .fetch_one(GetEpochSettingProvider::by_epoch(Epoch(3)).unwrap())
+            .unwrap()
             .expect("Should have an epoch setting for epoch 3.");
         assert_eq!(Epoch(3), epoch_setting_record.epoch_setting_id);
         assert_eq!(
@@ -88,7 +74,9 @@ mod tests {
             epoch_setting_record.protocol_parameters
         );
 
-        let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
+        let cursor = connection
+            .fetch(GetEpochSettingProvider::by_epoch(Epoch(5)).unwrap())
+            .unwrap();
         assert_eq!(0, cursor.count());
     }
 }

@@ -1,23 +1,20 @@
 use sqlite::Value;
 
 use mithril_common::entities::Epoch;
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::EpochSettingRecord;
 
 /// Query to delete old [EpochSettingRecord] from the sqlite database
-pub struct DeleteEpochSettingProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct DeleteEpochSettingProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> Provider<'conn> for DeleteEpochSettingProvider<'conn> {
+impl Query for DeleteEpochSettingProvider {
     type Entity = EpochSettingRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -30,40 +27,24 @@ impl<'conn> Provider<'conn> for DeleteEpochSettingProvider<'conn> {
     }
 }
 
-impl<'conn> DeleteEpochSettingProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
+impl DeleteEpochSettingProvider {
     #[cfg(test)]
     /// Create the SQL condition to delete a record given the Epoch.
-    fn get_delete_condition_by_epoch(&self, epoch: Epoch) -> WhereCondition {
+    pub fn by_epoch(epoch: Epoch) -> Self {
         let epoch_setting_id_value = Value::Integer(epoch.try_into().unwrap());
 
-        WhereCondition::new("epoch_setting_id = ?*", vec![epoch_setting_id_value])
-    }
-
-    #[cfg(test)]
-    /// Delete the epoch setting data given the Epoch
-    pub fn delete(&self, epoch: Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
-        let filters = self.get_delete_condition_by_epoch(epoch);
-
-        self.find(filters)
+        Self {
+            condition: WhereCondition::new("epoch_setting_id = ?*", vec![epoch_setting_id_value]),
+        }
     }
 
     /// Create the SQL condition to prune data older than the given Epoch.
-    fn get_prune_condition(&self, epoch_threshold: Epoch) -> WhereCondition {
+    pub fn below_epoch_threshold(epoch_threshold: Epoch) -> Self {
         let epoch_setting_id_value = Value::Integer(epoch_threshold.try_into().unwrap());
 
-        WhereCondition::new("epoch_setting_id < ?*", vec![epoch_setting_id_value])
-    }
-
-    /// Prune the epoch setting data older than the given epoch.
-    pub fn prune(&self, epoch_threshold: Epoch) -> StdResult<EntityCursor<EpochSettingRecord>> {
-        let filters = self.get_prune_condition(epoch_threshold);
-
-        self.find(filters)
+        Self {
+            condition: WhereCondition::new("epoch_setting_id < ?*", vec![epoch_setting_id_value]),
+        }
     }
 }
 
@@ -71,45 +52,54 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
 mod tests {
     use crate::database::provider::GetEpochSettingProvider;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
 
     #[test]
-    fn test_delete() {
+    fn test_delete_by_epoch() {
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
-        let provider = DeleteEpochSettingProvider::new(&connection);
-        let cursor = provider.delete(Epoch(2)).unwrap();
+        let cursor = connection
+            .fetch(DeleteEpochSettingProvider::by_epoch(Epoch(2)))
+            .unwrap();
 
         assert_eq!(1, cursor.count());
 
-        let provider = GetEpochSettingProvider::new(&connection);
-        let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
+        let cursor = connection
+            .fetch(GetEpochSettingProvider::by_epoch(Epoch(1)).unwrap())
+            .unwrap();
 
         assert_eq!(1, cursor.count());
 
-        let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
+        let cursor = connection
+            .fetch(GetEpochSettingProvider::by_epoch(Epoch(2)).unwrap())
+            .unwrap();
 
         assert_eq!(0, cursor.count());
     }
 
     #[test]
-    fn test_prune() {
+    fn test_delete_below_threshold() {
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
-        let provider = DeleteEpochSettingProvider::new(&connection);
-        let cursor = provider.prune(Epoch(2)).unwrap();
+        let cursor = connection
+            .fetch(DeleteEpochSettingProvider::below_epoch_threshold(Epoch(2)))
+            .unwrap();
 
         assert_eq!(1, cursor.count());
 
-        let provider = GetEpochSettingProvider::new(&connection);
-        let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
+        let cursor = connection
+            .fetch(GetEpochSettingProvider::by_epoch(Epoch(1)).unwrap())
+            .unwrap();
 
         assert_eq!(0, cursor.count());
 
-        let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
+        let cursor = connection
+            .fetch(GetEpochSettingProvider::by_epoch(Epoch(2)).unwrap())
+            .unwrap();
 
         assert_eq!(1, cursor.count());
     }

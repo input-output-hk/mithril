@@ -132,10 +132,10 @@ pub fn insert_epoch_settings(
     let query = {
         // leverage the expanded parameter from this provider which is unit
         // tested on its own above.
-        let update_provider = UpdateEpochSettingProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_update_condition(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
-            .expand();
+        let (sql_values, _) =
+            UpdateEpochSettingProvider::one(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
+                .filters()
+                .expand();
 
         format!("insert into epoch_setting {sql_values}")
     };
