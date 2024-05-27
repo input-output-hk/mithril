@@ -1,55 +1,44 @@
-use mithril_persistence::sqlite::{
-    GetAllCondition, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRecord;
 
 /// Simple queries to retrieve [SignerRecord] from the sqlite database.
-pub struct GetSignerRecordProvider<'client> {
-    client: &'client SqliteConnection,
+pub struct GetSignerRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> GetSignerRecordProvider<'client> {
-    /// Create a new provider
-    pub fn new(client: &'client SqliteConnection) -> Self {
-        Self { client }
+impl GetSignerRecordProvider {
+    pub fn all() -> Self {
+        Self {
+            condition: WhereCondition::default(),
+        }
     }
 }
 
 #[cfg(test)]
 mod test_extensions {
-    use mithril_common::StdResult;
-    use mithril_persistence::sqlite::{EntityCursor, WhereCondition};
-
-    use crate::database::record::SignerRecord;
+    use mithril_persistence::sqlite::WhereCondition;
 
     use super::*;
 
-    impl<'client> GetSignerRecordProvider<'client> {
-        fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
-            Ok(WhereCondition::new(
-                "signer_id = ?*",
-                vec![sqlite::Value::String(signer_id)],
-            ))
-        }
-
-        /// Get SignerRecords for a given signer id.
-        pub fn get_by_signer_id(&self, signer_id: String) -> StdResult<EntityCursor<SignerRecord>> {
-            let filters = self.condition_by_signer_id(signer_id)?;
-            let signer_record = self.find(filters)?;
-
-            Ok(signer_record)
+    impl GetSignerRecordProvider {
+        /// Query to get SignerRecords for a given signer id.
+        pub fn by_signer_id(signer_id: String) -> Self {
+            Self {
+                condition: WhereCondition::new(
+                    "signer_id = ?*",
+                    vec![sqlite::Value::String(signer_id)],
+                ),
+            }
         }
     }
 }
 
-impl GetAllCondition for GetSignerRecordProvider<'_> {}
-
-impl<'client> Provider<'client> for GetSignerRecordProvider<'client> {
+impl Query for GetSignerRecordProvider {
     type Entity = SignerRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.client
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -61,41 +50,52 @@ impl<'client> Provider<'client> for GetSignerRecordProvider<'client> {
 
 #[cfg(test)]
 mod tests {
-    use mithril_persistence::sqlite::GetAllProvider;
-
     use crate::database::test_helper::{insert_signers, main_db_connection};
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
 
     #[test]
-    fn test_get_signer_records() {
+    fn test_get_signer_records_by_id() {
         let signer_records_fake = SignerRecord::fake_records(5);
 
         let connection = main_db_connection().unwrap();
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
-        let provider = GetSignerRecordProvider::new(&connection);
-
-        let signer_records: Vec<SignerRecord> = provider
-            .get_by_signer_id(signer_records_fake[0].signer_id.to_owned())
-            .unwrap()
-            .collect();
+        let signer_records: Vec<SignerRecord> = connection
+            .fetch_and_collect(GetSignerRecordProvider::by_signer_id(
+                signer_records_fake[0].signer_id.to_owned(),
+            ))
+            .unwrap();
         let expected_signer_records: Vec<SignerRecord> = vec![signer_records_fake[0].to_owned()];
         assert_eq!(expected_signer_records, signer_records);
 
-        let signer_records: Vec<SignerRecord> = provider
-            .get_by_signer_id(signer_records_fake[2].signer_id.to_owned())
-            .unwrap()
-            .collect();
+        let signer_records: Vec<SignerRecord> = connection
+            .fetch_and_collect(GetSignerRecordProvider::by_signer_id(
+                signer_records_fake[2].signer_id.to_owned(),
+            ))
+            .unwrap();
         let expected_signer_records: Vec<SignerRecord> = vec![signer_records_fake[2].to_owned()];
         assert_eq!(expected_signer_records, signer_records);
 
-        let cursor = provider
-            .get_by_signer_id("signer-id-not-registered".to_string())
+        let cursor = connection
+            .fetch(GetSignerRecordProvider::by_signer_id(
+                "signer-id-not-registered".to_string(),
+            ))
             .unwrap();
         assert_eq!(0, cursor.count());
+    }
 
-        let signer_records: Vec<SignerRecord> = provider.get_all().unwrap().collect();
+    #[test]
+    fn test_get_all_signer_records() {
+        let signer_records_fake = SignerRecord::fake_records(5);
+
+        let connection = main_db_connection().unwrap();
+        insert_signers(&connection, signer_records_fake.clone()).unwrap();
+
+        let signer_records: Vec<SignerRecord> = connection
+            .fetch_and_collect(GetSignerRecordProvider::all())
+            .unwrap();
         let expected_signer_records: Vec<SignerRecord> =
             signer_records_fake.into_iter().rev().collect();
         assert_eq!(expected_signer_records, signer_records);

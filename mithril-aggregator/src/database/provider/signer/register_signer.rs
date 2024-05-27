@@ -1,27 +1,19 @@
 use sqlite::Value;
 
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRecord;
 
 /// Query to register a [SignerRecord] in the sqlite database
 ///
 /// If it already exists it's `last_registered_at` and `updated_at` fields will be updated.
-pub struct RegisterSignerRecordProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct RegisterSignerRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> RegisterSignerRecordProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    fn get_register_condition(&self, signer_record: SignerRecord) -> WhereCondition {
-        WhereCondition::new(
+impl RegisterSignerRecordProvider {
+    pub fn one(signer_record: SignerRecord) -> Self {
+        let condition = WhereCondition::new(
             "(signer_id, pool_ticker, created_at, updated_at, last_registered_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_record.signer_id),
@@ -36,25 +28,17 @@ impl<'conn> RegisterSignerRecordProvider<'conn> {
                     .map(|d| Value::String(d.to_rfc3339()))
                     .unwrap_or(Value::Null),
             ],
-        )
-    }
+        );
 
-    pub fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
-        let filters = self.get_register_condition(signer_record.clone());
-
-        let entity = self.find(filters)?.next().unwrap_or_else(|| {
-            panic!("No entity returned by the persister, signer_record = {signer_record:?}")
-        });
-
-        Ok(entity)
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
+impl Query for RegisterSignerRecordProvider {
     type Entity = SignerRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -73,6 +57,7 @@ impl<'conn> Provider<'conn> for RegisterSignerRecordProvider<'conn> {
 #[cfg(test)]
 mod tests {
     use chrono::Duration;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::main_db_connection;
 
@@ -83,17 +68,20 @@ mod tests {
         let signer_records_fake = SignerRecord::fake_records(5);
 
         let connection = main_db_connection().unwrap();
-        let provider = RegisterSignerRecordProvider::new(&connection);
 
         for signer_record in signer_records_fake.clone() {
-            let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
-            assert_eq!(signer_record, signer_record_saved);
+            let signer_record_saved = connection
+                .fetch_one(RegisterSignerRecordProvider::one(signer_record.clone()))
+                .unwrap();
+            assert_eq!(Some(signer_record), signer_record_saved);
         }
 
         for mut signer_record in signer_records_fake {
             signer_record.updated_at += Duration::try_hours(1).unwrap();
-            let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
-            assert_eq!(signer_record, signer_record_saved);
+            let signer_record_saved = connection
+                .fetch_one(RegisterSignerRecordProvider::one(signer_record.clone()))
+                .unwrap();
+            assert_eq!(Some(signer_record), signer_record_saved);
         }
     }
 }

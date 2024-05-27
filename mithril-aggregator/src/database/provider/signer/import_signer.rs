@@ -2,10 +2,7 @@ use std::iter::repeat;
 
 use sqlite::Value;
 
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRecord;
 
@@ -13,17 +10,16 @@ use crate::database::record::SignerRecord;
 /// in the sqlite database.
 ///
 /// If it already exists it's `pool_ticker` and `updated_at` fields will be updated.
-pub struct ImportSignerRecordProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct ImportSignerRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> ImportSignerRecordProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
+impl ImportSignerRecordProvider {
+    pub fn one(signer_record: SignerRecord) -> Self {
+        Self::many(vec![signer_record])
     }
 
-    pub fn get_import_condition(&self, signer_records: Vec<SignerRecord>) -> WhereCondition {
+    pub fn many(signer_records: Vec<SignerRecord>) -> Self {
         let columns = "(signer_id, pool_ticker, created_at, updated_at, last_registered_at)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
             .take(signer_records.len())
@@ -47,34 +43,20 @@ impl<'conn> ImportSignerRecordProvider<'conn> {
             })
             .collect();
 
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values,
-        )
-    }
+        );
 
-    pub fn persist(&self, signer_record: SignerRecord) -> StdResult<SignerRecord> {
-        let filters = self.get_import_condition(vec![signer_record.clone()]);
-
-        let entity = self.find(filters)?.next().unwrap_or_else(|| {
-            panic!("No entity returned by the persister, signer_record = {signer_record:?}")
-        });
-
-        Ok(entity)
-    }
-
-    pub fn persist_many(&self, signer_records: Vec<SignerRecord>) -> StdResult<Vec<SignerRecord>> {
-        let filters = self.get_import_condition(signer_records);
-
-        Ok(self.find(filters)?.collect())
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for ImportSignerRecordProvider<'conn> {
+impl Query for ImportSignerRecordProvider {
     type Entity = SignerRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -93,6 +75,7 @@ impl<'conn> Provider<'conn> for ImportSignerRecordProvider<'conn> {
 #[cfg(test)]
 mod tests {
     use chrono::Duration;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::{insert_signers, main_db_connection};
 
@@ -105,18 +88,20 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
-        let provider = ImportSignerRecordProvider::new(&connection);
-
         for signer_record in signer_records_fake.clone() {
-            let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
-            assert_eq!(signer_record, signer_record_saved);
+            let signer_record_saved = connection
+                .fetch_one(ImportSignerRecordProvider::one(signer_record.clone()))
+                .unwrap();
+            assert_eq!(Some(signer_record), signer_record_saved);
         }
 
         for mut signer_record in signer_records_fake {
             signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
             signer_record.updated_at += Duration::try_hours(1).unwrap();
-            let signer_record_saved = provider.persist(signer_record.clone()).unwrap();
-            assert_eq!(signer_record, signer_record_saved);
+            let signer_record_saved = connection
+                .fetch_one(ImportSignerRecordProvider::one(signer_record.clone()))
+                .unwrap();
+            assert_eq!(Some(signer_record), signer_record_saved);
         }
     }
 
@@ -128,8 +113,11 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
-        let provider = ImportSignerRecordProvider::new(&connection);
-        let mut saved_records = provider.persist_many(signer_records_fake.clone()).unwrap();
+        let mut saved_records: Vec<SignerRecord> = connection
+            .fetch_and_collect(ImportSignerRecordProvider::many(
+                signer_records_fake.clone(),
+            ))
+            .unwrap();
         saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
         assert_eq!(signer_records_fake, saved_records);
 
@@ -137,7 +125,11 @@ mod tests {
             signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
             signer_record.updated_at += Duration::try_hours(1).unwrap();
         }
-        let mut saved_records = provider.persist_many(signer_records_fake.clone()).unwrap();
+        let mut saved_records: Vec<SignerRecord> = connection
+            .fetch_and_collect(ImportSignerRecordProvider::many(
+                signer_records_fake.clone(),
+            ))
+            .unwrap();
         saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
         assert_eq!(signer_records_fake, saved_records);
     }

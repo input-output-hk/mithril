@@ -221,10 +221,10 @@ pub fn insert_signers(
     let query = {
         // leverage the expanded parameter from this provider which is unit
         // tested on its own above.
-        let update_provider = ImportSignerRecordProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_import_condition(vec![signer_records.first().unwrap().to_owned()])
-            .expand();
+        let (sql_values, _) =
+            ImportSignerRecordProvider::one(signer_records.first().unwrap().to_owned())
+                .filters()
+                .expand();
         format!("insert into signer {sql_values}")
     };
 
