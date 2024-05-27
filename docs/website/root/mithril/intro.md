@@ -5,7 +5,7 @@ sidebar_label: Introduction
 
 # About Mithril
 
-:::info New
+:::info
 
 :new: Explore the Mithril protocol through our [protocol simulation](./mithril-protocol/simulation.md). This interactive experience will provide you with insights into how participants collaborate to generate a **multi-signature**, and you'll also gain a clearer understanding of the protocol parameters.
 
