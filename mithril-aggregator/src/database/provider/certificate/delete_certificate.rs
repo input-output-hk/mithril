@@ -1,22 +1,19 @@
-use sqlite::{ConnectionThreadSafe, Value};
+use sqlite::Value;
 
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::CertificateRecord;
 
 /// Query to delete old [CertificateRecord] from the sqlite database
-pub struct DeleteCertificateProvider<'conn> {
-    connection: &'conn ConnectionThreadSafe,
+pub struct DeleteCertificateProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> Provider<'conn> for DeleteCertificateProvider<'conn> {
+impl Query for DeleteCertificateProvider {
     type Entity = CertificateRecord;
 
-    fn get_connection(&'conn self) -> &'conn ConnectionThreadSafe {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -29,23 +26,13 @@ impl<'conn> Provider<'conn> for DeleteCertificateProvider<'conn> {
     }
 }
 
-impl<'conn> DeleteCertificateProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn ConnectionThreadSafe) -> Self {
-        Self { connection }
-    }
-
+impl DeleteCertificateProvider {
     /// Create the SQL condition to delete certificates with the given ids.
-    pub fn get_delete_by_ids_condition(&self, ids: &[&str]) -> WhereCondition {
+    pub fn by_ids(ids: &[&str]) -> Self {
         let ids_values = ids.iter().map(|id| Value::String(id.to_string())).collect();
 
-        WhereCondition::where_in("certificate_id", ids_values)
-    }
-
-    /// Delete the certificates with the given ids.
-    pub fn delete_by_ids(&self, ids: &[&str]) -> StdResult<EntityCursor<CertificateRecord>> {
-        let filters = self.get_delete_by_ids_condition(ids);
-
-        self.find(filters)
+        Self {
+            condition: WhereCondition::where_in("certificate_id", ids_values),
+        }
     }
 }

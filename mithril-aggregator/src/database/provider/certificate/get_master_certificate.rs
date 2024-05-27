@@ -1,24 +1,19 @@
-use sqlite::{ConnectionThreadSafe, Value};
+use sqlite::Value;
 
 use mithril_common::entities::Epoch;
-use mithril_persistence::sqlite::{Provider, SourceAlias, SqLiteEntity, WhereCondition};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::CertificateRecord;
 
 /// Query to obtains the master [CertificateRecord] of an epoch
-pub struct MasterCertificateProvider<'conn> {
-    connection: &'conn ConnectionThreadSafe,
+pub struct MasterCertificateProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> MasterCertificateProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn ConnectionThreadSafe) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_master_certificate_condition(&self, epoch: Epoch) -> WhereCondition {
+impl MasterCertificateProvider {
+    pub fn for_epoch(epoch: Epoch) -> Self {
         let epoch_i64: i64 = epoch.try_into().unwrap();
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             "certificate.epoch between ?* and ?*",
             vec![Value::Integer(epoch_i64 - 1), Value::Integer(epoch_i64)],
         )
@@ -26,15 +21,17 @@ impl<'conn> MasterCertificateProvider<'conn> {
             WhereCondition::new("certificate.parent_certificate_id is null", vec![]).or_where(
                 WhereCondition::new("certificate.epoch != parent_certificate.epoch", vec![]),
             ),
-        )
+        );
+
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for MasterCertificateProvider<'conn> {
+impl Query for MasterCertificateProvider {
     type Entity = CertificateRecord;
 
-    fn get_connection(&'conn self) -> &'conn ConnectionThreadSafe {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {

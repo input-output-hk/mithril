@@ -1,31 +1,22 @@
 use std::iter::repeat;
 
-use sqlite::{ConnectionThreadSafe, Value};
+use sqlite::Value;
 
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{Provider, SourceAlias, SqLiteEntity, WhereCondition};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::CertificateRecord;
 
 /// Query to insert [CertificateRecord] in the sqlite database
-pub struct InsertCertificateRecordProvider<'conn> {
-    connection: &'conn ConnectionThreadSafe,
+pub struct InsertCertificateRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> InsertCertificateRecordProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn ConnectionThreadSafe) -> Self {
-        Self { connection }
+impl InsertCertificateRecordProvider {
+    pub fn one(certificate_record: CertificateRecord) -> Self {
+        Self::many(vec![certificate_record])
     }
 
-    fn get_insert_condition(&self, certificate_record: &CertificateRecord) -> WhereCondition {
-        self.get_insert_many_condition(&vec![certificate_record.clone()])
-    }
-
-    fn get_insert_many_condition(
-        &self,
-        certificates_records: &[CertificateRecord],
-    ) -> WhereCondition {
+    pub fn many(certificates_records: Vec<CertificateRecord>) -> Self {
         let columns = "(\
         certificate_id, \
         parent_certificate_id, \
@@ -49,19 +40,19 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
                 .collect();
 
         let values: Vec<Value> = certificates_records
-            .iter()
+            .into_iter()
             .flat_map(|certificate_record| {
                 vec![
-                    Value::String(certificate_record.certificate_id.to_owned()),
-                    match certificate_record.parent_certificate_id.to_owned() {
+                    Value::String(certificate_record.certificate_id),
+                    match certificate_record.parent_certificate_id {
                         Some(parent_certificate_id) => Value::String(parent_certificate_id),
                         None => Value::Null,
                     },
-                    Value::String(certificate_record.message.to_owned()),
-                    Value::String(certificate_record.signature.to_owned()),
-                    Value::String(certificate_record.aggregate_verification_key.to_owned()),
+                    Value::String(certificate_record.message),
+                    Value::String(certificate_record.signature),
+                    Value::String(certificate_record.aggregate_verification_key),
                     Value::Integer(certificate_record.epoch.try_into().unwrap()),
-                    Value::String(certificate_record.network.to_owned()),
+                    Value::String(certificate_record.network),
                     Value::Integer(certificate_record.immutable_file_number as i64),
                     Value::Integer(certificate_record.signed_entity_type.index() as i64),
                     Value::String(
@@ -70,7 +61,7 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
                             .get_json_beacon()
                             .unwrap(),
                     ),
-                    Value::String(certificate_record.protocol_version.to_owned()),
+                    Value::String(certificate_record.protocol_version),
                     Value::String(
                         serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
                     ),
@@ -84,42 +75,20 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
             })
             .collect();
 
-        WhereCondition::new(
+        let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values,
-        )
-    }
+        );
 
-    pub fn persist(&self, certificate_record: CertificateRecord) -> StdResult<CertificateRecord> {
-        let filters = self.get_insert_condition(&certificate_record);
-
-        let entity = self.find(filters)?.next().unwrap_or_else(|| {
-            panic!(
-                "No entity returned by the persister, certificate_record = {certificate_record:#?}"
-            )
-        });
-
-        Ok(entity)
-    }
-
-    pub fn persist_many(
-        &self,
-        certificates_records: Vec<CertificateRecord>,
-    ) -> StdResult<Vec<CertificateRecord>> {
-        if certificates_records.is_empty() {
-            Ok(vec![])
-        } else {
-            let filters = self.get_insert_many_condition(&certificates_records);
-            Ok(self.find(filters)?.collect())
-        }
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for InsertCertificateRecordProvider<'conn> {
+impl Query for InsertCertificateRecordProvider {
     type Entity = CertificateRecord;
 
-    fn get_connection(&'conn self) -> &'conn ConnectionThreadSafe {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -135,6 +104,7 @@ impl<'conn> Provider<'conn> for InsertCertificateRecordProvider<'conn> {
 #[cfg(test)]
 mod tests {
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::main_db_connection;
 
@@ -145,12 +115,15 @@ mod tests {
         let (certificates, _) = setup_certificate_chain(5, 2);
 
         let connection = main_db_connection().unwrap();
-        let provider = InsertCertificateRecordProvider::new(&connection);
 
         for certificate in certificates {
             let certificate_record: CertificateRecord = certificate.into();
-            let certificate_record_saved = provider.persist(certificate_record.clone()).unwrap();
-            assert_eq!(certificate_record, certificate_record_saved);
+            let certificate_record_saved = connection
+                .fetch_one(InsertCertificateRecordProvider::one(
+                    certificate_record.clone(),
+                ))
+                .unwrap();
+            assert_eq!(Some(certificate_record), certificate_record_saved);
         }
     }
 
@@ -161,10 +134,11 @@ mod tests {
             certificates.into_iter().map(|cert| cert.into()).collect();
 
         let connection = main_db_connection().unwrap();
-        let provider = InsertCertificateRecordProvider::new(&connection);
 
-        let certificates_records_saved = provider
-            .persist_many(certificates_records.clone())
+        let certificates_records_saved: Vec<CertificateRecord> = connection
+            .fetch_and_collect(InsertCertificateRecordProvider::many(
+                certificates_records.clone(),
+            ))
             .expect("saving many records should not fail");
 
         assert_eq!(certificates_records, certificates_records_saved);

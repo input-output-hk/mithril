@@ -4,7 +4,9 @@ use uuid::Uuid;
 
 use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
-use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
+use mithril_persistence::sqlite::{
+    ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
+};
 
 use crate::database::provider::{
     ImportSignerRecordProvider, InsertCertificateRecordProvider,
@@ -116,9 +118,10 @@ pub fn insert_certificate_records<T: Into<CertificateRecord>>(
     connection: &ConnectionThreadSafe,
     records: Vec<T>,
 ) {
-    let provider = InsertCertificateRecordProvider::new(connection);
-    provider
-        .persist_many(records.into_iter().map(|c| c.into()).collect())
+    let _ = connection
+        .fetch_one(InsertCertificateRecordProvider::many(
+            records.into_iter().map(Into::into).collect(),
+        ))
         .unwrap();
 }
 
