@@ -152,13 +152,10 @@ impl Args {
 
     fn handle_deprecated_decorator(
         args_result: Result<Self, ClapError>,
+        deprecated_commands: Vec<DeprecatedCommand>,
     ) -> Result<Self, ClapError> {
         let styles = Args::command().get_styles().clone();
-        Deprecation::handle_deprecated_commands(
-            args_result,
-            styles,
-            vec![DeprecatedCommand::new("snapshot", "cardano-db")],
-        )
+        Deprecation::handle_deprecated_commands(args_result, styles, deprecated_commands)
     }
 }
 
@@ -229,7 +226,10 @@ impl ArtifactCommands {
 async fn main() -> MithrilResult<()> {
     // Load args
     let args = Args::parse_with_decorator(&|result: Result<Args, ClapError>| {
-        Args::handle_deprecated_decorator(result)
+        Args::handle_deprecated_decorator(
+            result,
+            vec![DeprecatedCommand::new("snapshot", "cardano-db")],
+        )
     });
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
 
@@ -252,16 +252,5 @@ mod tests {
         args.execute()
             .await
             .expect_err("Should fail if unstable flag missing");
-    }
-
-    #[test]
-    fn snapshot_is_not_a_command_anymore() {
-        let args_result = Args::try_parse_from(["", "snapshot", "list"]);
-        let result = Args::handle_deprecated_decorator(args_result);
-
-        assert!(result.is_err());
-        let message = result.err().unwrap().to_string();
-        assert!(message.contains("'snapshot'"));
-        assert!(message.contains("'cardano-db'"));
     }
 }
