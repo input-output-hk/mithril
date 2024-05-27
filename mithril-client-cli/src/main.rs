@@ -15,10 +15,10 @@ use mithril_client::MithrilResult;
 use mithril_doc::{Documenter, GenerateDocCommands, StructDoc};
 
 use mithril_client_cli::commands::{
-    cardano_db::{deprecated::SnapshotCommands, CardanoDbCommands},
-    cardano_transaction::CardanoTransactionCommands,
-    mithril_stake_distribution::MithrilStakeDistributionCommands,
+    cardano_db::CardanoDbCommands, cardano_transaction::CardanoTransactionCommands,
+    mithril_stake_distribution::MithrilStakeDistributionCommands, DeprecatedCommand, Deprecation,
 };
+use mithril_client_cli::ClapError;
 
 enum LogOutputType {
     StdErr,
@@ -139,6 +139,24 @@ impl Args {
 
         Ok(Logger::root(Arc::new(drain), slog::o!()))
     }
+
+    fn parse_with_decorator(
+        decorator: &dyn Fn(Result<Self, ClapError>) -> Result<Self, ClapError>,
+    ) -> Self {
+        let result = decorator(Self::try_parse());
+        match result {
+            Ok(s) => s,
+            Err(e) => e.exit(),
+        }
+    }
+
+    fn handle_deprecated_decorator(
+        args_result: Result<Self, ClapError>,
+        deprecated_commands: Vec<DeprecatedCommand>,
+    ) -> Result<Self, ClapError> {
+        let styles = Args::command().get_styles().clone();
+        Deprecation::handle_deprecated_commands(args_result, styles, deprecated_commands)
+    }
 }
 
 impl Source for Args {
@@ -163,11 +181,6 @@ impl Source for Args {
 
 #[derive(Subcommand, Debug, Clone)]
 enum ArtifactCommands {
-    /// Deprecated, use `cardano-db` instead
-    #[clap(subcommand)]
-    #[deprecated(since = "0.7.3", note = "use `CardanoDb` commands instead")]
-    Snapshot(SnapshotCommands),
-
     #[clap(subcommand, alias("cdb"))]
     CardanoDb(CardanoDbCommands),
 
@@ -188,16 +201,6 @@ impl ArtifactCommands {
         config_builder: ConfigBuilder<DefaultState>,
     ) -> MithrilResult<()> {
         match self {
-            #[allow(deprecated)]
-            Self::Snapshot(cmd) => {
-                let message = "`snapshot` command is deprecated, use `cardano-db` instead";
-                if cmd.is_json_output_enabled() {
-                    eprintln!(r#"{{"warning": "{}", "type": "deprecation"}}"#, message);
-                } else {
-                    eprintln!("{}", message);
-                };
-                cmd.execute(config_builder).await
-            }
             Self::CardanoDb(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
             Self::CardanoTransaction(ctx) => {
@@ -222,7 +225,12 @@ impl ArtifactCommands {
 #[tokio::main]
 async fn main() -> MithrilResult<()> {
     // Load args
-    let args = Args::parse();
+    let args = Args::parse_with_decorator(&|result: Result<Args, ClapError>| {
+        Args::handle_deprecated_decorator(
+            result,
+            vec![DeprecatedCommand::new("snapshot", "cardano-db")],
+        )
+    });
     let _guard = slog_scope::set_global_logger(args.build_logger()?);
 
     #[cfg(feature = "bundle_openssl")]

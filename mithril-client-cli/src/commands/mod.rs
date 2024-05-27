@@ -5,7 +5,10 @@
 
 pub mod cardano_db;
 pub mod cardano_transaction;
+mod deprecation;
 pub mod mithril_stake_distribution;
+
+pub use deprecation::{DeprecatedCommand, Deprecation};
 
 use mithril_client::{ClientBuilder, MithrilResult};
 use slog_scope::logger;

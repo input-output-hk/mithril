@@ -1,6 +1,6 @@
 use crate::{
-    attempt, utils::AttemptResult, CardanoTransactionCommand, Client, ClientCommand,
-    MithrilStakeDistributionCommand, SnapshotCommand,
+    attempt, utils::AttemptResult, CardanoDbCommand, CardanoTransactionCommand, Client,
+    ClientCommand, MithrilStakeDistributionCommand,
 };
 use anyhow::{anyhow, Context};
 use mithril_common::{
@@ -283,7 +283,7 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
 
 pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str) -> StdResult<()> {
     client
-        .run(ClientCommand::Snapshot(SnapshotCommand::Download {
+        .run(ClientCommand::CardanoDb(CardanoDbCommand::Download {
             digest: digest.to_string(),
         }))
         .await?;

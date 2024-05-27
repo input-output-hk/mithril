@@ -10,3 +10,6 @@
 pub mod commands;
 mod configuration;
 mod utils;
+
+/// Error Clap
+pub type ClapError = clap::error::Error;

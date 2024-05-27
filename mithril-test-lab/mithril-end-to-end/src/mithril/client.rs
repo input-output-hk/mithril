@@ -10,30 +10,30 @@ pub struct Client {
 }
 
 #[derive(Debug)]
-pub enum SnapshotCommand {
+pub enum CardanoDbCommand {
     List(),
     Show { digest: String },
     Download { digest: String },
 }
 
-impl SnapshotCommand {
+impl CardanoDbCommand {
     fn name(&self) -> String {
         match self {
-            SnapshotCommand::List() => "list".to_string(),
-            SnapshotCommand::Show { digest } => format!("show-{digest}"),
-            SnapshotCommand::Download { digest } => format!("download-{digest}"),
+            CardanoDbCommand::List() => "list".to_string(),
+            CardanoDbCommand::Show { digest } => format!("show-{digest}"),
+            CardanoDbCommand::Download { digest } => format!("download-{digest}"),
         }
     }
 
     fn cli_arg(&self) -> Vec<String> {
         match self {
-            SnapshotCommand::List() => {
-                vec!["list".to_string()]
+            CardanoDbCommand::List() => {
+                vec!["snapshot".to_string(), "list".to_string()]
             }
-            SnapshotCommand::Show { digest } => {
-                vec!["show".to_string(), digest.clone()]
+            CardanoDbCommand::Show { digest } => {
+                vec!["snapshot".to_string(), "show".to_string(), digest.clone()]
             }
-            SnapshotCommand::Download { digest } => {
+            CardanoDbCommand::Download { digest } => {
                 vec!["download".to_string(), digest.clone()]
             }
         }
@@ -105,7 +105,7 @@ impl CardanoTransactionCommand {
 
 #[derive(Debug)]
 pub enum ClientCommand {
-    Snapshot(SnapshotCommand),
+    CardanoDb(CardanoDbCommand),
     MithrilStakeDistribution(MithrilStakeDistributionCommand),
     CardanoTransaction(CardanoTransactionCommand),
 }
@@ -113,7 +113,7 @@ pub enum ClientCommand {
 impl ClientCommand {
     fn name(&self) -> String {
         match self {
-            ClientCommand::Snapshot(cmd) => format!("snapshot-{}", cmd.name()),
+            ClientCommand::CardanoDb(cmd) => format!("cardano-db-{}", cmd.name()),
             ClientCommand::MithrilStakeDistribution(cmd) => {
                 format!("msd-{}", cmd.name())
             }
@@ -125,7 +125,9 @@ impl ClientCommand {
 
     fn cli_arg(&self) -> Vec<String> {
         let mut args = match self {
-            ClientCommand::Snapshot(cmd) => [vec!["snapshot".to_string()], cmd.cli_arg()].concat(),
+            ClientCommand::CardanoDb(cmd) => {
+                [vec!["cardano-db".to_string()], cmd.cli_arg()].concat()
+            }
             ClientCommand::MithrilStakeDistribution(cmd) => [
                 vec!["mithril-stake-distribution".to_string()],
                 cmd.cli_arg(),
