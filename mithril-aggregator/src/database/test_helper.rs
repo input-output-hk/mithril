@@ -77,10 +77,11 @@ pub fn insert_single_signatures_in_db(
     let query = {
         // leverage the expanded parameter from this provider which is unit
         // tested on its own above.
-        let update_provider = UpdateSingleSignatureRecordProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_update_condition(single_signature_records.first().unwrap())
-            .expand();
+        let (sql_values, _) = UpdateSingleSignatureRecordProvider::one(
+            single_signature_records.first().unwrap().clone(),
+        )
+        .filters()
+        .expand();
         format!("insert into single_signature {sql_values}")
     };
 

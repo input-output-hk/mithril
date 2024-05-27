@@ -1,63 +1,40 @@
 use sqlite::Value;
 
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SingleSignatureRecord;
 
 /// Query to update [SingleSignatureRecord] in the sqlite database
-pub struct UpdateSingleSignatureRecordProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct UpdateSingleSignatureRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_update_condition(
-        &self,
-        single_signature_record: &SingleSignatureRecord,
-    ) -> WhereCondition {
+impl UpdateSingleSignatureRecordProvider {
+    pub fn one(single_signature_record: SingleSignatureRecord) -> Self {
+        let condition =
         WhereCondition::new(
             "(open_message_id, signer_id, registration_epoch_setting_id, lottery_indexes, signature, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(single_signature_record.open_message_id.to_string()),
-                Value::String(single_signature_record.signer_id.to_owned()),
+                Value::String(single_signature_record.signer_id),
                 Value::Integer(
                     single_signature_record.registration_epoch_setting_id.try_into().unwrap(),
                 ),
                 Value::String(serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()),
-                Value::String(single_signature_record.signature.to_owned()),
+                Value::String(single_signature_record.signature),
                 Value::String(single_signature_record.created_at.to_rfc3339()),
             ],
-        )
-    }
+        );
 
-    pub fn persist(
-        &self,
-        single_signature_record: SingleSignatureRecord,
-    ) -> StdResult<SingleSignatureRecord> {
-        let filters = self.get_update_condition(&single_signature_record);
-
-        let entity = self.find(filters)?.next().unwrap_or_else(|| {
-            panic!(
-                "No entity returned by the persister, single_signature_record = {single_signature_record:?}"
-            )
-        });
-
-        Ok(entity)
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
+impl Query for UpdateSingleSignatureRecordProvider {
     type Entity = SingleSignatureRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -75,27 +52,34 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
 #[cfg(test)]
 mod tests {
     use crate::database::test_helper::{main_db_connection, setup_single_signature_records};
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use super::*;
 
     #[test]
     fn test_update_single_signature_record() {
         let single_signature_records = setup_single_signature_records(2, 3, 4);
-        let single_signature_records_copy = single_signature_records.clone();
 
         let connection = main_db_connection().unwrap();
-        let provider = UpdateSingleSignatureRecordProvider::new(&connection);
 
-        for single_signature_record in single_signature_records {
-            let single_signature_record_saved =
-                provider.persist(single_signature_record.clone()).unwrap();
-            assert_eq!(single_signature_record, single_signature_record_saved);
+        for single_signature_record in single_signature_records.clone() {
+            let single_signature_record_saved = connection
+                .fetch_one(UpdateSingleSignatureRecordProvider::one(
+                    single_signature_record.clone(),
+                ))
+                .unwrap();
+            assert_eq!(Some(single_signature_record), single_signature_record_saved);
         }
 
-        for single_signature_record in single_signature_records_copy {
-            let single_signature_record_saved =
-                provider.persist(single_signature_record.clone()).unwrap();
-            assert_eq!(single_signature_record, single_signature_record_saved);
+        for mut single_signature_record in single_signature_records {
+            // vvv - todo: check that this work
+            single_signature_record.lottery_indexes.push(5);
+            let single_signature_record_saved = connection
+                .fetch_one(UpdateSingleSignatureRecordProvider::one(
+                    single_signature_record.clone(),
+                ))
+                .unwrap();
+            assert_eq!(Some(single_signature_record), single_signature_record_saved);
         }
     }
 }
