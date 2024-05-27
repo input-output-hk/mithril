@@ -1,70 +1,48 @@
 use sqlite::Value;
 
 use mithril_common::{entities::Epoch, StdResult};
-use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRegistrationRecord;
 
 /// Simple queries to retrieve [SignerRegistrationRecord] from the sqlite database.
-pub struct GetSignerRegistrationRecordProvider<'client> {
-    client: &'client SqliteConnection,
+pub struct GetSignerRegistrationRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> GetSignerRegistrationRecordProvider<'client> {
-    /// Create a new provider
-    pub fn new(client: &'client SqliteConnection) -> Self {
-        Self { client }
+impl GetSignerRegistrationRecordProvider {
+    #[cfg(test)]
+    pub fn all() -> Self {
+        Self {
+            condition: WhereCondition::default(),
+        }
     }
 
-    fn condition_by_signer_id(&self, signer_id: String) -> StdResult<WhereCondition> {
-        Ok(WhereCondition::new(
-            "signer_id = ?*",
-            vec![Value::String(signer_id)],
-        ))
-    }
-
-    fn condition_by_epoch(&self, epoch: &Epoch) -> StdResult<WhereCondition> {
+    /// Query to get SignerRegistrationRecords for given signer id and epoch.
+    pub fn by_signer_id_and_epoch(signer_id: String, epoch: Epoch) -> StdResult<Self> {
         let epoch: i64 = epoch.try_into()?;
+        let condition =
+            WhereCondition::new("signer_id = ?*", vec![Value::String(signer_id)]).and_where(
+                WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(epoch)]),
+            );
 
-        Ok(WhereCondition::new(
-            "epoch_setting_id = ?*",
-            vec![Value::Integer(epoch)],
-        ))
+        Ok(Self { condition })
     }
 
-    /// Get SignerRegistrationRecords for given signer id and epoch.
-    pub fn get_by_signer_id_and_epoch(
-        &self,
-        signer_id: String,
-        epoch: &Epoch,
-    ) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
-        let filters = self
-            .condition_by_signer_id(signer_id)?
-            .and_where(self.condition_by_epoch(epoch)?);
-        let signer_registration_record = self.find(filters)?;
+    /// Query to get SignerRegistrationRecords for a given Epoch.
+    pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
+        let epoch: i64 = epoch.try_into()?;
+        let condition = WhereCondition::new("epoch_setting_id = ?*", vec![Value::Integer(epoch)]);
 
-        Ok(signer_registration_record)
-    }
-
-    /// Get SignerRegistrationRecords for a given Epoch.
-    pub fn get_by_epoch(&self, epoch: &Epoch) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
-        let filters = self.condition_by_epoch(epoch)?;
-        let signer_registration_record = self.find(filters)?;
-
-        Ok(signer_registration_record)
+        Ok(Self { condition })
     }
 }
 
-#[cfg(test)]
-impl mithril_persistence::sqlite::GetAllCondition for GetSignerRegistrationRecordProvider<'_> {}
-
-impl<'client> Provider<'client> for GetSignerRegistrationRecordProvider<'client> {
+impl Query for GetSignerRegistrationRecordProvider {
     type Entity = SignerRegistrationRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.client
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -80,11 +58,23 @@ mod tests {
 
     use mithril_common::entities::SignerWithStake;
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_persistence::sqlite::GetAllProvider;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
 
     use super::*;
+
+    fn reset_created_at(
+        signer_registration_records: Vec<SignerRegistrationRecord>,
+    ) -> Vec<SignerRegistrationRecord> {
+        signer_registration_records
+            .into_iter()
+            .map(|mut sr| {
+                sr.created_at = DateTime::<Utc>::default();
+                sr
+            })
+            .collect::<Vec<_>>()
+    }
 
     #[test]
     fn test_get_signer_registration_records() {
@@ -97,22 +87,9 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_signer_registrations(&connection, signer_with_stakes_by_epoch.clone()).unwrap();
 
-        let provider = GetSignerRegistrationRecordProvider::new(&connection);
-
-        fn reset_created_at(
-            signer_registration_records: Vec<SignerRegistrationRecord>,
-        ) -> Vec<SignerRegistrationRecord> {
-            signer_registration_records
-                .into_iter()
-                .map(|mut sr| {
-                    sr.created_at = DateTime::<Utc>::default();
-                    sr
-                })
-                .collect::<Vec<_>>()
-        }
-
-        let signer_registration_records: Vec<SignerRegistrationRecord> =
-            provider.get_by_epoch(&Epoch(1)).unwrap().collect();
+        let signer_registration_records: Vec<SignerRegistrationRecord> = connection
+            .fetch_and_collect(GetSignerRegistrationRecordProvider::by_epoch(Epoch(1)).unwrap())
+            .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch[1]
                 .1
@@ -125,8 +102,9 @@ mod tests {
             reset_created_at(signer_registration_records)
         );
 
-        let signer_registration_records: Vec<SignerRegistrationRecord> =
-            provider.get_by_epoch(&Epoch(3)).unwrap().collect();
+        let signer_registration_records: Vec<SignerRegistrationRecord> = connection
+            .fetch_and_collect(GetSignerRegistrationRecordProvider::by_epoch(Epoch(3)).unwrap())
+            .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch[3]
                 .1
@@ -139,11 +117,14 @@ mod tests {
             reset_created_at(signer_registration_records)
         );
 
-        let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
+        let cursor = connection
+            .fetch(GetSignerRegistrationRecordProvider::by_epoch(Epoch(5)).unwrap())
+            .unwrap();
         assert_eq!(0, cursor.count());
 
-        let signer_registration_records: Vec<SignerRegistrationRecord> =
-            provider.get_all().unwrap().collect();
+        let signer_registration_records: Vec<SignerRegistrationRecord> = connection
+            .fetch_and_collect(GetSignerRegistrationRecordProvider::all())
+            .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch
                 .iter()

@@ -1,23 +1,20 @@
 use sqlite::Value;
 
 use mithril_common::entities::Epoch;
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRegistrationRecord;
 
 /// Query to delete old [SignerRegistrationRecord] from the sqlite database
-pub struct DeleteSignerRegistrationRecordProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct DeleteSignerRegistrationRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> Provider<'conn> for DeleteSignerRegistrationRecordProvider<'conn> {
+impl Query for DeleteSignerRegistrationRecordProvider {
     type Entity = SignerRegistrationRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -32,26 +29,13 @@ impl<'conn> Provider<'conn> for DeleteSignerRegistrationRecordProvider<'conn> {
     }
 }
 
-impl<'conn> DeleteSignerRegistrationRecordProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    /// Create the SQL condition to prune data older than the given Epoch.
-    fn get_prune_condition(&self, epoch_threshold: Epoch) -> WhereCondition {
+impl DeleteSignerRegistrationRecordProvider {
+    /// Create the SQL query to prune data older than the given Epoch.
+    pub fn below_epoch_threshold(epoch_threshold: Epoch) -> Self {
         let epoch_threshold = Value::Integer(epoch_threshold.try_into().unwrap());
 
-        WhereCondition::new("epoch_setting_id < ?*", vec![epoch_threshold])
-    }
-
-    /// Prune the epoch setting data older than the given epoch.
-    pub fn prune(
-        &self,
-        epoch_threshold: Epoch,
-    ) -> StdResult<EntityCursor<SignerRegistrationRecord>> {
-        let filters = self.get_prune_condition(epoch_threshold);
-
-        self.find(filters)
+        Self {
+            condition: WhereCondition::new("epoch_setting_id < ?*", vec![epoch_threshold]),
+        }
     }
 }

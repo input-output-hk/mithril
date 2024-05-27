@@ -268,10 +268,8 @@ pub fn insert_signer_registrations(
     let query = {
         // leverage the expanded parameter from this provider which is unit
         // tested on its own above.
-        let insert_or_replace_provider =
-            InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
-        let (sql_values, _) = insert_or_replace_provider
-            .get_insert_or_replace_condition(SignerRegistrationRecord::from_signer_with_stake(
+        let (sql_values, _) = InsertOrReplaceSignerRegistrationRecordProvider::one(
+            SignerRegistrationRecord::from_signer_with_stake(
                 signer_with_stakes_by_epoch
                     .first()
                     .unwrap()
@@ -280,8 +278,10 @@ pub fn insert_signer_registrations(
                     .unwrap()
                     .to_owned(),
                 Epoch(1),
-            ))
-            .expand();
+            ),
+        )
+        .filters()
+        .expand();
         format!("insert into signer_registration {sql_values}")
     };
 

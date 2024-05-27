@@ -1,28 +1,17 @@
 use sqlite::Value;
 
-use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignerRegistrationRecord;
 
 /// Query to insert or replace [SignerRegistrationRecord] in the sqlite database
-pub struct InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct InsertOrReplaceSignerRegistrationRecordProvider {
+    condition: WhereCondition,
 }
 
-impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_insert_or_replace_condition(
-        &self,
-        signer_registration_record: SignerRegistrationRecord,
-    ) -> WhereCondition {
-        WhereCondition::new(
+impl InsertOrReplaceSignerRegistrationRecordProvider {
+    pub fn one(signer_registration_record: SignerRegistrationRecord) -> Self {
+        let condition = WhereCondition::new(
             "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_registration_record.signer_id),
@@ -48,30 +37,17 @@ impl<'conn> InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
                     .unwrap_or(Value::Null),
                 Value::String(signer_registration_record.created_at.to_rfc3339()),
             ],
-        )
-    }
+        );
 
-    pub fn persist(
-        &self,
-        signer_registration_record: SignerRegistrationRecord,
-    ) -> StdResult<SignerRegistrationRecord> {
-        let filters = self.get_insert_or_replace_condition(signer_registration_record.clone());
-
-        let entity = self.find(filters)?.next().unwrap_or_else(|| {
-            panic!(
-                "No entity returned by the persister, signer_registration_record = {signer_registration_record:?}"
-            )
-        });
-
-        Ok(entity)
+        Self { condition }
     }
 }
 
-impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<'conn> {
+impl Query for InsertOrReplaceSignerRegistrationRecordProvider {
     type Entity = SignerRegistrationRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -88,8 +64,9 @@ impl<'conn> Provider<'conn> for InsertOrReplaceSignerRegistrationRecordProvider<
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{Epoch, SignerWithStake};
+    use mithril_common::entities::Epoch;
     use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::main_db_connection;
 
@@ -99,34 +76,36 @@ mod tests {
     fn test_update_signer_registration_record() {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stakes = fixture.signers_with_stake();
-        let signer_with_stakes_copy = signer_with_stakes
-            .iter()
-            .map(|s| {
-                let mut s_new = s.clone();
-                s_new.stake += 10;
-                s_new
-            })
-            .collect::<Vec<SignerWithStake>>();
 
         let connection = main_db_connection().unwrap();
-        let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&connection);
 
-        for signer_with_stake in signer_with_stakes {
+        for signer_with_stake in signer_with_stakes.clone() {
             let signer_registration_record =
                 SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, Epoch(1));
-            let signer_registration_record_saved = provider
-                .persist(signer_registration_record.clone())
+            let signer_registration_record_saved = connection
+                .fetch_one(InsertOrReplaceSignerRegistrationRecordProvider::one(
+                    signer_registration_record.clone(),
+                ))
                 .unwrap();
-            assert_eq!(signer_registration_record, signer_registration_record_saved);
+            assert_eq!(
+                Some(signer_registration_record),
+                signer_registration_record_saved
+            );
         }
 
-        for signer_with_stake in signer_with_stakes_copy {
+        for mut signer_with_stake in signer_with_stakes {
+            signer_with_stake.stake += 10;
             let signer_registration_record =
                 SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, Epoch(1));
-            let signer_registration_record_saved = provider
-                .persist(signer_registration_record.clone())
+            let signer_registration_record_saved = connection
+                .fetch_one(InsertOrReplaceSignerRegistrationRecordProvider::one(
+                    signer_registration_record.clone(),
+                ))
                 .unwrap();
-            assert_eq!(signer_registration_record, signer_registration_record_saved);
+            assert_eq!(
+                Some(signer_registration_record),
+                signer_registration_record_saved
+            );
         }
     }
 }
