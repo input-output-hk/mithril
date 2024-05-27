@@ -1,4 +1,4 @@
-//! Aggregator related database providers
+//! Aggregator related database queries
 mod certificate;
 mod epoch_setting;
 mod open_message;

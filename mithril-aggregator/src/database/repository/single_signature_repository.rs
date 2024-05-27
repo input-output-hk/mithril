@@ -4,7 +4,7 @@ use mithril_common::entities::SingleSignatures;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::UpdateSingleSignatureRecordProvider;
+use crate::database::provider::UpdateSingleSignatureRecordQuery;
 use crate::database::record::{OpenMessageRecord, SingleSignatureRecord};
 
 /// Service to deal with single_signature (read & write).
@@ -29,7 +29,7 @@ impl SingleSignatureRepository {
             &open_message.open_message_id,
             open_message.epoch.offset_to_signer_retrieval_epoch()?,
         )?;
-        let record = self.connection.fetch_one(UpdateSingleSignatureRecordProvider::one(single_signature.clone()))?
+        let record = self.connection.fetch_one(UpdateSingleSignatureRecordQuery::one(single_signature.clone()))?
             .unwrap_or_else(|| {
                 panic!(
                     "No entity returned by the persister, single_signature_record = {single_signature:?}"

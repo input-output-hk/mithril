@@ -5,11 +5,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::SingleSignatureRecord;
 
 /// Query to update [SingleSignatureRecord] in the sqlite database
-pub struct UpdateSingleSignatureRecordProvider {
+pub struct UpdateSingleSignatureRecordQuery {
     condition: WhereCondition,
 }
 
-impl UpdateSingleSignatureRecordProvider {
+impl UpdateSingleSignatureRecordQuery {
     pub fn one(single_signature_record: SingleSignatureRecord) -> Self {
         let condition =
         WhereCondition::new(
@@ -30,7 +30,7 @@ impl UpdateSingleSignatureRecordProvider {
     }
 }
 
-impl Query for UpdateSingleSignatureRecordProvider {
+impl Query for UpdateSingleSignatureRecordQuery {
     type Entity = SingleSignatureRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -64,7 +64,7 @@ mod tests {
 
         for single_signature_record in single_signature_records.clone() {
             let single_signature_record_saved = connection
-                .fetch_one(UpdateSingleSignatureRecordProvider::one(
+                .fetch_one(UpdateSingleSignatureRecordQuery::one(
                     single_signature_record.clone(),
                 ))
                 .unwrap();
@@ -75,7 +75,7 @@ mod tests {
             // vvv - todo: check that this work
             single_signature_record.lottery_indexes.push(5);
             let single_signature_record_saved = connection
-                .fetch_one(UpdateSingleSignatureRecordProvider::one(
+                .fetch_one(UpdateSingleSignatureRecordQuery::one(
                     single_signature_record.clone(),
                 ))
                 .unwrap();

@@ -9,11 +9,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::OpenMessageRecord;
 
 /// Query to insert [OpenMessageRecord] in the sqlite database
-pub struct InsertOpenMessageProvider {
+pub struct InsertOpenMessageQuery {
     condition: WhereCondition,
 }
 
-impl InsertOpenMessageProvider {
+impl InsertOpenMessageQuery {
     pub fn one(
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
@@ -40,7 +40,7 @@ impl InsertOpenMessageProvider {
     }
 }
 
-impl Query for InsertOpenMessageProvider {
+impl Query for InsertOpenMessageQuery {
     type Entity = OpenMessageRecord;
 
     fn filters(&self) -> WhereCondition {

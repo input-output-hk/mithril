@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::EpochSettingRecord;
 
 /// Query to delete old [EpochSettingRecord] from the sqlite database
-pub struct DeleteEpochSettingProvider {
+pub struct DeleteEpochSettingQuery {
     condition: WhereCondition,
 }
 
-impl Query for DeleteEpochSettingProvider {
+impl Query for DeleteEpochSettingQuery {
     type Entity = EpochSettingRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -27,7 +27,7 @@ impl Query for DeleteEpochSettingProvider {
     }
 }
 
-impl DeleteEpochSettingProvider {
+impl DeleteEpochSettingQuery {
     #[cfg(test)]
     /// Create the SQL condition to delete a record given the Epoch.
     pub fn by_epoch(epoch: Epoch) -> Self {
@@ -50,7 +50,7 @@ impl DeleteEpochSettingProvider {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::GetEpochSettingProvider;
+    use crate::database::provider::GetEpochSettingQuery;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -62,19 +62,19 @@ mod tests {
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
         let cursor = connection
-            .fetch(DeleteEpochSettingProvider::by_epoch(Epoch(2)))
+            .fetch(DeleteEpochSettingQuery::by_epoch(Epoch(2)))
             .unwrap();
 
         assert_eq!(1, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
 
         assert_eq!(1, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingProvider::by_epoch(Epoch(2)).unwrap())
+            .fetch(GetEpochSettingQuery::by_epoch(Epoch(2)).unwrap())
             .unwrap();
 
         assert_eq!(0, cursor.count());
@@ -86,19 +86,19 @@ mod tests {
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
         let cursor = connection
-            .fetch(DeleteEpochSettingProvider::below_epoch_threshold(Epoch(2)))
+            .fetch(DeleteEpochSettingQuery::below_epoch_threshold(Epoch(2)))
             .unwrap();
 
         assert_eq!(1, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
 
         assert_eq!(0, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingProvider::by_epoch(Epoch(2)).unwrap())
+            .fetch(GetEpochSettingQuery::by_epoch(Epoch(2)).unwrap())
             .unwrap();
 
         assert_eq!(1, cursor.count());

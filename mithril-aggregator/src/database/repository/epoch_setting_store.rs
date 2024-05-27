@@ -8,7 +8,7 @@ use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::provider::{
-    DeleteEpochSettingProvider, GetEpochSettingProvider, UpdateEpochSettingProvider,
+    DeleteEpochSettingQuery, GetEpochSettingQuery, UpdateEpochSettingQuery,
 };
 use crate::ProtocolParametersStorer;
 
@@ -40,7 +40,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
     ) -> StdResult<Option<ProtocolParameters>> {
         let epoch_setting_record = self
             .connection
-            .fetch_one(UpdateEpochSettingProvider::one(epoch, protocol_parameters))
+            .fetch_one(UpdateEpochSettingQuery::one(epoch, protocol_parameters))
             .map_err(|e| {
                 AdapterError::GeneralError(e.context("persist protocol parameters failure"))
             })?
@@ -50,7 +50,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
         if let Some(threshold) = self.retention_limit {
             let _ = self
                 .connection
-                .fetch(DeleteEpochSettingProvider::below_epoch_threshold(
+                .fetch(DeleteEpochSettingQuery::below_epoch_threshold(
                     epoch - threshold,
                 ))
                 .map_err(AdapterError::QueryError)?
@@ -63,7 +63,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let mut cursor = self
             .connection
-            .fetch(GetEpochSettingProvider::by_epoch(epoch)?)
+            .fetch(GetEpochSettingQuery::by_epoch(epoch)?)
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;
 
         if let Some(epoch_setting_record) = cursor.next() {

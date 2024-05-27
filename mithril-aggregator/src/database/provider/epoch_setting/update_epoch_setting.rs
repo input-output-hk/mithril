@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::EpochSettingRecord;
 
 /// Query to update [EpochSettingRecord] in the sqlite database
-pub struct UpdateEpochSettingProvider {
+pub struct UpdateEpochSettingQuery {
     condition: WhereCondition,
 }
 
-impl UpdateEpochSettingProvider {
+impl UpdateEpochSettingQuery {
     pub fn one(epoch: Epoch, protocol_parameters: ProtocolParameters) -> Self {
         let epoch_setting_id: i64 = epoch.try_into().unwrap();
 
@@ -26,7 +26,7 @@ impl UpdateEpochSettingProvider {
     }
 }
 
-impl Query for UpdateEpochSettingProvider {
+impl Query for UpdateEpochSettingQuery {
     type Entity = EpochSettingRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -48,7 +48,7 @@ mod tests {
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use crate::database::provider::GetEpochSettingProvider;
+    use crate::database::provider::GetEpochSettingQuery;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;
@@ -59,7 +59,7 @@ mod tests {
         insert_epoch_settings(&connection, &[3]).unwrap();
 
         let epoch_setting_record = connection
-            .fetch_one(UpdateEpochSettingProvider::one(
+            .fetch_one(UpdateEpochSettingQuery::one(
                 Epoch(3),
                 fake_data::protocol_parameters(),
             ))
@@ -73,7 +73,7 @@ mod tests {
         );
 
         let mut cursor = connection
-            .fetch(GetEpochSettingProvider::by_epoch(Epoch(3)).unwrap())
+            .fetch(GetEpochSettingQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
         let epoch_setting_record = cursor
             .next()

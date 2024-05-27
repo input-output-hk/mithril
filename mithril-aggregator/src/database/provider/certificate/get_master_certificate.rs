@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::CertificateRecord;
 
 /// Query to obtains the master [CertificateRecord] of an epoch
-pub struct MasterCertificateProvider {
+pub struct MasterCertificateQuery {
     condition: WhereCondition,
 }
 
-impl MasterCertificateProvider {
+impl MasterCertificateQuery {
     pub fn for_epoch(epoch: Epoch) -> Self {
         let epoch_i64: i64 = epoch.try_into().unwrap();
         let condition = WhereCondition::new(
@@ -27,7 +27,7 @@ impl MasterCertificateProvider {
     }
 }
 
-impl Query for MasterCertificateProvider {
+impl Query for MasterCertificateQuery {
     type Entity = CertificateRecord;
 
     fn filters(&self) -> WhereCondition {

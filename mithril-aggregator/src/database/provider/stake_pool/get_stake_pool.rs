@@ -7,11 +7,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::StakePool;
 
 /// Simple queries to retrieve [StakePool] from the sqlite database.
-pub struct GetStakePoolProvider {
+pub struct GetStakePoolQuery {
     condition: WhereCondition,
 }
 
-impl GetStakePoolProvider {
+impl GetStakePoolQuery {
     /// Get StakePools for a given Epoch for given pool_ids.
     pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
         let condition = WhereCondition::new("epoch = ?*", vec![Value::Integer(epoch.try_into()?)]);
@@ -20,7 +20,7 @@ impl GetStakePoolProvider {
     }
 }
 
-impl Query for GetStakePoolProvider {
+impl Query for GetStakePoolQuery {
     type Entity = StakePool;
 
     fn filters(&self) -> WhereCondition {
@@ -48,7 +48,7 @@ mod tests {
         insert_stake_pool(&connection, &[1, 2, 3]).unwrap();
 
         let mut cursor = connection
-            .fetch(GetStakePoolProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch(GetStakePoolQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
 
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool3'.");
@@ -59,7 +59,7 @@ mod tests {
         assert_eq!(2, cursor.count());
 
         let mut cursor = connection
-            .fetch(GetStakePoolProvider::by_epoch(Epoch(3)).unwrap())
+            .fetch(GetStakePoolQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
 
         let stake_pool = cursor.next().expect("Should have a stake pool 'pool2'.");
@@ -70,7 +70,7 @@ mod tests {
         assert_eq!(2, cursor.count());
 
         let cursor = connection
-            .fetch(GetStakePoolProvider::by_epoch(Epoch(5)).unwrap())
+            .fetch(GetStakePoolQuery::by_epoch(Epoch(5)).unwrap())
             .unwrap();
         assert_eq!(0, cursor.count());
     }

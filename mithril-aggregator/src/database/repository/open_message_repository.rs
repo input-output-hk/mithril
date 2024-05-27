@@ -7,15 +7,15 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::provider::{
-    DeleteOpenMessageProvider, GetOpenMessageProvider, GetOpenMessageWithSingleSignaturesProvider,
-    InsertOpenMessageProvider, UpdateOpenMessageProvider,
+    DeleteOpenMessageQuery, GetOpenMessageQuery, GetOpenMessageWithSingleSignaturesQuery,
+    InsertOpenMessageQuery, UpdateOpenMessageQuery,
 };
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
 /// ## Open message repository
 ///
 /// This is a business oriented layer to perform actions on the database through
-/// providers.
+/// queries.
 pub struct OpenMessageRepository {
     connection: Arc<SqliteConnection>,
 }
@@ -32,7 +32,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
         self.connection
-            .fetch_one(GetOpenMessageProvider::by_epoch_and_signed_entity_type(
+            .fetch_one(GetOpenMessageQuery::by_epoch_and_signed_entity_type(
                 signed_entity_type.get_epoch(),
                 signed_entity_type,
             )?)
@@ -44,7 +44,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         self.connection.fetch_one(
-            GetOpenMessageWithSingleSignaturesProvider::by_epoch_and_signed_entity_type(
+            GetOpenMessageWithSingleSignaturesQuery::by_epoch_and_signed_entity_type(
                 signed_entity_type.get_epoch(),
                 signed_entity_type,
             )?,
@@ -57,7 +57,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
         self.connection
-            .fetch_one(GetOpenMessageProvider::by_expired_entity_type(
+            .fetch_one(GetOpenMessageQuery::by_expired_entity_type(
                 Utc::now(),
                 signed_entity_type,
             )?)
@@ -70,7 +70,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessageRecord> {
-        let message = self.connection.fetch_one(InsertOpenMessageProvider::one(
+        let message = self.connection.fetch_one(InsertOpenMessageQuery::one(
             epoch,
             signed_entity_type,
             protocol_message,
@@ -86,7 +86,7 @@ impl OpenMessageRepository {
     ) -> StdResult<OpenMessageRecord> {
         let message = self
             .connection
-            .fetch_one(UpdateOpenMessageProvider::one(open_message)?)?;
+            .fetch_one(UpdateOpenMessageQuery::one(open_message)?)?;
 
         message.ok_or_else(|| panic!("Updating an open_message should not return nothing."))
     }
@@ -96,7 +96,7 @@ impl OpenMessageRepository {
     pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
         let cursor = self
             .connection
-            .fetch(DeleteOpenMessageProvider::by_epoch(epoch))?;
+            .fetch(DeleteOpenMessageQuery::by_epoch(epoch))?;
 
         Ok(cursor.count())
     }
@@ -248,7 +248,7 @@ mod tests {
 
         let message = {
             let message = connection
-                .fetch_one(GetOpenMessageProvider::by_id(&open_message.open_message_id))
+                .fetch_one(GetOpenMessageQuery::by_id(&open_message.open_message_id))
                 .unwrap();
 
             message.unwrap_or_else(|| {

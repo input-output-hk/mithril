@@ -7,11 +7,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::EpochSettingRecord;
 
 /// Simple queries to retrieve [EpochSettingRecord] from the sqlite database.
-pub struct GetEpochSettingProvider {
+pub struct GetEpochSettingQuery {
     condition: WhereCondition,
 }
 
-impl GetEpochSettingProvider {
+impl GetEpochSettingQuery {
     pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
         let epoch_setting_id: i64 = epoch
             .try_into()
@@ -26,7 +26,7 @@ impl GetEpochSettingProvider {
     }
 }
 
-impl Query for GetEpochSettingProvider {
+impl Query for GetEpochSettingQuery {
     type Entity = EpochSettingRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -55,7 +55,7 @@ mod tests {
         insert_epoch_settings(&connection, &[1, 2, 3]).unwrap();
 
         let epoch_setting_record = connection
-            .fetch_one(GetEpochSettingProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch_one(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap()
             .expect("Should have an epoch setting for epoch 1.");
         assert_eq!(Epoch(1), epoch_setting_record.epoch_setting_id);
@@ -65,7 +65,7 @@ mod tests {
         );
 
         let epoch_setting_record = connection
-            .fetch_one(GetEpochSettingProvider::by_epoch(Epoch(3)).unwrap())
+            .fetch_one(GetEpochSettingQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap()
             .expect("Should have an epoch setting for epoch 3.");
         assert_eq!(Epoch(3), epoch_setting_record.epoch_setting_id);
@@ -75,7 +75,7 @@ mod tests {
         );
 
         let cursor = connection
-            .fetch(GetEpochSettingProvider::by_epoch(Epoch(5)).unwrap())
+            .fetch(GetEpochSettingQuery::by_epoch(Epoch(5)).unwrap())
             .unwrap();
         assert_eq!(0, cursor.count());
     }

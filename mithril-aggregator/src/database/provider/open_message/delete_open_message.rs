@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::OpenMessageRecord;
 
 /// Query to delete old [OpenMessageRecord] from the sqlite database
-pub struct DeleteOpenMessageProvider {
+pub struct DeleteOpenMessageQuery {
     condition: WhereCondition,
 }
 
-impl DeleteOpenMessageProvider {
+impl DeleteOpenMessageQuery {
     pub fn by_epoch(epoch: Epoch) -> Self {
         Self {
             condition: WhereCondition::new(
@@ -21,7 +21,7 @@ impl DeleteOpenMessageProvider {
     }
 }
 
-impl Query for DeleteOpenMessageProvider {
+impl Query for DeleteOpenMessageQuery {
     type Entity = OpenMessageRecord;
 
     fn filters(&self) -> WhereCondition {

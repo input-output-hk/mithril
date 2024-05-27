@@ -7,11 +7,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::CertificateRecord;
 
 /// Query to insert [CertificateRecord] in the sqlite database
-pub struct InsertCertificateRecordProvider {
+pub struct InsertCertificateRecordQuery {
     condition: WhereCondition,
 }
 
-impl InsertCertificateRecordProvider {
+impl InsertCertificateRecordQuery {
     pub fn one(certificate_record: CertificateRecord) -> Self {
         Self::many(vec![certificate_record])
     }
@@ -84,7 +84,7 @@ impl InsertCertificateRecordProvider {
     }
 }
 
-impl Query for InsertCertificateRecordProvider {
+impl Query for InsertCertificateRecordQuery {
     type Entity = CertificateRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -119,7 +119,7 @@ mod tests {
         for certificate in certificates {
             let certificate_record: CertificateRecord = certificate.into();
             let certificate_record_saved = connection
-                .fetch_one(InsertCertificateRecordProvider::one(
+                .fetch_one(InsertCertificateRecordQuery::one(
                     certificate_record.clone(),
                 ))
                 .unwrap();
@@ -136,7 +136,7 @@ mod tests {
         let connection = main_db_connection().unwrap();
 
         let certificates_records_saved: Vec<CertificateRecord> = connection
-            .fetch_and_collect(InsertCertificateRecordProvider::many(
+            .fetch_and_collect(InsertCertificateRecordQuery::many(
                 certificates_records.clone(),
             ))
             .expect("saving many records should not fail");

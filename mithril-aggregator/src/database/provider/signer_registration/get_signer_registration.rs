@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::SignerRegistrationRecord;
 
 /// Simple queries to retrieve [SignerRegistrationRecord] from the sqlite database.
-pub struct GetSignerRegistrationRecordProvider {
+pub struct GetSignerRegistrationRecordQuery {
     condition: WhereCondition,
 }
 
-impl GetSignerRegistrationRecordProvider {
+impl GetSignerRegistrationRecordQuery {
     #[cfg(test)]
     pub fn all() -> Self {
         Self {
@@ -38,7 +38,7 @@ impl GetSignerRegistrationRecordProvider {
     }
 }
 
-impl Query for GetSignerRegistrationRecordProvider {
+impl Query for GetSignerRegistrationRecordQuery {
     type Entity = SignerRegistrationRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -88,7 +88,7 @@ mod tests {
         insert_signer_registrations(&connection, signer_with_stakes_by_epoch.clone()).unwrap();
 
         let signer_registration_records: Vec<SignerRegistrationRecord> = connection
-            .fetch_and_collect(GetSignerRegistrationRecordProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch_and_collect(GetSignerRegistrationRecordQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch[1]
@@ -103,7 +103,7 @@ mod tests {
         );
 
         let signer_registration_records: Vec<SignerRegistrationRecord> = connection
-            .fetch_and_collect(GetSignerRegistrationRecordProvider::by_epoch(Epoch(3)).unwrap())
+            .fetch_and_collect(GetSignerRegistrationRecordQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch[3]
@@ -118,12 +118,12 @@ mod tests {
         );
 
         let cursor = connection
-            .fetch(GetSignerRegistrationRecordProvider::by_epoch(Epoch(5)).unwrap())
+            .fetch(GetSignerRegistrationRecordQuery::by_epoch(Epoch(5)).unwrap())
             .unwrap();
         assert_eq!(0, cursor.count());
 
         let signer_registration_records: Vec<SignerRegistrationRecord> = connection
-            .fetch_and_collect(GetSignerRegistrationRecordProvider::all())
+            .fetch_and_collect(GetSignerRegistrationRecordQuery::all())
             .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch

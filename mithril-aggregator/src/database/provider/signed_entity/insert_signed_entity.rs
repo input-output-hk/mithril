@@ -5,11 +5,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::SignedEntityRecord;
 
 /// Query to insert [SignedEntityRecord] in the sqlite database
-pub struct InsertSignedEntityRecordProvider {
+pub struct InsertSignedEntityRecordQuery {
     condition: WhereCondition,
 }
 
-impl InsertSignedEntityRecordProvider {
+impl InsertSignedEntityRecordQuery {
     pub fn one(signed_entity_record: SignedEntityRecord) -> Self {
         Self {
             condition: WhereCondition::new(
@@ -27,7 +27,7 @@ impl InsertSignedEntityRecordProvider {
     }
 }
 
-impl Query for InsertSignedEntityRecordProvider {
+impl Query for InsertSignedEntityRecordQuery {
     type Entity = SignedEntityRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -60,7 +60,7 @@ mod tests {
 
         for signed_entity_record in signed_entity_records {
             let signed_entity_record_saved = connection
-                .fetch_one(InsertSignedEntityRecordProvider::one(
+                .fetch_one(InsertSignedEntityRecordQuery::one(
                     signed_entity_record.clone(),
                 ))
                 .unwrap();

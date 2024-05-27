@@ -7,11 +7,11 @@ use crate::database::record::SignerRecord;
 /// Query to register a [SignerRecord] in the sqlite database
 ///
 /// If it already exists it's `last_registered_at` and `updated_at` fields will be updated.
-pub struct RegisterSignerRecordProvider {
+pub struct RegisterSignerRecordQuery {
     condition: WhereCondition,
 }
 
-impl RegisterSignerRecordProvider {
+impl RegisterSignerRecordQuery {
     pub fn one(signer_record: SignerRecord) -> Self {
         let condition = WhereCondition::new(
             "(signer_id, pool_ticker, created_at, updated_at, last_registered_at) values (?*, ?*, ?*, ?*, ?*)",
@@ -34,7 +34,7 @@ impl RegisterSignerRecordProvider {
     }
 }
 
-impl Query for RegisterSignerRecordProvider {
+impl Query for RegisterSignerRecordQuery {
     type Entity = SignerRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -71,7 +71,7 @@ mod tests {
 
         for signer_record in signer_records_fake.clone() {
             let signer_record_saved = connection
-                .fetch_one(RegisterSignerRecordProvider::one(signer_record.clone()))
+                .fetch_one(RegisterSignerRecordQuery::one(signer_record.clone()))
                 .unwrap();
             assert_eq!(Some(signer_record), signer_record_saved);
         }
@@ -79,7 +79,7 @@ mod tests {
         for mut signer_record in signer_records_fake {
             signer_record.updated_at += Duration::try_hours(1).unwrap();
             let signer_record_saved = connection
-                .fetch_one(RegisterSignerRecordProvider::one(signer_record.clone()))
+                .fetch_one(RegisterSignerRecordQuery::one(signer_record.clone()))
                 .unwrap();
             assert_eq!(Some(signer_record), signer_record_saved);
         }

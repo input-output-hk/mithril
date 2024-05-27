@@ -10,8 +10,8 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::ConnectionExtensions;
 
 use crate::database::provider::{
-    DeleteCertificateProvider, GetCertificateRecordProvider, InsertCertificateRecordProvider,
-    MasterCertificateProvider,
+    DeleteCertificateQuery, GetCertificateRecordQuery, InsertCertificateRecordQuery,
+    MasterCertificateQuery,
 };
 use crate::database::record::CertificateRecord;
 
@@ -33,7 +33,7 @@ impl CertificateRepository {
     {
         let record = self
             .connection
-            .fetch_one(GetCertificateRecordProvider::by_certificate_id(hash))?;
+            .fetch_one(GetCertificateRecordQuery::by_certificate_id(hash))?;
 
         Ok(record.map(|c| c.into()))
     }
@@ -43,7 +43,7 @@ impl CertificateRepository {
     where
         T: From<CertificateRecord>,
     {
-        let cursor = self.connection.fetch(GetCertificateRecordProvider::all())?;
+        let cursor = self.connection.fetch(GetCertificateRecordQuery::all())?;
 
         Ok(cursor.take(last_n).map(|v| v.into()).collect())
     }
@@ -57,7 +57,7 @@ impl CertificateRepository {
     {
         let record = self
             .connection
-            .fetch_one(MasterCertificateProvider::for_epoch(epoch))?;
+            .fetch_one(MasterCertificateQuery::for_epoch(epoch))?;
 
         Ok(record.map(|c| c.into()))
     }
@@ -66,7 +66,7 @@ impl CertificateRepository {
     pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
         let record = self
             .connection
-            .fetch_one(InsertCertificateRecordProvider::one(
+            .fetch_one(InsertCertificateRecordQuery::one(
                 certificate.clone().into(),
             ))?
             .unwrap_or_else(|| {
@@ -89,7 +89,7 @@ impl CertificateRepository {
             certificates.into_iter().map(|cert| cert.into()).collect();
         let new_certificates = self
             .connection
-            .fetch(InsertCertificateRecordProvider::many(records))?;
+            .fetch(InsertCertificateRecordQuery::many(records))?;
 
         Ok(new_certificates.map(|cert| cert.into()).collect())
     }
@@ -103,7 +103,7 @@ impl CertificateRepository {
 
         let _ = self
             .connection
-            .fetch_one(DeleteCertificateProvider::by_ids(&ids))?;
+            .fetch_one(DeleteCertificateQuery::by_ids(&ids))?;
 
         Ok(())
     }
@@ -532,7 +532,7 @@ mod tests {
         {
             let connection = deps.get_sqlite_connection().await.unwrap();
             let cert = connection
-                .fetch_one(GetCertificateRecordProvider::by_certificate_id(
+                .fetch_one(GetCertificateRecordQuery::by_certificate_id(
                     &certificates[4].hash,
                 ))
                 .unwrap()

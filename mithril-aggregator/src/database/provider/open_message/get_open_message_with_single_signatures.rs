@@ -7,11 +7,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::OpenMessageWithSingleSignaturesRecord;
 
 /// Simple queries to retrieve [OpenMessageWithSingleSignaturesRecord] from the sqlite database.
-pub struct GetOpenMessageWithSingleSignaturesProvider {
+pub struct GetOpenMessageWithSingleSignaturesQuery {
     condition: WhereCondition,
 }
 
-impl GetOpenMessageWithSingleSignaturesProvider {
+impl GetOpenMessageWithSingleSignaturesQuery {
     pub fn by_epoch_and_signed_entity_type(
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
@@ -39,7 +39,7 @@ impl GetOpenMessageWithSingleSignaturesProvider {
     }
 }
 
-impl Query for GetOpenMessageWithSingleSignaturesProvider {
+impl Query for GetOpenMessageWithSingleSignaturesQuery {
     type Entity = OpenMessageWithSingleSignaturesRecord;
 
     fn filters(&self) -> WhereCondition {

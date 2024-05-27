@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::StakePool;
 
 /// Query to delete old [StakePool] from the sqlite database
-pub struct DeleteStakePoolProvider {
+pub struct DeleteStakePoolQuery {
     condition: WhereCondition,
 }
 
-impl Query for DeleteStakePoolProvider {
+impl Query for DeleteStakePoolQuery {
     type Entity = StakePool;
 
     fn filters(&self) -> WhereCondition {
@@ -27,7 +27,7 @@ impl Query for DeleteStakePoolProvider {
     }
 }
 
-impl DeleteStakePoolProvider {
+impl DeleteStakePoolQuery {
     /// Create the SQL query to prune data older than the given Epoch.
     pub fn below_epoch_threshold(epoch_threshold: Epoch) -> Self {
         let condition = WhereCondition::new(
@@ -41,7 +41,7 @@ impl DeleteStakePoolProvider {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::GetStakePoolProvider;
+    use crate::database::provider::GetStakePoolQuery;
     use crate::database::test_helper::{insert_stake_pool, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -53,17 +53,17 @@ mod tests {
         insert_stake_pool(&connection, &[1, 2]).unwrap();
 
         let cursor = connection
-            .fetch(DeleteStakePoolProvider::below_epoch_threshold(Epoch(2)))
+            .fetch(DeleteStakePoolQuery::below_epoch_threshold(Epoch(2)))
             .unwrap();
         assert_eq!(3, cursor.count());
 
         let cursor = connection
-            .fetch(GetStakePoolProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch(GetStakePoolQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
         assert_eq!(0, cursor.count());
 
         let cursor = connection
-            .fetch(GetStakePoolProvider::by_epoch(Epoch(2)).unwrap())
+            .fetch(GetStakePoolQuery::by_epoch(Epoch(2)).unwrap())
             .unwrap();
         assert_eq!(3, cursor.count());
     }

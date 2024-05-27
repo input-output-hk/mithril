@@ -6,11 +6,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::SignedEntityRecord;
 
 /// Query to update [SignedEntityRecord] in the sqlite database
-pub struct UpdateSignedEntityProvider {
+pub struct UpdateSignedEntityQuery {
     condition: WhereCondition,
 }
 
-impl UpdateSignedEntityProvider {
+impl UpdateSignedEntityQuery {
     pub fn one(signed_entity_record: SignedEntityRecord) -> StdResult<Self> {
         let expression =
             "signed_entity_type_id = ?*, certificate_id = ?*, beacon = ?*, artifact = ?*, \
@@ -31,7 +31,7 @@ where signed_entity_id = ?*";
     }
 }
 
-impl Query for UpdateSignedEntityProvider {
+impl Query for UpdateSignedEntityQuery {
     type Entity = SignedEntityRecord;
 
     fn filters(&self) -> WhereCondition {

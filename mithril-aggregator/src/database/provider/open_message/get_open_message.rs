@@ -10,11 +10,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::OpenMessageRecord;
 
 /// Simple queries to retrieve [OpenMessageRecord] from the sqlite database.
-pub struct GetOpenMessageProvider {
+pub struct GetOpenMessageQuery {
     condition: WhereCondition,
 }
 
-impl GetOpenMessageProvider {
+impl GetOpenMessageQuery {
     pub fn by_epoch_and_signed_entity_type(
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
@@ -69,7 +69,7 @@ impl GetOpenMessageProvider {
     }
 }
 
-impl Query for GetOpenMessageProvider {
+impl Query for GetOpenMessageQuery {
     type Entity = OpenMessageRecord;
 
     fn filters(&self) -> WhereCondition {

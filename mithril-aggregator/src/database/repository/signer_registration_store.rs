@@ -10,8 +10,8 @@ use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::provider::{
-    DeleteSignerRegistrationRecordProvider, GetSignerRegistrationRecordProvider,
-    InsertOrReplaceSignerRegistrationRecordProvider,
+    DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
+    InsertOrReplaceSignerRegistrationRecordQuery,
 };
 use crate::database::record::SignerRegistrationRecord;
 use crate::VerificationKeyStorer;
@@ -37,7 +37,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     ) -> StdResult<Option<SignerWithStake>> {
         let existing_record = self
             .connection
-            .fetch_one(GetSignerRegistrationRecordProvider::by_signer_id_and_epoch(
+            .fetch_one(GetSignerRegistrationRecordQuery::by_signer_id_and_epoch(
                 signer.party_id.to_owned(),
                 epoch,
             )?)
@@ -51,7 +51,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
 
         let _updated_record = self
             .connection
-            .fetch_one(InsertOrReplaceSignerRegistrationRecordProvider::one(
+            .fetch_one(InsertOrReplaceSignerRegistrationRecordQuery::one(
                 SignerRegistrationRecord::from_signer_with_stake(signer, epoch),
             ))
             .with_context(|| format!("persist verification key failure, epoch: {epoch}"))
@@ -69,7 +69,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     ) -> StdResult<Option<HashMap<PartyId, Signer>>> {
         let cursor = self
             .connection
-            .fetch(GetSignerRegistrationRecordProvider::by_epoch(epoch)?)
+            .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
             .with_context(|| format!("get verification key failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
 
@@ -85,7 +85,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     async fn get_signers(&self, epoch: Epoch) -> StdResult<Option<Vec<SignerWithStake>>> {
         let cursor = self
             .connection
-            .fetch(GetSignerRegistrationRecordProvider::by_epoch(epoch)?)
+            .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
             .with_context(|| format!("get verification key failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
 
@@ -102,9 +102,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
             .connection
             .fetch_one(
                 // we want to prune including the given epoch (+1)
-                DeleteSignerRegistrationRecordProvider::below_epoch_threshold(
-                    max_epoch_to_prune + 1,
-                ),
+                DeleteSignerRegistrationRecordQuery::below_epoch_threshold(max_epoch_to_prune + 1),
             )
             .map_err(AdapterError::QueryError)?;
 

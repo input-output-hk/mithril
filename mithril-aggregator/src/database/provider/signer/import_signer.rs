@@ -10,11 +10,11 @@ use crate::database::record::SignerRecord;
 /// in the sqlite database.
 ///
 /// If it already exists it's `pool_ticker` and `updated_at` fields will be updated.
-pub struct ImportSignerRecordProvider {
+pub struct ImportSignerRecordQuery {
     condition: WhereCondition,
 }
 
-impl ImportSignerRecordProvider {
+impl ImportSignerRecordQuery {
     pub fn one(signer_record: SignerRecord) -> Self {
         Self::many(vec![signer_record])
     }
@@ -52,7 +52,7 @@ impl ImportSignerRecordProvider {
     }
 }
 
-impl Query for ImportSignerRecordProvider {
+impl Query for ImportSignerRecordQuery {
     type Entity = SignerRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -90,7 +90,7 @@ mod tests {
 
         for signer_record in signer_records_fake.clone() {
             let signer_record_saved = connection
-                .fetch_one(ImportSignerRecordProvider::one(signer_record.clone()))
+                .fetch_one(ImportSignerRecordQuery::one(signer_record.clone()))
                 .unwrap();
             assert_eq!(Some(signer_record), signer_record_saved);
         }
@@ -99,7 +99,7 @@ mod tests {
             signer_record.pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
             signer_record.updated_at += Duration::try_hours(1).unwrap();
             let signer_record_saved = connection
-                .fetch_one(ImportSignerRecordProvider::one(signer_record.clone()))
+                .fetch_one(ImportSignerRecordQuery::one(signer_record.clone()))
                 .unwrap();
             assert_eq!(Some(signer_record), signer_record_saved);
         }
@@ -114,9 +114,7 @@ mod tests {
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
         let mut saved_records: Vec<SignerRecord> = connection
-            .fetch_and_collect(ImportSignerRecordProvider::many(
-                signer_records_fake.clone(),
-            ))
+            .fetch_and_collect(ImportSignerRecordQuery::many(signer_records_fake.clone()))
             .unwrap();
         saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
         assert_eq!(signer_records_fake, saved_records);
@@ -126,9 +124,7 @@ mod tests {
             signer_record.updated_at += Duration::try_hours(1).unwrap();
         }
         let mut saved_records: Vec<SignerRecord> = connection
-            .fetch_and_collect(ImportSignerRecordProvider::many(
-                signer_records_fake.clone(),
-            ))
+            .fetch_and_collect(ImportSignerRecordQuery::many(signer_records_fake.clone()))
             .unwrap();
         saved_records.sort_by(|a, b| a.signer_id.cmp(&b.signer_id));
         assert_eq!(signer_records_fake, saved_records);

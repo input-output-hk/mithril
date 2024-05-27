@@ -7,11 +7,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::SignedEntityRecord;
 
 /// Simple queries to retrieve [SignedEntityRecord] from the sqlite database.
-pub struct GetSignedEntityRecordProvider {
+pub struct GetSignedEntityRecordQuery {
     condition: WhereCondition,
 }
 
-impl GetSignedEntityRecordProvider {
+impl GetSignedEntityRecordQuery {
     #[cfg(test)]
     pub fn all() -> Self {
         Self {
@@ -62,7 +62,7 @@ impl GetSignedEntityRecordProvider {
     }
 }
 
-impl Query for GetSignedEntityRecordProvider {
+impl Query for GetSignedEntityRecordQuery {
     type Entity = SignedEntityRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -96,7 +96,7 @@ mod tests {
 
         let first_signed_entity_type = signed_entity_records.first().unwrap().to_owned();
         let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_and_collect(GetSignedEntityRecordProvider::by_signed_entity_id(
+            .fetch_and_collect(GetSignedEntityRecordQuery::by_signed_entity_id(
                 &first_signed_entity_type.signed_entity_id,
             ))
             .unwrap();
@@ -104,7 +104,7 @@ mod tests {
 
         let signed_entity_records: Vec<SignedEntityRecord> = connection
             .fetch_and_collect(
-                GetSignedEntityRecordProvider::by_signed_entity_type(
+                GetSignedEntityRecordQuery::by_signed_entity_type(
                     &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 )
                 .unwrap(),
@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(expected_signed_entity_records, signed_entity_records);
 
         let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_and_collect(GetSignedEntityRecordProvider::all())
+            .fetch_and_collect(GetSignedEntityRecordQuery::all())
             .unwrap();
         let expected_signed_entity_records: Vec<SignedEntityRecord> =
             signed_entity_records.iter().map(|c| c.to_owned()).collect();

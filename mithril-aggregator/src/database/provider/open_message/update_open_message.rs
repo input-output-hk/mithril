@@ -7,11 +7,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::OpenMessageRecord;
 
 /// Query to update [OpenMessageRecord] in the sqlite database
-pub struct UpdateOpenMessageProvider {
+pub struct UpdateOpenMessageQuery {
     condition: WhereCondition,
 }
 
-impl UpdateOpenMessageProvider {
+impl UpdateOpenMessageQuery {
     pub fn one(open_message: &OpenMessageRecord) -> StdResult<Self> {
         let expression = "epoch_setting_id = ?*, beacon = ?*, \
 signed_entity_type_id = ?*, protocol_message = ?*, is_certified = ?*, \
@@ -42,7 +42,7 @@ is_expired = ?*, expires_at = ?* where open_message_id = ?*";
     }
 }
 
-impl Query for UpdateOpenMessageProvider {
+impl Query for UpdateOpenMessageQuery {
     type Entity = OpenMessageRecord;
 
     fn filters(&self) -> WhereCondition {

@@ -5,11 +5,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::SignerRegistrationRecord;
 
 /// Query to insert or replace [SignerRegistrationRecord] in the sqlite database
-pub struct InsertOrReplaceSignerRegistrationRecordProvider {
+pub struct InsertOrReplaceSignerRegistrationRecordQuery {
     condition: WhereCondition,
 }
 
-impl InsertOrReplaceSignerRegistrationRecordProvider {
+impl InsertOrReplaceSignerRegistrationRecordQuery {
     pub fn one(signer_registration_record: SignerRegistrationRecord) -> Self {
         let condition = WhereCondition::new(
             "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
@@ -43,7 +43,7 @@ impl InsertOrReplaceSignerRegistrationRecordProvider {
     }
 }
 
-impl Query for InsertOrReplaceSignerRegistrationRecordProvider {
+impl Query for InsertOrReplaceSignerRegistrationRecordQuery {
     type Entity = SignerRegistrationRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -83,7 +83,7 @@ mod tests {
             let signer_registration_record =
                 SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, Epoch(1));
             let signer_registration_record_saved = connection
-                .fetch_one(InsertOrReplaceSignerRegistrationRecordProvider::one(
+                .fetch_one(InsertOrReplaceSignerRegistrationRecordQuery::one(
                     signer_registration_record.clone(),
                 ))
                 .unwrap();
@@ -98,7 +98,7 @@ mod tests {
             let signer_registration_record =
                 SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, Epoch(1));
             let signer_registration_record_saved = connection
-                .fetch_one(InsertOrReplaceSignerRegistrationRecordProvider::one(
+                .fetch_one(InsertOrReplaceSignerRegistrationRecordQuery::one(
                     signer_registration_record.clone(),
                 ))
                 .unwrap();

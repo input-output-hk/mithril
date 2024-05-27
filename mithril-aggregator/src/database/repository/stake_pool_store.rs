@@ -11,7 +11,7 @@ use mithril_persistence::store::adapter::AdapterError;
 use mithril_persistence::store::StakeStorer;
 
 use crate::database::provider::{
-    DeleteStakePoolProvider, GetStakePoolProvider, InsertOrReplaceStakePoolProvider,
+    DeleteStakePoolQuery, GetStakePoolQuery, InsertOrReplaceStakePoolQuery,
 };
 use crate::database::record::StakePool;
 
@@ -43,7 +43,7 @@ impl StakeStorer for StakePoolStore {
     ) -> StdResult<Option<StakeDistribution>> {
         let pools: Vec<StakePool> = self
             .connection
-            .fetch_and_collect(InsertOrReplaceStakePoolProvider::many(
+            .fetch_and_collect(InsertOrReplaceStakePoolQuery::many(
                 stakes
                     .into_iter()
                     .map(|(pool_id, stake)| (pool_id, epoch, stake))
@@ -56,7 +56,7 @@ impl StakeStorer for StakePoolStore {
         if let Some(threshold) = self.retention_limit {
             let _ = self
                 .connection
-                .fetch(DeleteStakePoolProvider::below_epoch_threshold(
+                .fetch(DeleteStakePoolQuery::below_epoch_threshold(
                     epoch - threshold,
                 ))
                 .map_err(AdapterError::QueryError)?
@@ -71,7 +71,7 @@ impl StakeStorer for StakePoolStore {
     async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
         let cursor = self
             .connection
-            .fetch(GetStakePoolProvider::by_epoch(epoch)?)
+            .fetch(GetStakePoolQuery::by_epoch(epoch)?)
             .with_context(|| format!("get stakes failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
         let mut stake_distribution = StakeDistribution::new();

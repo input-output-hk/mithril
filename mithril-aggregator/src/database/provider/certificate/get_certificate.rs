@@ -9,11 +9,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::CertificateRecord;
 
 /// Simple queries to retrieve [CertificateRecord] from the sqlite database.
-pub struct GetCertificateRecordProvider {
+pub struct GetCertificateRecordQuery {
     condition: WhereCondition,
 }
 
-impl GetCertificateRecordProvider {
+impl GetCertificateRecordQuery {
     pub fn all() -> Self {
         Self {
             condition: WhereCondition::default(),
@@ -37,7 +37,7 @@ impl GetCertificateRecordProvider {
     }
 }
 
-impl Query for GetCertificateRecordProvider {
+impl Query for GetCertificateRecordQuery {
     type Entity = CertificateRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -68,7 +68,7 @@ mod tests {
         insert_certificate_records(&connection, certificates.clone());
 
         let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_and_collect(GetCertificateRecordProvider::by_epoch(Epoch(1)).unwrap())
+            .fetch_and_collect(GetCertificateRecordQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
@@ -78,7 +78,7 @@ mod tests {
         assert_eq!(expected_certificate_records, certificate_records);
 
         let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_and_collect(GetCertificateRecordProvider::by_epoch(Epoch(3)).unwrap())
+            .fetch_and_collect(GetCertificateRecordQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
@@ -88,7 +88,7 @@ mod tests {
         assert_eq!(expected_certificate_records, certificate_records);
 
         let cursor = connection
-            .fetch(GetCertificateRecordProvider::by_epoch(Epoch(5)).unwrap())
+            .fetch(GetCertificateRecordQuery::by_epoch(Epoch(5)).unwrap())
             .unwrap();
         assert_eq!(0, cursor.count());
     }
@@ -106,7 +106,7 @@ mod tests {
         insert_certificate_records(&connection, certificates.clone());
 
         let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_and_collect(GetCertificateRecordProvider::all())
+            .fetch_and_collect(GetCertificateRecordQuery::all())
             .unwrap();
         assert_eq!(expected_certificate_records, certificate_records);
     }

@@ -10,7 +10,7 @@ use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::provider::{
-    GetSignerRecordProvider, ImportSignerRecordProvider, RegisterSignerRecordProvider,
+    GetSignerRecordQuery, ImportSignerRecordQuery, RegisterSignerRecordQuery,
 };
 use crate::database::record::SignerRecord;
 use crate::SignerRecorder;
@@ -50,7 +50,7 @@ impl SignerStore {
             last_registered_at: None,
         };
         self.connection
-            .fetch_one(ImportSignerRecordProvider::one(signer_record))?;
+            .fetch_one(ImportSignerRecordQuery::one(signer_record))?;
 
         Ok(())
     }
@@ -73,7 +73,7 @@ impl SignerStore {
             })
             .collect();
         self.connection
-            .fetch_one(ImportSignerRecordProvider::many(signer_records))?;
+            .fetch_one(ImportSignerRecordQuery::many(signer_records))?;
 
         Ok(())
     }
@@ -93,7 +93,7 @@ impl SignerRecorder for SignerStore {
             last_registered_at: registered_at,
         };
         self.connection
-            .fetch_one(RegisterSignerRecordProvider::one(signer_record))?;
+            .fetch_one(RegisterSignerRecordQuery::one(signer_record))?;
 
         Ok(())
     }
@@ -103,7 +103,7 @@ impl SignerRecorder for SignerStore {
 impl SignerGetter for SignerStore {
     async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
         self.connection
-            .fetch_and_collect(GetSignerRecordProvider::all())
+            .fetch_and_collect(GetSignerRecordQuery::all())
     }
 }
 
@@ -145,9 +145,7 @@ mod tests {
                 .await
                 .expect("record_signer_registration should not fail");
             let signer_record_stored = connection
-                .fetch_one(GetSignerRecordProvider::by_signer_id(
-                    signer_record.signer_id,
-                ))
+                .fetch_one(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
                 .unwrap();
             assert!(signer_record_stored.is_some());
             assert!(
@@ -173,9 +171,7 @@ mod tests {
                 .await
                 .expect("import_signer should not fail");
             let signer_record_stored = connection
-                .fetch_one(GetSignerRecordProvider::by_signer_id(
-                    signer_record.signer_id,
-                ))
+                .fetch_one(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
                 .unwrap();
             assert!(signer_record_stored.is_some());
             assert!(

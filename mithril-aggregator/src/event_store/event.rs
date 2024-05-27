@@ -102,11 +102,11 @@ impl SqLiteEntity for Event {
     }
 }
 
-struct EventPersisterProvider {
+struct InsertEventQuery {
     condition: WhereCondition,
 }
 
-impl EventPersisterProvider {
+impl InsertEventQuery {
     fn one(message: EventMessage) -> StdResult<Self> {
         let condition = WhereCondition::new(
             "(source, action, content, created_at) values (?*, ?*, ?*, ?*)",
@@ -126,7 +126,7 @@ impl EventPersisterProvider {
     }
 }
 
-impl Query for EventPersisterProvider {
+impl Query for InsertEventQuery {
     type Entity = Event;
 
     fn filters(&self) -> WhereCondition {
@@ -156,9 +156,7 @@ impl EventPersister {
     pub fn persist(&self, message: EventMessage) -> StdResult<Event> {
         self.create_table_if_not_exists();
         let log_message = message.clone();
-        let mut rows = self
-            .connection
-            .fetch(EventPersisterProvider::one(message)?)?;
+        let mut rows = self.connection.fetch(InsertEventQuery::one(message)?)?;
 
         rows.next().ok_or(anyhow!(
             "No record from the database after I saved event message {log_message:?}"
@@ -198,10 +196,7 @@ mod tests {
     #[test]
     fn provider_sql() {
         let message = EventMessage::new("source", "action", "content");
-        let (parameters, values) = EventPersisterProvider::one(message)
-            .unwrap()
-            .filters()
-            .expand();
+        let (parameters, values) = InsertEventQuery::one(message).unwrap().filters().expand();
 
         assert_eq!(
             "(source, action, content, created_at) values (?1, ?2, ?3, ?4)".to_string(),

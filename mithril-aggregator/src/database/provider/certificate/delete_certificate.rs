@@ -5,11 +5,11 @@ use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereConditi
 use crate::database::record::CertificateRecord;
 
 /// Query to delete old [CertificateRecord] from the sqlite database
-pub struct DeleteCertificateProvider {
+pub struct DeleteCertificateQuery {
     condition: WhereCondition,
 }
 
-impl Query for DeleteCertificateProvider {
+impl Query for DeleteCertificateQuery {
     type Entity = CertificateRecord;
 
     fn filters(&self) -> WhereCondition {
@@ -26,7 +26,7 @@ impl Query for DeleteCertificateProvider {
     }
 }
 
-impl DeleteCertificateProvider {
+impl DeleteCertificateQuery {
     /// Create the SQL condition to delete certificates with the given ids.
     pub fn by_ids(ids: &[&str]) -> Self {
         let ids_values = ids.iter().map(|id| Value::String(id.to_string())).collect();
