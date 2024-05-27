@@ -99,9 +99,8 @@ impl CardanoTransactionRepository {
             block_hash: block_hash.into(),
             immutable_file_number,
         })?;
-        let mut cursor = self.connection.fetch(query)?;
 
-        Ok(cursor.next())
+        self.connection.fetch_one(query)
     }
 
     /// Create new [CardanoTransactionRecord]s in the database.
@@ -168,12 +167,10 @@ impl CardanoTransactionRepository {
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + '_>> {
         let block_range_roots = self
             .connection
-            .fetch(GetBlockRangeRootQuery::up_to_block_number(end_block_number))?;
-        let iterator = block_range_roots
-            .into_iter()
+            .fetch(GetBlockRangeRootQuery::up_to_block_number(end_block_number))?
             .map(|record| -> (BlockRange, MKTreeNode) { record.into() });
 
-        Ok(Box::new(iterator))
+        Ok(Box::new(block_range_roots))
     }
 
     /// Retrieve all the [CardanoTransaction] in database.
@@ -232,18 +229,15 @@ impl CardanoTransactionRepository {
     pub async fn get_block_interval_without_block_range_root(
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>> {
-        let row = self
+        let interval = self
             .connection
-            .fetch(GetIntervalWithoutBlockRangeRootQuery::new())?
-            .next();
-
-        match row {
+            .fetch_one(GetIntervalWithoutBlockRangeRootQuery::new())?
             // Should be impossible - the request as written in the query always returns a single row
-            None => {
+            .unwrap_or_else(|| {
                 panic!("GetIntervalWithoutBlockRangeRootQuery should always return a single row")
-            }
-            Some(interval) => interval.to_range(),
-        }
+            });
+
+        interval.to_range()
     }
 
     /// Get the [CardanoTransactionRecord] for the given transaction hashes.
@@ -275,7 +269,7 @@ impl CardanoTransactionRepository {
         {
             let threshold = highest_block_range_start.saturating_sub(number_of_blocks_to_keep);
             let query = DeleteCardanoTransactionQuery::below_block_number_threshold(threshold)?;
-            self.connection.fetch(query)?.next();
+            self.connection.fetch_one(query)?;
         }
 
         Ok(())
@@ -298,7 +292,7 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
         let iterator = self
             .retrieve_block_range_roots_up_to(block_number)
             .await?
-            .collect::<Vec<_>>() // TODO: remove this collect when we should be able return the iterator directly
+            .collect::<Vec<_>>() // TODO: remove this collect to return the iterator directly
             .into_iter();
         Ok(Box::new(iterator))
     }

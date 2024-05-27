@@ -57,11 +57,10 @@ impl<'conn> DatabaseVersionChecker<'conn> {
             .with_context(|| "Can not create table 'db_version' while applying migrations")?;
         let db_version = self
             .connection
-            .fetch(GetDatabaseVersionQuery::get_application_version(
+            .fetch_one(GetDatabaseVersionQuery::get_application_version(
                 &self.application_type,
             ))
             .with_context(|| "Can not get application version while applying migrations")?
-            .next()
             .unwrap(); // At least a record exists.
 
         // the current database version is equal to the maximum migration
@@ -118,14 +117,13 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                 updated_at: Utc::now(),
             };
             let _ = connection
-                .fetch(UpdateDatabaseVersionQuery::save(db_version))
+                .fetch_one(UpdateDatabaseVersionQuery::save(db_version))
                 .with_context(|| {
                     format!(
                         "Can not save database version when applying migration: '{}'",
                         migration.version
                     )
-                })?
-                .next();
+                })?;
         }
 
         Ok(())

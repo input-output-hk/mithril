@@ -72,7 +72,6 @@ mod tests {
         }
 
         for mut single_signature_record in single_signature_records {
-            // vvv - todo: check that this work
             single_signature_record.lottery_indexes.push(5);
             let single_signature_record_saved = connection
                 .fetch_one(UpdateSingleSignatureRecordQuery::one(

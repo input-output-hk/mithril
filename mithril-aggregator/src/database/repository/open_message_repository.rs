@@ -96,7 +96,7 @@ impl OpenMessageRepository {
     pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
         let cursor = self
             .connection
-            .fetch(DeleteOpenMessageQuery::by_epoch(epoch))?;
+            .fetch(DeleteOpenMessageQuery::below_epoch_threshold(epoch))?;
 
         Ok(cursor.count())
     }

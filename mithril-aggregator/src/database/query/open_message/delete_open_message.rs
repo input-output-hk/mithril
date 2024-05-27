@@ -11,7 +11,7 @@ pub struct DeleteOpenMessageQuery {
 }
 
 impl DeleteOpenMessageQuery {
-    pub fn by_epoch(epoch: Epoch) -> Self {
+    pub fn below_epoch_threshold(epoch: Epoch) -> Self {
         Self {
             condition: WhereCondition::new(
                 "epoch_setting_id < ?*",
