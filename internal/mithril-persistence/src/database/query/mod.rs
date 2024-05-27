@@ -1,4 +1,4 @@
-//! Shared database providers
+//! Shared database queries
 mod block_range_root;
 mod cardano_transaction;
 

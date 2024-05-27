@@ -1,27 +1,24 @@
 use crate::database::record::IntervalWithoutBlockRangeRootRecord;
-use crate::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition};
+use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 /// Query that return the interval of block numbers that does not have a block range root.
-pub struct GetIntervalWithoutBlockRangeRootProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct GetIntervalWithoutBlockRangeRootQuery {
+    condition: WhereCondition,
 }
 
-impl<'client> GetIntervalWithoutBlockRangeRootProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    pub fn get_interval_without_block_range_condition(&self) -> WhereCondition {
-        WhereCondition::default()
+impl GetIntervalWithoutBlockRangeRootQuery {
+    pub fn new() -> Self {
+        Self {
+            condition: Default::default(),
+        }
     }
 }
 
-impl<'client> Provider<'client> for GetIntervalWithoutBlockRangeRootProvider<'client> {
+impl Query for GetIntervalWithoutBlockRangeRootQuery {
     type Entity = IntervalWithoutBlockRangeRootRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {

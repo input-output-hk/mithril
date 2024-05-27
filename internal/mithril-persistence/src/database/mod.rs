@@ -1,10 +1,10 @@
 //! database module.
-//! This module contains providers and entities shared between all application types.
+//! This module contains queries and entities shared between all application types.
 
 pub mod cardano_transaction_migration;
 mod db_version;
 mod hydrator;
-pub(crate) mod provider;
+pub(crate) mod query;
 pub mod record;
 pub mod repository;
 mod version_checker;

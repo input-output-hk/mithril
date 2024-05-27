@@ -5,32 +5,21 @@ use sqlite::Value;
 use mithril_common::StdResult;
 
 use crate::database::record::CardanoTransactionRecord;
-use crate::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition};
+use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 /// Query to insert [CardanoTransactionRecord] in the sqlite database
-pub struct InsertCardanoTransactionProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct InsertCardanoTransactionQuery {
+    condition: WhereCondition,
 }
 
-impl<'client> InsertCardanoTransactionProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
+impl InsertCardanoTransactionQuery {
+    /// Query that insert one record.
+    pub fn insert_one(record: &CardanoTransactionRecord) -> StdResult<Self> {
+        Self::insert_many(vec![record.clone()])
     }
 
-    /// Condition to insert one record.
-    pub fn get_insert_condition(
-        &self,
-        record: &CardanoTransactionRecord,
-    ) -> StdResult<WhereCondition> {
-        self.get_insert_many_condition(vec![record.clone()])
-    }
-
-    /// Condition to insert multiples records.
-    pub fn get_insert_many_condition(
-        &self,
-        transactions_records: Vec<CardanoTransactionRecord>,
-    ) -> StdResult<WhereCondition> {
+    /// Query that insert multiples records.
+    pub fn insert_many(transactions_records: Vec<CardanoTransactionRecord>) -> StdResult<Self> {
         let columns =
             "(transaction_hash, block_number, slot_number, block_hash, immutable_file_number)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*, ?*, ?*)")
@@ -50,19 +39,20 @@ impl<'client> InsertCardanoTransactionProvider<'client> {
                     ]);
                     Ok(vec)
                 });
-
-        Ok(WhereCondition::new(
+        let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values?,
-        ))
+        );
+
+        Ok(Self { condition })
     }
 }
 
-impl<'client> Provider<'client> for InsertCardanoTransactionProvider<'client> {
+impl Query for InsertCardanoTransactionQuery {
     type Entity = CardanoTransactionRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {

@@ -5,24 +5,16 @@ use sqlite::Value;
 use mithril_common::StdResult;
 
 use crate::database::record::BlockRangeRootRecord;
-use crate::sqlite::{Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition};
+use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 /// Query to insert [BlockRangeRootRecord] in the sqlite database
-pub struct InsertBlockRangeRootProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct InsertBlockRangeRootQuery {
+    condition: WhereCondition,
 }
 
-impl<'client> InsertBlockRangeRootProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    /// Condition to insert multiples records.
-    pub fn get_insert_many_condition(
-        &self,
-        block_range_records: Vec<BlockRangeRootRecord>,
-    ) -> StdResult<WhereCondition> {
+impl InsertBlockRangeRootQuery {
+    /// Query that insert multiples records.
+    pub fn insert_many(block_range_records: Vec<BlockRangeRootRecord>) -> StdResult<Self> {
         let columns = "(start, end, merkle_root)";
         let values_columns: Vec<&str> = repeat("(?*, ?*, ?*)")
             .take(block_range_records.len())
@@ -39,19 +31,20 @@ impl<'client> InsertBlockRangeRootProvider<'client> {
                     ]);
                     Ok(vec)
                 });
-
-        Ok(WhereCondition::new(
+        let condition = WhereCondition::new(
             format!("{columns} values {}", values_columns.join(", ")).as_str(),
             values?,
-        ))
+        );
+
+        Ok(Self { condition })
     }
 }
 
-impl<'client> Provider<'client> for InsertBlockRangeRootProvider<'client> {
+impl Query for InsertBlockRangeRootQuery {
     type Entity = BlockRangeRootRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {

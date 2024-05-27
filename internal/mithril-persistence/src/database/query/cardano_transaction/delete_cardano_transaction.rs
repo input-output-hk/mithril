@@ -5,20 +5,18 @@ use mithril_common::entities::BlockNumber;
 use mithril_common::StdResult;
 
 use crate::database::record::CardanoTransactionRecord;
-use crate::sqlite::{
-    EntityCursor, Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 /// Query to delete old [CardanoTransactionRecord] from the sqlite database
-pub struct DeleteCardanoTransactionProvider<'conn> {
-    connection: &'conn SqliteConnection,
+pub struct DeleteCardanoTransactionQuery {
+    condition: WhereCondition,
 }
 
-impl<'conn> Provider<'conn> for DeleteCardanoTransactionProvider<'conn> {
+impl Query for DeleteCardanoTransactionQuery {
     type Entity = CardanoTransactionRecord;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -31,49 +29,30 @@ impl<'conn> Provider<'conn> for DeleteCardanoTransactionProvider<'conn> {
     }
 }
 
-impl<'conn> DeleteCardanoTransactionProvider<'conn> {
-    /// Create a new instance
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    fn get_prune_condition(
-        &self,
-        block_number_threshold: BlockNumber,
-    ) -> StdResult<WhereCondition> {
+impl DeleteCardanoTransactionQuery {
+    pub fn below_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
         let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
             format!("Failed to convert threshold `{block_number_threshold}` to i64")
         })?);
 
-        Ok(WhereCondition::new("block_number < ?*", vec![threshold]))
-    }
-
-    /// Prune the cardano transaction data below the given threshold.
-    pub fn prune(
-        &self,
-        block_number_threshold: BlockNumber,
-    ) -> StdResult<EntityCursor<CardanoTransactionRecord>> {
-        let filters = self.get_prune_condition(block_number_threshold)?;
-
-        self.find(filters)
+        Ok(Self {
+            condition: WhereCondition::new("block_number < ?*", vec![threshold]),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::{
-        GetCardanoTransactionProvider, InsertCardanoTransactionProvider,
-    };
+    use crate::database::query::{GetCardanoTransactionQuery, InsertCardanoTransactionQuery};
     use crate::database::test_helper::cardano_tx_db_connection;
-    use crate::sqlite::GetAllProvider;
+    use crate::sqlite::{ConnectionExtensions, SqliteConnection};
 
     use super::*;
 
     fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
-        let provider = InsertCardanoTransactionProvider::new(connection);
-        let condition = provider.get_insert_many_condition(records).unwrap();
-        let mut cursor = provider.find(condition).unwrap();
-        cursor.next().unwrap();
+        connection
+            .fetch_one(InsertCardanoTransactionQuery::insert_many(records).unwrap())
+            .unwrap();
     }
 
     fn test_transaction_set() -> Vec<CardanoTransactionRecord> {
@@ -91,9 +70,8 @@ mod tests {
     fn test_prune_work_even_without_transactions_in_db() {
         let connection = cardano_tx_db_connection().unwrap();
 
-        let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
-        let cursor = prune_provider
-            .prune(100)
+        let cursor = connection
+            .fetch(DeleteCardanoTransactionQuery::below_block_number_threshold(100).unwrap())
             .expect("pruning shouldn't crash without transactions stored");
         assert_eq!(0, cursor.count());
     }
@@ -103,12 +81,11 @@ mod tests {
         let connection = cardano_tx_db_connection().unwrap();
         insert_transactions(&connection, test_transaction_set());
 
-        let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
-        let cursor = prune_provider.prune(100_000).unwrap();
+        let query = DeleteCardanoTransactionQuery::below_block_number_threshold(100_000).unwrap();
+        let cursor = connection.fetch(query).unwrap();
         assert_eq!(test_transaction_set().len(), cursor.count());
 
-        let get_provider = GetCardanoTransactionProvider::new(&connection);
-        let cursor = get_provider.get_all().unwrap();
+        let cursor = connection.fetch(GetCardanoTransactionQuery::all()).unwrap();
         assert_eq!(0, cursor.count());
     }
 
@@ -117,12 +94,11 @@ mod tests {
         let connection = cardano_tx_db_connection().unwrap();
         insert_transactions(&connection, test_transaction_set());
 
-        let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
-        let cursor = prune_provider.prune(0).unwrap();
+        let query = DeleteCardanoTransactionQuery::below_block_number_threshold(0).unwrap();
+        let cursor = connection.fetch(query).unwrap();
         assert_eq!(0, cursor.count());
 
-        let get_provider = GetCardanoTransactionProvider::new(&connection);
-        let cursor = get_provider.get_all().unwrap();
+        let cursor = connection.fetch(GetCardanoTransactionQuery::all()).unwrap();
         assert_eq!(test_transaction_set().len(), cursor.count());
     }
 
@@ -131,12 +107,11 @@ mod tests {
         let connection = cardano_tx_db_connection().unwrap();
         insert_transactions(&connection, test_transaction_set());
 
-        let prune_provider = DeleteCardanoTransactionProvider::new(&connection);
-        let cursor = prune_provider.prune(12).unwrap();
+        let query = DeleteCardanoTransactionQuery::below_block_number_threshold(12).unwrap();
+        let cursor = connection.fetch(query).unwrap();
         assert_eq!(4, cursor.count());
 
-        let get_provider = GetCardanoTransactionProvider::new(&connection);
-        let cursor = get_provider.get_all().unwrap();
+        let cursor = connection.fetch(GetCardanoTransactionQuery::all()).unwrap();
         assert_eq!(2, cursor.count());
     }
 }
