@@ -171,10 +171,11 @@ pub fn insert_signed_entities(
     let query = {
         // leverage the expanded parameter from this provider which is unit
         // tested on its own above.
-        let insert_provider = InsertSignedEntityRecordProvider::new(connection);
-        let (sql_values, _) = insert_provider
-            .get_insert_condition(signed_entity_records.first().unwrap().to_owned())
-            .expand();
+        let (sql_values, _) = InsertSignedEntityRecordProvider::one(
+            signed_entity_records.first().unwrap().to_owned(),
+        )
+        .filters()
+        .expand();
         format!("insert into signed_entity {sql_values}")
     };
 

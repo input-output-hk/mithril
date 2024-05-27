@@ -1,64 +1,41 @@
 use sqlite::Value;
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{
-    Provider, SourceAlias, SqLiteEntity, SqliteConnection, WhereCondition,
-};
+use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignedEntityRecord;
 
 /// Query to update [SignedEntityRecord] in the sqlite database
-pub struct UpdateSignedEntityProvider<'client> {
-    connection: &'client SqliteConnection,
+pub struct UpdateSignedEntityProvider {
+    condition: WhereCondition,
 }
 
-impl<'client> UpdateSignedEntityProvider<'client> {
-    /// Create a new instance
-    pub fn new(connection: &'client SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    fn get_update_condition(
-        &self,
-        signed_entity_record: &SignedEntityRecord,
-    ) -> StdResult<WhereCondition> {
+impl UpdateSignedEntityProvider {
+    pub fn one(signed_entity_record: SignedEntityRecord) -> StdResult<Self> {
         let expression =
             "signed_entity_type_id = ?*, certificate_id = ?*, beacon = ?*, artifact = ?*, \
 created_at = ?* \
 where signed_entity_id = ?*";
         let parameters = vec![
             Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
-            Value::String(signed_entity_record.certificate_id.to_owned()),
+            Value::String(signed_entity_record.certificate_id),
             Value::String(signed_entity_record.signed_entity_type.get_json_beacon()?),
-            Value::String(signed_entity_record.artifact.to_owned()),
+            Value::String(signed_entity_record.artifact),
             Value::String(signed_entity_record.created_at.to_rfc3339()),
-            Value::String(signed_entity_record.signed_entity_id.to_owned()),
+            Value::String(signed_entity_record.signed_entity_id),
         ];
 
-        Ok(WhereCondition::new(expression, parameters))
-    }
-
-    pub fn persist(
-        &self,
-        signed_entity_record: &SignedEntityRecord,
-    ) -> StdResult<SignedEntityRecord> {
-        let filters = self.get_update_condition(signed_entity_record)?;
-        let mut cursor = self.find(filters)?;
-
-        cursor.next().ok_or_else(|| {
-            panic!(
-                "Updating a signed_entity should not return nothing, id = {:?}",
-                signed_entity_record.signed_entity_id
-            )
+        Ok(Self {
+            condition: WhereCondition::new(expression, parameters),
         })
     }
 }
 
-impl<'client> Provider<'client> for UpdateSignedEntityProvider<'client> {
+impl Query for UpdateSignedEntityProvider {
     type Entity = SignedEntityRecord;
 
-    fn get_connection(&'client self) -> &'client SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
