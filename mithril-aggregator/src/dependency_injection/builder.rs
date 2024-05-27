@@ -1367,7 +1367,7 @@ impl DependenciesBuilder {
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
         let mk_map_pool_size = self
             .configuration
-            .cardano_transactions_prover_cache_pool_size as usize;
+            .cardano_transactions_prover_cache_pool_size;
         let transaction_retriever = self.get_transaction_repository().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
         let logger = self.get_logger().await?;

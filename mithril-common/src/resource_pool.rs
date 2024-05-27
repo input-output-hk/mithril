@@ -69,10 +69,10 @@ impl<T: Send + Sync> ResourcePool<T> {
         Ok(ResourcePoolItem::new(self, resources.pop_front().unwrap()))
     }
 
-    /// Return a resource to the pool
-    /// A resource is returned to the pool only if the discriminant matches
+    /// Give back a resource to the pool
+    /// A resource is given back to the pool only if the discriminant matches
     /// and if the pool is not already full
-    pub fn return_resource(&self, resource: T, discriminant: u64) -> StdResult<()> {
+    pub fn give_back_resource(&self, resource: T, discriminant: u64) -> StdResult<()> {
         if self.count()? == self.size {
             // Pool is full
             return Ok(());
@@ -81,7 +81,7 @@ impl<T: Send + Sync> ResourcePool<T> {
             .resources
             .lock()
             .map_err(|_| ResourcePoolError::PoisonedLock())
-            .with_context(|| "Resource pool 'return_resource' failed locking Mutex")?;
+            .with_context(|| "Resource pool 'give_back_resource' failed locking Mutex")?;
         if self.discriminant()? != discriminant {
             // Stale resource
             return Ok(());
@@ -195,7 +195,7 @@ impl<T: Send + Sync> Drop for ResourcePoolItem<'_, T> {
             let resource = self.into_inner();
             let _ = self
                 .resource_pool
-                .return_resource(resource, self.discriminant);
+                .give_back_resource(resource, self.discriminant);
         }
     }
 }
@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_resource_pool_returns_fresh_resource() {
+    async fn test_resource_pool_gives_back_fresh_resource() {
         let pool_size = 10;
         let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
         let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
@@ -262,20 +262,21 @@ mod tests {
 
         let mut resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
         assert_eq!(pool.count().unwrap(), pool_size - 1);
-        pool.return_resource(resource_item.into_inner(), pool.discriminant().unwrap())
+        pool.give_back_resource(resource_item.into_inner(), pool.discriminant().unwrap())
             .unwrap();
 
         assert_eq!(pool.count().unwrap(), pool_size);
     }
 
     #[tokio::test]
-    async fn test_resource_pool_returns_resource_automatically() {
+    async fn test_resource_pool_gives_back_resource_automatically() {
         let pool_size = 10;
         let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
         let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
         assert_eq!(pool.count().unwrap(), pool_size);
 
         {
+            // Resource will be returned when resource item is dropped (will occur when exiting this block scope)
             let _resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
             assert_eq!(pool.count().unwrap(), pool_size - 1);
         }
@@ -284,20 +285,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_resource_pool_does_not_return_resource_when_pool_is_full() {
+    async fn test_resource_pool_does_not_give_back_resource_when_pool_is_full() {
         let pool_size = 10;
         let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
         let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
         assert_eq!(pool.count().unwrap(), pool_size);
 
-        pool.return_resource("resource".to_string(), pool.discriminant().unwrap())
+        pool.give_back_resource("resource".to_string(), pool.discriminant().unwrap())
             .unwrap();
 
         assert_eq!(pool.count().unwrap(), pool_size);
     }
 
     #[tokio::test]
-    async fn test_resource_pool_does_not_return_stale_resource() {
+    async fn test_resource_pool_does_not_giev_back_stale_resource() {
         let pool_size = 10;
         let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
         let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
@@ -308,7 +309,7 @@ mod tests {
         let discriminant_stale = pool.discriminant().unwrap();
         pool.set_discriminant(pool.discriminant().unwrap() + 1)
             .unwrap();
-        pool.return_resource(resource_item.into_inner(), discriminant_stale)
+        pool.give_back_resource(resource_item.into_inner(), discriminant_stale)
             .unwrap();
 
         assert_eq!(pool.count().unwrap(), pool_size - 1);

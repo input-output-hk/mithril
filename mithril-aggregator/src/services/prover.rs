@@ -150,7 +150,7 @@ impl ProverService for MithrilProverService {
         // 5 - Compute the proof for all transactions
         if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
             self.mk_map_pool
-                .return_resource(mk_map.into_inner(), mk_map.discriminant())?;
+                .give_back_resource(mk_map.into_inner(), mk_map.discriminant())?;
 
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
                 .iter()
@@ -171,7 +171,7 @@ impl ProverService for MithrilProverService {
         let pool_size = self.mk_map_pool.size();
         info!(
             self.logger,
-            "Prover starts computing the Merkle map pool pool resource of size {pool_size}"
+            "Prover starts computing the Merkle map pool resource of size {pool_size}"
         );
         let mk_map_cache = self
             .block_range_root_retriever
@@ -185,15 +185,15 @@ impl ProverService for MithrilProverService {
             .map(|i| {
                 debug!(
                     self.logger,
-                    "Prover is computing the Merkle map pool pool resource {i}/{pool_size}"
+                    "Prover is computing the Merkle map pool resource {i}/{pool_size}"
                 );
                 self.mk_map_pool
-                    .return_resource(mk_map_cache.clone(), discriminant_new)
+                    .give_back_resource(mk_map_cache.clone(), discriminant_new)
             })
             .collect::<StdResult<()>>()?;
         info!(
             self.logger,
-            "Prover completed computing the Merkle map pool pool resource of size {pool_size}"
+            "Prover completed computing the Merkle map pool resource of size {pool_size}"
         );
 
         Ok(())

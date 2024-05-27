@@ -155,7 +155,7 @@ pub struct Configuration {
     pub allow_unparsable_block: bool,
 
     /// Cardano transactions prover cache pool size
-    pub cardano_transactions_prover_cache_pool_size: u32,
+    pub cardano_transactions_prover_cache_pool_size: usize,
 }
 
 /// Uploader needed to copy the snapshot once computed.
