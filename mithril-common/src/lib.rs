@@ -69,6 +69,7 @@ cfg_fs! {
     mod time_point_provider;
     pub mod digesters;
     pub mod cardano_block_scanner;
+    pub mod chain_reader;
 
     pub use time_point_provider::{TimePointProvider, TimePointProviderImpl};
 }
