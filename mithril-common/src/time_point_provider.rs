@@ -22,7 +22,11 @@ where
 pub enum TimePointProviderError {
     /// Raised reading the current epoch succeeded but yield no result.
     #[error("No epoch yield by the chain observer, is your cardano node ready ?")]
-    NoEpoch(),
+    NoEpoch,
+
+    /// Raised reading the current chain point succeeded but yield no result.
+    #[error("No chain point yield by the chain observer, is your cardano node ready ?")]
+    NoChainPoint,
 }
 
 /// A [TimePointProvider] using a [ChainObserver] and a [ImmutableFileObserver].
@@ -53,7 +57,7 @@ impl TimePointProvider for TimePointProviderImpl {
             .await
             .map_err(|e| anyhow!(e))
             .with_context(|| "TimePoint Provider can not get current epoch")?
-            .ok_or(TimePointProviderError::NoEpoch())?;
+            .ok_or(TimePointProviderError::NoEpoch)?;
 
         let immutable_file_number = self
             .immutable_observer
@@ -65,9 +69,18 @@ impl TimePointProvider for TimePointProviderImpl {
                 )
             })?;
 
+        let chain_point = self
+            .chain_observer
+            .get_current_chain_point()
+            .await
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "TimePoint Provider can not get current chain point")?
+            .ok_or(TimePointProviderError::NoChainPoint)?;
+
         Ok(TimePoint {
             epoch,
             immutable_file_number,
+            chain_point,
         })
     }
 }
@@ -98,8 +111,8 @@ mod tests {
 
         async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
             Ok(Some(ChainPoint {
-                slot_number: 500,
-                block_number: 42,
+                slot_number: 800,
+                block_number: 51,
                 block_hash: "1b69b3202fbe500".to_string(),
             }))
         }
@@ -121,7 +134,18 @@ mod tests {
         );
         let time_point = time_point_provider.get_current_time_point().await.unwrap();
 
-        assert_eq!(TimePoint::new(42, 500), time_point);
+        assert_eq!(
+            TimePoint::new(
+                42,
+                500,
+                ChainPoint {
+                    slot_number: 800,
+                    block_number: 51,
+                    block_hash: "1b69b3202fbe500".to_string(),
+                }
+            ),
+            time_point
+        );
     }
 
     #[tokio::test]

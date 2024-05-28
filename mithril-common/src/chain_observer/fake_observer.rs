@@ -32,8 +32,8 @@ impl FakeObserver {
     pub fn new(current_time_point: Option<TimePoint>) -> Self {
         Self {
             signers: RwLock::new(vec![]),
-            current_time_point: RwLock::new(current_time_point),
-            current_chain_point: RwLock::new(None),
+            current_time_point: RwLock::new(current_time_point.clone()),
+            current_chain_point: RwLock::new(current_time_point.map(|t| t.chain_point)),
             datums: RwLock::new(vec![]),
         }
     }

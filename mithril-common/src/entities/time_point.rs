@@ -1,32 +1,40 @@
-use crate::entities::{Epoch, ImmutableFileNumber};
+use crate::entities::{ChainPoint, Epoch, ImmutableFileNumber};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 /// TimePoint aggregates all types of point in the Cardano chain and is used by the state machines
 /// for their computations.
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TimePoint {
     /// Cardano chain epoch number
     pub epoch: Epoch,
 
     /// Number of the last immutable files used for the digest computation
     pub immutable_file_number: ImmutableFileNumber,
+
+    /// Chain point
+    pub chain_point: ChainPoint,
 }
 
 impl TimePoint {
     /// [TimePoint] factory
-    pub fn new(epoch: u64, immutable_file_number: ImmutableFileNumber) -> TimePoint {
+    pub fn new(
+        epoch: u64,
+        immutable_file_number: ImmutableFileNumber,
+        chain_point: ChainPoint,
+    ) -> TimePoint {
         TimePoint {
             epoch: Epoch(epoch),
             immutable_file_number,
+            chain_point,
         }
     }
 
     cfg_test_tools! {
         /// Create a dummy TimePoint
         pub fn dummy() -> Self {
-            Self::new(10, 100)
+            Self::new(10, 100, ChainPoint::dummy())
         }
     }
 }
@@ -42,6 +50,7 @@ impl Ord for TimePoint {
         self.epoch
             .cmp(&other.epoch)
             .then(self.immutable_file_number.cmp(&other.immutable_file_number))
+            .then(self.chain_point.cmp(&other.chain_point))
     }
 }
 
@@ -57,56 +66,77 @@ impl Display for TimePoint {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::cmp::Ordering;
 
-    #[test]
-    fn time_point_ord_equal() {
-        let time_point1 = TimePoint {
-            epoch: Epoch(0),
-            immutable_file_number: 0,
-        };
-
-        assert_eq!(Ordering::Equal, time_point1.cmp(&time_point1));
-    }
+    use super::*;
 
     #[test]
-    fn time_point_ord_same_epoch_less() {
+    fn time_point_ord_cmp_epochs_take_precedence_over_other_fields() {
         let time_point1 = TimePoint {
-            epoch: Epoch(0),
+            epoch: Epoch(5),
             immutable_file_number: 0,
+            chain_point: ChainPoint {
+                slot_number: 10,
+                block_number: 20,
+                block_hash: "hash1".to_string(),
+            },
         };
         let time_point2 = TimePoint {
             epoch: Epoch(0),
             immutable_file_number: 1,
-        };
-
-        assert_eq!(Ordering::Less, time_point1.cmp(&time_point2));
-    }
-
-    #[test]
-    fn time_point_ord_same_epoch_greater() {
-        let time_point1 = TimePoint {
-            epoch: Epoch(0),
-            immutable_file_number: 1,
-        };
-        let time_point2 = TimePoint {
-            epoch: Epoch(0),
-            immutable_file_number: 0,
+            chain_point: ChainPoint {
+                slot_number: 15,
+                block_number: 25,
+                block_hash: "hash2".to_string(),
+            },
         };
 
         assert_eq!(Ordering::Greater, time_point1.cmp(&time_point2));
     }
 
     #[test]
-    fn time_point_ord_cmp_epochs_less() {
+    fn time_point_ord_cmp_if_epoch_equals_then_immutable_take_precedence_over_chain_point() {
         let time_point1 = TimePoint {
             epoch: Epoch(0),
-            immutable_file_number: 99,
+            immutable_file_number: 5,
+            chain_point: ChainPoint {
+                slot_number: 10,
+                block_number: 20,
+                block_hash: "hash1".to_string(),
+            },
         };
         let time_point2 = TimePoint {
-            epoch: Epoch(1),
-            immutable_file_number: 99,
+            epoch: Epoch(0),
+            immutable_file_number: 0,
+            chain_point: ChainPoint {
+                slot_number: 15,
+                block_number: 25,
+                block_hash: "hash2".to_string(),
+            },
+        };
+
+        assert_eq!(Ordering::Greater, time_point1.cmp(&time_point2));
+    }
+
+    #[test]
+    fn time_point_ord_cmp_if_epoch_and_immutables_equals_then_compare_over_chain_points() {
+        let time_point1 = TimePoint {
+            epoch: Epoch(0),
+            immutable_file_number: 0,
+            chain_point: ChainPoint {
+                slot_number: 10,
+                block_number: 20,
+                block_hash: "hash1".to_string(),
+            },
+        };
+        let time_point2 = TimePoint {
+            epoch: Epoch(0),
+            immutable_file_number: 0,
+            chain_point: ChainPoint {
+                slot_number: 15,
+                block_number: 25,
+                block_hash: "hash2".to_string(),
+            },
         };
 
         assert_eq!(Ordering::Less, time_point1.cmp(&time_point2));
