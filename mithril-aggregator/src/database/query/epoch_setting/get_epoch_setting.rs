@@ -55,7 +55,7 @@ mod tests {
         insert_epoch_settings(&connection, &[1, 2, 3]).unwrap();
 
         let epoch_setting_record = connection
-            .fetch_one(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
+            .fetch_first(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap()
             .expect("Should have an epoch setting for epoch 1.");
         assert_eq!(Epoch(1), epoch_setting_record.epoch_setting_id);
@@ -65,7 +65,7 @@ mod tests {
         );
 
         let epoch_setting_record = connection
-            .fetch_one(GetEpochSettingQuery::by_epoch(Epoch(3)).unwrap())
+            .fetch_first(GetEpochSettingQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap()
             .expect("Should have an epoch setting for epoch 3.");
         assert_eq!(Epoch(3), epoch_setting_record.epoch_setting_id);

@@ -59,7 +59,7 @@ mod tests {
         insert_epoch_settings(&connection, &[3]).unwrap();
 
         let epoch_setting_record = connection
-            .fetch_one(UpdateEpochSettingQuery::one(
+            .fetch_first(UpdateEpochSettingQuery::one(
                 Epoch(3),
                 fake_data::protocol_parameters(),
             ))

@@ -96,14 +96,14 @@ mod tests {
 
         let first_signed_entity_type = signed_entity_records.first().unwrap().to_owned();
         let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_and_collect(GetSignedEntityRecordQuery::by_signed_entity_id(
+            .fetch_collect(GetSignedEntityRecordQuery::by_signed_entity_id(
                 &first_signed_entity_type.signed_entity_id,
             ))
             .unwrap();
         assert_eq!(vec![first_signed_entity_type], signed_entity_records);
 
         let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_and_collect(
+            .fetch_collect(
                 GetSignedEntityRecordQuery::by_signed_entity_type(
                     &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 )
@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(expected_signed_entity_records, signed_entity_records);
 
         let signed_entity_records: Vec<SignedEntityRecord> = connection
-            .fetch_and_collect(GetSignedEntityRecordQuery::all())
+            .fetch_collect(GetSignedEntityRecordQuery::all())
             .unwrap();
         let expected_signed_entity_records: Vec<SignedEntityRecord> =
             signed_entity_records.iter().map(|c| c.to_owned()).collect();

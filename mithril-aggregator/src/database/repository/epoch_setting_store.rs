@@ -40,7 +40,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
     ) -> StdResult<Option<ProtocolParameters>> {
         let epoch_setting_record = self
             .connection
-            .fetch_one(UpdateEpochSettingQuery::one(epoch, protocol_parameters))
+            .fetch_first(UpdateEpochSettingQuery::one(epoch, protocol_parameters))
             .map_err(|e| {
                 AdapterError::GeneralError(e.context("persist protocol parameters failure"))
             })?

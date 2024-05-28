@@ -68,7 +68,7 @@ impl SignedEntityStorer for SignedEntityStore {
     async fn store_signed_entity(&self, signed_entity: &SignedEntityRecord) -> StdResult<()> {
         let _ = self
             .connection
-            .fetch_one(InsertSignedEntityRecordQuery::one(signed_entity.clone()));
+            .fetch_first(InsertSignedEntityRecordQuery::one(signed_entity.clone()));
 
         Ok(())
     }
@@ -78,7 +78,7 @@ impl SignedEntityStorer for SignedEntityStore {
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
         self.connection
-            .fetch_one(GetSignedEntityRecordQuery::by_signed_entity_id(
+            .fetch_first(GetSignedEntityRecordQuery::by_signed_entity_id(
                 signed_entity_id,
             ))
             .with_context(|| format!("get signed entity by id failure, id: {signed_entity_id}"))
@@ -89,7 +89,7 @@ impl SignedEntityStorer for SignedEntityStore {
         certificate_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
         self.connection
-            .fetch_one(GetSignedEntityRecordQuery::by_certificate_id(
+            .fetch_first(GetSignedEntityRecordQuery::by_certificate_id(
                 certificate_id,
             ))
             .with_context(|| {
@@ -104,7 +104,7 @@ impl SignedEntityStorer for SignedEntityStore {
         certificates_ids: &[&'a str],
     ) -> StdResult<Vec<SignedEntityRecord>> {
         self.connection
-            .fetch_and_collect(GetSignedEntityRecordQuery::by_certificates_ids(
+            .fetch_collect(GetSignedEntityRecordQuery::by_certificates_ids(
                 certificates_ids,
             ))
     }
@@ -137,7 +137,7 @@ impl SignedEntityStorer for SignedEntityStore {
             let id = record.signed_entity_id.clone();
             let updated_record = self
                 .connection
-                .fetch_one(UpdateSignedEntityQuery::one(record)?)?;
+                .fetch_first(UpdateSignedEntityQuery::one(record)?)?;
 
             updated_records.push(updated_record.unwrap_or_else(|| {
                 panic!("Updating a signed_entity should not return nothing, id = {id:?}",)

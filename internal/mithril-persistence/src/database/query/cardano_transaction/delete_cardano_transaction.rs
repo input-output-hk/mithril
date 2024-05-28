@@ -51,7 +51,7 @@ mod tests {
 
     fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
         connection
-            .fetch_one(InsertCardanoTransactionQuery::insert_many(records).unwrap())
+            .fetch_first(InsertCardanoTransactionQuery::insert_many(records).unwrap())
             .unwrap();
     }
 

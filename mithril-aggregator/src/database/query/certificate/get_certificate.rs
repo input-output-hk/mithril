@@ -68,7 +68,7 @@ mod tests {
         insert_certificate_records(&connection, certificates.clone());
 
         let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_and_collect(GetCertificateRecordQuery::by_epoch(Epoch(1)).unwrap())
+            .fetch_collect(GetCertificateRecordQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
@@ -78,7 +78,7 @@ mod tests {
         assert_eq!(expected_certificate_records, certificate_records);
 
         let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_and_collect(GetCertificateRecordQuery::by_epoch(Epoch(3)).unwrap())
+            .fetch_collect(GetCertificateRecordQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
@@ -106,7 +106,7 @@ mod tests {
         insert_certificate_records(&connection, certificates.clone());
 
         let certificate_records: Vec<CertificateRecord> = connection
-            .fetch_and_collect(GetCertificateRecordQuery::all())
+            .fetch_collect(GetCertificateRecordQuery::all())
             .unwrap();
         assert_eq!(expected_certificate_records, certificate_records);
     }

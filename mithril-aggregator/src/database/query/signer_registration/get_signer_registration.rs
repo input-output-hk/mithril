@@ -88,7 +88,7 @@ mod tests {
         insert_signer_registrations(&connection, signer_with_stakes_by_epoch.clone()).unwrap();
 
         let signer_registration_records: Vec<SignerRegistrationRecord> = connection
-            .fetch_and_collect(GetSignerRegistrationRecordQuery::by_epoch(Epoch(1)).unwrap())
+            .fetch_collect(GetSignerRegistrationRecordQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch[1]
@@ -103,7 +103,7 @@ mod tests {
         );
 
         let signer_registration_records: Vec<SignerRegistrationRecord> = connection
-            .fetch_and_collect(GetSignerRegistrationRecordQuery::by_epoch(Epoch(3)).unwrap())
+            .fetch_collect(GetSignerRegistrationRecordQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch[3]
@@ -123,7 +123,7 @@ mod tests {
         assert_eq!(0, cursor.count());
 
         let signer_registration_records: Vec<SignerRegistrationRecord> = connection
-            .fetch_and_collect(GetSignerRegistrationRecordQuery::all())
+            .fetch_collect(GetSignerRegistrationRecordQuery::all())
             .unwrap();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
             signer_with_stakes_by_epoch

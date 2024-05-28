@@ -119,7 +119,7 @@ pub fn insert_certificate_records<T: Into<CertificateRecord>>(
     records: Vec<T>,
 ) {
     let _ = connection
-        .fetch_one(InsertCertificateRecordQuery::many(
+        .fetch_first(InsertCertificateRecordQuery::many(
             records.into_iter().map(Into::into).collect(),
         ))
         .unwrap();

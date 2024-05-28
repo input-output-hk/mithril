@@ -50,7 +50,7 @@ impl SignerStore {
             last_registered_at: None,
         };
         self.connection
-            .fetch_one(ImportSignerRecordQuery::one(signer_record))?;
+            .fetch_first(ImportSignerRecordQuery::one(signer_record))?;
 
         Ok(())
     }
@@ -73,7 +73,7 @@ impl SignerStore {
             })
             .collect();
         self.connection
-            .fetch_one(ImportSignerRecordQuery::many(signer_records))?;
+            .fetch_first(ImportSignerRecordQuery::many(signer_records))?;
 
         Ok(())
     }
@@ -93,7 +93,7 @@ impl SignerRecorder for SignerStore {
             last_registered_at: registered_at,
         };
         self.connection
-            .fetch_one(RegisterSignerRecordQuery::one(signer_record))?;
+            .fetch_first(RegisterSignerRecordQuery::one(signer_record))?;
 
         Ok(())
     }
@@ -102,8 +102,7 @@ impl SignerRecorder for SignerStore {
 #[async_trait]
 impl SignerGetter for SignerStore {
     async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
-        self.connection
-            .fetch_and_collect(GetSignerRecordQuery::all())
+        self.connection.fetch_collect(GetSignerRecordQuery::all())
     }
 }
 
@@ -145,7 +144,7 @@ mod tests {
                 .await
                 .expect("record_signer_registration should not fail");
             let signer_record_stored = connection
-                .fetch_one(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
+                .fetch_first(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
                 .unwrap();
             assert!(signer_record_stored.is_some());
             assert!(
@@ -171,7 +170,7 @@ mod tests {
                 .await
                 .expect("import_signer should not fail");
             let signer_record_stored = connection
-                .fetch_one(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
+                .fetch_first(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
                 .unwrap();
             assert!(signer_record_stored.is_some());
             assert!(

@@ -33,7 +33,7 @@ impl CertificateRepository {
     {
         let record = self
             .connection
-            .fetch_one(GetCertificateRecordQuery::by_certificate_id(hash))?;
+            .fetch_first(GetCertificateRecordQuery::by_certificate_id(hash))?;
 
         Ok(record.map(|c| c.into()))
     }
@@ -57,7 +57,7 @@ impl CertificateRepository {
     {
         let record = self
             .connection
-            .fetch_one(MasterCertificateQuery::for_epoch(epoch))?;
+            .fetch_first(MasterCertificateQuery::for_epoch(epoch))?;
 
         Ok(record.map(|c| c.into()))
     }
@@ -66,7 +66,7 @@ impl CertificateRepository {
     pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
         let record = self
             .connection
-            .fetch_one(InsertCertificateRecordQuery::one(
+            .fetch_first(InsertCertificateRecordQuery::one(
                 certificate.clone().into(),
             ))?
             .unwrap_or_else(|| {
@@ -103,7 +103,7 @@ impl CertificateRepository {
 
         let _ = self
             .connection
-            .fetch_one(DeleteCertificateQuery::by_ids(&ids))?;
+            .fetch_first(DeleteCertificateQuery::by_ids(&ids))?;
 
         Ok(())
     }
@@ -532,7 +532,7 @@ mod tests {
         {
             let connection = deps.get_sqlite_connection().await.unwrap();
             let cert = connection
-                .fetch_one(GetCertificateRecordQuery::by_certificate_id(
+                .fetch_first(GetCertificateRecordQuery::by_certificate_id(
                     &certificates[4].hash,
                 ))
                 .unwrap()

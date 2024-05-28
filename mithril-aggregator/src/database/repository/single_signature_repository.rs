@@ -29,7 +29,7 @@ impl SingleSignatureRepository {
             &open_message.open_message_id,
             open_message.epoch.offset_to_signer_retrieval_epoch()?,
         )?;
-        let record = self.connection.fetch_one(UpdateSingleSignatureRecordQuery::one(single_signature.clone()))?
+        let record = self.connection.fetch_first(UpdateSingleSignatureRecordQuery::one(single_signature.clone()))?
             .unwrap_or_else(|| {
                 panic!(
                     "No entity returned by the persister, single_signature_record = {single_signature:?}"

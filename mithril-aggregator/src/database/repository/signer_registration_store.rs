@@ -37,7 +37,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     ) -> StdResult<Option<SignerWithStake>> {
         let existing_record = self
             .connection
-            .fetch_one(GetSignerRegistrationRecordQuery::by_signer_id_and_epoch(
+            .fetch_first(GetSignerRegistrationRecordQuery::by_signer_id_and_epoch(
                 signer.party_id.to_owned(),
                 epoch,
             )?)
@@ -51,7 +51,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
 
         let _updated_record = self
             .connection
-            .fetch_one(InsertOrReplaceSignerRegistrationRecordQuery::one(
+            .fetch_first(InsertOrReplaceSignerRegistrationRecordQuery::one(
                 SignerRegistrationRecord::from_signer_with_stake(signer, epoch),
             ))
             .with_context(|| format!("persist verification key failure, epoch: {epoch}"))
@@ -100,7 +100,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
         let _deleted_records = self
             .connection
-            .fetch_one(
+            .fetch_first(
                 // we want to prune including the given epoch (+1)
                 DeleteSignerRegistrationRecordQuery::below_epoch_threshold(max_epoch_to_prune + 1),
             )

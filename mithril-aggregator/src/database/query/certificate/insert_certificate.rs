@@ -119,7 +119,7 @@ mod tests {
         for certificate in certificates {
             let certificate_record: CertificateRecord = certificate.into();
             let certificate_record_saved = connection
-                .fetch_one(InsertCertificateRecordQuery::one(
+                .fetch_first(InsertCertificateRecordQuery::one(
                     certificate_record.clone(),
                 ))
                 .unwrap();
@@ -136,7 +136,7 @@ mod tests {
         let connection = main_db_connection().unwrap();
 
         let certificates_records_saved: Vec<CertificateRecord> = connection
-            .fetch_and_collect(InsertCertificateRecordQuery::many(
+            .fetch_collect(InsertCertificateRecordQuery::many(
                 certificates_records.clone(),
             ))
             .expect("saving many records should not fail");

@@ -63,7 +63,7 @@ mod tests {
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
         let signer_records: Vec<SignerRecord> = connection
-            .fetch_and_collect(GetSignerRecordQuery::by_signer_id(
+            .fetch_collect(GetSignerRecordQuery::by_signer_id(
                 signer_records_fake[0].signer_id.to_owned(),
             ))
             .unwrap();
@@ -71,7 +71,7 @@ mod tests {
         assert_eq!(expected_signer_records, signer_records);
 
         let signer_records: Vec<SignerRecord> = connection
-            .fetch_and_collect(GetSignerRecordQuery::by_signer_id(
+            .fetch_collect(GetSignerRecordQuery::by_signer_id(
                 signer_records_fake[2].signer_id.to_owned(),
             ))
             .unwrap();
@@ -94,7 +94,7 @@ mod tests {
         insert_signers(&connection, signer_records_fake.clone()).unwrap();
 
         let signer_records: Vec<SignerRecord> = connection
-            .fetch_and_collect(GetSignerRecordQuery::all())
+            .fetch_collect(GetSignerRecordQuery::all())
             .unwrap();
         let expected_signer_records: Vec<SignerRecord> =
             signer_records_fake.into_iter().rev().collect();

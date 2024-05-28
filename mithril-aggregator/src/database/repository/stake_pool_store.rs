@@ -43,7 +43,7 @@ impl StakeStorer for StakePoolStore {
     ) -> StdResult<Option<StakeDistribution>> {
         let pools: Vec<StakePool> = self
             .connection
-            .fetch_and_collect(InsertOrReplaceStakePoolQuery::many(
+            .fetch_collect(InsertOrReplaceStakePoolQuery::many(
                 stakes
                     .into_iter()
                     .map(|(pool_id, stake)| (pool_id, epoch, stake))

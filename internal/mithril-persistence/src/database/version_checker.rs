@@ -57,7 +57,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
             .with_context(|| "Can not create table 'db_version' while applying migrations")?;
         let db_version = self
             .connection
-            .fetch_one(GetDatabaseVersionQuery::get_application_version(
+            .fetch_first(GetDatabaseVersionQuery::get_application_version(
                 &self.application_type,
             ))
             .with_context(|| "Can not get application version while applying migrations")?
@@ -117,7 +117,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                 updated_at: Utc::now(),
             };
             let _ = connection
-                .fetch_one(UpdateDatabaseVersionQuery::one(db_version))
+                .fetch_first(UpdateDatabaseVersionQuery::one(db_version))
                 .with_context(|| {
                     format!(
                         "Can not save database version when applying migration: '{}'",
@@ -205,7 +205,7 @@ mod tests {
 
     fn check_database_version(connection: &SqliteConnection, db_version: DbVersion) {
         let version = connection
-            .fetch_one(GetDatabaseVersionQuery::get_application_version(
+            .fetch_first(GetDatabaseVersionQuery::get_application_version(
                 &ApplicationNodeType::Aggregator,
             ))
             .unwrap()

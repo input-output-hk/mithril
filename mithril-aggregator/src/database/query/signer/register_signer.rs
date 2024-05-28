@@ -71,7 +71,7 @@ mod tests {
 
         for signer_record in signer_records_fake.clone() {
             let signer_record_saved = connection
-                .fetch_one(RegisterSignerRecordQuery::one(signer_record.clone()))
+                .fetch_first(RegisterSignerRecordQuery::one(signer_record.clone()))
                 .unwrap();
             assert_eq!(Some(signer_record), signer_record_saved);
         }
@@ -79,7 +79,7 @@ mod tests {
         for mut signer_record in signer_records_fake {
             signer_record.updated_at += Duration::try_hours(1).unwrap();
             let signer_record_saved = connection
-                .fetch_one(RegisterSignerRecordQuery::one(signer_record.clone()))
+                .fetch_first(RegisterSignerRecordQuery::one(signer_record.clone()))
                 .unwrap();
             assert_eq!(Some(signer_record), signer_record_saved);
         }

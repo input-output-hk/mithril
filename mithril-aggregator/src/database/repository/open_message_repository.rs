@@ -32,7 +32,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
         self.connection
-            .fetch_one(GetOpenMessageQuery::by_epoch_and_signed_entity_type(
+            .fetch_first(GetOpenMessageQuery::by_epoch_and_signed_entity_type(
                 signed_entity_type.get_epoch(),
                 signed_entity_type,
             )?)
@@ -43,7 +43,7 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
-        self.connection.fetch_one(
+        self.connection.fetch_first(
             GetOpenMessageWithSingleSignaturesQuery::by_epoch_and_signed_entity_type(
                 signed_entity_type.get_epoch(),
                 signed_entity_type,
@@ -57,7 +57,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
         self.connection
-            .fetch_one(GetOpenMessageQuery::by_expired_entity_type(
+            .fetch_first(GetOpenMessageQuery::by_expired_entity_type(
                 Utc::now(),
                 signed_entity_type,
             )?)
@@ -70,7 +70,7 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessageRecord> {
-        let message = self.connection.fetch_one(InsertOpenMessageQuery::one(
+        let message = self.connection.fetch_first(InsertOpenMessageQuery::one(
             epoch,
             signed_entity_type,
             protocol_message,
@@ -86,7 +86,7 @@ impl OpenMessageRepository {
     ) -> StdResult<OpenMessageRecord> {
         let message = self
             .connection
-            .fetch_one(UpdateOpenMessageQuery::one(open_message)?)?;
+            .fetch_first(UpdateOpenMessageQuery::one(open_message)?)?;
 
         message.ok_or_else(|| panic!("Updating an open_message should not return nothing."))
     }
@@ -248,7 +248,7 @@ mod tests {
 
         let message = {
             let message = connection
-                .fetch_one(GetOpenMessageQuery::by_id(&open_message.open_message_id))
+                .fetch_first(GetOpenMessageQuery::by_id(&open_message.open_message_id))
                 .unwrap();
 
             message.unwrap_or_else(|| {

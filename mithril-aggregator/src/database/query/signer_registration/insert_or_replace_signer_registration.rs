@@ -83,7 +83,7 @@ mod tests {
             let signer_registration_record =
                 SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, Epoch(1));
             let signer_registration_record_saved = connection
-                .fetch_one(InsertOrReplaceSignerRegistrationRecordQuery::one(
+                .fetch_first(InsertOrReplaceSignerRegistrationRecordQuery::one(
                     signer_registration_record.clone(),
                 ))
                 .unwrap();
@@ -98,7 +98,7 @@ mod tests {
             let signer_registration_record =
                 SignerRegistrationRecord::from_signer_with_stake(signer_with_stake, Epoch(1));
             let signer_registration_record_saved = connection
-                .fetch_one(InsertOrReplaceSignerRegistrationRecordQuery::one(
+                .fetch_first(InsertOrReplaceSignerRegistrationRecordQuery::one(
                     signer_registration_record.clone(),
                 ))
                 .unwrap();

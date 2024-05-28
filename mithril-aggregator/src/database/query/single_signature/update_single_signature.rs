@@ -64,7 +64,7 @@ mod tests {
 
         for single_signature_record in single_signature_records.clone() {
             let single_signature_record_saved = connection
-                .fetch_one(UpdateSingleSignatureRecordQuery::one(
+                .fetch_first(UpdateSingleSignatureRecordQuery::one(
                     single_signature_record.clone(),
                 ))
                 .unwrap();
@@ -74,7 +74,7 @@ mod tests {
         for mut single_signature_record in single_signature_records {
             single_signature_record.lottery_indexes.push(5);
             let single_signature_record_saved = connection
-                .fetch_one(UpdateSingleSignatureRecordQuery::one(
+                .fetch_first(UpdateSingleSignatureRecordQuery::one(
                     single_signature_record.clone(),
                 ))
                 .unwrap();

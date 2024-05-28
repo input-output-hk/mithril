@@ -68,7 +68,7 @@ mod tests {
         insert_stake_pool(&connection, &[3]).unwrap();
 
         let pools: Vec<StakePool> = connection
-            .fetch_and_collect(InsertOrReplaceStakePoolQuery::many(vec![(
+            .fetch_collect(InsertOrReplaceStakePoolQuery::many(vec![(
                 "pool4".to_string(),
                 Epoch(3),
                 9999,

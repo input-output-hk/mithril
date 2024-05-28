@@ -60,7 +60,7 @@ mod tests {
 
         for signed_entity_record in signed_entity_records {
             let signed_entity_record_saved = connection
-                .fetch_one(InsertSignedEntityRecordQuery::one(
+                .fetch_first(InsertSignedEntityRecordQuery::one(
                     signed_entity_record.clone(),
                 ))
                 .unwrap();

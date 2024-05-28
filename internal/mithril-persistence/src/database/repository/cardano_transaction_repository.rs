@@ -38,7 +38,7 @@ impl CardanoTransactionRepository {
     /// Return all the [CardanoTransactionRecord]s in the database.
     pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
         self.connection
-            .fetch_and_collect(GetCardanoTransactionQuery::all())
+            .fetch_collect(GetCardanoTransactionQuery::all())
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database where block number is in the
@@ -48,7 +48,7 @@ impl CardanoTransactionRepository {
         range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         self.connection
-            .fetch_and_collect(GetCardanoTransactionQuery::between_blocks(range))
+            .fetch_collect(GetCardanoTransactionQuery::between_blocks(range))
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database up to the given beacon.
@@ -78,7 +78,7 @@ impl CardanoTransactionRepository {
         transaction_hash: T,
     ) -> StdResult<Option<CardanoTransactionRecord>> {
         self.connection
-            .fetch_one(GetCardanoTransactionQuery::by_transaction_hash(
+            .fetch_first(GetCardanoTransactionQuery::by_transaction_hash(
                 &transaction_hash.into(),
             ))
     }
@@ -100,7 +100,7 @@ impl CardanoTransactionRepository {
             immutable_file_number,
         })?;
 
-        self.connection.fetch_one(query)
+        self.connection.fetch_first(query)
     }
 
     /// Create new [CardanoTransactionRecord]s in the database.
@@ -112,7 +112,7 @@ impl CardanoTransactionRepository {
             transactions.into_iter().map(|tx| tx.into()).collect();
 
         self.connection
-            .fetch_and_collect(InsertCardanoTransactionQuery::insert_many(records)?)
+            .fetch_collect(InsertCardanoTransactionQuery::insert_many(records)?)
     }
 
     /// Create new [BlockRangeRootRecord]s in the database.
@@ -124,7 +124,7 @@ impl CardanoTransactionRepository {
             block_ranges.into_iter().map(|tx| tx.into()).collect();
 
         self.connection
-            .fetch_and_collect(InsertBlockRangeRootQuery::insert_many(records)?)
+            .fetch_collect(InsertBlockRangeRootQuery::insert_many(records)?)
     }
 
     // TODO: remove this function when the Cardano transaction signature is based on block number instead of immutable number
@@ -182,8 +182,7 @@ impl CardanoTransactionRepository {
 
     /// Retrieve all the [BlockRangeRootRecord] in database.
     pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
-        self.connection
-            .fetch_and_collect(GetBlockRangeRootQuery::all())
+        self.connection.fetch_collect(GetBlockRangeRootQuery::all())
     }
 
     /// Get the highest [ImmutableFileNumber] of the cardano transactions stored in the database.
@@ -231,7 +230,7 @@ impl CardanoTransactionRepository {
     ) -> StdResult<Option<Range<BlockNumber>>> {
         let interval = self
             .connection
-            .fetch_one(GetIntervalWithoutBlockRangeRootQuery::new())?
+            .fetch_first(GetIntervalWithoutBlockRangeRootQuery::new())?
             // Should be impossible - the request as written in the query always returns a single row
             .unwrap_or_else(|| {
                 panic!("GetIntervalWithoutBlockRangeRootQuery should always return a single row")
@@ -248,7 +247,7 @@ impl CardanoTransactionRepository {
         let query = GetCardanoTransactionQuery::by_transaction_hashes(
             hashes.into_iter().map(Into::into).collect(),
         );
-        self.connection.fetch_and_collect(query)
+        self.connection.fetch_collect(query)
     }
 
     /// Get the [CardanoTransactionRecord] for the given block ranges.
@@ -257,7 +256,7 @@ impl CardanoTransactionRepository {
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         self.connection
-            .fetch_and_collect(GetCardanoTransactionQuery::by_block_ranges(block_ranges))
+            .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(block_ranges))
     }
 
     /// Prune the transactions older than the given number of blocks (based on the block range root
@@ -269,7 +268,7 @@ impl CardanoTransactionRepository {
         {
             let threshold = highest_block_range_start.saturating_sub(number_of_blocks_to_keep);
             let query = DeleteCardanoTransactionQuery::below_block_number_threshold(threshold)?;
-            self.connection.fetch_one(query)?;
+            self.connection.fetch_first(query)?;
         }
 
         Ok(())
@@ -750,7 +749,7 @@ mod tests {
             .unwrap();
 
         let records: Vec<BlockRangeRootRecord> = connection
-            .fetch_and_collect(GetBlockRangeRootQuery::all())
+            .fetch_collect(GetBlockRangeRootQuery::all())
             .unwrap();
         assert_eq!(
             vec![
@@ -783,7 +782,7 @@ mod tests {
             .unwrap();
 
         let record: Vec<BlockRangeRootRecord> = connection
-            .fetch_and_collect(GetBlockRangeRootQuery::all())
+            .fetch_collect(GetBlockRangeRootQuery::all())
             .unwrap();
         assert_eq!(
             vec![BlockRangeRootRecord {
