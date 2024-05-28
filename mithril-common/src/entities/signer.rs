@@ -31,7 +31,7 @@ pub struct Signer {
     pub operational_certificate: Option<ProtocolOpCert>,
 
     /// The kes period used to compute the verification key signature
-    // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
+    // TODO: This kes period should not be used as is and should probably be within an allowed range of kes period for the epoch
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kes_period: Option<KESPeriod>,
 }
@@ -141,7 +141,7 @@ pub struct SignerWithStake {
     pub operational_certificate: Option<ProtocolOpCert>,
 
     /// The kes period used to compute the verification key signature
-    // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
+    // TODO: This kes period should not be used as is and should probably be within an allowed range of kes period for the epoch
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kes_period: Option<KESPeriod>,
 

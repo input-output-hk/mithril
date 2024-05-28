@@ -142,7 +142,7 @@ returning {projection}
             .unwrap();
         let entity = cursor
             .next()
-            .expect("there shoud be two results, none returned");
+            .expect("there should be two results, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),
@@ -154,7 +154,7 @@ returning {projection}
         );
         let entity = cursor
             .next()
-            .expect("there shoud be two results, only one returned");
+            .expect("there should be two results, only one returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 2".to_string(),
@@ -179,7 +179,7 @@ returning {projection}
             .unwrap();
         let entity = cursor
             .next()
-            .expect("there shoud be one result, none returned");
+            .expect("there should be one result, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 2".to_string(),
@@ -203,7 +203,7 @@ returning {projection}
             .unwrap();
         let entity = cursor
             .next()
-            .expect("there shoud be one result, none returned");
+            .expect("there should be one result, none returned");
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),
