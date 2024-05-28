@@ -1,7 +1,7 @@
 mod test_extensions;
 use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
-    entities::{Epoch, ProtocolParameters, TimePoint},
+    entities::{ChainPoint, Epoch, ProtocolParameters, TimePoint},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
@@ -23,7 +23,11 @@ async fn testing_eras() {
         data_stores_directory: get_test_dir("testing_eras"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(TimePoint::new(1, 1), configuration).await;
+    let mut tester = RuntimeTester::build(
+        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        configuration,
+    )
+    .await;
     tester.era_reader_adapter.set_markers(vec![
         EraMarker::new("unsupported", Some(Epoch(0))),
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),

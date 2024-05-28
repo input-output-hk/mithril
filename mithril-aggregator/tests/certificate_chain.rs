@@ -3,7 +3,7 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType,
+        CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
@@ -22,7 +22,11 @@ async fn certificate_chain() {
         data_stores_directory: get_test_dir("certificate_chain"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(TimePoint::new(1, 1), configuration).await;
+    let mut tester = RuntimeTester::build(
+        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        configuration,
+    )
+    .await;
     let observer = tester.observer.clone();
 
     comment!("Create signers & declare stake distribution");
