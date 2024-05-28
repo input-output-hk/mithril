@@ -127,10 +127,11 @@ impl AggregatorClient for FakeAggregator {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        chain_observer::ChainObserver, chain_observer::FakeObserver,
-        digesters::DumbImmutableFileObserver, test_utils::fake_data, CardanoNetwork,
-    };
+    use mithril_common::chain_observer::{ChainObserver, FakeObserver};
+    use mithril_common::digesters::DumbImmutableFileObserver;
+    use mithril_common::entities::ChainPoint;
+    use mithril_common::test_utils::fake_data;
+    use mithril_common::CardanoNetwork;
 
     use super::*;
 
@@ -140,6 +141,7 @@ mod tests {
         let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
+            chain_point: ChainPoint::dummy(),
         })));
         let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),

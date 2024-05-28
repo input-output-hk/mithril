@@ -10,7 +10,7 @@ use mithril_common::{
     cardano_block_scanner::DumbBlockScanner,
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
-    entities::{Epoch, SignerWithStake, TimePoint},
+    entities::{ChainPoint, Epoch, SignerWithStake, TimePoint},
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -98,6 +98,11 @@ impl StateMachineTester {
         let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
             epoch: Epoch(1),
             immutable_file_number: 1,
+            chain_point: ChainPoint {
+                slot_number: 1,
+                block_number: 1,
+                block_hash: "block_hash-1".to_string(),
+            },
         })));
         let time_point_provider = Arc::new(TimePointProviderImpl::new(
             chain_observer.clone(),
