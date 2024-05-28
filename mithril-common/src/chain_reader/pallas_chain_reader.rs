@@ -50,7 +50,7 @@ impl PallasChainReader {
     }
 
     /// Intersects the point of the chain with the given point.
-    async fn intersect_point(&mut self, point: &ChainPoint) -> StdResult<()> {
+    async fn find_intersect_point(&mut self, point: &ChainPoint) -> StdResult<()> {
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
 
@@ -99,7 +99,7 @@ impl Drop for PallasChainReader {
 #[async_trait]
 impl ChainBlockReader for PallasChainReader {
     async fn set_chain_point(&mut self, point: &ChainPoint) -> StdResult<()> {
-        self.intersect_point(point).await
+        self.find_intersect_point(point).await
     }
 
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>> {
