@@ -57,9 +57,12 @@ impl<T: Send + Sync> ResourcePool<T> {
             .map_err(|_| ResourcePoolError::PoisonedLock())
             .with_context(|| "Resource pool 'acquire_resource' failed locking Mutex")?;
         while resources.is_empty() {
-            let (resources_locked, timeout) =
-                self.not_empty.wait_timeout(resources, timeout).unwrap();
-            if timeout.timed_out() {
+            let (resources_locked, wait_result) = self
+                .not_empty
+                .wait_timeout(resources, timeout)
+                .map_err(|_| ResourcePoolError::PoisonedLock())
+                .with_context(|| "Resource pool 'acquire_resource' failed waiting for resource")?;
+            if wait_result.timed_out() {
                 return Err(ResourcePoolError::AcquireTimeout())
                     .with_context(|| "Resource pool 'acquire_resource' has timed out");
             }
@@ -214,7 +217,7 @@ mod tests {
 
         let mut resources_items = vec![];
         for _ in 0..pool_size {
-            let resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
+            let resource_item = pool.acquire_resource(Duration::from_millis(100)).unwrap();
             resources_items.push(resource_item);
         }
         let resources_result = resources_items
@@ -234,7 +237,7 @@ mod tests {
 
         let mut resources_items = vec![];
         for _ in 0..pool_size {
-            let resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
+            let resource_item = pool.acquire_resource(Duration::from_millis(100)).unwrap();
             resources_items.push(resource_item);
         }
 
@@ -260,7 +263,7 @@ mod tests {
         let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
         assert_eq!(pool.count().unwrap(), pool_size);
 
-        let mut resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
+        let mut resource_item = pool.acquire_resource(Duration::from_millis(100)).unwrap();
         assert_eq!(pool.count().unwrap(), pool_size - 1);
         pool.give_back_resource(resource_item.into_inner(), pool.discriminant().unwrap())
             .unwrap();
@@ -277,7 +280,7 @@ mod tests {
 
         {
             // Resource will be returned when resource item is dropped (will occur when exiting this block scope)
-            let _resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
+            let _resource_item = pool.acquire_resource(Duration::from_millis(100)).unwrap();
             assert_eq!(pool.count().unwrap(), pool_size - 1);
         }
 
@@ -298,13 +301,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_resource_pool_does_not_giev_back_stale_resource() {
+    async fn test_resource_pool_does_not_give_back_stale_resource() {
         let pool_size = 10;
         let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
         let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
         assert_eq!(pool.count().unwrap(), pool_size);
 
-        let mut resource_item = pool.acquire_resource(Duration::from_millis(1000)).unwrap();
+        let mut resource_item = pool.acquire_resource(Duration::from_millis(100)).unwrap();
         assert_eq!(pool.count().unwrap(), pool_size - 1);
         let discriminant_stale = pool.discriminant().unwrap();
         pool.set_discriminant(pool.discriminant().unwrap() + 1)

@@ -30,7 +30,7 @@ pub trait ProverService: Sync + Send {
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 
     /// Compute the cache
-    async fn compute_cache(&self, _up_to: &CardanoDbBeacon) -> StdResult<()>;
+    async fn compute_cache(&self, up_to: &CardanoDbBeacon) -> StdResult<()>;
 }
 
 /// Transactions retriever
