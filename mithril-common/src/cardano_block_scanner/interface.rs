@@ -70,20 +70,32 @@ pub enum ChainScannedBlocks {
 pub trait BlockStreamer: Sync + Send {
     /// Stream the next available blocks
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>>;
+}
 
-    /// Stream all the available blocks, may be very memory intensive
-    async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>> {
-        let mut all_blocks = Vec::new();
-        while let Some(next_blocks) = self.poll_next().await? {
-            match next_blocks {
-                ChainScannedBlocks::RollForwards(mut forward_blocks) => {
-                    all_blocks.append(&mut forward_blocks);
-                }
-                ChainScannedBlocks::RollBackward(_) => {
-                    return Err(anyhow!("poll_all: RollBackward not supported"));
-                }
-            };
-        }
-        Ok(all_blocks)
+cfg_test_tools! {
+    /// Tests extensions methods for the [BlockStreamer] trait.
+    #[async_trait]
+    pub trait BlockStreamerTestExtensions{
+        /// Stream all the available blocks, may be very memory intensive
+        async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>>;
     }
+
+    #[async_trait]
+    impl <S: BlockStreamer + ?Sized> BlockStreamerTestExtensions for S {
+        async fn poll_all(&mut self) -> StdResult<Vec<ScannedBlock>> {
+            let mut all_blocks = Vec::new();
+            while let Some(next_blocks) = self.poll_next().await? {
+                match next_blocks {
+                    ChainScannedBlocks::RollForwards(mut forward_blocks) => {
+                        all_blocks.append(&mut forward_blocks);
+                    }
+                    ChainScannedBlocks::RollBackward(_) => {
+                        return Err(anyhow!("poll_all: RollBackward not supported"));
+                    }
+                };
+            }
+            Ok(all_blocks)
+        }
+    }
+
 }

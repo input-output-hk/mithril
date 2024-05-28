@@ -68,6 +68,8 @@ impl BlockStreamer for DumbBlockStreamer {
 
 #[cfg(test)]
 mod tests {
+    use crate::cardano_block_scanner::BlockStreamerTestExtensions;
+
     use super::*;
 
     #[tokio::test]

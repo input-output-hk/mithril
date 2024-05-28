@@ -124,6 +124,7 @@ impl ImmutableBlockStreamer {
 
 #[cfg(test)]
 mod tests {
+    use crate::cardano_block_scanner::BlockStreamerTestExtensions;
     use crate::test_utils::{TempDir, TestLogger};
 
     use super::*;
