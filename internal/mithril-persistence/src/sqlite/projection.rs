@@ -38,7 +38,7 @@ impl ProjectionField {
 
 /// Projection is a definition of field mapping during a query.
 /// Fields come from one or several source structures (can be tables, views or
-/// sub queries) and are mapped to a Provider query as output.
+/// sub queries) and are mapped to a Query as output.
 pub struct Projection {
     fields: Vec<ProjectionField>,
 }

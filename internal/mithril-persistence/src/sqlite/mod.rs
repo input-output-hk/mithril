@@ -8,7 +8,7 @@ mod connection_extensions;
 mod cursor;
 mod entity;
 mod projection;
-mod provider;
+mod query;
 mod source_alias;
 
 pub use condition::{GetAllCondition, WhereCondition};
@@ -17,7 +17,7 @@ pub use connection_extensions::ConnectionExtensions;
 pub use cursor::EntityCursor;
 pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
-pub use provider::{GetAllProvider, Provider};
+pub use query::Query;
 pub use source_alias::SourceAlias;
 
 use mithril_common::StdResult;

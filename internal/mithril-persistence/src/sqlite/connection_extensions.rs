@@ -3,7 +3,7 @@ use sqlite::{ReadableWithIndex, Value};
 
 use mithril_common::StdResult;
 
-use crate::sqlite::SqliteConnection;
+use crate::sqlite::{EntityCursor, Query, SqliteConnection};
 
 /// Extension trait for the [SqliteConnection] type.
 pub trait ConnectionExtensions {
@@ -13,6 +13,20 @@ pub trait ConnectionExtensions {
         sql: Q,
         params: &[Value],
     ) -> StdResult<T>;
+
+    /// Fetch entities from the database using the given query.
+    fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<Q::Entity>>;
+
+    /// Fetch the first entity from the database returned using the given query.
+    fn fetch_first<Q: Query>(&self, query: Q) -> StdResult<Option<Q::Entity>> {
+        let mut cursor = self.fetch(query)?;
+        Ok(cursor.next())
+    }
+
+    /// Fetch entities from the database using the given query and collect the result in a collection.
+    fn fetch_collect<Q: Query, B: FromIterator<Q::Entity>>(&self, query: Q) -> StdResult<B> {
+        Ok(self.fetch(query)?.collect::<B>())
+    }
 }
 
 impl ConnectionExtensions for SqliteConnection {
@@ -21,18 +35,37 @@ impl ConnectionExtensions for SqliteConnection {
         sql: Q,
         params: &[Value],
     ) -> StdResult<T> {
-        let mut statement = self.prepare(&sql).with_context(|| {
-            format!(
-                "Prepare query error: SQL=`{}`",
-                sql.as_ref().replace('\n', " ").trim()
-            )
-        })?;
+        let mut statement = prepare_statement(self, sql.as_ref())?;
         statement.bind(params)?;
         statement.next()?;
         statement
             .read::<T, _>(0)
             .with_context(|| "Read query error")
     }
+
+    fn fetch<Q: Query>(&self, query: Q) -> StdResult<EntityCursor<Q::Entity>> {
+        let (condition, params) = query.filters().expand();
+        let sql = query.get_definition(&condition);
+        let cursor = prepare_statement(self, &sql)?
+            .into_iter()
+            .bind(&params[..])?;
+
+        let iterator = EntityCursor::new(cursor);
+
+        Ok(iterator)
+    }
+}
+
+fn prepare_statement<'conn>(
+    sqlite_connection: &'conn SqliteConnection,
+    sql: &str,
+) -> StdResult<sqlite::Statement<'conn>> {
+    sqlite_connection.prepare(sql).with_context(|| {
+        format!(
+            "Prepare query error: SQL=`{}`",
+            &sql.replace('\n', " ").trim()
+        )
+    })
 }
 
 #[cfg(test)]

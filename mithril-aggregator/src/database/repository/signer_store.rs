@@ -7,10 +7,10 @@ use chrono::Utc;
 use mockall::automock;
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{GetAllProvider, SqliteConnection};
+use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::{
-    GetSignerRecordProvider, ImportSignerRecordProvider, RegisterSignerRecordProvider,
+use crate::database::query::{
+    GetSignerRecordQuery, ImportSignerRecordQuery, RegisterSignerRecordQuery,
 };
 use crate::database::record::SignerRecord;
 use crate::SignerRecorder;
@@ -40,7 +40,6 @@ impl SignerStore {
         signer_id: String,
         pool_ticker: Option<String>,
     ) -> StdResult<()> {
-        let provider = ImportSignerRecordProvider::new(&self.connection);
         let created_at = Utc::now();
         let updated_at = created_at;
         let signer_record = SignerRecord {
@@ -50,7 +49,8 @@ impl SignerStore {
             updated_at,
             last_registered_at: None,
         };
-        provider.persist(signer_record)?;
+        self.connection
+            .fetch_first(ImportSignerRecordQuery::one(signer_record))?;
 
         Ok(())
     }
@@ -60,8 +60,6 @@ impl SignerStore {
         &self,
         pool_ticker_by_id: HashMap<String, Option<String>>,
     ) -> StdResult<()> {
-        let provider = ImportSignerRecordProvider::new(&self.connection);
-
         let created_at = Utc::now();
         let updated_at = created_at;
         let signer_records: Vec<_> = pool_ticker_by_id
@@ -74,8 +72,8 @@ impl SignerStore {
                 last_registered_at: None,
             })
             .collect();
-
-        provider.persist_many(signer_records)?;
+        self.connection
+            .fetch_first(ImportSignerRecordQuery::many(signer_records))?;
 
         Ok(())
     }
@@ -84,7 +82,6 @@ impl SignerStore {
 #[async_trait]
 impl SignerRecorder for SignerStore {
     async fn record_signer_registration(&self, signer_id: String) -> StdResult<()> {
-        let provider = RegisterSignerRecordProvider::new(&self.connection);
         let created_at = Utc::now();
         let updated_at = created_at;
         let registered_at = Some(created_at);
@@ -95,7 +92,8 @@ impl SignerRecorder for SignerStore {
             updated_at,
             last_registered_at: registered_at,
         };
-        provider.persist(signer_record)?;
+        self.connection
+            .fetch_first(RegisterSignerRecordQuery::one(signer_record))?;
 
         Ok(())
     }
@@ -104,10 +102,7 @@ impl SignerRecorder for SignerStore {
 #[async_trait]
 impl SignerGetter for SignerStore {
     async fn get_all(&self) -> StdResult<Vec<SignerRecord>> {
-        let provider = GetSignerRecordProvider::new(&self.connection);
-        let cursor = provider.get_all()?;
-
-        Ok(cursor.collect())
+        self.connection.fetch_collect(GetSignerRecordQuery::all())
     }
 }
 
@@ -148,16 +143,12 @@ mod tests {
                 .record_signer_registration(signer_record.signer_id.clone())
                 .await
                 .expect("record_signer_registration should not fail");
-            let provider = GetSignerRecordProvider::new(&connection);
-            let signer_records_stored: Vec<SignerRecord> = provider
-                .get_by_signer_id(signer_record.signer_id)
-                .unwrap()
-                .collect::<Vec<_>>();
-            assert_eq!(1, signer_records_stored.len());
+            let signer_record_stored = connection
+                .fetch_first(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
+                .unwrap();
+            assert!(signer_record_stored.is_some());
             assert!(
-                signer_records_stored
-                    .iter()
-                    .all(|s| s.last_registered_at.is_some()),
+                signer_record_stored.unwrap().last_registered_at.is_some(),
                 "registering a signer should set the registration date"
             )
         }
@@ -178,19 +169,12 @@ mod tests {
                 )
                 .await
                 .expect("import_signer should not fail");
-            let provider = GetSignerRecordProvider::new(&connection);
-            let signer_records_stored: Vec<SignerRecord> = provider
-                .get_by_signer_id(signer_record.signer_id)
-                .unwrap()
-                .collect::<Vec<_>>();
-            assert_eq!(
-                signer_record.pool_ticker,
-                signer_records_stored[0].to_owned().pool_ticker
-            );
+            let signer_record_stored = connection
+                .fetch_first(GetSignerRecordQuery::by_signer_id(signer_record.signer_id))
+                .unwrap();
+            assert!(signer_record_stored.is_some());
             assert!(
-                signer_records_stored
-                    .iter()
-                    .all(|s| s.last_registered_at.is_none()),
+                signer_record_stored.unwrap().last_registered_at.is_none(),
                 "imported signer should not have a registration date"
             )
         }

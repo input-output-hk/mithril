@@ -7,11 +7,11 @@ use sqlite::ConnectionThreadSafe;
 use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::{Certificate, Epoch};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{GetAllProvider, Provider};
+use mithril_persistence::sqlite::ConnectionExtensions;
 
-use crate::database::provider::{
-    DeleteCertificateProvider, GetCertificateRecordProvider, InsertCertificateRecordProvider,
-    MasterCertificateProvider,
+use crate::database::query::{
+    DeleteCertificateQuery, GetCertificateRecordQuery, InsertCertificateRecordQuery,
+    MasterCertificateQuery,
 };
 use crate::database::record::CertificateRecord;
 
@@ -31,10 +31,11 @@ impl CertificateRepository {
     where
         T: From<CertificateRecord>,
     {
-        let provider = GetCertificateRecordProvider::new(&self.connection);
-        let mut cursor = provider.get_by_certificate_id(hash)?;
+        let record = self
+            .connection
+            .fetch_first(GetCertificateRecordQuery::by_certificate_id(hash))?;
 
-        Ok(cursor.next().map(|v| v.into()))
+        Ok(record.map(|c| c.into()))
     }
 
     /// Return the latest certificates.
@@ -42,8 +43,7 @@ impl CertificateRepository {
     where
         T: From<CertificateRecord>,
     {
-        let provider = GetCertificateRecordProvider::new(&self.connection);
-        let cursor = provider.get_all()?;
+        let cursor = self.connection.fetch(GetCertificateRecordQuery::all())?;
 
         Ok(cursor.take(last_n).map(|v| v.into()).collect())
     }
@@ -55,17 +55,25 @@ impl CertificateRepository {
     where
         T: From<CertificateRecord>,
     {
-        let provider = MasterCertificateProvider::new(&self.connection);
-        let mut cursor = provider.find(provider.get_master_certificate_condition(epoch))?;
+        let record = self
+            .connection
+            .fetch_first(MasterCertificateQuery::for_epoch(epoch))?;
 
-        Ok(cursor.next().map(|c| c.into()))
+        Ok(record.map(|c| c.into()))
     }
 
     /// Create a new certificate in the database.
     pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
-        let provider = InsertCertificateRecordProvider::new(&self.connection);
+        let record = self
+            .connection
+            .fetch_first(InsertCertificateRecordQuery::one(
+                certificate.clone().into(),
+            ))?
+            .unwrap_or_else(|| {
+                panic!("No entity returned by the persister, certificate = {certificate:#?}")
+            });
 
-        provider.persist(certificate.into()).map(|r| r.into())
+        Ok(record.into())
     }
 
     /// Create many certificates at once in the database.
@@ -73,15 +81,17 @@ impl CertificateRepository {
         &self,
         certificates: Vec<Certificate>,
     ) -> StdResult<Vec<Certificate>> {
-        let provider = InsertCertificateRecordProvider::new(&self.connection);
+        if certificates.is_empty() {
+            return Ok(vec![]);
+        }
+
         let records: Vec<CertificateRecord> =
             certificates.into_iter().map(|cert| cert.into()).collect();
-        let new_certificates = provider.persist_many(records)?;
+        let new_certificates = self
+            .connection
+            .fetch(InsertCertificateRecordQuery::many(records))?;
 
-        Ok(new_certificates
-            .into_iter()
-            .map(|cert| cert.into())
-            .collect::<Vec<_>>())
+        Ok(new_certificates.map(|cert| cert.into()).collect())
     }
 
     /// Delete all the given certificates from the database
@@ -91,8 +101,9 @@ impl CertificateRepository {
             .map(|c| c.hash.as_str())
             .collect::<Vec<_>>();
 
-        let provider = DeleteCertificateProvider::new(&self.connection);
-        let _ = provider.delete_by_ids(&ids)?.collect::<Vec<_>>();
+        let _ = self
+            .connection
+            .fetch_first(DeleteCertificateQuery::by_ids(&ids))?;
 
         Ok(())
     }
@@ -520,12 +531,11 @@ mod tests {
         assert_eq!(certificates[4].hash, certificate.hash);
         {
             let connection = deps.get_sqlite_connection().await.unwrap();
-            let provider = GetCertificateRecordProvider::new(&connection);
-            let mut cursor = provider
-                .get_by_certificate_id(&certificates[4].hash)
-                .unwrap();
-            let cert = cursor
-                .next()
+            let cert = connection
+                .fetch_first(GetCertificateRecordQuery::by_certificate_id(
+                    &certificates[4].hash,
+                ))
+                .unwrap()
                 .expect("There should be a certificate in the database with this hash ID.");
 
             assert_eq!(certificates[4].hash, cert.certificate_id);

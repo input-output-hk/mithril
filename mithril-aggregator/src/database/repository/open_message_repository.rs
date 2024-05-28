@@ -4,18 +4,18 @@ use chrono::Utc;
 
 use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{Provider, SqliteConnection};
+use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::{
-    DeleteOpenMessageProvider, GetOpenMessageProvider, GetOpenMessageWithSingleSignaturesProvider,
-    InsertOpenMessageProvider, UpdateOpenMessageProvider,
+use crate::database::query::{
+    DeleteOpenMessageQuery, GetOpenMessageQuery, GetOpenMessageWithSingleSignaturesQuery,
+    InsertOpenMessageQuery, UpdateOpenMessageQuery,
 };
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
 /// ## Open message repository
 ///
 /// This is a business oriented layer to perform actions on the database through
-/// providers.
+/// queries.
 pub struct OpenMessageRepository {
     connection: Arc<SqliteConnection>,
 }
@@ -31,13 +31,11 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
-        let provider = GetOpenMessageProvider::new(&self.connection);
-        let filters = provider
-            .get_epoch_condition(signed_entity_type.get_epoch())
-            .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
-        let mut messages = provider.find(filters)?;
-
-        Ok(messages.next())
+        self.connection
+            .fetch_first(GetOpenMessageQuery::by_epoch_and_signed_entity_type(
+                signed_entity_type.get_epoch(),
+                signed_entity_type,
+            )?)
     }
 
     /// Return an open message with its associated single signatures for the given Epoch and [SignedEntityType].
@@ -45,13 +43,12 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
-        let provider = GetOpenMessageWithSingleSignaturesProvider::new(&self.connection);
-        let filters = provider
-            .get_epoch_condition(signed_entity_type.get_epoch())
-            .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
-        let mut messages = provider.find(filters)?;
-
-        Ok(messages.next())
+        self.connection.fetch_first(
+            GetOpenMessageWithSingleSignaturesQuery::by_epoch_and_signed_entity_type(
+                signed_entity_type.get_epoch(),
+                signed_entity_type,
+            )?,
+        )
     }
 
     /// Return the expired [OpenMessageRecord] for the given Epoch and [SignedEntityType] if it exists
@@ -59,14 +56,11 @@ impl OpenMessageRepository {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessageRecord>> {
-        let provider = GetOpenMessageProvider::new(&self.connection);
-        let now = Utc::now().to_rfc3339();
-        let filters = provider
-            .get_expired_entity_type_condition(&now)
-            .and_where(provider.get_signed_entity_type_condition(signed_entity_type)?);
-        let mut messages = provider.find(filters)?;
-
-        Ok(messages.next())
+        self.connection
+            .fetch_first(GetOpenMessageQuery::by_expired_entity_type(
+                Utc::now(),
+                signed_entity_type,
+            )?)
     }
 
     /// Create a new [OpenMessageRecord] in the database.
@@ -76,13 +70,13 @@ impl OpenMessageRepository {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessageRecord> {
-        let provider = InsertOpenMessageProvider::new(&self.connection);
-        let filters = provider.get_insert_condition(epoch, signed_entity_type, protocol_message)?;
-        let mut cursor = provider.find(filters)?;
+        let message = self.connection.fetch_first(InsertOpenMessageQuery::one(
+            epoch,
+            signed_entity_type,
+            protocol_message,
+        )?)?;
 
-        cursor
-            .next()
-            .ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
+        message.ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
     }
 
     /// Updates an [OpenMessageRecord] in the database.
@@ -90,21 +84,19 @@ impl OpenMessageRepository {
         &self,
         open_message: &OpenMessageRecord,
     ) -> StdResult<OpenMessageRecord> {
-        let provider = UpdateOpenMessageProvider::new(&self.connection);
-        let filters = provider.get_update_condition(open_message)?;
-        let mut cursor = provider.find(filters)?;
+        let message = self
+            .connection
+            .fetch_first(UpdateOpenMessageQuery::one(open_message)?)?;
 
-        cursor
-            .next()
-            .ok_or_else(|| panic!("Updating an open_message should not return nothing."))
+        message.ok_or_else(|| panic!("Updating an open_message should not return nothing."))
     }
 
     /// Remove all the [OpenMessageRecord] for the strictly previous epochs of the given epoch in the database.
     /// It returns the number of messages removed.
     pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
-        let provider = DeleteOpenMessageProvider::new(&self.connection);
-        let filters = provider.get_epoch_condition(epoch);
-        let cursor = provider.find(filters)?;
+        let cursor = self
+            .connection
+            .fetch(DeleteOpenMessageQuery::below_epoch_threshold(epoch))?;
 
         Ok(cursor.count())
     }
@@ -112,10 +104,7 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Value;
-
     use mithril_common::entities::CardanoDbBeacon;
-    use mithril_persistence::sqlite::WhereCondition;
 
     use crate::database::record::SingleSignatureRecord;
     use crate::database::test_helper::{
@@ -258,15 +247,11 @@ mod tests {
         );
 
         let message = {
-            let provider = GetOpenMessageProvider::new(&connection);
-            let mut cursor = provider
-                .find(WhereCondition::new(
-                    "open_message_id = ?*",
-                    vec![Value::String(open_message.open_message_id.to_string())],
-                ))
+            let message = connection
+                .fetch_first(GetOpenMessageQuery::by_id(&open_message.open_message_id))
                 .unwrap();
 
-            cursor.next().unwrap_or_else(|| {
+            message.unwrap_or_else(|| {
                 panic!(
                     "OpenMessage ID='{}' should exist in the database.",
                     open_message.open_message_id

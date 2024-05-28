@@ -5,8 +5,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
-    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
-    WhereCondition,
+    ConnectionExtensions, HydrationError, Projection, Query, SourceAlias, SqLiteEntity,
+    SqliteConnection, WhereCondition,
 };
 
 /// Event that is sent from a thread to be persisted.
@@ -102,37 +102,35 @@ impl SqLiteEntity for Event {
     }
 }
 
-struct EventPersisterProvider<'conn> {
-    connection: &'conn SqliteConnection,
+struct InsertEventQuery {
+    condition: WhereCondition,
 }
 
-impl<'conn> EventPersisterProvider<'conn> {
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        let myself = Self { connection };
-        myself.create_table_if_not_exists();
+impl InsertEventQuery {
+    fn one(message: EventMessage) -> StdResult<Self> {
+        let condition = WhereCondition::new(
+            "(source, action, content, created_at) values (?*, ?*, ?*, ?*)",
+            vec![
+                sqlite::Value::String(message.source),
+                sqlite::Value::String(message.action),
+                sqlite::Value::String(format!(
+                    r#"{{"headers": {}, "content": {}}}"#,
+                    serde_json::to_string(&message.headers)?,
+                    message.content
+                )),
+                sqlite::Value::String(Utc::now().to_rfc3339()),
+            ],
+        );
 
-        myself
-    }
-
-    fn create_table_if_not_exists(&self) {
-        let sql = r#"
-        create table if not exists event (
-            event_id integer primary key asc autoincrement,
-            created_at text not null,
-            source text not null,
-            action text not null,
-            content text nul null
-        )"#;
-
-        self.connection.execute(sql).unwrap();
+        Ok(Self { condition })
     }
 }
 
-impl<'conn> Provider<'conn> for EventPersisterProvider<'conn> {
+impl Query for InsertEventQuery {
     type Entity = Event;
 
-    fn get_connection(&'conn self) -> &'conn SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, data: &str) -> String {
@@ -154,33 +152,28 @@ impl EventPersister {
         Self { connection }
     }
 
-    fn get_persist_parameters(&self, message: EventMessage) -> StdResult<WhereCondition> {
-        let filters = WhereCondition::new(
-            "(source, action, content, created_at) values (?*, ?*, ?*, ?*)",
-            vec![
-                sqlite::Value::String(message.source),
-                sqlite::Value::String(message.action),
-                sqlite::Value::String(format!(
-                    r#"{{"headers": {}, "content": {}}}"#,
-                    serde_json::to_string(&message.headers)?,
-                    message.content
-                )),
-                sqlite::Value::String(Utc::now().to_rfc3339()),
-            ],
-        );
-
-        Ok(filters)
-    }
-
     /// Save an EventMessage in the database.
     pub fn persist(&self, message: EventMessage) -> StdResult<Event> {
-        let provider = EventPersisterProvider::new(&self.connection);
+        self.create_table_if_not_exists();
         let log_message = message.clone();
-        let mut rows = provider.find(self.get_persist_parameters(message)?)?;
+        let mut rows = self.connection.fetch(InsertEventQuery::one(message)?)?;
 
         rows.next().ok_or(anyhow!(
             "No record from the database after I saved event message {log_message:?}"
         ))
+    }
+
+    fn create_table_if_not_exists(&self) {
+        let sql = r#"
+        create table if not exists event (
+            event_id integer primary key asc autoincrement,
+            created_at text not null,
+            source text not null,
+            action text not null,
+            content text nul null
+        )"#;
+
+        self.connection.execute(sql).unwrap();
     }
 }
 
@@ -202,10 +195,8 @@ mod tests {
 
     #[test]
     fn provider_sql() {
-        let connection = Arc::new(Connection::open_thread_safe(":memory:").unwrap());
-        let persister = EventPersister::new(connection);
         let message = EventMessage::new("source", "action", "content");
-        let (parameters, values) = persister.get_persist_parameters(message).unwrap().expand();
+        let (parameters, values) = InsertEventQuery::one(message).unwrap().filters().expand();
 
         assert_eq!(
             "(source, action, content, created_at) values (?1, ?2, ?3, ?4)".to_string(),

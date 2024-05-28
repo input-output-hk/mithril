@@ -7,10 +7,7 @@ use std::{
     fmt::{Debug, Display},
 };
 
-use crate::sqlite::{
-    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, SqliteConnection,
-    WhereCondition,
-};
+use crate::sqlite::{HydrationError, Projection, Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use super::DbVersion;
 
@@ -106,65 +103,27 @@ impl PartialOrd for DatabaseVersion {
     }
 }
 
-/// Provider for the [DatabaseVersion] entities using the `DatabaseVersionProjection`.
-pub struct DatabaseVersionProvider<'conn> {
-    connection: &'conn SqliteConnection,
+/// Query to get [DatabaseVersion] entities.
+pub struct GetDatabaseVersionQuery {
+    condition: WhereCondition,
 }
 
-impl<'conn> DatabaseVersionProvider<'conn> {
-    /// [DatabaseVersionProvider] constructor.
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    /// Method to create the table at the beginning of the migration procedure.
-    /// This code is temporary and should not last.
-    pub fn create_table_if_not_exists(
-        &self,
-        application_type: &ApplicationNodeType,
-    ) -> StdResult<()> {
-        let connection = self.get_connection();
-        let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
-        let table_exists = connection
-            .prepare(sql)?
-            .iter()
-            .next()
-            .unwrap()
-            .unwrap()
-            .read::<i64, _>(0)
-            == 1;
-
-        if !table_exists {
-            let sql = format!("
-create table db_version (application_type text not null primary key, version integer not null, updated_at text not null);
-insert into db_version (application_type, version, updated_at) values ('{application_type}', 0, '{}');
-", Utc::now().to_rfc3339());
-            connection.execute(sql)?;
-        }
-
-        Ok(())
-    }
-
-    /// Read the application version from the database.
-    pub fn get_application_version(
-        &self,
-        application_type: &ApplicationNodeType,
-    ) -> StdResult<Option<DatabaseVersion>> {
+impl GetDatabaseVersionQuery {
+    /// Query to read the application version from the database.
+    pub fn get_application_version(application_type: &ApplicationNodeType) -> Self {
         let filters = WhereCondition::new(
             "application_type = ?*",
             vec![Value::String(format!("{application_type}"))],
         );
-        let result = self.find(filters)?.next();
-
-        Ok(result)
+        Self { condition: filters }
     }
 }
 
-impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
+impl Query for GetDatabaseVersionQuery {
     type Entity = DatabaseVersion;
 
-    fn get_connection(&'conn self) -> &SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, condition: &str) -> String {
@@ -181,20 +140,14 @@ where {condition}
     }
 }
 
-/// Write [Provider] for the [DatabaseVersion] entities.
-/// This will perform an UPSERT and return the updated entity.
-pub struct DatabaseVersionUpdater<'conn> {
-    connection: &'conn SqliteConnection,
+/// Query to UPSERT [DatabaseVersion] entities.
+pub struct UpdateDatabaseVersionQuery {
+    condition: WhereCondition,
 }
 
-impl<'conn> DatabaseVersionUpdater<'conn> {
-    /// [DatabaseVersionUpdater] constructor.
-    pub fn new(connection: &'conn SqliteConnection) -> Self {
-        Self { connection }
-    }
-
-    /// Persist the given entity and return the projection of the saved entity.
-    pub fn save(&self, version: DatabaseVersion) -> StdResult<DatabaseVersion> {
+impl UpdateDatabaseVersionQuery {
+    /// Define a query that will UPSERT the given version.
+    pub fn one(version: DatabaseVersion) -> Self {
         let filters = WhereCondition::new(
             "",
             vec![
@@ -203,20 +156,16 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
                 Value::String(version.updated_at.to_rfc3339()),
             ],
         );
-        let entity = self
-            .find(filters)?
-            .next()
-            .ok_or(anyhow!("No data returned after insertion"))?;
 
-        Ok(entity)
+        Self { condition: filters }
     }
 }
 
-impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
+impl Query for UpdateDatabaseVersionQuery {
     type Entity = DatabaseVersion;
 
-    fn get_connection(&'conn self) -> &SqliteConnection {
-        self.connection
+    fn filters(&self) -> WhereCondition {
+        self.condition.clone()
     }
 
     fn get_definition(&self, _condition: &str) -> String {
@@ -235,8 +184,6 @@ returning {projection}
 
 #[cfg(test)]
 mod tests {
-    use sqlite::Connection;
-
     use super::*;
 
     #[test]
@@ -253,8 +200,8 @@ mod tests {
 
     #[test]
     fn test_definition() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = DatabaseVersionProvider::new(&connection);
+        let query =
+            GetDatabaseVersionQuery::get_application_version(&ApplicationNodeType::Aggregator);
 
         assert_eq!(
             r#"
@@ -262,14 +209,17 @@ select db_version.version as version, db_version.application_type as application
 from db_version
 where true
 "#,
-            provider.get_definition("true")
+            query.get_definition("true")
         )
     }
 
     #[test]
     fn test_updated_entity() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-        let provider = DatabaseVersionUpdater::new(&connection);
+        let query = UpdateDatabaseVersionQuery::one(DatabaseVersion {
+            version: 0,
+            application_type: ApplicationNodeType::Aggregator,
+            updated_at: Default::default(),
+        });
 
         assert_eq!(
             r#"
@@ -277,7 +227,7 @@ insert into db_version (application_type, version, updated_at) values (?, ?, ?)
   on conflict (application_type) do update set version = excluded.version, updated_at = excluded.updated_at
 returning db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
 "#,
-            provider.get_definition("true")
+            query.get_definition("true")
         )
     }
 }

@@ -4,13 +4,14 @@ use uuid::Uuid;
 
 use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
-use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
+use mithril_persistence::sqlite::{
+    ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
+};
 
-use crate::database::provider::{
-    ImportSignerRecordProvider, InsertCertificateRecordProvider,
-    InsertOrReplaceSignerRegistrationRecordProvider, InsertOrReplaceStakePoolProvider,
-    InsertSignedEntityRecordProvider, UpdateEpochSettingProvider,
-    UpdateSingleSignatureRecordProvider,
+use crate::database::query::{
+    ImportSignerRecordQuery, InsertCertificateRecordQuery,
+    InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
+    InsertSignedEntityRecordQuery, UpdateEpochSettingQuery, UpdateSingleSignatureRecordQuery,
 };
 use crate::database::record::{
     CertificateRecord, SignedEntityRecord, SignerRecord, SignerRegistrationRecord,
@@ -73,12 +74,13 @@ pub fn insert_single_signatures_in_db(
     }
 
     let query = {
-        // leverage the expanded parameter from this provider which is unit
+        // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let update_provider = UpdateSingleSignatureRecordProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_update_condition(single_signature_records.first().unwrap())
-            .expand();
+        let (sql_values, _) = UpdateSingleSignatureRecordQuery::one(
+            single_signature_records.first().unwrap().clone(),
+        )
+        .filters()
+        .expand();
         format!("insert into single_signature {sql_values}")
     };
 
@@ -116,9 +118,10 @@ pub fn insert_certificate_records<T: Into<CertificateRecord>>(
     connection: &ConnectionThreadSafe,
     records: Vec<T>,
 ) {
-    let provider = InsertCertificateRecordProvider::new(connection);
-    provider
-        .persist_many(records.into_iter().map(|c| c.into()).collect())
+    let _ = connection
+        .fetch_first(InsertCertificateRecordQuery::many(
+            records.into_iter().map(Into::into).collect(),
+        ))
         .unwrap();
 }
 
@@ -127,12 +130,12 @@ pub fn insert_epoch_settings(
     epoch_to_insert_settings: &[u64],
 ) -> StdResult<()> {
     let query = {
-        // leverage the expanded parameter from this provider which is unit
+        // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let update_provider = UpdateEpochSettingProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_update_condition(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
-            .expand();
+        let (sql_values, _) =
+            UpdateEpochSettingQuery::one(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
+                .filters()
+                .expand();
 
         format!("insert into epoch_setting {sql_values}")
     };
@@ -166,12 +169,12 @@ pub fn insert_signed_entities(
     }
 
     let query = {
-        // leverage the expanded parameter from this provider which is unit
+        // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let insert_provider = InsertSignedEntityRecordProvider::new(connection);
-        let (sql_values, _) = insert_provider
-            .get_insert_condition(signed_entity_records.first().unwrap().to_owned())
-            .expand();
+        let (sql_values, _) =
+            InsertSignedEntityRecordQuery::one(signed_entity_records.first().unwrap().to_owned())
+                .filters()
+                .expand();
         format!("insert into signed_entity {sql_values}")
     };
 
@@ -215,12 +218,12 @@ pub fn insert_signers(
     }
 
     let query = {
-        // leverage the expanded parameter from this provider which is unit
+        // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let update_provider = ImportSignerRecordProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_import_condition(vec![signer_records.first().unwrap().to_owned()])
-            .expand();
+        let (sql_values, _) =
+            ImportSignerRecordQuery::one(signer_records.first().unwrap().to_owned())
+                .filters()
+                .expand();
         format!("insert into signer {sql_values}")
     };
 
@@ -262,12 +265,10 @@ pub fn insert_signer_registrations(
     }
 
     let query = {
-        // leverage the expanded parameter from this provider which is unit
+        // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let insert_or_replace_provider =
-            InsertOrReplaceSignerRegistrationRecordProvider::new(connection);
-        let (sql_values, _) = insert_or_replace_provider
-            .get_insert_or_replace_condition(SignerRegistrationRecord::from_signer_with_stake(
+        let (sql_values, _) = InsertOrReplaceSignerRegistrationRecordQuery::one(
+            SignerRegistrationRecord::from_signer_with_stake(
                 signer_with_stakes_by_epoch
                     .first()
                     .unwrap()
@@ -276,8 +277,10 @@ pub fn insert_signer_registrations(
                     .unwrap()
                     .to_owned(),
                 Epoch(1),
-            ))
-            .expand();
+            ),
+        )
+        .filters()
+        .expand();
         format!("insert into signer_registration {sql_values}")
     };
 
@@ -338,12 +341,12 @@ pub fn insert_stake_pool(
     epoch_to_insert_stake_pools: &[i64],
 ) -> StdResult<()> {
     let query = {
-        // leverage the expanded parameter from this provider which is unit
+        // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let update_provider = InsertOrReplaceStakePoolProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_insert_or_replace_condition(vec![("pool_id".to_string(), Epoch(1), 1000)])
-            .expand();
+        let (sql_values, _) =
+            InsertOrReplaceStakePoolQuery::many(vec![("pool_id".to_string(), Epoch(1), 1000)])
+                .filters()
+                .expand();
 
         format!("insert into stake_pool {sql_values}")
     };

@@ -4,11 +4,11 @@ use async_trait::async_trait;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::SqliteConnection;
+use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 
-use crate::database::provider::{
-    DeleteEpochSettingProvider, GetEpochSettingProvider, UpdateEpochSettingProvider,
+use crate::database::query::{
+    DeleteEpochSettingQuery, GetEpochSettingQuery, UpdateEpochSettingQuery,
 };
 use crate::ProtocolParametersStorer;
 
@@ -38,15 +38,21 @@ impl ProtocolParametersStorer for EpochSettingStore {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> StdResult<Option<ProtocolParameters>> {
-        let provider = UpdateEpochSettingProvider::new(&self.connection);
-        let epoch_setting_record = provider.persist(epoch, protocol_parameters).map_err(|e| {
-            AdapterError::GeneralError(e.context("persist protocol parameters failure"))
-        })?;
+        let epoch_setting_record = self
+            .connection
+            .fetch_first(UpdateEpochSettingQuery::one(epoch, protocol_parameters))
+            .map_err(|e| {
+                AdapterError::GeneralError(e.context("persist protocol parameters failure"))
+            })?
+            .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
         // Prune useless old epoch settings.
         if let Some(threshold) = self.retention_limit {
-            let _ = DeleteEpochSettingProvider::new(&self.connection)
-                .prune(epoch - threshold)
+            let _ = self
+                .connection
+                .fetch(DeleteEpochSettingQuery::below_epoch_threshold(
+                    epoch - threshold,
+                ))
                 .map_err(AdapterError::QueryError)?
                 .count();
         }
@@ -55,9 +61,9 @@ impl ProtocolParametersStorer for EpochSettingStore {
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
-        let provider = GetEpochSettingProvider::new(&self.connection);
-        let mut cursor = provider
-            .get_by_epoch(&epoch)
+        let mut cursor = self
+            .connection
+            .fetch(GetEpochSettingQuery::by_epoch(epoch)?)
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;
 
         if let Some(epoch_setting_record) = cursor.next() {

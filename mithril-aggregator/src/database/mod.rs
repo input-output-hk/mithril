@@ -1,9 +1,9 @@
 //! database module.
 //! This module contains the entities definition tied with database
-//! representation with their associated providers.
+//! representation with their associated queries.
 
 pub mod migration;
-pub(crate) mod provider;
+pub(crate) mod query;
 pub mod record;
 pub mod repository;
 #[cfg(test)]

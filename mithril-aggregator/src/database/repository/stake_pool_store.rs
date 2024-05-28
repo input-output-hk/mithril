@@ -6,13 +6,14 @@ use async_trait::async_trait;
 
 use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::SqliteConnection;
+use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 use mithril_persistence::store::StakeStorer;
 
-use crate::database::provider::{
-    DeleteStakePoolProvider, GetStakePoolProvider, InsertOrReplaceStakePoolProvider,
+use crate::database::query::{
+    DeleteStakePoolQuery, GetStakePoolQuery, InsertOrReplaceStakePoolQuery,
 };
+use crate::database::record::StakePool;
 
 /// Service to deal with stake pools (read & write).
 pub struct StakePoolStore {
@@ -40,21 +41,24 @@ impl StakeStorer for StakePoolStore {
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> StdResult<Option<StakeDistribution>> {
-        let provider = InsertOrReplaceStakePoolProvider::new(&self.connection);
-        let pools = provider
-            .persist_many(
+        let pools: Vec<StakePool> = self
+            .connection
+            .fetch_collect(InsertOrReplaceStakePoolQuery::many(
                 stakes
                     .into_iter()
                     .map(|(pool_id, stake)| (pool_id, epoch, stake))
                     .collect(),
-            )
+            ))
             .with_context(|| format!("persist stakes failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
 
         // Prune useless old stake distributions.
         if let Some(threshold) = self.retention_limit {
-            let _ = DeleteStakePoolProvider::new(&self.connection)
-                .prune(epoch - threshold)
+            let _ = self
+                .connection
+                .fetch(DeleteStakePoolQuery::below_epoch_threshold(
+                    epoch - threshold,
+                ))
                 .map_err(AdapterError::QueryError)?
                 .count();
         }
@@ -65,9 +69,9 @@ impl StakeStorer for StakePoolStore {
     }
 
     async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let provider = GetStakePoolProvider::new(&self.connection);
-        let cursor = provider
-            .get_by_epoch(&epoch)
+        let cursor = self
+            .connection
+            .fetch(GetStakePoolQuery::by_epoch(epoch)?)
             .with_context(|| format!("get stakes failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
         let mut stake_distribution = StakeDistribution::new();

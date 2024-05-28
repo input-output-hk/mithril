@@ -5,11 +5,11 @@ use slog::{debug, error, info, Logger};
 use std::{cmp::Ordering, collections::BTreeSet};
 
 use super::{
-    ApplicationNodeType, DatabaseVersion, DatabaseVersionProvider, DatabaseVersionUpdater,
-    DbVersion,
+    ApplicationNodeType, DatabaseVersion, DbVersion, GetDatabaseVersionQuery,
+    UpdateDatabaseVersionQuery,
 };
 
-use crate::sqlite::SqliteConnection;
+use crate::sqlite::{ConnectionExtensions, SqliteConnection};
 
 /// Struct to perform application version check in the database.
 pub struct DatabaseVersionChecker<'conn> {
@@ -53,14 +53,14 @@ impl<'conn> DatabaseVersionChecker<'conn> {
     /// Apply migrations
     pub fn apply(&self) -> StdResult<()> {
         debug!(&self.logger, "check database version",);
-        let provider = DatabaseVersionProvider::new(self.connection);
-        provider
-            .create_table_if_not_exists(&self.application_type)
+        self.create_table_if_not_exists(&self.application_type)
             .with_context(|| "Can not create table 'db_version' while applying migrations")?;
-        let updater = DatabaseVersionUpdater::new(self.connection);
-        let db_version = provider
-            .get_application_version(&self.application_type)?
-            .with_context(|| "Can not get application version while applying migrations")
+        let db_version = self
+            .connection
+            .fetch_first(GetDatabaseVersionQuery::get_application_version(
+                &self.application_type,
+            ))
+            .with_context(|| "Can not get application version while applying migrations")?
             .unwrap(); // At least a record exists.
 
         // the current database version is equal to the maximum migration
@@ -75,7 +75,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                     "Database needs upgrade from version '{}' to version '{}', applying new migrations…",
                     db_version.version, migration_version
                 );
-                self.apply_migrations(&db_version, &updater, self.connection)?;
+                self.apply_migrations(&db_version, self.connection)?;
                 info!(
                     &self.logger,
                     "database upgraded to version '{}'", migration_version
@@ -102,7 +102,6 @@ impl<'conn> DatabaseVersionChecker<'conn> {
     fn apply_migrations(
         &self,
         starting_version: &DatabaseVersion,
-        updater: &DatabaseVersionUpdater,
         connection: &SqliteConnection,
     ) -> StdResult<()> {
         for migration in &self
@@ -117,12 +116,37 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                 application_type: self.application_type.clone(),
                 updated_at: Utc::now(),
             };
-            let _ = updater.save(db_version).with_context(|| {
-                format!(
-                    "Can not save database version when applying migration: '{}'",
-                    migration.version
-                )
-            })?;
+            let _ = connection
+                .fetch_first(UpdateDatabaseVersionQuery::one(db_version))
+                .with_context(|| {
+                    format!(
+                        "Can not save database version when applying migration: '{}'",
+                        migration.version
+                    )
+                })?;
+        }
+
+        Ok(())
+    }
+
+    /// Method to create the table at the beginning of the migration procedure.
+    /// This code is temporary and should not last.
+    pub fn create_table_if_not_exists(
+        &self,
+        application_type: &ApplicationNodeType,
+    ) -> StdResult<()> {
+        let connection = self.connection;
+        let table_exists = connection.query_single_cell::<_, i64>(
+            "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists",
+            &[],
+        )? == 1;
+
+        if !table_exists {
+            let sql = format!("
+create table db_version (application_type text not null primary key, version integer not null, updated_at text not null);
+insert into db_version (application_type, version, updated_at) values ('{application_type}', 0, '{}');
+", Utc::now().to_rfc3339());
+            connection.execute(sql)?;
         }
 
         Ok(())
@@ -180,9 +204,10 @@ mod tests {
     use super::*;
 
     fn check_database_version(connection: &SqliteConnection, db_version: DbVersion) {
-        let provider = DatabaseVersionProvider::new(connection);
-        let version = provider
-            .get_application_version(&ApplicationNodeType::Aggregator)
+        let version = connection
+            .fetch_first(GetDatabaseVersionQuery::get_application_version(
+                &ApplicationNodeType::Aggregator,
+            ))
             .unwrap()
             .unwrap();
 

@@ -2,21 +2,18 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-#[cfg(test)]
-use mockall::automock;
 
 use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::SqliteConnection;
-use mithril_persistence::store::adapter::AdapterError;
+use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::provider::{
-    GetSignedEntityRecordProvider, InsertSignedEntityRecordProvider, UpdateSignedEntityProvider,
+use crate::database::query::{
+    GetSignedEntityRecordQuery, InsertSignedEntityRecordQuery, UpdateSignedEntityQuery,
 };
 use crate::database::record::SignedEntityRecord;
 
 /// Signed entity storer trait
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignedEntityStorer: Sync + Send {
     /// Store a signed entity
@@ -69,8 +66,9 @@ impl SignedEntityStore {
 #[async_trait]
 impl SignedEntityStorer for SignedEntityStore {
     async fn store_signed_entity(&self, signed_entity: &SignedEntityRecord) -> StdResult<()> {
-        let provider = InsertSignedEntityRecordProvider::new(&self.connection);
-        let _signed_entity_record = provider.persist(signed_entity.to_owned())?;
+        let _ = self
+            .connection
+            .fetch_first(InsertSignedEntityRecordQuery::one(signed_entity.clone()));
 
         Ok(())
     }
@@ -79,42 +77,36 @@ impl SignedEntityStorer for SignedEntityStore {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
-        let provider = GetSignedEntityRecordProvider::new(&self.connection);
-        let mut cursor = provider
-            .get_by_signed_entity_id(signed_entity_id)
+        self.connection
+            .fetch_first(GetSignedEntityRecordQuery::by_signed_entity_id(
+                signed_entity_id,
+            ))
             .with_context(|| format!("get signed entity by id failure, id: {signed_entity_id}"))
-            .map_err(AdapterError::GeneralError)?;
-        let signed_entity = cursor.next();
-
-        Ok(signed_entity)
     }
 
     async fn get_signed_entity_by_certificate_id(
         &self,
         certificate_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
-        let provider = GetSignedEntityRecordProvider::new(&self.connection);
-        let mut cursor = provider
-            .get_by_certificate_id(certificate_id)
+        self.connection
+            .fetch_first(GetSignedEntityRecordQuery::by_certificate_id(
+                certificate_id,
+            ))
             .with_context(|| {
                 format!(
                     "get signed entity by certificate id failure, certificate_id: {certificate_id}"
                 )
             })
-            .map_err(AdapterError::GeneralError)?;
-        let signed_entity = cursor.next();
-
-        Ok(signed_entity)
     }
 
     async fn get_signed_entities_by_certificates_ids<'a>(
         &self,
         certificates_ids: &[&'a str],
     ) -> StdResult<Vec<SignedEntityRecord>> {
-        let provider = GetSignedEntityRecordProvider::new(&self.connection);
-        let cursor = provider.get_by_certificates_ids(certificates_ids)?;
-
-        Ok(cursor.collect())
+        self.connection
+            .fetch_collect(GetSignedEntityRecordQuery::by_certificates_ids(
+                certificates_ids,
+            ))
     }
 
     async fn get_last_signed_entities_by_type(
@@ -122,13 +114,14 @@ impl SignedEntityStorer for SignedEntityStore {
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>> {
-        let provider = GetSignedEntityRecordProvider::new(&self.connection);
-        let cursor = provider
-            .get_by_signed_entity_type(signed_entity_type_id)
+        let cursor = self
+            .connection
+            .fetch(GetSignedEntityRecordQuery::by_signed_entity_type(
+                signed_entity_type_id,
+            )?)
             .with_context(|| {
                 format!("get last signed entity by type failure, type: {signed_entity_type_id:?}")
-            })
-            .map_err(AdapterError::GeneralError)?;
+            })?;
         let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
 
         Ok(signed_entities)
@@ -138,11 +131,17 @@ impl SignedEntityStorer for SignedEntityStore {
         &self,
         signed_entities: Vec<SignedEntityRecord>,
     ) -> StdResult<Vec<SignedEntityRecord>> {
-        let provider = UpdateSignedEntityProvider::new(&self.connection);
         let mut updated_records = vec![];
 
         for record in signed_entities {
-            updated_records.push(provider.persist(&record)?);
+            let id = record.signed_entity_id.clone();
+            let updated_record = self
+                .connection
+                .fetch_first(UpdateSignedEntityQuery::one(record)?)?;
+
+            updated_records.push(updated_record.unwrap_or_else(|| {
+                panic!("Updating a signed_entity should not return nothing, id = {id:?}",)
+            }));
         }
 
         Ok(updated_records)

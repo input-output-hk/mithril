@@ -6,12 +6,12 @@ use async_trait::async_trait;
 
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::SqliteConnection;
+use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 
-use crate::database::provider::{
-    DeleteSignerRegistrationRecordProvider, GetSignerRegistrationRecordProvider,
-    InsertOrReplaceSignerRegistrationRecordProvider,
+use crate::database::query::{
+    DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
+    InsertOrReplaceSignerRegistrationRecordQuery,
 };
 use crate::database::record::SignerRegistrationRecord;
 use crate::VerificationKeyStorer;
@@ -35,21 +35,24 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         epoch: Epoch,
         signer: SignerWithStake,
     ) -> StdResult<Option<SignerWithStake>> {
-        let provider = InsertOrReplaceSignerRegistrationRecordProvider::new(&self.connection);
-        let existing_record = GetSignerRegistrationRecordProvider::new(&self.connection)
-            .get_by_signer_id_and_epoch(signer.party_id.clone(), &epoch)
+        let existing_record = self
+            .connection
+            .fetch_first(GetSignerRegistrationRecordQuery::by_signer_id_and_epoch(
+                signer.party_id.to_owned(),
+                epoch,
+            )?)
             .with_context(|| {
                 format!(
                     "Get signer registration record failure with signer_id: '{}', epoch: '{}'",
                     signer.party_id, epoch
                 )
             })
-            .map_err(AdapterError::QueryError)?
-            .next();
+            .map_err(AdapterError::QueryError)?;
 
-        let _updated_record = provider
-            .persist(SignerRegistrationRecord::from_signer_with_stake(
-                signer, epoch,
+        let _updated_record = self
+            .connection
+            .fetch_first(InsertOrReplaceSignerRegistrationRecordQuery::one(
+                SignerRegistrationRecord::from_signer_with_stake(signer, epoch),
             ))
             .with_context(|| format!("persist verification key failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
@@ -64,9 +67,9 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         &self,
         epoch: Epoch,
     ) -> StdResult<Option<HashMap<PartyId, Signer>>> {
-        let provider = GetSignerRegistrationRecordProvider::new(&self.connection);
-        let cursor = provider
-            .get_by_epoch(&epoch)
+        let cursor = self
+            .connection
+            .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
             .with_context(|| format!("get verification key failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
 
@@ -80,9 +83,9 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     }
 
     async fn get_signers(&self, epoch: Epoch) -> StdResult<Option<Vec<SignerWithStake>>> {
-        let provider = GetSignerRegistrationRecordProvider::new(&self.connection);
-        let cursor = provider
-            .get_by_epoch(&epoch)
+        let cursor = self
+            .connection
+            .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
             .with_context(|| format!("get verification key failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
 
@@ -95,11 +98,13 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     }
 
     async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
-        let _deleted_records = DeleteSignerRegistrationRecordProvider::new(&self.connection)
-            // we want to prune including the given epoch (+1)
-            .prune(max_epoch_to_prune + 1)
-            .map_err(AdapterError::QueryError)?
-            .collect::<Vec<_>>();
+        let _deleted_records = self
+            .connection
+            .fetch_first(
+                // we want to prune including the given epoch (+1)
+                DeleteSignerRegistrationRecordQuery::below_epoch_threshold(max_epoch_to_prune + 1),
+            )
+            .map_err(AdapterError::QueryError)?;
 
         Ok(())
     }
