@@ -99,10 +99,14 @@ impl MithrilProverService {
         block_ranges: &[BlockRange],
     ) -> StdResult<HashMap<BlockRange, Vec<CardanoTransaction>>> {
         let mut block_ranges_map = HashMap::new();
-        let transactions = self
-            .transaction_retriever
-            .get_by_block_ranges(block_ranges.to_vec())
-            .await?;
+        let mut transactions = vec![];
+        for block_range in block_ranges {
+            let block_range_transactions = self
+                .transaction_retriever
+                .get_by_block_ranges(vec![block_range.clone()])
+                .await?;
+            transactions.extend(block_range_transactions);
+        }
         for transaction in transactions {
             let block_range = BlockRange::from_block_number(transaction.block_number);
             let block_range_transactions: &mut Vec<_> =
@@ -374,21 +378,24 @@ mod tests {
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         let prover = build_prover(
-            |retriever_mock| {
+            |transaction_retriever_mock| {
                 let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 let transactions_to_prove = transactions_to_prove.clone();
-                retriever_mock
+                transaction_retriever_mock
                     .expect_get_by_hashes()
                     .with(eq(transaction_hashes_to_prove))
                     .return_once(move |_| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
-                let all_transactions_in_block_ranges_to_prove =
-                    test_data.all_transactions_in_block_ranges_to_prove.clone();
-                retriever_mock
-                    .expect_get_by_block_ranges()
-                    .with(eq(block_ranges_to_prove))
-                    .return_once(move |_| Ok(all_transactions_in_block_ranges_to_prove));
+                for block_range_to_prove in block_ranges_to_prove {
+                    let block_ranges = vec![block_range_to_prove.clone()];
+                    let transactions_in_block_range_to_prove =
+                        test_data.block_ranges_map[&block_range_to_prove].clone();
+                    transaction_retriever_mock
+                        .expect_get_by_block_ranges()
+                        .with(eq(block_ranges))
+                        .return_once(move |_| Ok(transactions_in_block_range_to_prove));
+                }
             },
             |block_range_root_retriever_mock| {
                 let block_ranges_map = test_data.block_ranges_map.clone();
@@ -428,21 +435,24 @@ mod tests {
         let mut test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         test_data.transaction_hashes_to_prove = vec!["tx-unknown-123".to_string()];
         let prover = build_prover(
-            |retriever_mock| {
+            |transaction_retriever_mock| {
                 let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 let transactions_to_prove = transactions_to_prove.clone();
-                retriever_mock
+                transaction_retriever_mock
                     .expect_get_by_hashes()
                     .with(eq(transaction_hashes_to_prove))
                     .return_once(move |_| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
-                let all_transactions_in_block_ranges_to_prove =
-                    test_data.all_transactions_in_block_ranges_to_prove.clone();
-                retriever_mock
-                    .expect_get_by_block_ranges()
-                    .with(eq(block_ranges_to_prove))
-                    .return_once(move |_| Ok(all_transactions_in_block_ranges_to_prove));
+                for block_range_to_prove in block_ranges_to_prove {
+                    let block_ranges = vec![block_range_to_prove.clone()];
+                    let transactions_in_block_range_to_prove =
+                        test_data.block_ranges_map[&block_range_to_prove].clone();
+                    transaction_retriever_mock
+                        .expect_get_by_block_ranges()
+                        .with(eq(block_ranges))
+                        .return_once(move |_| Ok(transactions_in_block_range_to_prove));
+                }
             },
             |block_range_root_retriever_mock| {
                 let block_ranges_map = test_data.block_ranges_map.clone();
@@ -485,21 +495,24 @@ mod tests {
         ]
         .concat();
         let prover = build_prover(
-            |retriever_mock| {
+            |transaction_retriever_mock| {
                 let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 let transactions_to_prove = transactions_to_prove.clone();
-                retriever_mock
+                transaction_retriever_mock
                     .expect_get_by_hashes()
                     .with(eq(transaction_hashes_to_prove))
                     .return_once(move |_| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
-                let all_transactions_in_block_ranges_to_prove =
-                    test_data.all_transactions_in_block_ranges_to_prove.clone();
-                retriever_mock
-                    .expect_get_by_block_ranges()
-                    .with(eq(block_ranges_to_prove))
-                    .return_once(move |_| Ok(all_transactions_in_block_ranges_to_prove));
+                for block_range_to_prove in block_ranges_to_prove {
+                    let block_ranges = vec![block_range_to_prove.clone()];
+                    let transactions_in_block_range_to_prove =
+                        test_data.block_ranges_map[&block_range_to_prove].clone();
+                    transaction_retriever_mock
+                        .expect_get_by_block_ranges()
+                        .with(eq(block_ranges))
+                        .return_once(move |_| Ok(transactions_in_block_range_to_prove));
+                }
             },
             |block_range_root_retriever_mock| {
                 let block_ranges_map = test_data.block_ranges_map.clone();
@@ -539,8 +552,8 @@ mod tests {
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         let prover = build_prover(
-            |retriever_mock| {
-                retriever_mock
+            |transaction_retriever_mock| {
+                transaction_retriever_mock
                     .expect_get_by_hashes()
                     .returning(|_| Err(anyhow!("Error")));
             },
@@ -570,17 +583,22 @@ mod tests {
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         let prover = build_prover(
-            |retriever_mock| {
+            |transaction_retriever_mock| {
                 let transactions_to_prove = transactions_to_prove.clone();
-                retriever_mock
+                transaction_retriever_mock
                     .expect_get_by_hashes()
                     .return_once(move |_| Ok(transactions_to_prove));
 
-                let all_transactions_in_block_ranges_to_prove =
-                    test_data.all_transactions_in_block_ranges_to_prove.clone();
-                retriever_mock
-                    .expect_get_by_block_ranges()
-                    .return_once(move |_| Ok(all_transactions_in_block_ranges_to_prove));
+                let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
+                for block_range_to_prove in block_ranges_to_prove {
+                    let block_ranges = vec![block_range_to_prove.clone()];
+                    let transactions_in_block_range_to_prove =
+                        test_data.block_ranges_map[&block_range_to_prove].clone();
+                    transaction_retriever_mock
+                        .expect_get_by_block_ranges()
+                        .with(eq(block_ranges))
+                        .return_once(move |_| Ok(transactions_in_block_range_to_prove));
+                }
             },
             |block_range_root_retriever_mock| {
                 block_range_root_retriever_mock
