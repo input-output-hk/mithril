@@ -147,7 +147,7 @@ pub struct UpdateDatabaseVersionQuery {
 
 impl UpdateDatabaseVersionQuery {
     /// Define a query that will UPSERT the given version.
-    pub fn save(version: DatabaseVersion) -> Self {
+    pub fn one(version: DatabaseVersion) -> Self {
         let filters = WhereCondition::new(
             "",
             vec![
@@ -215,7 +215,7 @@ where true
 
     #[test]
     fn test_updated_entity() {
-        let query = UpdateDatabaseVersionQuery::save(DatabaseVersion {
+        let query = UpdateDatabaseVersionQuery::one(DatabaseVersion {
             version: 0,
             application_type: ApplicationNodeType::Aggregator,
             updated_at: Default::default(),

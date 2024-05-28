@@ -117,7 +117,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                 updated_at: Utc::now(),
             };
             let _ = connection
-                .fetch_one(UpdateDatabaseVersionQuery::save(db_version))
+                .fetch_one(UpdateDatabaseVersionQuery::one(db_version))
                 .with_context(|| {
                     format!(
                         "Can not save database version when applying migration: '{}'",
@@ -136,15 +136,10 @@ impl<'conn> DatabaseVersionChecker<'conn> {
         application_type: &ApplicationNodeType,
     ) -> StdResult<()> {
         let connection = self.connection;
-        let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
-        let table_exists = connection
-            .prepare(sql)?
-            .iter()
-            .next()
-            .unwrap()
-            .unwrap()
-            .read::<i64, _>(0)
-            == 1;
+        let table_exists = connection.query_single_cell::<_, i64>(
+            "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists",
+            &[],
+        )? == 1;
 
         if !table_exists {
             let sql = format!("
