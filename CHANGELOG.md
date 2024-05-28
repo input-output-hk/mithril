@@ -19,6 +19,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Update website and explorer user interface to use the new mithril logo.
 
+- Implement a Chain Reader which retrieves blocks from the Cardano chain with Pallas through the `chainsync` mini-protocol.
+
 - Crates versions:
 
 |  Crate  |  Version  |
