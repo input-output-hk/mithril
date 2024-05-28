@@ -179,7 +179,7 @@ impl ProverService for MithrilProverService {
             .await?;
         let discriminant_new = self.mk_map_pool.discriminant()? + 1;
         self.mk_map_pool.set_discriminant(discriminant_new)?;
-        self.mk_map_pool.drain();
+        self.mk_map_pool.clear();
         (1..=pool_size)
             .into_par_iter()
             .map(|i| {
