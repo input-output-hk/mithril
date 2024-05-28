@@ -4,6 +4,7 @@ use std::path::Path;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
+use crate::cardano_block_scanner::ChainScannedBlocks;
 use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, ScannedBlock};
 use crate::entities::ImmutableFileNumber;
 use crate::StdResult;
@@ -57,13 +58,18 @@ impl DumbBlockStreamer {
 
 #[async_trait]
 impl BlockStreamer for DumbBlockStreamer {
-    async fn poll_next(&mut self) -> StdResult<Option<Vec<ScannedBlock>>> {
-        Ok(self.blocks.pop_front())
+    async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
+        Ok(self
+            .blocks
+            .pop_front()
+            .map(ChainScannedBlocks::RollForwards))
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::cardano_block_scanner::BlockStreamerTestExtensions;
+
     use super::*;
 
     #[tokio::test]
@@ -79,7 +85,10 @@ mod tests {
         let mut streamer = DumbBlockStreamer::new(vec![expected_blocks.clone()]);
 
         let blocks = streamer.poll_next().await.unwrap();
-        assert_eq!(blocks, Some(expected_blocks));
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks))
+        );
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(blocks, None);
@@ -98,13 +107,22 @@ mod tests {
         let mut streamer = DumbBlockStreamer::new(expected_blocks.clone());
 
         let blocks = streamer.poll_next().await.unwrap();
-        assert_eq!(blocks, Some(expected_blocks[0].clone()));
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks[0].clone()))
+        );
 
         let blocks = streamer.poll_next().await.unwrap();
-        assert_eq!(blocks, Some(expected_blocks[1].clone()));
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks[1].clone()))
+        );
 
         let blocks = streamer.poll_next().await.unwrap();
-        assert_eq!(blocks, Some(expected_blocks[2].clone()));
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks[2].clone()))
+        );
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(blocks, None);

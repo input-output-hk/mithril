@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use std::mem;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
@@ -6,7 +7,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
-use mithril_common::cardano_block_scanner::BlockScanner;
+use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode};
 use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber};
 use mithril_common::signable_builder::TransactionsImporter;
@@ -105,14 +106,21 @@ impl CardanoTransactionsImporter {
         let mut streamer = self.block_scanner.scan(&self.dirpath, from, until).await?;
 
         while let Some(blocks) = streamer.poll_next().await? {
-            let parsed_transactions: Vec<CardanoTransaction> = blocks
-                .into_iter()
-                .flat_map(|b| b.into_transactions())
-                .collect();
+            match blocks {
+                ChainScannedBlocks::RollForwards(forward_blocks) => {
+                    let parsed_transactions: Vec<CardanoTransaction> = forward_blocks
+                        .into_iter()
+                        .flat_map(|b| b.into_transactions())
+                        .collect();
 
-            self.transaction_store
-                .store_transactions(parsed_transactions)
-                .await?;
+                    self.transaction_store
+                        .store_transactions(parsed_transactions)
+                        .await?;
+                }
+                ChainScannedBlocks::RollBackward(_) => {
+                    return Err(anyhow!("RollBackward not yet implemented"))
+                }
+            }
         }
 
         Ok(())

@@ -7,6 +7,7 @@ use pallas_hardano::storage::immutable::chunk::{read_blocks, Reader};
 use pallas_traverse::MultiEraBlock;
 use slog::{debug, error, Logger};
 
+use crate::cardano_block_scanner::ChainScannedBlocks;
 use crate::cardano_block_scanner::{BlockStreamer, ScannedBlock};
 use crate::digesters::ImmutableFile;
 use crate::StdResult;
@@ -20,7 +21,7 @@ pub struct ImmutableBlockStreamer {
 
 #[async_trait]
 impl BlockStreamer for ImmutableBlockStreamer {
-    async fn poll_next(&mut self) -> StdResult<Option<Vec<ScannedBlock>>> {
+    async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
         match &self.remaining_immutable_files.pop_front() {
             Some(immutable_file) => {
                 debug!(
@@ -37,7 +38,7 @@ impl BlockStreamer for ImmutableBlockStreamer {
                             immutable_file.path.display()
                         )
                     })?;
-                Ok(Some(blocks))
+                Ok(Some(ChainScannedBlocks::RollForwards(blocks)))
             }
             None => Ok(None),
         }
@@ -123,12 +124,22 @@ impl ImmutableBlockStreamer {
 
 #[cfg(test)]
 mod tests {
+    use crate::cardano_block_scanner::BlockStreamerTestExtensions;
     use crate::test_utils::{TempDir, TestLogger};
 
     use super::*;
 
     #[tokio::test]
     async fn test_parse_expected_number_of_transactions() {
+        fn sum_of_transactions_len(o: Option<ChainScannedBlocks>) -> Option<usize> {
+            match o {
+                Some(ChainScannedBlocks::RollForwards(b)) => {
+                    Some(b.into_iter().map(|b| b.transactions_len()).sum())
+                }
+                _ => None,
+            }
+        }
+
         // We know the number of transactions in those prebuilt immutables
         let immutable_files = [
             ("00000.chunk", 0usize),
@@ -148,19 +159,19 @@ mod tests {
 
         let immutable_blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
-            immutable_blocks.map(|b| b.into_iter().map(|b| b.transactions_len()).sum()),
+            sum_of_transactions_len(immutable_blocks),
             Some(immutable_files[0].1)
         );
 
         let immutable_blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
-            immutable_blocks.map(|b| b.into_iter().map(|b| b.transactions_len()).sum()),
+            sum_of_transactions_len(immutable_blocks),
             Some(immutable_files[1].1)
         );
 
         let immutable_blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
-            immutable_blocks.map(|b| b.into_iter().map(|b| b.transactions_len()).sum()),
+            sum_of_transactions_len(immutable_blocks),
             Some(immutable_files[2].1)
         );
 
