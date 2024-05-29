@@ -459,6 +459,7 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
+    use mithril_common::entities::ChainPoint;
     use mithril_common::test_utils::fake_data;
 
     use super::*;
@@ -610,7 +611,8 @@ mod test {
     #[test]
     fn test_list_allowed_signed_entity_types_with_specific_configuration() {
         let beacon = fake_data::beacon();
-        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number);
+        let chain_point = ChainPoint::dummy();
+        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number, chain_point);
 
         let config = Configuration {
             network: beacon.network.clone(),

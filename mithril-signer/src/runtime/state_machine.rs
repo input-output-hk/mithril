@@ -463,13 +463,12 @@ impl StateMachine {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        entities::{CardanoDbBeacon, Epoch, ProtocolMessage},
-        test_utils::fake_data,
-    };
+    use mithril_common::entities::{CardanoDbBeacon, ChainPoint, Epoch, ProtocolMessage};
+    use mithril_common::test_utils::fake_data;
+
+    use crate::runtime::runner::MockSignerRunner;
 
     use super::*;
-    use crate::runtime::runner::MockSignerRunner;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
@@ -615,6 +614,7 @@ mod tests {
         let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
+            chain_point: ChainPoint::dummy(),
         };
         let state = SignerState::Registered {
             epoch: time_point.epoch,
@@ -654,6 +654,7 @@ mod tests {
         let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
+            chain_point: ChainPoint::dummy(),
         };
         let state = SignerState::Registered {
             epoch: time_point.epoch,
@@ -713,6 +714,7 @@ mod tests {
         let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
+            chain_point: ChainPoint::dummy(),
         };
         let time_point_clone = time_point.clone();
         let beacon = CardanoDbBeacon::new(
@@ -760,6 +762,7 @@ mod tests {
         let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
+            chain_point: ChainPoint::dummy(),
         };
         let new_time_point = TimePoint {
             epoch: Epoch(10),
@@ -797,6 +800,7 @@ mod tests {
         let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
+            chain_point: ChainPoint::dummy(),
         };
         let time_point_clone = time_point.clone();
         let state = SignerState::Signed {
@@ -834,6 +838,7 @@ mod tests {
         let time_point = TimePoint {
             immutable_file_number: 99,
             epoch: Epoch(9),
+            chain_point: ChainPoint::dummy(),
         };
         let time_point_clone = time_point.clone();
         let state = SignerState::Signed {

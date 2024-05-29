@@ -5,8 +5,8 @@ use std::time::Duration;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
-        TimePoint,
+        CardanoDbBeacon, ChainPoint, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -24,7 +24,11 @@ async fn open_message_expiration() {
         data_stores_directory: get_test_dir("open_message_expiration"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(TimePoint::new(1, 1), configuration).await;
+    let mut tester = RuntimeTester::build(
+        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        configuration,
+    )
+    .await;
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()

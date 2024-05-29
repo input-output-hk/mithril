@@ -354,16 +354,14 @@ pub struct SignerServices {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use mithril_common::{
-        chain_observer::FakeObserver,
-        digesters::DumbImmutableFileObserver,
-        entities::{Epoch, TimePoint},
+        chain_observer::FakeObserver, digesters::DumbImmutableFileObserver, entities::TimePoint,
         test_utils::TempDir,
     };
 
     use super::*;
-
-    use std::path::PathBuf;
 
     fn get_test_dir(test_name: &str) -> PathBuf {
         TempDir::create("signer_service", test_name)
@@ -379,12 +377,7 @@ mod tests {
 
         assert!(!stores_dir.exists());
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
-            |_config| {
-                Ok(Arc::new(FakeObserver::new(Some(TimePoint {
-                    epoch: Epoch(1),
-                    immutable_file_number: 1,
-                }))))
-            };
+            |_config| Ok(Arc::new(FakeObserver::new(Some(TimePoint::dummy()))));
         let immutable_file_observer_builder: fn(
             &Configuration,
         )

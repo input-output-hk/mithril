@@ -133,16 +133,11 @@ impl Runner for SignerRunner {
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
         debug!("RUNNER: get_current_time_point");
 
-        let time_point = self
-            .services
+        self.services
             .time_point_provider
             .get_current_time_point()
             .await
-            .with_context(|| "Runner can not get current time point")?;
-        Ok(TimePoint::new(
-            *time_point.epoch,
-            time_point.immutable_file_number,
-        ))
+            .with_context(|| "Runner can not get current time point")
     }
 
     async fn register_signer_to_aggregator(
