@@ -21,6 +21,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement a Chain Reader which retrieves blocks from the Cardano chain with Pallas through the `chainsync` mini-protocol.
 
+- Implement a Resource Pool and use it for caching Block Range Merkle maps used by the Cardano transactions prover and improving the throughput.
+
 - Crates versions:
 
 |  Crate  |  Version  |
