@@ -1,7 +1,10 @@
 //! Shared hydrator helpers for persistence
 
+use serde::Deserialize;
+
 use mithril_common::entities::{
-    CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
+    BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType,
+    SignedEntityTypeDiscriminants, SlotNumber,
 };
 
 use crate::sqlite::HydrationError;
@@ -69,15 +72,49 @@ impl Hydrator {
                 SignedEntityType::CardanoImmutableFilesFull(beacon)
             }
             SignedEntityTypeDiscriminants::CardanoTransactions => {
-                let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
-                    HydrationError::InvalidData(format!(
+                #[derive(Deserialize)]
+                struct CardanoTransactionsBeacon {
+                    epoch: Epoch,
+                    slot_number: SlotNumber,
+                    block_number: BlockNumber,
+                    block_hash: String,
+                }
+
+                let beacon: CardanoTransactionsBeacon =
+                    serde_json::from_str(beacon_str).map_err(|e| {
+                        HydrationError::InvalidData(format!(
                         "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
                     ))
-                })?;
-                SignedEntityType::CardanoTransactions(beacon)
+                    })?;
+                SignedEntityType::CardanoTransactions(
+                    beacon.epoch,
+                    ChainPoint::new(beacon.slot_number, beacon.block_number, beacon.block_hash),
+                )
             }
         };
 
         Ok(signed_entity)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_common::entities::ChainPoint;
+
+    use super::*;
+
+    #[test]
+    fn hydrate_cardano_transaction_signed_entity_type() {
+        let expected = SignedEntityType::CardanoTransactions(
+            Epoch(35),
+            ChainPoint::new(66, 77, "block-hash-77"),
+        );
+        let signed_entity = Hydrator::hydrate_signed_entity_type(
+            SignedEntityTypeDiscriminants::CardanoTransactions.index(),
+            &expected.get_json_beacon().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(expected, signed_entity);
     }
 }
