@@ -7,6 +7,8 @@ cfg_fs! {
     use pallas_network::miniprotocols::{chainsync::Tip, Point};
 }
 
+use crate::signable_builder::Beacon;
+
 /// [Cardano Slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
 pub type SlotNumber = u64;
 
@@ -59,6 +61,8 @@ impl ChainPoint {
         }
     }
 }
+
+impl Beacon for ChainPoint {}
 
 impl Display for ChainPoint {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
