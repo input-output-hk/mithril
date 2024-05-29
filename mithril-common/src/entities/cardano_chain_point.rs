@@ -68,6 +68,7 @@ impl Ord for ChainPoint {
         self.block_number
             .cmp(&other.block_number)
             .then(self.slot_number.cmp(&other.slot_number))
+            .then(self.block_hash.cmp(&other.block_hash))
     }
 }
 
@@ -160,7 +161,7 @@ mod tests {
     }
 
     #[test]
-    fn chain_point_ord_cmp_block_hash_doesnt_matter() {
+    fn chain_point_ord_cmp_if_block_number_and_slot_number_equals_then_compare_block_hash() {
         let chain_point1 = ChainPoint {
             slot_number: 5,
             block_number: 10,
@@ -172,6 +173,6 @@ mod tests {
             block_hash: "hash2".to_string(),
         };
 
-        assert_eq!(Ordering::Equal, chain_point1.cmp(&chain_point2));
+        assert_eq!(Ordering::Less, chain_point1.cmp(&chain_point2));
     }
 }

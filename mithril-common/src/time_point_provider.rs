@@ -20,12 +20,12 @@ where
 /// [TimePointProvider] related errors.
 #[derive(Error, Debug)]
 pub enum TimePointProviderError {
-    /// Raised reading the current epoch succeeded but yield no result.
-    #[error("No epoch yield by the chain observer, is your cardano node ready ?")]
+    /// Raised when reading the current epoch succeeded but yielded no result.
+    #[error("No epoch yielded by the chain observer, is your cardano node ready?")]
     NoEpoch,
 
-    /// Raised reading the current chain point succeeded but yield no result.
-    #[error("No chain point yield by the chain observer, is your cardano node ready ?")]
+    /// Raised when reading the current chain point succeeded but yielded no result.
+    #[error("No chain point yielded by the chain observer, is your cardano node ready?")]
     NoChainPoint,
 }
 
