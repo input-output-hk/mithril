@@ -19,9 +19,9 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "next_aggregate_verification_key")]
     NextAggregateVerificationKey,
 
-    /// The ProtocolMessage part key associated to the latest immutable file number signed
-    #[serde(rename = "latest_immutable_file_number")]
-    LatestImmutableFileNumber,
+    /// The ProtocolMessage part key associated to the latest block number signed
+    #[serde(rename = "latest_block_number")]
+    LatestBlockNumber,
 }
 
 impl Display for ProtocolMessagePartKey {
@@ -30,7 +30,7 @@ impl Display for ProtocolMessagePartKey {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
-            Self::LatestImmutableFileNumber => write!(f, "latest_immutable_file_number"),
+            Self::LatestBlockNumber => write!(f, "latest_block_number"),
         }
     }
 }
@@ -136,7 +136,7 @@ mod tests {
 
         let mut protocol_message_modified = protocol_message.clone();
         protocol_message_modified.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            ProtocolMessagePartKey::LatestBlockNumber,
             "latest-immutable-file-number-456".to_string(),
         );
 
@@ -166,7 +166,7 @@ mod tests {
             "ctx-merkle-root-123".to_string(),
         );
         protocol_message.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            ProtocolMessagePartKey::LatestBlockNumber,
             "latest-immutable-file-number-123".to_string(),
         );
 

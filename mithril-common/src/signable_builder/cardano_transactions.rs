@@ -91,9 +91,8 @@ impl SignableBuilder<ChainPoint> for CardanoTransactionsSignableBuilder {
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
             mk_root.to_hex(),
         );
-        // yyy - TODO: change the key
         protocol_message.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            ProtocolMessagePartKey::LatestBlockNumber,
             beacon.block_number.to_string(),
         );
 
@@ -161,7 +160,7 @@ mod tests {
             mk_map.compute_root().unwrap().to_hex(),
         );
         signable_expected.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            ProtocolMessagePartKey::LatestBlockNumber,
             format!("{}", beacon.block_number),
         );
         assert_eq!(signable_expected, signable);

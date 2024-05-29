@@ -76,7 +76,7 @@ impl VerifiedCardanoTransactions {
         );
 
         message.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
+            ProtocolMessagePartKey::LatestBlockNumber,
             self.latest_immutable_file_number.to_string(),
         );
     }

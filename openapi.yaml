@@ -979,10 +979,14 @@ components:
           description: Aggregate verification key (AVK) that will be used to create the next multi signature
           type: string
           format: bytes
+        latest_block_number:
+          description: The latest block number of the Cardano chain
+          type: string
       example:
         {
           "snapshot_digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-          "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363"
+          "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363",
+          "latest_block_number": 123456
         }
 
     ProtocolMessage:
