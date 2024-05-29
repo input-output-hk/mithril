@@ -1,5 +1,8 @@
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
+
+use serde::{Deserialize, Serialize};
+
 cfg_fs! {
     use pallas_network::miniprotocols::{chainsync::Tip, Point};
 }
@@ -54,6 +57,16 @@ impl ChainPoint {
                 block_hash: "block_hash-50".to_string(),
             }
         }
+    }
+}
+
+impl Display for ChainPoint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ChainPoint (slot_number: {}, block_number: {}, block_hash: {})",
+            self.slot_number, self.block_number, self.block_hash
+        )
     }
 }
 
