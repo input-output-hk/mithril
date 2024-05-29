@@ -7,8 +7,8 @@ use sqlite::Value;
 
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber, SlotNumber,
-    TransactionHash,
+    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, ImmutableFileNumber,
+    SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
@@ -288,17 +288,10 @@ impl CardanoTransactionRepository {
 impl BlockRangeRootRetriever for CardanoTransactionRepository {
     async fn retrieve_block_range_roots(
         &self,
-        up_to_beacon: ImmutableFileNumber,
+        up_to_beacon: &ChainPoint,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
-        // Get the highest block number for the given immutable number.
-        // This is a temporary fix that will be removed when the retrieval is based on block number instead of immutable number.
-        let block_number = self
-            .get_highest_block_number_for_immutable_number(up_to_beacon)
-            .await?
-            .unwrap_or(0);
-
         let iterator = self
-            .retrieve_block_range_roots_up_to(block_number)
+            .retrieve_block_range_roots_up_to(up_to_beacon.block_number)
             .await?
             .collect::<Vec<_>>() // TODO: remove this collect to return the iterator directly
             .into_iter();
