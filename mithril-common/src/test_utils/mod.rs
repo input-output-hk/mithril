@@ -28,10 +28,10 @@ pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMeth
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
 #[cfg(test)]
-pub(crate) use utils::*;
+pub use utils::*;
 
 #[cfg(test)]
-pub(crate) mod utils {
+mod utils {
     use std::fs::File;
     use std::io;
     use std::sync::Arc;

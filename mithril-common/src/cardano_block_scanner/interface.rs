@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use std::path::Path;
 
 use async_trait::async_trait;
@@ -90,7 +89,7 @@ cfg_test_tools! {
                         all_blocks.append(&mut forward_blocks);
                     }
                     ChainScannedBlocks::RollBackward(_) => {
-                        return Err(anyhow!("poll_all: RollBackward not supported"));
+                        return Err(anyhow::anyhow!("poll_all: RollBackward not supported"));
                     }
                 };
             }
