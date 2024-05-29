@@ -138,9 +138,8 @@ impl ProverService for MithrilProverService {
         let mk_trees = BTreeMap::from_iter(mk_trees?);
 
         // 3 - Compute block range roots Merkle map
-        let mut mk_map = self
-            .mk_map_pool
-            .acquire_resource(Duration::from_millis(1000))?;
+        let acquire_timeout = Duration::from_millis(1000);
+        let mut mk_map = self.mk_map_pool.acquire_resource(acquire_timeout)?;
 
         // 4 - Enrich the Merkle map with the block ranges Merkle trees
         for (block_range, mk_tree) in mk_trees {
@@ -149,8 +148,10 @@ impl ProverService for MithrilProverService {
 
         // 5 - Compute the proof for all transactions
         if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
-            self.mk_map_pool
-                .give_back_resource(mk_map.into_inner(), mk_map.discriminant())?;
+            if let Some(resource) = mk_map.take() {
+                self.mk_map_pool
+                    .give_back_resource(resource, mk_map.discriminant())?;
+            }
 
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
                 .iter()

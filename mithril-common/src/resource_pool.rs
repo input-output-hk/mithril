@@ -16,11 +16,11 @@ use crate::StdResult;
 pub enum ResourcePoolError {
     /// Internal Mutex is poisoned
     #[error("Poisoned mutex caused error during acquire lock on resource pool")]
-    PoisonedLock(),
+    PoisonedLock,
 
     /// Acquire resource has timed out
     #[error("Acquire resource has timed out")]
-    AcquireTimeout(),
+    AcquireTimeout,
 }
 
 /// Resource pool implementation (FIFO)
@@ -54,16 +54,16 @@ impl<T: Send + Sync> ResourcePool<T> {
         let mut resources = self
             .resources
             .lock()
-            .map_err(|_| ResourcePoolError::PoisonedLock())
+            .map_err(|_| ResourcePoolError::PoisonedLock)
             .with_context(|| "Resource pool 'acquire_resource' failed locking Mutex")?;
         while resources.is_empty() {
             let (resources_locked, wait_result) = self
                 .not_empty
                 .wait_timeout(resources, timeout)
-                .map_err(|_| ResourcePoolError::PoisonedLock())
+                .map_err(|_| ResourcePoolError::PoisonedLock)
                 .with_context(|| "Resource pool 'acquire_resource' failed waiting for resource")?;
             if wait_result.timed_out() {
-                return Err(ResourcePoolError::AcquireTimeout())
+                return Err(ResourcePoolError::AcquireTimeout)
                     .with_context(|| "Resource pool 'acquire_resource' has timed out");
             }
             resources = resources_locked;
@@ -83,7 +83,7 @@ impl<T: Send + Sync> ResourcePool<T> {
         let mut resources = self
             .resources
             .lock()
-            .map_err(|_| ResourcePoolError::PoisonedLock())
+            .map_err(|_| ResourcePoolError::PoisonedLock)
             .with_context(|| "Resource pool 'give_back_resource' failed locking Mutex")?;
         if self.discriminant()? != discriminant {
             // Stale resource
@@ -106,7 +106,7 @@ impl<T: Send + Sync> ResourcePool<T> {
         Ok(*self
             .discriminant
             .lock()
-            .map_err(|_| ResourcePoolError::PoisonedLock())
+            .map_err(|_| ResourcePoolError::PoisonedLock)
             .with_context(|| "Resource pool 'discriminant' failed locking Mutex")?)
     }
 
@@ -115,7 +115,7 @@ impl<T: Send + Sync> ResourcePool<T> {
         let mut discriminant_guard = self
             .discriminant
             .lock()
-            .map_err(|_| ResourcePoolError::PoisonedLock())
+            .map_err(|_| ResourcePoolError::PoisonedLock)
             .with_context(|| "Resource pool 'set_discriminant' failed locking Mutex")?;
         *discriminant_guard = discriminant;
 
@@ -127,7 +127,7 @@ impl<T: Send + Sync> ResourcePool<T> {
         Ok(self
             .resources
             .lock()
-            .map_err(|_| ResourcePoolError::PoisonedLock())
+            .map_err(|_| ResourcePoolError::PoisonedLock)
             .with_context(|| "Resource pool 'count' failed locking Mutex")?
             .len())
     }
@@ -167,14 +167,9 @@ impl<'a, T: Send + Sync> ResourcePoolItem<'a, T> {
         self.discriminant
     }
 
-    /// Get a reference to the inner resource
-    pub fn resource(&self) -> &T {
-        self.resource.as_ref().unwrap()
-    }
-
-    /// Take the inner resource
-    pub fn into_inner(&mut self) -> T {
-        self.resource.take().unwrap()
+    /// Take the inner resource if exists
+    pub fn take(&mut self) -> Option<T> {
+        self.resource.take()
     }
 }
 
@@ -194,12 +189,10 @@ impl<T: Send + Sync> DerefMut for ResourcePoolItem<'_, T> {
 
 impl<T: Send + Sync> Drop for ResourcePoolItem<'_, T> {
     fn drop(&mut self) {
-        if self.resource.is_some() {
-            let resource = self.into_inner();
-            let _ = self
-                .resource_pool
-                .give_back_resource(resource, self.discriminant);
-        }
+        self.take().map(|resource| {
+            self.resource_pool
+                .give_back_resource(resource, self.discriminant)
+        });
     }
 }
 
@@ -222,7 +215,7 @@ mod tests {
         }
         let resources_result = resources_items
             .iter_mut()
-            .map(|resource_item| resource_item.resource().to_owned())
+            .map(|resource_item| resource_item.take().unwrap())
             .collect::<Vec<_>>();
 
         assert_eq!(resources_expected, resources_result);
@@ -265,7 +258,7 @@ mod tests {
 
         let mut resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
         assert_eq!(pool.count().unwrap(), pool_size - 1);
-        pool.give_back_resource(resource_item.into_inner(), pool.discriminant().unwrap())
+        pool.give_back_resource(resource_item.take().unwrap(), pool.discriminant().unwrap())
             .unwrap();
 
         assert_eq!(pool.count().unwrap(), pool_size);
@@ -312,7 +305,7 @@ mod tests {
         let discriminant_stale = pool.discriminant().unwrap();
         pool.set_discriminant(pool.discriminant().unwrap() + 1)
             .unwrap();
-        pool.give_back_resource(resource_item.into_inner(), discriminant_stale)
+        pool.give_back_resource(resource_item.take().unwrap(), discriminant_stale)
             .unwrap();
 
         assert_eq!(pool.count().unwrap(), pool_size - 1);
