@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
+
+use crate::services::ProverService;
 
 use super::ArtifactBuilder;
 use anyhow::{anyhow, Context};
@@ -11,12 +15,14 @@ use mithril_common::{
 };
 
 /// A [CardanoTransactionsArtifact] builder
-pub struct CardanoTransactionsArtifactBuilder {}
+pub struct CardanoTransactionsArtifactBuilder {
+    prover_service: Arc<dyn ProverService>,
+}
 
 impl CardanoTransactionsArtifactBuilder {
     /// CardanoTransactions artifact builder factory
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(prover_service: Arc<dyn ProverService>) -> Self {
+        Self { prover_service }
     }
 }
 
@@ -41,6 +47,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoTransactionsSnapshot>
                     SignedEntityType::CardanoTransactions(beacon.clone())
                 )
             })?;
+        self.prover_service.compute_cache(&beacon).await?;
 
         Ok(CardanoTransactionsSnapshot::new(
             merkle_root.to_string(),
@@ -51,10 +58,9 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoTransactionsSnapshot>
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        entities::ProtocolMessage,
-        test_utils::fake_data::{self},
-    };
+    use mithril_common::{entities::ProtocolMessage, test_utils::fake_data};
+
+    use crate::services::MockProverService;
 
     use super::*;
 
@@ -72,7 +78,10 @@ mod tests {
         };
 
         let beacon = certificate.as_cardano_db_beacon();
-        let cardano_transaction_artifact_builder = CardanoTransactionsArtifactBuilder::new();
+        let mut mock_prover = MockProverService::new();
+        mock_prover.expect_compute_cache().returning(|_| Ok(()));
+        let cardano_transaction_artifact_builder =
+            CardanoTransactionsArtifactBuilder::new(Arc::new(mock_prover));
         let artifact = cardano_transaction_artifact_builder
             .compute_artifact(beacon.clone(), &certificate)
             .await
@@ -90,7 +99,10 @@ mod tests {
             certificate
         };
 
-        let cardano_transaction_artifact_builder = CardanoTransactionsArtifactBuilder::new();
+        let mut mock_prover = MockProverService::new();
+        mock_prover.expect_compute_cache().returning(|_| Ok(()));
+        let cardano_transaction_artifact_builder =
+            CardanoTransactionsArtifactBuilder::new(Arc::new(mock_prover));
         cardano_transaction_artifact_builder
             .compute_artifact(CardanoDbBeacon::default(), &certificate)
             .await

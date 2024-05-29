@@ -1104,14 +1104,28 @@ impl DependenciesBuilder {
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
             ));
-        let cardano_transactions_artifact_builder =
-            Arc::new(CardanoTransactionsArtifactBuilder::new());
+        let prover_service = self.get_prover_service().await?;
+        let cardano_transactions_artifact_builder = Arc::new(
+            CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
+        );
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
         ));
+
+        // Compute the cache pool for prover service
+        // This is done here to avoid circular dependencies between the prover service and the signed entity service
+        // TODO: Make this part of a warmup phase of the aggregator?
+        if let Some(signed_entity) = signed_entity_service
+            .get_last_cardano_transaction_snapshot()
+            .await?
+        {
+            prover_service
+                .compute_cache(&signed_entity.artifact.beacon)
+                .await?;
+        }
 
         Ok(signed_entity_service)
     }
@@ -1377,17 +1391,6 @@ impl DependenciesBuilder {
             mk_map_pool_size,
             logger,
         );
-
-        // Compute the cache pool for prover service
-        let signed_entity_service = self.get_signed_entity_service().await?;
-        if let Some(signed_entity) = signed_entity_service
-            .get_last_cardano_transaction_snapshot()
-            .await?
-        {
-            prover_service
-                .compute_cache(&signed_entity.artifact.beacon)
-                .await?;
-        }
 
         Ok(Arc::new(prover_service))
     }
