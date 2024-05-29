@@ -231,6 +231,7 @@ mod tests {
         let mut resources_items = vec![];
         for _ in 0..pool_size {
             let resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+            // The resource is stored in a list to avoid it being dropped when exiting this block scope
             resources_items.push(resource_item);
         }
 
