@@ -624,7 +624,11 @@ mod test {
     fn test_list_allowed_signed_entity_types_with_specific_configuration() {
         let beacon = fake_data::beacon();
         let chain_point = ChainPoint::dummy();
-        let time_point = TimePoint::new(*beacon.epoch, beacon.immutable_file_number, chain_point);
+        let time_point = TimePoint::new(
+            *beacon.epoch,
+            beacon.immutable_file_number,
+            chain_point.clone(),
+        );
 
         let config = Configuration {
             network: beacon.network.clone(),
@@ -641,7 +645,7 @@ mod test {
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
                 SignedEntityType::CardanoStakeDistribution(beacon.epoch),
                 SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-                SignedEntityType::CardanoTransactions(beacon.clone()),
+                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point),
             ],
             signed_entity_types
         );
