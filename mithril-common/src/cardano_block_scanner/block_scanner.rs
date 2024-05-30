@@ -39,12 +39,12 @@ impl BlockScanner for CardanoBlockScanner {
         &self,
         dirpath: &Path,
         from_immutable: Option<BlockNumber>,
-        until_immutable: &ChainPoint,
+        _until_immutable: &ChainPoint,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         // vvvvv - Todo Convert lower bound to ImmutableFileNumber using a trait + ignore upper bound
         let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
-            Some(from) => (from..=until_immutable.block_number).contains(&number),
-            None => number <= until_immutable.block_number,
+            Some(from) => from <= number,
+            None => true,
         };
         let immutable_chunks = ImmutableFile::list_completed_in_dir(dirpath)?
             .into_iter()
@@ -75,6 +75,71 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_scan_without_lower_bound_ignore_upper_bound() {
+        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
+        assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
+
+        let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
+
+        for until_chain_point in [
+            ChainPoint::new(1, 1, "hash-1"),
+            ChainPoint::new(1, 10000, "hash-1"),
+            ChainPoint::new(10000, 1, "hash-1"),
+            ChainPoint::new(1, 1, "hash-10000"),
+        ] {
+            let mut streamer = cardano_transaction_parser
+                .scan(db_path, None, &until_chain_point)
+                .await
+                .unwrap();
+            let immutable_blocks = streamer.poll_all().await.unwrap();
+
+            let max_immutable_file_number = immutable_blocks
+                .iter()
+                .map(|b| b.immutable_file_number)
+                .max();
+            // The max highest completed immutable file number is 2
+            assert_eq!(
+                max_immutable_file_number,
+                Some(2),
+                "until_chain_point: {until_chain_point:?}",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_scan_with_lower_bound_ignore_upper_bound() {
+        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
+        assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
+
+        let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
+
+        for until_chain_point in [
+            ChainPoint::new(1, 1, "hash-1"),
+            ChainPoint::new(1, 10000, "hash-1"),
+            ChainPoint::new(10000, 1, "hash-1"),
+            ChainPoint::new(1, 1, "hash-10000"),
+        ] {
+            let mut streamer = cardano_transaction_parser
+                .scan(db_path, Some(0), &until_chain_point)
+                .await
+                .unwrap();
+            let immutable_blocks = streamer.poll_all().await.unwrap();
+
+            let max_immutable_file_number = immutable_blocks
+                .iter()
+                .map(|b| b.immutable_file_number)
+                .max();
+            // The max highest completed immutable file number is 2
+            assert_eq!(
+                max_immutable_file_number,
+                Some(2),
+                "until_chain_point: {until_chain_point:?}",
+            );
+        }
+    }
+
+    // vvvvv - todo remove this test as it's not relevant anymore
+    // #[tokio::test]
     async fn test_parse_from_lower_bound_until_upper_bound() {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
@@ -99,7 +164,8 @@ mod tests {
         assert_eq!(max_block_number, Some(until_chain_point.block_number));
     }
 
-    #[tokio::test]
+    // vvvvv - todo remove this test as it's not relevant anymore
+    // #[tokio::test]
     async fn test_parse_up_to_given_beacon() {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);
