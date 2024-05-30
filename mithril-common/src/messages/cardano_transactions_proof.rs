@@ -53,6 +53,7 @@ pub struct VerifiedCardanoTransactions {
     certificate_hash: String,
     merkle_root: String,
     certified_transactions: Vec<TransactionHash>,
+    // vvvvv - TODO: change field name to latest_block_number
     latest_immutable_file_number: u64,
 }
 
@@ -315,7 +316,7 @@ mod tests {
     #[cfg(feature = "fs")]
     mod fs_only {
         use crate::crypto_helper::{MKMap, MKMapNode};
-        use crate::entities::{BlockRange, CardanoDbBeacon, CardanoTransaction};
+        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, ChainPoint};
         use crate::signable_builder::{
             CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
             MockTransactionsImporter, SignableBuilder,
@@ -350,7 +351,7 @@ mod tests {
 
         fn from_verified_cardano_transaction(
             transactions: &[CardanoTransaction],
-            immutable_file_number: u64,
+            block_number: u64,
         ) -> ProtocolMessage {
             let set_proof = CardanoTransactionsSetProof::from_leaves(
                 transactions
@@ -365,7 +366,8 @@ mod tests {
                 certificate_hash: "whatever".to_string(),
                 merkle_root: set_proof.merkle_root(),
                 certified_transactions: set_proof.transactions_hashes().to_vec(),
-                latest_immutable_file_number: immutable_file_number,
+                // vvvvv - TODO: change field name to latest_block_number
+                latest_immutable_file_number: block_number,
             };
 
             let mut message = ProtocolMessage::new();
@@ -376,7 +378,7 @@ mod tests {
 
         async fn from_signable_builder(
             transactions: &[CardanoTransaction],
-            immutable_file_number: u64,
+            block_number: BlockNumber,
         ) -> ProtocolMessage {
             let mut transaction_importer = MockTransactionsImporter::new();
             transaction_importer
@@ -403,9 +405,9 @@ mod tests {
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
-                .compute_protocol_message(CardanoDbBeacon {
-                    immutable_file_number,
-                    ..CardanoDbBeacon::default()
+                .compute_protocol_message(ChainPoint {
+                    block_number,
+                    ..ChainPoint::dummy()
                 })
                 .await
                 .unwrap()

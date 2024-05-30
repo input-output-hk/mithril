@@ -5,7 +5,7 @@ use slog::{warn, Logger};
 
 use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, ImmutableBlockStreamer};
 use crate::digesters::ImmutableFile;
-use crate::entities::ImmutableFileNumber;
+use crate::entities::{BlockNumber, ChainPoint, ImmutableFileNumber};
 use crate::StdResult;
 
 /// Cardano block scanner
@@ -38,12 +38,13 @@ impl BlockScanner for CardanoBlockScanner {
     async fn scan(
         &self,
         dirpath: &Path,
-        from_immutable: Option<ImmutableFileNumber>,
-        until_immutable: ImmutableFileNumber,
+        from_immutable: Option<BlockNumber>,
+        until_immutable: &ChainPoint,
     ) -> StdResult<Box<dyn BlockStreamer>> {
+        // vvvvv - Todo Convert lower bound to ImmutableFileNumber using a trait + ignore upper bound
         let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
-            Some(from) => (from..=until_immutable).contains(&number),
-            None => number <= until_immutable,
+            Some(from) => (from..=until_immutable.block_number).contains(&number),
+            None => number <= until_immutable.block_number,
         };
         let immutable_chunks = ImmutableFile::list_completed_in_dir(dirpath)?
             .into_iter()
@@ -78,27 +79,24 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
-        let from_immutable_file = 2;
-        let until_immutable_file = 2;
+        let from_block_number = 2;
+        let until_chain_point = ChainPoint {
+            block_number: 2,
+            ..ChainPoint::dummy()
+        };
         let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
 
         let mut streamer = cardano_transaction_parser
-            .scan(db_path, Some(from_immutable_file), until_immutable_file)
+            .scan(db_path, Some(from_block_number), &until_chain_point)
             .await
             .unwrap();
         let immutable_blocks = streamer.poll_all().await.unwrap();
 
-        let min_immutable = immutable_blocks
-            .iter()
-            .map(|b| b.immutable_file_number)
-            .min();
-        assert_eq!(min_immutable, Some(from_immutable_file));
+        let min_block_number = immutable_blocks.iter().map(|b| b.block_number).min();
+        assert_eq!(min_block_number, Some(from_block_number));
 
-        let max_immutable = immutable_blocks
-            .iter()
-            .map(|b| b.immutable_file_number)
-            .max();
-        assert_eq!(max_immutable, Some(until_immutable_file));
+        let max_block_number = immutable_blocks.iter().map(|b| b.block_number).max();
+        assert_eq!(max_block_number, Some(until_chain_point.block_number));
     }
 
     #[tokio::test]
@@ -106,20 +104,20 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);
 
-        let until_immutable_file = 1;
+        let until_chain_point = ChainPoint {
+            block_number: 1,
+            ..ChainPoint::dummy()
+        };
         let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
 
         let mut streamer = cardano_transaction_parser
-            .scan(db_path, None, until_immutable_file)
+            .scan(db_path, None, &until_chain_point)
             .await
             .unwrap();
         let immutable_blocks = streamer.poll_all().await.unwrap();
 
-        let max_immutable = immutable_blocks
-            .iter()
-            .map(|b| b.immutable_file_number)
-            .max();
-        assert_eq!(max_immutable, Some(until_immutable_file));
+        let max_block_number = immutable_blocks.iter().map(|b| b.block_number).max();
+        assert_eq!(max_block_number, Some(until_chain_point.block_number));
     }
 
     #[tokio::test]
