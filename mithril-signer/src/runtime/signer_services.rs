@@ -256,14 +256,15 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let transaction_store = Arc::new(CardanoTransactionRepository::new(
+            transaction_sqlite_connection,
+        ));
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),
             self.config
                 .get_network()?
                 .compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
-        ));
-        let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            transaction_sqlite_connection,
+            transaction_store.clone(),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,

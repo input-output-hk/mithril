@@ -453,7 +453,7 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockRange, CardanoDbBeacon, Epoch, ImmutableFileNumber, StakeDistribution},
+        entities::{BlockRange, CardanoDbBeacon, ChainPoint, Epoch, StakeDistribution},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -494,12 +494,12 @@ mod tests {
         impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
             async fn retrieve_block_range_roots(
                 &self,
-                up_to_beacon: ImmutableFileNumber,
+                up_to_beacon: &ChainPoint,
             ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
 
             async fn compute_merkle_map_from_block_range_roots(
                 &self,
-                up_to_beacon: ImmutableFileNumber,
+                up_to_beacon: &ChainPoint,
             ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>>;
         }
     }

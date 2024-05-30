@@ -3,7 +3,7 @@ use std::ops::Range;
 use async_trait::async_trait;
 
 use mithril_common::crypto_helper::MKTreeNode;
-use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber};
+use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction};
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
@@ -11,8 +11,8 @@ use crate::{TransactionPruner, TransactionStore};
 
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
-    async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>> {
-        self.get_transaction_highest_immutable_file_number().await
+    async fn get_highest_beacon(&self) -> StdResult<Option<BlockNumber>> {
+        self.get_transaction_highest_block_number().await
     }
 
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
