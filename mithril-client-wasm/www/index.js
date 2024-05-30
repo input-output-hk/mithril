@@ -104,7 +104,7 @@ console.log("Ensuire that the proof is indeed signed in the associated certifica
 if ((await client.verify_message_match_certificate(protocol_message, proof_certificate)) === true) {
   displayMessageInDOM("Result", "The proof is signed in the associated certificate &#x2713;");
 } else {
-  displayMessageInDOM("Result", "Proof and certificate doesn't match &#x2717;");
+  displayMessageInDOM("Result", "Proof and certificate don't match &#x2717;");
 }
 displayMessageInDOM("Transactions hashes certified", format_tx_list(proof.transactions_hashes));
 displayMessageInDOM("Transactions hashes not certified", format_tx_list(proof.non_certified_transactions));
