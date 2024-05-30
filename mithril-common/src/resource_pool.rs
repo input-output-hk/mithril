@@ -95,6 +95,21 @@ impl<T: Send + Sync> ResourcePool<T> {
         Ok(())
     }
 
+    /// Give back a resource pool item to the pool
+    /// If the resource pool item has not been taken yet, the resource will be given back
+    /// If the resource pool item has been taken, nothing will happen
+    pub fn give_back_resource_pool_item(
+        &self,
+        resource_pool_item: ResourcePoolItem<'_, T>,
+    ) -> StdResult<()> {
+        let mut resource_pool_item = resource_pool_item;
+        resource_pool_item
+            .take()
+            .map(|resource_item| self.give_back_resource(resource_item, self.discriminant()?));
+
+        Ok(())
+    }
+
     /// Clear the pool
     pub fn clear(&self) {
         let mut resources = self.resources.lock().unwrap();
@@ -168,7 +183,7 @@ impl<'a, T: Send + Sync> ResourcePoolItem<'a, T> {
     }
 
     /// Take the inner resource if exists
-    pub fn take(&mut self) -> Option<T> {
+    fn take(&mut self) -> Option<T> {
         self.resource.take()
     }
 }
@@ -308,6 +323,38 @@ mod tests {
             .unwrap();
         pool.give_back_resource(resource_item.take().unwrap(), discriminant_stale)
             .unwrap();
+
+        assert_eq!(pool.count().unwrap(), pool_size - 1);
+    }
+
+    #[tokio::test]
+    async fn test_resource_pool_gives_back_fresh_resource_pool_item_if_not_taken_yet() {
+        let pool_size = 10;
+        let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
+        let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
+        assert_eq!(pool.count().unwrap(), pool_size);
+
+        let resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+        assert_eq!(pool.count().unwrap(), pool_size - 1);
+        pool.give_back_resource_pool_item(resource_item).unwrap();
+
+        assert_eq!(pool.count().unwrap(), pool_size);
+    }
+
+    #[tokio::test]
+    async fn test_resource_pool_does_not_give_back_fresh_resource_pool_item_if_already_taken() {
+        let pool_size = 10;
+        let resources_expected: Vec<String> = (0..pool_size).map(|i| i.to_string()).collect();
+        let pool = ResourcePool::<String>::new(pool_size, resources_expected.clone());
+        assert_eq!(pool.count().unwrap(), pool_size);
+
+        {
+            // Resource taken will be dropped when exiting this block scope
+            let mut resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+            assert_eq!(pool.count().unwrap(), pool_size - 1);
+            let _resource = resource_item.take().unwrap(); // This can only happen in this module as 'take' is private
+            pool.give_back_resource_pool_item(resource_item).unwrap();
+        }
 
         assert_eq!(pool.count().unwrap(), pool_size - 1);
     }

@@ -148,11 +148,7 @@ impl ProverService for MithrilProverService {
 
         // 5 - Compute the proof for all transactions
         if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
-            if let Some(resource) = mk_map.take() {
-                self.mk_map_pool
-                    .give_back_resource(resource, mk_map.discriminant())?;
-            }
-
+            self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
                 .iter()
                 .filter(|hash| mk_proof.contains(&hash.as_str().into()).is_ok())
