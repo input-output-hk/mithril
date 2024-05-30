@@ -7,6 +7,8 @@ if [ -v DEBUG ]; then
     set -x
 fi
 
+AGGREGATOR_PROVER_ROUTE="/proof/cardano-transaction"
+
 # Check if all env vars are set 
 if [ -z "${AGGREGATOR_ENDPOINT}" ]; then
     echo "Missing environment variable: AGGREGATOR_ENDPOINT" >/dev/stderr
@@ -76,7 +78,7 @@ RUN_STRESS_TEST() {
     TMP_FILE="test.tmp"
     echo ">> [#$INDEX_RUN/$TOTAL_RUN] Running stress test with $AB_TOTAL_REQUESTS requests with $TRANSACTIONS_PER_REQUEST transactions per request and $AB_CONCURRENCY concurrency"
     TRANSACTIONS_LIST=$(head -n $TRANSACTIONS_PER_REQUEST "$TRANSACTIONS_FILE" | tr "\n" ",")
-    AGGREGATOR_PROVER_URL="$AGGREGATOR_ENDPOINT/proof/cardano-transaction?transaction_hashes=$TRANSACTIONS_LIST"
+    AGGREGATOR_PROVER_URL="${AGGREGATOR_ENDPOINT}${AGGREGATOR_PROVER_ROUTE}?transaction_hashes=$TRANSACTIONS_LIST"
     if ab -n $AB_TOTAL_REQUESTS -c $AB_CONCURRENCY -s "$AB_TIMEOUT" "$AGGREGATOR_PROVER_URL" > $TMP_FILE ; then
         REQUESTS_PER_SECOND=$(cat $TMP_FILE | awk '/Requests per second:/ {print $4}')
         if [[ $INDEX_RUN -eq 1 ]] ; then
@@ -100,14 +102,15 @@ AB_CONCURRENCY_RANGE_LENGTH=$(( $(echo "$AB_CONCURRENCY_RANGE" | grep -o " " | w
 TOTAL_RUN=$(( TRANSACTIONS_PER_REQUEST_RANGE_LENGTH * AB_CONCURRENCY_RANGE_LENGTH ))
 echo ""
 echo "Run aggregator prover benchmark with:"
-echo ">> Aggregator endpoint: [$AGGREGATOR_ENDPOINT]"
-echo ">> Transactions file: [$TRANSACTIONS_FILE]"
+echo ">> Aggregator endpoint: $AGGREGATOR_ENDPOINT"
+echo ">> Aggregator route: $AGGREGATOR_PROVER_ROUTE"
+echo ">> Transactions file: $TRANSACTIONS_FILE"
 echo ">> Transactions available: [$TRANSACTIONS_AVAILABLE]"
 echo ">> Transactions per request range: [$TRANSACTIONS_PER_REQUEST_RANGE]"
 echo ">> AB concurrency range: [$AB_CONCURRENCY_RANGE]"
 echo ">> AB total requests per run: [$AB_TOTAL_REQUESTS]"
-echo ">> AB total runs: [$TOTAL_RUN]"
-echo ">> Output file: [$OUT_FILE]"
+echo ">> AB total runs: $TOTAL_RUN"
+echo ">> Output file: $OUT_FILE"
 echo ""
 
 INDEX_RUN=1

@@ -35,14 +35,15 @@ Which will output these type of results:
 Using the default OUT_FILE: benchmark.csv
 
 Run aggregator prover benchmark with:
->> Aggregator endpoint: [https://aggregator.testing-mainnet.api.mithril.network/aggregator]
->> Transactions file: [transactions-mainnet.txt]
+>> Aggregator endpoint: https://aggregator.testing-mainnet.api.mithril.network/aggregator
+>> Aggregator route: /proof/cardano-transaction
+>> Transactions file: transactions-mainnet.txt
 >> Transactions available: [100]
 >> Transactions per request range: [1 2 3]
 >> AB concurrency range: [50 100]
 >> AB total requests per run: [1000]
->> AB total runs: [6]
->> Output file: [benchmark.csv]
+>> AB total runs: 6
+>> Output file: benchmark.csv
 
 >> [#1/6] Running stress test with 1000 requests with 1 transactions per request and 50 concurrency
 Completed 100 requests
