@@ -34,8 +34,8 @@ impl BlockScanner for DumbBlockScanner {
     async fn scan(
         &self,
         _dirpath: &Path,
-        _from_immutable: Option<BlockNumber>,
-        _until_immutable: &ChainPoint,
+        _from_block_number: Option<BlockNumber>,
+        _until_chain_point: &ChainPoint,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         let blocks = self.blocks.read().await.clone();
         Ok(Box::new(DumbBlockStreamer::new(vec![blocks])))

@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use slog::{warn, Logger};
@@ -8,18 +9,38 @@ use crate::digesters::ImmutableFile;
 use crate::entities::{BlockNumber, ChainPoint, ImmutableFileNumber};
 use crate::StdResult;
 
+/// Trait to find the lower bound that should be used the [block scanner][CardanoBlockScanner] when
+/// scanning.
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait ImmutableLowerBoundFinder: Send + Sync {
+    /// Find the lowest immutable file number that should be scanned by the block scanner.
+    async fn find_lower_bound(&self) -> StdResult<Option<ImmutableFileNumber>>;
+}
+
 /// Cardano block scanner
+///
+/// This scanner reads the immutable files in the given directory and returns the blocks.
+///
+/// Both the lower and upper bounds of the [BlockScanner] are ignored, instead:
+/// * for the lower bound: the result of the [ImmutableLowerBoundFinder] is used.
+/// * for the upper bound: the latest completed immutable file is used.
 pub struct CardanoBlockScanner {
     logger: Logger,
     /// When set to true, no error is returned in case of unparsable block, and an error log is written instead.
     /// This can occur when the crate 'pallas-hardano' doesn't support some non final encoding for a Cardano era.
     /// This situation should only happen on the test networks and not on the mainnet.
     allow_unparsable_block: bool,
+    lower_bound_finder: Arc<dyn ImmutableLowerBoundFinder>,
 }
 
 impl CardanoBlockScanner {
     /// Factory
-    pub fn new(logger: Logger, allow_unparsable_block: bool) -> Self {
+    pub fn new(
+        logger: Logger,
+        allow_unparsable_block: bool,
+        lower_bound_finder: Arc<dyn ImmutableLowerBoundFinder>,
+    ) -> Self {
         if allow_unparsable_block {
             warn!(
                 logger,
@@ -29,6 +50,7 @@ impl CardanoBlockScanner {
         Self {
             logger,
             allow_unparsable_block,
+            lower_bound_finder,
         }
     }
 }
@@ -38,11 +60,11 @@ impl BlockScanner for CardanoBlockScanner {
     async fn scan(
         &self,
         dirpath: &Path,
-        from_immutable: Option<BlockNumber>,
-        _until_immutable: &ChainPoint,
+        _from_block_number: Option<BlockNumber>,
+        _until_chain_point: &ChainPoint,
     ) -> StdResult<Box<dyn BlockStreamer>> {
-        // vvvvv - Todo Convert lower bound to ImmutableFileNumber using a trait + ignore upper bound
-        let is_in_bounds = |number: ImmutableFileNumber| match from_immutable {
+        let lower_bound = self.lower_bound_finder.find_lower_bound().await?;
+        let is_in_bounds = |number: ImmutableFileNumber| match lower_bound {
             Some(from) => from <= number,
             None => true,
         };
@@ -74,12 +96,25 @@ mod tests {
             .len()
     }
 
+    fn lower_bound_finder<F>(finder_mock_config: F) -> Arc<dyn ImmutableLowerBoundFinder>
+    where
+        F: FnOnce(&mut MockImmutableLowerBoundFinder),
+    {
+        let mut mock = MockImmutableLowerBoundFinder::new();
+        finder_mock_config(&mut mock);
+        Arc::new(mock)
+    }
+
     #[tokio::test]
     async fn test_scan_without_lower_bound_ignore_upper_bound() {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
-        let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
+        let lower_bound_finder = lower_bound_finder(|mock| {
+            mock.expect_find_lower_bound().returning(|| Ok(None));
+        });
+        let cardano_transaction_parser =
+            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
 
         for until_chain_point in [
             ChainPoint::new(1, 1, "hash-1"),
@@ -111,7 +146,11 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
-        let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
+        let lower_bound_finder = lower_bound_finder(|mock| {
+            mock.expect_find_lower_bound().returning(|| Ok(Some(0)));
+        });
+        let cardano_transaction_parser =
+            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
 
         for until_chain_point in [
             ChainPoint::new(1, 1, "hash-1"),
@@ -138,52 +177,34 @@ mod tests {
         }
     }
 
-    // vvvvv - todo remove this test as it's not relevant anymore
-    // #[tokio::test]
-    async fn test_parse_from_lower_bound_until_upper_bound() {
+    #[tokio::test]
+    async fn test_scan_ignore_given_lower_bound_instead_find_it_using_an_external_service() {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
-        let from_block_number = 2;
-        let until_chain_point = ChainPoint {
-            block_number: 2,
-            ..ChainPoint::dummy()
-        };
-        let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
+        let test_cases = [(0, None), (1, Some(1))];
+        for (expected, lowest_found_immutable) in test_cases {
+            let lower_bound_finder = lower_bound_finder(|mock| {
+                mock.expect_find_lower_bound()
+                    .return_once(move || Ok(lowest_found_immutable));
+            });
 
-        let mut streamer = cardano_transaction_parser
-            .scan(db_path, Some(from_block_number), &until_chain_point)
-            .await
-            .unwrap();
-        let immutable_blocks = streamer.poll_all().await.unwrap();
+            let from_block_number = 200_000;
+            let cardano_transaction_parser =
+                CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
 
-        let min_block_number = immutable_blocks.iter().map(|b| b.block_number).min();
-        assert_eq!(min_block_number, Some(from_block_number));
+            let mut streamer = cardano_transaction_parser
+                .scan(db_path, Some(from_block_number), &ChainPoint::dummy())
+                .await
+                .unwrap();
+            let immutable_blocks = streamer.poll_all().await.unwrap();
 
-        let max_block_number = immutable_blocks.iter().map(|b| b.block_number).max();
-        assert_eq!(max_block_number, Some(until_chain_point.block_number));
-    }
-
-    // vvvvv - todo remove this test as it's not relevant anymore
-    // #[tokio::test]
-    async fn test_parse_up_to_given_beacon() {
-        let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
-        assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 2);
-
-        let until_chain_point = ChainPoint {
-            block_number: 1,
-            ..ChainPoint::dummy()
-        };
-        let cardano_transaction_parser = CardanoBlockScanner::new(TestLogger::stdout(), false);
-
-        let mut streamer = cardano_transaction_parser
-            .scan(db_path, None, &until_chain_point)
-            .await
-            .unwrap();
-        let immutable_blocks = streamer.poll_all().await.unwrap();
-
-        let max_block_number = immutable_blocks.iter().map(|b| b.block_number).max();
-        assert_eq!(max_block_number, Some(until_chain_point.block_number));
+            let min_immutable_file_number = immutable_blocks
+                .iter()
+                .map(|b| b.immutable_file_number)
+                .min();
+            assert_eq!(min_immutable_file_number, Some(expected));
+        }
     }
 
     #[tokio::test]
@@ -196,7 +217,11 @@ mod tests {
 
         // We create a block to drop the logger and force a flush before we read the log file.
         {
-            let _ = CardanoBlockScanner::new(TestLogger::file(&log_path), true);
+            let _ = CardanoBlockScanner::new(
+                TestLogger::file(&log_path),
+                true,
+                lower_bound_finder(|_| {}),
+            );
         }
 
         let log_file = std::fs::read_to_string(&log_path).unwrap();
@@ -213,7 +238,11 @@ mod tests {
 
         // We create a block to drop the logger and force a flush before we read the log file.
         {
-            let _ = CardanoBlockScanner::new(TestLogger::file(&log_path), false);
+            let _ = CardanoBlockScanner::new(
+                TestLogger::file(&log_path),
+                false,
+                lower_bound_finder(|_| {}),
+            );
         }
 
         let log_file = std::fs::read_to_string(&log_path).unwrap();

@@ -29,8 +29,8 @@ use crate::StdResult;
 ///             async fn scan(
 ///               &self,
 ///               dirpath: &Path,
-///               from_immutable: Option<BlockNumber>,
-///               until_immutable: &ChainPoint,
+///               from_block_number: Option<BlockNumber>,
+///               until_chain_point: &ChainPoint,
 ///             ) -> StdResult<Box<dyn BlockStreamer>>;
 ///         }
 ///     }
@@ -50,8 +50,8 @@ pub trait BlockScanner: Sync + Send {
     async fn scan(
         &self,
         dirpath: &Path,
-        from_immutable: Option<BlockNumber>,
-        until_immutable: &ChainPoint,
+        from_block_number: Option<BlockNumber>,
+        until_chain_point: &ChainPoint,
     ) -> StdResult<Box<dyn BlockStreamer>>;
 }
 
