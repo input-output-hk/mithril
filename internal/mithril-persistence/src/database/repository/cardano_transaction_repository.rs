@@ -146,6 +146,19 @@ impl CardanoTransactionRepository {
             )
     }
 
+    /// Get the highest [BlockNumber] of the cardano transactions stored in the database.
+    pub async fn get_transaction_highest_block_number(&self) -> StdResult<Option<BlockNumber>> {
+        let highest: Option<i64> = self
+            .connection
+            .query_single_cell("select max(block_number) as highest from cardano_tx;", &[])?;
+        highest
+            .map(u64::try_from)
+            .transpose()
+            .with_context(||
+                format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
+            )
+    }
+
     /// Get the highest start [BlockNumber] of the block range roots stored in the database.
     pub async fn get_highest_start_block_number_for_block_range_roots(
         &self,
@@ -562,6 +575,39 @@ mod tests {
             }),
             transaction_result
         );
+    }
+
+    #[tokio::test]
+    async fn repository_get_transaction_highest_block_number_without_transactions_in_db() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let highest_beacon = repository
+            .get_transaction_highest_block_number()
+            .await
+            .unwrap();
+        assert_eq!(None, highest_beacon);
+    }
+
+    #[tokio::test]
+    async fn repository_get_transaction_highest_block_number_with_transactions_in_db() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let cardano_transactions = vec![
+            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
+            CardanoTransaction::new("tx-hash-456".to_string(), 25, 51, "block-hash-456", 100),
+        ];
+        repository
+            .create_transactions(cardano_transactions)
+            .await
+            .unwrap();
+
+        let highest_beacon = repository
+            .get_transaction_highest_block_number()
+            .await
+            .unwrap();
+        assert_eq!(Some(25), highest_beacon);
     }
 
     #[tokio::test]
