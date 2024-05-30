@@ -1104,14 +1104,28 @@ impl DependenciesBuilder {
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
             ));
-        let cardano_transactions_artifact_builder =
-            Arc::new(CardanoTransactionsArtifactBuilder::new());
+        let prover_service = self.get_prover_service().await?;
+        let cardano_transactions_artifact_builder = Arc::new(
+            CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
+        );
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
         ));
+
+        // Compute the cache pool for prover service
+        // This is done here to avoid circular dependencies between the prover service and the signed entity service
+        // TODO: Make this part of a warmup phase of the aggregator?
+        if let Some(signed_entity) = signed_entity_service
+            .get_last_cardano_transaction_snapshot()
+            .await?
+        {
+            prover_service
+                .compute_cache(&signed_entity.artifact.beacon)
+                .await?;
+        }
 
         Ok(signed_entity_service)
     }
@@ -1365,11 +1379,20 @@ impl DependenciesBuilder {
 
     /// build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
+        let mk_map_pool_size = self
+            .configuration
+            .cardano_transactions_prover_cache_pool_size;
         let transaction_retriever = self.get_transaction_repository().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
-        let service = MithrilProverService::new(transaction_retriever, block_range_root_retriever);
+        let logger = self.get_logger().await?;
+        let prover_service = MithrilProverService::new(
+            transaction_retriever,
+            block_range_root_retriever,
+            mk_map_pool_size,
+            logger,
+        );
 
-        Ok(Arc::new(service))
+        Ok(Arc::new(prover_service))
     }
 
     /// [ProverService] service

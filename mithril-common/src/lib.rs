@@ -59,6 +59,7 @@ pub mod entities;
 pub mod era;
 pub mod messages;
 pub mod protocol;
+pub mod resource_pool;
 pub mod signable_builder;
 
 cfg_test_tools! {

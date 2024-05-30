@@ -67,6 +67,7 @@ EOT
       "export ERA_READER_SECRET_KEY='${var.mithril_era_reader_secret_key}'",
       "export CEXPLORER_POOLS_URL='${var.mithril_aggregator_cexplorer_pools_url}'",
       "export ALLOW_UNPARSABLE_BLOCK=${var.mithril_aggregator_allow_unparsable_block}",
+      "export CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=${var.mithril_aggregator_cardano_transactions_prover_cache_pool_size}",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export AUTH_USER_PASSWORD=$(htpasswd -nb ${var.mithril_aggregator_auth_username} ${var.mithril_aggregator_auth_password})",
       "export AGGREGATOR_RELAY_LISTEN_PORT='${local.mithril_aggregator_relay_mithril_listen_port}'",

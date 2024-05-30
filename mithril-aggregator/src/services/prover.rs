@@ -1,16 +1,19 @@
+use async_trait::async_trait;
+use rayon::prelude::*;
+use slog::{debug, info, Logger};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
     sync::Arc,
+    time::Duration,
 };
 
-use async_trait::async_trait;
-
 use mithril_common::{
-    crypto_helper::MKTree,
+    crypto_helper::{MKMap, MKMapNode, MKTree},
     entities::{
         BlockRange, CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof,
         TransactionHash,
     },
+    resource_pool::ResourcePool,
     signable_builder::BlockRangeRootRetriever,
     StdResult,
 };
@@ -25,6 +28,9 @@ pub trait ProverService: Sync + Send {
         up_to: &CardanoDbBeacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
+
+    /// Compute the cache
+    async fn compute_cache(&self, up_to: &CardanoDbBeacon) -> StdResult<()>;
 }
 
 /// Transactions retriever
@@ -51,6 +57,8 @@ pub trait TransactionsRetriever: Sync + Send {
 pub struct MithrilProverService {
     transaction_retriever: Arc<dyn TransactionsRetriever>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+    mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange>>>,
+    logger: Logger,
 }
 
 impl MithrilProverService {
@@ -58,10 +66,14 @@ impl MithrilProverService {
     pub fn new(
         transaction_retriever: Arc<dyn TransactionsRetriever>,
         block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+        mk_map_pool_size: usize,
+        logger: Logger,
     ) -> Self {
         Self {
             transaction_retriever,
             block_range_root_retriever,
+            mk_map_pool: ResourcePool::new(mk_map_pool_size, vec![]),
+            logger,
         }
     }
 
@@ -106,7 +118,7 @@ impl MithrilProverService {
 impl ProverService for MithrilProverService {
     async fn compute_transactions_proofs(
         &self,
-        up_to: &CardanoDbBeacon,
+        _up_to: &CardanoDbBeacon,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         // 1 - Compute the set of block ranges with transactions to prove
@@ -116,17 +128,18 @@ impl ProverService for MithrilProverService {
             .await?;
 
         // 2 - Compute block ranges sub Merkle trees
-        let mut mk_trees = BTreeMap::new();
-        for (block_range, transactions) in block_range_transactions {
-            let mk_tree = MKTree::new(&transactions)?;
-            mk_trees.insert(block_range, mk_tree);
-        }
+        let mk_trees: StdResult<Vec<(BlockRange, MKTree)>> = block_range_transactions
+            .into_iter()
+            .map(|(block_range, transactions)| {
+                let mk_tree = MKTree::new(&transactions)?;
+                Ok((block_range, mk_tree))
+            })
+            .collect();
+        let mk_trees = BTreeMap::from_iter(mk_trees?);
 
         // 3 - Compute block range roots Merkle map
-        let mut mk_map = self
-            .block_range_root_retriever
-            .compute_merkle_map_from_block_range_roots(up_to.immutable_file_number)
-            .await?;
+        let acquire_timeout = Duration::from_millis(1000);
+        let mut mk_map = self.mk_map_pool.acquire_resource(acquire_timeout)?;
 
         // 4 - Enrich the Merkle map with the block ranges Merkle trees
         for (block_range, mk_tree) in mk_trees {
@@ -135,6 +148,7 @@ impl ProverService for MithrilProverService {
 
         // 5 - Compute the proof for all transactions
         if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
+            self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
                 .iter()
                 .filter(|hash| mk_proof.contains(&hash.as_str().into()).is_ok())
@@ -148,6 +162,38 @@ impl ProverService for MithrilProverService {
         } else {
             Ok(vec![])
         }
+    }
+
+    async fn compute_cache(&self, up_to: &CardanoDbBeacon) -> StdResult<()> {
+        let pool_size = self.mk_map_pool.size();
+        info!(
+            self.logger,
+            "Prover starts computing the Merkle map pool resource of size {pool_size}"
+        );
+        let mk_map_cache = self
+            .block_range_root_retriever
+            .compute_merkle_map_from_block_range_roots(up_to.immutable_file_number)
+            .await?;
+        let discriminant_new = self.mk_map_pool.discriminant()? + 1;
+        self.mk_map_pool.set_discriminant(discriminant_new)?;
+        self.mk_map_pool.clear();
+        (1..=pool_size)
+            .into_par_iter()
+            .map(|i| {
+                debug!(
+                    self.logger,
+                    "Prover is computing the Merkle map pool resource {i}/{pool_size}"
+                );
+                self.mk_map_pool
+                    .give_back_resource(mk_map_cache.clone(), discriminant_new)
+            })
+            .collect::<StdResult<()>>()?;
+        info!(
+            self.logger,
+            "Prover completed computing the Merkle map pool resource of size {pool_size}"
+        );
+
+        Ok(())
     }
 }
 
@@ -305,10 +351,14 @@ mod tests {
         transaction_retriever_mock_config(&mut transaction_retriever);
         let mut block_range_root_retriever = MockBlockRangeRootRetrieverImpl::new();
         block_range_root_retriever_mock_config(&mut block_range_root_retriever);
+        let mk_map_pool_size = 1;
+        let logger = slog_scope::logger();
 
         MithrilProverService::new(
             Arc::new(transaction_retriever),
             Arc::new(block_range_root_retriever),
+            mk_map_pool_size,
+            logger,
         )
     }
 
@@ -351,6 +401,7 @@ mod tests {
                     });
             },
         );
+        prover.compute_cache(&test_data.beacon).await.unwrap();
 
         let transactions_set_proof = prover
             .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
@@ -404,6 +455,7 @@ mod tests {
                     });
             },
         );
+        prover.compute_cache(&test_data.beacon).await.unwrap();
 
         let transactions_set_proof = prover
             .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
@@ -460,6 +512,7 @@ mod tests {
                     });
             },
         );
+        prover.compute_cache(&test_data.beacon).await.unwrap();
 
         let transactions_set_proof = prover
             .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
@@ -497,6 +550,7 @@ mod tests {
                     .return_once(|_| MKMap::new(&[]));
             },
         );
+        prover.compute_cache(&test_data.beacon).await.unwrap();
 
         prover
             .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
