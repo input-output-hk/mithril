@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 cfg_fs! {
     use pallas_network::miniprotocols::{chainsync::Tip, Point};
@@ -48,6 +49,12 @@ impl ChainPoint {
     /// Check if origin chain point
     pub fn is_origin(&self) -> bool {
         self.slot_number == 0 && self.block_number == 0 && self.block_hash.is_empty()
+    }
+
+    pub(crate) fn feed_hash(&self, hasher: &mut Sha256) {
+        hasher.update(self.slot_number.to_be_bytes());
+        hasher.update(self.block_number.to_be_bytes());
+        hasher.update(self.block_hash.as_bytes());
     }
 
     cfg_test_tools! {
@@ -191,5 +198,45 @@ mod tests {
         };
 
         assert_eq!(Ordering::Less, chain_point1.cmp(&chain_point2));
+    }
+
+    #[test]
+    fn feed_hash_use_all_properties() {
+        fn hash(chain_point: &ChainPoint) -> String {
+            let mut hasher = Sha256::new();
+            chain_point.feed_hash(&mut hasher);
+            hex::encode(hasher.finalize())
+        }
+
+        let chain_point = ChainPoint {
+            slot_number: 5,
+            block_number: 10,
+            block_hash: "block_hash".to_string(),
+        };
+        let reference_hash = hash(&chain_point);
+
+        assert_ne!(
+            reference_hash,
+            hash(&ChainPoint {
+                slot_number: 10000,
+                ..chain_point.clone()
+            })
+        );
+
+        assert_ne!(
+            reference_hash,
+            hash(&ChainPoint {
+                block_number: 10000,
+                ..chain_point.clone()
+            })
+        );
+
+        assert_ne!(
+            reference_hash,
+            hash(&ChainPoint {
+                block_hash: "other_block_hash".to_string(),
+                ..chain_point.clone()
+            })
+        );
     }
 }

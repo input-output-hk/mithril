@@ -245,9 +245,10 @@ pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransac
         .map(|idx| {
             entities::CardanoTransactionsSnapshot::new(
                 format!("merkleroot-{idx}"),
-                entities::CardanoDbBeacon {
-                    immutable_file_number: idx,
-                    ..beacon()
+                entities::ChainPoint {
+                    block_number: idx,
+                    block_hash: format!("block_hash-{idx}"),
+                    ..chain_point()
                 },
             )
         })

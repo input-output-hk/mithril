@@ -144,9 +144,7 @@ impl SignedEntityType {
             }
             SignedEntityType::CardanoTransactions(epoch, chain_point) => {
                 hasher.update(&epoch.to_be_bytes());
-                hasher.update(&chain_point.slot_number.to_be_bytes());
-                hasher.update(&chain_point.block_number.to_be_bytes());
-                hasher.update(chain_point.block_hash.as_bytes());
+                chain_point.feed_hash(hasher);
             }
         }
     }
