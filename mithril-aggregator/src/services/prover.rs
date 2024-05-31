@@ -10,8 +10,7 @@ use std::{
 use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKTree},
     entities::{
-        BlockRange, CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof, ChainPoint,
-        TransactionHash,
+        BlockRange, CardanoTransaction, CardanoTransactionsSetProof, ChainPoint, TransactionHash,
     },
     resource_pool::ResourcePool,
     signable_builder::BlockRangeRootRetriever,
@@ -37,9 +36,6 @@ pub trait ProverService: Sync + Send {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait TransactionsRetriever: Sync + Send {
-    /// Get all transactions up to given beacon using chronological order
-    async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>>;
-
     /// Get a list of transactions by hashes using chronological order
     async fn get_by_hashes(
         &self,

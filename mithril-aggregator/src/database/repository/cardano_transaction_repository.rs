@@ -3,9 +3,7 @@ use std::ops::Range;
 use async_trait::async_trait;
 
 use mithril_common::crypto_helper::MKTreeNode;
-use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransaction, TransactionHash,
-};
+use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, TransactionHash};
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
@@ -51,16 +49,6 @@ impl TransactionStore for CardanoTransactionRepository {
 
 #[async_trait]
 impl TransactionsRetriever for CardanoTransactionRepository {
-    async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_up_to(beacon.immutable_file_number)
-            .await
-            .map(|v| {
-                v.into_iter()
-                    .map(|record| record.into())
-                    .collect::<Vec<CardanoTransaction>>()
-            })
-    }
-
     async fn get_by_hashes(
         &self,
         hashes: Vec<TransactionHash>,
