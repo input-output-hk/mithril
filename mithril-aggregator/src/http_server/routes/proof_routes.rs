@@ -97,7 +97,7 @@ mod handlers {
     ) -> StdResult<CardanoTransactionsProofsMessage> {
         let transactions_set_proofs = prover_service
             .compute_transactions_proofs(
-                &signed_entity.artifact.beacon,
+                &signed_entity.artifact.chain_point,
                 transaction_hashes.as_slice(),
             )
             .await?;
@@ -113,21 +113,19 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::vec;
-
-    use mithril_common::{
-        entities::{
-            CardanoDbBeacon, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
-        },
-        test_utils::apispec::APISpec,
-    };
-
     use anyhow::anyhow;
     use serde_json::Value::Null;
+    use std::vec;
     use warp::{
         http::{Method, StatusCode},
         test::request,
+    };
+
+    use mithril_common::{
+        entities::{
+            CardanoTransactionsSetProof, CardanoTransactionsSnapshot, ChainPoint, SignedEntity,
+        },
+        test_utils::apispec::APISpec,
     };
 
     use crate::services::MockSignedEntityService;
@@ -135,6 +133,8 @@ mod tests {
         dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH,
         services::MockProverService, Configuration,
     };
+
+    use super::*;
 
     fn setup_router(
         dependency_manager: Arc<DependencyContainer>,
@@ -159,11 +159,11 @@ mod tests {
 
         let cardano_transactions_snapshot = {
             let merkle_root = String::new();
-            let beacon = CardanoDbBeacon {
-                immutable_file_number: 2309,
-                ..CardanoDbBeacon::default()
+            let chain_point = ChainPoint {
+                block_number: 2309,
+                ..ChainPoint::dummy()
             };
-            CardanoTransactionsSnapshot::new(merkle_root, beacon)
+            CardanoTransactionsSnapshot::new(merkle_root, chain_point)
         };
 
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
@@ -182,7 +182,7 @@ mod tests {
         .unwrap();
 
         // Assert
-        assert_eq!(message.latest_immutable_file_number, 2309)
+        assert_eq!(message.latest_block_number, 2309)
     }
 
     #[tokio::test]

@@ -97,7 +97,7 @@ pub mod tests {
     };
     use mithril_common::entities::{ChainPoint, Epoch};
     use mithril_common::{
-        entities::{CardanoDbBeacon, SignedEntityType},
+        entities::SignedEntityType,
         messages::ToMessageAdapter,
         test_utils::{apispec::APISpec, fake_data},
     };

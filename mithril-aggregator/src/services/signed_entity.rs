@@ -129,7 +129,7 @@ impl MithrilSignedEntityService {
                     })?,
             )),
             SignedEntityType::CardanoStakeDistribution(_) => todo!(),
-            SignedEntityType::CardanoTransactions(epoch, chain_point) => Ok(Arc::new(
+            SignedEntityType::CardanoTransactions(_epoch, chain_point) => Ok(Arc::new(
                 self.cardano_transactions_artifact_builder
                     .compute_artifact(chain_point.clone(), certificate)
                     .await
@@ -444,9 +444,8 @@ mod tests {
     async fn build_cardano_transactions_snapshot_artifact_when_given_cardano_transactions_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        // vvvvv - when updating to chain point make sure that the same beacon is used in the expected
         let expected =
-            CardanoTransactionsSnapshot::new("merkle_root".to_string(), CardanoDbBeacon::default());
+            CardanoTransactionsSnapshot::new("merkle_root".to_string(), ChainPoint::dummy());
 
         mock_container
             .mock_cardano_transactions_artifact_builder
@@ -455,7 +454,7 @@ mod tests {
             .returning(|_, _| {
                 Ok(CardanoTransactionsSnapshot::new(
                     "merkle_root".to_string(),
-                    CardanoDbBeacon::default(),
+                    ChainPoint::dummy(),
                 ))
             });
 
@@ -476,7 +475,7 @@ mod tests {
     async fn should_store_the_artifact_when_creating_artifact_for_cardano_transactions() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoTransactions(Epoch(1), ChainPoint::dummy()),
-            CardanoTransactionsSnapshot::new("merkle_root".to_string(), CardanoDbBeacon::default()),
+            CardanoTransactionsSnapshot::new("merkle_root".to_string(), ChainPoint::dummy()),
             &|mock_injector| &mut mock_injector.mock_cardano_transactions_artifact_builder,
         )
         .await;

@@ -49,11 +49,10 @@ impl ArtifactBuilder<ChainPoint, CardanoTransactionsSnapshot>
             })?;
         self.prover_service.compute_cache(&beacon).await?;
 
-        todo!("vvvvv - update the artifact");
-        // Ok(CardanoTransactionsSnapshot::new(
-        //     merkle_root.to_string(),
-        //     beacon,
-        // ))
+        Ok(CardanoTransactionsSnapshot::new(
+            merkle_root.to_string(),
+            beacon,
+        ))
     }
 }
 
@@ -87,9 +86,8 @@ mod tests {
             .compute_artifact(beacon.clone(), &certificate)
             .await
             .unwrap();
-        todo!("vvvvv - update the artifact");
-        // let artifact_expected = CardanoTransactionsSnapshot::new("merkleroot".to_string(), beacon);
-        // assert_eq!(artifact_expected, artifact);
+        let artifact_expected = CardanoTransactionsSnapshot::new("merkleroot".to_string(), beacon);
+        assert_eq!(artifact_expected, artifact);
     }
 
     #[tokio::test]
