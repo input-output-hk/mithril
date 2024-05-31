@@ -165,7 +165,7 @@ mod proof {
                         .unwrap(),
                 }],
                 non_certified_transactions: vec![],
-                latest_immutable_file_number: 9999,
+                latest_block_number: 9999,
             })
             .unwrap();
 

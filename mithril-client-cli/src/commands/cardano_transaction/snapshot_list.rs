@@ -31,9 +31,10 @@ impl CardanoTransactionSnapshotListCommand {
                 .into_iter()
                 .map(|item| {
                     vec![
-                        format!("{}", item.beacon.epoch).cell(),
-                        format!("{}", item.beacon.immutable_file_number).cell(),
-                        item.beacon.network.cell(),
+                        format!("{}", item.epoch).cell(),
+                        format!("{}", item.chain_point.block_number).cell(),
+                        format!("{}", item.chain_point.slot_number).cell(),
+                        item.chain_point.block_hash.cell(),
                         item.hash.cell(),
                         item.certificate_hash.cell(),
                         item.created_at.to_string().cell(),
@@ -43,8 +44,9 @@ impl CardanoTransactionSnapshotListCommand {
                 .table()
                 .title(vec![
                     "Epoch".cell(),
-                    "Immutable".cell(),
-                    "Network".cell(),
+                    "Block Number".cell(),
+                    "Slot Number".cell(),
+                    "Block Hash".cell(),
                     "Hash".cell(),
                     "Certificate Hash".cell(),
                     "Created".cell().justify(Justify::Right),

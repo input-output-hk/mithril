@@ -60,12 +60,16 @@ impl CardanoTransactionsSnapshotShowCommand {
             println!("{}", serde_json::to_string(&tx_sets)?);
         } else {
             let transaction_sets_table = vec![
-                vec!["Epoch".cell(), format!("{}", &tx_sets.beacon.epoch).cell()],
+                vec!["Epoch".cell(), format!("{}", &tx_sets.epoch).cell()],
                 vec![
-                    "Immutable File Number".cell(),
-                    format!("{}", &tx_sets.beacon.immutable_file_number).cell(),
+                    "Block Number".cell(),
+                    format!("{}", &tx_sets.chain_point.block_number).cell(),
                 ],
-                vec!["Network".cell(), tx_sets.beacon.network.cell()],
+                vec![
+                    "Slot Number".cell(),
+                    format!("{}", &tx_sets.chain_point.slot_number).cell(),
+                ],
+                vec!["Block Hash".cell(), tx_sets.chain_point.block_hash.cell()],
                 vec!["Merkle Root".cell(), tx_sets.merkle_root.to_string().cell()],
                 vec![
                     "Certificate Hash".cell(),

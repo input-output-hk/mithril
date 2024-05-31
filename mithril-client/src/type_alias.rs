@@ -61,6 +61,6 @@ pub mod common {
         ProtocolParameters,
     };
     cfg_unstable! {
-        pub use mithril_common::entities::TransactionHash;
+        pub use mithril_common::entities::{ChainPoint, TransactionHash};
     }
 }
